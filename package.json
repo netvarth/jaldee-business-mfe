@@ -1,0 +1,19 @@
+{
+  "name": "jaldee-business-ui",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build"
+  },
+  "overrides": {
+    "@types/react": "18.2.79",
+    "@types/react-dom": "18.2.25"
+  },
+  "devDependencies": {
+    "turbo": "^2.8.20"
+  }
+}
