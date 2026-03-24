@@ -10,14 +10,8 @@ export default defineConfig({
       name:     "mfe_health",
       filename: "remoteEntry.js",
       exposes: {
-        "./App": "./src/App.tsx",
+        "./mount": "./src/mount.tsx",
       },
-      shared: [
-        { "react": { singleton: true } },
-        { "react-dom": { singleton: true } },
-        { "react-router-dom": { singleton: true } },
-        { "@jaldee/auth-context": { singleton: true, strictVersion: false, requiredVersion: false } }
-      ],
     }),
   ],
   resolve: {

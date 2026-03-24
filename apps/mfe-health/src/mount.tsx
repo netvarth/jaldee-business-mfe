@@ -1,5 +1,5 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import { MFEPropsContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
 import App from "./App";
@@ -15,7 +15,9 @@ export function mount(container: HTMLElement, props: MFEProps) {
   root = ReactDOM.createRoot(container);
   root.render(
     <MFEPropsContext.Provider value={props}>
-      <App />
+      <BrowserRouter basename={props.basePath}>
+        <App />
+      </BrowserRouter>
     </MFEPropsContext.Provider>
   );
 }
