@@ -14,11 +14,9 @@ export function mount(container: HTMLElement, props: MFEProps) {
      console.log("[mfe-health] mount called", props.basePath);
   root = ReactDOM.createRoot(container);
   root.render(
-    <React.StrictMode>
-      <MFEPropsContext.Provider value={props}>
-        <App />
-      </MFEPropsContext.Provider>
-    </React.StrictMode>
+    <MFEPropsContext.Provider value={props}>
+      <App />
+    </MFEPropsContext.Provider>
   );
 }
 

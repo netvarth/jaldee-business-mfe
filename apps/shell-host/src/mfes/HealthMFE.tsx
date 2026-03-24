@@ -12,7 +12,7 @@ export function HealthMFE() {
 
   return (
     <MFELoader
-      remote={() => import("mfe_health/mount")}
+      remote={() => import("mfe_health/App")}
       props={props}
     />
   );
