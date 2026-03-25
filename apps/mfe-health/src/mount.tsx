@@ -4,14 +4,13 @@ import { MFEPropsContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
 import App from "./App";
 
-// Contract version — shell checks this on mount
+// Contract version - shell checks this on mount
 export const CONTRACT_VERSION = "3.4";
 
 let root: ReactDOM.Root | null = null;
 const cleanupFns: Array<() => void> = [];
 
 export function mount(container: HTMLElement, props: MFEProps) {
-     console.log("[mfe-health] mount called", props.basePath);
   root = ReactDOM.createRoot(container);
   root.render(
     <MFEPropsContext.Provider value={props}>
