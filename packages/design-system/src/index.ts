@@ -13,6 +13,8 @@ export type { InputProps }                from "./components/Input/Input";
 
 export { PageHeader }                     from "./components/PageHeader/PageHeader";
 export type { PageHeaderProps }           from "./components/PageHeader/PageHeader";
+export { PageErrorBoundary }             from "./components/PageErrorBoundary/PageErrorBoundary";
+export { ComponentErrorBoundary }        from "./components/ComponentErrorBoundary/ComponentErrorBoundary";
 
 export { EmptyState }                     from "./components/EmptyState/EmptyState";
 export type { EmptyStateProps }           from "./components/EmptyState/EmptyState";

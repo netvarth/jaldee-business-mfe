@@ -3,6 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import { MFEPropsContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
 import App from "./App";
+import { MFEErrorBoundary } from "./error/MFEErrorBoundary";
 
 // Contract version - shell checks this on mount
 export const CONTRACT_VERSION = "3.4";
@@ -15,7 +16,13 @@ export function mount(container: HTMLElement, props: MFEProps) {
   root.render(
     <MFEPropsContext.Provider value={props}>
       <BrowserRouter basename={props.basePath}>
-        <App />
+        <MFEErrorBoundary
+          mfeName={props.mfeName}
+          onError={props.onError}
+          telemetry={props.telemetry}
+        >
+          <App />
+        </MFEErrorBoundary>
       </BrowserRouter>
     </MFEPropsContext.Provider>
   );

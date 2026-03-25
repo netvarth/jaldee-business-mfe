@@ -6,6 +6,7 @@ import {
   Badge,
   DataTable,
   EmptyState,
+  ComponentErrorBoundary,
 } from "@jaldee/design-system";
 import type { ColumnDef }                   from "@jaldee/design-system";
 import { mockPatients }                     from "../../mocks/patients";
@@ -170,36 +171,38 @@ export default function PatientList() {
         onNavigate={navigate}
       />
 
-      <DataTable
-        data-testid="patient-list-table"
-        data={paginated as unknown as Record<string, unknown>[]}
-        columns={columns}
-        searchable
-        searchPlaceholder="Search patients..."
-        onSearch={handleSearch}
-        onRowClick={(row) => handleView(row as unknown as Patient)}
-        emptyState={
-          <EmptyState
-            icon="👤"
-            title="No patients found"
-            description="Try adjusting your search or register a new patient."
-            action={
-              <Button
-                variant="primary"
-                onClick={() => navigate("/health/patients/new")}
-              >
-                New Patient
-              </Button>
-            }
-          />
-        }
-        pagination={{
-          pageSize,
-          total:    filtered.length,
-          page,
-          onChange: setPage,
-        }}
-      />
+      <ComponentErrorBoundary label="Patient list">
+        <DataTable
+          data-testid="patient-list-table"
+          data={paginated as unknown as Record<string, unknown>[]}
+          columns={columns}
+          searchable
+          searchPlaceholder="Search patients..."
+          onSearch={handleSearch}
+          onRowClick={(row) => handleView(row as unknown as Patient)}
+          emptyState={
+            <EmptyState
+              icon="👤"
+              title="No patients found"
+              description="Try adjusting your search or register a new patient."
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => navigate("/health/patients/new")}
+                >
+                  New Patient
+                </Button>
+              }
+            />
+          }
+          pagination={{
+            pageSize,
+            total:    filtered.length,
+            page,
+            onChange: setPage,
+          }}
+        />
+      </ComponentErrorBoundary>
     </div>
   );
 }
