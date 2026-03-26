@@ -73,7 +73,7 @@ export { ComponentErrorBoundary }         from "./components/ComponentErrorBound
 
 // Layer 4 — Layout & Navigation
 export { PageHeader }                     from "./components/PageHeader/PageHeader";
-export type { PageHeaderProps }           from "./components/PageHeader/PageHeader";
+export type { PageHeaderProps, StepperItem } from "./components/PageHeader/PageHeader";
 
 export { Tabs }                           from "./components/Tabs/Tabs";
 export type { TabsProps, TabItem }        from "./components/Tabs/Tabs";
@@ -96,8 +96,9 @@ export type { BulkActionBarProps, BulkAction } from "./components/BulkActionBar/
 export { Skeleton, SkeletonTable, SkeletonCard } from "./components/Skeleton/Skeleton";
 
 // Layer 5 — Data Display
-export { DataTable }                      from "./components/DataTable/DataTable";
+export { DataTable, DataTableToolbar }  from "./components/DataTable/DataTable";
 export type { DataTableProps, ColumnDef } from "./components/DataTable/DataTable";
+
 
 export { DescriptionList }                from "./components/DescriptionList/DescriptionList";
 export type { DescriptionListProps, DescriptionItem } from "./components/DescriptionList/DescriptionList";

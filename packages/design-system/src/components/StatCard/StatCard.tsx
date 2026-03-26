@@ -6,16 +6,51 @@ export interface StatCardProps {
   value:      string | number;
   trend?:     { value: number; direction: "up" | "down"; label?: string };
   icon?:      ReactNode;
+  accent?:    "indigo" | "emerald" | "amber" | "rose" | "slate";
   className?: string;
   loading?:   boolean;
 }
 
-export function StatCard({ label, value, trend, icon, className, loading }: StatCardProps) {
+const accentStyles = {
+  indigo: {
+    frame: "border-indigo-200",
+    icon: "bg-indigo-50 text-indigo-600",
+  },
+  emerald: {
+    frame: "border-emerald-200",
+    icon: "bg-emerald-50 text-emerald-600",
+  },
+  amber: {
+    frame: "border-amber-200",
+    icon: "bg-amber-50 text-amber-600",
+  },
+  rose: {
+    frame: "border-rose-200",
+    icon: "bg-rose-50 text-rose-600",
+  },
+  slate: {
+    frame: "border-slate-300",
+    icon: "bg-slate-100 text-slate-700",
+  },
+} as const;
+
+export function StatCard({
+  label,
+  value,
+  trend,
+  icon,
+  accent = "indigo",
+  className,
+  loading,
+}: StatCardProps) {
+  const accentStyle = accentStyles[accent];
+
   return (
     <div
       data-testid="stat-card"
       className={cn(
-        "bg-white rounded-lg border border-gray-200 p-4",
+        "bg-white rounded-lg border p-4",
+        accentStyle.frame,
         className
       )}
     >
@@ -42,7 +77,10 @@ export function StatCard({ label, value, trend, icon, className, loading }: Stat
           )}
         </div>
         {icon && (
-          <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 text-lg">
+          <div className={cn(
+            "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-lg",
+            accentStyle.icon
+          )}>
             {icon}
           </div>
         )}

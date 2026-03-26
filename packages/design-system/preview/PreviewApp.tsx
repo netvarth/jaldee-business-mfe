@@ -11,6 +11,7 @@ import {
   ComponentErrorBoundary,
   ConfirmDialog,
   DataTable,
+  DataTableToolbar,
   DatePicker,
   DateRangePicker,
   DescriptionList,
@@ -72,6 +73,8 @@ const tableRows: PatientRow[] = [
   { id: "P-1042", name: "Anita Rao", doctor: "Dr. Menon", status: "Active", due: "Today" },
   { id: "P-1047", name: "Ravi Das", doctor: "Dr. Joseph", status: "Queued", due: "11:30 AM" },
   { id: "P-1053", name: "Mina Paul", doctor: "Dr. Suma", status: "Review", due: "Tomorrow" },
+  { id: "P-1061", name: "Niya Thomas", doctor: "Dr. Menon", status: "Active", due: "2:15 PM" },
+  { id: "P-1068", name: "Akhil Nair", doctor: "Dr. Suma", status: "Queued", due: "4:00 PM" },
 ];
 
 const timelineEvents: TimelineEvent[] = [
@@ -146,19 +149,34 @@ export default function PreviewApp() {
   const [pageCrash, setPageCrash] = useState(false);
   const [componentCrash, setComponentCrash] = useState(false);
   const [boardItems, setBoardItems] = useState(initialBoardItems);
+
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [tableQuery, setTableQuery] = useState("");
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+
   const columns = useMemo<ColumnDef<PatientRow>[]>(
     () => [
-      { key: "id", header: "ID", sticky: "left", width: 120 },
+      { key: "id", header: "ID", sticky: "left", width: 120, sortable: true },
       { key: "name", header: "Patient", sortable: true },
       { key: "doctor", header: "Doctor", sortable: true },
       {
         key: "status",
         header: "Status",
+        sortable: true,
         render: (row) => (
-          <Badge variant={row.status === "Active" ? "success" : row.status === "Queued" ? "warning" : "info"}>
+          <Badge
+            variant={
+              row.status === "Active"
+                ? "success"
+                : row.status === "Queued"
+                  ? "warning"
+                  : "info"
+            }
+          >
             {row.status}
           </Badge>
         ),
@@ -168,6 +186,34 @@ export default function PreviewApp() {
     []
   );
 
+  const filteredRows = useMemo(() => {
+    const query = tableQuery.trim().toLowerCase();
+    if (!query) return tableRows;
+
+    return tableRows.filter((row) =>
+      [row.id, row.name, row.doctor, row.status, row.due].some((value) =>
+        value.toLowerCase().includes(query)
+      )
+    );
+  }, [tableQuery]);
+
+  const sortedRows = useMemo(() => {
+    if (!sortKey) return filteredRows;
+
+    const next = [...filteredRows].sort((a, b) => {
+      const aValue = a[sortKey as keyof PatientRow];
+      const bValue = b[sortKey as keyof PatientRow];
+
+      return String(aValue ?? "").localeCompare(String(bValue ?? ""), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+    return sortDir === "asc" ? next : next.reverse();
+  }, [filteredRows, sortKey, sortDir]);
+  const bulkCount = selectedRowKeys.length;
+
   return (
     <div className="min-h-screen px-6 py-8 lg:px-10">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -176,6 +222,11 @@ export default function PreviewApp() {
           breadcrumbs={[
             { label: "Packages", href: "#" },
             { label: "Design System" },
+          ]}
+          stepper={[
+            { label: "Audit", description: "Compare doc and code", state: "complete" },
+            { label: "Implement", description: "Fill component gaps", state: "current" },
+            { label: "Document", description: "Update architecture doc", state: "upcoming" },
           ]}
           onNavigate={() => undefined}
           actions={
@@ -196,7 +247,9 @@ export default function PreviewApp() {
             <div className="space-y-4">
               <p className="m-0 max-w-3xl text-sm leading-6 text-slate-600">
                 This standalone page exercises the public components exported by
-                <code className="mx-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs">@jaldee/design-system</code>
+                <code className="mx-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs">
+                  @jaldee/design-system
+                </code>
                 so product teams can inspect layout, states, and interactions in one place.
               </p>
               <DescriptionList items={detailItems} columns={3} />
@@ -204,8 +257,14 @@ export default function PreviewApp() {
           </SectionCard>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <StatCard label="Components" value="30" trend={{ value: 12, direction: "up", label: "this sprint" }} icon="DS" />
-            <StatCard label="Status" value="Stable" icon="OK" />
+            <StatCard
+              label="Components"
+              value="30"
+              trend={{ value: 12, direction: "up", label: "this sprint" }}
+              icon="DS"
+              accent="indigo"
+            />
+            <StatCard label="Status" value="Stable" icon="OK" accent="emerald" />
           </div>
         </div>
 
@@ -221,11 +280,20 @@ export default function PreviewApp() {
                 <Button loading>Loading</Button>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="success" dot>Ready</Badge>
-                <Badge variant="warning" dot>Queued</Badge>
-                <Badge variant="danger" dot>Blocked</Badge>
+                <Badge variant="success" dot>
+                  Ready
+                </Badge>
+                <Badge variant="warning" dot>
+                  Queued
+                </Badge>
+                <Badge variant="danger" dot>
+                  Blocked
+                </Badge>
                 <Badge variant="info">Info</Badge>
                 <Badge variant="neutral">Neutral</Badge>
+                <Badge variant="info" count={12}>
+                  Unread
+                </Badge>
               </div>
               <div className="flex items-center gap-4">
                 <Avatar name="Asha Menon" size="sm" />
@@ -253,12 +321,12 @@ export default function PreviewApp() {
                 <Tooltip content="Tooltip preview">
                   <Button variant="secondary">Hover for tooltip</Button>
                 </Tooltip>
-                <Popover
-                  trigger={<Button variant="outline">Open Popover</Button>}
-                >
+                <Popover trigger={<Button variant="outline">Open Popover</Button>}>
                   <PopoverSection>
                     <p className="m-0 text-sm font-semibold text-gray-900">Queue context</p>
-                    <p className="m-0 text-sm text-gray-500">Use popovers for compact contextual actions and metadata.</p>
+                    <p className="m-0 text-sm text-gray-500">
+                      Use popovers for compact contextual actions and metadata.
+                    </p>
                   </PopoverSection>
                 </Popover>
               </div>
@@ -274,15 +342,46 @@ export default function PreviewApp() {
             >
               <Input label="Patient name" placeholder="Enter full name" hint="Shown on the patient chart" />
               <Input label="Fee" prefix="Rs." placeholder="750" />
+
               <Select
                 label="Department"
-                defaultValue="op"
+                placeholder="Select department"
+                hint="Used for routing and queue grouping"
+                defaultValue=""
                 options={[
                   { value: "op", label: "Outpatient" },
                   { value: "ip", label: "Inpatient" },
                   { value: "lab", label: "Laboratory" },
                 ]}
+                data-testid="preview-department-select"
               />
+
+              <Select
+                label="Assigned services"
+                hint="Native multi-select preview"
+                multiple
+                defaultValue={["consult", "lab"]}
+                options={[
+                  { value: "consult", label: "Consultation" },
+                  { value: "lab", label: "Lab work" },
+                  { value: "pharmacy", label: "Pharmacy" },
+                  { value: "billing", label: "Billing" },
+                ]}
+                data-testid="preview-services-select"
+              />
+
+              <Select
+                label="Escalation path"
+                error="Please choose an escalation path"
+                defaultValue=""
+                options={[
+                  { value: "doctor", label: "Doctor" },
+                  { value: "nurse", label: "Nursing desk" },
+                  { value: "billing", label: "Billing" },
+                ]}
+                data-testid="preview-escalation-select"
+              />
+
               <Combobox
                 label="Consulting doctor"
                 placeholder="Choose doctor"
@@ -341,14 +440,22 @@ export default function PreviewApp() {
               <ErrorState
                 title="Queue service unavailable"
                 description="Realtime updates could not be loaded."
-                action={<Button variant="outline" size="sm">Retry</Button>}
+                action={
+                  <Button variant="outline" size="sm">
+                    Retry
+                  </Button>
+                }
               />
             </div>
             <div className="space-y-4">
               <div className="flex flex-wrap gap-3">
                 <Button onClick={() => setDialogOpen(true)}>Dialog</Button>
-                <Button variant="secondary" onClick={() => setConfirmOpen(true)}>Confirm dialog</Button>
-                <Button variant="outline" onClick={() => setDrawerOpen(true)}>Drawer</Button>
+                <Button variant="secondary" onClick={() => setConfirmOpen(true)}>
+                  Confirm dialog
+                </Button>
+                <Button variant="outline" onClick={() => setDrawerOpen(true)}>
+                  Drawer
+                </Button>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <SkeletonCard />
@@ -375,17 +482,34 @@ export default function PreviewApp() {
               ]}
             />
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Patients today" value="128" trend={{ value: 8, direction: "up", label: "vs yesterday" }} icon="PT" />
-              <StatCard label="Avg wait" value="14 min" trend={{ value: 6, direction: "down", label: "queue improved" }} icon="WT" />
-              <StatCard label="Alerts" value="3" icon="AL" />
-              <StatCard label="Rooms free" value="11" icon="RM" />
+              <StatCard
+                label="Patients today"
+                value="128"
+                trend={{ value: 8, direction: "up", label: "vs yesterday" }}
+                icon="PT"
+                accent="indigo"
+              />
+              <StatCard
+                label="Avg wait"
+                value="14 min"
+                trend={{ value: 6, direction: "down", label: "queue improved" }}
+                icon="WT"
+                accent="amber"
+              />
+              <StatCard label="Alerts" value="3" icon="AL" accent="rose" />
+              <StatCard label="Rooms free" value="11" icon="RM" accent="emerald" />
             </div>
             <SectionCard
               title="Contained card"
-              actions={<Button size="sm" variant="ghost">Action</Button>}
+              actions={
+                <Button size="sm" variant="ghost">
+                  Action
+                </Button>
+              }
             >
               <p className="m-0 text-sm leading-6 text-slate-600">
-                Section cards are useful for dense enterprise screens with multiple independently refreshable blocks.
+                Section cards are useful for dense enterprise screens with multiple independently
+                refreshable blocks.
               </p>
             </SectionCard>
           </div>
@@ -393,27 +517,57 @@ export default function PreviewApp() {
 
         <SectionCard title="Data Display">
           <div className="space-y-6">
-            <BulkActionBar
-              count={3}
-              onClear={() => undefined}
-              actions={[
-                { label: "Assign", onClick: () => undefined, variant: "secondary" },
-                { label: "Archive", onClick: () => undefined, variant: "outline" },
-                { label: "Delete", onClick: () => undefined, variant: "danger" },
-              ]}
+            {bulkCount > 0 && (
+              <BulkActionBar
+                count={bulkCount}
+                onClear={() => setSelectedRowKeys([])}
+                actions={[
+                  { label: "Assign", onClick: () => undefined, variant: "secondary" },
+                  { label: "Archive", onClick: () => undefined, variant: "outline" },
+                  { label: "Delete", onClick: () => undefined, variant: "danger" },
+                ]}
+              />
+            )}
+
+            <DataTableToolbar
+              query={tableQuery}
+              onQueryChange={(value) => {
+                setTableQuery(value);
+                setCurrentPage(1);
+              }}
+              searchPlaceholder="Search patients, doctor, status..."
+              recordCount={filteredRows.length}
             />
+
             <DataTable
-              data={tableRows}
+              data={sortedRows}
               columns={columns}
-              searchable
+              getRowId={(row) => row.id}
+              sorting={{
+                sortKey,
+                sortDir,
+                onChange: (key, dir) => {
+                  setSortKey(key);
+                  setSortDir(dir);
+                  setCurrentPage(1);
+                },
+              }}
+              selection={{
+                selectedRowKeys,
+                onChange: setSelectedRowKeys,
+              }}
               pagination={{
                 pageSize,
-                total: 42,
+                total: filteredRows.length,
                 page: currentPage,
                 onChange: setCurrentPage,
-                onPageSizeChange: setPageSize,
+                onPageSizeChange: (size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                },
               }}
             />
+
             <div className="grid gap-6 xl:grid-cols-2">
               <SectionCard title="Description list">
                 <DescriptionList items={detailItems} columns={2} />
@@ -422,6 +576,7 @@ export default function PreviewApp() {
                 <Timeline events={timelineEvents} />
               </SectionCard>
             </div>
+
             <div className="grid gap-6 xl:grid-cols-2">
               <LiveQueue
                 currentToken="A012"
@@ -439,6 +594,7 @@ export default function PreviewApp() {
                 maxThreshold={102}
               />
             </div>
+
             <SectionCard title="Kanban Board">
               <KanbanBoard<BoardCard>
                 columns={kanbanColumns}
@@ -455,7 +611,15 @@ export default function PreviewApp() {
                     <p className="m-0 text-sm font-semibold text-slate-900">{item.title}</p>
                     <p className="mt-1 text-xs text-slate-500">{item.owner}</p>
                     <div className="mt-3">
-                      <Badge variant={item.priority === "High" ? "danger" : item.priority === "Done" ? "success" : "warning"}>
+                      <Badge
+                        variant={
+                          item.priority === "High"
+                            ? "danger"
+                            : item.priority === "Done"
+                              ? "success"
+                              : "warning"
+                        }
+                      >
                         {item.priority}
                       </Badge>
                     </div>
@@ -470,7 +634,11 @@ export default function PreviewApp() {
           <div className="grid gap-6 xl:grid-cols-2">
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" onClick={() => setPageCrash((value) => !value)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPageCrash((value) => !value)}
+                >
                   {pageCrash ? "Reset page demo" : "Trigger page error"}
                 </Button>
               </div>
@@ -480,7 +648,11 @@ export default function PreviewApp() {
             </div>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" onClick={() => setComponentCrash((value) => !value)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setComponentCrash((value) => !value)}
+                >
                   {componentCrash ? "Reset widget demo" : "Trigger component error"}
                 </Button>
               </div>
@@ -502,7 +674,9 @@ export default function PreviewApp() {
           This sample modal uses the public dialog primitives exported by the design system package.
         </p>
         <DialogFooter>
-          <Button variant="secondary" onClick={() => setDialogOpen(false)}>Close</Button>
+          <Button variant="secondary" onClick={() => setDialogOpen(false)}>
+            Close
+          </Button>
           <Button onClick={() => setConfirmOpen(true)}>Continue</Button>
         </DialogFooter>
       </Dialog>
@@ -517,19 +691,20 @@ export default function PreviewApp() {
         confirmLabel="Delete record"
       />
 
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title="Preview Drawer"
-      >
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Preview Drawer">
         <div className="space-y-4">
           <Alert variant="info" title="Drawer content">
             Use this panel to inspect overlay, spacing, and stacked actions.
           </Alert>
           <Input label="Assignee" defaultValue="Asha Menon" />
-          <Textarea label="Notes" defaultValue="Prepare a tighter empty-state variant for mobile layouts." />
+          <Textarea
+            label="Notes"
+            defaultValue="Prepare a tighter empty-state variant for mobile layouts."
+          />
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setDrawerOpen(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setDrawerOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={() => setDrawerOpen(false)}>Save</Button>
           </div>
         </div>

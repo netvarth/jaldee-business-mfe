@@ -23,9 +23,10 @@ export interface BadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {
   dot?: boolean;
+  count?: number | string;
 }
 
-export function Badge({ className, variant, dot, children, ...props }: BadgeProps) {
+export function Badge({ className, variant, dot, count, children, ...props }: BadgeProps) {
   return (
     <span className={cn(badgeVariants({ variant }), className)} {...props}>
       {dot && (
@@ -37,6 +38,9 @@ export function Badge({ className, variant, dot, children, ...props }: BadgeProp
           variant === "info"    && "bg-blue-500",
           variant === "neutral" && "bg-gray-400",
         )} />
+      )}
+      {count !== undefined && (
+        <span className="font-bold tabular-nums">{count}</span>
       )}
       {children}
     </span>
