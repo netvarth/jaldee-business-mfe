@@ -1,0 +1,80 @@
+.list-view {
+  background: #fff;
+  border-radius: 0;
+  padding: 12px;
+  border: 1px solid #e4e6f7;
+  margin: 0;
+}
+
+.list-header {
+  font-size: 0.85rem;
+  color: #8a8e9f;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  border-bottom: 1px solid #f0f1f7;
+  padding-bottom: 12px;
+}
+
+.list-group {
+  border-bottom: 1px solid #f0f1f7;
+  padding: 12px 0;
+}
+
+.list-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.list-row span {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.pill {
+  border-radius: 20px;
+  border: 1px solid #e6e7f1;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+.avatar-pill {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #8b6cf7;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+.status-pill {
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.status-pill.green {
+  background: #e6fff2;
+  color: #00b37d;
+}
+
+.status-pill.orange {
+  background: #ffe7d7;
+  color: #f47722;
+}
+
+.status-pill.purple {
+  background: #f4edff;
+  color: #8c28ff;
+}
+
+.status-pill.blue {
+  background: #e0f2ff;
+  color: #1d4ed8;
+}

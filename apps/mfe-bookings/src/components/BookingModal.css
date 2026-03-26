@@ -1,0 +1,283 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 7, 19, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 99;
+}
+
+.booking-modal {
+  width: min(540px, 94vw);
+  background: #fff;
+  border-radius: 6px;
+  padding: 28px;
+  box-shadow: 0 18px 35px rgba(13, 10, 50, 0.25);
+  border: 0.25px solid rgba(227, 229, 249, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  line-height: 1.4;
+  max-height: calc(100vh - 20px);
+  min-height: min(700px, calc(100vh - 60px));
+  overflow-y: auto;
+  font-size: 0.88rem;
+}
+
+.booking-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.booking-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #161030;
+}
+
+.booking-modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: #6f7286;
+}
+
+.close-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e8e9f5;
+  background: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0;
+  color: #5b5e7d;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.close-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(22, 8, 48, 0.25);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 6px 18px;
+  font-weight: 500;
+  font-size: 0.78rem;
+  border: 1px solid;
+  background: rgba(19, 171, 85, 0.12);
+  border-color: #13ab55;
+  color: #13ab55;
+}
+
+.booking-id {
+  font-weight: 500;
+  color: #5f4bcd;
+}
+
+.card {
+  border-radius: 16px;
+  border: 1px solid #e5e7f3;
+  background: #fafaff;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 9px 20px rgba(13, 9, 40, 0.05);
+}
+
+.card-label {
+  font-size: 0.82rem;
+  color: #8b8c99;
+  font-weight: 500;
+}
+
+.patient-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.patient-field,
+.meta-field {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.field-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+  background: #e5e7f3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.field-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.patient-field p,
+.meta-field p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #8b8c99;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.editable-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2040;
+}
+
+.editable-input:focus {
+  outline: none;
+  box-shadow: inset 0 -2px 0 #5f4bcd;
+}
+
+.patient-field strong,
+.meta-field strong {
+  font-size: 0.9rem;
+  color: #1f2040;
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.user-card {
+  background: #f3f0ff;
+  border: 1px solid rgba(99, 95, 255, 0.25);
+  box-shadow: 0 12px 20px rgba(17, 16, 48, 0.08);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-card .card-label {
+  margin-left: 6px;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-card strong {
+  font-size: 0.95rem;
+  margin: 0;
+  color: #1f2040;
+  font-weight: 400;
+}
+
+.user-card span {
+  display: block;
+  font-size: 0.78rem;
+  color: #6f7286;
+}
+
+.user-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7b4dff, #6531ff);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.user-icon span {
+  color: #fff;
+}
+
+.notes-card {
+  background: #fff;
+  border: 1px solid #edeff6;
+  padding: 16px 18px;
+}
+
+.notes-card p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #5b5f75;
+}
+
+.booking-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.booking-modal-actions button {
+  flex: 1;
+  padding: 11px;
+  font-weight: 400;
+  font-size: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #dedde8;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.booking-modal-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(16, 11, 43, 0.15);
+}
+
+.booking-modal-actions .solid {
+  background: #ff1f54;
+  border: none;
+  color: #fff;
+}
+
+.action-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.action-icon svg {
+  width: 16px;
+  height: 16px;
+}
