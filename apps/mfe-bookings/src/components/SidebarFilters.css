@@ -51,7 +51,7 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--dot-color, #c9c9d1);
+  background: var(--booking-accent, #c9c9d1);
 }
 
 .section-items input[type='checkbox'] {

@@ -140,7 +140,13 @@ export function TimeCalendarView({ hours, days, viewBy, isWeekView, isDayView, i
             <div className="calendar-header" style={{ gridTemplateColumns: columnTemplate }}>
               <div className="calendar-timezone">
                 <div className="calendar-header-left">
-                  <Button className="header-icon" type="button" variant="ghost" size="sm" aria-label="Menu">ƒ~ø</Button>
+                  <Button className="header-icon" type="button" variant="ghost" size="sm" aria-label="Menu">
+                    <span className="grid-hamburger" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  </Button>
                 </div>
                 <div className="timezone-label">{isWeekView ? "Slots" : "UTC +05:30"}</div>
               </div>

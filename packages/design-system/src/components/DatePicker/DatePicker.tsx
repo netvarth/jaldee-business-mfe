@@ -6,14 +6,15 @@ export interface DatePickerProps extends Omit<InputHTMLAttributes<HTMLInputEleme
   label?: string;
   error?: string;
   hint?: string;
+  fullWidth?: boolean;
 }
 
 const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
-  ({ className, label, error, hint, id, ...props }, ref) => {
+  ({ className, label, error, hint, id, fullWidth = true, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className="flex w-full flex-col gap-1.5">
+      <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full")}>
         {label && (
           <label htmlFor={inputId} className="text-sm font-semibold text-gray-700">
             {label}
@@ -25,7 +26,8 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           id={inputId}
           type="date"
           className={cn(
-            "h-9 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-800",
+            fullWidth && "w-full",
+            "h-9 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-800",
             "focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
             "disabled:cursor-not-allowed disabled:bg-gray-50",
             error && "border-red-500 focus:border-red-500 focus:ring-red-500",

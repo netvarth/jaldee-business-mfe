@@ -1,0 +1,60 @@
+.ds-select__label {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ds-select__required {
+  margin-left: 2px;
+  color: var(--color-danger);
+}
+
+.ds-select {
+  width: 100%;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+  box-shadow: none;
+}
+
+.ds-select:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 1px var(--color-border-focus);
+}
+
+.ds-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: var(--color-surface-alt);
+}
+
+.ds-select:not(:disabled) {
+  cursor: pointer;
+}
+
+.ds-select[data-state="error"] {
+  border-color: var(--color-danger);
+}
+
+.ds-select[data-state="error"]:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.ds-select__hint {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.ds-select__error {
+  color: var(--color-danger);
+  font-size: 12px;
+}

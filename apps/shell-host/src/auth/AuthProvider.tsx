@@ -1,15 +1,16 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
-import { initApiClient } from "@jaldee/api-client";
+import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
 import { authService } from "../services/authService";
+import type { LoginRequest, SessionResponse } from "../services/authService";
 
 // ─── Types ────────────────────────────────────────────
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading:       boolean;
-  login:           (email: string, password: string) => Promise<void>;
+  login:           (payload: LoginRequest) => Promise<SessionResponse>;
   logout:          () => void;
 }
 
@@ -34,20 +35,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAvailableLocations,
     setLocation,
     isAuthenticated,
+    accessToken,
   } = useShellStore();
 
   // Init api client once with base URL
   useEffect(() => {
     const baseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
     initApiClient(baseURL);
-  }, []);
-
-  // Listen for session expired event from api-client interceptor
-  useEffect(() => {
-    const handler = () => clearAuth();
-    window.addEventListener("jaldee:session:expired", handler);
-    return () => window.removeEventListener("jaldee:session:expired", handler);
+    setApiClientAuthHandlers({
+      onSessionExpired: () => clearAuth(),
+    });
   }, [clearAuth]);
+
+  useEffect(() => {
+    setApiClientContext({
+      authMode: "session",
+      authToken: accessToken ?? "",
+    });
+  }, [accessToken]);
 
   // On boot — check if session is still valid
   useEffect(() => {
@@ -73,9 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function login(email: string, password: string) {
-    const { user, account, locations, token } =
-      await authService.login(email, password);
+  async function login(payload: LoginRequest) {
+    const response = await authService.login(payload);
+
+    if (response.multiFactorAuthenticationRequired) {
+      return response;
+    }
+
+    const { user, account, locations, token } = response;
 
     setAuth(user, account, token ?? "");
 
@@ -83,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAvailableLocations(locations);
       setLocation(locations[0]);
     }
+
+    return response;
   }
 
   function logout() {

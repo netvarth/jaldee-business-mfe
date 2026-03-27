@@ -175,6 +175,22 @@
   padding: 0 !important;
 }
 
+.grid-hamburger {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.grid-hamburger span {
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: #5b5e7d;
+}
+
 .calendar-title {
   font-weight: 700;
   color: #2c2e3a;
@@ -218,6 +234,7 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+  border-color: var(--booking-accent, #eceef6);
 }
 
 .doctor-card.on-leave {
@@ -246,6 +263,7 @@
   font-weight: 600;
   color: #fff;
   font-size: 0.9rem;
+  background: var(--booking-accent, #6c32ff);
 }
 
 .doctor-info {
@@ -289,6 +307,7 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  background: var(--booking-accent, #6c32ff);
 }
 
 .hour-column {
@@ -390,6 +409,8 @@
   flex: 0 0 48px;
   line-height: 1;
   box-shadow: none;
+  border-color: var(--booking-accent, #dfe2f2);
+  background: var(--booking-accent-muted, transparent);
 }
 .day-summary-content {
   display: flex;
@@ -448,6 +469,7 @@
   flex: 1;
   height: 36px;
   border-radius: 4px;
+  background: var(--booking-accent, #6c32ff);
 }
 .chip-stack.day-view-chip-stack .booking-chip {
   width: 100%;
@@ -495,6 +517,8 @@
   box-shadow: 0 6px 12px rgba(15, 20, 40, 0.06);
   flex-wrap: nowrap;
   margin: 0;
+  border-color: var(--booking-accent, #e5e7f3) !important;
+  background: var(--booking-accent-soft, #fff) !important;
 }
 
 .week-slot-summary {
@@ -533,6 +557,7 @@
   justify-content: center;
   font-size: 0.55rem;
   padding: 2px;
+  background: var(--booking-accent, #6c32ff);
 }
 
 .week-slot-count {
@@ -588,6 +613,8 @@
   gap: 8px;
   color: #2c2e3a;
   font-size: 0.8rem;
+  border-color: var(--booking-accent, #dfe2f2);
+  background: var(--booking-accent-muted, #fff);
 }
 
 .calendar-grid.day-view .booking-chip {
@@ -681,6 +708,7 @@
   cursor: pointer;
   padding: 0 !important;
   margin: auto;
+  border-color: var(--booking-accent, rgba(108, 50, 255, 0.35));
 }
 
 .day-empty-icon {
@@ -709,6 +737,7 @@
   display: flex !important;
   flex-direction: column !important;
   gap: 6px;
+  border-color: var(--booking-accent, #e5e7f3) !important;
 }
 
 .detail-card:hover {
@@ -734,6 +763,8 @@
   padding: 2px 10px;
   font-size: 0.68rem;
   border: 1px solid transparent;
+  border-color: var(--booking-accent, transparent);
+  color: var(--booking-accent, inherit);
 }
 
 .detail-time,
@@ -757,6 +788,7 @@
   border-radius: 999px;
   cursor: pointer;
   display: block;
+  background: var(--booking-accent, #6c32ff);
 }
 
 .empty-slot {
@@ -886,6 +918,7 @@
   background: #fff;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(15, 20, 40, 0.04);
+  border-color: var(--booking-accent, transparent);
 }
 .month-day-booking-count {
   flex: 1;
@@ -947,6 +980,8 @@
   color: #151723;
   text-align: left;
   gap: 0 !important;
+  border-color: var(--booking-accent, #e7e9f4);
+  background: var(--booking-accent-muted, #fff);
 }
 
 .day-calendar-chip-header {
@@ -955,6 +990,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: var(--booking-accent-strong, transparent);
+  color: var(--booking-accent, inherit);
 }
 
 .day-calendar-chip-initials {
@@ -967,6 +1004,7 @@
   font-weight: 700;
   color: #fff;
   font-size: 0.65rem;
+  background: var(--booking-accent, #6c32ff);
 }
 
 .day-calendar-chip-plus {
@@ -979,8 +1017,9 @@
   justify-content: center;
   font-size: 0.65rem;
   font-weight: 700;
-  color: currentColor;
+  color: var(--booking-accent, currentColor);
   background: #fff;
+  border-color: var(--booking-accent, currentColor);
 }
 
 .day-calendar-chip-body {

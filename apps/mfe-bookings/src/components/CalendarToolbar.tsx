@@ -87,18 +87,24 @@ export default function CalendarToolbar({
   return (
     <div className="calendar-toolbar">
       <div className="toolbar-left">
-        <Button
-          type="button"
-          variant="outline"
-          size="md"
-          className="sidebar-toggle"
-          onClick={onSidebarToggle}
-          aria-label="Toggle sidebar"
-        >
-          <span aria-hidden="true">|||</span>
-        </Button>
-
         <div className="layout-card">
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            className="toolbar-sidebar-toggle"
+            onClick={onSidebarToggle}
+            aria-label="Toggle sidebar"
+          >
+            <span className="toolbar-hamburger" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 2.5v11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                <path d="M8 2.5v11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                <path d="M13 2.5v11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+            </span>
+          </Button>
+
           <div className="layout-icons">
             {layoutOptions.map((option) => (
               <Button

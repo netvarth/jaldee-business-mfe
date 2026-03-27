@@ -5,7 +5,7 @@ export function HealthMFE() {
   const props = useBuildMFEProps("mfe-health", "/health");
 
   if (!props) return (
-    <div style={{ padding: "32px", color: "#6B7280" }}>
+    <div className="shell-mfe-loading">
       Initialising...
     </div>
   );

@@ -43,13 +43,17 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #8b6cf7;
+  background: var(--booking-accent, #8b6cf7);
   color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-right: 6px;
   font-weight: 600;
+}
+
+.summary-row-pill {
+  background: var(--booking-accent, #6c32ff);
 }
 
 .status-pill {

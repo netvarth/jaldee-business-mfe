@@ -6,14 +6,15 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   label?:  string;
   error?:  string;
   hint?:   string;
+  fullWidth?: boolean;
 }
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, hint, id, rows = 3, ...props }, ref) => {
+  ({ className, label, error, hint, id, rows = 3, fullWidth = true, ...props }, ref) => {
     const textareaId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className="flex flex-col gap-1.5 w-full">
+      <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full")}>
         {label && (
           <label htmlFor={textareaId} className="text-sm font-semibold text-gray-700">
             {label}
@@ -24,7 +25,8 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={textareaId}
           rows={rows}
           className={cn(
-            "w-full rounded-md border border-gray-200 bg-white text-gray-800 text-sm px-3 py-2",
+            fullWidth && "w-full",
+            "rounded-md border border-gray-200 bg-white text-gray-800 text-sm px-3 py-2",
             "placeholder:text-gray-400 resize-y",
             "focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
             "disabled:bg-gray-50 disabled:cursor-not-allowed",

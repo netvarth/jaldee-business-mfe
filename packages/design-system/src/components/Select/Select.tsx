@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
-import type { ReactNode, SelectHTMLAttributes } from "react";
+import type { SelectHTMLAttributes } from "react";
 import { cn } from "../../utils";
+import "./Select.css";
 
 export interface SelectOption {
   value: string;
@@ -17,6 +18,7 @@ export interface SelectProps
   placeholder?: string;
   testId?: string;
   containerClassName?: string;
+  fullWidth?: string | boolean;
 }
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
@@ -34,6 +36,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
       disabled,
       required,
       testId,
+      fullWidth = true,
       ...props
     },
     ref
@@ -54,23 +57,15 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
     return (
       <div
-        className={cn("flex w-full flex-col gap-1.5", containerClassName)}
+        className={cn("flex flex-col gap-1.5", fullWidth && "w-full", containerClassName)}
         data-testid={`${resolvedTestId}-field`}
         data-state={isInvalid ? "error" : disabled ? "disabled" : "default"}
       >
         {label && (
-          <label
-            htmlFor={selectId}
-            className="text-sm font-semibold"
-            style={{ color: "var(--color-text-primary)" }}
-          >
+          <label htmlFor={selectId} className="ds-select__label">
             {label}
             {required && (
-              <span
-                aria-hidden="true"
-                className="ml-0.5"
-                style={{ color: "var(--color-danger)" }}
-              >
+              <span aria-hidden="true" className="ds-select__required">
                 *
               </span>
             )}
@@ -87,37 +82,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           data-testid={resolvedTestId}
           data-state={isInvalid ? "error" : "default"}
           className={cn(
-            "w-full rounded-md border bg-[var(--color-surface)] px-3 text-sm transition-colors duration-100",
+            "ds-select",
+            fullWidth && "w-full",
             isMultiple ? "min-h-[88px] py-2" : "h-9",
-            "focus:outline-none focus:ring-1",
-            "disabled:cursor-not-allowed disabled:opacity-60",
-            !disabled && "cursor-pointer",
             className
           )}
-          style={{
-            color: "var(--color-text-primary)",
-            borderColor: isInvalid
-              ? "var(--color-danger)"
-              : "var(--color-border)",
-            boxShadow: "none",
-          }}
           {...props}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = isInvalid
-              ? "var(--color-danger)"
-              : "var(--color-border-focus)";
-            e.currentTarget.style.boxShadow = `0 0 0 1px ${
-              isInvalid ? "var(--color-danger)" : "var(--color-border-focus)"
-            }`;
-            props.onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = isInvalid
-              ? "var(--color-danger)"
-              : "var(--color-border)";
-            e.currentTarget.style.boxShadow = "none";
-            props.onBlur?.(e);
-          }}
         >
           {!isMultiple && placeholder && (
             <option value="" disabled hidden>
@@ -126,23 +96,14 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           )}
 
           {options.map((opt) => (
-            <option
-              key={opt.value}
-              value={opt.value}
-              disabled={opt.disabled}
-            >
+            <option key={opt.value} value={opt.value} disabled={opt.disabled}>
               {opt.label}
             </option>
           ))}
         </select>
 
         {hint && !error && (
-          <p
-            id={hintId}
-            data-testid={`${resolvedTestId}-hint`}
-            className="text-xs"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <p id={hintId} data-testid={`${resolvedTestId}-hint`} className="ds-select__hint">
             {hint}
           </p>
         )}
@@ -152,8 +113,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             id={errorId}
             role="alert"
             data-testid={`${resolvedTestId}-error`}
-            className="text-xs"
-            style={{ color: "var(--color-danger)" }}
+            className="ds-select__error"
           >
             {error}
           </p>

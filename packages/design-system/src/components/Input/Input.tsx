@@ -10,60 +10,63 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   suffix?: ReactNode;
   icon?:   ReactNode;
   containerClassName?: string;
+  fullWidth?: boolean;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, containerClassName, label, error, hint, prefix, suffix, icon, id, ...props }, ref) => {
+  ({ className, containerClassName, label, error, hint, prefix, suffix, icon, id, fullWidth = true, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className={cn("flex flex-col gap-1.5 w-full", containerClassName)}>
+      <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full", containerClassName)}>
         {label && (
           <label
             htmlFor={inputId}
-            className="text-sm font-semibold text-gray-700"
+            className="text-[var(--text-sm)] font-semibold text-[var(--color-text-primary)]"
           >
             {label}
           </label>
         )}
 
-        <div className="relative flex items-center">
+        <div className={cn("relative flex items-center", fullWidth && "w-full")}>
           {icon && (
-            <span className="absolute left-3 text-gray-400 pointer-events-none text-sm">
+            <span className="absolute left-3 text-[var(--color-text-disabled)] pointer-events-none text-sm">
               {icon}
             </span>
           )}
           {prefix && (
-            <span className="absolute left-3 text-gray-500 text-sm">{prefix}</span>
+            <span className="absolute left-3 text-[var(--color-text-secondary)] text-sm">{prefix}</span>
           )}
           <input
             ref={ref}
             id={inputId}
             className={cn(
-              "w-full h-9 rounded-md border border-gray-200 bg-white text-gray-800 text-sm px-3",
-              "placeholder:text-gray-400",
-              "focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-              "disabled:bg-gray-50 disabled:cursor-not-allowed",
+              fullWidth && "block w-full",
+              "min-h-[44px] px-[10px] py-[10px] text-left text-[var(--text-base)] leading-normal align-middle",
+              "rounded-[10px] border bg-[var(--color-surface)] text-[var(--color-text-primary)]",
+              "border-[#cfd6e4] placeholder:text-[var(--color-text-disabled)]",
+              "focus:outline-none focus:border-[#b9c3d8] focus:ring-0",
+              "disabled:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed",
               "transition-colors duration-100",
-              error  && "border-red-500 focus:border-red-500 focus:ring-red-500",
-              icon   && "pl-9",
-              prefix && "pl-8",
-              suffix && "pr-8",
+              error  && "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-0",
+              icon   && "pl-10",
+              prefix && "pl-10",
+              suffix && "pr-10",
               className
             )}
             aria-invalid={!!error}
             {...props}
           />
           {suffix && (
-            <span className="absolute right-3 text-gray-500 text-sm">{suffix}</span>
+            <span className="absolute right-3 text-[var(--color-text-secondary)] text-sm">{suffix}</span>
           )}
         </div>
 
         {hint && !error && (
-          <p className="text-xs text-gray-500">{hint}</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{hint}</p>
         )}
         {error && (
-          <p role="alert" className="text-xs text-red-600">{error}</p>
+          <p role="alert" className="text-xs text-[var(--color-danger)]">{error}</p>
         )}
       </div>
     );

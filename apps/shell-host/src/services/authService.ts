@@ -7,6 +7,17 @@ export interface SessionResponse {
   account:   AccountContext;
   locations: BranchLocation[];
   token?:    string;
+  multiFactorAuthenticationRequired?: boolean;
+  otpLength?: number;
+  maskedDestination?: string;
+}
+
+export interface LoginRequest {
+  loginId: string;
+  password: string;
+  mUniqueId?: string;
+  multiFactorAuthenticationLogin?: boolean;
+  otp?: string;
 }
 
 const isMock = import.meta.env.VITE_USE_MOCK === "true";
@@ -31,12 +42,12 @@ export const authService = {
   return res.data;
 },
 
-  async login(email: string, password: string): Promise<SessionResponse> {
+  async login(payload: LoginRequest): Promise<SessionResponse> {
     if (isMock) {
       const { mockLogin: doMockLogin } = await import("../mocks/mockAuth");
-      return doMockLogin(email, password);
+      return doMockLogin(payload.loginId, payload.password);
     }
-    const res = await apiClient.post<SessionResponse>("/auth/login", { email, password });
+    const res = await apiClient.post<SessionResponse>("/auth/login", payload);
     return res.data;
   },
 

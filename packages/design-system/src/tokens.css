@@ -41,6 +41,22 @@
   --color-nav-text:        #6B7280;
   --color-nav-hover-bg:    #F3F4F6;
 
+  /* Product accents */
+  --color-product-health:          #0D9488;
+  --color-product-health-subtle:   rgba(13, 148, 136, 0.08);
+  --color-product-bookings:        #2563EB;
+  --color-product-bookings-subtle: rgba(37, 99, 235, 0.08);
+  --color-product-karty:           #EA580C;
+  --color-product-karty-subtle:    rgba(234, 88, 12, 0.08);
+  --color-product-finance:         #059669;
+  --color-product-finance-subtle:  rgba(5, 150, 105, 0.08);
+  --color-product-lending:         #7C3AED;
+  --color-product-lending-subtle:  rgba(124, 58, 237, 0.08);
+  --color-product-hr:              #0369A1;
+  --color-product-hr-subtle:       rgba(3, 105, 161, 0.08);
+  --color-product-ai:              #6366F1;
+  --color-product-ai-subtle:       rgba(99, 102, 241, 0.08);
+
   /* ─── Typography ──────────────────────────── */
   --font-family-base:      "Inter", -apple-system, sans-serif;
   --font-family-mono:      "JetBrains Mono", monospace;

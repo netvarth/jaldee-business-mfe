@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import IconRail from "./IconRail";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
+import "./shell.css";
 
 interface Props {
   children: ReactNode;
@@ -9,55 +10,17 @@ interface Props {
 
 export default function ShellLayout({ children }: Props) {
   return (
-    <div
-      data-testid="shell-layout"
-      style={{ display: "flex", height: "100vh", background: "#F3F4F6" }}
-    >
-      {/* Left icon rail — fixed */}
+    <div data-testid="shell-layout" className="shell-layout">
       <IconRail />
-
-      {/* Main area — offset for icon rail */}
-      <div
-        data-testid="shell-main"
-        style={{
-          marginLeft: "72px",
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
-        }}
-      >
-        {/* Top bar — fixed */}
+      <div data-testid="shell-main" className="shell-main">
         <TopBar />
-
-        {/* Below top bar */}
-        <div
-          style={{
-            marginTop: "56px",
-            flex: 1,
-            display: "flex",
-            overflow: "hidden",
-          }}
-        >
-          {/* Secondary sidebar */}
+        <div className="shell-body">
           <Sidebar />
-
-          {/* Page content */}
-          <div
-            data-testid="shell-content"
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              background: "#F3F4F6",
-              minHeight: 0,
-            }}
-          >
+          <div data-testid="shell-content" className="shell-content">
             {children}
           </div>
-
         </div>
       </div>
-
     </div>
   );
 }

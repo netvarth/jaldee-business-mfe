@@ -84,9 +84,9 @@
   font-weight: 500;
   font-size: 0.78rem;
   border: 1px solid;
-  background: rgba(19, 171, 85, 0.12);
-  border-color: #13ab55;
-  color: #13ab55;
+  background: var(--booking-accent-subtle, rgba(19, 171, 85, 0.12));
+  border-color: var(--booking-accent, #13ab55);
+  color: var(--booking-accent, #13ab55);
 }
 
 .booking-id {

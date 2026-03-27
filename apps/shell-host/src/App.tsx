@@ -9,9 +9,9 @@ import "./App.css";
 
 function HomePage() {
   return (
-    <div style={{ padding: "32px" }}>
-      <h2 style={{ margin: 0, color: "#1E1B4B" }}>Home</h2>
-      <p style={{ color: "#6B7280" }}>Welcome to Jaldee Business</p>
+    <div className="shell-home">
+      <h2 className="shell-home-title">Home</h2>
+      <p className="shell-home-copy">Welcome to Jaldee Business</p>
     </div>
   );
 }
@@ -30,9 +30,7 @@ export default function App() {
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/health/*" element={
                   <Suspense fallback={
-                    <div style={{ padding: "32px", color: "#6B7280" }}>
-                      Loading Health...
-                    </div>
+                    <div className="shell-loading">Loading Health...</div>
                   }>
                     <div className="health-wrapper">
                       <HealthMFE />
@@ -41,9 +39,7 @@ export default function App() {
                 } />
                 <Route path="/bookings/*" element={
                   <Suspense fallback={
-                    <div style={{ padding: "32px", color: "#6B7280" }}>
-                      Loading Bookings...
-                    </div>
+                    <div className="shell-loading">Loading Bookings...</div>
                   }>
                     <BookingsMFE />
                   </Suspense>
