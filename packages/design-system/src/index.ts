@@ -29,6 +29,8 @@ export type { ComboboxProps, ComboboxOption } from "./components/Combobox/Combob
 
 export { DatePicker }                     from "./components/DatePicker/DatePicker";
 export type { DatePickerProps }           from "./components/DatePicker/DatePicker";
+export { DatePickerPopover }              from "./components/DatePickerPopover/DatePickerPopover";
+export type { DatePickerPopoverProps }    from "./components/DatePickerPopover/DatePickerPopover";
 
 export { DateRangePicker }                from "./components/DateRangePicker/DateRangePicker";
 export type { DateRangePickerProps, DateRangeValue } from "./components/DateRangePicker/DateRangePicker";

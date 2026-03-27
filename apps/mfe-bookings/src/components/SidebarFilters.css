@@ -31,12 +31,20 @@
   gap: 16px;
 }
 
+.sidebar-filter-item {
+  width: 100%;
+}
+
 .section-items label {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 0.95rem;
   color: #2d2f41;
+}
+
+.sidebar-filter-control {
+  width: 100%;
 }
 
 .filter-dot {

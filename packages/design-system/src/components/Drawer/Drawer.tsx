@@ -1,12 +1,21 @@
 import type { ReactNode } from "react";
-import { cn }             from "../../utils";
+import { cn } from "../../utils";
 
 export interface DrawerProps {
-  open:     boolean;
-  onClose:  () => void;
-  title:    string;
-  size?:    "sm" | "md" | "lg";
+  open: boolean;
+  onClose: () => void;
+  title?: ReactNode;
+  size?: "sm" | "md" | "lg";
   children: ReactNode;
+  hideHeader?: boolean;
+  showCloseButton?: boolean;
+  overlayClassName?: string;
+  panelClassName?: string;
+  headerClassName?: string;
+  contentClassName?: string;
+  closeButtonClassName?: string;
+  closeLabel?: string;
+  closeIcon?: ReactNode;
 }
 
 const sizeMap = {
@@ -15,46 +24,66 @@ const sizeMap = {
   lg: "w-[800px]",
 };
 
-export function Drawer({ open, onClose, title, size = "md", children }: DrawerProps) {
+export function Drawer({
+  open,
+  onClose,
+  title,
+  size = "md",
+  children,
+  hideHeader = false,
+  showCloseButton = true,
+  overlayClassName,
+  panelClassName,
+  headerClassName,
+  contentClassName,
+  closeButtonClassName,
+  closeLabel = "Close drawer",
+  closeIcon = "×",
+}: DrawerProps) {
   if (!open) return null;
 
   return (
     <>
-      {/* Overlay */}
       <div
         data-testid="drawer-overlay"
-        className="fixed inset-0 bg-black/40 z-[200]"
+        className={cn("fixed inset-0 z-[200] bg-black/40", overlayClassName)}
         onClick={onClose}
       />
 
-      {/* Panel */}
       <div
         data-testid="drawer"
         data-state="open"
         className={cn(
-          "fixed top-0 right-0 h-full bg-white shadow-xl z-[201]",
-          "flex flex-col",
+          "fixed right-0 top-0 z-[201] flex h-full max-w-full flex-col bg-white shadow-xl",
           sizeMap[size],
-          "max-w-full"
+          panelClassName
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
-          <h2 className="text-base font-semibold text-gray-900 m-0">{title}</h2>
-          <button
-            data-testid="drawer-close"
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 transition-colors cursor-pointer border-0 bg-transparent text-lg"
+        {!hideHeader && (title || showCloseButton) && (
+          <div
+            className={cn(
+              "flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4",
+              headerClassName
+            )}
           >
-            ✕
-          </button>
-        </div>
+            {title ? <h2 className="m-0 text-base font-semibold text-gray-900">{title}</h2> : <span />}
+            {showCloseButton && (
+              <button
+                data-testid="drawer-close"
+                onClick={onClose}
+                aria-label={closeLabel}
+                className={cn(
+                  "flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-lg text-gray-400 transition-colors hover:bg-gray-100",
+                  closeButtonClassName
+                )}
+              >
+                {closeIcon}
+              </button>
+            )}
+          </div>
+        )}
 
-        {/* Body */}
-        <div
-          data-testid="drawer-content"
-          className="flex-1 overflow-y-auto p-5"
-        >
+        <div data-testid="drawer-content" className={cn("flex-1 overflow-y-auto p-5", contentClassName)}>
           {children}
         </div>
       </div>

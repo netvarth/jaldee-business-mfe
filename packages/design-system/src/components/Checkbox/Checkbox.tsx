@@ -1,19 +1,37 @@
 import { forwardRef }                           from "react";
-import type { InputHTMLAttributes }             from "react";
+import type { InputHTMLAttributes, ReactNode }  from "react";
 import { cn }                                   from "../../utils";
 
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
-  label?:     string;
+  label?:     ReactNode;
   error?:     string;
+  description?: ReactNode;
+  containerClassName?: string;
+  controlClassName?: string;
+  labelClassName?: string;
 }
 
 const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, error, id, ...props }, ref) => {
-    const checkboxId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+  (
+    {
+      className,
+      label,
+      error,
+      description,
+      containerClassName,
+      controlClassName,
+      labelClassName,
+      id,
+      ...props
+    },
+    ref
+  ) => {
+    const checkboxId =
+      id ?? (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     return (
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
+      <div className={cn("flex flex-col gap-1", containerClassName)}>
+        <div className={cn("flex items-center gap-2", controlClassName)}>
           <input
             ref={ref}
             type="checkbox"
@@ -29,12 +47,13 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           {label && (
             <label
               htmlFor={checkboxId}
-              className="text-sm text-gray-700 cursor-pointer select-none"
+              className={cn("text-sm text-gray-700 cursor-pointer select-none", labelClassName)}
             >
               {label}
             </label>
           )}
         </div>
+        {description && <div className="text-xs text-gray-500">{description}</div>}
         {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       </div>
     );

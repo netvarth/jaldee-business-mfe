@@ -166,10 +166,15 @@
   gap: 12px;
 }
 
-.toolbar-right select {
+.toolbar-right .toolbar-select {
+  width: auto;
+  min-width: 180px;
+}
+
+.toolbar-select-control {
   border-radius: 12px;
-  border: 1px solid #e5e6f4;
-  padding: 6px 12px;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .filter-button {
@@ -180,6 +185,11 @@
   font-weight: 600;
   cursor: pointer;
   position: relative;
+}
+
+.filter-button,
+.action-button {
+  min-height: 36px;
 }
 
 .filter-pill {

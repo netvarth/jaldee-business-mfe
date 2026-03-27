@@ -1,3 +1,4 @@
+import { Button, RadioGroup } from "@jaldee/design-system";
 import "./FiltersOverlay.css";
 
 export type SavedFilter = {
@@ -22,38 +23,34 @@ export default function FiltersOverlay({
     <div className="filters-overlay">
       <div className="overlay-header">
         <strong>Filters</strong>
-        <button type="button" onClick={onClose} aria-label="Close filters">
-          ✕
-        </button>
+        <Button type="button" variant="ghost" size="md" className="overlay-close" onClick={onClose} aria-label="Close filters">
+          ×
+        </Button>
       </div>
 
-      <div className="filter-list">
-        {savedFilters.map((filter) => (
-          <label
-            key={filter.name}
-            className={activeFilter === filter.name ? "active" : ""}
-          >
-            <input
-              type="radio"
-              name="savedFilter"
-              checked={activeFilter === filter.name}
-              onChange={() => onFilterSelect?.(filter.name)}
-            />
-            <div>
-              <strong>{filter.name}</strong>
-              <p>{filter.meta}</p>
-            </div>
-          </label>
-        ))}
-      </div>
+      <RadioGroup
+        name="savedFilter"
+        value={activeFilter}
+        onChange={(value) => onFilterSelect?.(value)}
+        className="filter-list"
+        optionClassName="filter-list-option"
+        indicatorClassName="filter-list-indicator"
+        labelClassName="filter-list-label"
+        options={savedFilters.map((filter) => ({
+          value: filter.name,
+          label: <strong>{filter.name}</strong>,
+          description: filter.meta ? <p>{filter.meta}</p> : undefined,
+          className: activeFilter === filter.name ? "active" : undefined,
+        }))}
+      />
 
       <div className="overlay-actions">
-        <button type="button" className="ghost">
+        <Button type="button" variant="outline" className="ghost">
           Create Filter
-        </button>
-        <button type="button" className="solid">
+        </Button>
+        <Button type="button" variant="primary" className="solid">
           Manage
-        </button>
+        </Button>
       </div>
     </div>
   );

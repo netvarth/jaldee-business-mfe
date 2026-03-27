@@ -1,4 +1,5 @@
-import './SidebarFilters.css';
+import { Button, Checkbox } from "@jaldee/design-system";
+import "./SidebarFilters.css";
 
 type FilterItem = {
   label: string;
@@ -23,30 +24,29 @@ export default function SidebarFilters({ filters, onToggle }: SidebarFiltersProp
         <div key={section.title} className="filter-section">
           <header>
             <strong>{section.title}</strong>
-            <button aria-label="Expand">+</button>
+            <Button type="button" variant="ghost" size="md" aria-label="Expand">+</Button>
           </header>
 
           <div className="section-items">
             {section.items.map((item) => (
-              <label
+              <Checkbox
                 key={item.label}
-                className={item.checked ? 'checked' : ''}
-                style={
-                  {
-                    '--dot-color': item.color || '#c9c9d1',
-                  } as React.CSSProperties
+                checked={Boolean(item.checked)}
+                onChange={(event) => onToggle?.(section.title, item.label, event.target.checked)}
+                containerClassName={`sidebar-filter-item ${item.checked ? "checked" : ""}`}
+                controlClassName="sidebar-filter-control"
+                labelClassName="sidebar-filter-label"
+                label={
+                  <>
+                    <span
+                      className="filter-dot"
+                      aria-hidden="true"
+                      style={{ "--dot-color": item.color || "#c9c9d1" } as React.CSSProperties}
+                    />
+                    <span className="filter-label">{item.label}</span>
+                  </>
                 }
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(item.checked)}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    onToggle?.(section.title, item.label, event.target.checked)
-                  }
-                />
-                <span className="filter-dot" aria-hidden="true" />
-                <span className="filter-label">{item.label}</span>
-              </label>
+              />
             ))}
           </div>
         </div>

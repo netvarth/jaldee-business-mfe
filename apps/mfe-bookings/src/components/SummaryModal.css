@@ -20,6 +20,12 @@
   gap: 16px;
 }
 
+.summary-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .summary-header {
   display: flex;
   justify-content: space-between;

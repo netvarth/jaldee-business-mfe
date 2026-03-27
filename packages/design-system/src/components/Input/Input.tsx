@@ -9,14 +9,15 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   prefix?: ReactNode;
   suffix?: ReactNode;
   icon?:   ReactNode;
+  containerClassName?: string;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, hint, prefix, suffix, icon, id, ...props }, ref) => {
+  ({ className, containerClassName, label, error, hint, prefix, suffix, icon, id, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className="flex flex-col gap-1.5 w-full">
+      <div className={cn("flex flex-col gap-1.5 w-full", containerClassName)}>
         {label && (
           <label
             htmlFor={inputId}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@jaldee/design-system';
 import './ListView.css';
 
 const getInitials = (value = '') =>
@@ -62,14 +63,16 @@ export default function SummaryModal({ summary, onClose }) {
           </div>
           <div className="summary-header-actions">
             <span className="summary-time-pill">{timeLabel}</span>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="md"
               className="summary-close"
               onClick={onClose}
               aria-label="Close summary"
             >
               ×
-            </button>
+            </Button>
           </div>
         </div>
         <div className="summary-total">

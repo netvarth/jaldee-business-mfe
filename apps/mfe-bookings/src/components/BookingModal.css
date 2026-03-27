@@ -26,6 +26,12 @@
   font-size: 0.88rem;
 }
 
+.booking-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .booking-modal-header {
   display: flex;
   justify-content: space-between;
@@ -152,6 +158,10 @@
   color: #1f2040;
 }
 
+.editable-input-field {
+  width: 100%;
+}
+
 .editable-input:focus {
   outline: none;
   box-shadow: inset 0 -2px 0 #5f4bcd;
@@ -222,6 +232,10 @@
 
 .user-icon span {
   color: #fff;
+}
+
+.user-icon img {
+  display: none;
 }
 
 .notes-card {

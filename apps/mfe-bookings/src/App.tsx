@@ -7,14 +7,13 @@ import FiltersOverlay from './components/FiltersOverlay';
 import ListView from './components/ListView';
 import SidebarFilters from './components/SidebarFilters';
 import BookingModal from './components/BookingModal';
-import DatePickerPopover from './components/DatePickerPopover';
 import {
   fetchCalendarData,
   getSavedFilters,
   getSidebarFilters,
   listViewGroups,
 } from './services/calendarService';
-import { PageErrorBoundary } from '../../../packages/design-system/src/components/PageErrorBoundary/PageErrorBoundary';
+import { DatePickerPopover, PageErrorBoundary as DesignSystemPageErrorBoundary } from '@jaldee/design-system';
 import TopBar from './components/TopBar';
 import SummaryModal from './components/SummaryModal';
 
@@ -337,33 +336,33 @@ function App() {
       <Route
         path="bookings/day/:year/:month/:day"
         element={
-          <PageErrorBoundary>
+          <DesignSystemPageErrorBoundary>
             <DashboardView defaultView="day" />
-          </PageErrorBoundary>
+          </DesignSystemPageErrorBoundary>
         }
       />
       <Route
         path="bookings/week/:year/:month/:day"
         element={
-          <PageErrorBoundary>
+          <DesignSystemPageErrorBoundary>
             <DashboardView defaultView="week" />
-          </PageErrorBoundary>
+          </DesignSystemPageErrorBoundary>
         }
       />
       <Route
         path="bookings/month/:year/:month"
         element={
-          <PageErrorBoundary>
+          <DesignSystemPageErrorBoundary>
             <DashboardView defaultView="month" />
-          </PageErrorBoundary>
+          </DesignSystemPageErrorBoundary>
         }
       />
       <Route
         path="bookings/list"
         element={
-          <PageErrorBoundary>
+          <DesignSystemPageErrorBoundary>
             <DashboardView startLayout="list" defaultView="week" />
-          </PageErrorBoundary>
+          </DesignSystemPageErrorBoundary>
         }
       />
       <Route

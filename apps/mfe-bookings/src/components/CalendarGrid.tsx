@@ -1,3 +1,4 @@
+import { Button } from "@jaldee/design-system";
 import "./CalendarGrid.css";
 
 type CalendarViewMode = "day" | "week" | "month" | string;
@@ -363,8 +364,10 @@ const renderDayEmptySlot = (
   day: CalendarResource,
   onEventClick?: (payload: unknown) => void
 ) => (
-  <button
+  <Button
     className="day-empty-button"
+    variant="ghost"
+    size="sm"
     style={{
       borderColor: day.color,
       background: toRgba(day.color, 0.08),
@@ -382,7 +385,7 @@ const renderDayEmptySlot = (
     <span className="day-empty-icon" aria-hidden="true">
       +
     </span>
-  </button>
+  </Button>
 );
 
 const renderMonthCell = (
@@ -415,9 +418,11 @@ const renderMonthCell = (
           const accentColor = group.color || "#6c32ff";
 
           return (
-            <button
+            <Button
               key={`${day.id}-${slotKey}-${group.label}`}
               type="button"
+              variant="ghost"
+              size="sm"
               className="day-calendar-chip"
               style={{ borderColor: accentColor, background: "#fff" }}
               onClick={() => {
@@ -477,7 +482,7 @@ const renderMonthCell = (
                   {group.count === 1 ? "Booking" : "Bookings"}
                 </span>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -499,8 +504,10 @@ const renderMonthCell = (
 
       return (
         <div className="day-summary-grid">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className="day-summary-card day-summary-overflow"
             style={{
               borderColor: palette[0] ?? "#dfe2f2",
@@ -520,7 +527,7 @@ const renderMonthCell = (
                 <span key={index} style={{ background: color }} />
               ))}
             </div>
-          </button>
+          </Button>
         </div>
       );
     }
@@ -531,9 +538,11 @@ const renderMonthCell = (
           const summaryColor = group.color || "#6c32ff";
 
           return (
-            <button
+            <Button
               key={`${day.id}-${group.calendar}`}
               type="button"
+              variant="ghost"
+              size="sm"
               className="day-summary-card"
               style={{
                 borderColor: summaryColor,
@@ -552,7 +561,7 @@ const renderMonthCell = (
               <span className="day-summary-action" aria-hidden="true">
                 +
               </span>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -565,9 +574,11 @@ const renderMonthCell = (
         const color = getBookingColor(booking, viewBy);
 
         return (
-          <button
+          <Button
             key={`${booking.patient}-${booking.time}`}
             className="booking-chip"
+            variant="ghost"
+            size="sm"
             style={{
               borderColor: color,
               background: toRgba(color, 0.12),
@@ -582,7 +593,7 @@ const renderMonthCell = (
             <span className="kebab" aria-hidden="true">
               ...
             </span>
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -754,9 +765,11 @@ const renderWeekSlot = (
   return (
     <div className="week-slot-stack">
       {sortedEntries.map((entry) => (
-        <button
+        <Button
           key={`${slot.timeLabel}-${entry.id}`}
           type="button"
+          variant="ghost"
+          size="sm"
           className="week-slot-entry"
           style={{
             borderColor: entry.color,
@@ -771,7 +784,7 @@ const renderWeekSlot = (
           <span className="week-slot-action" aria-hidden="true">
             +
           </span>
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -831,8 +844,10 @@ export default function CalendarGrid({
                 }`}
               >
                 <div className="month-day-number">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     className="month-day-select"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -846,14 +861,16 @@ export default function CalendarGrid({
                         {day.date.toLocaleString("en-US", { month: "short" })}
                       </span>
                     )}
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="month-day-bookings">
                   {day.bookings?.map((booking, index) => (
-                    <button
+                    <Button
                       key={`${booking.label}-${index}`}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       className="month-day-booking"
                       style={{
                         borderColor: booking.color,
@@ -870,7 +887,7 @@ export default function CalendarGrid({
                       <span className="month-day-booking-action" aria-hidden="true">
                         +
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -919,9 +936,9 @@ export default function CalendarGrid({
             <div className="calendar-header" style={{ gridTemplateColumns: columnTemplate }}>
               <div className="calendar-timezone">
                 <div className="calendar-header-left">
-                  <button className="header-icon" type="button" aria-label="Menu">
+                  <Button className="header-icon" type="button" variant="ghost" size="sm" aria-label="Menu">
                     ƒ~ø
-                  </button>
+                  </Button>
                 </div>
                 <div className="timezone-label">{isWeekView ? "Slots" : "UTC +05:30"}</div>
               </div>
@@ -1003,9 +1020,11 @@ export default function CalendarGrid({
                                   {bookings.map((booking) => {
                                     const detailColor = getBookingColor(booking, viewBy);
                                     return (
-                                      <button
+                                      <Button
                                         key={`${booking.patient}-${booking.time}`}
                                         className="detail-card"
+                                        variant="ghost"
+                                        size="sm"
                                         style={{ borderColor: detailColor }}
                                         onClick={() => onEventClick?.(booking)}
                                         type="button"
@@ -1028,7 +1047,7 @@ export default function CalendarGrid({
                                           {booking.timeRange || booking.time}
                                         </span>
                                         <span className="detail-service">{booking.service}</span>
-                                      </button>
+                                      </Button>
                                     );
                                   })}
                                 </div>

@@ -42,6 +42,14 @@
   background: #f5f0ff;
 }
 
+.filter-list-indicator {
+  margin-top: 2px;
+}
+
+.filter-list-label strong {
+  display: block;
+}
+
 .filter-list p {
   margin: 0;
   font-size: 0.8rem;

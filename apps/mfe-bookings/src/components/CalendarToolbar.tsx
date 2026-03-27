@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { Badge, Button, Select } from "@jaldee/design-system";
 import "./CalendarToolbar.css";
 
 type CalendarView = "day" | "week" | "month";
@@ -79,39 +80,39 @@ export default function CalendarToolbar({
 
   const displayLabel =
     dateLabel ||
-    (calendarView === "month"
-      ? "Month view"
-      : calendarView === "week"
-      ? "Week overview"
-      : "Daily window");
+    (calendarView === "month" ? "Month view" : calendarView === "week" ? "Week overview" : "Daily window");
 
   const activeLayout = layoutOptions.find((option) => option.key === layout) || layoutOptions[0];
 
   return (
     <div className="calendar-toolbar">
       <div className="toolbar-left">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="md"
           className="sidebar-toggle"
           onClick={onSidebarToggle}
           aria-label="Toggle sidebar"
         >
           <span aria-hidden="true">|||</span>
-        </button>
+        </Button>
 
         <div className="layout-card">
           <div className="layout-icons">
             {layoutOptions.map((option) => (
-              <button
+              <Button
                 key={option.key}
                 type="button"
+                variant="ghost"
+                size="md"
                 className={`layout-icon-btn ${layout === option.key ? "active" : ""}`}
                 onClick={() => onLayoutChange(option.key)}
                 aria-label={option.label}
                 aria-pressed={layout === option.key}
               >
                 <span className="layout-icon">{option.icon}</span>
-              </button>
+              </Button>
             ))}
           </div>
           <span className="layout-card-label">{activeLayout.label}</span>
@@ -122,64 +123,71 @@ export default function CalendarToolbar({
         <div className="view-controls">
           <div className="view-buttons">
             {views.map((view) => (
-              <button
+              <Button
                 key={view}
                 id={`view-${view}`}
                 type="button"
+                variant={calendarView === view ? "secondary" : "outline"}
+                size="md"
                 className={calendarView === view ? "active" : ""}
                 onClick={() => onCalendarViewChange(view)}
               >
                 {view.charAt(0).toUpperCase() + view.slice(1)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         <div className="date-range">
-          <button type="button" className="flat" aria-label="Previous" onClick={onPrevDate}>
+          <Button type="button" variant="ghost" size="md" className="flat" aria-label="Previous" onClick={onPrevDate}>
             &lt;
-          </button>
-          <button type="button" className="caret" ref={dateButtonRef} onClick={handleDateToggle}>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="md"
+            className="caret"
+            ref={dateButtonRef}
+            onClick={handleDateToggle}
+          >
             <span className="date-label-text">{displayLabel}</span>
             <span className="date-icon" aria-hidden="true">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect
-                  x="1.25"
-                  y="3.25"
-                  width="13.5"
-                  height="11.5"
-                  rx="2"
-                  stroke="currentColor"
-                  strokeWidth="1.25"
-                />
+                <rect x="1.25" y="3.25" width="13.5" height="11.5" rx="2" stroke="currentColor" strokeWidth="1.25" />
                 <path d="M1.25 5.25h13.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
                 <path d="M4.25 0.75v4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
                 <path d="M11.75 0.75v4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
               </svg>
             </span>
-          </button>
-          <button type="button" className="flat" aria-label="Next" onClick={onNextDate}>
+          </Button>
+          <Button type="button" variant="ghost" size="md" className="flat" aria-label="Next" onClick={onNextDate}>
             &gt;
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="toolbar-right">
-        <select value={viewBy} onChange={(event) => onViewByChange(event.target.value)}>
-          {viewByOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={viewBy}
+          onChange={(event) => onViewByChange(event.target.value)}
+          options={viewByOptions.map((option) => ({ value: option, label: option }))}
+          containerClassName="toolbar-select"
+          className="toolbar-select-control"
+          aria-label="View by"
+        />
 
-        <button type="button" className="filter-button" onClick={onFilterOpen}>
-          Filter {filterSummary ? <span className="filter-pill">{filterSummary}</span> : null}
-        </button>
+        <Button type="button" variant="secondary" className="filter-button" onClick={onFilterOpen}>
+          <span>Filter</span>
+          {filterSummary ? (
+            <Badge variant="neutral" className="filter-pill">
+              {filterSummary}
+            </Badge>
+          ) : null}
+        </Button>
 
-        <button type="button" className="action-button">
+        <Button type="button" variant="primary" className="action-button">
           + Create
-        </button>
+        </Button>
       </div>
     </div>
   );
