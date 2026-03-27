@@ -11,6 +11,23 @@
   overflow: hidden;
 }
 
+.calendar-grid .header-icon,
+.calendar-grid .day-empty-button,
+.calendar-grid .day-calendar-chip,
+.calendar-grid .day-summary-card,
+.calendar-grid .booking-chip,
+.calendar-grid .week-slot-entry,
+.calendar-grid .month-day-select,
+.calendar-grid .month-day-booking,
+.calendar-grid .detail-card {
+  min-width: 0;
+  min-height: 0;
+  font-weight: inherit;
+  line-height: inherit;
+  box-shadow: none !important;
+  text-transform: none;
+}
+
 .calendar-empty {
   padding: 0;
   color: #6a6d82;
@@ -147,7 +164,7 @@
 .header-icon {
   width: 34px;
   height: 34px;
-  border: 1px solid #dbdded;
+  border: 1px solid #dbdded !important;
   border-radius: 10px;
   background: #f9f9fb;
   cursor: pointer;
@@ -155,6 +172,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0 !important;
 }
 
 .calendar-title {
@@ -351,42 +369,63 @@
   flex-wrap: wrap;
   gap: 6px;
   justify-content: center;
+  align-items: flex-start;
   width: 100%;
 }
 .day-summary-card {
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid #dfe2f2;
-  padding: 4px;
+  padding: 3px 3px 4px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1px !important;
+  color: #2c2e3a;
+  font-size: 0.55rem;
+  min-width: 48px;
+  width: 48px;
+  max-width: 48px;
+  height: auto;
+  flex: 0 0 48px;
+  line-height: 1;
+  box-shadow: none;
+}
+.day-summary-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  color: #2c2e3a;
-  font-size: 0.55rem;
-  min-height: 42px;
-  min-width: 40px;
-  width: 60px;
-  max-width: 60px;
+  gap: 1px;
+  width: 100%;
 }
-.day-summary-card strong {
-  font-size: 0.75rem;
+.day-summary-count {
+  font-size: 0.78rem;
   font-weight: 700;
+  color: #243047;
+  line-height: 1;
 }
-.day-summary-card span {
-  font-size: 0.56rem;
+.day-summary-label {
+  font-size: 0.46rem;
   color: #5f6274;
+  text-align: center;
+  line-height: 1.05;
+  max-width: 100%;
+  white-space: nowrap;
 }
 .day-summary-action {
   border-radius: 50%;
-  border: 1px solid currentColor;
-  width: 16px;
-  height: 16px;
+  border: 1px solid #7d8193;
+  width: 14px;
+  height: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  margin-top: 1px;
+  font-size: 0.72rem;
+  line-height: 1;
+  margin-top: 2px;
+  color: #4e5569;
+  background: transparent;
 }
 .day-summary-overflow {
   border: none;
@@ -395,9 +434,9 @@
   width: 120px;
   max-width: 120px;
   min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   height: 90%;
 }
 .day-summary-burst {
@@ -443,16 +482,16 @@
 
 .week-slot-entry {
   width: 100%;
-  padding: 2px 4px;
-  display: flex;
-  align-items: center;
+  padding: 2px 4px !important;
+  display: flex !important;
+  align-items: center !important;
   gap: 4px;
   cursor: pointer;
   font-size: 0.72rem;
   color: #2c2e3a;
-  border: 1px solid #e5e7f3;
+  border: 1px solid #e5e7f3 !important;
   border-radius: 10px;
-  background: #fff;
+  background: #fff !important;
   box-shadow: 0 6px 12px rgba(15, 20, 40, 0.06);
   flex-wrap: nowrap;
   margin: 0;
@@ -537,18 +576,25 @@
 .booking-chip {
   width: 100%;
   border: 1px solid #dfe2f2;
-  border-left-width: 4px;
-  border-radius: 10px;
+  border-left-width: 4px !important;
+  border-radius: 9px;
   background: #fff;
-  padding: 6px 8px;
+  padding: 6px 10px;
   text-align: left;
   cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
   gap: 8px;
   color: #2c2e3a;
   font-size: 0.8rem;
+}
+
+.calendar-grid.day-view .booking-chip {
+  border-left-width: 1px !important;
+  border-radius: 8px;
+  min-height: 40px;
+  box-shadow: none;
 }
 
 .booking-chip-text {
@@ -625,22 +671,23 @@
 
 .day-empty-button {
   border: 1px dashed rgba(108, 50, 255, 0.35);
-  background: rgba(108, 50, 255, 0.05);
+  background: #fff;
   width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 32px;
+  border-radius: 10px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   cursor: pointer;
-  padding: 0;
+  padding: 0 !important;
   margin: auto;
 }
 
 .day-empty-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #6c32ff;
+  line-height: 1;
 }
 
 .detail-stack {
@@ -651,16 +698,16 @@
 }
 
 .detail-card {
-  border: 1px solid #e5e7f3;
+  border: 1px solid #e5e7f3 !important;
   border-radius: 12px;
-  background: #fff;
+  background: #fff !important;
   width: 100%;
-  padding: 12px;
+  padding: 12px !important;
   text-align: left;
   cursor: pointer;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   gap: 6px;
 }
 
@@ -737,10 +784,10 @@
 }
 
 .month-view-grid {
-  padding: 24px;
+  padding: 18px 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .month-view-header {
@@ -761,18 +808,18 @@
 .month-view-body {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .month-day-card {
   border: 1px solid #eceef6;
   border-radius: 16px;
-  padding: 10px;
-  min-height: 150px;
+  padding: 8px 8px 10px;
+  min-height: 124px;
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   box-shadow: 0 6px 16px rgba(15, 20, 40, 0.08);
 }
 
@@ -782,7 +829,8 @@
 }
 
 .month-day-card.today {
-  box-shadow: 0 0 0 2px rgba(108, 50, 255, 0.35);
+  border-color: rgba(108, 50, 255, 0.45);
+  box-shadow: 0 0 0 2px rgba(108, 50, 255, 0.18);
 }
 
 .month-day-number {
@@ -794,15 +842,20 @@
 }
 
 .month-day-select {
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: flex-start;
+  border: none !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: flex-start !important;
   gap: 6px;
-  padding: 0;
+  padding: 0 !important;
   cursor: pointer;
   color: inherit;
   font-size: inherit;
+  justify-content: flex-start !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
 }
 
 .month-day-month-label {
@@ -814,7 +867,7 @@
 .month-day-bookings {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   flex: 1;
 }
 
@@ -822,20 +875,26 @@
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 6px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  min-height: 28px !important;
   font-size: 0.72rem;
   font-weight: 600;
   color: #2c2e3a;
   background: #fff;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 20, 40, 0.04);
 }
 .month-day-booking-count {
   flex: 1;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .month-day-card.month-day-placeholder {
@@ -856,9 +915,11 @@
 }
 
 .month-day-booking-action {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #6c32ff;
+  margin-left: 8px;
+  line-height: 1;
 }
 .day-calendar-stack {
   display: grid;
@@ -875,16 +936,17 @@
   border-radius: 4px;
   border: 1px solid #e7e9f4;
   background: #fff;
-  padding: 2px;
+  padding: 2px !important;
   box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
   overflow: hidden;
   font-size: 0.65rem;
   color: #151723;
   text-align: left;
+  gap: 0 !important;
 }
 
 .day-calendar-chip-header {
