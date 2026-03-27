@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Suspense }                from "react";
-import LoginPage                   from "./pages/LoginPage";
-import ProtectedRoute              from "./auth/ProtectedRoute";
-import ShellLayout                 from "./layout/ShellLayout";
-import { HealthMFE }               from "./mfes/HealthMFE";
+import { Suspense } from "react";
+import LoginPage from "./pages/LoginPage";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import ShellLayout from "./layout/ShellLayout";
+import { HealthMFE } from "./mfes/HealthMFE";
+import { BookingsMFE } from "./mfes/BookingsMFE";
+import "./App.css";
 
 function HomePage() {
   return (
@@ -13,6 +15,7 @@ function HomePage() {
     </div>
   );
 }
+
 
 export default function App() {
   return (
@@ -24,14 +27,25 @@ export default function App() {
           <ProtectedRoute>
             <ShellLayout>
               <Routes>
-                <Route path="/home"     element={<HomePage />} />
+                <Route path="/home" element={<HomePage />} />
                 <Route path="/health/*" element={
                   <Suspense fallback={
                     <div style={{ padding: "32px", color: "#6B7280" }}>
                       Loading Health...
                     </div>
                   }>
-                    <HealthMFE />
+                    <div className="health-wrapper">
+                      <HealthMFE />
+                    </div>
+                  </Suspense>
+                } />
+                <Route path="/bookings/*" element={
+                  <Suspense fallback={
+                    <div style={{ padding: "32px", color: "#6B7280" }}>
+                      Loading Bookings...
+                    </div>
+                  }>
+                    <BookingsMFE />
                   </Suspense>
                 } />
                 <Route path="*" element={<Navigate to="/home" replace />} />

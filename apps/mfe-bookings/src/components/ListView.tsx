@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import './SummaryModal.css';
+import './ListView.css';
 
 const getInitials = (value = '') =>
   value

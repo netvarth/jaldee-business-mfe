@@ -48,7 +48,6 @@ export default function ShellLayout({ children }: Props) {
             style={{
               flex: 1,
               overflowY: "auto",
-              padding: "28px 32px",
               background: "#F3F4F6",
               minHeight: 0,
             }}

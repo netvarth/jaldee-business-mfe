@@ -17,6 +17,11 @@ export default defineConfig(({ mode }) => {
             from: "vite",
             externalType: "url",
           },
+          mfe_bookings: {
+            external: `${env.VITE_BOOKINGS_URL}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          },
         },
       }),
     ],
