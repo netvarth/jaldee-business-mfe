@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: "esnext",
-      minify: false,
+      minify: "esbuild",
     },
     server: {
       port: 3000,

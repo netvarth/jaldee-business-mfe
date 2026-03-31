@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Init api client once with base URL
   useEffect(() => {
-    const baseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
     initApiClient(baseURL);
     setApiClientAuthHandlers({
       onSessionExpired: () => clearAuth(),

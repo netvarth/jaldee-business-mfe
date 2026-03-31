@@ -29,12 +29,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page-shell">
+    <div className="login-page">
       <div className="login-card">
-        <div className="login-card-header">
-          <div className="login-card-badge">✦</div>
-          <h1>Jaldee Business</h1>
-          <p>Sign in to your account</p>
+        <div className="login-header">
+          <div className="login-badge">✦</div>
+          <h1 className="login-title">Jaldee Business</h1>
+          <p className="login-subtitle">Sign in to your account</p>
         </div>
 
         <form className="login-form" onSubmit={handleLogin}>
@@ -45,7 +45,7 @@ export default function LoginPage() {
             onChange={(event) => setEmail(event.target.value)}
             fullWidth
             containerClassName="login-field"
-            className="login-input"
+            placeholder="Enter your email"
           />
 
           <Input
@@ -55,13 +55,14 @@ export default function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             fullWidth
             containerClassName="login-field"
-            className="login-input"
+            placeholder="Enter your password"
           />
 
           {error && <div className="login-error">{error}</div>}
 
           <Button
             type="submit"
+            variant="primary"
             size="lg"
             loading={loading}
             disabled={loading}

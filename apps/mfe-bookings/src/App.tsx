@@ -1,12 +1,10 @@
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import CalendarGrid from './components/CalendarGrid';
 import CalendarToolbar from './components/CalendarToolbar';
 import FiltersOverlay from './components/FiltersOverlay';
-import ListView from './components/ListView';
 import SidebarFilters from './components/SidebarFilters';
-import BookingModal from './components/BookingModal';
 import {
   fetchCalendarData,
   getSavedFilters,
@@ -15,7 +13,10 @@ import {
 } from './services/calendarService';
 import { DatePickerPopover, PageErrorBoundary as DesignSystemPageErrorBoundary } from '@jaldee/design-system';
 import TopBar from './components/TopBar';
-import SummaryModal from './components/SummaryModal';
+
+const ListView = lazy(() => import('./components/ListView'));
+const BookingModal = lazy(() => import('./components/BookingModal'));
+const SummaryModal = lazy(() => import('./components/SummaryModal'));
 
 const pad = (value: number | string) => String(value).padStart(2, '0');
 
@@ -299,7 +300,9 @@ function DashboardView({
                 onDateSelect={handleDateSelection}
               />
             ) : (
-              <ListView groups={listViewGroups} />
+              <Suspense fallback={<div className="shell-loading">Loading list view...</div>}>
+                <ListView groups={listViewGroups} />
+              </Suspense>
             )}
           </div>
 
@@ -315,14 +318,18 @@ function DashboardView({
       </div>
 
       {selectedEvent && (
-        <BookingModal booking={selectedEvent} onClose={() => setSelectedEvent(null)} />
+        <Suspense fallback={null}>
+          <BookingModal booking={selectedEvent} onClose={() => setSelectedEvent(null)} />
+        </Suspense>
       )}
 
       {selectedSummary && (
-        <SummaryModal
-          summary={selectedSummary}
-          onClose={() => setSelectedSummary(null)}
-        />
+        <Suspense fallback={null}>
+          <SummaryModal
+            summary={selectedSummary}
+            onClose={() => setSelectedSummary(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

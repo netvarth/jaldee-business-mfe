@@ -1,27 +1,28 @@
-.login-page-shell {
+.login-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px 20px;
-  background: #f3f4f6;
+  background: var(--color-surface-alt);
 }
 
 .login-card {
   width: 100%;
   max-width: 418px;
-  padding: 40px 40px 38px;
-  background: #ffffff;
+  padding: 38px 40px;
+  border: 1px solid var(--color-border);
   border-radius: 16px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
 }
 
-.login-card-header {
+.login-header {
   margin-bottom: 32px;
   text-align: center;
 }
 
-.login-card-badge {
+.login-badge {
   width: 48px;
   height: 48px;
   display: inline-flex;
@@ -30,22 +31,22 @@
   margin-bottom: 14px;
   border-radius: 12px;
   background: linear-gradient(180deg, #6d28d9 0%, #5b21d1 100%);
-  color: #ffffff;
+  color: #fff;
   font-size: 22px;
   box-shadow: 0 10px 24px rgba(91, 33, 209, 0.24);
 }
 
-.login-card-header h1 {
+.login-title {
   margin: 0;
-  color: #1e1b4b;
+  color: var(--color-text-primary);
   font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
 }
 
-.login-card-header p {
+.login-subtitle {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 1.35;
 }
@@ -53,63 +54,23 @@
 .login-form {
   display: flex;
   flex-direction: column;
-  width: 100%;
   align-items: stretch;
 }
 
 .login-field {
+  width: 100%;
   margin-bottom: 18px;
-  width: 100%;
-  flex: 0 0 auto;
-}
-
-.login-input {
-  display: block;
-  width: 100%;
-  min-height: 44px;
-  border-radius: 10px;
-}
-
-.login-form > * {
-  width: 100%;
-}
-
-.login-field > * {
-  width: 100%;
 }
 
 .login-error {
   margin-bottom: 16px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--color-danger-subtle);
+  color: var(--color-danger);
   font-size: 13px;
 }
 
 .login-submit {
-  width: 100%;
   margin-top: 10px;
-  min-height: 44px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #6d28d9 0%, #5b21d1 100%);
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.login-submit:hover,
-.login-submit:focus-visible,
-.login-submit:active {
-  background: linear-gradient(90deg, #6d28d9 0%, #5b21d1 100%);
-}
-
-.login-field label {
-  margin-bottom: 6px;
-  color: #1f2937;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.login-card {
-  border: 1px solid #e5e7eb;
 }
