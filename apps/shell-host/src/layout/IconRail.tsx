@@ -1,15 +1,17 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import type { ProductKey } from "../store/shellStore";
 
 const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: string }> = {
-  health: { label: "Health", icon: "🏥" },
-  bookings: { label: "Bookings", icon: "📅" },
-  karty: { label: "Karty", icon: "🛒" },
-  finance: { label: "Finance", icon: "💰" },
-  lending: { label: "Lending", icon: "🏦" },
-  hr: { label: "HR", icon: "👥" },
-  ai: { label: "AI", icon: "✨" },
+  health: { label: "Health", icon: "\u{1F3E5}" },
+  bookings: { label: "Bookings", icon: "\u{1F4C5}" },
+  golderp: { label: "Gold ERP", icon: "\u{1F4BC}" },
+  karty: { label: "Karty", icon: "\u{1F6D2}" },
+  finance: { label: "Finance", icon: "\u{1F4B0}" },
+  lending: { label: "Lending", icon: "\u{1F3E6}" },
+  hr: { label: "HR", icon: "\u{1F465}" },
+  ai: { label: "AI", icon: "\u2728" },
 };
 
 export default function IconRail() {
@@ -20,6 +22,21 @@ export default function IconRail() {
   const setActiveProduct = useShellStore((s) => s.setActiveProduct);
 
   if (!account) return null;
+
+  useEffect(() => {
+    const matchedProduct = account.licensedProducts.find((key) =>
+      location.pathname.startsWith(`/${key}`)
+    );
+
+    if (matchedProduct) {
+      setActiveProduct(matchedProduct);
+      return;
+    }
+
+    if (location.pathname === "/home" || location.pathname === "/") {
+      setActiveProduct(null);
+    }
+  }, [account.licensedProducts, location.pathname, setActiveProduct]);
 
   function handleNavigate(key: ProductKey) {
     setActiveProduct(key);
@@ -44,13 +61,13 @@ export default function IconRail() {
         className="icon-rail-logo"
         onClick={handleHome}
       >
-        ✦
+        {"\u2726"}
       </div>
 
       <RailItem
         id="icon-rail-item-home"
         product="default"
-        icon="🏠"
+        icon={"\u{1F3E0}"}
         label="Home"
         active={location.pathname === "/home"}
         onClick={handleHome}
@@ -78,7 +95,7 @@ export default function IconRail() {
       <RailItem
         id="icon-rail-item-more"
         product="default"
-        icon="⋯"
+        icon={"\u22EF"}
         label="More"
         active={false}
         onClick={() => {}}
@@ -87,7 +104,7 @@ export default function IconRail() {
       <RailItem
         id="icon-rail-item-settings"
         product="default"
-        icon="⚙️"
+        icon={"\u2699"}
         label="Settings"
         active={location.pathname.startsWith("/settings")}
         onClick={() => navigate("/settings")}

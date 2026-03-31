@@ -1,20 +1,16 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
-import { authService } from "../services/authService";
+import { authService, clearStoredCredentials, setStoredCredentials } from "../services/authService";
 import type { LoginRequest, SessionResponse } from "../services/authService";
-
-// ─── Types ────────────────────────────────────────────
 
 interface AuthContextValue {
   isAuthenticated: boolean;
-  isLoading:       boolean;
-  login:           (payload: LoginRequest) => Promise<SessionResponse>;
-  logout:          () => void;
+  isLoading: boolean;
+  login: (payload: LoginRequest) => Promise<SessionResponse>;
+  logout: () => Promise<void>;
 }
-
-// ─── Context ──────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -24,11 +20,7 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
-// ─── Provider ─────────────────────────────────────────
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isLoading, setIsLoading] = useState(true);
-
   const {
     setAuth,
     clearAuth,
@@ -36,14 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLocation,
     isAuthenticated,
     accessToken,
+    hasHydrated,
   } = useShellStore();
 
-  // Init api client once with base URL
   useEffect(() => {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
     initApiClient(baseURL);
     setApiClientAuthHandlers({
-      onSessionExpired: () => clearAuth(),
+      onSessionExpired: () => {
+        clearStoredCredentials();
+        clearAuth();
+      },
     });
   }, [clearAuth]);
 
@@ -54,31 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [accessToken]);
 
-  // On boot — check if session is still valid
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  async function checkSession() {
-    setIsLoading(true);
-    try {
-      const { user, account, locations, token } =
-        await authService.checkSession();
-
-      setAuth(user, account, token ?? "");
-
-      if (locations?.length) {
-        setAvailableLocations(locations);
-        setLocation(locations[0]);
-      }
-    } catch {
-      clearAuth();
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   async function login(payload: LoginRequest) {
+    setStoredCredentials(payload);
     const response = await authService.login(payload);
 
     if (response.multiFactorAuthenticationRequired) {
@@ -88,23 +60,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user, account, locations, token } = response;
 
     setAuth(user, account, token ?? "");
+    setAvailableLocations(locations ?? []);
 
     if (locations?.length) {
-      setAvailableLocations(locations);
       setLocation(locations[0]);
     }
 
     return response;
   }
 
-  function logout() {
-    authService.logout();
-    clearAuth();
+  async function logout() {
+    try {
+      await authService.logout();
+    } finally {
+      clearStoredCredentials();
+      clearAuth();
+    }
   }
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, isLoading, login, logout }}
+      value={{ isAuthenticated, isLoading: !hasHydrated, login, logout }}
     >
       {children}
     </AuthContext.Provider>

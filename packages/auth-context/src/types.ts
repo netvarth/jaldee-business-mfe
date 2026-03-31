@@ -3,6 +3,7 @@
 export type ProductKey =
   | "health"
   | "bookings"
+  | "golderp"
   | "karty"
   | "finance"
   | "lending"

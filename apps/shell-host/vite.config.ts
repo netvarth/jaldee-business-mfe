@@ -22,6 +22,11 @@ export default defineConfig(({ mode }) => {
             from: "vite",
             externalType: "url",
           },
+          mfe_golderp: {
+            external: `${env.VITE_GOLDERP_URL}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          },
         },
       }),
     ],
@@ -39,6 +44,14 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3000,
+      proxy: {
+        "/api": {
+          target: "https://scale.jaldee.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/api/, "/v1/rest"),
+        },
+      },
     },
   };
 });

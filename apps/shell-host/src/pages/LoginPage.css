@@ -74,3 +74,13 @@
 .login-submit {
   margin-top: 10px;
 }
+
+.login-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.login-secondary-action {
+  min-width: 110px;
+}

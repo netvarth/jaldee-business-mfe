@@ -5,6 +5,9 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import ShellLayout from "./layout/ShellLayout";
 import { HealthMFE } from "./mfes/HealthMFE";
 import { BookingsMFE } from "./mfes/BookingsMFE";
+import { GoldErpMFE } from "./mfes/GoldErpMFE";
+import { useShellStore } from "./store/shellStore";
+import { getStoredCredentials } from "./services/authService";
 import "./App.css";
 
 function HomePage() {
@@ -18,9 +21,22 @@ function HomePage() {
 
 
 export default function App() {
+  const isAuthenticated = useShellStore((s) => s.isAuthenticated);
+  const hasHydrated = useShellStore((s) => s.hasHydrated);
+  const hasStoredSession = Boolean(getStoredCredentials());
+
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={
+          hasHydrated && (isAuthenticated || hasStoredSession) ? (
+            <Navigate to="/home" replace />
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
       <Route
         path="/*"
         element={
@@ -42,6 +58,13 @@ export default function App() {
                     <div className="shell-loading">Loading Bookings...</div>
                   }>
                     <BookingsMFE />
+                  </Suspense>
+                } />
+                <Route path="/golderp/*" element={
+                  <Suspense fallback={
+                    <div className="shell-loading">Loading Gold ERP...</div>
+                  }>
+                    <GoldErpMFE />
                   </Suspense>
                 } />
                 <Route path="*" element={<Navigate to="/home" replace />} />

@@ -127,13 +127,8 @@ export function createApiClient(baseURL: string): AxiosInstance {
       const status = error.response?.status;
       const originalRequest = error.config as RequestConfigWithMeta | undefined;
 
-      if (error.response?.data) {
-        delete error.response.data;
-      }
-
       if (status === 401 || status === 419) {
         const canRefresh =
-          _authMode === "token" &&
           Boolean(_refreshSessionHandler) &&
           originalRequest &&
           !originalRequest._retry &&
@@ -145,7 +140,7 @@ export function createApiClient(baseURL: string): AxiosInstance {
           try {
             const refreshResult = await refreshSessionOnce();
 
-            if (refreshResult?.authToken !== undefined) {
+            if (_authMode === "token" && refreshResult?.authToken !== undefined) {
               _authToken = refreshResult.authToken;
               originalRequest.headers["Authorization"] = `Bearer ${refreshResult.authToken}`;
             }
