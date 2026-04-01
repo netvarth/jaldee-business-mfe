@@ -84,7 +84,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           className={cn(
             "ds-select",
             fullWidth && "w-full",
-            isMultiple ? "min-h-[88px] py-2" : "h-9",
+            isMultiple ? "ds-select--multiple min-h-[88px] py-2" : "ds-select--single h-[38px]",
             className
           )}
           {...props}

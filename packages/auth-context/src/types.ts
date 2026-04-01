@@ -108,6 +108,13 @@ export interface TelemetryService {
   trackPageView: (path: string) => void;
 }
 
+export interface MFEHttpBridge {
+  get: <T>(url: string, config?: unknown) => Promise<{ data: T }>;
+  post: <T>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
+  put: <T>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
+  delete: <T>(url: string, config?: unknown) => Promise<{ data: T }>;
+}
+
 // ─── MFE Error ────────────────────────────────────────
 
 export interface MFEError {
@@ -143,6 +150,7 @@ export interface MFEProps {
   // Communication
   eventBus: EventBus;
   onError: (error: MFEError) => void;
+  api?: MFEHttpBridge;
 
   // Telemetry
   telemetry: TelemetryService;

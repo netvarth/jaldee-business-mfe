@@ -14,6 +14,7 @@ export interface StepperItem {
 
 export interface PageHeaderProps {
   title: string;
+  subtitle?: string;
   actions?: ReactNode;
   loading?: boolean;
   back?: { label: string; href: string };
@@ -26,6 +27,7 @@ export interface PageHeaderProps {
 
 export function PageHeader({
   title,
+  subtitle,
   actions,
   loading,
   back,
@@ -80,12 +82,19 @@ export function PageHeader({
               className="h-7 w-48 animate-pulse rounded bg-gray-100"
             />
           ) : (
-            <h1
-              data-testid="page-header-title"
-              className="m-0 text-2xl font-bold text-gray-900"
-            >
-              {title}
-            </h1>
+            <>
+              <h1
+                data-testid="page-header-title"
+                className="m-0 text-2xl font-bold text-gray-900"
+              >
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="m-0 text-sm text-gray-500">
+                  {subtitle}
+                </p>
+              )}
+            </>
           )}
         </div>
 

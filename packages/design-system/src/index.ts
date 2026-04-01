@@ -7,12 +7,19 @@ export type { ButtonProps }               from "./components/Button/Button";
 
 export { Badge }                          from "./components/Badge/Badge";
 export type { BadgeProps }                from "./components/Badge/Badge";
+export { BarChart }                       from "./components/BarChart/BarChart";
+export type { BarChartProps, BarChartDatum } from "./components/BarChart/BarChart";
+export { PieChart }                       from "./components/PieChart/PieChart";
+export type { PieChartProps, PieChartDatum } from "./components/PieChart/PieChart";
 
 export { Avatar, AvatarGroup }            from "./components/Avatar/Avatar";
 export type { AvatarProps, AvatarGroupProps } from "./components/Avatar/Avatar";
 
 export { Divider }                        from "./components/Divider/Divider";
 export type { DividerProps }              from "./components/Divider/Divider";
+
+export { Icon }                           from "./components/Icon/Icon";
+export type { IconProps, IconName }       from "./components/Icon/Icon";
 
 // Layer 2 — Form Controls
 export { Input }                          from "./components/Input/Input";

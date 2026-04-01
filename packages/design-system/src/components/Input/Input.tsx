@@ -42,16 +42,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             className={cn(
               fullWidth && "block w-full",
-              "min-h-[44px] px-[10px] py-[10px] text-left text-[var(--text-base)] leading-normal align-middle",
-              "rounded-[10px] border bg-[var(--color-surface)] text-[var(--color-text-primary)]",
-              "border-[#cfd6e4] placeholder:text-[var(--color-text-disabled)]",
-              "focus:outline-none focus:border-[#b9c3d8] focus:ring-0",
+              "min-h-[38px] px-4 py-2 text-left text-[var(--text-sm)] leading-normal align-middle",
+              "rounded-xl border bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] text-[var(--color-text-primary)]",
+              "border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] placeholder:text-[var(--color-text-secondary)]",
+              "shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+              "focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]",
               "disabled:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed",
               "transition-colors duration-100",
               error  && "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-0",
-              icon   && "pl-10",
-              prefix && "pl-10",
-              suffix && "pr-10",
+              icon   && "pl-11",
+              prefix && "pl-11",
+              suffix && "pr-11",
               className
             )}
             aria-invalid={!!error}

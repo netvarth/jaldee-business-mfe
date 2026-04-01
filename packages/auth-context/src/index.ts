@@ -13,6 +13,7 @@ export type {
   ThemeContext,
   EventBus,
   TelemetryService,
+  MFEHttpBridge,
   MFEError,
   MFEProps,
   MFELifecycle,

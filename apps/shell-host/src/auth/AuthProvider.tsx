@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect } from "react";
 import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasHydrated,
   } = useShellStore();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
     initApiClient(baseURL);
     setApiClientAuthHandlers({
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [clearAuth]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setApiClientContext({
       authMode: "session",
       authToken: accessToken ?? "",

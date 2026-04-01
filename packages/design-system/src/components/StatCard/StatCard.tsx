@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
-import { cn }             from "../../utils";
+import { cn } from "../../utils";
 
 export interface StatCardProps {
-  label:      string;
-  value:      string | number;
-  trend?:     { value: number; direction: "up" | "down"; label?: string };
-  icon?:      ReactNode;
-  accent?:    "indigo" | "emerald" | "amber" | "rose" | "slate";
+  label: string;
+  value: string | number;
+  trend?: { value: number; direction: "up" | "down"; label?: string };
+  icon?: ReactNode;
+  accent?: "indigo" | "emerald" | "amber" | "rose" | "slate";
+  layout?: "default" | "compact";
   className?: string;
-  loading?:   boolean;
+  loading?: boolean;
 }
 
 const accentStyles = {
@@ -40,50 +41,65 @@ export function StatCard({
   trend,
   icon,
   accent = "indigo",
+  layout = "default",
   className,
   loading,
 }: StatCardProps) {
   const accentStyle = accentStyles[accent];
+  const isCompact = layout === "compact";
 
   return (
     <div
       data-testid="stat-card"
-      className={cn(
-        "bg-white rounded-lg border p-4",
-        accentStyle.frame,
-        className
-      )}
+      className={cn("rounded-lg border bg-white p-4", accentStyle.frame, className)}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-gray-500 font-medium m-0 mb-1">{label}</p>
-          {loading ? (
-            <div className="h-7 w-24 rounded bg-gray-100 animate-pulse" />
-          ) : (
-            <p className="text-2xl font-bold text-gray-900 m-0">{value}</p>
-          )}
-          {trend && !loading && (
-            <div className="flex items-center gap-1 mt-1">
-              <span className={cn(
-                "text-xs font-semibold",
-                trend.direction === "up" ? "text-green-600" : "text-red-600"
-              )}>
-                {trend.direction === "up" ? "↑" : "↓"} {Math.abs(trend.value)}%
-              </span>
-              {trend.label && (
-                <span className="text-xs text-gray-400">{trend.label}</span>
-              )}
-            </div>
-          )}
-        </div>
+      <div className={cn(isCompact ? "flex items-center gap-4" : "flex items-start justify-between")}>
         {icon && (
-          <div className={cn(
-            "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-lg",
-            accentStyle.icon
-          )}>
+          <div
+            className={cn(
+              "flex shrink-0 items-center justify-center rounded-lg text-lg",
+              isCompact ? "h-10 w-10" : "h-9 w-9",
+              accentStyle.icon,
+            )}
+          >
             {icon}
           </div>
         )}
+
+        <div className="min-w-0 flex-1">
+          {isCompact ? (
+            <>
+              {loading ? (
+                <div className="h-7 w-16 animate-pulse rounded bg-gray-100" />
+              ) : (
+                <p className="m-0 text-[length:var(--text-lg)] font-bold leading-[var(--line-height-tight)] text-gray-900">{value}</p>
+              )}
+              <p className="m-0 mt-1 text-[length:var(--text-sm)] font-medium leading-[var(--line-height-base)] text-gray-500">{label}</p>
+            </>
+          ) : (
+            <>
+              <p className="m-0 mb-1 text-[length:var(--text-xs)] font-medium leading-[var(--line-height-base)] text-gray-500">{label}</p>
+              {loading ? (
+                <div className="h-7 w-24 animate-pulse rounded bg-gray-100" />
+              ) : (
+                <p className="m-0 text-[length:var(--text-xl)] font-bold leading-[var(--line-height-tight)] text-gray-900">{value}</p>
+              )}
+              {trend && !loading && (
+                <div className="mt-1 flex items-center gap-1">
+                  <span
+                    className={cn(
+                      "text-[length:var(--text-xs)] font-semibold leading-[var(--line-height-base)]",
+                      trend.direction === "up" ? "text-green-600" : "text-red-600",
+                    )}
+                  >
+                    {trend.direction === "up" ? "↑" : "↓"} {Math.abs(trend.value)}%
+                  </span>
+                  {trend.label && <span className="text-[length:var(--text-xs)] leading-[var(--line-height-base)] text-gray-400">{trend.label}</span>}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

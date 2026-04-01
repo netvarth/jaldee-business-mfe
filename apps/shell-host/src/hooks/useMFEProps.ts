@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import { eventBus } from "../eventBus/eventBus";
+import { apiClient } from "@jaldee/api-client";
 import type { MFEProps } from "@jaldee/auth-context";
 
 export function useBuildMFEProps(
@@ -28,6 +29,12 @@ export function useBuildMFEProps(
     location:   activeLocation,
     navigate:   (route: string) => navigate(route),
     eventBus,
+    api: {
+      get: (url, config) => apiClient.get(url, config),
+      post: (url, data, config) => apiClient.post(url, data, config),
+      put: (url, data, config) => apiClient.put(url, data, config),
+      delete: (url, config) => apiClient.delete(url, config),
+    },
     onError:    (error) => {
       console.error(`[${mfeName}] MFE Error:`, error);
     },

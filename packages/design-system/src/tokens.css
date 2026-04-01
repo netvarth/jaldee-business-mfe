@@ -34,6 +34,14 @@
   --color-info:            #2563EB;
   --color-info-subtle:     #DBEAFE;
 
+  /* Chart */
+  --color-chart-1:         var(--color-primary-active);
+  --color-chart-2:         var(--color-success);
+  --color-chart-3:         var(--color-warning);
+  --color-chart-grid:      var(--color-border);
+  --color-chart-axis:      var(--color-border-strong);
+  --color-chart-label:     var(--color-text-secondary);
+
   /* ─── Nav ─────────────────────────────────── */
   --color-nav-bg:          #FFFFFF;
   --color-nav-active-bg:   #EDE9FE;
