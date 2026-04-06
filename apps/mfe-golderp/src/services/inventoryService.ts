@@ -17,7 +17,7 @@ export const inventoryService = {
     const statuses = ["IN_STOCK", "RESERVED", "SOLD", "RETURNED", "TRANSFERRED"];
     const grouped = await Promise.all(
       statuses.map(async (status) => {
-        const res = await httpClient.get<JewelleryTag[]>(`provider/golderp/tag/status/${status}`);
+        const res = await httpClient.get<JewelleryTag[]>(`/provider/golderp/tag/status/${status}`);
         return res.data;
       }),
     );
@@ -31,7 +31,7 @@ export const inventoryService = {
   },
 
   async getTagDetails(tagUid: string) {
-    const res = await httpClient.get<JewelleryTag>(`provider/golderp/tag/${tagUid}`);
+    const res = await httpClient.get<JewelleryTag>(`/provider/golderp/tag/${tagUid}`);
     return res.data;
   },
 
@@ -39,12 +39,12 @@ export const inventoryService = {
     const statuses = ["PENDING", "IN_TRANSIT", "RECEIVED", "CANCELLED"];
     const grouped = await Promise.all(
       statuses.map(async (status) => {
-        const transfersRes = await httpClient.get<StockTransfer[]>(`provider/golderp/transfer/status/${status}`);
+        const transfersRes = await httpClient.get<StockTransfer[]>(`/provider/golderp/transfer/status/${status}`);
         const transfers = transfersRes.data;
         return Promise.all(
           transfers.map(async (transfer) => {
             try {
-              const linesRes = await httpClient.get<TransferLine[]>(`provider/golderp/transfer/${transfer.transferUid}/lines`);
+              const linesRes = await httpClient.get<TransferLine[]>(`/provider/golderp/transfer/${transfer.transferUid}/lines`);
               return { ...transfer, lines: linesRes.data };
             } catch {
               return transfer;

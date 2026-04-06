@@ -38,7 +38,7 @@ export function Switch({ label, checked, onChange, disabled, className }: Switch
         />
       </button>
       {label && (
-        <span className="text-sm text-gray-700 select-none">{label}</span>
+        <span className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)] select-none">{label}</span>
       )}
     </label>
   );

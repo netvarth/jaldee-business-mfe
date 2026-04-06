@@ -3,7 +3,7 @@ import type { EntityStatus, MetalRate } from "@/lib/gold-erp-types";
 
 export const rateService = {
   async getCurrentRate(metalUid: string, purityUid: string) {
-    const res = await httpClient.get<MetalRate>(`provider/golderp/rate/current/${metalUid}/${purityUid}`);
+    const res = await httpClient.get<MetalRate>(`/provider/golderp/rate/current/${metalUid}/${purityUid}`);
     return res.data;
   },
 

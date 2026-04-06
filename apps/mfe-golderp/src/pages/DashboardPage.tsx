@@ -71,18 +71,18 @@ type DashboardOrderRow = {
 };
 
 const quickActions = [
-  { label: "Sales", path: "/sales", icon: "cart" as IconName, tone: "emerald" },
-  { label: "Tags", path: "/tags", icon: "tag" as IconName, tone: "blue" },
-  { label: "Purchases", path: "/purchase", icon: "box" as IconName, tone: "amber" },
-  { label: "GRN Entry", path: "/grn", icon: "packagePlus" as IconName, tone: "violet" },
-  { label: "Master Data", path: "/masters", icon: "database" as IconName, tone: "indigo" },
-  { label: "Items", path: "/catalogue", icon: "list" as IconName, tone: "indigo" },
-  { label: "Exchange", path: "/old-gold", icon: "refresh" as IconName, tone: "rose" },
-  { label: "Online Orders", path: "/online-orders", icon: "globe" as IconName, tone: "blue" },
-  { label: "Metal Rate", path: "/rates", icon: "trend" as IconName, tone: "violet" },
-  { label: "Stock", path: "/inventory", icon: "warehouse" as IconName, tone: "amber" },
-  { label: "Reports", path: "/reports", icon: "chart" as IconName, tone: "emerald" },
-  { label: "Audit Log", path: "/audit", icon: "history" as IconName, tone: "slate" },
+  { label: "Sales", path: "sales", icon: "cart" as IconName, tone: "emerald" },
+  { label: "Tags", path: "tags", icon: "tag" as IconName, tone: "blue" },
+  { label: "Purchases", path: "purchase", icon: "box" as IconName, tone: "amber" },
+  { label: "GRN Entry", path: "grn", icon: "packagePlus" as IconName, tone: "violet" },
+  { label: "Master Data", path: "masters", icon: "database" as IconName, tone: "indigo" },
+  { label: "Items", path: "catalogue", icon: "list" as IconName, tone: "indigo" },
+  { label: "Exchange", path: "old-gold", icon: "refresh" as IconName, tone: "rose" },
+  { label: "Online Orders", path: "online-orders", icon: "globe" as IconName, tone: "blue" },
+  { label: "Metal Rate", path: "rates", icon: "trend" as IconName, tone: "violet" },
+  { label: "Stock", path: "inventory", icon: "warehouse" as IconName, tone: "amber" },
+  { label: "Reports", path: "reports", icon: "chart" as IconName, tone: "emerald" },
+  { label: "Audit Log", path: "audit", icon: "history" as IconName, tone: "slate" },
 ] as const;
 
 const toneClasses = {
@@ -477,7 +477,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="m-0 text-base font-semibold text-slate-900">Recent Sale Orders</h2>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/sales")}>
+            <Button variant="ghost" size="sm" onClick={() => navigate("sales")}>
               View All
             </Button>
           </div>

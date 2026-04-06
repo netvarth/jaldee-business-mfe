@@ -22,7 +22,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-[var(--text-sm)] font-semibold text-[var(--color-text-primary)]"
+            className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]"
           >
             {label}
           </label>
@@ -43,7 +43,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             className={cn(
               fullWidth && "block w-full",
               "min-h-[38px] px-4 py-2 text-left text-[var(--text-sm)] leading-normal align-middle",
-              "rounded-xl border bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] text-[var(--color-text-primary)]",
+              "rounded-[var(--radius-control)] border bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] text-[var(--color-text-primary)]",
               "border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] placeholder:text-[var(--color-text-secondary)]",
               "shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
               "focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]",

@@ -26,7 +26,7 @@ export interface ItemPayload {
 
 export const catalogueService = {
   async getItems() {
-    const res = await httpClient.get<JewelleryItem[]>("provider/golderp/item");
+    const res = await httpClient.get<JewelleryItem[]>("/provider/golderp/item");
     return res.data;
   },
 

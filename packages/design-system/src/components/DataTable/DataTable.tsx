@@ -218,7 +218,7 @@ export function DataTable<T extends object>({
           <thead>
             <tr className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
               {selection && (
-                <th scope="col" className="w-12 px-6 py-3 text-left">
+                <th scope="col" className="w-12 px-5 py-2.5 text-left">
                   <input
                     type="checkbox"
                     data-testid={`${testId}-select-all`}
@@ -255,7 +255,7 @@ export function DataTable<T extends object>({
                     style={{ width: col.width }}
                     onClick={() => col.sortable && handleSort(String(col.key))}
                     className={cn(
-                      "px-6 py-3 text-xs font-medium whitespace-nowrap",
+                      "px-5 py-2.5 text-xs font-medium whitespace-nowrap",
                       "text-[var(--color-text-secondary)]",
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
@@ -297,13 +297,13 @@ export function DataTable<T extends object>({
                   className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)]"
                 >
                   {selection && (
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-3">
                       <Skeleton height={12} width="16px" />
                     </td>
                   )}
 
                   {visibleColumns.map((col) => (
-                    <td key={String(col.key)} className="px-6 py-4">
+                    <td key={String(col.key)} className="px-5 py-3">
                       <Skeleton height={12} width="80%" />
                     </td>
                   ))}
@@ -342,7 +342,7 @@ export function DataTable<T extends object>({
                   >
                     {selection && (
                       <td
-                        className="px-6 py-4"
+                        className="px-5 py-3"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
@@ -364,7 +364,7 @@ export function DataTable<T extends object>({
                         key={String(col.key)}
                         data-testid={`${testId}-cell-${rowId}-${String(col.key)}`}
                         className={cn(
-                          "px-6 py-4 align-middle text-[var(--color-text-primary)]",
+                          "px-5 py-3 align-middle text-[var(--color-text-primary)]",
                           col.align === "center" && "text-center",
                           col.align === "right" && "text-right",
                           col.sticky === "left" && "sticky left-0 z-10 bg-inherit",
@@ -386,9 +386,9 @@ export function DataTable<T extends object>({
           {visibleColumns.some((col) => col.footer) && (
             <tfoot>
               <tr className="border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_30%,white)] font-semibold">
-                {selection && <td className="px-6 py-4" />}
+                {selection && <td className="px-5 py-3" />}
                 {visibleColumns.map((col) => (
-                  <td key={String(col.key)} className="px-6 py-4">
+                  <td key={String(col.key)} className="px-5 py-3">
                     {col.footer?.()}
                   </td>
                 ))}
@@ -558,7 +558,7 @@ export function DataTableToolbar({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={searchPlaceholder}
           className={cn(
-            "h-[38px] w-full rounded-xl border pl-10 pr-4 text-sm",
+            "h-[38px] w-full rounded-[var(--radius-control)] border pl-10 pr-4 text-sm",
             "bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)]",
             "border-[color:color-mix(in_srgb,var(--color-border)_78%,white)]",
             "text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)]",

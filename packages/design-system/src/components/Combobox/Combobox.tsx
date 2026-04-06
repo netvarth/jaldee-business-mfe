@@ -136,7 +136,7 @@ export function Combobox({
   return (
     <div ref={wrapperRef} className="flex w-full flex-col gap-1.5">
       {label && (
-        <label htmlFor={comboId} className="text-sm font-semibold text-gray-700">
+        <label htmlFor={comboId} className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">
           {label}
         </label>
       )}

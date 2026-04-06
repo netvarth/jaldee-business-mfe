@@ -118,7 +118,9 @@ function normalizeCountResponse(response: unknown) {
 
 export const purchaseService = {
   async getPurchaseOrders() {
-    const res = await httpClient.get<PurchaseOrder[]>("provider/golderp/purchase/po");
+    console.log("[purchaseService] requesting purchase orders");
+    const res = await httpClient.get<PurchaseOrder[]>("/provider/golderp/purchase/po");
+    console.log("[purchaseService] purchase orders response", res?.data);
     return res.data;
   },
 

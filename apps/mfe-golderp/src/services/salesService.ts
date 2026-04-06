@@ -12,7 +12,7 @@ async function fetchSalesOrderHeaders() {
   const statuses: OrderStatus[] = ["DRAFT", "CONFIRMED", "INVOICED", "CANCELLED"];
   const grouped = await Promise.all(
     statuses.map(async (status) => {
-      const res = await httpClient.get<SalesOrder[]>(`provider/golderp/sales/order/status/${status}`);
+      const res = await httpClient.get<SalesOrder[]>(`/provider/golderp/sales/order/status/${status}`);
       return res.data;
     }),
   );

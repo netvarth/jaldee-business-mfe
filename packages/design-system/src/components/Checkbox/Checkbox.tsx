@@ -47,7 +47,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           {label && (
             <label
               htmlFor={checkboxId}
-              className={cn("text-sm text-gray-700 cursor-pointer select-none", labelClassName)}
+              className={cn("text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)] cursor-pointer select-none", labelClassName)}
             >
               {label}
             </label>

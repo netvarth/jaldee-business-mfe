@@ -12,7 +12,7 @@ import type {
 
 export const masterDataService = {
   async getMetals() {
-    const res = await httpClient.get<Metal[]>("provider/golderp/master/metal");
+    const res = await httpClient.get<Metal[]>("/provider/golderp/master/metal");
     return res.data;
   },
 

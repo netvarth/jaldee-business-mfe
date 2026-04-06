@@ -9,7 +9,6 @@ import {
   SalesOrderLine,
   StockTransfer,
 } from "@/lib/gold-erp-types";
-import { jsPDF } from "jspdf";
 
 export function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -126,72 +125,17 @@ export function flattenExportRows(input: unknown): Record<string, unknown>[] {
 }
 
 export function downloadPdfDocument(title: string, rows: Record<string, unknown>[]) {
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "pt",
-    format: "a4",
-  });
-
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 40;
-  let cursorY = 44;
-
-  const addPageIfNeeded = (requiredHeight: number) => {
-    if (cursorY + requiredHeight <= pageHeight - 40) {
-      return;
-    }
-
-    doc.addPage();
-    cursorY = 44;
-  };
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(title, marginX, cursorY);
-  cursorY += 20;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Generated on ${new Date().toLocaleString()}`, marginX, cursorY);
-  cursorY += 24;
-
-  if (!rows.length) {
-    doc.setFontSize(11);
-    doc.text("No rows available for export.", marginX, cursorY);
-    doc.save(`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`);
+  const printWindow = window.open("", "_blank", "width=960,height=720");
+  if (!printWindow) {
     return;
   }
 
-  rows.forEach((row, index) => {
-    const entries = Object.entries(row);
-    const requiredHeight = 24 + entries.length * 14;
-    addPageIfNeeded(requiredHeight);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(`Row ${index + 1}`, marginX, cursorY);
-    cursorY += 14;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    entries.forEach(([key, value]) => {
-      const renderedValue =
-        value === null || value === undefined
-          ? "-"
-          : typeof value === "object"
-            ? JSON.stringify(value)
-            : String(value);
-      const wrapped = doc.splitTextToSize(`${key}: ${renderedValue}`, pageWidth - marginX * 2);
-      doc.text(wrapped, marginX, cursorY);
-      cursorY += wrapped.length * 12;
-    });
-
-    cursorY += 10;
-  });
-
-  doc.save(`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`);
+  const html = buildHtmlTableMarkup(title, rows);
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
 }
 
 function buildHtmlTableMarkup(title: string, rows: Record<string, unknown>[]) {

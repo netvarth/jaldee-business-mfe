@@ -16,7 +16,10 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full")}>
         {label && (
-          <label htmlFor={textareaId} className="text-sm font-semibold text-gray-700">
+          <label
+            htmlFor={textareaId}
+            className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]"
+          >
             {label}
           </label>
         )}
@@ -26,7 +29,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           rows={rows}
           className={cn(
             fullWidth && "w-full",
-            "rounded-md border border-gray-200 bg-white text-gray-800 text-sm px-3 py-2",
+            "rounded-[var(--radius-control)] border border-gray-200 bg-white text-gray-800 text-sm px-3 py-2",
             "placeholder:text-gray-400 resize-y",
             "focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
             "disabled:bg-gray-50 disabled:cursor-not-allowed",

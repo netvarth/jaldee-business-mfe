@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import type { MFEProps } from "@jaldee/auth-context";
 
 interface MFELifecycleModule {
@@ -12,53 +13,50 @@ interface MFELoaderProps {
 }
 
 export function MFELoader({ remote, props }: MFELoaderProps) {
+  const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const mountedRef = useRef(false);
-  const loadingRef = useRef(false);
+  const lifecycleRef = useRef<MFELifecycleModule | null>(null);
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
-    if (!containerRef.current || mountedRef.current || loadingRef.current) {
+    if (!containerRef.current) {
       return;
     }
 
     let cancelled = false;
-    let unmountFn: ((container: HTMLElement) => void) | null = null;
-    loadingRef.current = true;
+    const currentLoadId = ++loadIdRef.current;
+
+    if (lifecycleRef.current) {
+      lifecycleRef.current.unmount(containerRef.current);
+      lifecycleRef.current = null;
+    }
 
     remote()
       .then((loadedModule) => {
-        if (cancelled) {
-          loadingRef.current = false;
+        if (cancelled || loadIdRef.current !== currentLoadId) {
           return;
         }
 
         const lifecycleModule = "default" in loadedModule ? loadedModule.default : loadedModule;
-        const { mount, unmount } = lifecycleModule;
-
         console.log("[MFELoader] mounting", props.mfeName);
         if (!containerRef.current) {
-          loadingRef.current = false;
           return;
         }
-        mount(containerRef.current, props);
-        unmountFn = unmount;
-        mountedRef.current = true;
-        loadingRef.current = false;
+        lifecycleModule.mount(containerRef.current, props);
+        lifecycleRef.current = lifecycleModule;
       })
       .catch((err) => {
-        loadingRef.current = false;
         console.error("[MFELoader] failed to load remote", err);
       });
 
     return () => {
       cancelled = true;
-      if (containerRef.current && unmountFn) {
-        unmountFn(containerRef.current);
-        mountedRef.current = false;
+      if (containerRef.current && lifecycleRef.current && loadIdRef.current === currentLoadId) {
+        lifecycleRef.current.unmount(containerRef.current);
+        lifecycleRef.current = null;
       }
-      loadingRef.current = false;
     };
-  }, []);
+  }, [location.pathname, props, remote]);
 
   return (
     <div

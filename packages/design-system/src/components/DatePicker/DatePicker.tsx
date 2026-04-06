@@ -16,7 +16,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
     return (
       <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full")}>
         {label && (
-          <label htmlFor={inputId} className="text-sm font-semibold text-gray-700">
+          <label htmlFor={inputId} className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">
             {label}
           </label>
         )}

@@ -1,7 +1,8 @@
 .ds-select__label {
   color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--form-label-size);
+  line-height: var(--form-label-line-height);
+  font-weight: var(--form-label-weight);
 }
 
 .ds-select__required {
@@ -13,7 +14,7 @@
   width: 100%;
   padding: 0 16px;
   border: 1px solid color-mix(in srgb, var(--color-border) 78%, white);
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-surface) 92%, white);
   color: var(--color-text-primary);
   font-size: var(--text-sm);
