@@ -1,19 +1,43 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PageErrorBoundary } from "@jaldee/design-system";
-import PatientList from "./pages/patients/PatientList";
+import HealthCustomersPage from "./pages/customers/HealthCustomersPage";
 
 export default function App() {
   return (
     <Routes>
       <Route
-        path="patients"
+        path="customers"
         element={
           <PageErrorBoundary>
-            <PatientList />
+            <HealthCustomersPage />
           </PageErrorBoundary>
         }
       />
-      <Route path="*" element={<Navigate to="patients" replace />} />
+      <Route
+        path="customers/:recordId"
+        element={
+          <PageErrorBoundary>
+            <HealthCustomersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="patients"
+        element={
+          <PageErrorBoundary>
+            <HealthCustomersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="patients/:recordId"
+        element={
+          <PageErrorBoundary>
+            <HealthCustomersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route path="*" element={<Navigate to="customers" replace />} />
     </Routes>
   );
 }

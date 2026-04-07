@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useLayoutEffect } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
-import { authService, clearStoredCredentials, setStoredCredentials } from "../services/authService";
+import { authService, clearStoredCredentials, getStoredCredentials, setStoredCredentials } from "../services/authService";
 import type { LoginRequest, SessionResponse } from "../services/authService";
 
 interface AuthContextValue {
@@ -21,6 +21,9 @@ export function useAuth(): AuthContextValue {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const hasBootstrappedSessionRef = useRef(false);
+  const hasFetchedLocationsRef = useRef(false);
+  const locationsRequestInFlightRef = useRef(false);
   const {
     setAuth,
     clearAuth,
@@ -29,6 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated,
     accessToken,
     hasHydrated,
+    activeLocation,
+    availableLocations,
   } = useShellStore();
 
   useLayoutEffect(() => {
@@ -49,6 +54,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [accessToken]);
 
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      hasBootstrappedSessionRef.current = true;
+      return;
+    }
+
+    if (!hasHydrated || isAuthenticated) {
+      return;
+    }
+
+    if (hasBootstrappedSessionRef.current) {
+      return;
+    }
+
+    const storedCredentials = getStoredCredentials();
+    if (!storedCredentials) {
+      return;
+    }
+
+    hasBootstrappedSessionRef.current = true;
+    let cancelled = false;
+
+    authService.checkSession()
+      .then((response) => {
+        if (cancelled || response.multiFactorAuthenticationRequired) {
+          return;
+        }
+
+        const { user, account, locations, token } = response;
+        setAuth(user, account, token ?? "");
+        setAvailableLocations(locations ?? []);
+        if ((locations ?? []).length) {
+          setLocation(locations[0]);
+        }
+        hasFetchedLocationsRef.current = false;
+      })
+      .catch(() => {
+        if (!cancelled) {
+          hasBootstrappedSessionRef.current = false;
+          hasFetchedLocationsRef.current = false;
+          clearStoredCredentials();
+          clearAuth();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearAuth, hasHydrated, isAuthenticated, setAuth, setAvailableLocations, setLocation]);
+
   async function login(payload: LoginRequest) {
     setStoredCredentials(payload);
     const response = await authService.login(payload);
@@ -62,17 +121,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(user, account, token ?? "");
     setAvailableLocations(locations ?? []);
 
-    if (locations?.length) {
+    if ((locations ?? []).length) {
       setLocation(locations[0]);
     }
+    hasBootstrappedSessionRef.current = true;
+    hasFetchedLocationsRef.current = false;
 
     return response;
   }
+
+  useEffect(() => {
+    if (!hasHydrated || !isAuthenticated) {
+      return;
+    }
+
+    if (hasFetchedLocationsRef.current || locationsRequestInFlightRef.current) {
+      return;
+    }
+
+    locationsRequestInFlightRef.current = true;
+    let cancelled = false;
+
+    authService.getProviderLocations()
+      .then((locations) => {
+        if (cancelled || !locations.length) {
+          hasFetchedLocationsRef.current = true;
+          return;
+        }
+
+        setAvailableLocations(locations);
+
+        const nextActiveLocation =
+          activeLocation
+            ? locations.find((location) => location.id === activeLocation.id) ?? locations[0]
+            : locations[0];
+
+        if (!activeLocation || activeLocation.id !== nextActiveLocation.id) {
+          setLocation(nextActiveLocation);
+        }
+        hasFetchedLocationsRef.current = true;
+      })
+      .catch(() => {
+        hasFetchedLocationsRef.current = false;
+        // Keep the current fallback locations if the live fetch fails.
+      })
+      .finally(() => {
+        locationsRequestInFlightRef.current = false;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLocation, availableLocations.length, hasHydrated, isAuthenticated, setAvailableLocations, setLocation]);
 
   async function logout() {
     try {
       await authService.logout();
     } finally {
+      hasBootstrappedSessionRef.current = false;
+      hasFetchedLocationsRef.current = false;
+      locationsRequestInFlightRef.current = false;
       clearStoredCredentials();
       clearAuth();
     }

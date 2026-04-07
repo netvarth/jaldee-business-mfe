@@ -215,6 +215,16 @@ function normalizeLocations(input: unknown): BranchLocation[] {
   return [{ id: "loc-default", name: "Default Location", code: "DEF" }];
 }
 
+async function fetchProviderLocations(): Promise<BranchLocation[]> {
+  if (isMock) {
+    const { mockLocations } = await import("../mocks/mockAuth");
+    return mockLocations;
+  }
+
+  const response = await apiClient.get<unknown>("/provider/locations");
+  return normalizeLocations(response.data);
+}
+
 function normalizeSessionResponse(raw: unknown): SessionResponse {
   const candidate =
     typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
@@ -304,6 +314,7 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
 }
 
 export const authService = {
+  getProviderLocations: fetchProviderLocations,
 
   async checkSession(): Promise<SessionResponse> {
   if (isMock) {
