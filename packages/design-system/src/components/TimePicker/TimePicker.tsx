@@ -16,7 +16,7 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
     return (
       <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full")}>
         {label && (
-          <label htmlFor={inputId} className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">
+          <label htmlFor={inputId} className="ds-form-label">
             {label}
           </label>
         )}

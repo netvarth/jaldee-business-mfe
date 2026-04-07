@@ -8,7 +8,9 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build"
+    "build": "turbo run build",
+    "preview": "turbo run preview",
+    "serve": "turbo run serve"
   },
   "overrides": {
     "@types/react": "18.2.79",

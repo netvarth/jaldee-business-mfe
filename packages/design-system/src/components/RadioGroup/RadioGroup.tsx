@@ -37,7 +37,7 @@ export function RadioGroup({
   return (
     <div className={cn("flex flex-col gap-2", className)} data-testid="radio-group">
       {label && (
-        <span className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">{label}</span>
+        <span className="ds-form-label">{label}</span>
       )}
       <div className="flex flex-col gap-2">
         {options.map((opt) => (

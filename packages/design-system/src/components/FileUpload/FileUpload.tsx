@@ -34,7 +34,7 @@ export function FileUpload({
   return (
     <div className={cn("flex flex-col gap-1.5", className)} data-testid="file-upload">
       {label && (
-        <span className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">{label}</span>
+        <span className="ds-form-label">{label}</span>
       )}
 
       <div

@@ -1,8 +1,7 @@
 .ds-select__label {
-  color: var(--color-text-primary);
-  font-size: var(--form-label-size);
-  line-height: var(--form-label-line-height);
-  font-weight: var(--form-label-weight);
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
 }
 
 .ds-select__required {
@@ -11,8 +10,9 @@
 }
 
 .ds-select {
+  min-height: var(--control-height);
   width: 100%;
-  padding: 0 16px;
+  padding: var(--control-padding-y) var(--control-padding-x);
   border: 1px solid color-mix(in srgb, var(--color-border) 78%, white);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-surface) 92%, white);

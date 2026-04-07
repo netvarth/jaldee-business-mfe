@@ -62,7 +62,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
         data-state={isInvalid ? "error" : disabled ? "disabled" : "default"}
       >
         {label && (
-          <label htmlFor={selectId} className="ds-select__label">
+          <label htmlFor={selectId} className="ds-form-label ds-select__label">
             {label}
             {required && (
               <span aria-hidden="true" className="ds-select__required">

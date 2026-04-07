@@ -17,7 +17,8 @@
     "build": "tsc",
     "preview:dev": "vite --config vite.preview.config.ts",
     "preview:build": "vite build --config vite.preview.config.ts",
-    "preview": "vite preview --config vite.preview.config.ts --strictPort --port 4100"
+    "preview": "vite preview --config vite.preview.config.ts --strictPort --port 4100",
+    "serve": "vite preview --config vite.preview.config.ts --strictPort --port 4100"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.0.5",
