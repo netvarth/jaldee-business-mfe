@@ -75,14 +75,14 @@ export function Dialog({
             <div className={cn("mb-4 flex items-start justify-between", headerClassName)}>
               <div>
                 {title && (
-                  <Title data-testid="dialog-title" className="m-0 text-lg font-bold text-gray-900">
+                  <Title data-testid="dialog-title" className="m-0 text-[length:var(--text-lg)] font-bold text-gray-900">
                     {title}
                   </Title>
                 )}
                 {description && (
                   <Description
                     data-testid="dialog-description"
-                    className="m-0 mt-1 text-sm text-gray-500"
+                    className="m-0 mt-1 text-[length:var(--text-sm)] text-gray-500"
                   >
                     {description}
                   </Description>
@@ -94,7 +94,7 @@ export function Dialog({
                   onClick={onClose}
                   aria-label={closeLabel}
                   className={cn(
-                    "flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-lg text-gray-400 transition-colors hover:bg-gray-100",
+                    "flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-[length:var(--text-lg)] text-gray-400 transition-colors hover:bg-gray-100",
                     closeButtonClassName
                   )}
                 >

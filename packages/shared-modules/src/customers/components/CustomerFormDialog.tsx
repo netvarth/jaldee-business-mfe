@@ -74,14 +74,15 @@ export function CustomerFormDialog({
       description={`Maintain ${customerLabel.toLowerCase()} details and communication fields.`}
       size="lg"
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <Input label="First Name" value={values.firstName} onChange={(event) => setValues((current) => ({ ...current, firstName: event.target.value }))} />
-        <Input label="Last Name" value={values.lastName} onChange={(event) => setValues((current) => ({ ...current, lastName: event.target.value }))} />
-        <Input label={`${customerLabel} ID`} value={values.jaldeeId} onChange={(event) => setValues((current) => ({ ...current, jaldeeId: event.target.value }))} />
-        <Input label="Phone" value={values.phoneNo} onChange={(event) => setValues((current) => ({ ...current, phoneNo: event.target.value }))} />
-        <Input label="Country Code" value={values.countryCode} onChange={(event) => setValues((current) => ({ ...current, countryCode: event.target.value }))} />
-        <Input label="Email" value={values.email} onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))} />
+      <div className="grid gap-4 md:grid-cols-2" data-testid={isEditing ? "customer-edit-form" : "customer-create-form"}>
+        <Input data-testid="customer-form-first-name" label="First Name" value={values.firstName} onChange={(event) => setValues((current) => ({ ...current, firstName: event.target.value }))} />
+        <Input data-testid="customer-form-last-name" label="Last Name" value={values.lastName} onChange={(event) => setValues((current) => ({ ...current, lastName: event.target.value }))} />
+        <Input data-testid="customer-form-jaldee-id" label={`${customerLabel} ID`} value={values.jaldeeId} onChange={(event) => setValues((current) => ({ ...current, jaldeeId: event.target.value }))} />
+        <Input data-testid="customer-form-phone" label="Phone" value={values.phoneNo} onChange={(event) => setValues((current) => ({ ...current, phoneNo: event.target.value }))} />
+        <Input data-testid="customer-form-country-code" label="Country Code" value={values.countryCode} onChange={(event) => setValues((current) => ({ ...current, countryCode: event.target.value }))} />
+        <Input data-testid="customer-form-email" label="Email" value={values.email} onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))} />
         <Select
+          data-testid="customer-form-gender"
           label="Gender"
           value={values.gender}
           onChange={(event) => setValues((current) => ({ ...current, gender: event.target.value }))}
@@ -92,16 +93,16 @@ export function CustomerFormDialog({
             { label: "Other", value: "other" },
           ]}
         />
-        <Input label="Date of Birth" type="date" value={values.dob} onChange={(event) => setValues((current) => ({ ...current, dob: event.target.value }))} />
+        <Input data-testid="customer-form-dob" label="Date of Birth" type="date" value={values.dob} onChange={(event) => setValues((current) => ({ ...current, dob: event.target.value }))} />
       </div>
 
       <div className="mt-4">
-        <Textarea label="Address" rows={3} value={values.address} onChange={(event) => setValues((current) => ({ ...current, address: event.target.value }))} />
+        <Textarea data-testid="customer-form-address" label="Address" rows={3} value={values.address} onChange={(event) => setValues((current) => ({ ...current, address: event.target.value }))} />
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} loading={loading}>
+        <Button data-testid="customer-form-cancel" variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button data-testid="customer-form-submit" onClick={handleSubmit} loading={loading}>
           {isEditing ? "Save Changes" : `Create ${customerLabel}`}
         </Button>
       </DialogFooter>

@@ -42,6 +42,7 @@ export interface DataTableProps<T> {
     page: number;
     onChange: (page: number) => void;
     onPageSizeChange?: (size: number) => void;
+    mode?: "client" | "server";
   };
 
   selection?: {
@@ -147,7 +148,7 @@ export function DataTable<T extends object>({
   }, [data, sortKey, sortDir, sorting, visibleColumns]);
 
   const paginatedData = useMemo(() => {
-    if (!pagination) return sortedData;
+    if (!pagination || pagination.mode === "server") return sortedData;
 
     const start = (pagination.page - 1) * pagination.pageSize;
     const end = start + pagination.pageSize;
@@ -213,7 +214,7 @@ export function DataTable<T extends object>({
         <table
           role="table"
           data-testid={`${testId}-table`}
-          className={cn("w-full border-collapse text-sm", tableClassName)}
+          className={cn("w-full border-collapse text-[length:var(--text-sm)]", tableClassName)}
         >
           <thead>
             <tr className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
@@ -255,7 +256,7 @@ export function DataTable<T extends object>({
                     style={{ width: col.width }}
                     onClick={() => col.sortable && handleSort(String(col.key))}
                     className={cn(
-                      "px-5 py-2.5 text-xs font-medium whitespace-nowrap",
+                      "px-5 py-2.5 text-[length:var(--text-xs)] font-medium whitespace-nowrap",
                       "text-[var(--color-text-secondary)]",
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
@@ -403,7 +404,7 @@ export function DataTable<T extends object>({
           data-testid={`${testId}-pagination`}
           className="flex items-center justify-between border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[var(--color-surface)] px-6 py-3"
         >
-          <span className="text-xs text-[var(--color-text-secondary)]">
+          <span className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
             Showing {(currentPage - 1) * pagination.pageSize + 1} to{" "}
             {Math.min(currentPage * pagination.pageSize, pagination.total)} of{" "}
             {pagination.total} records
@@ -427,7 +428,7 @@ export function DataTable<T extends object>({
               page === "..." ? (
                 <span
                   key={`ellipsis-${i}`}
-                  className="w-8 text-center text-xs text-[var(--color-text-secondary)]"
+                  className="w-8 text-center text-[length:var(--text-xs)] text-[var(--color-text-secondary)]"
                 >
                   ...
                 </span>
@@ -462,7 +463,7 @@ export function DataTable<T extends object>({
                 value={pagination.pageSize}
                 onChange={(e) => pagination.onPageSizeChange?.(Number(e.target.value))}
                 className={cn(
-                  "ml-2 h-8 rounded-md border px-2 text-xs",
+                  "ml-2 h-8 rounded-md border px-2 text-[length:var(--text-xs)]",
                   "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-primary)]",
                   "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]"
                 )}
@@ -502,7 +503,7 @@ function PaginationBtn({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "min-w-[32px] h-8 px-2 rounded-md text-xs border transition-colors",
+        "min-w-[32px] h-8 rounded-md border px-2 text-[length:var(--text-xs)] transition-colors",
         "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]",
         active
           ? "font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] border-[var(--color-primary)]"
@@ -558,7 +559,7 @@ export function DataTableToolbar({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={searchPlaceholder}
           className={cn(
-            "h-[38px] w-full rounded-[var(--radius-control)] border pl-10 pr-4 text-sm",
+            "h-[38px] w-full rounded-[var(--radius-control)] border pl-10 pr-4 text-[length:var(--text-sm)]",
             "bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)]",
             "border-[color:color-mix(in_srgb,var(--color-border)_78%,white)]",
             "text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)]",
@@ -570,7 +571,7 @@ export function DataTableToolbar({
       </div>
 
       {typeof recordCount === "number" && (
-        <span className="text-sm text-[var(--color-text-secondary)]">
+        <span className="text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">
           {recordCount} records
         </span>
       )}

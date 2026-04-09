@@ -1,3 +1,4 @@
+export { KpiStrip } from "./components/KpiStrip";
 // Utils
 export { cn } from "./utils";
 

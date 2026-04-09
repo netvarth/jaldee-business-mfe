@@ -29,7 +29,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           rows={rows}
           className={cn(
             fullWidth && "w-full",
-            "rounded-[var(--radius-control)] border border-gray-200 bg-white text-gray-800 text-sm px-3 py-2",
+            "rounded-[var(--radius-control)] border border-gray-200 bg-white px-3 py-2 text-[length:var(--text-sm)] text-gray-800",
             "placeholder:text-gray-400 resize-y",
             "focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
             "disabled:bg-gray-50 disabled:cursor-not-allowed",
@@ -40,8 +40,8 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-invalid={!!error}
           {...props}
         />
-        {hint && !error && <p className="text-xs text-gray-500">{hint}</p>}
-        {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+        {hint && !error && <p className="text-[length:var(--text-xs)] text-gray-500">{hint}</p>}
+        {error && <p role="alert" className="text-[length:var(--text-xs)] text-red-600">{error}</p>}
       </div>
     );
   }

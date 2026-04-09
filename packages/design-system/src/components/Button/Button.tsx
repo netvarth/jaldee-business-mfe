@@ -20,10 +20,10 @@ const buttonVariantClasses = {
 } as const;
 
 const buttonSizeClasses = {
-  sm: "h-7 px-3 text-xs",
-  md: "h-9 px-4 text-sm",
-  lg: "h-11 px-5 text-base",
-  inline: "h-auto px-0 py-0 text-sm",
+  sm: "h-7 px-3 text-[length:var(--text-xs)]",
+  md: "h-9 px-4 text-[length:var(--text-sm)]",
+  lg: "h-11 px-5 text-[length:var(--text-base)]",
+  inline: "h-auto px-0 py-0 text-[length:var(--text-sm)]",
 } as const;
 
 type ButtonVariant = keyof typeof buttonVariantClasses;

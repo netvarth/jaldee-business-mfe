@@ -24,6 +24,7 @@ export interface SharedModuleRouteParams {
   locationId?: string | null;
   recordId?: string | null;
   view?: string | null;
+  subview?: string | null;
   tab?: string | null;
 }
 

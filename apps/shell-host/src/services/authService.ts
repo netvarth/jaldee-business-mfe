@@ -28,6 +28,15 @@ export interface EncryptedLoginRequest {
   otp?: string;
 }
 
+export interface AccountSettingsResponse {
+  enableTask?: boolean;
+  enableLead?: boolean;
+  enableMembership?: boolean;
+  enableCrmLead?: boolean;
+  enableItemGroup?: boolean;
+  enableSalesOrder?: boolean;
+}
+
 const isMock = import.meta.env.VITE_USE_MOCK === "true";
 const M_UNIQUE_ID_KEY = "mUniqueId";
 const LOGIN_CREDENTIALS_KEY = "ynw-credentials";
@@ -225,6 +234,82 @@ async function fetchProviderLocations(): Promise<BranchLocation[]> {
   return normalizeLocations(response.data);
 }
 
+function normalizeAccountSettings(raw: unknown): AccountSettingsResponse {
+  const candidate = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+
+  return {
+    enableTask: candidate.enableTask === true,
+    enableLead: candidate.enableLead === true,
+    enableMembership: candidate.enableMembership === true,
+    enableCrmLead: candidate.enableCrmLead === true,
+    enableItemGroup: candidate.enableItemGroup === true,
+    enableSalesOrder: candidate.enableSalesOrder === true,
+  };
+}
+
+async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
+  if (isMock) {
+    return {
+      enableTask: true,
+      enableLead: true,
+      enableMembership: true,
+      enableCrmLead: true,
+      enableItemGroup: false,
+      enableSalesOrder: true,
+    };
+  }
+
+  try {
+    const response = await apiClient.get<unknown>("provider/account/settings");
+    return normalizeAccountSettings(response.data);
+  } catch (error) {
+    console.warn("[authService] failed to fetch account settings", error);
+    return {};
+  }
+}
+
+function deriveEnabledModules(
+  enabledModules: AccountContext["enabledModules"],
+  settings: AccountSettingsResponse
+): AccountContext["enabledModules"] {
+  const modules = new Set<string>(
+    Array.isArray(enabledModules) ? enabledModules.map(String) : ["customers", "users", "reports", "settings"]
+  );
+
+  if (settings.enableMembership) {
+    modules.add("membership");
+  } else {
+    modules.delete("membership");
+  }
+
+  if (settings.enableTask) {
+    modules.add("tasks");
+  } else {
+    modules.delete("tasks");
+  }
+
+  if (settings.enableLead || settings.enableCrmLead) {
+    modules.add("leads");
+  } else {
+    modules.delete("leads");
+  }
+
+  return Array.from(modules) as AccountContext["enabledModules"];
+}
+
+async function normalizeLoginResponse(raw: unknown): Promise<SessionResponse> {
+  const normalized = normalizeSessionResponse(raw);
+  const settings = await fetchAccountSettings();
+
+  return {
+    ...normalized,
+    account: {
+      ...normalized.account,
+      enabledModules: deriveEnabledModules(normalized.account.enabledModules, settings),
+    },
+  };
+}
+
 function normalizeSessionResponse(raw: unknown): SessionResponse {
   const candidate =
     typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
@@ -364,7 +449,7 @@ export const authService = {
     console.log("[authService] raw encrypted login response:", res.data);
     const decryptedResponse = await decryptUsingAES256(res.data);
     const parsedResponse = JSON.parse(decryptedResponse) as unknown;
-    const normalizedResponse = normalizeSessionResponse(parsedResponse);
+    const normalizedResponse = await normalizeLoginResponse(parsedResponse);
     console.log("[authService] decrypted login response:", parsedResponse);
     console.log("[authService] normalized login response:", normalizedResponse);
     return normalizedResponse;

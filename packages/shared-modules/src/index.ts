@@ -41,3 +41,17 @@ export {
   useCreateCustomer,
   useUpdateCustomer,
 } from "./customers";
+
+export type { Membership, MembershipFilters, MembershipFormValues } from "./memberships";
+export {
+  MembershipsModule,
+  MembershipsList,
+  MembershipDetail,
+  MembershipFormDialog,
+  getMembershipsColumns,
+  useMembershipsList,
+  useMembershipDetail,
+  useCreateMembership,
+  useUpdateMembership,
+  useDeleteMembership,
+} from "./memberships";

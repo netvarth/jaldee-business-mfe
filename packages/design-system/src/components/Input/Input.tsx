@@ -30,12 +30,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
         <div className={cn("relative flex items-center", fullWidth && "w-full")}>
           {icon && (
-            <span className="absolute left-3 text-[var(--color-text-disabled)] pointer-events-none text-sm">
+            <span className="pointer-events-none absolute left-3 text-[length:var(--text-sm)] text-[var(--color-text-disabled)]">
               {icon}
             </span>
           )}
           {prefix && (
-            <span className="absolute left-3 text-[var(--color-text-secondary)] text-sm">{prefix}</span>
+            <span className="absolute left-3 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">{prefix}</span>
           )}
           <input
             ref={ref}
@@ -59,15 +59,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {suffix && (
-            <span className="absolute right-3 text-[var(--color-text-secondary)] text-sm">{suffix}</span>
+            <span className="absolute right-3 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">{suffix}</span>
           )}
         </div>
 
         {hint && !error && (
-          <p className="text-xs text-[var(--color-text-secondary)]">{hint}</p>
+          <p className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">{hint}</p>
         )}
         {error && (
-          <p role="alert" className="text-xs text-[var(--color-danger)]">{error}</p>
+          <p role="alert" className="text-[length:var(--text-xs)] text-[var(--color-danger)]">{error}</p>
         )}
       </div>
     );

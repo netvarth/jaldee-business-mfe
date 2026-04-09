@@ -25,8 +25,8 @@ export function DescriptionList({ items, columns = 2, className }: DescriptionLi
     >
       {items.map((item, i) => (
         <div key={i} className="flex flex-col gap-0.5">
-          <dt className="text-xs font-medium text-gray-500">{item.label}</dt>
-          <dd className="text-sm text-gray-800 font-medium m-0">{item.value}</dd>
+          <dt className="text-[length:var(--text-xs)] font-medium text-gray-500">{item.label}</dt>
+          <dd className="m-0 text-[length:var(--text-sm)] font-medium text-gray-800">{item.value}</dd>
         </div>
       ))}
     </dl>

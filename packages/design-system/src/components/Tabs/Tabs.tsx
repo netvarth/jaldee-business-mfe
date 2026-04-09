@@ -34,7 +34,7 @@ export function Tabs({ value, onValueChange, items, className }: TabsProps) {
           disabled={item.disabled}
           onClick={() => !item.disabled && onValueChange(item.value)}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium",
+            "flex items-center gap-2 px-4 py-2.5 text-[length:var(--text-sm)] font-medium",
             "border-b-2 -mb-px transition-colors duration-150",
             "cursor-pointer bg-transparent border-x-0 border-t-0",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
@@ -47,7 +47,7 @@ export function Tabs({ value, onValueChange, items, className }: TabsProps) {
           {item.label}
           {item.count !== undefined && (
             <span className={cn(
-              "px-1.5 py-0.5 rounded-full text-xs font-semibold",
+              "px-1.5 py-0.5 rounded-full text-[length:var(--text-xs)] font-semibold",
               value === item.value
                 ? "bg-indigo-100 text-indigo-600"
                 : "bg-gray-100 text-gray-500"

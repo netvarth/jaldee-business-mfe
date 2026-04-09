@@ -19,7 +19,7 @@ const DEFAULT_ACCOUNT: AccountContext = {
   id: "default-account",
   name: "Jaldee Business",
   licensedProducts: ["health", "bookings", "golderp"],
-  enabledModules: ["customers", "users", "reports", "settings"],
+  enabledModules: ["customers", "users", "reports", "settings", "membership"],
   theme: {
     primaryColor: "#5B21D1",
     logoUrl: "",

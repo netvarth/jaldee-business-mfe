@@ -8,6 +8,8 @@ import {
   DataTableToolbar,
   EmptyState,
   ComponentErrorBoundary,
+  Popover,
+  PopoverSection,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { mockPatients } from "../../mocks/patients";
@@ -106,17 +108,36 @@ function getColumns(
       header: "",
       sticky: "right",
       render: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          data-testid={`patient-row-action-${row.id}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onView(row);
-          }}
-        >
-          View
-        </Button>
+        <div onClick={(event) => event.stopPropagation()}>
+          <Popover
+            data-testid={`patient-row-action-${row.id}`}
+            align="end"
+            contentClassName="min-w-[240px] p-2"
+            trigger={
+              <button
+                type="button"
+                aria-label={`More actions for ${row.name}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-alt)] hover:text-[var(--color-text-primary)]"
+              >
+                <MoreIcon />
+              </button>
+            }
+          >
+            <PopoverSection>
+              <button
+                type="button"
+                data-testid={`patient-row-action-view-${row.id}`}
+                className="flex w-full items-center rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)]"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onView(row);
+                }}
+              >
+                View Patient
+              </button>
+            </PopoverSection>
+          </Popover>
+        </div>
       ),
     },
   ];
@@ -255,5 +276,15 @@ export default function PatientList() {
         </div>
       </ComponentErrorBoundary>
     </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <circle cx="5" cy="10" r="1.5" />
+      <circle cx="10" cy="10" r="1.5" />
+      <circle cx="15" cy="10" r="1.5" />
+    </svg>
   );
 }

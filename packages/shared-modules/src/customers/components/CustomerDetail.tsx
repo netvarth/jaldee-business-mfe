@@ -3,8 +3,18 @@ import { Badge, Button, DescriptionList, EmptyState, PageHeader, SectionCard, Ta
 import { useSharedModulesContext } from "../../context";
 import { resolveCustomerLabel } from "../../labels";
 import { useCustomerDetail, useCustomerVisits } from "../queries/customers";
+import { CustomerActionsDialog } from "./CustomerActionsDialog";
+import { CustomerClinicalActionsCard } from "./CustomerClinicalActionsCard";
+import { CustomerCommunicationCard } from "./CustomerCommunicationCard";
+import { CustomerFamilyMembersCard } from "./CustomerFamilyMembersCard";
 import { CustomerFormDialog } from "./CustomerFormDialog";
+import { CustomerGroupsCard } from "./CustomerGroupsCard";
+import { CustomerLabelsCard } from "./CustomerLabelsCard";
 import { CustomerLinkedRecords } from "./CustomerLinkedRecords";
+import { CustomerMedicalHistoryCard } from "./CustomerMedicalHistoryCard";
+import { CustomerNotesCard } from "./CustomerNotesCard";
+import { CustomerProfilePhotoCard } from "./CustomerProfilePhotoCard";
+import { CustomerQuestionnaireCard } from "./CustomerQuestionnaireCard";
 
 interface CustomerDetailProps {
   customerId: string;
@@ -18,6 +28,7 @@ export function CustomerDetail({ customerId, onBack }: CustomerDetailProps) {
   const visits = useCustomerVisits(customerId);
   const [activeTab, setActiveTab] = useState("today");
   const [openEdit, setOpenEdit] = useState(false);
+  const [openActions, setOpenActions] = useState(false);
 
   const customer = customerQuery.data;
 
@@ -62,15 +73,27 @@ export function CustomerDetail({ customerId, onBack }: CustomerDetailProps) {
         actions={
           <>
             {customer.status && <Badge variant="info">{customer.status}</Badge>}
+            <Button variant="outline" onClick={() => setOpenActions(true)}>Actions</Button>
             <Button variant="secondary" onClick={() => setOpenEdit(true)}>Edit</Button>
           </>
         }
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,360px)_1fr]">
-        <SectionCard title={`${customerLabel} Summary`}>
+        <div className="space-y-6">
+          <CustomerProfilePhotoCard customer={customer} customerLabel={customerLabel} />
+          <SectionCard title={`${customerLabel} Summary`}>
           <DescriptionList items={detailItems} />
-        </SectionCard>
+          </SectionCard>
+          <CustomerCommunicationCard customer={customer} customerLabel={customerLabel} />
+          <CustomerClinicalActionsCard customerId={customerId} customerLabel={customerLabel} />
+          <CustomerFamilyMembersCard customerId={customerId} customerLabel={customerLabel} />
+          <CustomerMedicalHistoryCard customerId={customerId} customerLabel={customerLabel} />
+          <CustomerQuestionnaireCard customer={customer} customerLabel={customerLabel} />
+          <CustomerLabelsCard customer={customer} customerLabel={customerLabel} />
+          <CustomerGroupsCard customerId={customerId} customerLabel={customerLabel} />
+          <CustomerNotesCard customerId={customerId} customerLabel={customerLabel} />
+        </div>
 
         <SectionCard title="Linked Records" padding={false}>
           <Tabs
@@ -107,6 +130,14 @@ export function CustomerDetail({ customerId, onBack }: CustomerDetailProps) {
         onClose={() => setOpenEdit(false)}
         customerLabel={customerLabel}
         editingCustomer={customer}
+      />
+
+      <CustomerActionsDialog
+        open={openActions}
+        onClose={() => setOpenActions(false)}
+        customer={customer}
+        customerLabel={customerLabel}
+        onEdit={() => setOpenEdit(true)}
       />
     </>
   );
