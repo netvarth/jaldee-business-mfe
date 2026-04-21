@@ -3,6 +3,12 @@ export default {
     "./index.html",
     "./src/**/*.{ts,tsx}",
     "../../packages/design-system/src/**/*.{ts,tsx}",
+    "../../packages/shared-modules/src/**/*.{ts,tsx}",
+  ],
+  safelist: [
+    'grid-cols-4',
+    'md:grid-cols-4',
+    'lg:grid-cols-4',
   ],
   theme: {
     extend: {},

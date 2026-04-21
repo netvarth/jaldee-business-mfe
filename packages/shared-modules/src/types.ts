@@ -33,6 +33,7 @@ export interface SharedModuleProps {
   product: ProductKey;
   apiScope: ApiScope;
   basePath: string;
+  assetsBaseUrl?: string;
   user: UserContext;
   account: AccountContext;
   location: BranchLocation | null;

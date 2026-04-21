@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Dialog, DialogFooter, Input, Select, Textarea } from "@jaldee/design-system";
+import { Button, Dialog, DialogFooter, Input, PhoneInput, Select, Textarea } from "@jaldee/design-system";
 import type { Customer, CustomerFormValues } from "../types";
 import { useCreateCustomer, useUpdateCustomer } from "../queries/customers";
 
@@ -78,8 +78,12 @@ export function CustomerFormDialog({
         <Input data-testid="customer-form-first-name" label="First Name" value={values.firstName} onChange={(event) => setValues((current) => ({ ...current, firstName: event.target.value }))} />
         <Input data-testid="customer-form-last-name" label="Last Name" value={values.lastName} onChange={(event) => setValues((current) => ({ ...current, lastName: event.target.value }))} />
         <Input data-testid="customer-form-jaldee-id" label={`${customerLabel} ID`} value={values.jaldeeId} onChange={(event) => setValues((current) => ({ ...current, jaldeeId: event.target.value }))} />
-        <Input data-testid="customer-form-phone" label="Phone" value={values.phoneNo} onChange={(event) => setValues((current) => ({ ...current, phoneNo: event.target.value }))} />
-        <Input data-testid="customer-form-country-code" label="Country Code" value={values.countryCode} onChange={(event) => setValues((current) => ({ ...current, countryCode: event.target.value }))} />
+        <PhoneInput
+          testId="customer-form-phone"
+          label="Phone"
+          value={{ countryCode: values.countryCode, number: values.phoneNo }}
+          onChange={(phone) => setValues((current) => ({ ...current, countryCode: phone.countryCode, phoneNo: phone.number }))}
+        />
         <Input data-testid="customer-form-email" label="Email" value={values.email} onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))} />
         <Select
           data-testid="customer-form-gender"

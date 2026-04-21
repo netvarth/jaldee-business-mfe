@@ -131,6 +131,7 @@ export interface MFEProps {
   // Identity
   mfeName: string;
   basePath: string;
+  assetsBaseUrl?: string;
 
   // Auth
   // Browser — empty string, HttpOnly cookie handles auth

@@ -6,6 +6,7 @@ import ShellLayout from "./layout/ShellLayout";
 import { HealthMFE } from "./mfes/HealthMFE";
 import { BookingsMFE } from "./mfes/BookingsMFE";
 import { GoldErpMFE } from "./mfes/GoldErpMFE";
+import { FinanceMFE } from "./mfes/FinanceMFE";
 import { useShellStore } from "./store/shellStore";
 import { getStoredCredentials } from "./services/authService";
 import "./App.css";
@@ -65,6 +66,13 @@ export default function App() {
                     <div className="shell-loading">Loading Gold ERP...</div>
                   }>
                     <GoldErpMFE />
+                  </Suspense>
+                } />
+                <Route path="/finance/*" element={
+                  <Suspense fallback={
+                    <div className="shell-loading">Loading Finance...</div>
+                  }>
+                    <FinanceMFE />
                   </Suspense>
                 } />
                 <Route path="*" element={<Navigate to="/home" replace />} />

@@ -18,8 +18,8 @@ const DEFAULT_USER: UserContext = {
 const DEFAULT_ACCOUNT: AccountContext = {
   id: "default-account",
   name: "Jaldee Business",
-  licensedProducts: ["health", "bookings", "golderp"],
-  enabledModules: ["customers", "users", "reports", "settings", "membership"],
+  licensedProducts: ["health", "bookings", "golderp", "finance"],
+  enabledModules: ["customers", "users", "reports", "settings", "membership", "finance"],
   theme: {
     primaryColor: "#5B21D1",
     logoUrl: "",
@@ -73,6 +73,7 @@ interface ShellStore {
   setAvailableLocations: (locations: BranchLocation[]) => void;
   setActiveProduct: (product: ProductKey | null) => void;
   toggleSidebar:    () => void;
+  setSidebarVisible: (visible: boolean) => void;
   setHasHydrated:   (value: boolean) => void;
 }
 
@@ -115,8 +116,12 @@ export const useShellStore = create<ShellStore>()(
       setAvailableLocations: (locations) =>
         set({ availableLocations: locations }),
 
+
       setActiveProduct: (product) =>
         set({ activeProduct: product }),
+
+      setSidebarVisible: (visible) =>
+        set({ sidebarVisible: visible }),
 
       toggleSidebar: () =>
         set((state: ShellStore) => ({ sidebarVisible: !state.sidebarVisible })),

@@ -26,6 +26,30 @@ export default defineConfig({
     target:       "esnext",
     minify:       "esbuild",
     cssCodeSplit: false,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react-router")) return "vendor-router";
+            if (id.includes("@tanstack/react-query")) return "vendor-query";
+            return "vendor";
+          }
+
+          if (id.includes("/src/pages/memberships/")) return "page-memberships";
+          if (id.includes("/src/pages/customers/")) return "page-customers";
+          if (id.includes("/src/pages/patients/")) return "page-patients";
+          if (id.includes("/src/pages/cases/")) return "page-cases";
+
+          if (id.includes("/packages/design-system/src/")) return "shared-design-system";
+          if (id.includes("/packages/auth-context/src/")) return "shared-auth-context";
+          if (id.includes("/packages/api-client/src/")) return "shared-api-client";
+          if (id.includes("/packages/shared-modules/src/memberships/")) return "shared-memberships";
+          if (id.includes("/packages/shared-modules/src/customers/")) return "shared-customers";
+          if (id.includes("/packages/shared-modules/src/finance/")) return "shared-finance";
+        },
+      },
+    },
   },
   server: {
     port: 3002,

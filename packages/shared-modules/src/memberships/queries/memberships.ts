@@ -275,6 +275,7 @@ export function useMembers(filter: {} = {}) {
   return useQuery({
     queryKey: buildScopedListQueryKey("members", scopedApi.apiScope, scopedApi.locationId, filter),
     queryFn: () => getMembers(scopedApi, filter),
+    placeholderData: undefined,
   });
 }
 
@@ -283,6 +284,7 @@ export function useMemberCount(filter: {} = {}) {
   return useQuery({
     queryKey: ["member-count", scopedApi.apiScope, scopedApi.locationId, filter],
     queryFn: () => getMemberCount(scopedApi, filter),
+    placeholderData: undefined,
   });
 }
 
@@ -515,6 +517,7 @@ export function useServices(filter: {} = {}) {
   return useQuery({
     queryKey: buildScopedListQueryKey("services", scopedApi.apiScope, scopedApi.locationId, filter),
     queryFn: () => getServices(scopedApi, filter),
+    placeholderData: undefined,
   });
 }
 
@@ -545,6 +548,7 @@ export function useServiceCount(filter: {} = {}) {
   return useQuery({
     queryKey: ["service-count", scopedApi.apiScope, scopedApi.locationId, filter],
     queryFn: () => getServiceCount(scopedApi, filter),
+    placeholderData: undefined,
   });
 }
 

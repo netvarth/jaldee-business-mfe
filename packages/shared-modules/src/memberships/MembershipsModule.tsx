@@ -6,7 +6,9 @@ import { MembershipsList } from "./components/MembershipsList";
 import { MembershipDetail } from "./components/MembershipDetail";
 import { MembershipDashboard } from "./components/MembershipDashboard";
 import { MemberTypeList } from "./components/MemberTypeList";
+import { MemberTypeForm } from "./components/MemberTypeForm";
 import { ServiceTypeList } from "./components/ServiceTypeList";
+import { ServiceTypeForm } from "./components/ServiceTypeForm";
 import { MembersList } from "./components/MembersList";
 import { PaymentInfoList } from "./components/PaymentInfoList";
 import { SchemeList } from "./components/SchemeList";
@@ -14,6 +16,9 @@ import { CreateMember } from "./components/CreateMember";
 import { MemberDetails } from "./components/MemberDetails";
 import { PaymentDetails } from "./components/PaymentDetails";
 import { MemberGroupDetails } from "./components/MemberGroupDetails";
+import { ServiceForm } from "./components/ServiceForm";
+import { ServiceDetails } from "./components/ServiceDetails";
+import { ServiceAssign } from "./components/ServiceAssign";
 
 export function MembershipsModule() {
   const access = useModuleAccess("membership");
@@ -55,6 +60,9 @@ export function MembershipsModule() {
     if (subview === "memberdetails" && membershipId) {
       return <MemberDetails memberId={membershipId} />;
     }
+    if (subview === "groupdetails" && membershipId) {
+      return <MemberGroupDetails groupId={membershipId} />;
+    }
     if (subview && membershipId) {
       // For :source/:uid, treat as create with source
       return <CreateMember source={subview} memberId={membershipId} />;
@@ -73,10 +81,22 @@ export function MembershipsModule() {
   }
 
   if (view === "memberType") {
+    if (subview === "create") {
+      return <MemberTypeForm />;
+    }
+    if (subview === "update" && membershipId) {
+      return <MemberTypeForm source="update" memberTypeUid={membershipId} />;
+    }
     return <MemberTypeList />;
   }
 
   if (view === "serviceType") {
+    if (subview === "create") {
+      return <ServiceTypeForm />;
+    }
+    if (subview === "update" && membershipId) {
+      return <ServiceTypeForm source="update" serviceTypeUid={membershipId} />;
+    }
     return <ServiceTypeList />;
   }
 
@@ -88,7 +108,26 @@ export function MembershipsModule() {
     return <PaymentInfoList />;
   }
 
-  if (view === "scheme" || view === "service") {
+  if (view === "scheme") {
+    return <SchemeList />;
+  }
+
+  if (view === "service") {
+    if (subview === "create") {
+      return <ServiceForm />;
+    }
+    if (subview === "servicedetails" && membershipId) {
+      return <ServiceDetails serviceUid={membershipId} />;
+    }
+    if (subview === "update" && membershipId) {
+      return <ServiceForm source="update" serviceUid={membershipId} />;
+    }
+    if (subview === "assign" && membershipId) {
+      return <ServiceAssign serviceUid={membershipId} />;
+    }
+    if (subview === "memberService" && membershipId) {
+      return <ServiceDetails serviceUid={membershipId} />;
+    }
     return <SchemeList />;
   }
 

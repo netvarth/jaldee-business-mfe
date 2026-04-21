@@ -21,6 +21,7 @@ export function useBuildMFEProps(
   return {
     mfeName,
     basePath,
+    assetsBaseUrl: import.meta.env.VITE_ASSETS_URL?.trim(),
     authToken:  accessToken ?? "",
     user,
     account,

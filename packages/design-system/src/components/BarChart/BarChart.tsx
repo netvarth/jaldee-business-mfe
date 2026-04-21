@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { cn } from "../../utils";
+import { ChartTooltip } from "../ChartTooltip/ChartTooltip";
 
 export interface BarChartDatum {
   label: string;
@@ -11,6 +13,7 @@ export interface BarChartProps {
   className?: string;
   "data-testid"?: string;
   formatYTick?: (value: number) => string;
+  showTooltip?: boolean;
 }
 
 export function BarChart({
@@ -19,7 +22,16 @@ export function BarChart({
   className,
   "data-testid": testId = "bar-chart",
   formatYTick = defaultFormatYTick,
+  showTooltip = true,
 }: BarChartProps) {
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    label: string;
+    series: string;
+    value: number;
+    color: string;
+  } | null>(null);
   const width = 640;
   const height = 220;
   const margin = { top: 12, right: 16, bottom: 34, left: 56 };
@@ -34,7 +46,8 @@ export function BarChart({
   const gap = data.length > 1 ? (plotWidth - barWidth * data.length) / (data.length - 1) : 0;
 
   return (
-    <div data-testid={testId} className={cn("w-full", className)}>
+    <div data-testid={testId} className={cn("relative w-full", className)}>
+      {tooltip ? <ChartTooltip {...tooltip} /> : null}
       <svg viewBox={`0 0 ${width} ${height}`} className="h-[220px] w-full" role="img" aria-label="Bar chart">
         {ticks.map((tick) => {
           const y = margin.top + plotHeight - (tick / maxValue) * plotHeight;
@@ -92,6 +105,21 @@ export function BarChart({
                 height={barHeight}
                 rx={2}
                 fill="var(--color-chart-1)"
+                onMouseEnter={() => {
+                  if (!showTooltip) return;
+                  setTooltip({
+                    x: ((x + barWidth / 2) / width) * 100,
+                    y: (y / height) * 100,
+                    label: item.label,
+                    series: "Value",
+                    value: item.value,
+                    color: "var(--color-chart-1)",
+                  });
+                }}
+                onMouseLeave={() => {
+                  if (!showTooltip) return;
+                  setTooltip(null);
+                }}
               />
               <text
                 x={labelX}

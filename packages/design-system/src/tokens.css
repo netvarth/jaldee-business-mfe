@@ -82,7 +82,7 @@
   --font-weight-semibold:  600;
   --font-weight-bold:      700;
   --form-label-size:       var(--text-sm);
-  --form-label-line-height:1rem;
+  --form-label-line-height:1.4;
   --form-label-weight:     var(--font-weight-semibold);
   --form-label-color:      #334155;
   --control-height:        38px;

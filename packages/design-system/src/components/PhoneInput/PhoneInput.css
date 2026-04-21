@@ -1,0 +1,105 @@
+.ds-phone-input {
+  width: 100%;
+}
+
+.ds-phone-input .iti {
+  width: 100%;
+}
+
+.ds-phone-input .iti__tel-input,
+.ds-phone-input .iti input.ds-phone-input__control {
+  height: var(--control-height);
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, white);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-surface) 92%, white);
+  color: var(--color-text-primary);
+  padding: var(--control-padding-y) var(--control-padding-x);
+  font-size: var(--text-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.ds-phone-input .iti__tel-input::placeholder,
+.ds-phone-input .iti input.ds-phone-input__control::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.ds-phone-input .iti__tel-input:focus,
+.ds-phone-input .iti input.ds-phone-input__control:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-border-focus) 70%, white);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-border-focus) 14%, transparent);
+}
+
+.ds-phone-input .iti__tel-input:disabled,
+.ds-phone-input .iti input.ds-phone-input__control:disabled {
+  cursor: not-allowed;
+  background: var(--color-surface-alt);
+}
+
+.ds-phone-input .iti--separate-dial-code .iti__selected-flag {
+  background-color: transparent;
+  border-radius: var(--radius-control);
+}
+
+.ds-phone-input .iti__country-container {
+  height: 100%;
+}
+
+.ds-phone-input .iti__selected-country {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-control);
+  overflow: visible;
+  min-width: max-content;
+}
+
+.ds-phone-input .iti__selected-country-primary {
+  height: 100%;
+  min-width: max-content;
+  padding-inline: 12px 12px;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.ds-phone-input .iti__flag {
+  flex-shrink: 0;
+}
+
+.ds-phone-input .iti__selected-dial-code {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+.ds-phone-input .iti__arrow {
+  margin-left: 2px;
+  margin-top: -1px;
+  border-right-color: var(--color-text-secondary);
+  border-bottom-color: var(--color-text-secondary);
+}
+
+.ds-phone-input .iti__country-list {
+  z-index: 30;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.ds-phone-input .iti__search-input {
+  border-radius: var(--radius-sm);
+}
+
+.ds-phone-input--error .iti__tel-input,
+.ds-phone-input--error .iti input.ds-phone-input__control {
+  border-color: var(--color-danger);
+}
+
+.ds-phone-input--error .iti__tel-input:focus,
+.ds-phone-input--error .iti input.ds-phone-input__control:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger);
+}

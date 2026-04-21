@@ -1,5 +1,17 @@
 .health-wrapper {
-    padding: 28px 32px;
+        padding: 12px 8px;
+}
+
+@media (min-width: 768px) {
+    .health-wrapper {
+        padding: 20px 20px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .health-wrapper {
+        padding: 28px 32px;
+    }
 }
 
 .shell-home,

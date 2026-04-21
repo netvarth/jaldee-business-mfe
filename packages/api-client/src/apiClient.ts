@@ -25,6 +25,7 @@ let _authMode: ApiClientAuthMode = "session";
 let _refreshInFlight: Promise<RefreshResult | void> | null = null;
 let _refreshSessionHandler: RefreshSessionHandler | null = null;
 let _sessionExpiredHandler: SessionExpiredHandler | null = null;
+let _sessionExpired = false;
 
 export function setApiClientContext(ctx: {
   authToken?: string;
@@ -36,6 +37,9 @@ export function setApiClientContext(ctx: {
   if (ctx.mfeName !== undefined) _mfeName = ctx.mfeName;
   if (ctx.productScope !== undefined) _productScope = ctx.productScope;
   if (ctx.authMode !== undefined) _authMode = ctx.authMode;
+  if (ctx.authToken !== undefined || ctx.authMode !== undefined) {
+    _sessionExpired = false;
+  }
 }
 
 export function setApiClientAuthHandlers(handlers: {
@@ -54,6 +58,7 @@ function getCsrfToken(): string {
 }
 
 function notifySessionExpired() {
+  _sessionExpired = true;
   if (_sessionExpiredHandler) {
     _sessionExpiredHandler();
     return;
@@ -89,6 +94,12 @@ export function createApiClient(baseURL: string): AxiosInstance {
 
   client.interceptors.request.use(
     (config: RequestConfigWithMeta) => {
+      if (_sessionExpired && !config._skipAuthRefresh) {
+        const sessionExpiredError = new Error("Session expired");
+        (sessionExpiredError as Error & { code?: string }).code = "SESSION_EXPIRED";
+        return Promise.reject(sessionExpiredError);
+      }
+
       config.metadata = { startTime: performance.now() };
 
       if (_mfeName) config.headers["X-MFE-Name"] = _mfeName;
@@ -139,6 +150,7 @@ export function createApiClient(baseURL: string): AxiosInstance {
 
           try {
             const refreshResult = await refreshSessionOnce();
+            _sessionExpired = false;
 
             if (_authMode === "token" && refreshResult?.authToken !== undefined) {
               _authToken = refreshResult.authToken;

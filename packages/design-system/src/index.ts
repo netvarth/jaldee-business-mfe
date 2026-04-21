@@ -12,6 +12,8 @@ export { BarChart }                       from "./components/BarChart/BarChart";
 export type { BarChartProps, BarChartDatum } from "./components/BarChart/BarChart";
 export { PieChart }                       from "./components/PieChart/PieChart";
 export type { PieChartProps, PieChartDatum } from "./components/PieChart/PieChart";
+export { ChartTooltip }                   from "./components/ChartTooltip/ChartTooltip";
+export type { ChartTooltipProps }         from "./components/ChartTooltip/ChartTooltip";
 
 export { Avatar, AvatarGroup }            from "./components/Avatar/Avatar";
 export type { AvatarProps, AvatarGroupProps } from "./components/Avatar/Avatar";
@@ -25,9 +27,13 @@ export type { IconProps, IconName }       from "./components/Icon/Icon";
 // Layer 2 — Form Controls
 export { Input }                          from "./components/Input/Input";
 export type { InputProps }                from "./components/Input/Input";
+export { PhoneInput, DEFAULT_PHONE_COUNTRY_OPTIONS } from "./components/PhoneInput/PhoneInput";
+export type { PhoneInputProps, PhoneInputOption, PhoneInputValue } from "./components/PhoneInput/PhoneInput";
 
 export { Textarea }                       from "./components/Textarea/Textarea";
 export type { TextareaProps }             from "./components/Textarea/Textarea";
+export { RichTextEditor }                 from "./components/RichTextEditor/RichTextEditor";
+export type { RichTextEditorProps }       from "./components/RichTextEditor/RichTextEditor";
 
 export { Select }                         from "./components/Select/Select";
 export type { SelectProps }               from "./components/Select/Select";

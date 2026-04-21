@@ -10,7 +10,9 @@ export { MembershipDetail } from "./components/MembershipDetail";
 export { MembershipFormDialog } from "./components/MembershipFormDialog";
 export { MembershipDashboard } from "./components/MembershipDashboard";
 export { MemberTypeList } from "./components/MemberTypeList";
+export { MemberTypeForm } from "./components/MemberTypeForm";
 export { ServiceTypeList } from "./components/ServiceTypeList";
+export { ServiceTypeForm } from "./components/ServiceTypeForm";
 export { MembersList } from "./components/MembersList";
 export { PaymentInfoList } from "./components/PaymentInfoList";
 export { SchemeList } from "./components/SchemeList";
@@ -18,6 +20,9 @@ export { CreateMember } from "./components/CreateMember";
 export { MemberDetails } from "./components/MemberDetails";
 export { PaymentDetails } from "./components/PaymentDetails";
 export { MemberGroupDetails } from "./components/MemberGroupDetails";
+export { ServiceForm } from "./components/ServiceForm";
+export { ServiceDetails } from "./components/ServiceDetails";
+export { ServiceAssign } from "./components/ServiceAssign";
 export {
   useMembershipsList,
   useMembershipsCount,

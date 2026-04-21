@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { cn } from "../../utils";
 import { Badge } from "../Badge/Badge";
+import { ChartTooltip } from "../ChartTooltip/ChartTooltip";
 
 export interface VitalPoint {
   label: string;
@@ -15,6 +17,7 @@ export interface VitalsChartProps {
   maxThreshold?: number;
   className?: string;
   "data-testid"?: string;
+  showTooltip?: boolean;
 }
 
 function buildPath(points: VitalPoint[], width: number, height: number) {
@@ -42,7 +45,16 @@ export function VitalsChart({
   maxThreshold,
   className,
   "data-testid": testId = "vitals-chart",
+  showTooltip = true,
 }: VitalsChartProps) {
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    label: string;
+    series: string;
+    value: string;
+    color: string;
+  } | null>(null);
   const values = series.map((point) => point.value);
   const current = values[values.length - 1];
   const min = values.length ? Math.min(...values) : 0;
@@ -75,41 +87,67 @@ export function VitalsChart({
 
       <div className="mt-4 rounded-lg bg-gray-50 p-3">
         {series.length ? (
-          <svg
-            viewBox="0 0 100 48"
-            preserveAspectRatio="none"
-            className="h-32 w-full"
-            aria-label={`${title} chart`}
-          >
-            {minThreshold !== undefined && (
-              <line
-                x1="0"
-                x2="100"
-                y1={48 - ((minThreshold - min) / ((max - min) || 1)) * 48}
-                y2={48 - ((minThreshold - min) / ((max - min) || 1)) * 48}
-                stroke="#F59E0B"
-                strokeDasharray="2 2"
-                strokeWidth="0.8"
-              />
-            )}
-            {maxThreshold !== undefined && (
-              <line
-                x1="0"
-                x2="100"
-                y1={48 - ((maxThreshold - min) / ((max - min) || 1)) * 48}
-                y2={48 - ((maxThreshold - min) / ((max - min) || 1)) * 48}
-                stroke="#EF4444"
-                strokeDasharray="2 2"
-                strokeWidth="0.8"
-              />
-            )}
-            <path d={path} fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            {series.map((point, index) => {
-              const x = series.length === 1 ? 50 : (index / (series.length - 1)) * 100;
-              const y = 48 - ((point.value - min) / ((max - min) || 1)) * 48;
-              return <circle key={`${point.label}-${index}`} cx={x} cy={y} r="1.8" fill="#312E81" />;
-            })}
-          </svg>
+          <div className="relative">
+            {tooltip ? <ChartTooltip {...tooltip} /> : null}
+            <svg
+              viewBox="0 0 100 48"
+              preserveAspectRatio="none"
+              className="h-32 w-full"
+              aria-label={`${title} chart`}
+            >
+              {minThreshold !== undefined && (
+                <line
+                  x1="0"
+                  x2="100"
+                  y1={48 - ((minThreshold - min) / ((max - min) || 1)) * 48}
+                  y2={48 - ((minThreshold - min) / ((max - min) || 1)) * 48}
+                  stroke="#F59E0B"
+                  strokeDasharray="2 2"
+                  strokeWidth="0.8"
+                />
+              )}
+              {maxThreshold !== undefined && (
+                <line
+                  x1="0"
+                  x2="100"
+                  y1={48 - ((maxThreshold - min) / ((max - min) || 1)) * 48}
+                  y2={48 - ((maxThreshold - min) / ((max - min) || 1)) * 48}
+                  stroke="#EF4444"
+                  strokeDasharray="2 2"
+                  strokeWidth="0.8"
+                />
+              )}
+              <path d={path} fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              {series.map((point, index) => {
+                const x = series.length === 1 ? 50 : (index / (series.length - 1)) * 100;
+                const y = 48 - ((point.value - min) / ((max - min) || 1)) * 48;
+                return (
+                  <circle
+                    key={`${point.label}-${index}`}
+                    cx={x}
+                    cy={y}
+                    r="1.8"
+                    fill="#312E81"
+                    onMouseEnter={() => {
+                      if (!showTooltip) return;
+                      setTooltip({
+                        x,
+                        y: (y / 48) * 100,
+                        label: point.label,
+                        series: title,
+                        value: `${point.value}${unit ? ` ${unit}` : ""}`,
+                        color: "#312E81",
+                      });
+                    }}
+                    onMouseLeave={() => {
+                      if (!showTooltip) return;
+                      setTooltip(null);
+                    }}
+                  />
+                );
+              })}
+            </svg>
+          </div>
         ) : (
           <div className="flex h-32 items-center justify-center text-sm text-gray-500">
             Add readings to render the chart.

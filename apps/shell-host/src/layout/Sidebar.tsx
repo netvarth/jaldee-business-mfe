@@ -1,3 +1,17 @@
+// Custom hook to detect small screens (up to 1024px)
+import { useEffect } from "react";
+
+function useIsSmallScreen() {
+  const [isSmall, setIsSmall] = useState(() => window.innerWidth <= 1024);
+  useEffect(() => {
+    function handleResize() {
+      setIsSmall(window.innerWidth <= 1024);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return isSmall;
+}
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
@@ -9,10 +23,19 @@ export default function Sidebar() {
   const activeProduct = useShellStore((s) => s.activeProduct);
   const sidebarVisible = useShellStore((s) => s.sidebarVisible);
   const toggleSidebar = useShellStore((s) => s.toggleSidebar);
+  const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
   const navigate = useNavigate();
   const location = useLocation();
+  const isSmallScreen = useIsSmallScreen();
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  // Collapse sidebar by default on small screens
+  useEffect(() => {
+    if (isSmallScreen && sidebarVisible) {
+      setSidebarVisible(false);
+    }
+  }, [isSmallScreen]);
 
   if (!activeProduct) return null;
 
@@ -26,6 +49,14 @@ export default function Sidebar() {
   function isActive(path: string) {
     return location.pathname === path
       || (path !== `/${activeProduct}` && location.pathname.startsWith(path));
+  }
+
+  // Custom navigation that collapses sidebar on small screens
+  function handleNavigate(path: string) {
+    navigate(path);
+    if (isSmallScreen) {
+      setSidebarVisible(false);
+    }
   }
 
   return (
@@ -43,7 +74,7 @@ export default function Sidebar() {
                 isActive={isActive}
                 expanded={expanded}
                 onToggle={toggleExpand}
-                onNavigate={navigate}
+                onNavigate={handleNavigate}
               />
             ))}
           </div>
@@ -82,7 +113,7 @@ function SidebarItemRow({
   onNavigate,
 }: RowProps) {
   const hasChildren = Boolean(section.children?.length);
-  const isOpen = expanded[section.id];
+  const isOpen = expanded[section.id] ?? isActive(section.path);
   const active = isActive(section.path);
 
   return (
