@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import { eventBus } from "../eventBus/eventBus";
 import { apiClient } from "@jaldee/api-client";
+import { normalizeAccountContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
 
 export function useBuildMFEProps(
@@ -9,14 +10,17 @@ export function useBuildMFEProps(
   basePath: string
 ): MFEProps | null {
   const navigate = useNavigate();
-  const { user, account, accessToken, activeLocation } = useShellStore();
+  const { user, account, accessToken, activeLocation, availableLocations } = useShellStore();
+  const resolvedLocation = activeLocation ?? availableLocations[0] ?? null;
   console.log("[useBuildMFEProps]", { 
     user: !!user, 
     account: !!account, 
-    activeLocation: !!activeLocation 
+    activeLocation: !!activeLocation,
+    resolvedLocation: !!resolvedLocation,
   });
 
-  if (!user || !account || !activeLocation) return null;
+  if (!user || !account || !resolvedLocation) return null;
+  const normalizedAccount = normalizeAccountContext(account);
 
   return {
     mfeName,
@@ -24,10 +28,10 @@ export function useBuildMFEProps(
     assetsBaseUrl: import.meta.env.VITE_ASSETS_URL?.trim(),
     authToken:  accessToken ?? "",
     user,
-    account,
-    theme:      { primaryColor: account.theme.primaryColor },
+    account: normalizedAccount,
+    theme:      { primaryColor: normalizedAccount.theme.primaryColor },
     locale:     "en-IN",
-    location:   activeLocation,
+    location:   resolvedLocation,
     navigate:   (route: string) => navigate(route),
     eventBus,
     api: {

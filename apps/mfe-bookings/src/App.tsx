@@ -13,6 +13,7 @@ import {
 } from './services/calendarService';
 import { DatePickerPopover, PageErrorBoundary as DesignSystemPageErrorBoundary } from '@jaldee/design-system';
 import TopBar from './components/TopBar';
+import DrivePage from './pages/DrivePage';
 
 const ListView = lazy(() => import('./components/ListView'));
 const BookingModal = lazy(() => import('./components/BookingModal'));
@@ -369,6 +370,38 @@ function App() {
         element={
           <DesignSystemPageErrorBoundary>
             <DashboardView startLayout="list" defaultView="week" />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DrivePage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive/:view"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DrivePage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive/:view/:subview"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DrivePage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive/:view/:subview/:recordId"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DrivePage />
           </DesignSystemPageErrorBoundary>
         }
       />

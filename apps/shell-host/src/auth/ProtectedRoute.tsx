@@ -15,6 +15,10 @@ export default function ProtectedRoute({ children }: Props) {
     return <div className="shell-loading">Loading session...</div>;
   }
 
+  if (!isAuthenticated && hasStoredSession) {
+    return <div className="shell-loading">Restoring session...</div>;
+  }
+
   if (!isAuthenticated && !hasStoredSession) {
     return <Navigate to="/login" replace />;
   }

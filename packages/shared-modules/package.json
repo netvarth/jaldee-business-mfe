@@ -6,7 +6,9 @@
   "dependencies": {
     "@tanstack/react-query": "^5.59.20",
     "@jaldee/api-client": "*",
-    "@jaldee/auth-context": "*"
+    "@jaldee/auth-context": "*",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.4"
   },
   "devDependencies": {
     "typescript": "5.4.5"

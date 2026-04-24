@@ -6,6 +6,8 @@ export type ApiScope = (typeof API_SCOPES)[number];
 
 export const SHARED_MODULE_NAMES = [
   "customers",
+  "orders",
+  "ip",
   "audit-log",
   "settings",
   "tasks",
@@ -34,6 +36,12 @@ export interface SharedModuleProps {
   apiScope: ApiScope;
   basePath: string;
   assetsBaseUrl?: string;
+  /**
+   * Optional client-side navigation handler provided by the host MFE.
+   * When present, shared modules should prefer this over full page reloads.
+   * The handler expects a router-internal path (i.e., with `basePath` stripped).
+   */
+  navigate?: (to: string) => void;
   user: UserContext;
   account: AccountContext;
   location: BranchLocation | null;

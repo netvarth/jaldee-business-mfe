@@ -21,6 +21,11 @@ export type {
 
 // Context + hook
 export { MFEPropsContext, useMFEProps } from "./context";
+export {
+  DEFAULT_ENABLED_MODULES,
+  DEFAULT_LICENSED_PRODUCTS,
+  normalizeAccountContext,
+} from "./account";
 
 // Contract version — shell checks this on every MFE mount
 export const MFE_CONTRACT_VERSION = "3.4";

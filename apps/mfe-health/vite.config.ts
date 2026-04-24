@@ -23,6 +23,7 @@ export default defineConfig({
     },
   },
   build: {
+    modulePreload: false,
     target:       "esnext",
     minify:       "esbuild",
     cssCodeSplit: false,
@@ -53,5 +54,10 @@ export default defineConfig({
   },
   server: {
     port: 3002,
+    origin: "http://localhost:3002",
+  },
+  preview: {
+    port: 3002,
+    strictPort: true,
   },
 });

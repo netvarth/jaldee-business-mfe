@@ -6,6 +6,11 @@ import type {
   BranchLocation,
   ProductKey,
 } from "@jaldee/auth-context";
+import {
+  DEFAULT_ENABLED_MODULES,
+  DEFAULT_LICENSED_PRODUCTS,
+  normalizeAccountContext,
+} from "@jaldee/auth-context";
 
 const DEFAULT_USER: UserContext = {
   id: "default-user",
@@ -18,8 +23,11 @@ const DEFAULT_USER: UserContext = {
 const DEFAULT_ACCOUNT: AccountContext = {
   id: "default-account",
   name: "Jaldee Business",
-  licensedProducts: ["health", "bookings", "golderp", "finance"],
-  enabledModules: ["customers", "users", "reports", "settings", "membership", "finance"],
+  licensedProducts: DEFAULT_LICENSED_PRODUCTS,
+  enabledModules: [
+    ...DEFAULT_ENABLED_MODULES,
+    "membership",
+  ] as AccountContext["enabledModules"],
   theme: {
     primaryColor: "#5B21D1",
     logoUrl: "",
@@ -94,7 +102,7 @@ export const useShellStore = create<ShellStore>()(
       setAuth: (user, account, token) =>
         set({
           user,
-          account,
+          account: normalizeAccountContext(account),
           accessToken: token,
           isAuthenticated: true,
         }),
@@ -147,7 +155,9 @@ export const useShellStore = create<ShellStore>()(
         const merged: ShellStore = {
           ...currentState,
           ...persisted,
-          account: persisted.account ?? currentState.account,
+          account: normalizeAccountContext(
+            persisted.account ?? currentState.account
+          ),
           availableLocations:
             persisted.availableLocations ?? currentState.availableLocations,
           activeLocation: persisted.activeLocation ?? currentState.activeLocation,

@@ -16,6 +16,7 @@ import ReportsPage from "./pages/ReportsPage";
 import SalesPage from "./pages/SalesPage";
 import SalesOrderCreatePage from "./pages/SalesOrderCreatePage";
 import TagsPage from "./pages/TagsPage";
+import DrivePage from "./pages/DrivePage";
 
 const sectionLabels: Record<string, string> = {
   audit: "Audit Log",
@@ -209,6 +210,38 @@ export default function App() {
       <Route path="purchase" element={<Navigate to="/purchases" replace />} />
       <Route path="purchase/new" element={<Navigate to="/purchases/new" replace />} />
       <Route path="purchase/:poUid" element={<PurchaseAliasRedirect />} />
+      <Route
+        path="drive"
+        element={
+          <PageErrorBoundary>
+            <DrivePage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive/:view"
+        element={
+          <PageErrorBoundary>
+            <DrivePage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <DrivePage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="drive/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <DrivePage />
+          </PageErrorBoundary>
+        }
+      />
       <Route
         path=":section"
         element={

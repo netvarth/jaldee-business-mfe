@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Dialog, DialogFooter } from "../Dialog/Dialog";
 import { Button }               from "../Button/Button";
 
@@ -5,7 +6,7 @@ export interface ConfirmDialogProps {
   open:            boolean;
   onClose:         () => void;
   onConfirm:       () => void;
-  title:           string;
+  title:           ReactNode;
   description?:    string;
   confirmLabel?:   string;
   cancelLabel?:    string;

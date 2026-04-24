@@ -15,6 +15,34 @@ export {
   buildScopedDetailQueryKey,
 } from "./queryKeys";
 
+export type {
+  OrdersAction,
+  OrdersCatalogRow,
+  OrdersDataset,
+  OrdersInventoryRow,
+  OrdersOrderRow,
+  OrdersRequestRow,
+  OrdersSummary,
+  OrdersViewKey,
+} from "./orders";
+export {
+  OrdersModule,
+  OrdersDashboard,
+  OrdersList,
+  OrdersRequestsList,
+  OrdersCatalogList,
+  OrdersInventoryList,
+  OrdersSettings,
+  useOrdersDataset,
+  useOrdersOrders,
+  useOrdersRequests,
+  useOrdersCatalogs,
+  useOrdersInventory,
+  getOrdersDataset,
+  formatOrdersCurrency,
+  getOrdersStatusVariant,
+} from "./orders";
+
 export {
   resolveEntityLabel,
   resolveCustomerLabel,
@@ -55,6 +83,31 @@ export {
   useUpdateMembership,
   useDeleteMembership,
 } from "./memberships";
+
+export type {
+  IpAdmissionRow,
+  IpBedRow,
+  IpBillingRow,
+  IpDataset,
+  IpPatientRow,
+  IpPatientStatus,
+  IpSummary,
+  IpViewKey,
+} from "./ip";
+export {
+  IpModule,
+  IpOverview,
+  IpPatientsList,
+  IpAdmissionsList,
+  IpBedsList,
+  IpBillingList,
+  IpSettings,
+  useIpAdmissions,
+  useIpBeds,
+  useIpBilling,
+  useIpDataset,
+  useIpPatients,
+} from "./ip";
 
 export type { LeadListFilters, LeadSummary, LeadEntityFormMode } from "./leads";
 export {
@@ -112,4 +165,46 @@ export type {
 } from "./questionnaire";
 export { QuestionnaireForm } from "./questionnaire";
 
-export { FinanceModule } from "./finance";
+export type {
+  DriveActivityRow,
+  DriveDataset,
+  DriveFileRow,
+  DriveSharedRow,
+  DriveSummary,
+  DriveViewKey,
+} from "./drive";
+export {
+  DriveModule,
+  DriveOverview,
+  DriveFilesList,
+  DriveSharedList,
+  DriveActivityList,
+  DriveSettings,
+  useDriveActivity,
+  useDriveDataset,
+  useDriveFiles,
+  useDriveShared,
+} from "./drive";
+
+export type {
+  FinanceDataset,
+  FinanceInvoiceRow,
+  FinanceInvoiceStatus,
+  FinancePaymentRow,
+  FinanceReportRow,
+  FinanceSummary,
+  FinanceViewKey,
+} from "./finance";
+export {
+  FinanceModule,
+  FinanceOverview,
+  FinanceInvoicesList,
+  FinancePaymentsList,
+  FinanceReportsList,
+  FinanceSettings,
+  useFinanceDataset,
+  useFinanceInvoices,
+  useFinancePayments,
+  useFinanceReports,
+  useFinanceSummaries,
+} from "./finance";

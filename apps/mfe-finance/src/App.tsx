@@ -35,6 +35,16 @@ import {
   getStatusVariant,
 } from "./lib/financeData";
 
+type Accent = "indigo" | "emerald" | "amber" | "rose";
+
+type QuickAction = {
+  label: string;
+  path: string;
+  icon: "packagePlus" | "alert" | "trend" | "history" | "globe" | "list" | "layers" | "chart" | "database" | "warehouse";
+  tone: string;
+  note: string;
+};
+
 function PageShell({
   title,
   subtitle,
@@ -56,7 +66,76 @@ function PageShell({
   );
 }
 
-function GenericTablePage<T extends object>({
+function FinanceFeatureLayout({
+  title,
+  subtitle,
+  actions,
+  stats,
+  main,
+  aside,
+}: {
+  title: string;
+  subtitle: string;
+  actions?: ReactNode;
+  stats?: Array<{ label: string; value: string; accent: Accent }>;
+  main: ReactNode;
+  aside?: ReactNode;
+}) {
+  return (
+    <PageShell title={title} subtitle={subtitle} actions={actions}>
+      {stats && stats.length ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {stats.map((card) => (
+            <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
+          ))}
+        </div>
+      ) : null}
+
+      <div className={`grid gap-6 ${aside ? "xl:grid-cols-[1.45fr_0.85fr]" : ""}`}>
+        <div className="space-y-6">{main}</div>
+        {aside ? <div className="space-y-6">{aside}</div> : null}
+      </div>
+    </PageShell>
+  );
+}
+
+function QuickActions({
+  actions,
+}: {
+  actions: QuickAction[];
+}) {
+  const mfeProps = useMFEProps();
+
+  return (
+    <SectionCard className="border-slate-200 shadow-sm">
+      <div className="space-y-5">
+        <div>
+          <div className="text-[28px] font-semibold tracking-tight text-[#312E81]">Finance Manager Dashboard</div>
+          <div className="mt-1 text-sm text-slate-500">Keep a tab on your finance and manage your finance operations smoothly.</div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-8">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => mfeProps.navigate(action.path)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+            >
+              <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.tone}`}>
+                <Icon name={action.icon} className="h-5 w-5" />
+              </div>
+              <div className="mt-4 text-sm font-semibold text-slate-900">{action.label}</div>
+              <div className="mt-1 text-xs text-slate-500">{action.note}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function DataTableCard<T extends object>({
   title,
   subtitle,
   actions,
@@ -76,46 +155,101 @@ function GenericTablePage<T extends object>({
   getRowId: (row: T) => string;
 }) {
   return (
-    <PageShell title={title} subtitle={subtitle} actions={actions}>
-      <SectionCard className="border-slate-200 shadow-sm">
-        <DataTable
-          data={data}
-          columns={columns}
-          getRowId={getRowId}
-          emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
-        />
-      </SectionCard>
-    </PageShell>
+    <SectionCard className="border-slate-200 shadow-sm">
+      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-[24px] font-semibold text-slate-900">{title}</div>
+          <div className="mt-1 text-sm text-slate-500">{subtitle}</div>
+        </div>
+        {actions}
+      </div>
+      <DataTable
+        data={data}
+        columns={columns}
+        getRowId={getRowId}
+        emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
+      />
+    </SectionCard>
+  );
+}
+
+function FeedCard({
+  title,
+  actionLabel,
+  onAction,
+  children,
+}: {
+  title: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <SectionCard className="border-slate-200 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="text-[22px] font-semibold text-slate-900">{title}</div>
+        {actionLabel && onAction ? (
+          <button type="button" onClick={onAction} className="text-base font-semibold text-indigo-700">
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
+      {children}
+    </SectionCard>
+  );
+}
+
+function SummaryList({
+  rows,
+}: {
+  rows: Array<{ label: string; value: string; note?: string }>;
+}) {
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => (
+        <div key={row.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">{row.label}</div>
+              {row.note ? <div className="mt-1 text-sm text-slate-500">{row.note}</div> : null}
+            </div>
+            <div className="text-base font-semibold text-slate-900">{row.value}</div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 function OverviewPage() {
   const mfeProps = useMFEProps();
+  const userName = mfeProps.user.name || "User";
   const locationName = mfeProps.location?.name ?? "current location";
   const [transactionFilter, setTransactionFilter] = useState<"All" | "Revenue" | "Payout">("All");
 
-  const dashboardActions = [
-    { label: "Create Invoice", path: "/finance/invoice", icon: "packagePlus" as const, tone: "bg-indigo-50 text-indigo-600" },
-    { label: "Create Expense", path: "/finance/expense", icon: "alert" as const, tone: "bg-rose-50 text-rose-600" },
-    { label: "Add Revenue", path: "/finance/payments", icon: "trend" as const, tone: "bg-emerald-50 text-emerald-600" },
-    { label: "Create Payout", path: "/finance/payable", icon: "history" as const, tone: "bg-amber-50 text-amber-600" },
-    { label: "Create Vendor", path: "/finance/vendors", icon: "globe" as const, tone: "bg-sky-50 text-sky-600" },
-    { label: "Invoices", path: "/finance/invoice", icon: "list" as const, tone: "bg-indigo-50 text-indigo-600" },
-    { label: "Order Invoices", path: "/finance/receivables", icon: "layers" as const, tone: "bg-violet-50 text-violet-600" },
-    { label: "Expenses", path: "/finance/expense", icon: "alert" as const, tone: "bg-rose-50 text-rose-600" },
-    { label: "Revenue", path: "/finance/reports", icon: "chart" as const, tone: "bg-emerald-50 text-emerald-600" },
-    { label: "Payouts", path: "/finance/payable", icon: "history" as const, tone: "bg-amber-50 text-amber-600" },
-    { label: "Vendors", path: "/finance/vendors", icon: "globe" as const, tone: "bg-slate-100 text-slate-700" },
-    { label: "Cash Reserve", path: "/finance/cashInhand", icon: "database" as const, tone: "bg-emerald-50 text-emerald-600" },
-    { label: "Cash Register", path: "/finance/cashRegister", icon: "database" as const, tone: "bg-lime-50 text-lime-700" },
-    { label: "Ledger", path: "/finance/ledger", icon: "warehouse" as const, tone: "bg-sky-50 text-sky-700" },
-    { label: "Activity Log", path: "/finance/activity-log", icon: "history" as const, tone: "bg-slate-100 text-slate-700" },
+  const dashboardActions: QuickAction[] = [
+    { label: "Create Invoice", path: "/finance/invoice", icon: "packagePlus", tone: "bg-indigo-50 text-indigo-600", note: "Issue new billing" },
+    { label: "Create Expense", path: "/finance/expense", icon: "alert", tone: "bg-rose-50 text-rose-600", note: "Book operations cost" },
+    { label: "Add Revenue", path: "/finance/payments", icon: "trend", tone: "bg-emerald-50 text-emerald-600", note: "Record collections" },
+    { label: "Create Payout", path: "/finance/payable", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Queue vendor payout" },
+    { label: "Create Vendor", path: "/finance/vendors", icon: "globe", tone: "bg-sky-50 text-sky-600", note: "Add vendor profile" },
+    { label: "Invoices", path: "/finance/invoice", icon: "list", tone: "bg-indigo-50 text-indigo-600", note: "See all invoices" },
+    { label: "Order Invoices", path: "/finance/receivables", icon: "layers", tone: "bg-violet-50 text-violet-600", note: "Track order billing" },
+    { label: "Expenses", path: "/finance/expense", icon: "alert", tone: "bg-rose-50 text-rose-600", note: "Monitor spends" },
+    { label: "Revenue", path: "/finance/receivables", icon: "trend", tone: "bg-emerald-50 text-emerald-600", note: "Review inflows" },
+    { label: "Payouts", path: "/finance/payable", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Manage outflows" },
+    { label: "Vendors", path: "/finance/vendors", icon: "globe", tone: "bg-slate-100 text-slate-700", note: "Vendor directory" },
+    { label: "Cash Reserve", path: "/finance/cashInhand", icon: "database", tone: "bg-emerald-50 text-emerald-600", note: "Cash in hand" },
+    { label: "Cash Register", path: "/finance/cashRegister", icon: "database", tone: "bg-lime-50 text-lime-700", note: "Register balances" },
+    { label: "Ledger", path: "/finance/ledger", icon: "warehouse", tone: "bg-sky-50 text-sky-700", note: "Account movements" },
+    { label: "Activity Log", path: "/finance/activity-log", icon: "history", tone: "bg-slate-100 text-slate-700", note: "Audit trail" },
+    { label: "Edit Actions", path: "/finance/settings", icon: "list", tone: "bg-slate-100 text-slate-700", note: "Configure dashboard" },
   ];
 
   const transactionRows = useMemo(() => {
     const revenueRows = financePayments.map((payment) => ({
       id: payment.id,
-      title: payment.id,
+      title: `Revenue/${payment.id}`,
       subtitle: payment.payer,
       kind: "Revenue" as const,
       date: payment.receivedOn,
@@ -124,14 +258,14 @@ function OverviewPage() {
 
     const payoutRows = financeExpenses.map((expense) => ({
       id: expense.id,
-      title: expense.title,
+      title: `Expense/${expense.id}`,
       subtitle: expense.owner,
       kind: "Payout" as const,
       date: expense.bookedOn,
       amount: expense.amount,
     }));
 
-    const combined = [...revenueRows, ...payoutRows].sort((a, b) => a.id.localeCompare(b.id)).reverse();
+    const combined = [...revenueRows, ...payoutRows].sort((a, b) => b.date.localeCompare(a.date));
 
     if (transactionFilter === "Revenue") {
       return combined.filter((row) => row.kind === "Revenue");
@@ -145,13 +279,13 @@ function OverviewPage() {
   }, [transactionFilter]);
 
   const statisticsData = [
-    { label: "Wed", value: 48_000 },
-    { label: "Thu", value: 32_000 },
-    { label: "Fri", value: 61_000 },
-    { label: "Sat", value: 54_000 },
-    { label: "Sun", value: 29_000 },
-    { label: "Mon", value: 46_000 },
-    { label: "Tue", value: 38_000 },
+    { label: "Wednesday", value: 48000 },
+    { label: "Thursday", value: 32000 },
+    { label: "Friday", value: 61000 },
+    { label: "Saturday", value: 54000 },
+    { label: "Sunday", value: 29000 },
+    { label: "Monday", value: 46000 },
+    { label: "Tuesday", value: 38000 },
   ];
 
   const accountBalance = 0;
@@ -159,40 +293,17 @@ function OverviewPage() {
   const revenueTotal = financePayments.reduce((sum, entry) => sum + entry.amount, 0);
   const expenseTotal = financeExpenses.reduce((sum, entry) => sum + entry.amount, 0);
   const payoutTotal = financePayables.reduce((sum, entry) => sum + entry.amountDue, 0);
-  const latestCashUpdate = financeCashInHand[0]?.updatedOn ?? "-";
+  const latestCashUpdate = financeCashInHand.at(-1)?.updatedOn ?? "-";
   const recentInvoices = financeInvoices.slice(0, 5);
   const recentVendors = financeVendors.slice(0, 6);
 
   return (
     <PageShell
-      title={`Welcome back, ${mfeProps.user.name}`}
-      subtitle={`Finance overview for ${locationName}. Keep track of collections, payouts, vendors, and account health.`}
+      title={`Welcome back, ${userName}`}
+      subtitle={`Finance overview for ${locationName}. This mirrors the legacy finance dashboard inside the new microfrontend.`}
       actions={<Button onClick={() => mfeProps.navigate("/finance/invoice")}>Open Invoices</Button>}
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <div className="space-y-5">
-          <div>
-            <div className="text-[28px] font-semibold tracking-tight text-[#312E81]">Finance Manager Dashboard</div>
-            <div className="mt-1 text-sm text-slate-500">Keep a tab on your finance and manage your finance operations smoothly.</div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-8">
-            {dashboardActions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => mfeProps.navigate(action.path)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
-              >
-                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.tone}`}>
-                  <Icon name={action.icon} className="h-5 w-5" />
-                </div>
-                <div className="mt-4 text-sm font-semibold text-slate-900">{action.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </SectionCard>
+      <QuickActions actions={dashboardActions} />
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
         <div className="space-y-6">
@@ -208,7 +319,13 @@ function OverviewPage() {
 
             <div className="mt-6">
               <div className="text-[24px] font-semibold text-slate-900">Recent Transaction</div>
-              <div className="mt-4 flex gap-3 text-sm font-semibold">
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <StatCard label="Revenue" value={formatCurrency(revenueTotal)} accent="emerald" />
+                <StatCard label="Expenses" value={formatCurrency(expenseTotal)} accent="rose" />
+                <StatCard label="Payout" value={formatCurrency(payoutTotal)} accent="amber" />
+              </div>
+
+              <div className="mt-5 flex gap-3 text-sm font-semibold">
                 {(["All", "Revenue", "Payout"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -230,7 +347,7 @@ function OverviewPage() {
                       <div className="text-lg font-semibold text-slate-900">{row.title}</div>
                       <div className="text-sm text-slate-600">{row.subtitle}</div>
                       <div className={`mt-1 text-sm font-medium ${row.kind === "Revenue" ? "text-emerald-600" : "text-rose-500"}`}>
-                        {row.kind === "Revenue" ? "Revenue ↗" : "Payout ↗"}
+                        {row.kind === "Revenue" ? "Revenue ->" : "Payout ->"}
                       </div>
                     </div>
                     <div className="text-base text-slate-600">{row.date}</div>
@@ -267,26 +384,22 @@ function OverviewPage() {
               <div className="text-[24px] font-semibold text-slate-900">Expenses Breakdown</div>
               <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Today</div>
             </div>
-            {financeExpenses.length ? (
-              <div className="mt-4 space-y-3">
-                {financeExpenses.slice(0, 3).map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <div>
-                      <div className="font-semibold text-slate-900">{expense.title}</div>
-                      <div className="text-sm text-slate-500">{expense.category}</div>
-                    </div>
-                    <div className="text-lg font-semibold text-slate-900">{formatCurrency(expense.amount)}</div>
+            <div className="mt-4 space-y-3">
+              {financeExpenses.slice(0, 4).map((expense) => (
+                <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div>
+                    <div className="font-semibold text-slate-900">{expense.category}</div>
+                    <div className="text-sm text-slate-500">{expense.title}</div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-6 py-10 text-center">
-                <div className="text-2xl font-semibold text-slate-900">No Expenses Found for Today</div>
-                <button type="button" className="mt-4 text-lg font-semibold text-indigo-700">
-                  See All Expenses
-                </button>
-              </div>
-            )}
+                  <div className="text-right">
+                    <div className="text-lg font-semibold text-slate-900">{formatCurrency(expense.amount)}</div>
+                    <button type="button" onClick={() => mfeProps.navigate("/finance/expense")} className="text-sm font-medium text-indigo-700">
+                      See all
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </SectionCard>
 
           <SectionCard className="border-slate-200 shadow-sm">
@@ -305,37 +418,34 @@ function OverviewPage() {
           </SectionCard>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <SectionCard className="border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-[22px] font-semibold text-slate-900">Invoices</div>
-                <button type="button" onClick={() => mfeProps.navigate("/finance/invoice")} className="text-lg font-semibold text-indigo-700">+ Add New</button>
-              </div>
-              <div className="mt-4 space-y-4">
-                {recentInvoices.map((invoice) => (
-                  <div key={invoice.id} className="border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+            <FeedCard title="Invoices" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/invoice")}>
+              <div className="space-y-4">
+                {recentInvoices.map((invoice, index) => (
+                  <button
+                    key={invoice.id}
+                    type="button"
+                    onClick={() => mfeProps.navigate(`/finance/master-invoice/${invoice.id}`)}
+                    className="block w-full border-b border-slate-100 pb-3 text-left last:border-b-0 last:pb-0"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-sm font-semibold text-indigo-700">Most Recent</div>
-                        <div className="font-semibold text-slate-900">Invoice : {invoice.id}</div>
+                        {index === 0 ? <div className="text-sm font-semibold text-indigo-700">Most Recent</div> : null}
+                        <div className="font-semibold text-slate-900">Invoice : #{invoice.id.replace("INV-", "")}</div>
                         <div className="text-sm text-slate-600">{invoice.customer}</div>
                         <div className="mt-1"><Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge></div>
                       </div>
                       <div className="font-semibold text-slate-900">{formatCurrency(invoice.amount)}</div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
               <button type="button" onClick={() => mfeProps.navigate("/finance/invoice")} className="mt-4 text-lg font-semibold text-indigo-700">
-                See All ({financeInvoices.length})
+                See All({financeInvoices.length})
               </button>
-            </SectionCard>
+            </FeedCard>
 
-            <SectionCard className="border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-[22px] font-semibold text-slate-900">Vendors</div>
-                <button type="button" onClick={() => mfeProps.navigate("/finance/vendors")} className="text-lg font-semibold text-indigo-700">+ Add New</button>
-              </div>
-              <div className="mt-4 space-y-3">
+            <FeedCard title="Vendors" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/vendors")}>
+              <div className="space-y-3">
                 {recentVendors.map((vendor) => (
                   <button
                     key={vendor.id}
@@ -352,14 +462,14 @@ function OverviewPage() {
                         <div className="text-sm text-slate-500">{vendor.category}</div>
                       </div>
                     </div>
-                    <div className="text-slate-400">→</div>
+                    <div className="text-slate-400">-&gt;</div>
                   </button>
                 ))}
               </div>
               <button type="button" onClick={() => mfeProps.navigate("/finance/vendors")} className="mt-4 text-lg font-semibold text-indigo-700">
-                See All ({financeVendors.length})
+                See All({financeVendors.length})
               </button>
-            </SectionCard>
+            </FeedCard>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -370,6 +480,7 @@ function OverviewPage() {
               <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
             ))}
           </div>
+        </div>
       </div>
     </PageShell>
   );
@@ -392,21 +503,47 @@ function EstimatesPage() {
     []
   );
 
+  const approvedValue = financeEstimates.filter((item) => item.stage === "Approved").reduce((sum, item) => sum + item.amount, 0);
+
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Estimates"
-      subtitle="Proposal and estimate tracking for the finance product."
+      subtitle="Proposal and estimate tracking aligned with the finance module route structure."
       actions={<Button>Create Estimate</Button>}
-      data={financeEstimates}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No estimates"
-      emptyDescription="Estimates will appear here."
+      stats={[
+        { label: "Total Estimates", value: String(financeEstimates.length), accent: "indigo" },
+        { label: "Approved Value", value: formatCurrency(approvedValue), accent: "emerald" },
+        { label: "Pending Review", value: String(financeEstimates.filter((item) => item.stage !== "Approved").length), accent: "amber" },
+        { label: "Expiring Soon", value: "2", accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Estimate Register"
+          subtitle="Track proposals before they become invoices or formal billing."
+          data={financeEstimates}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No estimates"
+          emptyDescription="Estimates will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Pipeline Summary">
+          <SummaryList
+            rows={financeEstimates.map((estimate) => ({
+              label: estimate.account,
+              value: formatCurrency(estimate.amount),
+              note: `${estimate.title} | ${estimate.stage}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
 
 function InvoicesPage() {
+  const mfeProps = useMFEProps();
   const columns = useMemo<ColumnDef<(typeof financeInvoices)[number]>[]>(
     () => [
       { key: "id", header: "Invoice" },
@@ -419,16 +556,64 @@ function InvoicesPage() {
     []
   );
 
+  const paidTotal = financeInvoices.filter((invoice) => invoice.status === "Paid").reduce((sum, invoice) => sum + invoice.amount, 0);
+  const pendingTotal = financeInvoices.filter((invoice) => invoice.status !== "Paid").reduce((sum, invoice) => sum + invoice.amount, 0);
+
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Invoices"
-      subtitle="Invoice operations inspired by the legacy finance module."
+      subtitle="Invoice operations rebuilt from the legacy finance module."
       actions={<Button>New Invoice</Button>}
-      data={financeInvoices}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No invoices"
-      emptyDescription="Invoices will appear here."
+      stats={[
+        { label: "Invoice Count", value: String(financeInvoices.length), accent: "indigo" },
+        { label: "Collected", value: formatCurrency(paidTotal), accent: "emerald" },
+        { label: "Open Amount", value: formatCurrency(pendingTotal), accent: "amber" },
+        { label: "Overdue", value: String(financeInvoices.filter((invoice) => invoice.status === "Overdue").length), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Invoice List"
+          subtitle="Recent and active finance invoices."
+          data={financeInvoices}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No invoices"
+          emptyDescription="Invoices will appear here."
+        />
+      }
+      aside={
+        <>
+          <FeedCard title="Most Recent">
+            <div className="space-y-3">
+              {financeInvoices.slice(0, 5).map((invoice) => (
+                <button
+                  key={invoice.id}
+                  type="button"
+                  onClick={() => mfeProps.navigate(`/finance/master-invoice/${invoice.id}`)}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-slate-900">Invoice : #{invoice.id.replace("INV-", "")}</div>
+                      <div className="text-sm text-slate-500">{invoice.customer}</div>
+                    </div>
+                    <div className="text-base font-semibold text-slate-900">{formatCurrency(invoice.amount)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </FeedCard>
+          <FeedCard title="Status Split">
+            <SummaryList
+              rows={[
+                { label: "Paid", value: String(financeInvoices.filter((item) => item.status === "Paid").length), note: "Settled invoices" },
+                { label: "Pending", value: String(financeInvoices.filter((item) => item.status === "Pending").length), note: "Awaiting payment" },
+                { label: "Overdue", value: String(financeInvoices.filter((item) => item.status === "Overdue").length), note: "Requires follow-up" },
+              ]}
+            />
+          </FeedCard>
+        </>
+      }
     />
   );
 }
@@ -445,16 +630,42 @@ function PaymentsPage() {
     []
   );
 
+  const totalCollections = financePayments.reduce((sum, row) => sum + row.amount, 0);
+  const upiCollections = financePayments.filter((row) => row.method === "UPI").reduce((sum, row) => sum + row.amount, 0);
+
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Payments"
-      subtitle="Collections, settlement entries, and incoming payment tracking."
+      subtitle="Collections, settlements, and incoming finance entries."
       actions={<Button>Record Payment</Button>}
-      data={financePayments}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No payments"
-      emptyDescription="Payment activity will appear here."
+      stats={[
+        { label: "Collections", value: formatCurrency(totalCollections), accent: "emerald" },
+        { label: "UPI", value: formatCurrency(upiCollections), accent: "indigo" },
+        { label: "Cash", value: formatCurrency(financePayments.filter((row) => row.method === "Cash").reduce((sum, row) => sum + row.amount, 0)), accent: "amber" },
+        { label: "Transactions", value: String(financePayments.length), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Payment Register"
+          subtitle="Incoming revenue captured against invoices and accounts."
+          data={financePayments}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No payments"
+          emptyDescription="Payment activity will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Collection Channels">
+          <SummaryList
+            rows={["Bank Transfer", "UPI", "Card", "Cash", "Net Banking"].map((method) => ({
+              label: method,
+              value: formatCurrency(financePayments.filter((row) => row.method === method).reduce((sum, row) => sum + row.amount, 0)),
+              note: `${financePayments.filter((row) => row.method === method).length} entries`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -472,15 +683,38 @@ function VendorsPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Vendors"
-      subtitle="Vendor-facing finance operations from the legacy module, rebuilt in the new app."
+      subtitle="Vendor-facing finance operations migrated into the new app."
       actions={<Button>Add Vendor</Button>}
-      data={financeVendors}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No vendors"
-      emptyDescription="Vendor records will appear here."
+      stats={[
+        { label: "Vendors", value: String(financeVendors.length), accent: "indigo" },
+        { label: "Active", value: String(financeVendors.filter((vendor) => vendor.status === "Active").length), accent: "emerald" },
+        { label: "On Hold", value: String(financeVendors.filter((vendor) => vendor.status === "On Hold").length), accent: "amber" },
+        { label: "Payables", value: formatCurrency(financeVendors.reduce((sum, vendor) => sum + vendor.payable, 0)), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Vendor Directory"
+          subtitle="Recently used and outstanding vendor records."
+          data={financeVendors}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No vendors"
+          emptyDescription="Vendor records will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Priority Vendors">
+          <SummaryList
+            rows={financeVendors.slice(0, 6).map((vendor) => ({
+              label: vendor.name,
+              value: formatCurrency(vendor.payable),
+              note: `${vendor.category} | ${vendor.status}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -498,15 +732,38 @@ function LedgerPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Ledger"
       subtitle="Ledger movements, credits, debits, and running balances."
       actions={<Button>Add Credit</Button>}
-      data={financeLedgerEntries}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No ledger entries"
-      emptyDescription="Ledger entries will appear here."
+      stats={[
+        { label: "Entries", value: String(financeLedgerEntries.length), accent: "indigo" },
+        { label: "Credits", value: formatCurrency(financeLedgerEntries.filter((item) => item.type === "Credit").reduce((sum, item) => sum + item.amount, 0)), accent: "emerald" },
+        { label: "Debits", value: formatCurrency(financeLedgerEntries.filter((item) => item.type === "Debit").reduce((sum, item) => sum + item.amount, 0)), accent: "amber" },
+        { label: "Closing Balance", value: formatCurrency(financeLedgerEntries[0]?.balance ?? 0), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Ledger Register"
+          subtitle="Latest account-level finance movements."
+          data={financeLedgerEntries}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No ledger entries"
+          emptyDescription="Ledger entries will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Top Accounts">
+          <SummaryList
+            rows={financeLedgerEntries.map((entry) => ({
+              label: entry.account,
+              value: formatCurrency(entry.balance),
+              note: `${entry.type} posted on ${entry.updatedOn}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -524,14 +781,38 @@ function ReceivablesPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Receivables"
-      subtitle="Outstanding incoming balances and collection ownership."
-      data={financeReceivables}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No receivables"
-      emptyDescription="Receivables will appear here."
+      subtitle="Outstanding incoming balances and collections ownership."
+      actions={<Button>Add Revenue</Button>}
+      stats={[
+        { label: "Receivable Accounts", value: String(financeReceivables.length), accent: "indigo" },
+        { label: "Outstanding", value: formatCurrency(financeReceivables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "amber" },
+        { label: "Largest Dues", value: formatCurrency(Math.max(...financeReceivables.map((row) => row.amountDue))), accent: "rose" },
+        { label: "Collections Owners", value: String(new Set(financeReceivables.map((row) => row.owner)).size), accent: "emerald" },
+      ]}
+      main={
+        <DataTableCard
+          title="Receivables Queue"
+          subtitle="Follow-up list for unpaid and partially settled invoices."
+          data={financeReceivables}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No receivables"
+          emptyDescription="Receivables will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Ageing View">
+          <SummaryList
+            rows={financeReceivables.map((row) => ({
+              label: row.customer,
+              value: row.ageing,
+              note: `${row.invoiceId} | ${formatCurrency(row.amountDue)}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -549,14 +830,38 @@ function PayablesPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Payables"
-      subtitle="Payables queue and due bill prioritisation."
-      data={financePayables}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No payables"
-      emptyDescription="Payable entries will appear here."
+      subtitle="Payables queue and outgoing vendor commitments."
+      actions={<Button>Create Payout</Button>}
+      stats={[
+        { label: "Open Bills", value: String(financePayables.length), accent: "indigo" },
+        { label: "Amount Due", value: formatCurrency(financePayables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "amber" },
+        { label: "High Priority", value: String(financePayables.filter((row) => row.priority === "High").length), accent: "rose" },
+        { label: "Vendors", value: String(new Set(financePayables.map((row) => row.vendor)).size), accent: "emerald" },
+      ]}
+      main={
+        <DataTableCard
+          title="Payables Queue"
+          subtitle="Vendor payments due soon."
+          data={financePayables}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No payables"
+          emptyDescription="Payable entries will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Due Soon">
+          <SummaryList
+            rows={financePayables.map((row) => ({
+              label: row.vendor,
+              value: row.dueOn,
+              note: `${row.billRef} | ${formatCurrency(row.amountDue)} | ${row.priority}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -573,16 +878,44 @@ function ExpensesPage() {
     []
   );
 
+  const byCategory = Array.from(new Set(financeExpenses.map((expense) => expense.category))).map((category) => ({
+    category,
+    total: financeExpenses.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0),
+  }));
+
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Expenses"
       subtitle="Operational and compliance expense tracking."
       actions={<Button>Add Expense</Button>}
-      data={financeExpenses}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No expenses"
-      emptyDescription="Expense entries will appear here."
+      stats={[
+        { label: "Expense Count", value: String(financeExpenses.length), accent: "indigo" },
+        { label: "Expense Total", value: formatCurrency(financeExpenses.reduce((sum, row) => sum + row.amount, 0)), accent: "rose" },
+        { label: "Categories", value: String(byCategory.length), accent: "amber" },
+        { label: "Latest Booking", value: financeExpenses[0]?.bookedOn ?? "-", accent: "emerald" },
+      ]}
+      main={
+        <DataTableCard
+          title="Expense Register"
+          subtitle="Booked finance expenses and category ownership."
+          data={financeExpenses}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No expenses"
+          emptyDescription="Expense entries will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Category Breakdown">
+          <SummaryList
+            rows={byCategory.map((row) => ({
+              label: row.category,
+              value: formatCurrency(row.total),
+              note: `${financeExpenses.filter((expense) => expense.category === row.category).length} entries`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -598,15 +931,38 @@ function CategoryPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Categories"
       subtitle="Finance categories used across invoices, expenses, and ledger flows."
       actions={<Button>Create Category</Button>}
-      data={financeCategories}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No categories"
-      emptyDescription="Categories will appear here."
+      stats={[
+        { label: "Categories", value: String(financeCategories.length), accent: "indigo" },
+        { label: "Invoice Tags", value: String(financeCategories.filter((item) => item.linkedTo === "Invoices").length), accent: "emerald" },
+        { label: "Expense Tags", value: String(financeCategories.filter((item) => item.linkedTo === "Expenses").length), accent: "amber" },
+        { label: "Ledger Tags", value: String(financeCategories.filter((item) => item.linkedTo === "Ledger").length), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Category List"
+          subtitle="Reusable finance categories."
+          data={financeCategories}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No categories"
+          emptyDescription="Categories will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Usage Summary">
+          <SummaryList
+            rows={financeCategories.map((item) => ({
+              label: item.name,
+              value: String(item.usageCount),
+              note: `Linked to ${item.linkedTo}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -622,15 +978,75 @@ function StatusPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Statuses"
       subtitle="Manage finance workflow statuses across module entities."
       actions={<Button>Create Status</Button>}
-      data={financeStatuses}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No statuses"
-      emptyDescription="Statuses will appear here."
+      stats={[
+        { label: "Statuses", value: String(financeStatuses.length), accent: "indigo" },
+        { label: "Invoice Statuses", value: String(financeStatuses.filter((item) => item.appliesTo === "Invoices").length), accent: "emerald" },
+        { label: "Receivable Statuses", value: String(financeStatuses.filter((item) => item.appliesTo === "Receivables").length), accent: "amber" },
+        { label: "Vendor Statuses", value: String(financeStatuses.filter((item) => item.appliesTo === "Vendors").length), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Status Registry"
+          subtitle="Status values used across the finance product."
+          data={financeStatuses}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No statuses"
+          emptyDescription="Statuses will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Status Notes">
+          <SummaryList
+            rows={financeStatuses.map((item) => ({
+              label: item.name,
+              value: item.colorHint,
+              note: `Applies to ${item.appliesTo}`,
+            }))}
+          />
+        </FeedCard>
+      }
+    />
+  );
+}
+
+function TotalListPage() {
+  return (
+    <FinanceFeatureLayout
+      title="Total List"
+      subtitle="Combined finance totals similar to the old total-list route."
+      stats={[
+        { label: "Revenue", value: formatCurrency(financePayments.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
+        { label: "Expenses", value: formatCurrency(financeExpenses.reduce((sum, row) => sum + row.amount, 0)), accent: "rose" },
+        { label: "Receivables", value: formatCurrency(financeReceivables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "amber" },
+        { label: "Payables", value: formatCurrency(financePayables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "indigo" },
+      ]}
+      main={
+        <SectionCard className="border-slate-200 shadow-sm">
+          <div className="text-[24px] font-semibold text-slate-900">Finance Totals</div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {financeSummaryCards.map((card) => (
+              <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
+            ))}
+          </div>
+        </SectionCard>
+      }
+      aside={
+        <FeedCard title="Breakdown">
+          <SummaryList
+            rows={[
+              { label: "Invoices", value: String(financeInvoices.length), note: "Total invoice records" },
+              { label: "Payments", value: String(financePayments.length), note: "Recorded collections" },
+              { label: "Vendors", value: String(financeVendors.length), note: "Active vendor directory" },
+              { label: "Ledger Entries", value: String(financeLedgerEntries.length), note: "Journal records" },
+            ]}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -647,14 +1063,38 @@ function CashInHandPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Cash In Hand"
       subtitle="Current cash availability and custody visibility."
-      data={financeCashInHand}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No cash in hand records"
-      emptyDescription="Cash in hand entries will appear here."
+      actions={<Button>Refresh Cash</Button>}
+      stats={[
+        { label: "Cash Sources", value: String(financeCashInHand.length), accent: "indigo" },
+        { label: "Total Cash", value: formatCurrency(financeCashInHand.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
+        { label: "Largest Source", value: formatCurrency(Math.max(...financeCashInHand.map((row) => row.amount))), accent: "amber" },
+        { label: "Custodians", value: String(new Set(financeCashInHand.map((row) => row.owner)).size), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Cash Sources"
+          subtitle="Cash reserve locations and accountable owners."
+          data={financeCashInHand}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No cash in hand records"
+          emptyDescription="Cash in hand entries will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Latest Snapshots">
+          <SummaryList
+            rows={financeCashInHand.map((row) => ({
+              label: row.source,
+              value: formatCurrency(row.amount),
+              note: `${row.owner} | ${row.updatedOn}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -671,14 +1111,38 @@ function CashRegisterPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Cash Register"
       subtitle="Register balances and last update snapshots."
-      data={financeCashRegisters}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No cash register data"
-      emptyDescription="Cash register entries will appear here."
+      actions={<Button>View Reconciliation</Button>}
+      stats={[
+        { label: "Registers", value: String(financeCashRegisters.length), accent: "indigo" },
+        { label: "Balance", value: formatCurrency(financeCashRegisters.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
+        { label: "Main Register", value: formatCurrency(financeCashRegisters[0]?.amount ?? 0), accent: "amber" },
+        { label: "Updated Today", value: "2", accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Register Snapshot"
+          subtitle="Cash register visibility for the finance workspace."
+          data={financeCashRegisters}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No cash register data"
+          emptyDescription="Cash register entries will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Register Owners">
+          <SummaryList
+            rows={financeCashRegisters.map((row) => ({
+              label: row.owner,
+              value: formatCurrency(row.amount),
+              note: `${row.source} | ${row.updatedOn}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -695,14 +1159,37 @@ function ActivityLogPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Activity Log"
       subtitle="Audit visibility for the finance workspace."
-      data={financeActivityLogs}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No finance activity"
-      emptyDescription="Activity entries will appear here."
+      stats={[
+        { label: "Events", value: String(financeActivityLogs.length), accent: "indigo" },
+        { label: "Human Actions", value: String(financeActivityLogs.filter((item) => item.actor !== "Finance Bot").length), accent: "emerald" },
+        { label: "Automation", value: String(financeActivityLogs.filter((item) => item.actor === "Finance Bot").length), accent: "amber" },
+        { label: "Tracked Targets", value: String(new Set(financeActivityLogs.map((item) => item.target)).size), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Audit Trail"
+          subtitle="Recent finance activity across invoices, vendors, and ledger."
+          data={financeActivityLogs}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No finance activity"
+          emptyDescription="Activity entries will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Recent Events">
+          <SummaryList
+            rows={financeActivityLogs.map((item) => ({
+              label: item.action,
+              value: item.timestamp,
+              note: `${item.actor} -> ${item.target}`,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -718,14 +1205,38 @@ function ReportsPage() {
   );
 
   return (
-    <GenericTablePage
+    <FinanceFeatureLayout
       title="Reports"
       subtitle="Core finance indicators rebuilt from the broader legacy finance feature set."
-      data={financeReportMetrics}
-      columns={columns}
-      getRowId={(row) => row.id}
-      emptyTitle="No report metrics"
-      emptyDescription="Report metrics will appear here."
+      actions={<Button>Export Report</Button>}
+      stats={[
+        { label: "Metrics", value: String(financeReportMetrics.length), accent: "indigo" },
+        { label: "Revenue", value: formatCurrency(financePayments.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
+        { label: "Receivables", value: formatCurrency(financeReceivables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "amber" },
+        { label: "Payables", value: formatCurrency(financePayables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "rose" },
+      ]}
+      main={
+        <DataTableCard
+          title="Report Metrics"
+          subtitle="Finance KPIs and descriptive notes."
+          data={financeReportMetrics}
+          columns={columns}
+          getRowId={(row) => row.id}
+          emptyTitle="No report metrics"
+          emptyDescription="Report metrics will appear here."
+        />
+      }
+      aside={
+        <FeedCard title="Operational Highlights">
+          <SummaryList
+            rows={financeReportMetrics.map((metric) => ({
+              label: metric.metric,
+              value: metric.value,
+              note: metric.note,
+            }))}
+          />
+        </FeedCard>
+      }
     />
   );
 }
@@ -780,17 +1291,49 @@ function MasterInvoicePage() {
 
 function SettingsPage() {
   return (
-    <PageShell
+    <FinanceFeatureLayout
       title="Finance Settings"
-      subtitle="Template, category, vendor, and status administration can expand here module by module."
-    >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <EmptyState
-          title="Settings migration in progress"
-          description="The route structure from the legacy finance module is now present. Deep forms and workflows can be migrated feature by feature into these sections."
-        />
-      </SectionCard>
-    </PageShell>
+      subtitle="Template, category, vendor, and dashboard administration."
+      stats={[
+        { label: "Dashboard Actions", value: "16", accent: "indigo" },
+        { label: "Categories", value: String(financeCategories.length), accent: "emerald" },
+        { label: "Statuses", value: String(financeStatuses.length), accent: "amber" },
+        { label: "Vendors", value: String(financeVendors.length), accent: "rose" },
+      ]}
+      main={
+        <SectionCard className="border-slate-200 shadow-sm">
+          <div className="text-[24px] font-semibold text-slate-900">Settings Areas</div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              "Dashboard Actions",
+              "Invoice Templates",
+              "Vendor Permissions",
+              "Status Definitions",
+              "Category Mapping",
+              "Cash Register Rules",
+              "Report Preferences",
+              "Role Access",
+            ].map((item) => (
+              <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700">
+                {item}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      }
+      aside={
+        <FeedCard title="Migration Notes">
+          <SummaryList
+            rows={[
+              { label: "Dashboard", value: "Migrated", note: "Legacy action grid and cards are now present." },
+              { label: "Invoices", value: "Migrated", note: "List, detail shell, and dashboard block added." },
+              { label: "Vendors", value: "Migrated", note: "Directory and dashboard feed added." },
+              { label: "Deep Forms", value: "Pending", note: "Backend-connected create/edit flows still need service wiring." },
+            ]}
+          />
+        </FeedCard>
+      }
+    />
   );
 }
 
@@ -814,6 +1357,7 @@ export default function App() {
       <Route path="payments" element={withBoundary(<PaymentsPage />)} />
       <Route path="category" element={withBoundary(<CategoryPage />)} />
       <Route path="status" element={withBoundary(<StatusPage />)} />
+      <Route path="total" element={withBoundary(<TotalListPage />)} />
       <Route path="cashInhand" element={withBoundary(<CashInHandPage />)} />
       <Route path="cashRegister" element={withBoundary(<CashRegisterPage />)} />
       <Route path="activity-log" element={withBoundary(<ActivityLogPage />)} />

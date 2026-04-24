@@ -12,6 +12,7 @@ export type ProductKey =
 
 export type ModuleKey =
   | "customers"
+  | "ip"
   | "leads"
   | "tasks"
   | "users"

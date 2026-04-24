@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => {
             from: "vite",
             externalType: "url",
           },
+          mfe_karty: {
+            external: `${(env.VITE_KARTY_URL || "http://localhost:3005")}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          },
         },
       }),
     ],

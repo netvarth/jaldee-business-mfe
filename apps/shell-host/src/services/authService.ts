@@ -1,4 +1,9 @@
 
+import {
+  DEFAULT_ENABLED_MODULES,
+  DEFAULT_LICENSED_PRODUCTS,
+  normalizeAccountContext,
+} from "@jaldee/auth-context";
 import type { UserContext, AccountContext, BranchLocation } from "@jaldee/auth-context";
 import { apiClient } from "@jaldee/api-client";
 
@@ -35,6 +40,7 @@ export interface AccountSettingsResponse {
   enableCrmLead?: boolean;
   enableItemGroup?: boolean;
   enableSalesOrder?: boolean;
+  onlinePayment?: boolean;
 }
 
 const isMock = import.meta.env.VITE_USE_MOCK === "true";
@@ -244,6 +250,7 @@ function normalizeAccountSettings(raw: unknown): AccountSettingsResponse {
     enableCrmLead: candidate.enableCrmLead === true,
     enableItemGroup: candidate.enableItemGroup === true,
     enableSalesOrder: candidate.enableSalesOrder === true,
+    onlinePayment: candidate.onlinePayment === true
   };
 }
 
@@ -256,6 +263,7 @@ async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
       enableCrmLead: true,
       enableItemGroup: false,
       enableSalesOrder: true,
+      onlinePayment: true
     };
   }
 
@@ -270,11 +278,18 @@ async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
 
 function deriveEnabledModules(
   enabledModules: AccountContext["enabledModules"],
-  settings: AccountSettingsResponse
+  settings: AccountSettingsResponse,
+  licensedProducts?: AccountContext["licensedProducts"]
 ): AccountContext["enabledModules"] {
   const modules = new Set<string>(
-    Array.isArray(enabledModules) ? enabledModules.map(String) : ["customers", "users", "reports", "settings"]
+    Array.isArray(enabledModules)
+      ? enabledModules.map(String)
+      : [...DEFAULT_ENABLED_MODULES, "membership", "tasks", "leads"]
   );
+
+  if (licensedProducts?.includes("finance")) {
+    modules.add("finance");
+  }
 
   if (settings.enableMembership) {
     modules.add("membership");
@@ -303,10 +318,14 @@ async function normalizeLoginResponse(raw: unknown): Promise<SessionResponse> {
 
   return {
     ...normalized,
-    account: {
+    account: normalizeAccountContext({
       ...normalized.account,
-      enabledModules: deriveEnabledModules(normalized.account.enabledModules, settings),
-    },
+      enabledModules: deriveEnabledModules(
+        normalized.account.enabledModules,
+        settings,
+        normalized.account.licensedProducts
+      ),
+    }),
   };
 }
 
@@ -340,10 +359,10 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
     name: String(rawAccount.name ?? rawAccount.businessName ?? user.name ?? "Jaldee Business"),
     licensedProducts: Array.isArray(rawAccount.licensedProducts)
       ? (rawAccount.licensedProducts as AccountContext["licensedProducts"])
-      : ["health", "bookings", "golderp"],
+      : DEFAULT_LICENSED_PRODUCTS,
     enabledModules: Array.isArray(rawAccount.enabledModules)
       ? (rawAccount.enabledModules as AccountContext["enabledModules"])
-      : ["customers", "users", "reports", "settings"],
+      : DEFAULT_ENABLED_MODULES,
     theme: {
       primaryColor: String(
         (rawAccount.theme as Record<string, unknown> | undefined)?.primaryColor ??
@@ -381,12 +400,13 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
       lead: String((rawAccount.labels as Record<string, unknown> | undefined)?.lead ?? "Lead"),
     },
   };
+  const normalizedAccount = normalizeAccountContext(account);
 
   const locations = normalizeLocations(candidate.locations ?? candidate.location ?? candidate.branch);
 
   return {
     user,
-    account,
+    account: normalizedAccount,
     locations,
     token: typeof candidate.token === "string" ? candidate.token : undefined,
     multiFactorAuthenticationRequired:
@@ -416,7 +436,7 @@ export const authService = {
     };
   }
   const res = await apiClient.get<SessionResponse>("/auth/me");
-  return res.data;
+  return normalizeLoginResponse(res.data);
 },
 
   async login(payload: LoginRequest): Promise<SessionResponse> {

@@ -13,12 +13,12 @@ function buildScopedUrl(path: string, apiScope: ScopeAwareRequestConfig["apiScop
     throw new Error("Location scope requires a locationId.");
   }
 
+  if (normalizedPath.includes("locationId=")) {
+    return normalizedPath;
+  }
+
   const separator = normalizedPath.includes("?") ? "&" : "?";
   return `${normalizedPath}${separator}locationId=${encodeURIComponent(locationId)}`;
-}
-
-function normalizePath(path: string) {
-  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export function useApiScope() {
@@ -27,6 +27,8 @@ export function useApiScope() {
   return useMemo(() => {
     const locationId = location?.id ?? null;
 
+    const normalizePath = (path: string) => (path.startsWith("/") ? path : `/${path}`);
+
     return {
       apiScope,
       locationId,
@@ -34,10 +36,8 @@ export function useApiScope() {
       get: <T>(path: string, config?: unknown) => api.get<T>(normalizePath(path), config),
       post: <T>(path: string, data?: unknown, config?: unknown) =>
         api.post<T>(buildScopedUrl(path, apiScope, locationId), data, config),
-      put: <T>(path: string, data?: unknown, config?: unknown) =>
-        api.put<T>(normalizePath(path), data, config),
-      delete: <T>(path: string, config?: unknown) =>
-        api.delete<T>(normalizePath(path), config),
+      put: <T>(path: string, data?: unknown, config?: unknown) => api.put<T>(normalizePath(path), data, config),
+      delete: <T>(path: string, config?: unknown) => api.delete<T>(normalizePath(path), config),
     };
   }, [api, apiScope, location]);
 }

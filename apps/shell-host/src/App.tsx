@@ -7,6 +7,7 @@ import { HealthMFE } from "./mfes/HealthMFE";
 import { BookingsMFE } from "./mfes/BookingsMFE";
 import { GoldErpMFE } from "./mfes/GoldErpMFE";
 import { FinanceMFE } from "./mfes/FinanceMFE";
+import { KartyMFE } from "./mfes/KartyMFE";
 import { useShellStore } from "./store/shellStore";
 import { getStoredCredentials } from "./services/authService";
 import "./App.css";
@@ -49,7 +50,7 @@ export default function App() {
                   <Suspense fallback={
                     <div className="shell-loading">Loading Health...</div>
                   }>
-                    <div className="health-wrapper">
+                    <div className="mfe-wrapper">
                       <HealthMFE />
                     </div>
                   </Suspense>
@@ -66,6 +67,15 @@ export default function App() {
                     <div className="shell-loading">Loading Gold ERP...</div>
                   }>
                     <GoldErpMFE />
+                  </Suspense>
+                } />
+                <Route path="/karty/*" element={
+                  <Suspense fallback={
+                    <div className="shell-loading">Loading Karty...</div>
+                  }>
+                    <div className="mfe-wrapper">
+                      <KartyMFE />
+                    </div>
                   </Suspense>
                 } />
                 <Route path="/finance/*" element={

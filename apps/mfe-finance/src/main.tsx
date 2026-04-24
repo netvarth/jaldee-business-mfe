@@ -5,6 +5,8 @@ import { MFEPropsContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
 import "./index.css";
 import App from "./App";
+import { ensureApiClientInitialized } from "./lib/apiClient";
+import { setShellHttpBridge } from "./lib/httpClient";
 
 const mockProps: MFEProps = {
   mfeName: "mfe-finance",
@@ -62,6 +64,9 @@ const mockProps: MFEProps = {
     trackPageView: (path) => console.debug("[telemetry:pageview]", path),
   },
 };
+
+ensureApiClientInitialized(mockProps.mfeName, mockProps.authToken);
+setShellHttpBridge(mockProps.api ?? null);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

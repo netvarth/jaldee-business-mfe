@@ -14,6 +14,17 @@ const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: string }> = {
   ai: { label: "AI", icon: "\u2728" },
 };
 
+const PRODUCT_ORDER: ProductKey[] = [
+  "health",
+  "bookings",
+  "golderp",
+  "karty",
+  "finance",
+  "lending",
+  "hr",
+  "ai",
+];
+
 export default function IconRail() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,6 +60,7 @@ export default function IconRail() {
   }
 
   const isActive = (key: string) => location.pathname.startsWith(`/${key}`);
+  const licensedProducts = PRODUCT_ORDER.filter((key) => account.licensedProducts.includes(key));
 
   return (
     <div
@@ -73,7 +85,7 @@ export default function IconRail() {
         onClick={handleHome}
       />
 
-      {account.licensedProducts.map((key) => {
+      {licensedProducts.map((key) => {
         const config = PRODUCT_CONFIG[key];
         if (!config) return null;
 

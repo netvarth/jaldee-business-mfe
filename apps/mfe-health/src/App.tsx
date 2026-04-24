@@ -6,9 +6,12 @@ import { PageErrorBoundary } from "@jaldee/design-system";
 const HealthCustomersPage = lazy(() => import("./pages/customers/HealthCustomersPage"));
 const HealthCasePage = lazy(() => import("./pages/cases/HealthCasePage"));
 const HealthPatientsPage = lazy(() => import("./pages/patients/HealthPatientsPage"));
+const HealthIpPage = lazy(() => import("./pages/ip/HealthIpPage"));
+const HealthDrivePage = lazy(() => import("./pages/drive/HealthDrivePage"));
 const HealthMembershipsPage = lazy(() => import("./pages/memberships/HealthMembershipsPage"));
 const HealthLeadsPage = lazy(() => import("./pages/leads/HealthLeadsPage"));
 const HealthFinancePage = lazy(() => import("./pages/finance/HealthFinancePage"));
+const HealthPharmacyPage = lazy(() => import("./pages/pharmacy/HealthPharmacyPage"));
 
 function RouteLoader() {
   return <div className="p-6 text-sm text-slate-500">Loading...</div>;
@@ -40,6 +43,23 @@ export default function App() {
       <Route path="patients/:recordId/case/:caseId" element={withBoundary(<HealthCasePage />)} />
       <Route path="patients/:recordId/new-case" element={withBoundary(<HealthCasePage />)} />
       <Route path="patients/:recordId/new-case/:caseId" element={withBoundary(<HealthCasePage />)} />
+
+      <Route path="ip" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/:view" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/:view/:subview" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/:view/:subview/:recordId" element={withBoundary(<HealthIpPage />)} />
+
+      <Route path="drive" element={withBoundary(<HealthDrivePage />)} />
+      <Route path="drive/:view" element={withBoundary(<HealthDrivePage />)} />
+      <Route path="drive/:view/:subview" element={withBoundary(<HealthDrivePage />)} />
+      <Route path="drive/:view/:subview/:recordId" element={withBoundary(<HealthDrivePage />)} />
+
+      <Route path="pharmacy" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/:view" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/:view/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/:view/:subview" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/:view/:subview/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
 
       <Route path="memberships" element={withBoundary(<HealthMembershipsPage />)} />
       <Route path="memberships/members" element={withBoundary(<HealthMembershipsPage />)} />
