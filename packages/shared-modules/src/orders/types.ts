@@ -206,6 +206,35 @@ export type OrdersItemRow = {
   raw?: unknown;
 };
 
+export type OrdersItemDetailStats = {
+  numberOfOrders: number;
+  orderQuantity: number;
+  numberOfPurchase: number;
+  purchasedQuantity: number;
+};
+
+export type OrdersItemConsumptionHistoryRow = {
+  id: string;
+  date: string;
+  batch: string;
+  referenceNumber: string;
+  store: string;
+  transactionType: string;
+  updateType: string;
+  quantity: number;
+  raw?: unknown;
+};
+
+export type OrdersItemDetail = OrdersItemRow & {
+  description: string;
+  unit: string;
+  batchApplicable: string;
+  gallery: string[];
+  badges: string[];
+  stats: OrdersItemDetailStats;
+  consumptionHistory: OrdersItemConsumptionHistoryRow[];
+};
+
 export type OrdersItemSettingsOption = {
   id: string;
   label: string;

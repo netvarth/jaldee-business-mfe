@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { Button, DataTable, EmptyState, Popover, PopoverSection, SectionCard, Switch } from "@jaldee/design-system";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersCatalogsPage } from "../queries/orders";
 import type { OrdersCatalogRow } from "../types";
 import { SharedOrdersLayout } from "./shared";
 
 export function OrdersCatalogList() {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({ namespace: "ordersCatalogs" });
   const [query, setQuery] = useState("");
   const catalogsQuery = useOrdersCatalogsPage(page, pageSize);
   const rows = catalogsQuery.data?.rows ?? [];

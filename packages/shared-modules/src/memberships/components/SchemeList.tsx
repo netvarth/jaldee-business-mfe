@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, DataTable, DataTableToolbar, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeServiceStatus,
   useServiceCount,
@@ -82,13 +83,11 @@ export function SchemeList() {
   const isServiceView = routeParams?.view === "service";
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "membershipServices",
+    resetDeps: [appliedSearchQuery],
+  });
   const [statusError, setStatusError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedSearchQuery, pageSize]);
 
   const filters = useMemo(
     () => ({

@@ -10,6 +10,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useAllMemberSubscriptions,
   useAllMemberSubscriptionsCount,
@@ -114,8 +115,10 @@ export function PaymentInfoList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "membershipPayments",
+    resetDeps: [appliedSearchQuery, paymentStatusFilter],
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -124,10 +127,6 @@ export function PaymentInfoList() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchQuery]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedSearchQuery, pageSize, paymentStatusFilter]);
 
   const filters = useMemo(
     () => ({

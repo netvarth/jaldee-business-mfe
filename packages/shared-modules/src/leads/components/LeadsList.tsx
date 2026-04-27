@@ -2,6 +2,7 @@ import { Button, DataTable, DataTableToolbar, EmptyState, PageHeader, SectionCar
 import type { ColumnDef } from "@jaldee/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useLeads, useLeadsCount } from "../queries/leads";
 import { formatDate, fullName, mapLeadStatusLabel, unwrapCount, unwrapList } from "../utils";
 import { StatusBadge } from "./shared";
@@ -37,17 +38,15 @@ export function LeadsList() {
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [status, setStatus] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "leadsList",
+    resetDeps: [appliedQuery, status],
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAppliedQuery(query.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [query]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedQuery, pageSize, status]);
 
   const filters = useMemo(
     () => ({

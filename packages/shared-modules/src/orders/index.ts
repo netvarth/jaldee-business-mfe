@@ -4,6 +4,9 @@ export type {
   OrdersCatalogRow,
   OrdersDataset,
   OrdersInventoryRow,
+  OrdersItemConsumptionHistoryRow,
+  OrdersItemDetail,
+  OrdersItemDetailStats,
   OrdersInvoiceRow,
   OrdersItemRow,
   OrdersItemSettings,
@@ -16,6 +19,7 @@ export type {
 export { OrdersModule } from "./OrdersModule";
 export { OrdersDashboard } from "./components/OrdersDashboard";
 export { OrdersInvoicesList } from "./components/OrdersInvoicesList";
+export { OrdersItemDetails } from "./components/OrdersItemDetails";
 export { OrdersItemsList } from "./components/OrdersItemsList";
 export { OrdersList } from "./components/OrdersList";
 export { OrdersRequestsList } from "./components/OrdersRequestsList";
@@ -25,6 +29,8 @@ export { OrdersSettings } from "./components/OrdersSettings";
 export {
   useOrdersDataset,
   useOrdersInvoicesPage,
+  useOrdersItemConsumptionHistory,
+  useOrdersItemDetail,
   useOrdersItemsPage,
   useOrdersOrders,
   useOrdersRequests,
@@ -33,6 +39,7 @@ export {
 } from "./queries/orders";
 export {
   formatOrdersCurrency,
+  buildOrdersItemDetailHref,
   getDefaultOrdersCapabilities,
   getOrdersDashboardDataset,
   getOrdersStatusVariant,

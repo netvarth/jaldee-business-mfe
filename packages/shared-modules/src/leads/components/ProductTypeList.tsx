@@ -2,6 +2,7 @@ import { Button, DataTable, DataTableToolbar, EmptyState, PageHeader, SectionCar
 import type { ColumnDef } from "@jaldee/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useChangeProductTypeStatus, useProductTypeCount, useProductTypes } from "../queries/leads";
 import { PRODUCT_TYPE_OPTIONS, unwrapCount, unwrapList } from "../utils";
 
@@ -29,17 +30,15 @@ export function ProductTypeList() {
   const { basePath } = useSharedModulesContext();
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "leadsProductTypes",
+    resetDeps: [appliedQuery],
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAppliedQuery(query.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [query]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedQuery, pageSize]);
 
   const filters = useMemo(
     () => ({

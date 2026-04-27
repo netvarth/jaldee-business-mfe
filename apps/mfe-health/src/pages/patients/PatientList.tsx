@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PageHeader,
@@ -146,13 +146,17 @@ function getColumns(
 export default function PatientList() {
   const navigate = useNavigate();
 
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => readPersistedPage("patientsList", "patientsPage", 1));
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   const pageSize = 8;
+
+  useEffect(() => {
+    syncPersistedPage("patientsList", "patientsPage", page);
+  }, [page]);
 
   function handleView(patient: Patient) {
     navigate(`/health/patients/${patient.id}`);
@@ -287,4 +291,41 @@ function MoreIcon() {
       <circle cx="15" cy="10" r="1.5" />
     </svg>
   );
+}
+
+function readPersistedPage(namespace: string, pageParam: string, fallback: number) {
+  if (typeof window === "undefined") return fallback;
+
+  const urlValue = Number(new URLSearchParams(window.location.search).get(pageParam));
+  if (Number.isFinite(urlValue) && urlValue >= 1) return Math.floor(urlValue);
+
+  try {
+    const storedValue = Number(window.sessionStorage.getItem(`jaldee:data-table-pagination:${namespace}:page`));
+    if (Number.isFinite(storedValue) && storedValue >= 1) return Math.floor(storedValue);
+  } catch {
+    // URL state is still enough when session storage is unavailable.
+  }
+
+  return fallback;
+}
+
+function syncPersistedPage(namespace: string, pageParam: string, page: number) {
+  if (typeof window === "undefined") return;
+
+  const nextPage = String(Math.max(1, page));
+
+  try {
+    window.sessionStorage.setItem(`jaldee:data-table-pagination:${namespace}:page`, nextPage);
+  } catch {
+    // Ignore storage failures and keep the URL state.
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set(pageParam, nextPage);
+
+  const nextHref = `${url.pathname}${url.search}${url.hash}`;
+  const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextHref !== currentHref) {
+    window.history.replaceState(window.history.state, "", nextHref);
+  }
 }

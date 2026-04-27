@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaChart,
   Badge,
@@ -16,6 +16,7 @@ import {
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersDataset, useOrdersOrdersPage } from "../queries/orders";
 import { buildOrdersDetailHref, formatOrdersCurrency, getOrdersStatusVariant } from "../services/orders";
 import { SharedOrdersLayout } from "./shared";
@@ -58,14 +59,18 @@ export function OrdersDashboard() {
   const [analyticsRange, setAnalyticsRange] = useState("30");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
+  const resolvedView = currentView ?? data?.defaultDashboardView ?? "orders";
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const { page: tablePage, setPage: setTablePage, pageSize: tablePageSize, setPageSize: setTablePageSize } = useUrlPagination({
+    namespace: "ordersDashboard",
+    defaultPageSize: DEFAULT_TABLE_PAGE_SIZE,
+    resetDeps: [resolvedView, normalizedQuery, statusFilter],
+  });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedActionKeys, setSelectedActionKeys] = useState<string[]>([]);
   const [draftSelectedActionKeys, setDraftSelectedActionKeys] = useState<string[]>([]);
   const focusedHashRef = useRef("");
 
-  const resolvedView = currentView ?? data?.defaultDashboardView ?? "orders";
   const ordersPageQuery = useOrdersOrdersPage(tablePage, tablePageSize, {
     enabled: Boolean(data) && resolvedView === "orders",
   });
@@ -125,7 +130,6 @@ export function OrdersDashboard() {
   }, [data]);
 
   const visibleRows = resolvedView === "rxRequests" ? requestRows : ordersRows;
-  const normalizedQuery = searchQuery.trim().toLowerCase();
   const totalSales = data?.adminAnalytics.todaySalesAmount ?? 0;
 
   const filteredRows = useMemo(() => {
@@ -156,10 +160,6 @@ export function OrdersDashboard() {
   const tablePaginationMode = resolvedView === "orders" && !ordersFiltersActive ? "server" : "client";
 
   useEffect(() => {
-    setTablePage(1);
-  }, [resolvedView, normalizedQuery, statusFilter, tablePageSize]);
-
-  useEffect(() => {
     const totalRows = tablePaginationMode === "server" ? tableTotal : filteredRows.length;
     const totalPages = Math.max(1, Math.ceil(totalRows / tablePageSize));
     if (tablePage > totalPages) {
@@ -185,6 +185,13 @@ export function OrdersDashboard() {
     return () => window.clearTimeout(timeoutId);
   }, [filteredRows.length, resolvedView, tablePage, tablePageSize]);
 
+  const openDashboardOrder = useCallback(
+    (row: DashboardTableRow) => {
+      navigate(appendCurrentReturnTo(buildOrdersDetailHref(basePath, row.id, product), DASHBOARD_TABLE_FOCUS_ID));
+    },
+    [basePath, navigate, product]
+  );
+
   const orderColumns = useMemo(
     () => [
       {
@@ -192,7 +199,7 @@ export function OrdersDashboard() {
         header: product === "health" ? "Patient" : "Customer",
         headerClassName: "text-sm font-semibold text-slate-900",
         className: "py-5",
-        render: (row: DashboardTableRow) => <PersonCell row={row} />,
+        render: (row: DashboardTableRow) => <PersonCell row={row} onView={openDashboardOrder} />,
       },
       {
         key: "dateOrder",
@@ -237,14 +244,14 @@ export function OrdersDashboard() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => navigate(appendCurrentReturnTo(buildOrdersDetailHref(basePath, row.id, product), DASHBOARD_TABLE_FOCUS_ID))}
+            onClick={() => openDashboardOrder(row)}
           >
             View
           </Button>
         ),
       },
     ],
-    [basePath, navigate, product]
+    [openDashboardOrder, product]
   );
 
   const requestColumns = useMemo(
@@ -874,17 +881,32 @@ function formatAnalyticsPercent(value: number) {
   return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2)}%`;
 }
 
-function PersonCell({ row }: { row: DashboardTableRow }) {
-  return (
-    <div className="flex items-center gap-3">
+function PersonCell({ row, onView }: { row: DashboardTableRow; onView?: (row: DashboardTableRow) => void }) {
+  const content = (
+    <>
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm font-semibold text-white">
         {row.initials || "U"}
       </div>
       <div className="min-w-0">
-        <div className="font-semibold text-slate-900">{row.primaryName}</div>
-        <div className="text-sm text-slate-500">{row.secondaryName}</div>
+        <div className="font-semibold text-slate-900 transition group-hover:text-indigo-700">{row.primaryName}</div>
+        <div className="text-sm text-slate-500 transition group-hover:text-indigo-600">{row.secondaryName}</div>
       </div>
-    </div>
+    </>
+  );
+
+  if (!onView) {
+    return <div className="flex items-center gap-3">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      className="group flex w-full items-center gap-3 rounded-md bg-transparent p-0 text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+      onClick={() => onView(row)}
+      aria-label={`View order ${row.orderId}`}
+    >
+      {content}
+    </button>
   );
 }
 

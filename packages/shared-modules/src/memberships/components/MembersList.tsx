@@ -19,6 +19,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef, TabItem } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useCreateMemberGroup,
   useChangeMemberGroupStatus,
@@ -174,10 +175,13 @@ export function MembersList() {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [appliedMemberSearchQuery, setAppliedMemberSearchQuery] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState("all");
-  const [membersPage, setMembersPage] = useState(1);
-  const [membersPageSize, setMembersPageSize] = useState(10);
-  const [groupsPage, setGroupsPage] = useState(1);
-  const [groupsPageSize, setGroupsPageSize] = useState(10);
+  const { page: membersPage, setPage: setMembersPage, pageSize: membersPageSize, setPageSize: setMembersPageSize } = useUrlPagination({
+    namespace: "membershipMembers",
+    resetDeps: [appliedMemberSearchQuery, memberStatusFilter],
+  });
+  const { page: groupsPage, setPage: setGroupsPage, pageSize: groupsPageSize, setPageSize: setGroupsPageSize } = useUrlPagination({
+    namespace: "membershipGroups",
+  });
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [showAddMemberHint, setShowAddMemberHint] = useState(false);
   const [createdGroupUid, setCreatedGroupUid] = useState<string | null>(null);
@@ -193,14 +197,6 @@ export function MembersList() {
 
     return () => window.clearTimeout(timeoutId);
   }, [memberSearchQuery]);
-
-  useEffect(() => {
-    setMembersPage(1);
-  }, [appliedMemberSearchQuery, memberStatusFilter, membersPageSize]);
-
-  useEffect(() => {
-    setGroupsPage(1);
-  }, [groupsPageSize]);
 
   const memberFilters = {
     ...(appliedMemberSearchQuery ? { "firstName-like": appliedMemberSearchQuery } : {}),

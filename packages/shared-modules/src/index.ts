@@ -62,6 +62,7 @@ export {
 export { SharedModulesContext, SharedModulesProvider, useSharedModulesContext } from "./context";
 export { useModuleAccess } from "./useModuleAccess";
 export { useApiScope } from "./useApiScope";
+export { useUrlPagination } from "./useUrlPagination";
 export type { Customer, CustomerFilters, CustomerFormValues, CustomerVisit } from "./customers";
 export {
   CustomersModule,

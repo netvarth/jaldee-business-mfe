@@ -11,6 +11,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useAllServiceMembers,
   useAllServiceMembersCount,
@@ -90,8 +91,10 @@ function ServiceAvatar({ fallbackImage, imageUrl }: { fallbackImage: string; ima
 export function ServiceDetails({ serviceUid }: ServiceDetailsProps) {
   const { assetsBaseUrl, basePath } = useSharedModulesContext();
   const [activeTab, setActiveTab] = useState("members");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "membershipServiceDetails",
+    resetDeps: [activeTab, serviceUid],
+  });
 
   const serviceQuery = useServiceByUid(serviceUid);
   const membersQuery = useAllServiceMembers(serviceUid, (page - 1) * pageSize, pageSize);

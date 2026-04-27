@@ -9,6 +9,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeServiceTypeStatus,
   useServiceTypeCount,
@@ -61,8 +62,10 @@ export function ServiceTypeList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "membershipServiceTypes",
+    resetDeps: [appliedSearchQuery, statusFilter],
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -71,10 +74,6 @@ export function ServiceTypeList() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchQuery]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedSearchQuery, statusFilter, pageSize]);
 
   const filters = useMemo(
     () => ({

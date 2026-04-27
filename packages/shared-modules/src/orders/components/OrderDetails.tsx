@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, Badge, Button, ConfirmDialog, DataTable, Dialog, DialogFooter, EmptyState, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useApplySalesOrderAdjustment,
   useOrdersBillCoupons,
@@ -64,8 +65,10 @@ export function OrderDetails() {
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
-  const [logsPage, setLogsPage] = useState(1);
-  const [logsPageSize, setLogsPageSize] = useState(10);
+  const { page: logsPage, setPage: setLogsPage, pageSize: logsPageSize, setPageSize: setLogsPageSize } = useUrlPagination({
+    namespace: "ordersDetailLogs",
+    resetDeps: [invoiceUid, logsOpen],
+  });
 
   const activeAdjustmentQuery = adjustmentDialogMode === "coupon" ? couponOptionsQuery : discountOptionsQuery;
   const activeAdjustmentOptions = activeAdjustmentQuery.data ?? [];
@@ -200,13 +203,6 @@ export function OrderDetails() {
   const hasAdjustmentOptions = activeAdjustmentOptions.length > 0;
   const noAdjustmentsMessage = adjustmentDialogMode === "coupon" ? "No Coupons Available" : "No Discounts Available";
   const canUpdateOrderStatus = normalizedStatus !== "ORDER_COMPLETED" && normalizedStatus !== "ORDER_CANCELED";
-
-  useEffect(() => {
-    if (!logsOpen) {
-      return;
-    }
-    setLogsPage(1);
-  }, [logsOpen, logsPageSize, invoiceUid]);
 
   const logFilters = useMemo(() => {
     return {

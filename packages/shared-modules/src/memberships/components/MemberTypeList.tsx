@@ -13,6 +13,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useAddLabeltoTypes,
   useChangeMemberTypeStatus,
@@ -97,8 +98,10 @@ export function MemberTypeList() {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [subscriptionTypeFilter, setSubscriptionTypeFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "membershipMemberTypes",
+    resetDeps: [appliedSearchQuery, statusFilter, subscriptionTypeFilter],
+  });
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<MemberTypeRow | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Record<string, boolean>>({});
@@ -111,10 +114,6 @@ export function MemberTypeList() {
 
     return () => window.clearTimeout(timeoutId);
   }, [searchQuery]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedSearchQuery, statusFilter, subscriptionTypeFilter, pageSize]);
 
   const filters = useMemo(
     () => ({

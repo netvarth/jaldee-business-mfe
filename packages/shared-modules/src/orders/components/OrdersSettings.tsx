@@ -1,12 +1,12 @@
 import { Badge, Button, DataTable, EmptyState, SectionCard } from "@jaldee/design-system";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersInvoiceTypesPage } from "../queries/orders";
 import { SharedOrdersLayout } from "./shared";
 import type { OrdersInvoiceTypeRow } from "../types";
 
 export function OrdersSettings() {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({ namespace: "ordersInvoiceTypes" });
   const invoiceTypesQuery = useOrdersInvoiceTypesPage(page, pageSize);
   const rows = invoiceTypesQuery.data?.rows ?? [];
   const total = invoiceTypesQuery.data?.total ?? 0;

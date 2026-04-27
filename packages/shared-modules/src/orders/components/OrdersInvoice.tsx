@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, DataTable, Dialog, DialogFooter, EmptyState, Input, PhoneInput, SectionCard } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   buildOrdersDetailHref,
   buildOrdersModuleHref,
@@ -50,8 +51,10 @@ export function OrdersInvoice() {
   const invoiceUid = normalizeOrdersInvoiceUid(String(searchParams?.get("invUid") ?? recordId ?? ""));
   const invoiceExportRef = useRef<HTMLDivElement | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
-  const [logsPage, setLogsPage] = useState(1);
-  const [logsPageSize, setLogsPageSize] = useState(10);
+  const { page: logsPage, setPage: setLogsPage, pageSize: logsPageSize, setPageSize: setLogsPageSize } = useUrlPagination({
+    namespace: "ordersInvoiceLogs",
+    resetDeps: [invoiceUid, logsOpen],
+  });
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
@@ -183,13 +186,6 @@ export function OrdersInvoice() {
 
     return [];
   }, [invoice?.raw, orderDetail?.items, orderDetail?.taxAmount]);
-
-  useEffect(() => {
-    if (!logsOpen) {
-      return;
-    }
-    setLogsPage(1);
-  }, [logsOpen, logsPageSize, invoiceUid]);
 
   const logFilters = useMemo(() => {
     return {

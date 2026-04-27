@@ -12,6 +12,8 @@ import type {
   OrdersInvoiceDetail,
   OrdersInvoiceRow,
   OrdersInvoiceTypeRow,
+  OrdersItemConsumptionHistoryRow,
+  OrdersItemDetail,
   OrdersItemRow,
   OrdersItemSettings,
   OrdersItemSettingsOption,
@@ -75,6 +77,11 @@ type OrdersInvoicesApiOptions = {
 };
 
 type OrdersItemsApiOptions = {
+  page: number;
+  pageSize: number;
+};
+
+type OrdersItemConsumptionHistoryApiOptions = {
   page: number;
   pageSize: number;
 };
@@ -174,6 +181,11 @@ export function buildOrdersInvoiceHref(basePath: string, invoiceUid: string, par
 export function buildOrdersModuleHref(basePath: string, product: ProductKey, view: string) {
   const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
   return joinPath(moduleRoot, view);
+}
+
+export function buildOrdersItemDetailHref(basePath: string, itemId: string, product?: ProductKey) {
+  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  return joinPath(moduleRoot, `items/details/${encodeURIComponent(itemId)}`);
 }
 
 export function normalizeOrdersInvoiceUid(value: string) {
@@ -564,44 +576,16 @@ export async function getOrdersItemsPage(
     "orderCategory-eq": "SALES_ORDER",
   } satisfies ApiFilter;
 
-  const [
-    pagePayload,
-    countPayload,
-    categoryPayload,
-    typePayload,
-    unitPayload,
-    hsnPayload,
-    compositionPayload,
-    taxPayload,
-    groupPayload,
-    manufacturerPayload,
-  ] = await Promise.all([
+  const [pagePayload, countPayload, settings] = await Promise.all([
     scopedApi
       .get<any>("provider/spitem", { params })
       .then((response) => response.data),
     scopedApi
       .get<any>("provider/spitem/count", { params })
       .then((response) => response.data),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/category", { "status-eq": "Enable" }),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/type", { "status-eq": "Enable" }),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/unit", { "status-eq": "Enable" }),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/hsn", { "status-eq": "Enable" }),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/composition", { "status-eq": "Enable" }),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/tax", { "status-eq": "Enable" }),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/group"),
-    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/manufacturer", { "status-eq": "Enable" }),
+    getOrdersItemSettings(scopedApi),
   ]);
 
-  const settings = mapOrdersItemSettings({
-    categories: categoryPayload,
-    types: typePayload,
-    units: unitPayload,
-    hsn: hsnPayload,
-    compositions: compositionPayload,
-    taxes: taxPayload,
-    groups: groupPayload,
-    manufacturers: manufacturerPayload,
-  });
   const rows = mapOrdersItems(pagePayload, settings);
 
   return {
@@ -609,6 +593,92 @@ export async function getOrdersItemsPage(
     total: Math.max(readOrdersTotal(countPayload), rows.length),
     settings,
   };
+}
+
+export async function getOrdersItemDetail(scopedApi: ScopedApi, itemId: string): Promise<OrdersItemDetail | null> {
+  const resolvedItemId = String(itemId ?? "").trim();
+  if (!resolvedItemId) {
+    return null;
+  }
+
+  const [settings, payload] = await Promise.all([
+    getOrdersItemSettings(scopedApi),
+    getOrdersItemDetailPayload(scopedApi, resolvedItemId),
+  ]);
+  if (!payload) {
+    return null;
+  }
+
+  const analyticsPayload = await getOrdersItemAnalytics(scopedApi, payload).catch(() => null);
+
+  return mapOrdersItemDetail(payload, settings, analyticsPayload);
+}
+
+export async function getOrdersItemConsumptionHistory(
+  scopedApi: ScopedApi,
+  itemId: string,
+  options: OrdersItemConsumptionHistoryApiOptions
+): Promise<{ rows: OrdersItemConsumptionHistoryRow[]; total: number }> {
+  const resolvedItemId = String(itemId ?? "").trim();
+  if (!resolvedItemId) {
+    return { rows: [], total: 0 };
+  }
+
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const encodedItemId = encodeURIComponent(resolvedItemId);
+  const transactionParams = {
+    "itemCode-eq": resolvedItemId,
+    from,
+    count,
+  } satisfies ApiFilter;
+  const sharedParams = {
+    from,
+    count,
+    "spItemUid-eq": resolvedItemId,
+    "itemUid-eq": resolvedItemId,
+    "itemEncId-eq": resolvedItemId,
+  } satisfies ApiFilter;
+
+  try {
+    const [transactionPayload, countPayload] = await Promise.all([
+      scopedApi.get<any>("provider/inventory/transaction", { params: transactionParams }).then((response) => response.data),
+      scopedApi.get<any>("provider/inventory/transaction/count", { params: transactionParams }).then((response) => response.data),
+    ]);
+    const rows = mapOrdersItemConsumptionHistory(transactionPayload);
+
+    return {
+      rows,
+      total: Math.max(readOrdersTotal(countPayload), readOrdersTotal(transactionPayload), rows.length),
+    };
+  } catch {
+    // Fall through to older item-history endpoints used by other deployments.
+  }
+
+  const requestFactories = [
+    () => scopedApi.get<any>(`provider/spitem/${encodedItemId}/consumption/history`, { params: { from, count } }),
+    () => scopedApi.get<any>(`provider/spitem/${encodedItemId}/consumption`, { params: { from, count } }),
+    () => scopedApi.get<any>("provider/spitem/consumption/history", { params: sharedParams }),
+    () => scopedApi.get<any>("provider/spitem/consumption", { params: sharedParams }),
+    () => scopedApi.get<any>("provider/inventory/item/consumption/history", { params: sharedParams }),
+  ];
+
+  for (const createRequest of requestFactories) {
+    try {
+      const payload = await createRequest().then((response) => response.data);
+      const rows = mapOrdersItemConsumptionHistory(payload);
+      if (rows.length || readOrdersTotal(payload) > 0) {
+        return {
+          rows,
+          total: Math.max(readOrdersTotal(payload), rows.length),
+        };
+      }
+    } catch {
+      // The legacy item history endpoint has varied by product; try the next known shape.
+    }
+  }
+
+  return { rows: [], total: 0 };
 }
 
 export async function getOrdersCatalogsPage(
@@ -1961,8 +2031,14 @@ function mapOrdersItems(payload: any, settings: OrdersItemSettings): OrdersItemR
         item?.uid,
         item?.itemUid,
         item?.spItemUid,
+        item?.spCode,
+        item?.spItemCode,
+        item?.itemCode,
+        item?.code,
         item?.itemId,
         item?.id,
+        item?.item?.spCode,
+        item?.item?.itemCode,
         item?.item?.uid,
         item?.item?.id
       ) || `item-${index + 1}`;
@@ -2043,6 +2119,558 @@ function mapOrdersItems(payload: any, settings: OrdersItemSettings): OrdersItemR
       raw: item,
     };
   });
+}
+
+async function getOrdersItemSettings(scopedApi: ScopedApi): Promise<OrdersItemSettings> {
+  const [
+    categoryPayload,
+    typePayload,
+    unitPayload,
+    hsnPayload,
+    compositionPayload,
+    taxPayload,
+    groupPayload,
+    manufacturerPayload,
+  ] = await Promise.all([
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/category", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/type", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/unit"),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/hsn", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/composition"),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/tax"),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/group"),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/manufacturer", { "status-eq": "Enable" }),
+  ]);
+
+  return mapOrdersItemSettings({
+    categories: categoryPayload,
+    types: typePayload,
+    units: unitPayload,
+    hsn: hsnPayload,
+    compositions: compositionPayload,
+    taxes: taxPayload,
+    groups: groupPayload,
+    manufacturers: manufacturerPayload,
+  });
+}
+
+async function getOrdersItemAnalytics(scopedApi: ScopedApi, item: any) {
+  const spItemId = readOrdersItemAnalyticsId(item);
+  if (!spItemId) {
+    return null;
+  }
+
+  return scopedApi
+    .get<any>("provider/analytics", {
+      params: {
+        frequency: "WEEKLY",
+        config_metric_type: "INVENTORY_DASHBOARD_COUNT",
+        spItem: spItemId,
+      } satisfies ApiFilter,
+    })
+    .then((response) => response.data);
+}
+
+function readOrdersItemAnalyticsId(item: any) {
+  return readFirstPositiveNumber(
+    item?.id,
+    item?.spItemId,
+    item?.itemId,
+    item?.item?.id,
+    item?.spItem?.id,
+    item?.analyticsSpItem,
+    item?.analyticsSpItemId
+  );
+}
+
+async function getOrdersItemDetailPayload(scopedApi: ScopedApi, itemId: string) {
+  const encodedItemId = encodeURIComponent(itemId);
+  let lastError: unknown = null;
+
+  const requestFactories = [
+    () => scopedApi.get<any>(`provider/spitem/${encodedItemId}`),
+    () => scopedApi.get<any>("provider/spitem", { params: { "spCode-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "spItemCode-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "itemCode-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "encId-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "uid-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "spItemUid-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "itemUid-eq": itemId, from: 0, count: 1 } }),
+    () => scopedApi.get<any>("provider/spitem", { params: { "id-eq": itemId, from: 0, count: 1 } }),
+  ];
+
+  for (const createRequest of requestFactories) {
+    try {
+      const raw = await createRequest().then((response) => response.data);
+      const payload = normalizeOrdersItemDetailPayload(raw, itemId);
+      if (payload) return payload;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw toReadableApiError(lastError, "Unable to load item details.");
+  }
+
+  return null;
+}
+
+function normalizeOrdersItemDetailPayload(raw: any, itemId: string) {
+  if (raw == null) return null;
+
+  const data = raw?.data ?? raw?.content ?? raw?.response ?? raw;
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.content)
+      ? data.content
+      : Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.items)
+          ? data.items
+          : null;
+
+  if (Array.isArray(list)) {
+    return (
+      list.find((item: any) => {
+        const ids = [
+          item?.encId,
+          item?.uid,
+          item?.itemUid,
+          item?.spItemUid,
+          item?.spCode,
+          item?.spItemCode,
+          item?.itemCode,
+          item?.code,
+          item?.itemId,
+          item?.id,
+        ].map((value) => String(value ?? "").trim());
+        return ids.includes(itemId);
+      }) ?? list[0] ?? null
+    );
+  }
+
+  return data && typeof data === "object" ? data : null;
+}
+
+function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyticsPayload?: any): OrdersItemDetail | null {
+  const row = mapOrdersItems([payload], settings)[0];
+  if (!row) {
+    return null;
+  }
+
+  const lookups = {
+    units: createOrdersOptionLookup(settings.units),
+    taxes: createOrdersOptionLookup(settings.taxes),
+  };
+
+  return {
+    ...row,
+    description: readOrdersItemDescription(payload),
+    unit: resolveOrdersSettingLabel(
+      lookups.units,
+      payload?.unitName,
+      payload?.unit?.name,
+      payload?.itemUnit?.name,
+      payload?.salesUnit?.name,
+      payload?.spItemUnit?.name,
+      payload?.unitId,
+      payload?.unit?.id,
+      payload?.itemUnitId,
+      payload?.itemUnit?.id,
+      payload?.salesUnitId,
+      payload?.spItemUnit?.id,
+      payload?.unit
+    ),
+    batchApplicable: readYesNoLabel(
+      payload?.batchApplicable ??
+        payload?.isBatchApplicable ??
+        payload?.batchEnabled ??
+        payload?.isBatchEnabled ??
+        payload?.enableBatch ??
+        payload?.batch
+    ),
+    tax: row.tax && row.tax !== "-" ? row.tax : resolveItemTaxLabel(lookups.taxes, payload),
+    gallery: readOrdersItemGallery(payload, row.imageUrl),
+    badges: readOrdersItemBadges(payload),
+    stats: readOrdersItemStats(payload, analyticsPayload),
+    consumptionHistory: mapOrdersItemConsumptionHistory(readOrdersItemInlineHistory(payload)),
+  };
+}
+
+function readOrdersItemDescription(item: any) {
+  return readFirstText(
+    item?.description,
+    item?.shortDesc,
+    item?.itemDescription,
+    item?.shortDescription,
+    item?.item?.shortDesc,
+    item?.longDescription,
+    item?.details,
+    item?.item?.description
+  );
+}
+
+function readYesNoLabel(value: unknown) {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+
+  const text = readFirstText(value);
+  if (!text) return "-";
+
+  const normalized = text.toLowerCase();
+  if (["true", "yes", "y", "enable", "enabled", "active", "1"].includes(normalized)) return "Yes";
+  if (["false", "no", "n", "disable", "disabled", "inactive", "0"].includes(normalized)) return "No";
+
+  return text;
+}
+
+function readOrdersItemGallery(item: any, fallbackImageUrl?: string) {
+  const urls = [
+    fallbackImageUrl,
+    item?.imageUrl,
+    item?.imageURL,
+    item?.image,
+    item?.s3path,
+    item?.s3Path,
+    item?.picture,
+    item?.photo,
+    item?.logo,
+    item?.itemImage?.url,
+    item?.itemImage?.imageUrl,
+    item?.itemImage?.s3path,
+    item?.itemImage?.s3Path,
+    item?.item?.imageUrl,
+  ];
+
+  const attachments = [
+    ...(Array.isArray(item?.attachments) ? item.attachments : []),
+    ...(Array.isArray(item?.item?.attachments) ? item.item.attachments : []),
+    ...(Array.isArray(item?.spItem?.attachments) ? item.spItem.attachments : []),
+    ...(Array.isArray(item?.images) ? item.images : []),
+    ...(Array.isArray(item?.imageList) ? item.imageList : []),
+    ...(Array.isArray(item?.gallery) ? item.gallery : []),
+  ];
+
+  attachments.forEach((attachment) => {
+    urls.push(
+      readFirstText(
+        attachment?.url,
+        attachment?.imageUrl,
+        attachment?.fileUrl,
+        attachment?.s3Url,
+        attachment?.s3path,
+        attachment?.s3Path,
+        attachment?.path,
+        attachment
+      )
+    );
+  });
+
+  return Array.from(new Set(urls.map((url) => readFirstText(url)).filter(Boolean)));
+}
+
+function readOrdersItemBadges(item: any) {
+  const rawBadges = [
+    item?.badges,
+    item?.badgeList,
+    item?.labels,
+    item?.labelList,
+    item?.tags,
+    item?.tagList,
+    item?.itemBadges,
+  ].flatMap((value) => (Array.isArray(value) ? value : value ? [value] : []));
+
+  return Array.from(
+    new Set(
+      rawBadges
+        .map((badge: any) =>
+          readFirstText(
+            badge?.label,
+            badge?.name,
+            badge?.title,
+            badge?.value,
+            badge?.tagName,
+            badge?.badgeName,
+            badge
+          )
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
+function readOrdersItemStats(item: any, analyticsPayload?: any) {
+  const analyticsStats = readOrdersItemAnalyticsStats(analyticsPayload);
+
+  return {
+    numberOfOrders: readFirstNumber(
+      analyticsStats?.numberOfOrders,
+      item?.numberOfOrders,
+      item?.ordersCount,
+      item?.orderCount,
+      item?.salesOrderCount,
+      item?.stats?.numberOfOrders,
+      item?.stats?.orderCount
+    ),
+    orderQuantity: readFirstNumber(
+      analyticsStats?.orderQuantity,
+      item?.orderQuantity,
+      item?.orderedQuantity,
+      item?.salesOrderQuantity,
+      item?.stats?.orderQuantity,
+      item?.stats?.orderedQuantity
+    ),
+    numberOfPurchase: readFirstNumber(
+      analyticsStats?.numberOfPurchase,
+      item?.numberOfPurchase,
+      item?.numberOfPurchases,
+      item?.purchaseCount,
+      item?.purchasesCount,
+      item?.stats?.numberOfPurchase,
+      item?.stats?.purchaseCount
+    ),
+    purchasedQuantity: readFirstNumber(
+      analyticsStats?.purchasedQuantity,
+      item?.purchasedQuantity,
+      item?.purchaseQuantity,
+      item?.totalPurchasedQuantity,
+      item?.stats?.purchasedQuantity,
+      item?.stats?.purchaseQuantity
+    ),
+  };
+}
+
+function readOrdersItemAnalyticsStats(payload: any) {
+  if (!payload) {
+    return null;
+  }
+
+  return {
+    numberOfOrders: readAnalyticsMetricNumber(payload, [
+      "NUMBER_OF_ORDERS",
+      "NO_OF_ORDERS",
+      "ORDER_COUNT",
+      "ORDERS_COUNT",
+      "SALES_ORDER_COUNT",
+      "numberOfOrders",
+      "orderCount",
+    ]),
+    orderQuantity: readAnalyticsMetricNumber(payload, [
+      "ORDER_QUANTITY",
+      "ORDERED_QUANTITY",
+      "SALES_ORDER_QUANTITY",
+      "ORDER_QTY",
+      "orderedQuantity",
+      "orderQuantity",
+    ]),
+    numberOfPurchase: readAnalyticsMetricNumber(payload, [
+      "NUMBER_OF_PURCHASE",
+      "NUMBER_OF_PURCHASES",
+      "PURCHASE_COUNT",
+      "PURCHASES_COUNT",
+      "numberOfPurchase",
+      "purchaseCount",
+    ]),
+    purchasedQuantity: readAnalyticsMetricNumber(payload, [
+      "PURCHASED_QUANTITY",
+      "PURCHASE_QUANTITY",
+      "PURCHASE_QTY",
+      "purchasedQuantity",
+      "purchaseQuantity",
+    ]),
+  };
+}
+
+function readAnalyticsMetricNumber(payload: any, aliases: string[]) {
+  const normalizedAliases = aliases.map(normalizeMetricKey);
+  const direct = readDirectAnalyticsMetric(payload, normalizedAliases);
+  if (direct !== undefined) return direct;
+
+  const entries = collectAnalyticsEntries(payload);
+  for (const entry of entries) {
+    const key = normalizeMetricKey(
+      readFirstText(
+        entry?.configMetricType,
+        entry?.config_metric_type,
+        entry?.metricType,
+        entry?.metric_type,
+        entry?.metric,
+        entry?.name,
+        entry?.label,
+        entry?.key,
+        entry?.type
+      )
+    );
+    if (!key || !normalizedAliases.includes(key)) {
+      continue;
+    }
+
+    const value = readFirstOptionalNumber(
+      entry?.value,
+      entry?.count,
+      entry?.metricValue,
+      entry?.metric_value,
+      entry?.quantity,
+      entry?.qty,
+      entry?.total,
+      entry?.data
+    );
+    if (value !== undefined) return value;
+  }
+
+  return undefined;
+}
+
+function readDirectAnalyticsMetric(payload: any, normalizedAliases: string[]) {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const objects = collectAnalyticsEntries(payload);
+  for (const object of [payload, ...objects]) {
+    if (!object || typeof object !== "object" || Array.isArray(object)) continue;
+
+    for (const [key, value] of Object.entries(object)) {
+      if (!normalizedAliases.includes(normalizeMetricKey(key))) continue;
+      const numeric = readFirstOptionalNumber(value);
+      if (numeric !== undefined) return numeric;
+    }
+  }
+
+  return undefined;
+}
+
+function collectAnalyticsEntries(payload: any): any[] {
+  if (!payload) return [];
+
+  if (Array.isArray(payload)) {
+    return payload.flatMap((item) => [item, ...collectAnalyticsEntries(item)]);
+  }
+
+  if (typeof payload !== "object") {
+    return [];
+  }
+
+  const nestedLists = [
+    payload.data,
+    payload.content,
+    payload.items,
+    payload.response,
+    payload.results,
+    payload.list,
+    payload.metrics,
+    payload.analytics,
+  ].filter(Boolean);
+
+  return nestedLists.flatMap((item) => (Array.isArray(item) ? item.flatMap((entry) => [entry, ...collectAnalyticsEntries(entry)]) : [item, ...collectAnalyticsEntries(item)]));
+}
+
+function readOrdersItemInlineHistory(item: any) {
+  return (
+    item?.consumptionHistory ??
+    item?.itemConsumptionHistory ??
+    item?.inventoryHistory ??
+    item?.stockHistory ??
+    item?.transactions ??
+    item?.transactionHistory ??
+    []
+  );
+}
+
+function mapOrdersItemConsumptionHistory(payload: any): OrdersItemConsumptionHistoryRow[] {
+  return unwrapOrdersList(payload).map((item: any, index: number) => ({
+    id: readFirstText(item?.uid, item?.encId, item?.id, item?.referenceNumber, item?.referenceNo) || `history-${index + 1}`,
+    date: formatOrdersItemDate(
+      item?.date ??
+        item?.createdDate ??
+        item?.createdOn ??
+        item?.createdAt ??
+        item?.dateTime ??
+        item?.transactionDate ??
+        item?.transactionTime ??
+        item?.updatedDate ??
+        item?.updatedOn
+    ),
+    batch: readFirstText(
+      item?.batch,
+      item?.batchName,
+      item?.batchNo,
+      item?.batchNumber,
+      item?.batchId,
+      item?.inventoryBatch?.batch,
+      item?.inventoryBatch?.batchName,
+      item?.inventoryBatch?.batchNo,
+      item?.catalogItemBatch?.batch,
+      item?.catalogItemBatch?.batchName
+    ) || "-",
+    referenceNumber: readFirstText(
+      item?.referenceNumber,
+      item?.referenceNo,
+      item?.refNo,
+      item?.refNumber,
+      item?.referenceId,
+      item?.referenceUid,
+      item?.transactionNumber,
+      item?.orderNumber,
+      item?.purchaseNumber,
+      item?.invoiceNumber,
+      item?.displayId
+    ) || "-",
+    store: readFirstText(item?.storeName, item?.store?.name, item?.store?.storeName, item?.departmentName, item?.locationName) || "-",
+    transactionType: normalizeHistoryLabel(item?.transactionType ?? item?.transaction_type ?? item?.type ?? item?.sourceType ?? item?.source) || "-",
+    updateType: normalizeHistoryLabel(item?.updateType ?? item?.update_type ?? item?.operation ?? item?.action ?? item?.movementType) || "-",
+    quantity: readFirstNumber(
+      item?.quantity,
+      item?.qty,
+      item?.updatedQuantity,
+      item?.quantityChange,
+      item?.changeQuantity,
+      item?.transactionQuantity,
+      item?.count,
+      item?.itemQuantity
+    ),
+    raw: item,
+  }));
+}
+
+function normalizeHistoryLabel(value: unknown) {
+  const text = readFirstText(value);
+  if (!text) return "";
+
+  return text
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function readFirstNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const numeric = toOptionalNumber(value);
+    if (numeric !== undefined) return numeric;
+  }
+
+  return 0;
+}
+
+function readFirstOptionalNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const numeric = toOptionalNumber(value);
+    if (numeric !== undefined) return numeric;
+  }
+
+  return undefined;
+}
+
+function readFirstPositiveNumber(...values: unknown[]) {
+  for (const value of values) {
+    const numeric = readFirstOptionalNumber(value);
+    if (numeric !== undefined && numeric > 0) return numeric;
+  }
+
+  return 0;
 }
 
 function mapOrdersItemSettings(payloads: {

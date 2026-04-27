@@ -7,6 +7,7 @@ import { OrdersDashboard } from "./components/OrdersDashboard";
 import { OrdersInvoice } from "./components/OrdersInvoice";
 import { OrdersInvoicesList } from "./components/OrdersInvoicesList";
 import { OrdersInventoryList } from "./components/OrdersInventoryList";
+import { OrdersItemDetails } from "./components/OrdersItemDetails";
 import { OrdersItemsList } from "./components/OrdersItemsList";
 import { OrderDetails } from "./components/OrderDetails";
 import { OrdersList } from "./components/OrdersList";
@@ -71,6 +72,9 @@ export function OrdersModule() {
   }
 
   if (view === "items") {
+    if (subview === "details" && recordId) {
+      return <OrdersItemDetails />;
+    }
     return <OrdersItemsList />;
   }
 

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, DataTable, EmptyState, PageHeader, SectionCard, Select } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersOrdersPage } from "../queries/orders";
 import { buildOrdersDetailHref, getOrdersStatusVariant } from "../services/orders";
 import type { OrdersOrderRow } from "../types";
@@ -20,18 +21,16 @@ export function OrdersList() {
   const navigate = useSharedNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "ordersGrid",
+    resetDeps: [query, statusFilter],
+  });
   const [selectedOrderKeys, setSelectedOrderKeys] = useState<string[]>([]);
   const searchText = query.trim();
   const serverStatus = statusFilter === "all" ? "" : statusFilter;
   const ordersQuery = useOrdersOrdersPage(page, pageSize, { searchText, status: serverStatus });
   const rows = ordersQuery.data?.rows ?? [];
   const total = ordersQuery.data?.total ?? 0;
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, pageSize, statusFilter]);
 
   useEffect(() => {
     setSelectedOrderKeys([]);
@@ -44,6 +43,15 @@ export function OrdersList() {
     }
   }, [page, pageSize, total]);
 
+  const openOrder = useCallback(
+    (row: OrdersOrderRow) => {
+      const href = buildOrdersDetailHref(basePath, row.id, product);
+      const returnTo = getCurrentReturnTo();
+      navigate(returnTo ? appendReturnTo(href, returnTo) : href);
+    },
+    [basePath, navigate, product]
+  );
+
   const columns = useMemo(
     () => [
       {
@@ -52,7 +60,7 @@ export function OrdersList() {
         width: "22%",
         headerClassName: "text-sm font-semibold text-slate-900",
         className: "py-5",
-        render: (row: OrdersOrderRow) => <PersonCell row={row} />,
+        render: (row: OrdersOrderRow) => <PersonCell row={row} onView={openOrder} />,
       },
       {
         key: "dateOrder",
@@ -108,14 +116,14 @@ export function OrdersList() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => navigate(buildOrdersDetailHref(basePath, row.id, product))}
+            onClick={() => openOrder(row)}
           >
             View
           </Button>
         ),
       },
     ],
-    [basePath, navigate, product]
+    [openOrder]
   );
 
   return (
@@ -176,17 +184,24 @@ export function OrdersList() {
   );
 }
 
-function PersonCell({ row }: { row: OrdersOrderRow }) {
+function PersonCell({ row, onView }: { row: OrdersOrderRow; onView: (row: OrdersOrderRow) => void }) {
   return (
-    <div className="flex items-center gap-3">
+    <button
+      type="button"
+      className="group flex w-full items-center gap-3 rounded-md bg-transparent p-0 text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+      onClick={() => onView(row)}
+      aria-label={`View order ${formatOrderNumber(row)}`}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm font-semibold text-white">
         {getInitials(row.customer) || "U"}
       </div>
       <div className="min-w-0">
-        <div className="font-semibold text-slate-900">{row.customer}</div>
-        <div className="text-sm text-slate-500">{row.customerRef ? `Id:${row.customerRef}` : `Id:${row.id}`}</div>
+        <div className="font-semibold text-slate-900 transition group-hover:text-indigo-700">{row.customer}</div>
+        <div className="text-sm text-slate-500 transition group-hover:text-indigo-600">
+          {row.customerRef ? `Id:${row.customerRef}` : `Id:${row.id}`}
+        </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -223,4 +238,21 @@ function paymentStatusClassName(status: string) {
 
 function normalizeOrderType(channel: string) {
   return String(channel ?? "").trim().toLowerCase() === "online" ? "Online" : "WalkIn";
+}
+
+function getCurrentReturnTo() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function appendReturnTo(href: string, returnTo: string) {
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(href, origin);
+    url.searchParams.set("returnTo", returnTo);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    const separator = href.includes("?") ? "&" : "?";
+    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`;
+  }
 }

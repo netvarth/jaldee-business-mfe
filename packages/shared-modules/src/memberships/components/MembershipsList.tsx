@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, Badge, DataTable, EmptyState } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useMembershipsList, useMembershipsCount } from "../queries/memberships";
 import type { Membership } from "../types";
 import { MembershipFormDialog } from "./MembershipFormDialog";
@@ -10,8 +11,7 @@ interface MembershipsListProps {
 }
 
 export function MembershipsList({ onSelectMembership }: MembershipsListProps) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({ namespace: "membershipsList" });
   const [openCreate, setOpenCreate] = useState(false);
   const membershipsQuery = useMembershipsList({ page, pageSize });
   const countQuery = useMembershipsCount({});

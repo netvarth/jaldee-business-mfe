@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, DataTable, EmptyState, Icon, PageHeader, SectionCard, Select } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersItemsPage } from "../queries/orders";
+import { buildOrdersItemDetailHref } from "../services/orders";
 import type { OrdersItemRow, OrdersItemSettingsOption } from "../types";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 export function OrdersItemsList() {
+  const { basePath, product } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -15,8 +18,13 @@ export function OrdersItemsList() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "ordersItems",
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    legacyPageParam: "page",
+    legacyPageSizeParam: "pageSize",
+    resetDeps: [categoryFilter, groupFilter, query, statusFilter, typeFilter],
+  });
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const returnTo = searchParams?.get("returnTo") ?? "";
   const backHref = useMemo(() => resolveInternalReturnToHref(returnTo), [returnTo]);
@@ -32,10 +40,6 @@ export function OrdersItemsList() {
       typeFilter !== "all" ||
       statusFilter !== "all"
   );
-
-  useEffect(() => {
-    setPage(1);
-  }, [categoryFilter, groupFilter, pageSize, query, statusFilter, typeFilter]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -90,6 +94,15 @@ export function OrdersItemsList() {
     });
   }, [categoryFilter, groupFilter, normalizedQuery, rows, statusFilter, typeFilter]);
 
+  const openItem = useCallback(
+    (row: OrdersItemRow) => {
+      const href = buildOrdersItemDetailHref(basePath, row.id, product);
+      const returnTo = getCurrentReturnTo();
+      navigate(returnTo ? appendReturnTo(href, returnTo) : href);
+    },
+    [basePath, navigate, product]
+  );
+
   const columns = useMemo(
     () => [
       {
@@ -98,7 +111,7 @@ export function OrdersItemsList() {
         width: "20%",
         headerClassName: "text-sm font-semibold text-slate-900",
         className: "py-5",
-        render: (row: OrdersItemRow) => <ItemNameCell row={row} />,
+        render: (row: OrdersItemRow) => <ItemNameCell row={row} onView={openItem} />,
       },
       {
         key: "source",
@@ -178,19 +191,20 @@ export function OrdersItemsList() {
 
           return (
             <Button
-              id={`orders-items-actions-${automationId}`}
-              data-testid={`orders-items-actions-${automationId}`}
+              id={`orders-items-view-${automationId}`}
+              data-testid={`orders-items-view-${automationId}`}
               type="button"
               variant="outline"
               size="sm"
+              onClick={() => openItem(row)}
             >
-              Actions
+              View
             </Button>
           );
         },
       },
     ],
-    []
+    [openItem]
   );
 
   const pageState = itemsQuery.isLoading ? "loading" : itemsQuery.isError ? "error" : filteredRows.length === 0 ? "empty" : "ready";
@@ -338,7 +352,7 @@ export function OrdersItemsList() {
   );
 }
 
-function ItemNameCell({ row }: { row: OrdersItemRow }) {
+function ItemNameCell({ row, onView }: { row: OrdersItemRow; onView: (row: OrdersItemRow) => void }) {
   const automationId = toAutomationId(row.id);
   const [imageError, setImageError] = useState(false);
   const hasImage = Boolean(row.imageUrl && !imageError);
@@ -348,7 +362,13 @@ function ItemNameCell({ row }: { row: OrdersItemRow }) {
   }, [row.imageUrl]);
 
   return (
-    <div className="flex items-center gap-3" data-testid={`orders-items-item-${automationId}`}>
+    <button
+      type="button"
+      className="group flex w-full items-center gap-3 rounded-md bg-transparent p-0 text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+      data-testid={`orders-items-item-${automationId}`}
+      onClick={() => onView(row)}
+      aria-label={`View item ${row.name}`}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 text-slate-400">
         {hasImage ? (
           <img
@@ -366,10 +386,10 @@ function ItemNameCell({ row }: { row: OrdersItemRow }) {
         )}
       </div>
       <div className="min-w-0">
-        <div className="font-semibold text-slate-900">{row.name}</div>
-        <div className="text-sm font-semibold text-indigo-950">{row.property}</div>
+        <div className="font-semibold text-slate-900 transition group-hover:text-indigo-700">{row.name}</div>
+        <div className="text-sm font-semibold text-indigo-950 transition group-hover:text-indigo-700">{row.property}</div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -417,6 +437,23 @@ function resolveInternalReturnToHref(returnTo: string) {
     return href;
   } catch {
     return "";
+  }
+}
+
+function getCurrentReturnTo() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function appendReturnTo(href: string, returnTo: string) {
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(href, origin);
+    url.searchParams.set("returnTo", returnTo);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    const separator = href.includes("?") ? "&" : "?";
+    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`;
   }
 }
 

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, DataTable, EmptyState, PageHeader, SectionCard, Select } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersInvoicesPage } from "../queries/orders";
 import { buildOrdersInvoiceHref, formatOrdersCurrency } from "../services/orders";
 import type { OrdersInvoiceRow } from "../types";
@@ -13,8 +14,11 @@ export function OrdersInvoicesList() {
   const navigate = useSharedNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "ordersInvoices",
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    resetDeps: [query, statusFilter],
+  });
   const invoicesQuery = useOrdersInvoicesPage(page, pageSize);
   const rows = invoicesQuery.data?.rows ?? [];
   const total = invoicesQuery.data?.total ?? 0;
@@ -23,10 +27,6 @@ export function OrdersInvoicesList() {
   const backHref = useMemo(() => resolveInternalReturnToHref(returnTo), [returnTo]);
   const normalizedQuery = query.trim().toLowerCase();
   const filtersActive = Boolean(normalizedQuery || statusFilter !== "all");
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, pageSize, statusFilter]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -67,6 +67,21 @@ export function OrdersInvoicesList() {
     });
   }, [normalizedQuery, rows, statusFilter]);
 
+  const openInvoice = useCallback(
+    (row: OrdersInvoiceRow) => {
+      const returnTo = getCurrentReturnTo();
+      navigate(
+        buildOrdersInvoiceHref(
+          basePath,
+          row.invoiceUid,
+          returnTo ? { from: "invoices", returnTo } : { from: "invoices" },
+          product
+        )
+      );
+    },
+    [basePath, navigate, product]
+  );
+
   const columns = useMemo(
     () => [
       {
@@ -75,12 +90,24 @@ export function OrdersInvoicesList() {
         width: "15%",
         headerClassName: "text-sm font-semibold text-slate-900",
         className: "py-5",
-        render: (row: OrdersInvoiceRow) => (
-          <div className="space-y-1" data-testid={`orders-invoices-invoice-${toAutomationId(row.invoiceUid)}`}>
-            <div className="font-semibold text-slate-900">{formatInvoiceDate(row.invoiceDate)}</div>
-            <div className="text-sm text-slate-500">{formatInvoiceNumber(row)}</div>
-          </div>
-        ),
+        render: (row: OrdersInvoiceRow) => {
+          const automationId = toAutomationId(row.invoiceUid);
+
+          return (
+            <button
+              type="button"
+              data-testid={`orders-invoices-invoice-${automationId}`}
+              className="group block w-full rounded-md bg-transparent p-0 text-left focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              onClick={() => openInvoice(row)}
+              aria-label={`View invoice ${formatInvoiceNumber(row)}`}
+            >
+              <div className="font-semibold text-slate-900 transition group-hover:text-indigo-700">
+                {formatInvoiceDate(row.invoiceDate)}
+              </div>
+              <div className="text-sm text-slate-500 transition group-hover:text-indigo-600">{formatInvoiceNumber(row)}</div>
+            </button>
+          );
+        },
       },
       {
         key: "customer",
@@ -170,17 +197,7 @@ export function OrdersInvoicesList() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                const returnTo = getCurrentReturnTo();
-                navigate(
-                  buildOrdersInvoiceHref(
-                    basePath,
-                    row.invoiceUid,
-                    returnTo ? { from: "invoices", returnTo } : { from: "invoices" },
-                    product
-                  )
-                );
-              }}
+              onClick={() => openInvoice(row)}
             >
               View
             </Button>
@@ -188,7 +205,7 @@ export function OrdersInvoicesList() {
         },
       },
     ],
-    [basePath, navigate, product]
+    [openInvoice]
   );
 
   const pageState = invoicesQuery.isLoading ? "loading" : invoicesQuery.isError ? "error" : filteredRows.length === 0 ? "empty" : "ready";

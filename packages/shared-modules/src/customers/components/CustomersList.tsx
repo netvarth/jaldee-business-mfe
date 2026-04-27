@@ -4,6 +4,7 @@ import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialo
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { resolveCustomerLabel } from "../../labels";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeCustomerStatus,
   useChangeCustomerGroupStatus,
@@ -42,8 +43,10 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const [activeTab, setActiveTab] = useState<ListTab>("customers");
   const [searchField, setSearchField] = useState<SearchField>("all");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "customersList",
+    resetDeps: [activeTab, search],
+  });
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -116,10 +119,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const total = activeTab === "groups" ? 0 : (countQuery.data ?? rows.length);
   const groupRows = groupsQuery.data ?? [];
   const groupMembers = groupMembersQuery.data ?? [];
-
-  useEffect(() => {
-    setPage(1);
-  }, [activeTab, search, pageSize]);
 
   useEffect(() => {
     setSelectedRowKeys([]);

@@ -2,6 +2,7 @@ import { Alert, Button, DataTable, EmptyState, Input, PageHeader, SectionCard } 
 import type { ColumnDef } from "@jaldee/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useChannelByUid, useLeads, useLeadsCount } from "../queries/leads";
 import { CHANNEL_TYPE_OPTIONS, PRODUCT_TYPE_OPTIONS, fullName, mapLeadStatusLabel, unwrapCount, unwrapList, unwrapPayload } from "../utils";
 import { ModulePlaceholder, StatusBadge } from "./shared";
@@ -41,8 +42,10 @@ export function ChannelDetails({ channelUid }: { channelUid: string }) {
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [status, setStatus] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "leadChannelDetails",
+    resetDeps: [appliedQuery, channelUid, status],
+  });
   const [copied, setCopied] = useState(false);
 
   const channelQuery = useChannelByUid(channelUid);
@@ -52,10 +55,6 @@ export function ChannelDetails({ channelUid }: { channelUid: string }) {
     const timer = window.setTimeout(() => setAppliedQuery(query.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [query]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedQuery, pageSize, status]);
 
   const leadFilters = useMemo(
     () => ({

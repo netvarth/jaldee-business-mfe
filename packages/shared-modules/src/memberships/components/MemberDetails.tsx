@@ -12,6 +12,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   QuestionnaireForm,
   type QuestionnaireDefinition,
@@ -203,10 +204,20 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
   const submitQuestionnaireMutation = useSubmitQuestionnaire();
   const memberTypesQuery = useMemberTypes({ "status-eq": "Enabled" });
 
-  const [subscriptionPage, setSubscriptionPage] = useState(1);
-  const [subscriptionPageSize, setSubscriptionPageSize] = useState(5);
-  const [servicePage, setServicePage] = useState(1);
-  const [servicePageSize, setServicePageSize] = useState(10);
+  const {
+    page: subscriptionPage,
+    setPage: setSubscriptionPage,
+    pageSize: subscriptionPageSize,
+    setPageSize: setSubscriptionPageSize,
+  } = useUrlPagination({
+    namespace: "memberDetailsSubscriptions",
+    defaultPageSize: 5,
+    resetDeps: [memberId],
+  });
+  const { page: servicePage, setPage: setServicePage, pageSize: servicePageSize, setPageSize: setServicePageSize } = useUrlPagination({
+    namespace: "memberDetailsServices",
+    resetDeps: [memberId],
+  });
   const [addSubscriptionOpen, setAddSubscriptionOpen] = useState(false);
   const [selectedSubscriptionTypeUid, setSelectedSubscriptionTypeUid] = useState("");
   const [addSubscriptionError, setAddSubscriptionError] = useState<string | null>(null);

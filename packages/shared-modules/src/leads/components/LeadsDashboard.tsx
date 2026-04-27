@@ -10,6 +10,7 @@ import {
 import type { ColumnDef } from "@jaldee/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import { useChannels, useLeadChart, useLeadPieChart, useLeads, useLeadsCount, useLeadStats } from "../queries/leads";
 import { formatDate, fullName, mapLeadStatusLabel, unwrapCount, unwrapList, unwrapPayload } from "../utils";
 import { StatusBadge } from "./shared";
@@ -160,17 +161,15 @@ export function LeadsDashboard() {
   const [appliedQuery, setAppliedQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const { page, setPage, pageSize, setPageSize } = useUrlPagination({
+    namespace: "leadsDashboard",
+    resetDeps: [appliedQuery, channelFilter, statusFilter],
+  });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAppliedQuery(query.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [query]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [appliedQuery, channelFilter, statusFilter, pageSize]);
 
   useEffect(() => {
     if (range !== "dateRange") return;

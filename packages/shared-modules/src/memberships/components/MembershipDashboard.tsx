@@ -14,6 +14,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useUrlPagination } from "../../useUrlPagination";
 import {
   useAnalytics,
   useChangeMemberStatus,
@@ -348,14 +349,22 @@ export function MembershipDashboard() {
   const [membersRange, setMembersRange] = useState("month");
   const [leadsRange, setLeadsRange] = useState("month");
   const [servicesOverviewRange, setServicesOverviewRange] = useState("month");
-  const [membersPage, setMembersPage] = useState(1);
-  const [servicesPage, setServicesPage] = useState(1);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState("all");
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
   const [appliedMemberSearchQuery, setAppliedMemberSearchQuery] = useState("");
   const [appliedServiceSearchQuery, setAppliedServiceSearchQuery] = useState("");
   const pageSize = 10;
+  const { page: membersPage, setPage: setMembersPage } = useUrlPagination({
+    namespace: "membershipDashboardMembers",
+    defaultPageSize: pageSize,
+    resetDeps: [appliedMemberSearchQuery, memberStatusFilter],
+  });
+  const { page: servicesPage, setPage: setServicesPage } = useUrlPagination({
+    namespace: "membershipDashboardServices",
+    defaultPageSize: pageSize,
+    resetDeps: [appliedServiceSearchQuery],
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

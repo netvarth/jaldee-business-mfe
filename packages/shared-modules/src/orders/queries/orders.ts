@@ -14,6 +14,8 @@ import {
   getOrdersDashboardDataset,
   getOrdersInvoicesPage,
   getOrdersInvoiceTypesPage,
+  getOrdersItemConsumptionHistory,
+  getOrdersItemDetail,
   getOrdersItemsPage,
   getOrdersInvoiceAuditLogs,
   getOrdersInvoiceAuditLogsCount,
@@ -379,6 +381,49 @@ export function useOrdersItemsPage(page: number, pageSize: number) {
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
     queryFn: () => getOrdersItemsPage(scopedApi, { page, pageSize }),
+  });
+}
+
+export function useOrdersItemDetail(itemId: string | null | undefined) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "item-detail", routeParams?.view, itemId),
+    enabled: Boolean(itemId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    queryFn: () => getOrdersItemDetail(scopedApi, itemId ?? ""),
+  });
+}
+
+export function useOrdersItemConsumptionHistory(
+  itemId: string | null | undefined,
+  page: number,
+  pageSize: number,
+  options?: { enabled?: boolean }
+) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey(
+      "orders",
+      "location",
+      location?.id,
+      "item-consumption-history",
+      routeParams?.view,
+      itemId,
+      page,
+      pageSize
+    ),
+    enabled: Boolean(itemId) && (options?.enabled ?? true),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getOrdersItemConsumptionHistory(scopedApi, itemId ?? "", { page, pageSize }),
   });
 }
 
