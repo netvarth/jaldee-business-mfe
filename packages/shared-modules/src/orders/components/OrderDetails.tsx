@@ -190,7 +190,7 @@ export function OrderDetails() {
   }
 
   const noteDialogTitle = noteDialogMode === "staff" ? "Notes from staff member" : "Notes to customer";
-  const noteValue = noteDialogMode === "staff" ? detail.notesFromStaff : detail.notesToCustomer;
+  const noteValue = noteDialogMode === "staff" ? detail?.notesFromStaff : detail?.notesToCustomer;
   const adjustmentDialogTitle = adjustmentDialogMode === "coupon" ? "Apply Coupon" : "Apply Discount";
   const adjustmentPlaceholder = adjustmentDialogMode === "coupon" ? "Select coupon" : "Select discount";
   const isAdjustmentLoading = activeAdjustmentQuery.isFetching && !activeAdjustmentOptions.length;
@@ -685,7 +685,7 @@ export function OrderDetails() {
           await handleUpdateStatus("ORDER_CANCELED");
           setCancelConfirmOpen(false);
         }}
-        title={<span className="text-sm font-semibold text-slate-900">Cancel order?</span>}
+        title={<span className="text-sm font-semibold text-slate-900">Are you sure you want to cancel this order?</span>}
         description=""
         confirmLabel="Yes"
         cancelLabel="No"
@@ -705,7 +705,7 @@ export function OrderDetails() {
           await handleUpdateStatus("ORDER_COMPLETED");
           setCompleteConfirmOpen(false);
         }}
-        title={<span className="text-sm font-semibold text-slate-900">Complete order?</span>}
+        title={<span className="text-sm font-semibold text-slate-900">Are you sure you want to complete this order?</span>}
         description=""
         confirmLabel="Yes"
         cancelLabel="No"

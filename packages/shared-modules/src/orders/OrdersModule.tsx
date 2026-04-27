@@ -64,6 +64,10 @@ export function OrdersModule() {
     return <OrdersInventoryList />;
   }
 
+  if (view === "invoice-types") {
+    return <OrdersSettings />;
+  }
+
   if (view === "settings") {
     return <OrdersSettings />;
   }

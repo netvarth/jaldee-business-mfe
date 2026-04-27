@@ -10,6 +10,7 @@ import type {
   OrdersCreditSystemSettings,
   OrdersCustomerSummary,
   OrdersInvoiceDetail,
+  OrdersInvoiceTypeRow,
   OrdersOrderDetail,
   OrdersOrderDetailAddress,
   OrdersOrderDetailLineItem,
@@ -42,6 +43,29 @@ type OrdersDashboardApiOptions = {
 };
 
 type OrdersListApiOptions = {
+  locationId?: string | null;
+  locationName?: string | null;
+  locationCode?: string | null;
+  selectedStore?: {
+    id?: string | number | null;
+    storeId?: string | number | null;
+    encId?: string | null;
+    storeEncId?: string | null;
+    name?: string | null;
+    storeName?: string | null;
+  } | null;
+  page: number;
+  pageSize: number;
+  searchText?: string;
+  status?: string;
+};
+
+type OrdersInvoiceTypesApiOptions = {
+  page: number;
+  pageSize: number;
+};
+
+type OrdersCatalogsApiOptions = {
   locationId?: string | null;
   locationName?: string | null;
   locationCode?: string | null;
@@ -245,14 +269,15 @@ export function getDefaultOrdersCapabilities(): OrdersCapabilities {
 function buildActionRoutes(product: ProductKey, basePath: string, capabilities: OrdersCapabilities): OrdersAction[] {
   const ordersRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
   const inventoryRoot = product === "health" ? joinPath(basePath, "pharmacy/inventory") : joinPath(basePath, "inventory");
-  const catalogRoot = product === "health" ? joinPath(basePath, "pharmacy/catalogs") : joinPath(basePath, "catalog");
+  const catalogRoot = joinPath(ordersRoot, "catalogs");
   const settingsRoot = joinPath(ordersRoot, "settings");
+  const invoiceTypesRoot = joinPath(ordersRoot, "invoice-types");
 
   return [
     { label: "Create Order", route: joinPath(ordersRoot, "create"), note: "Start a new sales order workflow", accent: "indigo", type: "route", imageKey: "orders", enabled: capabilities.canCreateOrder },
     { label: "Orders", route: joinPath(ordersRoot, "orders-grid"), note: "Track open and delivered orders", accent: "emerald", type: "route", imageKey: "rx-order", enabled: capabilities.canViewOrders },
     { label: "Requests", route: joinPath(ordersRoot, "rx-requests-grid"), note: "Convert prescription requests to orders", accent: "amber", type: "route", imageKey: "rx-requests", enabled: capabilities.canViewRequests },
-    { label: "Invoice Types", route: settingsRoot, note: "Manage invoice type configuration", accent: "slate", type: "route", imageKey: "invoice-types", enabled: capabilities.canViewInvoices },
+    { label: "Invoice Types", route: invoiceTypesRoot, note: "Manage invoice type configuration", accent: "slate", type: "route", imageKey: "invoice-types", enabled: capabilities.canViewInvoices },
     { label: "Catalogs", route: catalogRoot, note: "Maintain pharmacy and product catalogs", accent: "rose", type: "route", imageKey: "socatalog", enabled: capabilities.canViewCatalogs },
     { label: "Stores", route: settingsRoot, note: "Manage store-facing order settings", accent: "slate", type: "externalRoute", imageKey: "store", enabled: capabilities.canViewStores },
     { label: "Items", route: inventoryRoot, note: "Review item inventory and stock levels", accent: "slate", type: "route", imageKey: "items", enabled: capabilities.canViewItems },
@@ -415,17 +440,24 @@ export async function getOrdersListPage(
   }
 
   const offset = Math.max(0, (options.page - 1) * options.pageSize);
+  const apiStatus = String(options.status ?? "").trim();
+  const searchText = String(options.searchText ?? "").trim();
   const [pagePayload, countPayload] = await Promise.all([
     withTimeout(
       getSalesOrders(scopedApi, storeEncId, {
         from: offset,
         count: options.pageSize,
+        searchText,
+        status: apiStatus,
       }).catch(() => []),
       [],
       "sales orders page"
     ),
     withTimeout(
-      getSalesOrdersCount(scopedApi, storeEncId).catch(() => null),
+      getSalesOrdersCount(scopedApi, storeEncId, {
+        searchText,
+        status: apiStatus,
+      }).catch(() => null),
       null,
       "sales orders count"
     ),
@@ -438,6 +470,84 @@ export async function getOrdersListPage(
       readOrdersTotal(pagePayload),
       mapSalesOrders(pagePayload).length
     ),
+  };
+}
+
+export async function getOrdersInvoiceTypesPage(
+  scopedApi: ScopedApi,
+  options: OrdersInvoiceTypesApiOptions
+): Promise<{ rows: OrdersInvoiceTypeRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi
+      .get<any>("provider/order/invoice/type/details", {
+        params: { from, count } satisfies ApiFilter,
+      })
+      .then((response) => response.data),
+    scopedApi
+      .get<any>("provider/order/invoice/type/details/count", {
+        params: { from, count } satisfies ApiFilter,
+      })
+      .then((response) => response.data),
+  ]);
+
+  return {
+    rows: mapOrdersInvoiceTypes(pagePayload),
+    total: Math.max(readOrdersTotal(countPayload), mapOrdersInvoiceTypes(pagePayload).length),
+  };
+}
+
+export async function getOrdersCatalogsPage(
+  scopedApi: ScopedApi,
+  options: OrdersCatalogsApiOptions
+): Promise<{ rows: OrdersCatalogRow[]; total: number }> {
+  const storesResponse = await withTimeout(getActiveStores(scopedApi).catch(() => []), [], "active stores");
+  const localSelectedStore = normalizeStore(options.selectedStore);
+  const resolvedStore =
+    localSelectedStore?.id || localSelectedStore?.encId
+      ? localSelectedStore
+      : resolveProviderStore(storesResponse, {
+          locationId: options.locationId,
+          locationName: options.locationName,
+          locationCode: options.locationCode,
+        });
+
+  const storeEncId = resolvedStore?.encId ?? null;
+  if (!storeEncId) {
+    return { rows: [], total: 0 };
+  }
+
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi
+      .get<any>("provider/so/catalog", {
+        params: {
+          from,
+          count,
+          "storeEncId-eq": storeEncId,
+          "orderCategory-eq": "SALES_ORDER",
+        } satisfies ApiFilter,
+      })
+      .then((response) => response.data),
+    scopedApi
+      .get<any>("provider/so/catalog/count", {
+        params: {
+          from,
+          count,
+          "storeEncId-eq": storeEncId,
+          "orderCategory-eq": "SALES_ORDER",
+        } satisfies ApiFilter,
+      })
+      .then((response) => response.data),
+  ]);
+
+  return {
+    rows: mapOrdersCatalogs(pagePayload),
+    total: Math.max(readOrdersTotal(countPayload), mapOrdersCatalogs(pagePayload).length),
   };
 }
 
@@ -1168,11 +1278,13 @@ async function getActiveStores(scopedApi: ScopedApi) {
 async function getSalesOrders(
   scopedApi: ScopedApi,
   storeEncId: string,
-  pagination?: { from: number; count: number }
+  pagination?: { from: number; count: number; searchText?: string; status?: string }
 ) {
   const from = pagination?.from ?? 0;
   const count = pagination?.count ?? 10;
-  const cacheKey = `${storeEncId}:${from}:${count}`;
+  const searchText = String(pagination?.searchText ?? "").trim();
+  const status = String(pagination?.status ?? "").trim();
+  const cacheKey = `${storeEncId}:${from}:${count}:${searchText}:${status}`;
 
   return cachePromise(salesOrdersCache, cacheKey, SALES_ORDERS_CACHE_TTL_MS, () =>
     scopedApi
@@ -1181,7 +1293,9 @@ async function getSalesOrders(
           from,
           count,
           "storeEncId-eq": storeEncId,
-          "orderStatus-neq": "ORDER_PREPAYMENT_PENDING,FAILED_ORDER",
+          ...(status ? {} : { "orderStatus-neq": "ORDER_PREPAYMENT_PENDING,FAILED_ORDER" }),
+          ...(status ? { "orderStatus-eq": status } : {}),
+          ...(searchText ? { "providerConsumerName-like": searchText } : {}),
           "orderCategory-eq": "SALES_ORDER",
         } satisfies ApiFilter,
       })
@@ -1189,19 +1303,30 @@ async function getSalesOrders(
   );
 }
 
-async function getSalesOrdersCount(scopedApi: ScopedApi, storeEncId: string) {
-  return cachePromise(salesOrdersCountCache, storeEncId, SALES_ORDERS_COUNT_CACHE_TTL_MS, () =>
+async function getSalesOrdersCount(
+  scopedApi: ScopedApi,
+  storeEncId: string,
+  options?: { searchText?: string; status?: string }
+) {
+  const searchText = String(options?.searchText ?? "").trim();
+  const status = String(options?.status ?? "").trim();
+  const cacheKey = `${storeEncId}:${searchText}:${status}`;
+
+  return cachePromise(salesOrdersCountCache, cacheKey, SALES_ORDERS_COUNT_CACHE_TTL_MS, () =>
     scopedApi
       .get<any>("provider/sorder/count", {
         params: {
           "storeEncId-eq": storeEncId,
-          "orderStatus-neq": "ORDER_PREPAYMENT_PENDING,FAILED_ORDER",
+          ...(status ? {} : { "orderStatus-neq": "ORDER_PREPAYMENT_PENDING,FAILED_ORDER" }),
+          ...(status ? { "orderStatus-eq": status } : {}),
+          ...(searchText ? { "providerConsumerName-like": searchText } : {}),
           "orderCategory-eq": "SALES_ORDER",
         } satisfies ApiFilter,
       })
       .then((response) => response.data)
   );
 }
+
 
 async function getDashboardStyleConfig(scopedApi: ScopedApi, userId: string) {
   return scopedApi
@@ -1535,29 +1660,202 @@ function normalizeText(value: unknown) {
 function mapSalesOrders(payload: any): OrdersOrderRow[] {
   const items = Array.isArray(payload) ? payload : Array.isArray(payload?.content) ? payload.content : Array.isArray(payload?.data) ? payload.data : [];
 
+  return items.map((item: any, index: number) => {
+    const amountDue = toNumber(item?.amountDue ?? item?.balanceAmount ?? 0);
+    const customerName = buildCustomerDisplayName(item);
+    const orderSource = mapOrderSourceDisplay(item?.orderSource ?? item?.source ?? item?.channel ?? "PROVIDER_CONSUMER");
+    const orderChannel = mapOrderTypeDisplay(item?.orderType ?? item?.channel ?? "WALK_IN");
+    const orderStatus = mapOrderStatusDisplay(item?.orderStatus ?? item?.status ?? "ORDER_DRAFT");
+    const paymentStatus = mapPaymentStatusDisplay(readPaymentStatus(item, amountDue));
+
+    return {
+      id: String(item?.uid ?? item?.id ?? item?.encId ?? `order-${index + 1}`),
+      customer: customerName,
+      customerRef: String(
+        item?.providerConsumer?.jaldeeId ??
+          item?.providerConsumer?.memberJaldeeId ??
+          item?.providerConsumerId ??
+          item?.providerConsumer?.id ??
+          item?.providerConsumerUid ??
+          item?.consumer?.jaldeeId ??
+          item?.consumer?.id ??
+          item?.consumerId ??
+          ""
+      ).trim() || undefined,
+      source: orderSource,
+      channel: orderChannel,
+      orderNumber: String(item?.orderNum ?? item?.orderNumber ?? item?.displayId ?? "").trim() || undefined,
+      store: String(item?.storeName ?? item?.store?.name ?? item?.departmentName ?? "").trim() || undefined,
+      paymentStatus: paymentStatus || undefined,
+      itemCount: Math.max(
+        0,
+        Math.round(
+          toNumber(item?.itemCount ?? item?.item_count ?? item?.totalItems ?? item?.itemsCount)
+        )
+      ),
+      totalAmount: toNumber(item?.netTotal ?? item?.orderAmount ?? item?.amountDue ?? item?.totalAmount ?? item?.amount),
+      status: orderStatus,
+      placedOn: String(item?.createdDate ?? item?.orderDate ?? item?.date ?? ""),
+    };
+  });
+}
+
+function mapOrdersInvoiceTypes(payload: any): OrdersInvoiceTypeRow[] {
+  const items = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.content)
+      ? payload.content
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
   return items.map((item: any, index: number) => ({
-    id: String(item?.uid ?? item?.id ?? item?.encId ?? `order-${index + 1}`),
-    customer: String(
-      item?.providerConsumer?.firstName ||
-      item?.providerConsumer?.name ||
-      item?.consumer?.firstName ||
-      item?.consumerName ||
-      item?.consumer_label ||
-      item?.customerName ||
-      "Customer"
-    ),
-    source: String(item?.orderSource ?? item?.source ?? item?.channel ?? "Customer"),
-    channel: String(item?.orderType ?? item?.channel ?? "WalkIn"),
-    itemCount: Math.max(
-      0,
-      Math.round(
-        toNumber(item?.itemCount ?? item?.item_count ?? item?.totalItems ?? item?.itemsCount)
-      )
-    ),
-    totalAmount: toNumber(item?.netTotal ?? item?.orderAmount ?? item?.amountDue ?? item?.totalAmount ?? item?.amount),
-    status: String(item?.orderStatus ?? item?.status ?? "Draft"),
-    placedOn: String(item?.createdDate ?? item?.orderDate ?? item?.date ?? ""),
+    id: String(item?.id ?? item?.uid ?? item?.invoiceTypeId ?? `invoice-type-${index + 1}`),
+    type: String(item?.type ?? item?.invoiceType ?? item?.name ?? item?.displayName ?? "").trim() || "-",
+    prefix: String(item?.prefix ?? item?.invoicePrefix ?? "").trim() || "-",
+    suffix: String(item?.suffix ?? item?.invoiceSuffix ?? "").trim() || "-",
+    status: mapInvoiceTypeStatus(item),
+    raw: item,
   }));
+}
+
+function mapOrdersCatalogs(payload: any): OrdersCatalogRow[] {
+  const items = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.content)
+      ? payload.content
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+  return items.map((item: any, index: number) => {
+    const rawStatus = String(item?.status ?? item?.catalogStatus ?? "").trim();
+    const activeFlag =
+      typeof item?.active === "boolean"
+        ? item.active
+        : typeof item?.isActive === "boolean"
+          ? item.isActive
+          : rawStatus.toUpperCase() === "ACTIVE";
+
+    return {
+      id: String(item?.encId ?? item?.uid ?? item?.id ?? item?.spCode ?? `catalog-${index + 1}`),
+      name: String(item?.catalogName ?? item?.name ?? item?.displayName ?? "").trim() || "-",
+      storeName: String(item?.store?.name ?? item?.storeName ?? "").trim() || "-",
+      status: rawStatus || (activeFlag ? "Active" : "Inactive"),
+      active: activeFlag,
+      raw: item,
+    };
+  });
+}
+
+function mapInvoiceTypeStatus(item: any) {
+  const rawStatus = String(item?.status ?? item?.invoiceStatus ?? "").trim();
+  if (rawStatus) {
+    const normalized = rawStatus.toUpperCase();
+    if (normalized === "ACTIVE") return "Active";
+    if (normalized === "INACTIVE") return "Inactive";
+    return rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+  }
+
+  if (typeof item?.active === "boolean") {
+    return item.active ? "Active" : "Inactive";
+  }
+
+  return "-";
+}
+
+function buildCustomerDisplayName(item: any) {
+  const salutation = String(
+    item?.providerConsumer?.salutation ??
+      item?.consumer?.salutation ??
+      item?.providerConsumer?.title ??
+      item?.consumer?.title ??
+      ""
+  ).trim();
+  const firstName = String(
+    item?.providerConsumer?.firstName ??
+      item?.consumer?.firstName ??
+      ""
+  ).trim();
+  const lastName = String(
+    item?.providerConsumer?.lastName ??
+      item?.consumer?.lastName ??
+      ""
+  ).trim();
+  const explicitName = String(
+    item?.providerConsumer?.name ??
+      item?.consumer?.name ??
+      item?.consumerName ??
+      item?.consumer_label ??
+      item?.customerName ??
+      ""
+  ).trim();
+
+  const composedName = [salutation, firstName, lastName].filter(Boolean).join(" ").trim();
+  return composedName || explicitName || "Customer";
+}
+
+function mapOrderSourceDisplay(value: unknown) {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "PROVIDER_CONSUMER") {
+    return "Customer";
+  }
+  if (normalized === "PARTNER") {
+    return "Dealer";
+  }
+  return "Customer";
+}
+
+function mapOrderTypeDisplay(value: unknown) {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "ONLINE_SELF" || normalized === "ONLINE") {
+    return "Online";
+  }
+  if (normalized === "WALK_IN" || normalized === "WALKIN") {
+    return "WalkIn";
+  }
+  return "";
+}
+
+function mapOrderStatusDisplay(value: unknown) {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "ORDER_CONFIRMED" || normalized === "AWAITING FULFILMENT" || normalized === "PACKED") {
+    return "Confirmed";
+  }
+  if (normalized === "ORDER_COMPLETED" || normalized === "DELIVERED") {
+    return "Completed";
+  }
+  if (normalized === "ORDER_CANCELED") {
+    return "Cancelled";
+  }
+  if (normalized === "ORDER_DISCARDED") {
+    return "Discarded";
+  }
+  if (normalized === "ORDER_DRAFT") {
+    return "Draft";
+  }
+  if (normalized === "DISPATCHED") {
+    return "Processing";
+  }
+  return String(value ?? "").trim();
+}
+
+function mapPaymentStatusDisplay(value: unknown) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const paymentStatusMap: Record<string, string> = {
+    NotPaid: "Not Paid",
+    PartiallyPaid: "Partially Paid",
+    FullyPaid: "Fully Paid",
+    Refund: "Refund",
+    PartiallyRefunded: "Partially Refunded",
+    FullyRefunded: "Fully Refunded",
+  };
+
+  return paymentStatusMap[normalized] ?? normalized;
 }
 
 function mapSalesOrderDetail(payload: any): OrdersOrderDetail | null {

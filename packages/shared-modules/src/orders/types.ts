@@ -9,6 +9,7 @@ export type OrdersViewKey =
   | "orders-grid"
   | "order-details"
   | "rx-requests-grid"
+  | "invoice-types"
   | "catalogs"
   | "inventory"
   | "settings";
@@ -58,8 +59,12 @@ export type OrdersInventoryStatus = "Healthy" | "Low Stock" | "Critical";
 export type OrdersOrderRow = {
   id: string;
   customer: string;
+  customerRef?: string;
   source: string;
   channel: string;
+  orderNumber?: string;
+  store?: string;
+  paymentStatus?: string;
   itemCount: number;
   totalAmount: number;
   status: OrdersOrderStatus;
@@ -139,11 +144,10 @@ export type OrdersRequestRow = {
 export type OrdersCatalogRow = {
   id: string;
   name: string;
-  category: string;
-  sku: string;
-  price: number;
-  status: OrdersCatalogStatus;
-  updatedOn: string;
+  storeName: string;
+  status: string;
+  active: boolean;
+  raw?: unknown;
 };
 
 export type OrdersInventoryRow = {
@@ -155,6 +159,15 @@ export type OrdersInventoryRow = {
   reorderLevel: number;
   expiry: string;
   status: OrdersInventoryStatus;
+};
+
+export type OrdersInvoiceTypeRow = {
+  id: string;
+  type: string;
+  prefix: string;
+  suffix: string;
+  status: string;
+  raw?: unknown;
 };
 
 export type OrdersDataset = {

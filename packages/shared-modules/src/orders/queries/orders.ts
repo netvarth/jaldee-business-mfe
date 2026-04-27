@@ -6,11 +6,13 @@ import {
   applySalesOrderAdjustment,
   getOrdersBillCoupons,
   getOrdersBillDiscounts,
+  getOrdersCatalogsPage,
   getOrdersCreditSystemDetails,
   getOrdersCreditSystemProviderConsumer,
   getOrdersCreditSystemSettings,
   getOrdersCustomer,
   getOrdersDashboardDataset,
+  getOrdersInvoiceTypesPage,
   getOrdersInvoiceAuditLogs,
   getOrdersInvoiceAuditLogsCount,
   getOrdersListPage,
@@ -49,13 +51,19 @@ export function useOrdersOrders() {
   return { ...datasetQuery, data: datasetQuery.data?.orders ?? [] };
 }
 
-export function useOrdersOrdersPage(page: number, pageSize: number, options?: { enabled?: boolean }) {
+export function useOrdersOrdersPage(
+  page: number,
+  pageSize: number,
+  options?: { enabled?: boolean; searchText?: string; status?: string }
+) {
   const { location, routeParams } = useSharedModulesContext();
   const scopedApi = useApiScope();
   const selectedStore = readSelectedStoreFromLocalStorage();
+  const searchText = String(options?.searchText ?? "").trim();
+  const status = String(options?.status ?? "").trim();
 
   return useQuery({
-    queryKey: buildSharedQueryKey("orders", "location", location?.id, "orders-grid", routeParams?.view, page, pageSize),
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "orders-grid", routeParams?.view, page, pageSize, searchText, status),
     enabled: Boolean(location?.id) && (options?.enabled ?? true),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -68,6 +76,8 @@ export function useOrdersOrdersPage(page: number, pageSize: number, options?: { 
         selectedStore,
         page,
         pageSize,
+        searchText,
+        status,
       }),
   });
 }
@@ -305,9 +315,41 @@ export function useOrdersCreditSystemSettings(enabled: boolean = true) {
   });
 }
 
-export function useOrdersCatalogs() {
-  const datasetQuery = useOrdersDataset();
-  return { ...datasetQuery, data: datasetQuery.data?.catalogs ?? [] };
+export function useOrdersCatalogsPage(page: number, pageSize: number) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const selectedStore = readSelectedStoreFromLocalStorage();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "catalogs", routeParams?.view, page, pageSize),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    queryFn: () =>
+      getOrdersCatalogsPage(scopedApi, {
+        locationId: location?.id,
+        locationName: location?.name,
+        locationCode: location?.code,
+        selectedStore,
+        page,
+        pageSize,
+      }),
+  });
+}
+
+export function useOrdersInvoiceTypesPage(page: number, pageSize: number) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "invoice-types", routeParams?.view, page, pageSize),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getOrdersInvoiceTypesPage(scopedApi, { page, pageSize }),
+  });
 }
 
 export function useOrdersInventory() {

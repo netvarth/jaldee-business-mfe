@@ -113,12 +113,12 @@ export function OrdersDashboard() {
   const ordersTotal = ordersPageQuery.data?.total ?? data?.orders.length ?? 0;
 
   const ordersRows = useMemo(() => {
-    return pagedOrders.map((row, index) => mapOrderRow(row, index));
+    return pagedOrders.map((row) => mapOrderRow(row));
   }, [pagedOrders]);
 
   const requestRows = useMemo(() => {
     if (!data) return [];
-    return data.requests.map((row, index) => mapRequestRow(row, index));
+    return data.requests.map((row) => mapRequestRow(row));
   }, [data]);
 
   const visibleRows = resolvedView === "rxRequests" ? requestRows : ordersRows;
@@ -151,9 +151,6 @@ export function OrdersDashboard() {
   const ordersFiltersActive = resolvedView === "orders" && Boolean(normalizedQuery || statusFilter !== "all");
   const tableTotal = resolvedView === "orders" && !ordersFiltersActive ? ordersTotal : filteredRows.length;
   const tablePaginationMode = resolvedView === "orders" && !ordersFiltersActive ? "server" : "client";
-  const tableTotalPages = Math.max(1, Math.ceil(tableTotal / tablePageSize));
-  const tableStartRecord = tableTotal === 0 ? 0 : (tablePage - 1) * tablePageSize + 1;
-  const tableEndRecord = tableTotal === 0 ? 0 : Math.min(tablePage * tablePageSize, tableTotal);
 
   useEffect(() => {
     setTablePage(1);
@@ -172,11 +169,15 @@ export function OrdersDashboard() {
       {
         key: "patient",
         header: product === "health" ? "Patient" : "Customer",
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
         render: (row: DashboardTableRow) => <PersonCell row={row} />,
       },
       {
         key: "dateOrder",
         header: "Date & Order Id",
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
         render: (row: DashboardTableRow) => (
           <div className="space-y-1">
             <div className="font-semibold text-slate-900">{row.orderDate}</div>
@@ -184,26 +185,32 @@ export function OrdersDashboard() {
           </div>
         ),
       },
-      { key: "orderSource", header: "Order Source" },
-      { key: "store", header: "Store" },
+      { key: "orderSource", header: "Order Source", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5" },
+      { key: "store", header: "Store", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5" },
       {
         key: "status",
         header: "Status",
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
         render: (row: DashboardTableRow) => <Badge variant={getOrdersStatusVariant(row.status)}>{row.status}</Badge>,
       },
       {
         key: "paymentStatus",
         header: "Payment Status",
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
         render: (row: DashboardTableRow) => (
           <span className={paymentStatusClassName(row.paymentStatus)}>{row.paymentStatus}</span>
         ),
       },
-      { key: "type", header: "Type" },
-      { key: "itemCount", header: "No Of Items", align: "right" as const },
+      { key: "type", header: "Type", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5" },
+      { key: "itemCount", header: "No Of Items", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5", align: "left" as const },
       {
         key: "actions",
         header: "Actions",
         align: "center" as const,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
         render: (row: DashboardTableRow) => (
           <Button
             type="button"
@@ -516,11 +523,6 @@ export function OrdersDashboard() {
               <div className="text-2xl font-semibold text-slate-900">
                 {resolvedView === "rxRequests" ? `Requests (${requestRows.length})` : `Orders (${ordersTotal})`}
               </div>
-              {resolvedView === "orders" ? (
-                <div className="text-sm text-slate-500">
-                  Showing {tableStartRecord} to {tableEndRecord} of {tableTotal} records
-                </div>
-              ) : null}
             </div>
             <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_220px_auto]">
               <div className="relative">
@@ -543,43 +545,6 @@ export function OrdersDashboard() {
               </Button>
             </div>
           </div>
-          {resolvedView === "orders" && tableTotalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setTablePage(1)} disabled={tablePage === 1}>
-                First
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setTablePage(Math.max(1, tablePage - 1))}
-                disabled={tablePage === 1}
-              >
-                Prev
-              </Button>
-              <div className="min-w-[108px] text-center text-sm text-slate-500">
-                Page {tablePage} of {tableTotalPages}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setTablePage(Math.min(tableTotalPages, tablePage + 1))}
-                disabled={tablePage === tableTotalPages}
-              >
-                Next
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setTablePage(tableTotalPages)}
-                disabled={tablePage === tableTotalPages}
-              >
-                Last
-              </Button>
-            </div>
-          ) : null}
         </div>
 
         <DataTable
@@ -682,26 +647,24 @@ type DashboardTableRow = {
   doctor?: string;
 };
 
-function mapOrderRow(row: OrdersOrderRow, index: number): DashboardTableRow {
-  const paymentStatuses = ["Not Paid", "Fully Paid", "Partially Paid"] as const;
-
+function mapOrderRow(row: OrdersOrderRow): DashboardTableRow {
   return {
     id: row.id,
     primaryName: row.customer,
-    secondaryName: `Id:${130 - index * 12}`,
+    secondaryName: row.customerRef ? `Id:${row.customerRef}` : row.id ? `Id:${row.id}` : "",
     orderDate: row.placedOn.split(",")[0],
-    orderId: `#${87 - index}`,
+    orderId: row.orderNumber ? `#${row.orderNumber}` : `#${row.id}`,
     orderSource: row.source,
-    store: "Back door Pharmacy(OP&IP)",
+    store: row.store || "-",
     status: normalizeDashboardStatus(row.status),
-    paymentStatus: paymentStatuses[index % paymentStatuses.length],
+    paymentStatus: row.paymentStatus || "Not Paid",
     type: row.channel === "Online" ? "Online" : "WalkIn",
     itemCount: row.itemCount,
     initials: getInitials(row.customer),
   };
 }
 
-function mapRequestRow(row: OrdersRequestRow, index: number): DashboardTableRow {
+function mapRequestRow(row: OrdersRequestRow): DashboardTableRow {
   return {
     id: row.id,
     primaryName: row.patient,
