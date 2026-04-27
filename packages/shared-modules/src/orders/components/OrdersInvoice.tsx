@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, DataTable, Dialog, DialogFooter, EmptyState, Input, PhoneInput, SectionCard } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
-import { formatOrdersCurrency, normalizeOrdersInvoiceUid } from "../services/orders";
+import {
+  buildOrdersDetailHref,
+  buildOrdersModuleHref,
+  formatOrdersCurrency,
+  normalizeOrdersInvoiceUid,
+} from "../services/orders";
+import type { ProductKey } from "@jaldee/auth-context";
 import {
   useOrdersCustomer,
   useOrdersInvoiceAuditLogs,
@@ -36,12 +42,12 @@ type SharePhoneValue = { countryCode: string; number: string };
 const RUPEE_SYMBOL = "\u20B9";
 
 export function OrdersInvoice() {
-  const { basePath, routeParams, account, location, user, api } = useSharedModulesContext();
+  const { basePath, routeParams, account, location, user, api, product } = useSharedModulesContext();
   const recordId = routeParams?.recordId ?? null;
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const returnTo = searchParams?.get("returnTo") ?? "";
+  const from = searchParams?.get("from") ?? "";
   const invoiceUid = normalizeOrdersInvoiceUid(String(searchParams?.get("invUid") ?? recordId ?? ""));
-  const backHref = `${basePath}/orders/overview`;
   const invoiceExportRef = useRef<HTMLDivElement | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
   const [logsPage, setLogsPage] = useState(1);
@@ -58,6 +64,10 @@ export function OrdersInvoice() {
   const customerId = invoice?.customerId ?? null;
   const customerQuery = useOrdersCustomer(customerId);
   const orderRecordId = useMemo(() => invoice?.orderId ?? resolveOrderRecordId(returnTo), [invoice?.orderId, returnTo]);
+  const backHref = useMemo(
+    () => resolveInvoiceBackHref(basePath, product, returnTo, from, orderRecordId),
+    [basePath, from, orderRecordId, product, returnTo]
+  );
   const orderDetailQuery = useOrdersOrderDetail(orderRecordId);
   const orderDetail = orderDetailQuery.data ?? null;
 
@@ -600,6 +610,49 @@ function resolveOrderRecordId(returnTo: string) {
     return recordId ? decodeURIComponent(recordId) : null;
   } catch {
     return null;
+  }
+}
+
+function resolveInvoiceBackHref(
+  basePath: string,
+  product: ProductKey,
+  returnTo: string,
+  from: string,
+  orderRecordId?: string | null
+) {
+  const resolvedReturnTo = resolveInternalReturnToHref(returnTo);
+  if (resolvedReturnTo) return resolvedReturnTo;
+
+  const normalizedFrom = String(from ?? "").trim().toLowerCase();
+  if (normalizedFrom === "invoices") {
+    return buildOrdersModuleHref(basePath, product, "invoices");
+  }
+
+  if ((normalizedFrom === "details" || normalizedFrom === "order-details") && orderRecordId) {
+    return buildOrdersDetailHref(basePath, orderRecordId, product);
+  }
+
+  return buildOrdersModuleHref(basePath, product, "overview");
+}
+
+function resolveInternalReturnToHref(returnTo: string) {
+  const raw = String(returnTo ?? "").trim();
+  if (!raw || raw === "#") return "";
+
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(raw, origin);
+    if (url.origin !== origin) return "";
+
+    const href = `${url.pathname}${url.search}${url.hash}`;
+    if (typeof window !== "undefined") {
+      const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (href === currentHref) return "";
+    }
+
+    return href;
+  } catch {
+    return "";
   }
 }
 

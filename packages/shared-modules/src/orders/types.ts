@@ -9,7 +9,9 @@ export type OrdersViewKey =
   | "orders-grid"
   | "order-details"
   | "rx-requests-grid"
+  | "invoices"
   | "invoice-types"
+  | "items"
   | "catalogs"
   | "inventory"
   | "settings";
@@ -168,6 +170,57 @@ export type OrdersInvoiceTypeRow = {
   suffix: string;
   status: string;
   raw?: unknown;
+};
+
+export type OrdersInvoiceRow = {
+  id: string;
+  invoiceUid: string;
+  invoiceNumber: string;
+  orderId?: string;
+  orderNumber?: string;
+  customer: string;
+  customerRef?: string;
+  source: string;
+  storeName: string;
+  invoiceDate: string;
+  status: string;
+  totalAmount: number;
+  amountPaid?: number;
+  amountDue?: number;
+  raw?: unknown;
+};
+
+export type OrdersItemRow = {
+  id: string;
+  name: string;
+  property: string;
+  source: string;
+  category: string;
+  group: string;
+  type: string;
+  trackInventory: string;
+  tax: string;
+  createdDate: string;
+  status: string;
+  imageUrl?: string;
+  raw?: unknown;
+};
+
+export type OrdersItemSettingsOption = {
+  id: string;
+  label: string;
+  raw?: unknown;
+};
+
+export type OrdersItemSettings = {
+  categories: OrdersItemSettingsOption[];
+  groups: OrdersItemSettingsOption[];
+  types: OrdersItemSettingsOption[];
+  units: OrdersItemSettingsOption[];
+  hsn: OrdersItemSettingsOption[];
+  compositions: OrdersItemSettingsOption[];
+  taxes: OrdersItemSettingsOption[];
+  manufacturers: OrdersItemSettingsOption[];
 };
 
 export type OrdersDataset = {

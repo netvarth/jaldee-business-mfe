@@ -5,7 +5,9 @@ import { OrdersCatalogList } from "./components/OrdersCatalogList";
 import { CreateOrder } from "./components/CreateOrder";
 import { OrdersDashboard } from "./components/OrdersDashboard";
 import { OrdersInvoice } from "./components/OrdersInvoice";
+import { OrdersInvoicesList } from "./components/OrdersInvoicesList";
 import { OrdersInventoryList } from "./components/OrdersInventoryList";
+import { OrdersItemsList } from "./components/OrdersItemsList";
 import { OrderDetails } from "./components/OrderDetails";
 import { OrdersList } from "./components/OrdersList";
 import { OrdersRequestsList } from "./components/OrdersRequestsList";
@@ -52,6 +54,10 @@ export function OrdersModule() {
     return <OrdersInvoice />;
   }
 
+  if (view === "invoices") {
+    return <OrdersInvoicesList />;
+  }
+
   if (view === "rx-requests-grid") {
     return <OrdersRequestsList />;
   }
@@ -62,6 +68,10 @@ export function OrdersModule() {
 
   if (view === "inventory") {
     return <OrdersInventoryList />;
+  }
+
+  if (view === "items") {
+    return <OrdersItemsList />;
   }
 
   if (view === "invoice-types") {

@@ -10,7 +10,11 @@ import type {
   OrdersCreditSystemSettings,
   OrdersCustomerSummary,
   OrdersInvoiceDetail,
+  OrdersInvoiceRow,
   OrdersInvoiceTypeRow,
+  OrdersItemRow,
+  OrdersItemSettings,
+  OrdersItemSettingsOption,
   OrdersOrderDetail,
   OrdersOrderDetailAddress,
   OrdersOrderDetailLineItem,
@@ -61,6 +65,16 @@ type OrdersListApiOptions = {
 };
 
 type OrdersInvoiceTypesApiOptions = {
+  page: number;
+  pageSize: number;
+};
+
+type OrdersInvoicesApiOptions = {
+  page: number;
+  pageSize: number;
+};
+
+type OrdersItemsApiOptions = {
   page: number;
   pageSize: number;
 };
@@ -149,11 +163,17 @@ export function buildOrdersLegacyInvoiceHref(basePath: string, recordId: string)
   return buildOrdersInvoiceHref(basePath, recordId);
 }
 
-export function buildOrdersInvoiceHref(basePath: string, invoiceUid: string, params?: Record<string, string>) {
+export function buildOrdersInvoiceHref(basePath: string, invoiceUid: string, params?: Record<string, string>, product?: ProductKey) {
   const resolvedInvoiceUid = ensureInvoiceUid(invoiceUid);
-  const invoicePath = joinPath(basePath, `orders/invoice/${encodeURIComponent(resolvedInvoiceUid)}`);
+  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  const invoicePath = joinPath(moduleRoot, `invoice/${encodeURIComponent(resolvedInvoiceUid)}`);
   const query = new URLSearchParams({ from: "details", invUid: resolvedInvoiceUid, ...(params ?? {}) });
   return `${invoicePath}?${query.toString()}`;
+}
+
+export function buildOrdersModuleHref(basePath: string, product: ProductKey, view: string) {
+  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  return joinPath(moduleRoot, view);
 }
 
 export function normalizeOrdersInvoiceUid(value: string) {
@@ -269,9 +289,11 @@ export function getDefaultOrdersCapabilities(): OrdersCapabilities {
 function buildActionRoutes(product: ProductKey, basePath: string, capabilities: OrdersCapabilities): OrdersAction[] {
   const ordersRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
   const inventoryRoot = product === "health" ? joinPath(basePath, "pharmacy/inventory") : joinPath(basePath, "inventory");
+  const itemsRoot = joinPath(ordersRoot, "items");
   const catalogRoot = joinPath(ordersRoot, "catalogs");
   const settingsRoot = joinPath(ordersRoot, "settings");
   const invoiceTypesRoot = joinPath(ordersRoot, "invoice-types");
+  const invoicesRoot = joinPath(ordersRoot, "invoices");
 
   return [
     { label: "Create Order", route: joinPath(ordersRoot, "create"), note: "Start a new sales order workflow", accent: "indigo", type: "route", imageKey: "orders", enabled: capabilities.canCreateOrder },
@@ -280,8 +302,8 @@ function buildActionRoutes(product: ProductKey, basePath: string, capabilities: 
     { label: "Invoice Types", route: invoiceTypesRoot, note: "Manage invoice type configuration", accent: "slate", type: "route", imageKey: "invoice-types", enabled: capabilities.canViewInvoices },
     { label: "Catalogs", route: catalogRoot, note: "Maintain pharmacy and product catalogs", accent: "rose", type: "route", imageKey: "socatalog", enabled: capabilities.canViewCatalogs },
     { label: "Stores", route: settingsRoot, note: "Manage store-facing order settings", accent: "slate", type: "externalRoute", imageKey: "store", enabled: capabilities.canViewStores },
-    { label: "Items", route: inventoryRoot, note: "Review item inventory and stock levels", accent: "slate", type: "route", imageKey: "items", enabled: capabilities.canViewItems },
-    { label: "Invoices", route: settingsRoot, note: "Review invoice-related workflows", accent: "indigo", type: "route", imageKey: "invoices", enabled: capabilities.canViewInvoices },
+    { label: "Items", route: itemsRoot, note: "Review sales-order item master data", accent: "slate", type: "route", imageKey: "items", enabled: capabilities.canViewItems },
+    { label: "Invoices", route: invoicesRoot, note: "Review sales-order invoices", accent: "indigo", type: "route", imageKey: "invoices", enabled: capabilities.canViewInvoices },
     { label: "Dealers", route: settingsRoot, note: "Partner sales-order dealer workflow", accent: "amber", type: "route", imageKey: "partner", enabled: capabilities.canViewDealers },
     { label: "Item Variants", route: inventoryRoot, note: "Manage categories, groups, and variants", accent: "rose", type: "functionCall", imageKey: "item-variant", enabled: capabilities.canViewItemVariants },
     { label: "Logistics", route: settingsRoot, note: "Courier and shipment configuration", accent: "emerald", type: "route", imageKey: "logistics", enabled: capabilities.canViewLogistics },
@@ -496,6 +518,96 @@ export async function getOrdersInvoiceTypesPage(
   return {
     rows: mapOrdersInvoiceTypes(pagePayload),
     total: Math.max(readOrdersTotal(countPayload), mapOrdersInvoiceTypes(pagePayload).length),
+  };
+}
+
+export async function getOrdersInvoicesPage(
+  scopedApi: ScopedApi,
+  options: OrdersInvoicesApiOptions
+): Promise<{ rows: OrdersInvoiceRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const params = {
+    from,
+    count,
+    "status-neq": "PREPAYMENT_PENDING_INVOICE,FAILED_ORDER_INVOICE",
+    "orderCategory-eq": "SALES_ORDER",
+  } satisfies ApiFilter;
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi
+      .get<any>("provider/so/invoice", { params })
+      .then((response) => response.data),
+    scopedApi
+      .get<any>("provider/so/invoice/count", { params })
+      .then((response) => response.data),
+  ]);
+
+  const rows = mapOrdersInvoices(pagePayload);
+
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+export async function getOrdersItemsPage(
+  scopedApi: ScopedApi,
+  options: OrdersItemsApiOptions
+): Promise<{ rows: OrdersItemRow[]; total: number; settings: OrdersItemSettings }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const params = {
+    from,
+    count,
+    "parentItemId-eq": 0,
+    "orderCategory-eq": "SALES_ORDER",
+  } satisfies ApiFilter;
+
+  const [
+    pagePayload,
+    countPayload,
+    categoryPayload,
+    typePayload,
+    unitPayload,
+    hsnPayload,
+    compositionPayload,
+    taxPayload,
+    groupPayload,
+    manufacturerPayload,
+  ] = await Promise.all([
+    scopedApi
+      .get<any>("provider/spitem", { params })
+      .then((response) => response.data),
+    scopedApi
+      .get<any>("provider/spitem/count", { params })
+      .then((response) => response.data),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/category", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/type", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/unit", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/hsn", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/composition", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/tax", { "status-eq": "Enable" }),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/group"),
+    getOptionalOrdersPayload(scopedApi, "provider/spitem/settings/manufacturer", { "status-eq": "Enable" }),
+  ]);
+
+  const settings = mapOrdersItemSettings({
+    categories: categoryPayload,
+    types: typePayload,
+    units: unitPayload,
+    hsn: hsnPayload,
+    compositions: compositionPayload,
+    taxes: taxPayload,
+    groups: groupPayload,
+    manufacturers: manufacturerPayload,
+  });
+  const rows = mapOrdersItems(pagePayload, settings);
+
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+    settings,
   };
 }
 
@@ -1719,6 +1831,760 @@ function mapOrdersInvoiceTypes(payload: any): OrdersInvoiceTypeRow[] {
   }));
 }
 
+function mapOrdersInvoices(payload: any): OrdersInvoiceRow[] {
+  const items = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.content)
+      ? payload.content
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.response)
+            ? payload.response
+            : [];
+
+  return items.map((item: any, index: number) => {
+    const invoiceUid = ensureInvoiceUid(
+      String(
+        item?.invoiceUid ??
+          item?.invUid ??
+          item?.invoiceUUID ??
+          item?.uuid ??
+          item?.uid ??
+          item?.id ??
+          `invoice-${index + 1}`
+      ).trim()
+    );
+    const invoiceNumber = String(
+      item?.invoiceNumber ??
+        item?.invoiceNo ??
+        item?.invoiceNum ??
+        item?.displayId ??
+        item?.displayNumber ??
+        item?.invoiceId ??
+        invoiceUid
+    ).trim();
+    const orderId = String(
+      item?.orderId ??
+        item?.orderUid ??
+        item?.salesOrderUid ??
+        item?.salesOrderId ??
+        item?.soUid ??
+        item?.soId ??
+        item?.order?.uid ??
+        item?.salesOrder?.uid ??
+        ""
+    ).trim();
+    const orderNumber = String(
+      item?.orderNumber ??
+        item?.orderNum ??
+        item?.salesOrderNumber ??
+        item?.salesOrderNo ??
+        item?.order?.orderNumber ??
+        item?.order?.orderNum ??
+        item?.salesOrder?.orderNumber ??
+        ""
+    ).trim();
+    const customer = buildInvoiceCustomerDisplayName(item);
+    const customerRef = String(
+      item?.providerConsumer?.jaldeeId ??
+        item?.providerConsumer?.memberJaldeeId ??
+        item?.providerConsumerId ??
+        item?.providerConsumer?.id ??
+        item?.providerConsumerUid ??
+        item?.consumer?.jaldeeId ??
+        item?.consumer?.id ??
+        item?.consumerId ??
+        item?.customerId ??
+        ""
+    ).trim();
+    const source = mapOrderSourceDisplay(
+      item?.orderSource ??
+        item?.source ??
+        item?.salesOrder?.orderSource ??
+        item?.salesOrder?.source ??
+        item?.order?.orderSource ??
+        item?.order?.source ??
+        "PROVIDER_CONSUMER"
+    );
+    const storeName = String(
+      item?.storeName ??
+        item?.store?.name ??
+        item?.departmentName ??
+        item?.salesOrder?.storeName ??
+        item?.salesOrder?.store?.name ??
+        item?.salesOrder?.departmentName ??
+        item?.order?.storeName ??
+        item?.order?.store?.name ??
+        item?.order?.departmentName ??
+        item?.locationName ??
+        ""
+    ).trim();
+
+    return {
+      id: invoiceUid,
+      invoiceUid,
+      invoiceNumber: invoiceNumber || invoiceUid,
+      orderId: orderId || undefined,
+      orderNumber: orderNumber || undefined,
+      customer,
+      customerRef: customerRef || undefined,
+      source,
+      storeName: storeName || "-",
+      invoiceDate: String(item?.invoiceDate ?? item?.createdDate ?? item?.createdOn ?? item?.date ?? item?.invDate ?? "").trim(),
+      status: mapInvoiceStatusDisplay(item?.status ?? item?.invoiceStatus ?? item?.state ?? ""),
+      totalAmount: toNumber(
+        item?.totalAmount ??
+          item?.invoiceAmount ??
+          item?.grandTotal ??
+          item?.netTotal ??
+          item?.netRate ??
+          item?.amount ??
+          0
+      ),
+      amountPaid: toOptionalNumber(item?.amountPaid ?? item?.paidAmount ?? item?.amountReceived),
+      amountDue: toOptionalNumber(item?.amountDue ?? item?.balanceAmount ?? item?.dueAmount),
+      raw: item,
+    };
+  });
+}
+
+function mapOrdersItems(payload: any, settings: OrdersItemSettings): OrdersItemRow[] {
+  const items = unwrapOrdersList(payload);
+  const lookups = createItemSettingsLookups(settings);
+
+  return items.map((item: any, index: number) => {
+    const id =
+      readFirstText(
+        item?.encId,
+        item?.uid,
+        item?.itemUid,
+        item?.spItemUid,
+        item?.itemId,
+        item?.id,
+        item?.item?.uid,
+        item?.item?.id
+      ) || `item-${index + 1}`;
+    const category = resolveOrdersSettingLabel(
+      lookups.categories,
+      item?.categoryName,
+      item?.itemCategory?.categoryName,
+      item?.category?.name,
+      item?.itemCategory?.name,
+      item?.spItemCategory?.name,
+      item?.categoryId,
+      item?.category?.id,
+      item?.itemCategoryId,
+      item?.itemCategory?.id,
+      item?.itemCategory?.categoryCode,
+      item?.itemCategory?.code,
+      item?.spItemCategory?.id
+    );
+    const group = resolveOrdersSettingLabel(
+      lookups.groups,
+      item?.groupName,
+      item?.group?.name,
+      item?.itemGroup?.name,
+      item?.spItemGroup?.name,
+      item?.groupId,
+      item?.group?.id,
+      item?.itemGroupId,
+      item?.itemGroup?.id,
+      item?.spItemGroup?.id,
+      item?.itemGroups
+    );
+    const type = resolveOrdersSettingLabel(
+      lookups.types,
+      item?.typeName,
+      item?.type?.name,
+      item?.itemType?.name,
+      item?.spItemType?.name,
+      item?.typeId,
+      item?.type?.id,
+      item?.itemTypeId,
+      item?.itemType?.id,
+      item?.spItemType?.id
+    );
+    const tax = resolveItemTaxLabel(lookups.taxes, item);
+
+    return {
+      id,
+      name:
+        readFirstText(
+          item?.name,
+          item?.itemName,
+          item?.displayName,
+          item?.shortName,
+          item?.item?.name,
+          item?.item?.itemName
+        ) || "-",
+      property:
+        readItemPropertyLabel(item) ||
+        readFirstText(
+          item?.property,
+          item?.propertyName,
+          item?.itemProperty,
+          item?.itemPropertyName,
+          item?.classification,
+          item?.itemClassification,
+          item?.compositionName,
+          item?.composition?.name
+        ) || "Other",
+      source: mapItemSourceDisplay(item?.source ?? item?.itemSource ?? item?.sourceType ?? "General"),
+      category,
+      group,
+      type,
+      trackInventory: readTrackInventoryLabel(item),
+      tax,
+      createdDate: formatOrdersItemDate(item?.createdDate ?? item?.createdOn ?? item?.createdAt ?? item?.createDate ?? item?.date),
+      status: mapOrdersItemStatus(item?.status ?? item?.itemStatus ?? item?.state ?? item?.active),
+      imageUrl: readOrdersItemImageUrl(item) || undefined,
+      raw: item,
+    };
+  });
+}
+
+function mapOrdersItemSettings(payloads: {
+  categories: any;
+  groups: any;
+  types: any;
+  units: any;
+  hsn: any;
+  compositions: any;
+  taxes: any;
+  manufacturers: any;
+}): OrdersItemSettings {
+  return {
+    categories: mapOrdersItemSettingOptions(payloads.categories, "category"),
+    groups: mapOrdersItemSettingOptions(payloads.groups, "group"),
+    types: mapOrdersItemSettingOptions(payloads.types, "type"),
+    units: mapOrdersItemSettingOptions(payloads.units, "unit"),
+    hsn: mapOrdersItemSettingOptions(payloads.hsn, "hsn"),
+    compositions: mapOrdersItemSettingOptions(payloads.compositions, "composition"),
+    taxes: mapOrdersItemSettingOptions(payloads.taxes, "tax"),
+    manufacturers: mapOrdersItemSettingOptions(payloads.manufacturers, "manufacturer"),
+  };
+}
+
+function mapOrdersItemSettingOptions(payload: any, kind: string): OrdersItemSettingsOption[] {
+  return unwrapOrdersList(payload)
+    .map((item: any, index: number) => {
+      const id =
+        readFirstText(
+          item?.id,
+          item?.uid,
+          item?.encId,
+          item?.code,
+          item?.value,
+          item?.[`${kind}Id`],
+          item?.[`${kind}Uid`],
+          item?.[`${kind}Code`]
+        ) || `${kind}-${index + 1}`;
+      const label =
+        kind === "tax"
+          ? readTaxOptionLabel(item)
+          : readFirstText(
+              item?.label,
+              item?.name,
+              item?.displayName,
+              item?.title,
+              item?.value,
+              item?.code,
+              item?.[`${kind}Name`],
+              item?.[`${kind}Type`],
+              item?.[`${kind}Code`]
+            );
+
+      return {
+        id,
+        label: label || id,
+        raw: item,
+      };
+    })
+    .filter((item) => item.id && item.label);
+}
+
+function createItemSettingsLookups(settings: OrdersItemSettings) {
+  return {
+    categories: createOrdersOptionLookup(settings.categories),
+    groups: createOrdersOptionLookup(settings.groups),
+    types: createOrdersOptionLookup(settings.types),
+    taxes: createOrdersOptionLookup(settings.taxes),
+  };
+}
+
+function createOrdersOptionLookup(options: OrdersItemSettingsOption[]) {
+  const lookup = new Map<string, string>();
+
+  options.forEach((option) => {
+    addOrdersLookupValue(lookup, option.id, option.label);
+    addOrdersLookupValue(lookup, option.label, option.label);
+
+    const raw: any = option.raw as any;
+    [
+      raw?.id,
+      raw?.uid,
+      raw?.encId,
+      raw?.code,
+      raw?.value,
+      raw?.name,
+      raw?.displayName,
+      raw?.label,
+      raw?.categoryId,
+      raw?.categoryName,
+      raw?.groupId,
+      raw?.groupName,
+      raw?.groupCode,
+      raw?.typeId,
+      raw?.typeName,
+      raw?.taxId,
+      raw?.taxUid,
+      raw?.taxCode,
+      raw?.taxName,
+      raw?.taxPercentage,
+      raw?.taxPercent,
+      raw?.gstPercentage,
+      raw?.gstPercent,
+      raw?.percentage,
+    ].forEach((value) => addOrdersLookupValue(lookup, value, option.label));
+  });
+
+  return lookup;
+}
+
+function addOrdersLookupValue(lookup: Map<string, string>, key: unknown, label: string) {
+  const normalized = normalizeText(key);
+  if (normalized) {
+    lookup.set(normalized, label);
+  }
+}
+
+function resolveOrdersSettingLabel(lookup: Map<string, string>, ...candidates: unknown[]) {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      const labels = candidate
+        .map((entry) => resolveOrdersSettingLabel(lookup, entry))
+        .filter((entry) => entry && entry !== "-");
+      if (labels.length) return Array.from(new Set(labels)).join(", ");
+      continue;
+    }
+
+    const text = readFirstText(candidate);
+    if (!text) continue;
+
+    const resolved = lookup.get(normalizeText(text));
+    if (resolved) return resolved;
+
+    if (!/^\d+$/.test(text)) return text;
+  }
+
+  return "-";
+}
+
+function readItemPropertyLabel(item: any) {
+  const attributes = Array.isArray(item?.itemAttributes)
+    ? item.itemAttributes
+    : Array.isArray(item?.attributes)
+      ? item.attributes
+      : [];
+
+  if (!attributes.length) return "";
+
+  return attributes
+    .slice()
+    .sort((left: any, right: any) => toNumber(left?.position) - toNumber(right?.position))
+    .map((attribute: any) => {
+      const name = readFirstText(attribute?.attribute, attribute?.name, attribute?.label);
+      const values = Array.isArray(attribute?.values)
+        ? attribute.values.map((value: unknown) => readFirstText(value)).filter(Boolean)
+        : [readFirstText(attribute?.value)].filter(Boolean);
+
+      if (name && values.length) return `${name}: ${values.join(", ")}`;
+      if (name) return name;
+      return values.join(", ");
+    })
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function resolveItemTaxLabel(lookup: Map<string, string>, item: any) {
+  const explicit = readFirstText(
+    item?.taxName,
+    item?.tax?.taxName,
+    item?.tax?.name,
+    item?.tax?.label,
+    item?.tax?.displayName,
+    item?.taxSettings?.taxName,
+    item?.taxSettings?.name,
+    item?.taxSettings?.label,
+    item?.taxSettings?.displayName,
+    item?.taxLabel,
+    item?.gstName,
+    item?.gstLabel,
+    item?.gst?.name,
+    item?.itemTax?.name,
+    item?.itemTax?.taxName
+  );
+  if (explicit) return formatTaxLabelValue(explicit);
+
+  const taxPercent = toOptionalNumber(
+    item?.taxPercentage ??
+      item?.taxPercent ??
+      item?.gstPercentage ??
+      item?.gstPercent ??
+      item?.taxValue ??
+      item?.gstValue ??
+      item?.tax?.percentage ??
+      item?.tax?.taxPercentage ??
+      item?.tax?.taxPercent ??
+      item?.tax?.gstPercentage ??
+      item?.tax?.gstPercent ??
+      item?.taxSettings?.percentage ??
+      item?.taxSettings?.taxPercentage ??
+      item?.taxSettings?.taxPercent ??
+      item?.taxSettings?.gstPercentage ??
+      item?.taxSettings?.gstPercent ??
+      item?.gst?.percentage ??
+      item?.gst?.taxPercentage ??
+      item?.itemTax?.percentage ??
+      item?.itemTax?.taxPercentage
+  );
+  if (taxPercent !== undefined) {
+    return `GST ${taxPercent}%`;
+  }
+
+  const taxCodeList = resolveTaxCodeListLabel(
+    lookup,
+    item?.tax,
+    item?.gst,
+    item?.taxCode,
+    item?.taxCodes,
+    item?.taxUid,
+    item?.taxUids,
+    item?.taxList,
+    item?.taxes,
+    item?.itemTaxes,
+    item?.taxSettingsList
+  );
+  if (taxCodeList) return taxCodeList;
+
+  const nestedTax = resolveNestedItemTaxLabel(lookup, item);
+  if (nestedTax) return nestedTax;
+
+  const resolved = resolveOrdersSettingLabel(
+    lookup,
+    item?.taxId,
+    item?.tax?.id,
+    item?.tax?.uid,
+    item?.tax?.encId,
+    item?.tax?.code,
+    item?.tax?.value,
+    item?.taxUid,
+    item?.tax?.uid,
+    item?.taxCode,
+    item?.taxSettingsId,
+    item?.taxSettings?.id,
+    item?.taxSettings?.uid,
+    item?.taxSettings?.encId,
+    item?.taxSettings?.code,
+    item?.taxSettingsUid,
+    item?.salesTaxId,
+    item?.salesTaxUid,
+    item?.itemTaxId,
+    item?.itemTax?.id,
+    item?.itemTax?.uid,
+    item?.gstId,
+    item?.gstUid,
+    item?.gst?.id,
+    item?.gst?.uid,
+    item?.gst,
+    item?.tax
+  );
+  return resolved;
+}
+
+function readTaxOptionLabel(item: any) {
+  const explicit = readFirstText(item?.label, item?.name, item?.displayName, item?.taxName, item?.taxLabel);
+  if (explicit) return formatTaxLabelValue(explicit);
+
+  const percent = toOptionalNumber(item?.percentage ?? item?.taxPercentage ?? item?.taxPercent ?? item?.gstPercentage ?? item?.gstPercent ?? item?.value);
+  if (percent !== undefined) {
+    const taxType = readFirstText(item?.taxType, item?.type, item?.code);
+    return `${taxType && !/^\d+$/.test(taxType) ? taxType : "GST"} ${percent}%`;
+  }
+
+  return readFirstText(item?.taxType, item?.value, item?.code, item?.id, item?.uid);
+}
+
+function resolveTaxCodeListLabel(lookup: Map<string, string>, ...values: unknown[]) {
+  const labels: string[] = [];
+
+  const addLabel = (value: unknown) => {
+    if (value == null) return;
+
+    if (Array.isArray(value)) {
+      value.forEach(addLabel);
+      return;
+    }
+
+    if (typeof value === "object") {
+      const candidate: any = value;
+      const label = readFirstText(
+        candidate?.label,
+        candidate?.name,
+        candidate?.displayName,
+        candidate?.taxName,
+        candidate?.taxLabel,
+        candidate?.gstName
+      );
+      if (label) {
+        labels.push(formatTaxLabelValue(label));
+        return;
+      }
+
+      const percent = toOptionalNumber(
+        candidate?.percentage ??
+          candidate?.taxPercentage ??
+          candidate?.taxPercent ??
+          candidate?.gstPercentage ??
+          candidate?.gstPercent ??
+          candidate?.value
+      );
+      if (percent !== undefined) {
+        labels.push(`GST ${percent}%`);
+        return;
+      }
+
+      const resolved = resolveTaxLookupValue(
+        lookup,
+        candidate?.taxCode,
+        candidate?.code,
+        candidate?.value,
+        candidate?.id,
+        candidate?.uid,
+        candidate?.encId,
+        candidate?.taxId,
+        candidate?.taxUid
+      );
+      if (resolved) labels.push(resolved);
+      return;
+    }
+
+    const resolved = resolveTaxLookupValue(lookup, value);
+    if (resolved) labels.push(resolved);
+  };
+
+  values.forEach(addLabel);
+
+  return Array.from(new Set(labels.filter(Boolean))).join(", ");
+}
+
+function resolveTaxLookupValue(lookup: Map<string, string>, ...values: unknown[]) {
+  for (const value of values) {
+    const text = readFirstText(value);
+    if (!text) continue;
+
+    const resolved = lookup.get(normalizeText(text));
+    if (resolved) return resolved;
+
+    return formatTaxLabelValue(text);
+  }
+
+  return "";
+}
+
+function resolveNestedItemTaxLabel(lookup: Map<string, string>, item: any) {
+  const candidates = [
+    item?.tax,
+    item?.taxSettings,
+    item?.gst,
+    item?.itemTax,
+    item?.taxInfo,
+    item?.taxDetails,
+    ...(Array.isArray(item?.taxList) ? item.taxList : []),
+    ...(Array.isArray(item?.taxes) ? item.taxes : []),
+    ...(Array.isArray(item?.itemTaxes) ? item.itemTaxes : []),
+    ...(Array.isArray(item?.taxSettingsList) ? item.taxSettingsList : []),
+  ].filter((candidate) => candidate && typeof candidate === "object");
+
+  for (const candidate of candidates) {
+    const label = readFirstText(
+      candidate?.label,
+      candidate?.name,
+      candidate?.displayName,
+      candidate?.taxName,
+      candidate?.taxLabel,
+      candidate?.gstName
+    );
+    if (label) return formatTaxLabelValue(label);
+
+    const percent = toOptionalNumber(
+      candidate?.percentage ??
+        candidate?.taxPercentage ??
+        candidate?.taxPercent ??
+        candidate?.gstPercentage ??
+        candidate?.gstPercent ??
+        candidate?.value
+    );
+    if (percent !== undefined) return `GST ${percent}%`;
+
+    const resolved = resolveOrdersSettingLabel(
+      lookup,
+      candidate?.id,
+      candidate?.uid,
+      candidate?.encId,
+      candidate?.code,
+      candidate?.value,
+      candidate?.taxId,
+      candidate?.taxUid,
+      candidate?.taxCode
+    );
+    if (resolved !== "-") return resolved;
+  }
+
+  return "";
+}
+
+function formatTaxLabelValue(value: string) {
+  const text = String(value ?? "").trim();
+  if (!text) return "-";
+
+  const numeric = toOptionalNumber(text);
+  if (numeric !== undefined) return `GST ${numeric}%`;
+
+  return text;
+}
+
+function readTrackInventoryLabel(item: any) {
+  const value =
+    item?.trackInventory ??
+    item?.trackInventoryFlag ??
+    item?.inventoryTracked ??
+    item?.inventoryTracking ??
+    item?.isInventoryTracked ??
+    item?.isInventoryItem ??
+    item?.stockAvailable ??
+    item?.maintainStock;
+
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["true", "yes", "y", "enable", "enabled", "1"].includes(normalized)) return "Yes";
+  if (["false", "no", "n", "disable", "disabled", "0"].includes(normalized)) return "No";
+
+  return "-";
+}
+
+function mapOrdersItemStatus(value: unknown) {
+  if (typeof value === "boolean") return value ? "Enable" : "Disable";
+
+  const text = readFirstText(value);
+  if (!text) return "-";
+
+  const normalized = text.toUpperCase();
+  if (normalized === "ENABLED") return "Enable";
+  if (normalized === "DISABLED") return "Disable";
+  if (normalized === "ACTIVE") return "Enable";
+  if (normalized === "INACTIVE") return "Disable";
+
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+}
+
+function mapItemSourceDisplay(value: unknown) {
+  const text = readFirstText(value);
+  if (!text) return "General";
+
+  const normalized = text.replace(/[_-]+/g, " ").trim();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+}
+
+function formatOrdersItemDate(value: unknown) {
+  const raw = readFirstText(value);
+  if (!raw) return "-";
+
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)) return raw;
+
+  const numeric = Number(raw);
+  const date = Number.isFinite(numeric) && raw.length >= 10
+    ? new Date(numeric > 10_000_000_000 ? numeric : numeric * 1000)
+    : new Date(raw);
+
+  if (Number.isNaN(date.getTime())) return raw.split(",")[0] || raw;
+
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function readOrdersItemImageUrl(item: any) {
+  const direct = readFirstText(
+    item?.imageUrl,
+    item?.imageURL,
+    item?.image,
+    item?.s3path,
+    item?.s3Path,
+    item?.picture,
+    item?.photo,
+    item?.logo,
+    item?.itemImage?.url,
+    item?.itemImage?.imageUrl,
+    item?.itemImage?.s3path,
+    item?.itemImage?.s3Path,
+    item?.item?.imageUrl
+  );
+  if (direct) return direct;
+
+  const attachments = [
+    ...(Array.isArray(item?.attachments) ? item.attachments : []),
+    ...(Array.isArray(item?.item?.attachments) ? item.item.attachments : []),
+    ...(Array.isArray(item?.spItem?.attachments) ? item.spItem.attachments : []),
+    ...(Array.isArray(item?.images) ? item.images : []),
+    ...(Array.isArray(item?.imageList) ? item.imageList : []),
+  ];
+  for (const attachment of attachments) {
+    const url = readFirstText(
+      attachment?.url,
+      attachment?.imageUrl,
+      attachment?.fileUrl,
+      attachment?.s3Url,
+      attachment?.s3path,
+      attachment?.s3Path,
+      attachment?.path
+    );
+    if (url) return url;
+  }
+
+  return "";
+}
+
+function readFirstText(...values: unknown[]) {
+  for (const value of values) {
+    if (value == null) continue;
+    if (typeof value === "object") continue;
+
+    const text = String(value).trim();
+    if (text) return text;
+  }
+
+  return "";
+}
+
+function unwrapOrdersList(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.content)) return payload.content;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.response)) return payload.response;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.list)) return payload.list;
+  return [];
+}
+
+function getOptionalOrdersPayload(scopedApi: ScopedApi, path: string, params?: ApiFilter) {
+  return scopedApi
+    .get<any>(path, params ? { params } : undefined)
+    .then((response) => response.data)
+    .catch(() => null);
+}
+
 function mapOrdersCatalogs(payload: any): OrdersCatalogRow[] {
   const items = Array.isArray(payload)
     ? payload
@@ -1815,6 +2681,51 @@ function mapOrderTypeDisplay(value: unknown) {
     return "WalkIn";
   }
   return "";
+}
+
+function buildInvoiceCustomerDisplayName(item: any) {
+  const salutation = String(
+    item?.providerConsumer?.salutation ??
+      item?.consumer?.salutation ??
+      item?.customer?.salutation ??
+      ""
+  ).trim();
+  const firstName = String(
+    item?.providerConsumer?.firstName ??
+      item?.consumer?.firstName ??
+      item?.customer?.firstName ??
+      ""
+  ).trim();
+  const lastName = String(
+    item?.providerConsumer?.lastName ??
+      item?.consumer?.lastName ??
+      item?.customer?.lastName ??
+      ""
+  ).trim();
+  const explicitName = String(
+    item?.customerName ??
+      item?.customer ??
+      item?.consumerName ??
+      item?.consumer?.name ??
+      item?.providerConsumer?.name ??
+      item?.customer?.name ??
+      ""
+  ).trim();
+  const composedName = [salutation, firstName, lastName].filter(Boolean).join(" ").trim();
+
+  return composedName || explicitName || "Customer";
+}
+
+function mapInvoiceStatusDisplay(value: unknown) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "-";
+
+  const label = normalized
+    .replace(/_+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+
+  return label;
 }
 
 function mapOrderStatusDisplay(value: unknown) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaChart,
   Badge,
@@ -46,6 +46,8 @@ const statsRangeOptions = [
 
 const ACTION_STORAGE_PREFIX = "jaldee:orders:dashboard-actions";
 const DEFAULT_TABLE_PAGE_SIZE = 10;
+const DASHBOARD_ACTIONS_FOCUS_ID = "orders-dashboard-actions";
+const DASHBOARD_TABLE_FOCUS_ID = "orders-dashboard-table";
 
 export function OrdersDashboard() {
   const { data, error, isError, isLoading } = useOrdersDataset();
@@ -61,6 +63,7 @@ export function OrdersDashboard() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedActionKeys, setSelectedActionKeys] = useState<string[]>([]);
   const [draftSelectedActionKeys, setDraftSelectedActionKeys] = useState<string[]>([]);
+  const focusedHashRef = useRef("");
 
   const resolvedView = currentView ?? data?.defaultDashboardView ?? "orders";
   const ordersPageQuery = useOrdersOrdersPage(tablePage, tablePageSize, {
@@ -164,6 +167,24 @@ export function OrdersDashboard() {
     }
   }, [filteredRows.length, tablePage, tablePageSize, tablePaginationMode, tableTotal]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hash = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+    if (!hash || focusedHashRef.current === hash) return;
+
+    const target = document.getElementById(hash);
+    if (!target) return;
+
+    const timeoutId = window.setTimeout(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.focus({ preventScroll: true });
+      focusedHashRef.current = hash;
+    }, 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [filteredRows.length, resolvedView, tablePage, tablePageSize]);
+
   const orderColumns = useMemo(
     () => [
       {
@@ -216,7 +237,7 @@ export function OrdersDashboard() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => navigate(buildOrdersDetailHref(basePath, row.id, product))}
+            onClick={() => navigate(appendCurrentReturnTo(buildOrdersDetailHref(basePath, row.id, product), DASHBOARD_TABLE_FOCUS_ID))}
           >
             View
           </Button>
@@ -369,42 +390,60 @@ export function OrdersDashboard() {
       title={data.title}
       subtitle={data.subtitle}
       actions={
-        <Button type="button" variant="primary" size="sm" onClick={() => navigate(visibleActions[0]?.route ?? "#")}>
+        <Button
+          id="orders-dashboard-create-order"
+          data-testid="orders-dashboard-create-order"
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={() => navigate(visibleActions[0]?.route ?? "#")}
+        >
           Create Order
         </Button>
       }
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          {visibleActions.map((action) => (
+      <div id={DASHBOARD_ACTIONS_FOCUS_ID} data-testid={DASHBOARD_ACTIONS_FOCUS_ID} tabIndex={-1} className="scroll-mt-6 focus:outline-none">
+        <SectionCard className="border-slate-200 shadow-sm">
+          <div className="flex flex-wrap gap-4">
+            {visibleActions.map((action) => {
+              const actionId = `orders-dashboard-action-${toAutomationId(action.label)}`;
+
+              return (
+                <button
+                  key={action.label}
+                  id={actionId}
+                  data-testid={actionId}
+                  data-state={action.enabled === false ? "disabled" : "ready"}
+                  type="button"
+                  onClick={() => navigate(resolveDashboardActionHref(action))}
+                  className={`h-[102px] w-[144px] shrink-0 rounded-2xl border px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${actionAccentClassMap[action.accent]}`}
+                >
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 shadow-sm">
+                      {resolveActionIcon(action.imageKey)}
+                    </div>
+                    <div className="text-[15px] font-semibold leading-5 text-slate-900">{action.label}</div>
+                  </div>
+                </button>
+              );
+            })}
             <button
-              key={action.label}
+              id="orders-dashboard-edit-actions"
+              data-testid="orders-dashboard-edit-actions"
               type="button"
-              onClick={() => navigate(action.route)}
-              className={`h-[102px] w-[144px] shrink-0 rounded-2xl border px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${actionAccentClassMap[action.accent]}`}
+              onClick={openEditActionsDialog}
+              className="h-[102px] w-[144px] shrink-0 rounded-2xl border border-dashed border-slate-300 bg-white px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:shadow-md"
             >
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 shadow-sm">
-                  {resolveActionIcon(action.imageKey)}
+                  <Icon name="layers" />
                 </div>
-                <div className="text-[15px] font-semibold leading-5 text-slate-900">{action.label}</div>
+                <div className="text-[15px] font-semibold leading-5 text-slate-900">Edit Actions</div>
               </div>
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={openEditActionsDialog}
-            className="h-[102px] w-[144px] shrink-0 rounded-2xl border border-dashed border-slate-300 bg-white px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:shadow-md"
-          >
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 shadow-sm">
-                <Icon name="layers" />
-              </div>
-              <div className="text-[15px] font-semibold leading-5 text-slate-900">Edit Actions</div>
-            </div>
-          </button>
-        </div>
-      </SectionCard>
+          </div>
+        </SectionCard>
+      </div>
 
       <SectionCard
         title="Stats"
@@ -505,72 +544,74 @@ export function OrdersDashboard() {
         </div>
       </SectionCard>
 
-      <SectionCard className="border-slate-200 shadow-sm" padding={false}>
-        <div className="border-b border-slate-200 px-4 py-4">
-          <Tabs
-            value={resolvedView}
-            onValueChange={(value) => setCurrentView(value as DashboardView)}
-            items={[
-              ...(data.capabilities.canViewOrders ? [{ value: "orders", label: "Orders", count: ordersTotal }] : []),
-              ...(data.canShowRequests ? [{ value: "rxRequests", label: "Requests", count: requestRows.length }] : []),
-            ]}
-          />
-        </div>
+      <div id={DASHBOARD_TABLE_FOCUS_ID} data-testid={DASHBOARD_TABLE_FOCUS_ID} tabIndex={-1} className="scroll-mt-6 focus:outline-none">
+        <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+          <div className="border-b border-slate-200 px-4 py-4">
+            <Tabs
+              value={resolvedView}
+              onValueChange={(value) => setCurrentView(value as DashboardView)}
+              items={[
+                ...(data.capabilities.canViewOrders ? [{ value: "orders", label: "Orders", count: ordersTotal }] : []),
+                ...(data.canShowRequests ? [{ value: "rxRequests", label: "Requests", count: requestRows.length }] : []),
+              ]}
+            />
+          </div>
 
-        <div className="border-b border-slate-200 px-4 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1">
-              <div className="text-2xl font-semibold text-slate-900">
-                {resolvedView === "rxRequests" ? `Requests (${requestRows.length})` : `Orders (${ordersTotal})`}
+          <div className="border-b border-slate-200 px-4 py-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1">
+                <div className="text-2xl font-semibold text-slate-900">
+                  {resolvedView === "rxRequests" ? `Requests (${requestRows.length})` : `Orders (${ordersTotal})`}
+                </div>
               </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_220px_auto]">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
-                    <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  </svg>
-                </span>
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={resolvedView === "rxRequests" ? "Search with patient or prescription" : "Search with patient"}
-                  className="h-[38px] w-full rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] pl-10 pr-4 text-[length:var(--text-sm)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:outline-none focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
-                />
+              <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_220px_auto]">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={resolvedView === "rxRequests" ? "Search with patient or prescription" : "Search with patient"}
+                    className="h-[38px] w-full rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] pl-10 pr-4 text-[length:var(--text-sm)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:outline-none focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
+                  />
+                </div>
+                <Select options={visibleStatusOptions} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} />
+                <Button type="button" variant="outline" size="sm">
+                  Filter
+                </Button>
               </div>
-              <Select options={visibleStatusOptions} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} />
-              <Button type="button" variant="outline" size="sm">
-                Filter
-              </Button>
             </div>
           </div>
-        </div>
 
-        <DataTable
-          data={filteredRows}
-          columns={resolvedView === "rxRequests" ? requestColumns : orderColumns}
-          loading={resolvedView === "orders" ? ordersPageQuery.isLoading : false}
-          pagination={{
-            page: tablePage,
-            pageSize: tablePageSize,
-            total: tableTotal,
-            mode: tablePaginationMode,
-            onChange: setTablePage,
-            onPageSizeChange: setTablePageSize,
-          }}
-          emptyState={
-            <EmptyState
-              title={resolvedView === "rxRequests" ? "No requests available" : "No orders available"}
-              description={
-                resolvedView === "rxRequests"
-                  ? "Prescription and order requests will appear here."
-                  : "Orders will appear here when sales-order data is available."
-              }
-            />
-          }
-        />
-      </SectionCard>
+          <DataTable
+            data={filteredRows}
+            columns={resolvedView === "rxRequests" ? requestColumns : orderColumns}
+            loading={resolvedView === "orders" ? ordersPageQuery.isLoading : false}
+            pagination={{
+              page: tablePage,
+              pageSize: tablePageSize,
+              total: tableTotal,
+              mode: tablePaginationMode,
+              onChange: setTablePage,
+              onPageSizeChange: setTablePageSize,
+            }}
+            emptyState={
+              <EmptyState
+                title={resolvedView === "rxRequests" ? "No requests available" : "No orders available"}
+                description={
+                  resolvedView === "rxRequests"
+                    ? "Prescription and order requests will appear here."
+                    : "Orders will appear here when sales-order data is available."
+                }
+              />
+            }
+          />
+        </SectionCard>
+      </div>
 
       <Dialog
         open={editDialogOpen}
@@ -733,6 +774,46 @@ function resolveActionIcon(imageKey?: string) {
 
 function getActionKey(action: { label: string; route: string; imageKey?: string }) {
   return `${action.label}:${action.route}:${action.imageKey ?? ""}`;
+}
+
+function resolveDashboardActionHref(action: { label: string; route: string; imageKey?: string }) {
+  if (!isReturnableDashboardAction(action)) return action.route;
+
+  return appendCurrentReturnTo(action.route, DASHBOARD_ACTIONS_FOCUS_ID);
+}
+
+function appendCurrentReturnTo(href: string, focusId?: string) {
+  const returnTo = getCurrentReturnTo(focusId);
+  if (!returnTo) return href;
+
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(href, origin);
+    url.searchParams.set("returnTo", returnTo);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    const separator = href.includes("?") ? "&" : "?";
+    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`;
+  }
+}
+
+function isReturnableDashboardAction(action: { label: string; imageKey?: string }) {
+  const label = action.label.trim().toLowerCase();
+  return action.imageKey === "invoices" || action.imageKey === "items" || label === "invoices" || label === "items";
+}
+
+function getCurrentReturnTo(focusId?: string) {
+  if (typeof window === "undefined") return "";
+  const hash = focusId ? `#${encodeURIComponent(focusId)}` : window.location.hash;
+  return `${window.location.pathname}${window.location.search}${hash}`;
+}
+
+function toAutomationId(value: string) {
+  return String(value || "unknown")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unknown";
 }
 
 function buildSalesSeries(rows: OrdersOrderRow[]) {

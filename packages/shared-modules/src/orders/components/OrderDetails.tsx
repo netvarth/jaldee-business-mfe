@@ -38,10 +38,13 @@ const INITIAL_ADJUSTMENT_FORM: AdjustmentFormState = {
 };
 
 export function OrderDetails() {
-  const { routeParams, basePath } = useSharedModulesContext();
+  const { routeParams, basePath, product } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const scopedApi = useApiScope();
   const orderId = normalizeOrderRecordId(routeParams?.recordId ?? null);
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const returnTo = searchParams?.get("returnTo") ?? "";
+  const backHref = useMemo(() => resolveInternalReturnToHref(returnTo), [returnTo]);
   const detailQuery = useOrdersOrderDetail(orderId);
   const detail = detailQuery.data ?? null;
   const discountOptionsQuery = useOrdersBillDiscounts({ enabled: false });
@@ -89,7 +92,7 @@ export function OrderDetails() {
     }
 
     const finalInvoiceUid = resolvedInvoiceUid || invoiceUid || resolvedOrderId;
-    navigate(buildOrdersInvoiceHref(basePath, finalInvoiceUid, returnTo ? { returnTo } : undefined));
+    navigate(buildOrdersInvoiceHref(basePath, finalInvoiceUid, returnTo ? { returnTo } : undefined, product));
   }
 
   function handlePrintAddress(title: string, address: OrdersOrderDetailAddress) {
@@ -230,7 +233,7 @@ export function OrderDetails() {
 
   if (!orderId) {
     return (
-      <SharedOrdersLayout title="Order Details" subtitle="Review the selected sales order.">
+      <SharedOrdersLayout title="Order Details" subtitle="Review the selected sales order." backHref={backHref || undefined}>
         <SectionCard className="border-slate-200 shadow-sm">
           <EmptyState title="Order not selected" description="Choose an order from the grid to open its detail view." />
         </SectionCard>
@@ -240,7 +243,7 @@ export function OrderDetails() {
 
   if (detailQuery.isLoading && !detail) {
     return (
-      <SharedOrdersLayout title="Order Details" subtitle="Review the selected sales order.">
+      <SharedOrdersLayout title="Order Details" subtitle="Review the selected sales order." backHref={backHref || undefined}>
         <SectionCard className="border-slate-200 shadow-sm">
           <div className="text-sm text-slate-500">Loading order details...</div>
         </SectionCard>
@@ -251,7 +254,7 @@ export function OrderDetails() {
   if ((detailQuery.isError && !detail) || !detail) {
     const message = detailQuery.error instanceof Error ? detailQuery.error.message : "";
     return (
-      <SharedOrdersLayout title="Order Details" subtitle="Review the selected sales order.">
+      <SharedOrdersLayout title="Order Details" subtitle="Review the selected sales order." backHref={backHref || undefined}>
         <SectionCard className="border-slate-200 shadow-sm">
           <EmptyState
             title="Order details unavailable"
@@ -271,6 +274,7 @@ export function OrderDetails() {
       <SharedOrdersLayout
         title={`Order #${detail.orderNumber || detail.id}`}
         subtitle={statusLabel}
+        backHref={backHref || undefined}
         actions={
           <div className="flex gap-2">
             <Button type="button" variant="ghost" size="sm">
@@ -729,6 +733,27 @@ function normalizeOrderRecordId(recordId: string | null) {
   }
 
   return resolved;
+}
+
+function resolveInternalReturnToHref(returnTo: string) {
+  const raw = String(returnTo ?? "").trim();
+  if (!raw || raw === "#") return "";
+
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(raw, origin);
+    if (url.origin !== origin) return "";
+
+    const href = `${url.pathname}${url.search}${url.hash}`;
+    if (typeof window !== "undefined") {
+      const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (href === currentHref) return "";
+    }
+
+    return href;
+  } catch {
+    return "";
+  }
 }
 
 function formatOrderStatus(status: string) {

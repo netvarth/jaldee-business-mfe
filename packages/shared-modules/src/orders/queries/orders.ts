@@ -12,7 +12,9 @@ import {
   getOrdersCreditSystemSettings,
   getOrdersCustomer,
   getOrdersDashboardDataset,
+  getOrdersInvoicesPage,
   getOrdersInvoiceTypesPage,
+  getOrdersItemsPage,
   getOrdersInvoiceAuditLogs,
   getOrdersInvoiceAuditLogsCount,
   getOrdersListPage,
@@ -349,6 +351,34 @@ export function useOrdersInvoiceTypesPage(page: number, pageSize: number) {
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
     queryFn: () => getOrdersInvoiceTypesPage(scopedApi, { page, pageSize }),
+  });
+}
+
+export function useOrdersInvoicesPage(page: number, pageSize: number) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "invoices", routeParams?.view, page, pageSize),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getOrdersInvoicesPage(scopedApi, { page, pageSize }),
+  });
+}
+
+export function useOrdersItemsPage(page: number, pageSize: number) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "items", routeParams?.view, page, pageSize),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getOrdersItemsPage(scopedApi, { page, pageSize }),
   });
 }
 
