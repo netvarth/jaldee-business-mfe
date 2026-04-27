@@ -2267,21 +2267,7 @@ function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyti
   return {
     ...row,
     description: readOrdersItemDescription(payload),
-    unit: resolveOrdersSettingLabel(
-      lookups.units,
-      payload?.unitName,
-      payload?.unit?.name,
-      payload?.itemUnit?.name,
-      payload?.salesUnit?.name,
-      payload?.spItemUnit?.name,
-      payload?.unitId,
-      payload?.unit?.id,
-      payload?.itemUnitId,
-      payload?.itemUnit?.id,
-      payload?.salesUnitId,
-      payload?.spItemUnit?.id,
-      payload?.unit
-    ),
+    unit: readOrdersItemUnitLabel(payload, lookups.units),
     batchApplicable: readYesNoLabel(
       payload?.batchApplicable ??
         payload?.isBatchApplicable ??
@@ -2308,6 +2294,73 @@ function readOrdersItemDescription(item: any) {
     item?.longDescription,
     item?.details,
     item?.item?.description
+  );
+}
+
+function readOrdersItemUnitLabel(item: any, lookup: Map<string, string>) {
+  return resolveOrdersSettingLabel(
+    lookup,
+    item?.unitName,
+    item?.unitDisplayName,
+    item?.unitLabel,
+    item?.unitValue,
+    item?.unitCode,
+    item?.unitType,
+    item?.uom,
+    item?.uomName,
+    item?.measurementUnit,
+    item?.measurementUnitName,
+    item?.unitOfMeasurement,
+    item?.itemUnitName,
+    item?.salesUnitName,
+    item?.spItemUnitName,
+    item?.unit,
+    item?.itemUnit,
+    item?.salesUnit,
+    item?.spItemUnit,
+    item?.unitId,
+    item?.unitUid,
+    item?.itemUnitId,
+    item?.salesUnitId,
+    item?.spItemUnitId,
+    item?.unit?.id,
+    item?.unit?.uid,
+    item?.unit?.encId,
+    item?.unit?.code,
+    item?.unit?.value,
+    item?.unit?.name,
+    item?.unit?.displayName,
+    item?.unit?.label,
+    item?.unit?.unitName,
+    item?.unit?.unitCode,
+    item?.unit?.unitType,
+    item?.itemUnit?.id,
+    item?.itemUnit?.uid,
+    item?.itemUnit?.encId,
+    item?.itemUnit?.code,
+    item?.itemUnit?.value,
+    item?.itemUnit?.name,
+    item?.itemUnit?.displayName,
+    item?.itemUnit?.label,
+    item?.itemUnit?.unitName,
+    item?.salesUnit?.id,
+    item?.salesUnit?.uid,
+    item?.salesUnit?.encId,
+    item?.salesUnit?.code,
+    item?.salesUnit?.value,
+    item?.salesUnit?.name,
+    item?.salesUnit?.displayName,
+    item?.salesUnit?.label,
+    item?.salesUnit?.unitName,
+    item?.spItemUnit?.id,
+    item?.spItemUnit?.uid,
+    item?.spItemUnit?.encId,
+    item?.spItemUnit?.code,
+    item?.spItemUnit?.value,
+    item?.spItemUnit?.name,
+    item?.spItemUnit?.displayName,
+    item?.spItemUnit?.label,
+    item?.spItemUnit?.unitName
   );
 }
 
@@ -2766,6 +2819,11 @@ function createOrdersOptionLookup(options: OrdersItemSettingsOption[]) {
       raw?.groupCode,
       raw?.typeId,
       raw?.typeName,
+      raw?.unitId,
+      raw?.unitUid,
+      raw?.unitCode,
+      raw?.unitName,
+      raw?.unitType,
       raw?.taxId,
       raw?.taxUid,
       raw?.taxCode,
@@ -2798,7 +2856,7 @@ function resolveOrdersSettingLabel(lookup: Map<string, string>, ...candidates: u
       continue;
     }
 
-    const text = readFirstText(candidate);
+    const text = readOrdersSettingCandidateText(candidate);
     if (!text) continue;
 
     const resolved = lookup.get(normalizeText(text));
@@ -2808,6 +2866,32 @@ function resolveOrdersSettingLabel(lookup: Map<string, string>, ...candidates: u
   }
 
   return "-";
+}
+
+function readOrdersSettingCandidateText(candidate: unknown) {
+  if (candidate && typeof candidate === "object") {
+    const item = candidate as any;
+    return readFirstText(
+      item?.label,
+      item?.name,
+      item?.displayName,
+      item?.title,
+      item?.value,
+      item?.code,
+      item?.unitName,
+      item?.unitCode,
+      item?.unitType,
+      item?.categoryName,
+      item?.groupName,
+      item?.typeName,
+      item?.taxName,
+      item?.id,
+      item?.uid,
+      item?.encId
+    );
+  }
+
+  return readFirstText(candidate);
 }
 
 function readItemPropertyLabel(item: any) {

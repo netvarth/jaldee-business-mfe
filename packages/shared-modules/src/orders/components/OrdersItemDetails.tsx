@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Badge, Button, DataTable, EmptyState, Icon, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Dialog, EmptyState, Icon, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
@@ -37,6 +37,14 @@ export function OrdersItemDetails() {
     () => resolveInternalReturnToHref(returnTo) || buildOrdersModuleHref(basePath, product, "items"),
     [basePath, product, returnTo]
   );
+  const galleryImages = useMemo(() => (detail ? buildGalleryImages(detail) : []), [detail]);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedGalleryImage && !galleryImages.includes(selectedGalleryImage)) {
+      setSelectedGalleryImage(null);
+    }
+  }, [galleryImages, selectedGalleryImage]);
 
   const historyRows = useMemo(() => {
     const fetchedRows = historyQuery.data?.rows ?? [];
@@ -108,155 +116,177 @@ export function OrdersItemDetails() {
   }
 
   return (
-    <ItemDetailsShell backHref={backHref} detail={detail}>
-      <div data-testid="orders-item-details-page" data-state={pageState} className="space-y-1 bg-slate-100">
-        <div className="grid gap-3 lg:grid-cols-[minmax(360px,0.48fr)_1fr]">
-          <SectionCard className="min-h-[286px] border-slate-200 shadow-sm">
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <ItemImage item={detail} className="h-[76px] w-[92px] rounded-sm" />
-                <div className="min-w-0 flex-1">
-                  <h1 className="m-0 text-2xl font-semibold leading-7 text-slate-900">{detail.name}</h1>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">{detail.property}</div>
-                  <div className="mt-3 text-base font-medium text-slate-700">Id : {detail.id}</div>
-                  <Badge className="mt-2 rounded-md px-2.5 py-1 text-xs" variant={getItemStatusVariant(detail.status)}>
-                    {formatItemStatus(detail.status)}
-                  </Badge>
+    <>
+      <ItemDetailsShell backHref={backHref} detail={detail}>
+        <div data-testid="orders-item-details-page" data-state={pageState} className="space-y-1 bg-slate-100">
+          <div className="grid gap-3 lg:grid-cols-[minmax(360px,0.48fr)_1fr]">
+            <SectionCard className="min-h-[286px] border-slate-200 shadow-sm">
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <ItemImage
+                    item={detail}
+                    className="h-[76px] w-[92px] rounded-sm"
+                    onClick={galleryImages.length ? () => setSelectedGalleryImage(galleryImages[0]) : undefined}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h1 className="m-0 text-2xl font-semibold leading-7 text-slate-900">{detail.name}</h1>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">{detail.property}</div>
+                    <div className="mt-3 text-base font-medium text-slate-700">Id : {detail.id}</div>
+                    <Badge className="mt-2 rounded-md px-2.5 py-1 text-xs" variant={getItemStatusVariant(detail.status)}>
+                      {formatItemStatus(detail.status)}
+                    </Badge>
+                  </div>
+                </div>
+
+                {detail.description ? (
+                  <p className="m-0 text-sm leading-6 text-slate-500">{detail.description}</p>
+                ) : (
+                  <p className="m-0 text-sm leading-6 text-slate-500">No description added.</p>
+                )}
+                <div className="h-px bg-slate-200" />
+              </div>
+            </SectionCard>
+
+            <SectionCard className="min-h-[286px] border-slate-200 shadow-sm">
+              <div className="space-y-5">
+                <div className="grid gap-8 md:grid-cols-3">
+                  <InfoField label="Category" value={detail.category} />
+                  <InfoField label="Unit" value={detail.unit} />
+                  <InfoField label="" value="" hidden />
+                </div>
+                <div className="h-px bg-slate-100" />
+                <div className="grid gap-8 md:grid-cols-3">
+                  <InfoField label="Track Inventory" value={detail.trackInventory} />
+                  <InfoField label="Batch Applicable" value={detail.batchApplicable} />
+                  <InfoField label="Tax" value={detail.tax} />
+                </div>
+                <div className="h-px bg-slate-100" />
+                <div>
+                  <div className="mb-2 text-xs font-medium text-slate-400">Gallery</div>
+                  <div className="flex flex-wrap gap-2">
+                    {detail.gallery.length ? (
+                      detail.gallery.map((imageUrl) => (
+                        <GalleryImage
+                          key={imageUrl}
+                          src={imageUrl}
+                          alt={detail.name}
+                          onClick={() => setSelectedGalleryImage(imageUrl)}
+                        />
+                      ))
+                    ) : (
+                      <ItemImage
+                        item={detail}
+                        className="h-10 w-14 rounded-sm"
+                        onClick={galleryImages.length ? () => setSelectedGalleryImage(galleryImages[0]) : undefined}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="flex h-10 w-14 items-center justify-center rounded border border-dashed border-slate-200 bg-white text-slate-400"
+                      aria-label="Add gallery image"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
+            </SectionCard>
+          </div>
 
-              {detail.description ? (
-                <p className="m-0 text-sm leading-6 text-slate-500">{detail.description}</p>
-              ) : (
-                <p className="m-0 text-sm leading-6 text-slate-500">No description added.</p>
-              )}
-              <div className="h-px bg-slate-200" />
+          <SectionCard
+            title="Badges"
+            className="border-slate-200 shadow-sm"
+            actions={
+              <Button type="button" variant="outline" size="sm" className="border-[#4C1D95] text-[#4C1D95]">
+                Add
+              </Button>
+            }
+          >
+            {detail.badges.length ? (
+              <div className="flex flex-wrap gap-2">
+                {detail.badges.map((badge) => (
+                  <Badge key={badge} variant="neutral">
+                    {badge}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="min-h-7" />
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Stats"
+            className="border-slate-200 shadow-sm"
+            actions={
+              <Select
+                id="orders-item-details-stats-range"
+                testId="orders-item-details-stats-range"
+                value={statsRange}
+                onChange={(event) => setStatsRange(event.target.value)}
+                options={statsRangeOptions.map((option) => ({ value: option.value, label: option.label }))}
+                className="min-w-[130px] border-0 bg-slate-100 text-xs"
+              />
+            }
+          >
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <StatTile tone="blue" icon={<Icon name="list" />} value={detail.stats.numberOfOrders} label="Number Of Orders" />
+              <StatTile tone="orange" icon={<Icon name="packagePlus" />} value={detail.stats.orderQuantity} label="Order Quantity" />
+              <StatTile tone="green" icon={<Icon name="database" />} value={detail.stats.numberOfPurchase} label="Number Of Purchase" />
+              <StatTile tone="slate" icon={<Icon name="box" />} value={detail.stats.purchasedQuantity} label="Purchased Quantity" />
             </div>
           </SectionCard>
 
-          <SectionCard className="min-h-[286px] border-slate-200 shadow-sm">
-            <div className="space-y-5">
-              <div className="grid gap-8 md:grid-cols-3">
-                <InfoField label="Category" value={detail.category} />
-                <InfoField label="Unit" value={detail.unit} />
-                <InfoField label="" value="" hidden />
-              </div>
-              <div className="h-px bg-slate-100" />
-              <div className="grid gap-8 md:grid-cols-3">
-                <InfoField label="Track Inventory" value={detail.trackInventory} />
-                <InfoField label="Batch Applicable" value={detail.batchApplicable} />
-                <InfoField label="Tax" value={detail.tax} />
-              </div>
-              <div className="h-px bg-slate-100" />
-              <div>
-                <div className="mb-2 text-xs font-medium text-slate-400">Gallery</div>
-                <div className="flex flex-wrap gap-2">
-                  {detail.gallery.length ? (
-                    detail.gallery.map((imageUrl) => (
-                      <GalleryImage key={imageUrl} src={imageUrl} alt={detail.name} />
-                    ))
-                  ) : (
-                    <ItemImage item={detail} className="h-10 w-14 rounded-sm" />
-                  )}
-                  <button
-                    type="button"
-                    className="flex h-10 w-14 items-center justify-center rounded border border-dashed border-slate-200 bg-white text-slate-400"
-                    aria-label="Add gallery image"
-                  >
-                    +
-                  </button>
+          <SectionCard
+            title="Item Consumption History"
+            className="border-slate-200 shadow-sm"
+            actions={
+              <Button
+                id="orders-item-details-history-filter"
+                data-testid="orders-item-details-history-filter"
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 min-w-10 px-0 text-[#4C1D95]"
+                aria-label="Filter consumption history"
+              >
+                <FilterIcon />
+              </Button>
+            }
+          >
+            <DataTable
+              data={historyRows}
+              columns={historyColumns}
+              getRowId={(row) => toAutomationId(row.id)}
+              loading={historyQuery.isLoading && !historyRows.length}
+              className="rounded-none border-0 bg-transparent shadow-none"
+              tableClassName="min-w-[1180px]"
+              data-testid="orders-item-consumption-history-table"
+              pagination={{
+                page: historyPage,
+                pageSize: historyPageSize,
+                total: historyTotal,
+                mode: historyQuery.data?.rows?.length ? "server" : "client",
+                onChange: setHistoryPage,
+                onPageSizeChange: setHistoryPageSize,
+              }}
+              emptyState={
+                <div data-testid="orders-item-consumption-history-empty-state">
+                  <EmptyState title="No consumption history" description="Item stock movement history will appear here." />
                 </div>
-              </div>
-            </div>
+              }
+            />
           </SectionCard>
         </div>
-
-        <SectionCard
-          title="Badges"
-          className="border-slate-200 shadow-sm"
-          actions={
-            <Button type="button" variant="outline" size="sm" className="border-[#4C1D95] text-[#4C1D95]">
-              Add
-            </Button>
-          }
-        >
-          {detail.badges.length ? (
-            <div className="flex flex-wrap gap-2">
-              {detail.badges.map((badge) => (
-                <Badge key={badge} variant="neutral">
-                  {badge}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="min-h-7" />
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="Stats"
-          className="border-slate-200 shadow-sm"
-          actions={
-            <Select
-              id="orders-item-details-stats-range"
-              testId="orders-item-details-stats-range"
-              value={statsRange}
-              onChange={(event) => setStatsRange(event.target.value)}
-              options={statsRangeOptions.map((option) => ({ value: option.value, label: option.label }))}
-              className="min-w-[130px] border-0 bg-slate-100 text-xs"
-            />
-          }
-        >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <StatTile tone="blue" icon={<Icon name="list" />} value={detail.stats.numberOfOrders} label="Number Of Orders" />
-            <StatTile tone="orange" icon={<Icon name="packagePlus" />} value={detail.stats.orderQuantity} label="Order Quantity" />
-            <StatTile tone="green" icon={<Icon name="database" />} value={detail.stats.numberOfPurchase} label="Number Of Purchase" />
-            <StatTile tone="slate" icon={<Icon name="box" />} value={detail.stats.purchasedQuantity} label="Purchased Quantity" />
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Item Consumption History"
-          className="border-slate-200 shadow-sm"
-          actions={
-            <Button
-              id="orders-item-details-history-filter"
-              data-testid="orders-item-details-history-filter"
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-10 w-10 min-w-10 px-0 text-[#4C1D95]"
-              aria-label="Filter consumption history"
-            >
-              <FilterIcon />
-            </Button>
-          }
-        >
-          <DataTable
-            data={historyRows}
-            columns={historyColumns}
-            getRowId={(row) => toAutomationId(row.id)}
-            loading={historyQuery.isLoading && !historyRows.length}
-            className="rounded-none border-0 bg-transparent shadow-none"
-            tableClassName="min-w-[1180px]"
-            data-testid="orders-item-consumption-history-table"
-            pagination={{
-              page: historyPage,
-              pageSize: historyPageSize,
-              total: historyTotal,
-              mode: historyQuery.data?.rows?.length ? "server" : "client",
-              onChange: setHistoryPage,
-              onPageSizeChange: setHistoryPageSize,
-            }}
-            emptyState={
-              <div data-testid="orders-item-consumption-history-empty-state">
-                <EmptyState title="No consumption history" description="Item stock movement history will appear here." />
-              </div>
-            }
-          />
-        </SectionCard>
-      </div>
-    </ItemDetailsShell>
+      </ItemDetailsShell>
+      <GalleryPreviewDialog
+        images={galleryImages}
+        selectedImage={selectedGalleryImage}
+        alt={detail.name}
+        onSelect={setSelectedGalleryImage}
+        onClose={() => setSelectedGalleryImage(null)}
+      />
+    </>
   );
 }
 
@@ -311,7 +341,15 @@ function InfoField({ label, value, hidden = false }: { label: string; value: str
   );
 }
 
-function ItemImage({ item, className }: { item: Pick<OrdersItemDetail, "imageUrl" | "name">; className: string }) {
+function ItemImage({
+  item,
+  className,
+  onClick,
+}: {
+  item: Pick<OrdersItemDetail, "imageUrl" | "name">;
+  className: string;
+  onClick?: () => void;
+}) {
   const [imageError, setImageError] = useState(false);
   const hasImage = Boolean(item.imageUrl && !imageError);
 
@@ -319,42 +357,123 @@ function ItemImage({ item, className }: { item: Pick<OrdersItemDetail, "imageUrl
     setImageError(false);
   }, [item.imageUrl]);
 
+  const content = hasImage ? (
+    <img
+      src={item.imageUrl}
+      alt={item.name}
+      className="h-full w-full object-cover"
+      loading="lazy"
+      onError={() => setImageError(true)}
+    />
+  ) : (
+    <Icon name="box" />
+  );
+  const classNames = `flex shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-slate-50 text-slate-400 ${
+    onClick ? "cursor-zoom-in p-0 transition hover:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20" : ""
+  } ${className}`;
+
+  if (onClick) {
+    return (
+      <button type="button" className={classNames} onClick={onClick} aria-label={`Open gallery for ${item.name}`}>
+        {content}
+      </button>
+    );
+  }
+
   return (
-    <div className={`flex shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-slate-50 text-slate-400 ${className}`}>
-      {hasImage ? (
-        <img
-          src={item.imageUrl}
-          alt={item.name}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        <Icon name="box" />
-      )}
+    <div className={classNames}>
+      {content}
     </div>
   );
 }
 
-function GalleryImage({ src, alt }: { src: string; alt: string }) {
+function GalleryImage({ src, alt, onClick }: { src: string; alt: string; onClick?: () => void }) {
   const [imageError, setImageError] = useState(false);
+  const className = "flex h-10 w-14 items-center justify-center overflow-hidden rounded-sm border border-slate-200 bg-slate-50 text-slate-400";
 
   if (imageError) {
     return (
-      <div className="flex h-10 w-14 items-center justify-center rounded-sm border border-slate-200 bg-slate-50 text-slate-400">
+      <div className={className}>
         <Icon name="box" />
       </div>
     );
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className="h-10 w-14 rounded-sm border border-slate-200 object-cover"
-      loading="lazy"
-      onError={() => setImageError(true)}
-    />
+    <button
+      type="button"
+      className={`${className} cursor-zoom-in p-0 transition hover:border-[#4C1D95] focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20`}
+      onClick={onClick}
+      aria-label={`Open gallery image for ${alt}`}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover"
+        loading="lazy"
+        onError={() => setImageError(true)}
+      />
+    </button>
+  );
+}
+
+function GalleryPreviewDialog({
+  images,
+  selectedImage,
+  alt,
+  onSelect,
+  onClose,
+}: {
+  images: string[];
+  selectedImage: string | null;
+  alt: string;
+  onSelect: (imageUrl: string) => void;
+  onClose: () => void;
+}) {
+  if (!selectedImage) return null;
+
+  return (
+    <Dialog
+      open={Boolean(selectedImage)}
+      onClose={onClose}
+      title="Gallery"
+      description=""
+      size="lg"
+      contentClassName="w-[92vw] max-w-[860px]"
+    >
+      <div className="space-y-4">
+        <div className="flex max-h-[62vh] min-h-[280px] items-center justify-center rounded-md border border-slate-200 bg-slate-50 p-3">
+          <img src={selectedImage} alt={alt} className="max-h-[58vh] max-w-full object-contain" />
+        </div>
+        {images.length > 1 ? (
+          <div className="flex flex-wrap gap-2">
+            {images.map((imageUrl) => (
+              <button
+                key={imageUrl}
+                type="button"
+                className={`h-14 w-20 overflow-hidden rounded-sm border bg-slate-50 p-0 transition focus:outline-none focus:ring-2 focus:ring-[#4C1D95]/20 ${
+                  imageUrl === selectedImage ? "border-[#4C1D95]" : "border-slate-200 hover:border-[#4C1D95]"
+                }`}
+                onClick={() => onSelect(imageUrl)}
+                aria-label={`Show gallery image ${images.indexOf(imageUrl) + 1}`}
+              >
+                <img src={imageUrl} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </Dialog>
+  );
+}
+
+function buildGalleryImages(detail: OrdersItemDetail) {
+  return Array.from(
+    new Set(
+      [detail.imageUrl, ...detail.gallery]
+        .map((imageUrl) => String(imageUrl ?? "").trim())
+        .filter(Boolean)
+    )
   );
 }
 
