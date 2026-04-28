@@ -312,7 +312,7 @@ function MembershipIcon({ children, className }: { children: ReactNode; classNam
   return (
     <span
       aria-hidden="true"
-      className={`flex h-16 w-16 items-center justify-center rounded-2xl ${className}`}
+      className={`flex h-10 w-10 items-center justify-center rounded-xl ${className}`}
     >
       {children}
     </span>
@@ -797,24 +797,22 @@ export function MembershipDashboard() {
         subtitle="Quick access to member activity, subscriptions, services, and collections."
       />
 
-      <SectionCard title="Quick Actions" className="border-slate-200 shadow-sm">
-        <div
-          className="flex flex-wrap gap-3 pb-3 px-0 sm:px-2 md:px-4 lg:px-6"
-          style={{ minHeight: 120 }}
-        >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <div className="flex flex-wrap gap-4">
           {visibleQuickActions.map((action) => (
             <button
               key={action.key}
               type="button"
               data-testid={`membership-dashboard-action-${action.key}`}
               onClick={() => window.location.assign(action.href)}
-              className="group flex flex-col items-center justify-center w-[170px] h-[110px] min-w-[170px] max-w-[170px] min-h-[110px] max-h-[110px] rounded-2xl border border-slate-200 bg-white text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
-              style={{ width: 170, height: 110, margin: 0 }}
+              className="w-[132px] rounded-2xl border border-slate-200 bg-white px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              <MembershipIcon className={action.palette}>
-                {renderMembershipActionIcon(action.iconKey)}
-              </MembershipIcon>
-              <div className="mt-2 text-[length:var(--text-md)] font-semibold leading-tight text-slate-900">{action.label}</div>
+              <div className="flex flex-col items-center gap-3 text-center">
+                <MembershipIcon className={action.palette}>
+                  {renderMembershipActionIcon(action.iconKey)}
+                </MembershipIcon>
+                <div className="text-sm font-semibold text-slate-900">{action.label}</div>
+              </div>
             </button>
           ))}
         </div>

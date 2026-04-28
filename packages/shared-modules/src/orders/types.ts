@@ -347,3 +347,46 @@ export type OrdersCreditSystemProviderConsumer = {
   outstanding?: number;
   raw?: unknown;
 };
+
+export type ActiveCartRow = {
+  id: string;
+  itemName: string;
+  itemImageUrl?: string;
+  customerName: string;
+  phoneNumber?: string;
+  countryCode?: string;
+  storeName?: string;
+  catalogName?: string;
+  lastModified?: string;
+  quantity: number;
+};
+
+export type DeliveryProfileRow = {
+  id: string;
+  encId: string;
+  name: string;
+  status: string;
+  deliveryPolicyEnum?: string;
+};
+
+export type DeliveryProfilePriceRange = {
+  min: number;
+  max: number;
+  amount: string;
+};
+
+export type DeliveryProfileDetails = {
+  id: string;
+  encId: string;
+  name: string;
+  status: string;
+  deliveryPolicyEnum: string;
+  priceRange: DeliveryProfilePriceRange[];
+};
+
+export type StoreRow = {
+  id: string;
+  encId: string;
+  name: string;
+  status: string;
+};

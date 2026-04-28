@@ -18,7 +18,7 @@ import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersDataset, useOrdersOrdersPage } from "../queries/orders";
-import { buildOrdersDetailHref, formatOrdersCurrency, getOrdersStatusVariant } from "../services/orders";
+import { buildOrdersDetailHref, buildOrdersModuleHref, formatOrdersCurrency, getOrdersStatusVariant } from "../services/orders";
 import { SharedOrdersLayout } from "./shared";
 import type { OrdersOrderRow, OrdersRequestRow } from "../types";
 
@@ -422,7 +422,7 @@ export function OrdersDashboard() {
                   data-testid={actionId}
                   data-state={action.enabled === false ? "disabled" : "ready"}
                   type="button"
-                  onClick={() => navigate(resolveDashboardActionHref(action))}
+                  onClick={() => navigate(resolveDashboardActionHref(action, basePath, product))}
                   className={`h-[102px] w-[144px] shrink-0 rounded-2xl border px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${actionAccentClassMap[action.accent]}`}
                 >
                   <div className="flex flex-col items-center gap-3 text-center">
@@ -778,15 +778,36 @@ function resolveActionIcon(imageKey?: string) {
       return <Icon name="layers" />;
   }
 }
-
 function getActionKey(action: { label: string; route: string; imageKey?: string }) {
   return `${action.label}:${action.route}:${action.imageKey ?? ""}`;
 }
 
-function resolveDashboardActionHref(action: { label: string; route: string; imageKey?: string }) {
+function resolveDashboardActionHref(action: { label: string; route: string; imageKey?: string }, basePath: string, product: string) {
+  const mfeHref = resolveMfeActionHref(action, basePath, product);
+  if (mfeHref) {
+    return isReturnableDashboardAction(action)
+      ? appendCurrentReturnTo(mfeHref, DASHBOARD_ACTIONS_FOCUS_ID)
+      : mfeHref;
+  }
   if (!isReturnableDashboardAction(action)) return action.route;
-
   return appendCurrentReturnTo(action.route, DASHBOARD_ACTIONS_FOCUS_ID);
+}
+
+/**
+ * Maps known dashboard action imageKeys to their MFE-internal paths.
+ * Uses resolveOrdersModuleRoot (via buildOrdersModuleHref) to correctly
+ * compute the orders path regardless of the basePath format.
+ */
+function resolveMfeActionHref(action: { imageKey?: string }, basePath: string, product: string): string | null {
+  const kartyRoot = basePath.replace(/\/orders\/?$/, '').replace(/\/pharmacy\/?$/, '');
+  switch (action.imageKey) {
+    case 'store':
+      return `${kartyRoot}/stores`;
+    case 'active-cart':
+      return buildOrdersModuleHref(basePath, product as import("@jaldee/auth-context").ProductKey, 'active-cart');
+    default:
+      return null;
+  }
 }
 
 function appendCurrentReturnTo(href: string, focusId?: string) {
@@ -806,7 +827,11 @@ function appendCurrentReturnTo(href: string, focusId?: string) {
 
 function isReturnableDashboardAction(action: { label: string; imageKey?: string }) {
   const label = action.label.trim().toLowerCase();
-  return action.imageKey === "invoices" || action.imageKey === "items" || label === "invoices" || label === "items";
+  return (
+    action.imageKey === 'invoices' || action.imageKey === 'items' ||
+    action.imageKey === 'store' || action.imageKey === 'active-cart' ||
+    label === 'invoices' || label === 'items' || label === 'stores' || label === 'active cart'
+  );
 }
 
 function getCurrentReturnTo(focusId?: string) {

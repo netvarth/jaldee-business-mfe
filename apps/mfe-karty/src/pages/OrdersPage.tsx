@@ -14,7 +14,15 @@ function resolveKartyOrdersView(pathname: string, paramView?: string | null) {
   const section =
     ordersIndex >= 0 ? "orders" : inventoryIndex >= 0 ? "inventory" : catalogIndex >= 0 ? "catalog" : "orders";
 
-  const subsection = section === "orders" && ordersIndex >= 0 ? pathSegments[ordersIndex + 1] ?? null : null;
+  // The segment immediately after the section keyword (e.g. "items", "details", "dashboard")
+  const subsection =
+    section === "orders" && ordersIndex >= 0
+      ? pathSegments[ordersIndex + 1] ?? null
+      : section === "inventory" && inventoryIndex >= 0
+        ? pathSegments[inventoryIndex + 1] ?? null
+        : section === "catalog" && catalogIndex >= 0
+          ? pathSegments[catalogIndex + 1] ?? null
+          : null;
 
   if (section === "inventory") {
     return "inventory";
@@ -24,19 +32,17 @@ function resolveKartyOrdersView(pathname: string, paramView?: string | null) {
     return "catalogs";
   }
 
-  if (section === "orders" && subsection === "details") {
+  if (section === "orders" && (subsection === "details" || paramView === "details")) {
     return "details";
   }
 
-  if (section === "orders" && subsection === "dashboard") {
+  if (section === "orders" && (subsection === "dashboard" || paramView === "dashboard")) {
     return "dashboard";
   }
 
-  if (paramView === "dashboard") {
-    return "dashboard";
-  }
-
-  return paramView ?? "overview";
+  // paramView is populated by React Router for generic routes (orders/:view).
+  // For specific routes (orders/items/create), paramView is undefined — fall back to subsection.
+  return paramView ?? subsection ?? "overview";
 }
 
 export default function OrdersPage() {
@@ -63,11 +69,28 @@ export default function OrdersPage() {
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const ordersIndex = pathSegments.indexOf("orders");
   const isOrdersSection = ordersIndex >= 0;
-  const resolvedSubview = isOrdersSection && view !== "details" ? params.subview ?? null : null;
-  const resolvedRecordId =
-    isOrdersSection
-      ? params.recordId ?? (view === "details" ? pathSegments[ordersIndex + 2] ?? null : null)
-      : null;
+
+  // Derive subview and recordId from path segments for reliability across route patterns.
+  // For /karty/orders/items/create     → itemsIndex=2, subview="create",   recordId=null
+  // For /karty/orders/items/details/id → itemsIndex=2, subview="details",  recordId="id"
+  // For /karty/orders/items/update/id  → itemsIndex=2, subview="update",   recordId="id"
+  // For /karty/orders/details/id       → view="details", subview=null,     recordId="id"
+  let resolvedSubview: string | null = null;
+  let resolvedRecordId: string | null = null;
+
+  if (isOrdersSection) {
+    const afterOrders = pathSegments.slice(ordersIndex + 1); // e.g. ["items","create"] or ["details","abc"]
+    const viewSegment = afterOrders[0] ?? null;              // "items" | "details" | "dashboard" …
+
+    if (view === "details") {
+      // /orders/details/:recordId
+      resolvedRecordId = params.recordId ?? afterOrders[1] ?? null;
+    } else if (viewSegment && afterOrders.length >= 2) {
+      // /orders/:view/:subview  or  /orders/:view/:subview/:recordId
+      resolvedSubview = params.subview ?? afterOrders[1] ?? null;
+      resolvedRecordId = params.recordId ?? afterOrders[2] ?? null;
+    }
+  }
 
   const sharedModuleProps = {
     moduleName: "orders" as const,

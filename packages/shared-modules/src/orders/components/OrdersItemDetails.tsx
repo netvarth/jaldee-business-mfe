@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Badge, Button, DataTable, Dialog, EmptyState, Icon, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Dialog, EmptyState, Icon, PageHeader, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
@@ -379,28 +379,38 @@ function ItemDetailsShell({
   const statusAction = formatItemStatus(detail?.status ?? "").toLowerCase() === "active" ? "Disable" : "Enable";
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-1 py-3">
-        <button
-          type="button"
-          data-testid="orders-item-details-back"
-          className="flex items-center gap-2 border-0 bg-transparent p-0 text-base font-semibold text-slate-900 transition hover:text-[#4C1D95]"
-          onClick={() => navigate(backHref)}
-        >
-          <ArrowLeftIcon />
-          <span>Back To Itemlist</span>
-        </button>
-        {detail ? (
-          <div className="flex items-center gap-3">
-            <Button type="button" variant="primary" size="sm" onClick={() => navigate(buildOrdersItemUpdateHref(basePath, detail.id, product))}>
-              Edit
-            </Button>
-            <Button type="button" variant="danger" size="sm">
-              {statusAction}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={detail?.name ?? "Item Details"}
+        subtitle={detail ? `${detail.property ?? ""}${detail.id ? ` · ${detail.id}` : ""}`.trim() : ""}
+        back={{ label: "Items", href: backHref }}
+        onNavigate={navigate}
+        actions={
+          detail ? (
+            <div className="flex items-center gap-3">
+              <Button
+                id="orders-item-details-edit"
+                data-testid="orders-item-details-edit"
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => navigate(buildOrdersItemUpdateHref(basePath, detail.id, product))}
+              >
+                Edit
+              </Button>
+              <Button
+                id="orders-item-details-status-toggle"
+                data-testid="orders-item-details-status-toggle"
+                type="button"
+                variant="outline"
+                size="sm"
+              >
+                {statusAction}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
       {children}
     </div>
   );
@@ -632,13 +642,6 @@ function toAutomationId(value: string) {
     .replace(/^-+|-+$/g, "") || "unknown";
 }
 
-function ArrowLeftIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path d="M11.5 4L6.5 9L11.5 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function FilterIcon() {
   return (

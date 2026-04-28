@@ -1,6 +1,7 @@
 import { EmptyState, SectionCard } from "@jaldee/design-system";
 import { useModuleAccess } from "../useModuleAccess";
 import { useSharedModulesContext } from "../context";
+import { OrdersActiveCart } from "./components/OrdersActiveCart";
 import { OrdersCatalogList } from "./components/OrdersCatalogList";
 import { CreateOrder } from "./components/CreateOrder";
 import { OrdersDashboard } from "./components/OrdersDashboard";
@@ -91,6 +92,10 @@ export function OrdersModule() {
 
   if (view === "settings") {
     return <OrdersSettings />;
+  }
+
+  if (view === "active-cart") {
+    return <OrdersActiveCart />;
   }
 
   if (view === "dashboard" || view === "overview") {

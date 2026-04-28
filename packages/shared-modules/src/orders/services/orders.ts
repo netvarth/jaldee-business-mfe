@@ -353,6 +353,7 @@ function buildActionRoutes(product: ProductKey, basePath: string, capabilities: 
     { label: "Dealers", route: settingsRoot, note: "Partner sales-order dealer workflow", accent: "amber", type: "route", imageKey: "partner", enabled: capabilities.canViewDealers },
     { label: "Item Variants", route: inventoryRoot, note: "Manage categories, groups, and variants", accent: "rose", type: "functionCall", imageKey: "item-variant", enabled: capabilities.canViewItemVariants },
     { label: "Logistics", route: settingsRoot, note: "Courier and shipment configuration", accent: "emerald", type: "route", imageKey: "logistics", enabled: capabilities.canViewLogistics },
+    { label: "Delivery Profile", route: joinPath(ordersRoot, "delivery-profile"), note: "Manage delivery fees and rules", accent: "indigo", type: "route", imageKey: "delivery", enabled: capabilities.canViewDeliveryProfile !== false },
     { label: "Delivery Profile", route: settingsRoot, note: "Delivery rules and fulfilment settings", accent: "slate", type: "route", imageKey: "delivery", enabled: capabilities.canViewDeliveryProfile },
     { label: "Active Cart", route: ordersRoot, note: "Resume the current cart flow", accent: "indigo", type: "route", imageKey: "active-cart", enabled: capabilities.canViewActiveCart },
   ];
@@ -4149,4 +4150,152 @@ function readPaymentStatus(payload: any, amountDue: number) {
   }
 
   return "Not Paid";
+}
+
+// ─── Active Cart ────────────────────────────────────────────────────────────
+
+function toActiveCartRow(raw: Record<string, unknown>, index: number): import("../types").ActiveCartRow {
+  // API shape (confirmed from Angular reference):
+  // raw.spItem          — { name, attachments: [{ s3path }] }
+  // raw.providerConsumer — { name, phone: { countryCode, number } }
+  // raw.store           — { name }
+  // raw.catalog         — { name }
+  // raw.updatedDate, raw.quantity
+
+  const spItem = raw.spItem && typeof raw.spItem === "object" ? (raw.spItem as Record<string, unknown>) : {};
+  const consumer = raw.providerConsumer && typeof raw.providerConsumer === "object"
+    ? (raw.providerConsumer as Record<string, unknown>)
+    : {};
+  const phone = consumer.phone && typeof consumer.phone === "object"
+    ? (consumer.phone as Record<string, unknown>)
+    : {};
+  const store = raw.store && typeof raw.store === "object" ? (raw.store as Record<string, unknown>) : {};
+  const catalog = raw.catalog && typeof raw.catalog === "object" ? (raw.catalog as Record<string, unknown>) : {};
+
+  // Item image: spItem.attachments[0].s3path
+  let itemImageUrl: string | undefined;
+  if (Array.isArray(spItem.attachments) && spItem.attachments.length > 0) {
+    const att = spItem.attachments[0] as Record<string, unknown>;
+    itemImageUrl = typeof att.s3path === "string" ? att.s3path : undefined;
+  }
+
+  return {
+    id: String(raw.id ?? raw.cartId ?? index),
+    itemName: typeof spItem.name === "string" && spItem.name ? spItem.name : "Unknown Item",
+    itemImageUrl,
+    customerName: typeof consumer.name === "string" && consumer.name ? consumer.name : "—",
+    phoneNumber: typeof phone.number === "string" ? phone.number : undefined,
+    countryCode: typeof phone.countryCode === "string" ? phone.countryCode : undefined,
+    storeName: typeof store.name === "string" ? store.name : undefined,
+    catalogName: typeof catalog.name === "string" ? catalog.name : undefined,
+    lastModified: typeof raw.updatedDate === "string"
+      ? raw.updatedDate
+      : typeof raw.createdDate === "string"
+        ? raw.createdDate
+        : undefined,
+    quantity: typeof raw.quantity === "number" ? raw.quantity : Number(raw.quantity ?? 1),
+  };
+}
+
+export async function getActiveCart(api: ScopedApi): Promise<import("../types").ActiveCartRow[]> {
+  const response = await api.get<Record<string, unknown>[]>("provider/cart");
+  if (!Array.isArray(response.data)) return [];
+  return response.data.map((row, i) => toActiveCartRow(row as Record<string, unknown>, i));
+}
+
+export async function getActiveCartCount(api: ScopedApi): Promise<number> {
+  try {
+    const response = await api.get<number>("provider/cart/count");
+    return typeof response.data === "number" ? response.data : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Delivery Profile API
+export async function getDeliveryProfilesConfig(
+  api: ScopedApi,
+  params?: Record<string, string | number>
+): Promise<import("../types").DeliveryProfileRow[]> {
+  const response = await api.get<any[]>("provider/deliveryprofile/config", { params });
+  return (response.data || []).map((item) => ({
+    id: String(item.id || item.encId || ""),
+    encId: String(item.encId || item.id || ""),
+    name: String(item.name || ""),
+    status: String(item.status || "Inactive"),
+    deliveryPolicyEnum: String(item.deliveryPolicyEnum || ""),
+  }));
+}
+
+export async function getDeliveryProfilesConfigCount(
+  api: ScopedApi,
+  params?: Record<string, string | number>
+): Promise<number> {
+  const response = await api.get<number>("provider/deliveryprofile/config/count", { params });
+  return typeof response.data === "number" ? response.data : 0;
+}
+
+export async function getDeliveryProfileByEncId(
+  api: ScopedApi,
+  encId: string
+): Promise<import("../types").DeliveryProfileDetails> {
+  const response = await api.get<any>(`provider/deliveryprofile/config/${encId}`);
+  const data = response.data || {};
+  return {
+    id: String(data.id || data.encId || encId),
+    encId: String(data.encId || data.id || encId),
+    name: String(data.name || ""),
+    status: String(data.status || "Inactive"),
+    deliveryPolicyEnum: String(data.deliveryPolicyEnum || "priceRange"),
+    priceRange: Array.isArray(data.priceRange)
+      ? data.priceRange.map((p: any) => ({
+          min: Number(p.min || 0),
+          max: Number(p.max || 0),
+          amount: String(p.amount || ""),
+        }))
+      : [],
+  };
+}
+
+export async function createDeliveryProfile(
+  api: ScopedApi,
+  data: Partial<import("../types").DeliveryProfileDetails>
+): Promise<void> {
+  await api.post("provider/deliveryprofile/config", data);
+}
+
+export async function updateDeliveryProfile(
+  api: ScopedApi,
+  encId: string,
+  data: Partial<import("../types").DeliveryProfileDetails>
+): Promise<void> {
+  await api.put(`provider/deliveryprofile/config/${encId}`, data);
+}
+
+export async function updateDeliveryProfileStatus(
+  api: ScopedApi,
+  encId: string,
+  status: string
+): Promise<void> {
+  await api.put(`provider/deliveryprofile/config/${encId}/${status}`);
+}
+
+export async function getDeliveryProfileStores(
+  api: ScopedApi,
+  params?: Record<string, string | number>
+): Promise<import("../types").StoreRow[]> {
+  const response = await api.get<any[]>("provider/store", { params });
+  return (response.data || []).map((item) => ({
+    id: String(item.id || item.encId || ""),
+    encId: String(item.encId || item.id || ""),
+    name: String(item.name || ""),
+    status: String(item.status || "Inactive"),
+  }));
+}
+
+export async function assignDeliveryProfileToStore(
+  api: ScopedApi,
+  data: { storeEncId: string; deliveryType: string; deliveryProfileConfigDto: { encId: string } }
+): Promise<void> {
+  await api.post("provider/deliveryprofile", data);
 }

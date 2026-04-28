@@ -491,3 +491,25 @@ function readSelectedStoreFromLocalStorage() {
     return null;
   }
 }
+
+// ─── Active Cart Queries ────────────────────────────────────────────────────
+
+import { getActiveCart, getActiveCartCount } from "../services/orders";
+
+export function useOrdersActiveCart() {
+  const { api } = useSharedModulesContext();
+  return useQuery({
+    queryKey: ["orders", "active-cart"],
+    queryFn: () => getActiveCart(api),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useOrdersActiveCartCount() {
+  const { api } = useSharedModulesContext();
+  return useQuery({
+    queryKey: ["orders", "active-cart", "count"],
+    queryFn: () => getActiveCartCount(api),
+    staleTime: 30_000,
+  });
+}

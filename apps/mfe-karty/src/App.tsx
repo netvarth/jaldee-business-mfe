@@ -3,6 +3,7 @@ import { PageErrorBoundary } from "@jaldee/design-system";
 import OverviewPage from "./pages/OverviewPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import CustomersPage from "./pages/CustomersPage";
+import StoresPage from "./pages/StoresPage";
 import DrivePage from "./pages/DrivePage";
 import OrdersPage from "./pages/OrdersPage";
 
@@ -11,18 +12,46 @@ export default function App() {
     <Routes>
       <Route
         path=""
+        element={<Navigate to="orders/dashboard" replace />}
+      />
+      <Route
+        path="orders"
+        element={<Navigate to="orders-grid" replace />}
+      />
+      <Route
+        path="orders/active-cart"
         element={
           <PageErrorBoundary>
-            <OverviewPage />
+            <OrdersPage />
           </PageErrorBoundary>
         }
       />
       <Route
-        path="orders"
-        element={<Navigate to="orders/dashboard" replace />}
+        path="orders/:view"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
       />
       <Route
-        path="orders/:view"
+        path="orders/items/create"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="orders/items/update/:recordId"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="orders/items/details/:recordId"
         element={
           <PageErrorBoundary>
             <OrdersPage />
@@ -38,7 +67,7 @@ export default function App() {
         }
       />
       <Route
-        path="orders/:view/:recordId"
+        path="orders/:view/:subview/:recordId"
         element={
           <PageErrorBoundary>
             <OrdersPage />
@@ -54,7 +83,7 @@ export default function App() {
         }
       />
       <Route
-        path="orders/:view/:subview/:recordId"
+        path="orders/:view/:recordId"
         element={
           <PageErrorBoundary>
             <OrdersPage />
@@ -106,6 +135,22 @@ export default function App() {
         element={
           <PageErrorBoundary>
             <CustomersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="stores"
+        element={
+          <PageErrorBoundary>
+            <StoresPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="stores/:recordId"
+        element={
+          <PageErrorBoundary>
+            <StoresPage />
           </PageErrorBoundary>
         }
       />

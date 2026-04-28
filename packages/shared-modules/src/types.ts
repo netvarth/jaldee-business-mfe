@@ -7,6 +7,7 @@ export type ApiScope = (typeof API_SCOPES)[number];
 export const SHARED_MODULE_NAMES = [
   "customers",
   "orders",
+  "stores",
   "ip",
   "audit-log",
   "settings",

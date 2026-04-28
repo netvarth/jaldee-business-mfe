@@ -45,6 +45,10 @@ export type { SelectProps }               from "./components/Select/Select";
 export { Combobox }                       from "./components/Combobox/Combobox";
 export type { ComboboxProps, ComboboxOption } from "./components/Combobox/Combobox";
 
+export { MultiCombobox }                  from "./components/MultiCombobox/MultiCombobox";
+export type { MultiComboboxProps, MultiComboboxOption } from "./components/MultiCombobox/MultiCombobox";
+
+
 export { DatePicker }                     from "./components/DatePicker/DatePicker";
 export type { DatePickerProps }           from "./components/DatePicker/DatePicker";
 export { DatePickerPopover }              from "./components/DatePickerPopover/DatePickerPopover";

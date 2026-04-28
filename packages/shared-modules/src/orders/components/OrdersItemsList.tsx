@@ -28,6 +28,7 @@ export function OrdersItemsList() {
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const returnTo = searchParams?.get("returnTo") ?? "";
   const backHref = useMemo(() => resolveInternalReturnToHref(returnTo), [returnTo]);
+  const backLabel = useMemo(() => resolveReturnToLabel(returnTo), [returnTo]);
   const itemsQuery = useOrdersItemsPage(page, pageSize);
   const rows = itemsQuery.data?.rows ?? [];
   const total = itemsQuery.data?.total ?? 0;
@@ -222,7 +223,7 @@ export function OrdersItemsList() {
       <PageHeader
         title="Items"
         subtitle=""
-        back={backHref ? { label: "Back", href: backHref } : undefined}
+        back={backHref ? { label: backLabel, href: backHref } : undefined}
         onNavigate={navigate}
         actions={
           <Button
@@ -487,4 +488,43 @@ function toAutomationId(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "unknown";
+}
+
+/**
+ * Derives a human-readable back-navigation label from a `returnTo` URL path.
+ * Reads the meaningful path segments (after /karty/ or /orders/) and maps them
+ * to a display name. Falls back to "Back" for unrecognised paths.
+ */
+function resolveReturnToLabel(returnTo: string): string {
+  if (!returnTo) return "Back";
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(returnTo, origin);
+    const segments = url.pathname.split("/").filter(Boolean).map((s) => s.toLowerCase());
+
+    const labelMap: Record<string, string> = {
+      dashboard: "Dashboard",
+      overview: "Dashboard",
+      invoices: "Invoices",
+      invoice: "Invoice",
+      orders: "Orders",
+      inventory: "Inventory",
+      catalog: "Catalog",
+      catalogs: "Catalogs",
+      reports: "Reports",
+      settings: "Settings",
+      "invoice-types": "Invoice Types",
+      "rx-requests-grid": "Requests",
+      "orders-grid": "Orders",
+    };
+
+    // Walk segments from most specific to least to find a match
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i];
+      if (labelMap[seg]) return labelMap[seg];
+    }
+  } catch {
+    // ignore
+  }
+  return "Back";
 }

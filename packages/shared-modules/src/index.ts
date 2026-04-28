@@ -79,6 +79,16 @@ export {
   useUpdateCustomer,
 } from "./customers";
 
+export type { Store, StoreFilters, StoreLocation, StoreType } from "./stores";
+export {
+  StoresModule,
+  StoresList,
+  useStoresList,
+  useStoresCount,
+  useStoreTypes,
+  useStoreLocations,
+} from "./stores";
+
 export type { Membership, MembershipFilters, MembershipFormValues } from "./memberships";
 export {
   MembershipsModule,

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Button, EmptyState, SectionCard, Select } from "@jaldee/design-system";
+import { Button, EmptyState, MultiCombobox, PageHeader, SectionCard, Select } from "@jaldee/design-system";
+import type { MultiComboboxOption } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import {
@@ -92,7 +93,7 @@ export function OrdersItemCreate() {
   const createItem = useCreateOrdersItem();
   const updateItem = useUpdateOrdersItem();
   const [form, setForm] = useState<ItemFormState>(initialFormState);
-  const [attributeDraft, setAttributeDraft] = useState({ attribute: "", value: "" });
+  const [attributeDraft, setAttributeDraft] = useState({ attribute: "", value: "", unit: "" });
   const [error, setError] = useState("");
   const listHref = useMemo(() => buildOrdersModuleHref(basePath, product, "items"), [basePath, product]);
 
@@ -129,8 +130,10 @@ export function OrdersItemCreate() {
 
   function addAttributeValue() {
     const attribute = attributeDraft.attribute.trim();
-    const value = attributeDraft.value.trim();
-    if (!attribute || !value) return;
+    const rawValue = attributeDraft.value.trim();
+    const unit = attributeDraft.unit.trim();
+    if (!attribute || !rawValue) return;
+    const value = unit ? `${rawValue}${unit}` : rawValue;
 
     setForm((current) => {
       const existingIndex = current.itemAttributes.findIndex((item) => item.attribute.toLowerCase() === attribute.toLowerCase());
@@ -148,7 +151,8 @@ export function OrdersItemCreate() {
 
       return { ...current, itemAttributes: nextAttributes };
     });
-    setAttributeDraft({ attribute: "", value: "" });
+    // Keep attribute and unit so the user can quickly add more values (e.g. 500gm, 1kg)
+    setAttributeDraft((current) => ({ ...current, value: "" }));
   }
 
   function removeAttribute(index: number) {
@@ -177,22 +181,13 @@ export function OrdersItemCreate() {
   }
 
   return (
-    <div data-testid="orders-item-create-page" className="space-y-3">
-      <div className="border-b border-slate-200 bg-white px-1 py-3">
-        <button
-          type="button"
-          className="flex items-center gap-2 border-0 bg-transparent p-0 text-base font-semibold text-slate-900 transition hover:text-[#4C1D95]"
-          onClick={() => navigate(listHref)}
-        >
-          <ArrowLeftIcon />
-          <span>{isUpdate ? "Update Item" : "Create Item"}</span>
-        </button>
-      </div>
-
-      <div className="px-1">
-        <h1 className="m-0 text-xl font-semibold text-slate-900">{isUpdate ? "Inventory Item" : "New Inventory Item"}</h1>
-        <div className="mt-1 text-sm text-slate-500">{isUpdate ? "Update Item Information" : "Create Item Information"}</div>
-      </div>
+    <div data-testid="orders-item-create-page" className="space-y-6">
+      <PageHeader
+        title={isUpdate ? "Update Item" : "Create Item"}
+        subtitle={isUpdate ? "Update inventory item information" : "Add a new inventory item"}
+        back={{ label: "Items", href: listHref }}
+        onNavigate={navigate}
+      />
 
       <form onSubmit={handleSubmit} className="grid gap-4 xl:grid-cols-[minmax(300px,0.34fr)_1fr]">
         <SectionCard title="Display Image" className="border-slate-200 shadow-sm">
@@ -209,85 +204,126 @@ export function OrdersItemCreate() {
         <SectionCard className="border-slate-200 shadow-sm">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <TextField label="Item Name" required value={form.itemName} onChange={(value) => updateField("itemName", value)} />
+              <TextField id="orders-item-create-name" label="Item Name" required value={form.itemName} onChange={(value) => updateField("itemName", value)} />
               <div className="mt-1 text-xs text-slate-400">An item name is required and recommended to be unique.</div>
             </div>
-            <SelectField label="Item Property" value={form.itemProperty} options={itemProperties} onChange={(value) => updateField("itemProperty", value)} />
+            <SelectField id="orders-item-create-property" label="Item Property" value={form.itemProperty} options={itemProperties} onChange={(value) => updateField("itemProperty", value)} />
             <div className="md:col-span-2">
-              <SelectField label="Item Source" value={form.itemSource} options={itemSources} onChange={(value) => updateField("itemSource", value)} />
+              <SelectField id="orders-item-create-source" label="Item Source" value={form.itemSource} options={itemSources} onChange={(value) => updateField("itemSource", value)} />
             </div>
             <div className="md:col-span-2">
-              <TextAreaField label="Short Description" value={form.itemDescription} onChange={(value) => updateField("itemDescription", value)} />
+              <TextAreaField id="orders-item-create-short-desc" label="Short Description" value={form.itemDescription} onChange={(value) => updateField("itemDescription", value)} />
             </div>
             <div className="md:col-span-2">
-              <TextAreaField label="Long Description" value={form.itemLongDescription} onChange={(value) => updateField("itemLongDescription", value)} rows={5} />
+              <TextAreaField id="orders-item-create-long-desc" label="Long Description" value={form.itemLongDescription} onChange={(value) => updateField("itemLongDescription", value)} rows={5} />
             </div>
-            <SelectField label="Category" value={form.itemCategory} options={toSettingOptions(settings?.categories, "Select category")} onChange={(value) => updateField("itemCategory", value)} />
-            <MultiSelectField label="Group" value={form.itemGroup} options={toSettingOptions(settings?.groups)} onChange={(value) => updateField("itemGroup", value)} />
-            <SelectField label="Type" value={form.itemType} options={toSettingOptions(settings?.types, "Select type")} onChange={(value) => updateField("itemType", value)} />
-            <SelectField label="Manufacturer" value={form.itemManufacturer} options={toSettingOptions(settings?.manufacturers, "Select manufacturer")} onChange={(value) => updateField("itemManufacturer", value)} />
-            <MultiSelectField label="Item Unit" value={form.itemUnits} options={toSettingOptions(settings?.units)} onChange={(value) => updateField("itemUnits", value)} />
-            <SelectField label="Track Inventory" value={String(form.isInventory)} options={booleanOptions} onChange={(value) => updateField("isInventory", value === "true")} />
-            <SelectField label="Batch Applicable" value={String(form.batchApplicable)} options={booleanOptions} onChange={(value) => updateField("batchApplicable", value === "true")} />
-            <SelectField label="HSN Code" value={form.HSNCode} options={toSettingOptions(settings?.hsn, "Select HSN")} onChange={(value) => updateField("HSNCode", value)} />
-            <MultiSelectField label="Item Composition" value={form.itemCompositions} options={toSettingOptions(settings?.compositions)} onChange={(value) => updateField("itemCompositions", value)} />
-            <TextField label="Item Threshold" value={form.reorderQuantity} inputMode="numeric" onChange={(value) => updateField("reorderQuantity", value.replace(/\D/g, ""))} />
-            <TextField label="SKU" value={form.itemSKU} onChange={(value) => updateField("itemSKU", value)} />
-            <MultiSelectField label="Item Tax" value={form.itemTax} options={toSettingOptions(settings?.taxes)} onChange={(value) => updateField("itemTax", value)} />
+            <SelectField id="orders-item-create-category" label="Category" value={form.itemCategory} options={toSettingOptions(settings?.categories, "Select category")} onChange={(value) => updateField("itemCategory", value)} />
+            <MultiComboboxField id="orders-item-create-group" label="Group" value={form.itemGroup} options={toMultiOptions(settings?.groups)} onChange={(value) => updateField("itemGroup", value)} />
+            <SelectField id="orders-item-create-type" label="Type" value={form.itemType} options={toSettingOptions(settings?.types, "Select type")} onChange={(value) => updateField("itemType", value)} />
+            <SelectField id="orders-item-create-manufacturer" label="Manufacturer" value={form.itemManufacturer} options={toSettingOptions(settings?.manufacturers, "Select manufacturer")} onChange={(value) => updateField("itemManufacturer", value)} />
+            <MultiComboboxField id="orders-item-create-units" label="Item Unit" value={form.itemUnits} options={toMultiOptions(settings?.units)} onChange={(value) => updateField("itemUnits", value)} />
+            <SelectField id="orders-item-create-track-inventory" label="Track Inventory" value={String(form.isInventory)} options={booleanOptions} onChange={(value) => updateField("isInventory", value === "true")} />
+            <SelectField id="orders-item-create-batch-applicable" label="Batch Applicable" value={String(form.batchApplicable)} options={booleanOptions} onChange={(value) => updateField("batchApplicable", value === "true")} />
+            <SelectField id="orders-item-create-hsn" label="HSN Code" value={form.HSNCode} options={toSettingOptions(settings?.hsn, "Select HSN")} onChange={(value) => updateField("HSNCode", value)} />
+            <MultiComboboxField id="orders-item-create-compositions" label="Item Composition" value={form.itemCompositions} options={toMultiOptions(settings?.compositions)} onChange={(value) => updateField("itemCompositions", value)} />
+            <TextField id="orders-item-create-threshold" label="Item Threshold" value={form.reorderQuantity} inputMode="numeric" onChange={(value) => updateField("reorderQuantity", value.replace(/\D/g, ""))} />
+            <TextField id="orders-item-create-sku" label="SKU" value={form.itemSKU} onChange={(value) => updateField("itemSKU", value)} />
+            <MultiComboboxField id="orders-item-create-tax" label="Item Tax" value={form.itemTax} options={toMultiOptions(settings?.taxes)} onChange={(value) => updateField("itemTax", value)} />
             {hasTax ? (
-              <SelectField label="Tax Preference" value={form.taxPreference} options={taxPreferenceOptions} onChange={(value) => updateField("taxPreference", value)} />
+              <SelectField id="orders-item-create-tax-preference" label="Tax Preference" value={form.taxPreference} options={taxPreferenceOptions} onChange={(value) => updateField("taxPreference", value)} />
             ) : null}
           </div>
 
-          <div className="mt-5 border-t border-slate-200 pt-4">
-            <div className="mb-3 text-sm font-semibold text-slate-900">Item Attributes</div>
-            {form.itemAttributes.length ? (
-              <div className="mb-3 space-y-2">
-                {form.itemAttributes.map((item, index) => (
-                  <div key={`${item.attribute}-${index}`} className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-slate-50 p-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">{item.attribute}</div>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {item.values.map((value) => (
-                          <span key={value} className="rounded bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200">
-                            {value}
-                          </span>
-                        ))}
+          {/* In update mode, only show attributes section if the item already has attributes.
+              Attributes (variants) cannot be added to an existing item post-creation. */}
+          {(!isUpdate || form.itemAttributes.length > 0) && (
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <div className="mb-3 text-sm font-semibold text-slate-900">Item Attributes</div>
+              {form.itemAttributes.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {form.itemAttributes.map((item, index) => (
+                    <div key={`${item.attribute}-${index}`} className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-slate-50 p-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">{item.attribute}</div>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {item.values.map((value) => (
+                            <span key={value} className="rounded bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200">
+                              {value}
+                            </span>
+                          ))}
+                        </div>
                       </div>
+                      {/* Only allow removing in create mode — edit shows attributes as read-only */}
+                      {!isUpdate && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeAttribute(index)}>
+                          Remove
+                        </Button>
+                      )}
                     </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeAttribute(index)}>
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-              <input
-                value={attributeDraft.attribute}
-                onChange={(event) => setAttributeDraft((current) => ({ ...current, attribute: event.target.value }))}
-                placeholder="Option Name"
-                className={inputClassName}
-              />
-              <input
-                value={attributeDraft.value}
-                onChange={(event) => setAttributeDraft((current) => ({ ...current, value: event.target.value }))}
-                placeholder="Option Value"
-                className={inputClassName}
-              />
-              <Button type="button" variant="outline" onClick={addAttributeValue} disabled={form.itemAttributes.length >= 5 && !attributeDraft.attribute}>
-                Add Option
-              </Button>
+                  ))}
+                </div>
+              )}
+              {/* Input row only shown in create mode */}
+              {!isUpdate && (
+                <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_0.6fr_auto]">
+                  <input
+                    id="orders-item-create-attr-name"
+                    data-testid="orders-item-create-attr-name"
+                    value={attributeDraft.attribute}
+                    onChange={(event) => setAttributeDraft((current) => ({ ...current, attribute: event.target.value }))}
+                    placeholder="Option Name (e.g. Weight)"
+                    className={inputClassName}
+                  />
+                  <input
+                    id="orders-item-create-attr-value"
+                    data-testid="orders-item-create-attr-value"
+                    value={attributeDraft.value}
+                    onChange={(event) => setAttributeDraft((current) => ({ ...current, value: event.target.value }))}
+                    placeholder="Value (e.g. 250)"
+                    className={inputClassName}
+                  />
+                  <input
+                    id="orders-item-create-attr-unit"
+                    data-testid="orders-item-create-attr-unit"
+                    value={attributeDraft.unit}
+                    onChange={(event) => setAttributeDraft((current) => ({ ...current, unit: event.target.value }))}
+                    placeholder="Unit (e.g. gm)"
+                    className={inputClassName}
+                  />
+                  <Button
+                    id="orders-item-create-attr-add"
+                    data-testid="orders-item-create-attr-add"
+                    type="button"
+                    variant="outline"
+                    onClick={addAttributeValue}
+                    disabled={!attributeDraft.attribute.trim() || !attributeDraft.value.trim() || form.itemAttributes.length >= 5}
+                  >
+                    Add
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
 
           <div className="mt-5 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => navigate(listHref)}>
+            <Button
+              id="orders-item-create-cancel"
+              data-testid="orders-item-create-cancel"
+              type="button"
+              variant="outline"
+              onClick={() => navigate(listHref)}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={!canSubmit}>
+            <Button
+              id="orders-item-create-submit"
+              data-testid="orders-item-create-submit"
+              type="submit"
+              variant="primary"
+              disabled={!canSubmit}
+            >
               {saving ? "Saving..." : isUpdate ? "Update Item" : "Create Item"}
             </Button>
           </div>
@@ -306,12 +342,14 @@ const booleanOptions = [
 ];
 
 function TextField({
+  id,
   label,
   value,
   required,
   inputMode,
   onChange,
 }: {
+  id: string;
   label: string;
   value: string;
   required?: boolean;
@@ -319,48 +357,95 @@ function TextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block">
+    <label className="block" htmlFor={id}>
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}{required ? " *" : ""}</span>
-      <input value={value} required={required} inputMode={inputMode} onChange={(event) => onChange(event.target.value)} className={inputClassName} />
-    </label>
-  );
-}
-
-function TextAreaField({ label, value, rows = 3, onChange }: { label: string; value: string; rows?: number; onChange: (value: string) => void }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <textarea value={value} rows={rows} onChange={(event) => onChange(event.target.value)} className={`${inputClassName} h-auto py-2`} />
-    </label>
-  );
-}
-
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <Select value={value} options={options} onChange={(event) => onChange(event.target.value)} className="w-full" />
-    </label>
-  );
-}
-
-function MultiSelectField({ label, value, options, onChange }: { label: string; value: string[]; options: Array<{ value: string; label: string }>; onChange: (value: string[]) => void }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <select
-        multiple
+      <input
+        id={id}
+        data-testid={id}
         value={value}
-        onChange={(event) => onChange(Array.from(event.target.selectedOptions).map((option) => option.value))}
-        className={`${inputClassName} h-[92px] py-2`}
-      >
-        {options.filter((option) => option.value).map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        required={required}
+        inputMode={inputMode}
+        onChange={(event) => onChange(event.target.value)}
+        className={inputClassName}
+      />
     </label>
+  );
+}
+
+function TextAreaField({
+  id,
+  label,
+  value,
+  rows = 3,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  rows?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block" htmlFor={id}>
+      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <textarea
+        id={id}
+        data-testid={id}
+        value={value}
+        rows={rows}
+        onChange={(event) => onChange(event.target.value)}
+        className={`${inputClassName} h-auto py-2`}
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block" htmlFor={id}>
+      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <Select id={id} data-testid={id} value={value} options={options} onChange={(event) => onChange(event.target.value)} className="w-full" />
+    </label>
+  );
+}
+
+function MultiComboboxField({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string[];
+  options: MultiComboboxOption[];
+  onChange: (value: string[]) => void;
+}) {
+  return (
+    <div className="block">
+      <MultiCombobox
+        id={id}
+        data-testid={id}
+        label={label}
+        value={value}
+        options={options}
+        onValueChange={onChange}
+        placeholder={`Select ${label.toLowerCase()}`}
+      />
+    </div>
   );
 }
 
@@ -369,6 +454,10 @@ function toSettingOptions(options: OrdersItemSettingsOption[] | undefined, place
     { value: "", label: placeholder },
     ...(options ?? []).map((option) => ({ value: option.id, label: option.label })),
   ];
+}
+
+function toMultiOptions(options: OrdersItemSettingsOption[] | undefined): MultiComboboxOption[] {
+  return (options ?? []).filter((o) => o.id).map((option) => ({ value: option.id, label: option.label }));
 }
 
 function mapDetailToForm(raw: any): ItemFormState {
