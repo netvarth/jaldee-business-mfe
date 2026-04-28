@@ -302,46 +302,48 @@ export function OrdersItemDetails() {
             </div>
           </SectionCard>
 
-          <SectionCard
-            title="Item Consumption History"
-            className="border-slate-200 shadow-sm"
-            actions={
-              <Button
-                id="orders-item-details-history-filter"
-                data-testid="orders-item-details-history-filter"
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-10 w-10 min-w-10 px-0 text-[#4C1D95]"
-                aria-label="Filter consumption history"
-              >
-                <FilterIcon />
-              </Button>
-            }
-          >
-            <DataTable
-              data={historyRows}
-              columns={historyColumns}
-              getRowId={(row) => toAutomationId(row.id)}
-              loading={historyQuery.isLoading && !historyRows.length}
-              className="rounded-none border-0 bg-transparent shadow-none"
-              tableClassName="min-w-[1180px]"
-              data-testid="orders-item-consumption-history-table"
-              pagination={{
-                page: historyPage,
-                pageSize: historyPageSize,
-                total: historyTotal,
-                mode: historyQuery.data?.rows?.length ? "server" : "client",
-                onChange: setHistoryPage,
-                onPageSizeChange: setHistoryPageSize,
-              }}
-              emptyState={
-                <div data-testid="orders-item-consumption-history-empty-state">
-                  <EmptyState title="No consumption history" description="Item stock movement history will appear here." />
-                </div>
+          {!detail.isChildItem && (
+            <SectionCard
+              title="Item Consumption History"
+              className="border-slate-200 shadow-sm"
+              actions={
+                <Button
+                  id="orders-item-details-history-filter"
+                  data-testid="orders-item-details-history-filter"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 w-10 min-w-10 px-0 text-[#4C1D95]"
+                  aria-label="Filter consumption history"
+                >
+                  <FilterIcon />
+                </Button>
               }
-            />
-          </SectionCard>
+            >
+              <DataTable
+                data={historyRows}
+                columns={historyColumns}
+                getRowId={(row) => toAutomationId(row.id)}
+                loading={historyQuery.isLoading && !historyRows.length}
+                className="rounded-none border-0 bg-transparent shadow-none"
+                tableClassName="min-w-[1180px]"
+                data-testid="orders-item-consumption-history-table"
+                pagination={{
+                  page: historyPage,
+                  pageSize: historyPageSize,
+                  total: historyTotal,
+                  mode: historyQuery.data?.rows?.length ? "server" : "client",
+                  onChange: setHistoryPage,
+                  onPageSizeChange: setHistoryPageSize,
+                }}
+                emptyState={
+                  <div data-testid="orders-item-consumption-history-empty-state">
+                    <EmptyState title="No consumption history" description="Item stock movement history will appear here." />
+                  </div>
+                }
+              />
+            </SectionCard>
+          )}
         </div>
       </ItemDetailsShell>
       <GalleryPreviewDialog

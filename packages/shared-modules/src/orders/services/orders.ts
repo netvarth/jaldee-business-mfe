@@ -2289,6 +2289,32 @@ function mapOrdersItemOptions(items: any[]): OrdersItemOption[] {
   });
 }
 
+function readIsChildItem(item: any): boolean {
+  // Check every known field name that indicates a parent item exists
+  const candidates = [
+    item?.parentItemSpCode,
+    item?.parentSpCode,
+    item?.parentItemId,
+    item?.parentId,
+    item?.parentEncId,
+    item?.parentItemUid,
+    item?.parentUid,
+    item?.parentCode,
+    item?.parentItem?.id,
+    item?.parentItem?.spCode,
+    item?.parentItem?.encId,
+  ];
+
+  for (const val of candidates) {
+    if (val === null || val === undefined) continue;
+    if (typeof val === "number" && val > 0) return true;
+    if (typeof val === "string" && val.trim() !== "" && val.trim() !== "0") return true;
+    if (typeof val === "object" && val !== null) return true;
+  }
+
+  return false;
+}
+
 function normalizeOrdersItemDetailPayload(raw: any, itemId: string) {
   if (raw == null) return null;
 
@@ -2355,6 +2381,7 @@ function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyti
     stats: readOrdersItemStats(payload, analyticsPayload),
     consumptionHistory: mapOrdersItemConsumptionHistory(readOrdersItemInlineHistory(payload)),
     itemOptions: mapOrdersItemOptions(itemOptionsPayload ?? []),
+    isChildItem: readIsChildItem(payload),
   };
 }
 

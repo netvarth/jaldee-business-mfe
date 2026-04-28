@@ -243,6 +243,8 @@ export type OrdersItemDetail = OrdersItemRow & {
   stats: OrdersItemDetailStats;
   consumptionHistory: OrdersItemConsumptionHistoryRow[];
   itemOptions: OrdersItemOption[];
+  /** True when this item is a child/variant of a parent item (has a parentItemSpCode). */
+  isChildItem: boolean;
 };
 
 export type OrdersItemSettingsOption = {
