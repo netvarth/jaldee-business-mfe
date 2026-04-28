@@ -14,6 +14,7 @@ import type {
   OrdersInvoiceTypeRow,
   OrdersItemConsumptionHistoryRow,
   OrdersItemDetail,
+  OrdersItemOption,
   OrdersItemRow,
   OrdersItemSettings,
   OrdersItemSettingsOption,
@@ -609,9 +610,12 @@ export async function getOrdersItemDetail(scopedApi: ScopedApi, itemId: string):
     return null;
   }
 
-  const analyticsPayload = await getOrdersItemAnalytics(scopedApi, payload).catch(() => null);
+  const [analyticsPayload, itemOptionsPayload] = await Promise.all([
+    getOrdersItemAnalytics(scopedApi, payload).catch(() => null),
+    getOrdersChildItems(scopedApi, resolvedItemId).catch(() => []),
+  ]);
 
-  return mapOrdersItemDetail(payload, settings, analyticsPayload);
+  return mapOrdersItemDetail(payload, settings, analyticsPayload, itemOptionsPayload);
 }
 
 export async function getOrdersItemConsumptionHistory(
@@ -2216,6 +2220,75 @@ async function getOrdersItemDetailPayload(scopedApi: ScopedApi, itemId: string) 
   return null;
 }
 
+async function getOrdersChildItems(scopedApi: ScopedApi, parentItemId: string): Promise<any[]> {
+  const tryFetch = async (params: ApiFilter) => {
+    const response = await scopedApi.get<any>("provider/spitem", { params });
+    const data = response.data;
+    const list = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.content)
+        ? data.content
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.items)
+            ? data.items
+            : null;
+    return Array.isArray(list) ? list : [];
+  };
+
+  // Try the various parent-filter param names used across deployments
+  for (const paramKey of [
+    "parentItemSpCode-eq",
+    "parentSpCode-eq",
+    "parentItemId-eq",
+    "parentId-eq",
+    "parentEncId-eq",
+    "parentItemUid-eq",
+  ]) {
+    try {
+      const rows = await tryFetch({ [paramKey]: parentItemId, from: 0, count: 100 } satisfies ApiFilter);
+      if (rows.length > 0) return rows;
+    } catch {
+      // try next param key
+    }
+  }
+
+  return [];
+}
+
+function mapOrdersItemOptions(items: any[]): OrdersItemOption[] {
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  return items.map((item: any, index: number) => {
+    const id =
+      readFirstText(
+        item?.encId,
+        item?.uid,
+        item?.spCode,
+        item?.spItemCode,
+        item?.itemCode,
+        item?.code,
+        item?.id
+      ) || `option-${index + 1}`;
+
+    const name =
+      readFirstText(item?.name, item?.itemName, item?.displayName) || "-";
+
+    const batchApplicable = readYesNoLabel(
+      item?.isBatchApplicable ?? item?.batchApplicable ?? item?.batchEnabled ?? item?.batch
+    );
+
+    const trackInventory = readYesNoLabel(
+      item?.isInventoryItem ?? item?.trackInventory ?? item?.inventoryTracked ?? item?.trackStock
+    );
+
+    const rawStatus = String(item?.status ?? item?.itemStatus ?? item?.state ?? "").trim();
+    const status = mapOrdersItemStatus(rawStatus);
+
+    return { id, name, batchApplicable, trackInventory, status, raw: item };
+  });
+}
+
 function normalizeOrdersItemDetailPayload(raw: any, itemId: string) {
   if (raw == null) return null;
 
@@ -2253,7 +2326,7 @@ function normalizeOrdersItemDetailPayload(raw: any, itemId: string) {
   return data && typeof data === "object" ? data : null;
 }
 
-function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyticsPayload?: any): OrdersItemDetail | null {
+function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyticsPayload?: any, itemOptionsPayload?: any[]): OrdersItemDetail | null {
   const row = mapOrdersItems([payload], settings)[0];
   if (!row) {
     return null;
@@ -2281,6 +2354,7 @@ function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyti
     badges: readOrdersItemBadges(payload),
     stats: readOrdersItemStats(payload, analyticsPayload),
     consumptionHistory: mapOrdersItemConsumptionHistory(readOrdersItemInlineHistory(payload)),
+    itemOptions: mapOrdersItemOptions(itemOptionsPayload ?? []),
   };
 }
 

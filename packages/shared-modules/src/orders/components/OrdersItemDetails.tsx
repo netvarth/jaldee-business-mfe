@@ -5,8 +5,8 @@ import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersItemConsumptionHistory, useOrdersItemDetail } from "../queries/orders";
-import { buildOrdersModuleHref } from "../services/orders";
-import type { OrdersItemConsumptionHistoryRow, OrdersItemDetail } from "../types";
+import { buildOrdersItemDetailHref, buildOrdersModuleHref } from "../services/orders";
+import type { OrdersItemConsumptionHistoryRow, OrdersItemDetail, OrdersItemOption } from "../types";
 
 const HISTORY_PAGE_SIZE = 10;
 
@@ -55,6 +55,44 @@ export function OrdersItemDetails() {
   const historyTotal = historyQuery.data?.rows?.length
     ? Math.max(historyQuery.data?.total ?? 0, historyRows.length)
     : historyRows.length;
+
+  const itemOptionsColumns = useMemo<ColumnDef<OrdersItemOption>[]>(
+    () => [
+      { key: "name", header: "Item Name", headerClassName: "font-semibold text-slate-900" },
+      { key: "batchApplicable", header: "Batch Applicable", width: "16%", headerClassName: "font-semibold text-slate-900" },
+      { key: "trackInventory", header: "Track Inventory", width: "16%", headerClassName: "font-semibold text-slate-900" },
+      {
+        key: "status",
+        header: "Status",
+        width: "12%",
+        headerClassName: "font-semibold text-slate-900",
+        render: (row) => (
+          <Badge variant={getItemStatusVariant(row.status)} className="rounded-md px-2 py-0.5 text-xs">
+            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current" />
+            {formatItemStatus(row.status)}
+          </Badge>
+        ),
+      },
+      {
+        key: "id",
+        header: "Action",
+        width: "10%",
+        headerClassName: "font-semibold text-slate-900",
+        render: (row) => (
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => navigate(buildOrdersItemDetailHref(basePath, row.id, product))}
+          >
+            <Icon name="eye" />
+            &nbsp;View
+          </Button>
+        ),
+      },
+    ],
+    [basePath, navigate, product]
+  );
 
   const historyColumns = useMemo<ColumnDef<OrdersItemConsumptionHistoryRow>[]>(
     () => [
@@ -214,6 +252,33 @@ export function OrdersItemDetails() {
               <div className="min-h-7" />
             )}
           </SectionCard>
+
+          {detail.itemOptions.length > 0 && (
+            <SectionCard
+              title="Item Attributes"
+              className="border-slate-200 shadow-sm"
+            >
+              <DataTable
+                data={detail.itemOptions}
+                columns={itemOptionsColumns}
+                getRowId={(row) => toAutomationId(row.id)}
+                className="rounded-none border-0 bg-transparent shadow-none"
+                tableClassName="min-w-[700px]"
+                data-testid="orders-item-options-table"
+                pagination={{
+                  page: 1,
+                  pageSize: 10,
+                  total: detail.itemOptions.length,
+                  mode: "client",
+                  onChange: () => {},
+                  onPageSizeChange: () => {},
+                }}
+                emptyState={
+                  <EmptyState title="No item options" description="This item has no sub-variants." />
+                }
+              />
+            </SectionCard>
+          )}
 
           <SectionCard
             title="Stats"

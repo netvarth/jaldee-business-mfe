@@ -7,6 +7,7 @@ export type {
   OrdersItemConsumptionHistoryRow,
   OrdersItemDetail,
   OrdersItemDetailStats,
+  OrdersItemOption,
   OrdersInvoiceRow,
   OrdersItemRow,
   OrdersItemSettings,

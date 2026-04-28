@@ -225,6 +225,15 @@ export type OrdersItemConsumptionHistoryRow = {
   raw?: unknown;
 };
 
+export type OrdersItemOption = {
+  id: string;
+  name: string;
+  batchApplicable: string;
+  trackInventory: string;
+  status: string;
+  raw?: unknown;
+};
+
 export type OrdersItemDetail = OrdersItemRow & {
   description: string;
   unit: string;
@@ -233,6 +242,7 @@ export type OrdersItemDetail = OrdersItemRow & {
   badges: string[];
   stats: OrdersItemDetailStats;
   consumptionHistory: OrdersItemConsumptionHistoryRow[];
+  itemOptions: OrdersItemOption[];
 };
 
 export type OrdersItemSettingsOption = {
