@@ -27,6 +27,7 @@ import type {
 
 interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
+  post: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
   put: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
 }
 
@@ -162,7 +163,7 @@ export function formatOrdersCurrency(value: number) {
 }
 
 export function buildOrdersDetailHref(basePath: string, orderId: string, product?: ProductKey) {
-  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
   const routeRecordId = collapseSalesOrderRecordId(orderId);
   return `${moduleRoot}/details/${encodeURIComponent(routeRecordId)}`;
 }
@@ -173,20 +174,30 @@ export function buildOrdersLegacyInvoiceHref(basePath: string, recordId: string)
 
 export function buildOrdersInvoiceHref(basePath: string, invoiceUid: string, params?: Record<string, string>, product?: ProductKey) {
   const resolvedInvoiceUid = ensureInvoiceUid(invoiceUid);
-  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
   const invoicePath = joinPath(moduleRoot, `invoice/${encodeURIComponent(resolvedInvoiceUid)}`);
   const query = new URLSearchParams({ from: "details", invUid: resolvedInvoiceUid, ...(params ?? {}) });
   return `${invoicePath}?${query.toString()}`;
 }
 
 export function buildOrdersModuleHref(basePath: string, product: ProductKey, view: string) {
-  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
   return joinPath(moduleRoot, view);
 }
 
 export function buildOrdersItemDetailHref(basePath: string, itemId: string, product?: ProductKey) {
-  const moduleRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
   return joinPath(moduleRoot, `items/details/${encodeURIComponent(itemId)}`);
+}
+
+export function buildOrdersItemCreateHref(basePath: string, product?: ProductKey) {
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(moduleRoot, "items/create");
+}
+
+export function buildOrdersItemUpdateHref(basePath: string, itemId: string, product?: ProductKey) {
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(moduleRoot, `items/update/${encodeURIComponent(itemId)}`);
 }
 
 export function normalizeOrdersInvoiceUid(value: string) {
@@ -247,6 +258,28 @@ function joinPath(basePath: string, next: string) {
   return `${normalizedBase}/${normalizedNext}`;
 }
 
+function resolveProductRootBase(basePath: string) {
+  const normalizedBase = String(basePath ?? "").replace(/\/+$/, "");
+  const segments = normalizedBase.split("/").filter(Boolean);
+  const lastSegment = segments[segments.length - 1];
+
+  if (lastSegment === "orders" || lastSegment === "pharmacy" || lastSegment === "inventory") {
+    return `/${segments.slice(0, -1).join("/")}`;
+  }
+
+  return normalizedBase || "";
+}
+
+function resolveOrdersModuleRoot(basePath: string, product?: ProductKey) {
+  const productRoot = resolveProductRootBase(basePath);
+  return product === "health" ? joinPath(productRoot, "pharmacy") : joinPath(productRoot, "orders");
+}
+
+function resolveInventoryModuleRoot(basePath: string, product?: ProductKey) {
+  const productRoot = resolveProductRootBase(basePath);
+  return product === "health" ? joinPath(productRoot, "pharmacy/inventory") : joinPath(productRoot, "inventory");
+}
+
 function ensureInvoiceUid(recordId: string) {
   const invoiceSuffix = "_soinv";
   const orderSuffix = "_sodr";
@@ -300,8 +333,8 @@ export function getDefaultOrdersCapabilities(): OrdersCapabilities {
 }
 
 function buildActionRoutes(product: ProductKey, basePath: string, capabilities: OrdersCapabilities): OrdersAction[] {
-  const ordersRoot = product === "health" ? joinPath(basePath, "pharmacy") : joinPath(basePath, "orders");
-  const inventoryRoot = product === "health" ? joinPath(basePath, "pharmacy/inventory") : joinPath(basePath, "inventory");
+  const ordersRoot = resolveOrdersModuleRoot(basePath, product);
+  const inventoryRoot = resolveInventoryModuleRoot(basePath, product);
   const itemsRoot = joinPath(ordersRoot, "items");
   const catalogRoot = joinPath(ordersRoot, "catalogs");
   const settingsRoot = joinPath(ordersRoot, "settings");
@@ -612,7 +645,7 @@ export async function getOrdersItemDetail(scopedApi: ScopedApi, itemId: string):
 
   const [analyticsPayload, itemOptionsPayload] = await Promise.all([
     getOrdersItemAnalytics(scopedApi, payload).catch(() => null),
-    getOrdersChildItems(scopedApi, resolvedItemId).catch(() => []),
+    getOrdersChildItems(scopedApi, payload, resolvedItemId).catch(() => []),
   ]);
 
   return mapOrdersItemDetail(payload, settings, analyticsPayload, itemOptionsPayload);
@@ -2074,6 +2107,19 @@ function mapOrdersItems(payload: any, settings: OrdersItemSettings): OrdersItemR
       item?.spItemGroup?.id,
       item?.itemGroups
     );
+    const manufacturer = resolveOrdersSettingLabel(
+      lookups.manufacturers,
+      item?.manufacturerName,
+      item?.manufacturer?.name,
+      item?.itemManufacturer?.name,
+      item?.spItemManufacturer?.name,
+      item?.manufacturerId,
+      item?.manufacturer?.id,
+      item?.itemManufacturerId,
+      item?.itemManufacturer?.id,
+      item?.spItemManufacturer?.id,
+      item?.manufacturer
+    );
     const type = resolveOrdersSettingLabel(
       lookups.types,
       item?.typeName,
@@ -2114,6 +2160,7 @@ function mapOrdersItems(payload: any, settings: OrdersItemSettings): OrdersItemR
       source: mapItemSourceDisplay(item?.source ?? item?.itemSource ?? item?.sourceType ?? "General"),
       category,
       group,
+      manufacturer,
       type,
       trackInventory: readTrackInventoryLabel(item),
       tax,
@@ -2156,6 +2203,37 @@ async function getOrdersItemSettings(scopedApi: ScopedApi): Promise<OrdersItemSe
     groups: groupPayload,
     manufacturers: manufacturerPayload,
   });
+}
+
+export async function getOrdersItemFormSettings(scopedApi: ScopedApi): Promise<OrdersItemSettings> {
+  return getOrdersItemSettings(scopedApi);
+}
+
+export async function createOrdersItem(scopedApi: ScopedApi, payload: Record<string, unknown>): Promise<any> {
+  return scopedApi.post<any>("provider/spitem", removeEmptyOrderItemValues(payload)).then((response) => response.data);
+}
+
+export async function updateOrdersItem(scopedApi: ScopedApi, payload: Record<string, unknown>): Promise<any> {
+  return scopedApi.put<any>("provider/spitem", removeEmptyOrderItemValues(payload)).then((response) => response.data);
+}
+
+function removeEmptyOrderItemValues(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => removeEmptyOrderItemValues(entry))
+      .filter((entry) => entry !== undefined);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .map(([key, entry]) => [key, removeEmptyOrderItemValues(entry)] as const)
+        .filter(([, entry]) => entry !== undefined)
+    );
+  }
+
+  if (value === "") return undefined;
+  return value;
 }
 
 async function getOrdersItemAnalytics(scopedApi: ScopedApi, item: any) {
@@ -2220,7 +2298,10 @@ async function getOrdersItemDetailPayload(scopedApi: ScopedApi, itemId: string) 
   return null;
 }
 
-async function getOrdersChildItems(scopedApi: ScopedApi, parentItemId: string): Promise<any[]> {
+async function getOrdersChildItems(scopedApi: ScopedApi, parentItem: any, parentItemId: string): Promise<any[]> {
+  const parentIdentityValues = readItemIdentityValues(parentItem, parentItemId);
+  if (!parentIdentityValues.length) return [];
+
   const tryFetch = async (params: ApiFilter) => {
     const response = await scopedApi.get<any>("provider/spitem", { params });
     const data = response.data;
@@ -2236,24 +2317,80 @@ async function getOrdersChildItems(scopedApi: ScopedApi, parentItemId: string): 
     return Array.isArray(list) ? list : [];
   };
 
-  // Try the various parent-filter param names used across deployments
-  for (const paramKey of [
-    "parentItemSpCode-eq",
-    "parentSpCode-eq",
-    "parentItemId-eq",
-    "parentId-eq",
-    "parentEncId-eq",
-    "parentItemUid-eq",
-  ]) {
-    try {
-      const rows = await tryFetch({ [paramKey]: parentItemId, from: 0, count: 100 } satisfies ApiFilter);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next param key
-    }
-  }
+  const parentSpCode = readOrdersChildItemParentSpCode(parentItem, parentItemId);
+  if (!parentSpCode) return [];
 
-  return [];
+  try {
+    const rows = await tryFetch({ "parentItemSpCode-eq": parentSpCode, from: 0, count: 100 } satisfies ApiFilter);
+    return filterOrdersChildItemsForParent(rows, parentIdentityValues);
+  } catch {
+    return [];
+  }
+}
+
+function readOrdersChildItemParentSpCode(parentItem: any, fallbackId: string) {
+  return readFirstText(
+    parentItem?.spCode,
+    parentItem?.spItemCode,
+    parentItem?.itemCode,
+    parentItem?.code,
+    fallbackId,
+    parentItem?.uid,
+    parentItem?.itemUid,
+    parentItem?.spItemUid,
+    parentItem?.encId
+  );
+}
+
+function filterOrdersChildItemsForParent(items: any[], parentIdentityValues: string[]) {
+  const parentIdSet = new Set(parentIdentityValues.map((value) => normalizeText(value)).filter(Boolean));
+  if (!parentIdSet.size) return [];
+
+  return items.filter((item: any) => {
+    const itemIds = readItemIdentityValues(item);
+    if (itemIds.some((value) => parentIdSet.has(normalizeText(value)))) {
+      return false;
+    }
+
+    return readItemParentIdentityValues(item).some((value) => parentIdSet.has(normalizeText(value)));
+  });
+}
+
+function readItemIdentityValues(item: any, fallbackId?: string) {
+  return [
+    fallbackId,
+    item?.encId,
+    item?.uid,
+    item?.itemUid,
+    item?.spItemUid,
+    item?.spCode,
+    item?.spItemCode,
+    item?.itemCode,
+    item?.code,
+    item?.itemId,
+    item?.id,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .filter((value, index, values) => value && value !== "0" && values.indexOf(value) === index);
+}
+
+function readItemParentIdentityValues(item: any) {
+  return [
+    item?.parentItemSpCode,
+    item?.parentSpCode,
+    item?.parentItemId,
+    item?.parentId,
+    item?.parentEncId,
+    item?.parentItemUid,
+    item?.parentUid,
+    item?.parentCode,
+    item?.parentItem?.id,
+    item?.parentItem?.uid,
+    item?.parentItem?.spCode,
+    item?.parentItem?.encId,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .filter((value, index, values) => value && value !== "0" && values.indexOf(value) === index);
 }
 
 function mapOrdersItemOptions(items: any[]): OrdersItemOption[] {
@@ -2412,6 +2549,17 @@ function readOrdersItemUnitLabel(item: any, lookup: Map<string, string>) {
     item?.measurementUnit,
     item?.measurementUnitName,
     item?.unitOfMeasurement,
+    item?.itemUnits,
+    item?.packName,
+    item?.packLabel,
+    item?.packDisplayName,
+    item?.packageName,
+    item?.packageLabel,
+    item?.packageDisplayName,
+    item?.packingName,
+    item?.packingLabel,
+    item?.packSize,
+    item?.packageSize,
     item?.itemUnitName,
     item?.salesUnitName,
     item?.spItemUnitName,
@@ -2419,6 +2567,9 @@ function readOrdersItemUnitLabel(item: any, lookup: Map<string, string>) {
     item?.itemUnit,
     item?.salesUnit,
     item?.spItemUnit,
+    item?.pack,
+    item?.package,
+    item?.packing,
     item?.unitId,
     item?.unitUid,
     item?.itemUnitId,
@@ -2461,7 +2612,24 @@ function readOrdersItemUnitLabel(item: any, lookup: Map<string, string>) {
     item?.spItemUnit?.name,
     item?.spItemUnit?.displayName,
     item?.spItemUnit?.label,
-    item?.spItemUnit?.unitName
+    item?.spItemUnit?.unitName,
+    item?.item?.unitName,
+    item?.item?.unitDisplayName,
+    item?.item?.unitLabel,
+    item?.item?.unitCode,
+    item?.item?.unitType,
+    item?.item?.itemUnits,
+    item?.item?.unit,
+    item?.item?.itemUnitName,
+    item?.item?.itemUnit,
+    item?.item?.packName,
+    item?.item?.packLabel,
+    item?.item?.packageName,
+    item?.item?.packageLabel,
+    item?.item?.packingName,
+    item?.item?.pack,
+    item?.item?.package,
+    item?.item?.packing
   );
 }
 
@@ -2891,6 +3059,7 @@ function createItemSettingsLookups(settings: OrdersItemSettings) {
   return {
     categories: createOrdersOptionLookup(settings.categories),
     groups: createOrdersOptionLookup(settings.groups),
+    manufacturers: createOrdersOptionLookup(settings.manufacturers),
     types: createOrdersOptionLookup(settings.types),
     taxes: createOrdersOptionLookup(settings.taxes),
   };
@@ -2925,6 +3094,9 @@ function createOrdersOptionLookup(options: OrdersItemSettingsOption[]) {
       raw?.unitCode,
       raw?.unitName,
       raw?.unitType,
+      raw?.manufacturerId,
+      raw?.manufacturerName,
+      raw?.manufacturerCode,
       raw?.taxId,
       raw?.taxUid,
       raw?.taxCode,
@@ -2982,6 +3154,8 @@ function readOrdersSettingCandidateText(candidate: unknown) {
       item?.unitName,
       item?.unitCode,
       item?.unitType,
+      item?.manufacturerName,
+      item?.manufacturerCode,
       item?.categoryName,
       item?.groupName,
       item?.typeName,

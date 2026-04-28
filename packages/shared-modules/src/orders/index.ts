@@ -21,6 +21,7 @@ export { OrdersModule } from "./OrdersModule";
 export { OrdersDashboard } from "./components/OrdersDashboard";
 export { OrdersInvoicesList } from "./components/OrdersInvoicesList";
 export { OrdersItemDetails } from "./components/OrdersItemDetails";
+export { OrdersItemCreate } from "./components/OrdersItemCreate";
 export { OrdersItemsList } from "./components/OrdersItemsList";
 export { OrdersList } from "./components/OrdersList";
 export { OrdersRequestsList } from "./components/OrdersRequestsList";
@@ -32,7 +33,10 @@ export {
   useOrdersInvoicesPage,
   useOrdersItemConsumptionHistory,
   useOrdersItemDetail,
+  useOrdersItemFormSettings,
   useOrdersItemsPage,
+  useCreateOrdersItem,
+  useUpdateOrdersItem,
   useOrdersOrders,
   useOrdersRequests,
   useOrdersCatalogs,
@@ -40,7 +44,9 @@ export {
 } from "./queries/orders";
 export {
   formatOrdersCurrency,
+  buildOrdersItemCreateHref,
   buildOrdersItemDetailHref,
+  buildOrdersItemUpdateHref,
   getDefaultOrdersCapabilities,
   getOrdersDashboardDataset,
   getOrdersStatusVariant,

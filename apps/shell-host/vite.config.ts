@@ -28,12 +28,12 @@ export default defineConfig(({ mode }) => {
             externalType: "url",
           },
           mfe_finance: {
-            external: `${(env.VITE_FINANCE_URL || "http://localhost:3004")}/assets/remoteEntry.js`,
+            external: `${env.VITE_FINANCE_URL}/assets/remoteEntry.js`,
             from: "vite",
             externalType: "url",
           },
           mfe_karty: {
-            external: `${(env.VITE_KARTY_URL || "http://localhost:3005")}/assets/remoteEntry.js`,
+            external: `${env.VITE_KARTY_URL}/assets/remoteEntry.js`,
             from: "vite",
             externalType: "url",
           },

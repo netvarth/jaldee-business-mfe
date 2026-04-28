@@ -4,7 +4,7 @@ import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersItemsPage } from "../queries/orders";
-import { buildOrdersItemDetailHref } from "../services/orders";
+import { buildOrdersItemCreateHref, buildOrdersItemDetailHref } from "../services/orders";
 import type { OrdersItemRow, OrdersItemSettingsOption } from "../types";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -224,6 +224,22 @@ export function OrdersItemsList() {
         subtitle=""
         back={backHref ? { label: "Back", href: backHref } : undefined}
         onNavigate={navigate}
+        actions={
+          <Button
+            id="orders-items-create"
+            data-testid="orders-items-create"
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.assign(buildOrdersItemCreateHref(basePath, product));
+              }
+            }}
+          >
+            Create
+          </Button>
+        }
       />
       <SectionCard className="border-slate-200 shadow-sm" padding={false}>
         <div className="border-b border-slate-200 bg-white px-5 py-4">

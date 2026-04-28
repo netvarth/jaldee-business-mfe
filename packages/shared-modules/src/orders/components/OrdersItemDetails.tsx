@@ -5,7 +5,7 @@ import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersItemConsumptionHistory, useOrdersItemDetail } from "../queries/orders";
-import { buildOrdersItemDetailHref, buildOrdersModuleHref } from "../services/orders";
+import { buildOrdersItemDetailHref, buildOrdersItemUpdateHref, buildOrdersModuleHref } from "../services/orders";
 import type { OrdersItemConsumptionHistoryRow, OrdersItemDetail, OrdersItemOption } from "../types";
 
 const HISTORY_PAGE_SIZE = 10;
@@ -189,7 +189,13 @@ export function OrdersItemDetails() {
               <div className="space-y-5">
                 <div className="grid gap-8 md:grid-cols-3">
                   <InfoField label="Category" value={detail.category} />
+                  <InfoField label="Group" value={detail.group} />
+                  <InfoField label="Manufacturer" value={detail.manufacturer} />
+                </div>
+                <div className="h-px bg-slate-100" />
+                <div className="grid gap-8 md:grid-cols-3">
                   <InfoField label="Unit" value={detail.unit} />
+                  <InfoField label="" value="" hidden />
                   <InfoField label="" value="" hidden />
                 </div>
                 <div className="h-px bg-slate-100" />
@@ -280,69 +286,71 @@ export function OrdersItemDetails() {
             </SectionCard>
           )}
 
-          <SectionCard
-            title="Stats"
-            className="border-slate-200 shadow-sm"
-            actions={
-              <Select
-                id="orders-item-details-stats-range"
-                testId="orders-item-details-stats-range"
-                value={statsRange}
-                onChange={(event) => setStatsRange(event.target.value)}
-                options={statsRangeOptions.map((option) => ({ value: option.value, label: option.label }))}
-                className="min-w-[130px] border-0 bg-slate-100 text-xs"
-              />
-            }
-          >
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <StatTile tone="blue" icon={<Icon name="list" />} value={detail.stats.numberOfOrders} label="Number Of Orders" />
-              <StatTile tone="orange" icon={<Icon name="packagePlus" />} value={detail.stats.orderQuantity} label="Order Quantity" />
-              <StatTile tone="green" icon={<Icon name="database" />} value={detail.stats.numberOfPurchase} label="Number Of Purchase" />
-              <StatTile tone="slate" icon={<Icon name="box" />} value={detail.stats.purchasedQuantity} label="Purchased Quantity" />
-            </div>
-          </SectionCard>
-
-          {!detail.isChildItem && (
-            <SectionCard
-              title="Item Consumption History"
-              className="border-slate-200 shadow-sm"
-              actions={
-                <Button
-                  id="orders-item-details-history-filter"
-                  data-testid="orders-item-details-history-filter"
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 w-10 min-w-10 px-0 text-[#4C1D95]"
-                  aria-label="Filter consumption history"
-                >
-                  <FilterIcon />
-                </Button>
-              }
-            >
-              <DataTable
-                data={historyRows}
-                columns={historyColumns}
-                getRowId={(row) => toAutomationId(row.id)}
-                loading={historyQuery.isLoading && !historyRows.length}
-                className="rounded-none border-0 bg-transparent shadow-none"
-                tableClassName="min-w-[1180px]"
-                data-testid="orders-item-consumption-history-table"
-                pagination={{
-                  page: historyPage,
-                  pageSize: historyPageSize,
-                  total: historyTotal,
-                  mode: historyQuery.data?.rows?.length ? "server" : "client",
-                  onChange: setHistoryPage,
-                  onPageSizeChange: setHistoryPageSize,
-                }}
-                emptyState={
-                  <div data-testid="orders-item-consumption-history-empty-state">
-                    <EmptyState title="No consumption history" description="Item stock movement history will appear here." />
-                  </div>
+          {detail.itemOptions.length === 0 && (
+            <>
+              <SectionCard
+                title="Stats"
+                className="border-slate-200 shadow-sm"
+                actions={
+                  <Select
+                    id="orders-item-details-stats-range"
+                    testId="orders-item-details-stats-range"
+                    value={statsRange}
+                    onChange={(event) => setStatsRange(event.target.value)}
+                    options={statsRangeOptions.map((option) => ({ value: option.value, label: option.label }))}
+                    className="min-w-[130px] border-0 bg-slate-100 text-xs"
+                  />
                 }
-              />
-            </SectionCard>
+              >
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <StatTile tone="blue" icon={<Icon name="list" />} value={detail.stats.numberOfOrders} label="Number Of Orders" />
+                  <StatTile tone="orange" icon={<Icon name="packagePlus" />} value={detail.stats.orderQuantity} label="Order Quantity" />
+                  <StatTile tone="green" icon={<Icon name="database" />} value={detail.stats.numberOfPurchase} label="Number Of Purchase" />
+                  <StatTile tone="slate" icon={<Icon name="box" />} value={detail.stats.purchasedQuantity} label="Purchased Quantity" />
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Item Consumption History"
+                className="border-slate-200 shadow-sm"
+                actions={
+                  <Button
+                    id="orders-item-details-history-filter"
+                    data-testid="orders-item-details-history-filter"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 min-w-10 px-0 text-[#4C1D95]"
+                    aria-label="Filter consumption history"
+                  >
+                    <FilterIcon />
+                  </Button>
+                }
+              >
+                <DataTable
+                  data={historyRows}
+                  columns={historyColumns}
+                  getRowId={(row) => toAutomationId(row.id)}
+                  loading={historyQuery.isLoading && !historyRows.length}
+                  className="rounded-none border-0 bg-transparent shadow-none"
+                  tableClassName="min-w-[1180px]"
+                  data-testid="orders-item-consumption-history-table"
+                  pagination={{
+                    page: historyPage,
+                    pageSize: historyPageSize,
+                    total: historyTotal,
+                    mode: historyQuery.data?.rows?.length ? "server" : "client",
+                    onChange: setHistoryPage,
+                    onPageSizeChange: setHistoryPageSize,
+                  }}
+                  emptyState={
+                    <div data-testid="orders-item-consumption-history-empty-state">
+                      <EmptyState title="No consumption history" description="Item stock movement history will appear here." />
+                    </div>
+                  }
+                />
+              </SectionCard>
+            </>
           )}
         </div>
       </ItemDetailsShell>
@@ -367,6 +375,7 @@ function ItemDetailsShell({
   children: ReactNode;
 }) {
   const navigate = useSharedNavigate();
+  const { basePath, product } = useSharedModulesContext();
   const statusAction = formatItemStatus(detail?.status ?? "").toLowerCase() === "active" ? "Disable" : "Enable";
 
   return (
@@ -383,7 +392,7 @@ function ItemDetailsShell({
         </button>
         {detail ? (
           <div className="flex items-center gap-3">
-            <Button type="button" variant="primary" size="sm">
+            <Button type="button" variant="primary" size="sm" onClick={() => navigate(buildOrdersItemUpdateHref(basePath, detail.id, product))}>
               Edit
             </Button>
             <Button type="button" variant="danger" size="sm">

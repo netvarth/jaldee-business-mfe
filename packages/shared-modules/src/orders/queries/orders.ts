@@ -16,6 +16,7 @@ import {
   getOrdersInvoiceTypesPage,
   getOrdersItemConsumptionHistory,
   getOrdersItemDetail,
+  getOrdersItemFormSettings,
   getOrdersItemsPage,
   getOrdersInvoiceAuditLogs,
   getOrdersInvoiceAuditLogsCount,
@@ -25,6 +26,8 @@ import {
   getSalesOrderInvoiceDetail,
   updateSalesOrderStatus,
   updateSalesOrderNotes,
+  createOrdersItem,
+  updateOrdersItem,
 } from "../services/orders";
 import type { OrdersBillAdjustmentKind, OrdersBillAdjustmentOption } from "../types";
 
@@ -395,6 +398,45 @@ export function useOrdersItemDetail(itemId: string | null | undefined) {
     refetchOnWindowFocus: false,
     staleTime: 30_000,
     queryFn: () => getOrdersItemDetail(scopedApi, itemId ?? ""),
+  });
+}
+
+export function useOrdersItemFormSettings() {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "item-form-settings", routeParams?.view),
+    enabled: Boolean(location?.id),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: () => getOrdersItemFormSettings(scopedApi),
+  });
+}
+
+export function useCreateOrdersItem() {
+  const { apiScope, location } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => createOrdersItem(scopedApi, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", apiScope, location?.id) });
+    },
+  });
+}
+
+export function useUpdateOrdersItem() {
+  const { apiScope, location } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => updateOrdersItem(scopedApi, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", apiScope, location?.id) });
+    },
   });
 }
 

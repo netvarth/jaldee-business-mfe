@@ -197,6 +197,7 @@ export type OrdersItemRow = {
   source: string;
   category: string;
   group: string;
+  manufacturer: string;
   type: string;
   trackInventory: string;
   tax: string;
