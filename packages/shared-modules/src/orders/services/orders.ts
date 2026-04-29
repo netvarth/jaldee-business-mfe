@@ -200,6 +200,26 @@ export function buildOrdersItemUpdateHref(basePath: string, itemId: string, prod
   return joinPath(moduleRoot, `items/update/${encodeURIComponent(itemId)}`);
 }
 
+export function buildOrdersDeliveryProfileHref(basePath: string, product?: ProductKey) {
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(moduleRoot, "delivery-profile");
+}
+
+export function buildOrdersDeliveryProfileCreateHref(basePath: string, product?: ProductKey) {
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(moduleRoot, "delivery-profile/create");
+}
+
+export function buildOrdersDeliveryProfileEditHref(basePath: string, encId: string, product?: ProductKey) {
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(moduleRoot, `delivery-profile/edit/${encodeURIComponent(encId)}`);
+}
+
+export function buildOrdersDeliveryProfileDetailsHref(basePath: string, encId: string, product?: ProductKey) {
+  const moduleRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(moduleRoot, `delivery-profile/details/${encodeURIComponent(encId)}`);
+}
+
 export function normalizeOrdersInvoiceUid(value: string) {
   return ensureInvoiceUid(value);
 }
@@ -319,7 +339,6 @@ export function getDefaultOrdersCapabilities(): OrdersCapabilities {
   return {
     canCreateOrder: true,
     canViewOrders: true,
-    canViewRequests: true,
     canViewCatalogs: true,
     canViewStores: true,
     canViewItems: true,
@@ -329,6 +348,7 @@ export function getDefaultOrdersCapabilities(): OrdersCapabilities {
     canViewLogistics: true,
     canViewDeliveryProfile: true,
     canViewActiveCart: true,
+    canViewReviews: true,
   };
 }
 
@@ -344,17 +364,16 @@ function buildActionRoutes(product: ProductKey, basePath: string, capabilities: 
   return [
     { label: "Create Order", route: joinPath(ordersRoot, "create"), note: "Start a new sales order workflow", accent: "indigo", type: "route", imageKey: "orders", enabled: capabilities.canCreateOrder },
     { label: "Orders", route: joinPath(ordersRoot, "orders-grid"), note: "Track open and delivered orders", accent: "emerald", type: "route", imageKey: "rx-order", enabled: capabilities.canViewOrders },
-    { label: "Requests", route: joinPath(ordersRoot, "rx-requests-grid"), note: "Convert prescription requests to orders", accent: "amber", type: "route", imageKey: "rx-requests", enabled: capabilities.canViewRequests },
     { label: "Invoice Types", route: invoiceTypesRoot, note: "Manage invoice type configuration", accent: "slate", type: "route", imageKey: "invoice-types", enabled: capabilities.canViewInvoices },
     { label: "Catalogs", route: catalogRoot, note: "Maintain pharmacy and product catalogs", accent: "rose", type: "route", imageKey: "socatalog", enabled: capabilities.canViewCatalogs },
     { label: "Stores", route: settingsRoot, note: "Manage store-facing order settings", accent: "slate", type: "externalRoute", imageKey: "store", enabled: capabilities.canViewStores },
     { label: "Items", route: itemsRoot, note: "Review sales-order item master data", accent: "slate", type: "route", imageKey: "items", enabled: capabilities.canViewItems },
     { label: "Invoices", route: invoicesRoot, note: "Review sales-order invoices", accent: "indigo", type: "route", imageKey: "invoices", enabled: capabilities.canViewInvoices },
-    { label: "Dealers", route: settingsRoot, note: "Partner sales-order dealer workflow", accent: "amber", type: "route", imageKey: "partner", enabled: capabilities.canViewDealers },
+    { label: "Dealers", route: joinPath(ordersRoot, "dealers"), note: "Partner sales-order dealer workflow", accent: "amber", type: "route", imageKey: "partner", enabled: capabilities.canViewDealers },
     { label: "Item Variants", route: inventoryRoot, note: "Manage categories, groups, and variants", accent: "rose", type: "functionCall", imageKey: "item-variant", enabled: capabilities.canViewItemVariants },
-    { label: "Logistics", route: settingsRoot, note: "Courier and shipment configuration", accent: "emerald", type: "route", imageKey: "logistics", enabled: capabilities.canViewLogistics },
+    { label: "Logistics", route: joinPath(ordersRoot, "logistics"), note: "Courier and shipment configuration", accent: "emerald", type: "route", imageKey: "logistics", enabled: capabilities.canViewLogistics },
     { label: "Delivery Profile", route: joinPath(ordersRoot, "delivery-profile"), note: "Manage delivery fees and rules", accent: "indigo", type: "route", imageKey: "delivery", enabled: capabilities.canViewDeliveryProfile !== false },
-    { label: "Delivery Profile", route: settingsRoot, note: "Delivery rules and fulfilment settings", accent: "slate", type: "route", imageKey: "delivery", enabled: capabilities.canViewDeliveryProfile },
+    { label: "Reviews", route: settingsRoot, note: "Review sales-order feedback", accent: "indigo", type: "route", imageKey: "reviews", enabled: capabilities.canViewReviews },
     { label: "Active Cart", route: ordersRoot, note: "Resume the current cart flow", accent: "indigo", type: "route", imageKey: "active-cart", enabled: capabilities.canViewActiveCart },
   ];
 }
@@ -384,10 +403,10 @@ export async function getOrdersDashboardDataset(
     localSelectedStore?.id || localSelectedStore?.encId
       ? localSelectedStore
       : resolveProviderStore(storesResponse, {
-          locationId: options.locationId,
-          locationName: options.locationName,
-          locationCode: options.locationCode,
-        });
+        locationId: options.locationId,
+        locationName: options.locationName,
+        locationCode: options.locationCode,
+      });
   const storeId = resolvedStore?.id ? Number(resolvedStore.id) : null;
   const storeEncId = resolvedStore?.encId ?? null;
   console.log("[orders] dataset:resolvedStore", { localSelectedStore, resolvedStore, storeId, storeEncId });
@@ -401,18 +420,18 @@ export async function getOrdersDashboardDataset(
     storeId ? withTimeout(getOrdersAnalytics(scopedApi, "MONTHLY", storeId).catch(() => []), [], "monthly analytics") : Promise.resolve([]),
     storeId
       ? withTimeout(
-          getOrdersGraphAnalytics(scopedApi, {
-            category: "WEEKLY",
-            type: "BARCHART",
-            filter: {
-              config_metric_type: "SALES_ORDER_GRAPH",
-              "store-eq": storeId,
-              orderCategory: "SALES_ORDER",
-            },
-          }).catch(() => null),
-          null,
-          "graph analytics"
-        )
+        getOrdersGraphAnalytics(scopedApi, {
+          category: "WEEKLY",
+          type: "BARCHART",
+          filter: {
+            config_metric_type: "SALES_ORDER_GRAPH",
+            "store-eq": storeId,
+            orderCategory: "SALES_ORDER",
+          },
+        }).catch(() => null),
+        null,
+        "graph analytics"
+      )
       : Promise.resolve(null),
   ]);
   console.log("[orders] dataset:afterPromiseAll", {
@@ -498,10 +517,10 @@ export async function getOrdersListPage(
     localSelectedStore?.id || localSelectedStore?.encId
       ? localSelectedStore
       : resolveProviderStore(storesResponse, {
-          locationId: options.locationId,
-          locationName: options.locationName,
-          locationCode: options.locationCode,
-        });
+        locationId: options.locationId,
+        locationName: options.locationName,
+        locationCode: options.locationCode,
+      });
 
   const storeEncId = resolvedStore?.encId ?? null;
   if (!storeEncId) {
@@ -729,10 +748,10 @@ export async function getOrdersCatalogsPage(
     localSelectedStore?.id || localSelectedStore?.encId
       ? localSelectedStore
       : resolveProviderStore(storesResponse, {
-          locationId: options.locationId,
-          locationName: options.locationName,
-          locationCode: options.locationCode,
-        });
+        locationId: options.locationId,
+        locationName: options.locationName,
+        locationCode: options.locationCode,
+      });
 
   const storeEncId = resolvedStore?.encId ?? null;
   if (!storeEncId) {
@@ -1081,12 +1100,12 @@ export async function getOrdersCustomer(scopedApi: ScopedApi, customerId: string
     const id = String(payload?.id ?? payload?.uid ?? resolvedCustomerId).trim() || resolvedCustomerId;
     const memberJaldeeId = String(
       payload?.memberJaldeeId ??
-        payload?.jaldeeId ??
-        payload?.jaldeeId ??
-        payload?.memberId ??
-        payload?.memberUid ??
-        payload?.consumerJaldeeId ??
-        ""
+      payload?.jaldeeId ??
+      payload?.jaldeeId ??
+      payload?.memberId ??
+      payload?.memberUid ??
+      payload?.consumerJaldeeId ??
+      ""
     ).trim();
     const name = String(payload?.name ?? payload?.customerName ?? payload?.firstName ?? "").trim();
     const lastName = String(payload?.lastName ?? "").trim();
@@ -1186,14 +1205,14 @@ function readInvoiceUidFromInvoiceLookupPayload(payload: any): string {
 
   const candidate = String(
     root?.invoiceUid ??
-      root?.invUid ??
-      root?.invoiceUUID ??
-      root?.uid ??
-      root?.invoice?.invoiceUid ??
-      root?.invoice?.uid ??
-      root?.invoiceDetails?.invoiceUid ??
-      root?.invoiceDetails?.uid ??
-      ""
+    root?.invUid ??
+    root?.invoiceUUID ??
+    root?.uid ??
+    root?.invoice?.invoiceUid ??
+    root?.invoice?.uid ??
+    root?.invoiceDetails?.invoiceUid ??
+    root?.invoiceDetails?.uid ??
+    ""
   ).trim();
 
   return candidate;
@@ -1221,24 +1240,24 @@ function mapInvoiceDetailPayload(raw: any, fallbackInvoiceUid: string): OrdersIn
 
   const customer = String(
     payload?.customerName ??
-      payload?.customer ??
-      payload?.consumerName ??
-      payload?.consumer?.name ??
-      payload?.providerConsumer?.name ??
-      payload?.providerConsumer?.firstName ??
-      payload?.consumer?.firstName ??
-      ""
+    payload?.customer ??
+    payload?.consumerName ??
+    payload?.consumer?.name ??
+    payload?.providerConsumer?.name ??
+    payload?.providerConsumer?.firstName ??
+    payload?.consumer?.firstName ??
+    ""
   ).trim();
 
   const customerId = String(
     payload?.customerId ??
-      payload?.providerConsumerId ??
-      payload?.providerConsumer?.id ??
-      payload?.consumerId ??
-      payload?.consumer?.id ??
-      payload?.providerConsumerUid ??
-      payload?.consumerUid ??
-      ""
+    payload?.providerConsumerId ??
+    payload?.providerConsumer?.id ??
+    payload?.consumerId ??
+    payload?.consumer?.id ??
+    payload?.providerConsumerUid ??
+    payload?.consumerUid ??
+    ""
   ).trim();
 
   const orderId = String(
@@ -1247,12 +1266,12 @@ function mapInvoiceDetailPayload(raw: any, fallbackInvoiceUid: string): OrdersIn
 
   const totalAmount = toNumber(
     payload?.totalAmount ??
-      payload?.invoiceAmount ??
-      payload?.grandTotal ??
-      payload?.netTotal ??
-      payload?.netRate ??
-      payload?.amount ??
-      0
+    payload?.invoiceAmount ??
+    payload?.grandTotal ??
+    payload?.netTotal ??
+    payload?.netRate ??
+    payload?.amount ??
+    0
   );
 
   const amountPaid = toOptionalNumber(payload?.amountPaid ?? payload?.paidAmount ?? payload?.amountReceived);
@@ -1598,11 +1617,11 @@ function parseDashboardActionValues(payload: any): string[] {
 function indexAnalyticsMetrics(payload: any): Record<string, number> {
   const records =
     Array.isArray(payload) ? payload :
-    Array.isArray(payload?.data) ? payload.data :
-    Array.isArray(payload?.responseWithStore) ? payload.responseWithStore :
-    Array.isArray(payload?.metrics) ? payload.metrics :
-    Array.isArray(payload?.analytics) ? payload.analytics :
-    [];
+      Array.isArray(payload?.data) ? payload.data :
+        Array.isArray(payload?.responseWithStore) ? payload.responseWithStore :
+          Array.isArray(payload?.metrics) ? payload.metrics :
+            Array.isArray(payload?.analytics) ? payload.analytics :
+              [];
   if (!records.length && payload && typeof payload === "object") {
     return Object.entries(payload).reduce<Record<string, number>>((acc, [key, value]) => {
       acc[normalizeMetricKey(key)] = toNumber(value);
@@ -1629,7 +1648,7 @@ function indexAnalyticsMetrics(payload: any): Record<string, number> {
 
     const value = toNumber(
       item?.isAmt ? item?.amount :
-      item?.metricValue ??
+        item?.metricValue ??
         item?.value ??
         item?.metric_count ??
         item?.metricCount ??
@@ -1669,11 +1688,11 @@ function normalizeGraphPoints(rawPoints: any[], preferredKeys: string[]) {
     .map((item) => {
       const label = String(
         item?.label ??
-          item?.name ??
-          item?.x ??
-          item?.category ??
-          item?.key ??
-          ""
+        item?.name ??
+        item?.x ??
+        item?.category ??
+        item?.key ??
+        ""
       ).trim();
 
       const value = readGraphValue(item, preferredKeys);
@@ -1893,14 +1912,14 @@ function mapSalesOrders(payload: any): OrdersOrderRow[] {
       customer: customerName,
       customerRef: String(
         item?.providerConsumer?.jaldeeId ??
-          item?.providerConsumer?.memberJaldeeId ??
-          item?.providerConsumerId ??
-          item?.providerConsumer?.id ??
-          item?.providerConsumerUid ??
-          item?.consumer?.jaldeeId ??
-          item?.consumer?.id ??
-          item?.consumerId ??
-          ""
+        item?.providerConsumer?.memberJaldeeId ??
+        item?.providerConsumerId ??
+        item?.providerConsumer?.id ??
+        item?.providerConsumerUid ??
+        item?.consumer?.jaldeeId ??
+        item?.consumer?.id ??
+        item?.consumerId ??
+        ""
       ).trim() || undefined,
       source: orderSource,
       channel: orderChannel,
@@ -1956,78 +1975,78 @@ function mapOrdersInvoices(payload: any): OrdersInvoiceRow[] {
     const invoiceUid = ensureInvoiceUid(
       String(
         item?.invoiceUid ??
-          item?.invUid ??
-          item?.invoiceUUID ??
-          item?.uuid ??
-          item?.uid ??
-          item?.id ??
-          `invoice-${index + 1}`
+        item?.invUid ??
+        item?.invoiceUUID ??
+        item?.uuid ??
+        item?.uid ??
+        item?.id ??
+        `invoice-${index + 1}`
       ).trim()
     );
     const invoiceNumber = String(
       item?.invoiceNumber ??
-        item?.invoiceNo ??
-        item?.invoiceNum ??
-        item?.displayId ??
-        item?.displayNumber ??
-        item?.invoiceId ??
-        invoiceUid
+      item?.invoiceNo ??
+      item?.invoiceNum ??
+      item?.displayId ??
+      item?.displayNumber ??
+      item?.invoiceId ??
+      invoiceUid
     ).trim();
     const orderId = String(
       item?.orderId ??
-        item?.orderUid ??
-        item?.salesOrderUid ??
-        item?.salesOrderId ??
-        item?.soUid ??
-        item?.soId ??
-        item?.order?.uid ??
-        item?.salesOrder?.uid ??
-        ""
+      item?.orderUid ??
+      item?.salesOrderUid ??
+      item?.salesOrderId ??
+      item?.soUid ??
+      item?.soId ??
+      item?.order?.uid ??
+      item?.salesOrder?.uid ??
+      ""
     ).trim();
     const orderNumber = String(
       item?.orderNumber ??
-        item?.orderNum ??
-        item?.salesOrderNumber ??
-        item?.salesOrderNo ??
-        item?.order?.orderNumber ??
-        item?.order?.orderNum ??
-        item?.salesOrder?.orderNumber ??
-        ""
+      item?.orderNum ??
+      item?.salesOrderNumber ??
+      item?.salesOrderNo ??
+      item?.order?.orderNumber ??
+      item?.order?.orderNum ??
+      item?.salesOrder?.orderNumber ??
+      ""
     ).trim();
     const customer = buildInvoiceCustomerDisplayName(item);
     const customerRef = String(
       item?.providerConsumer?.jaldeeId ??
-        item?.providerConsumer?.memberJaldeeId ??
-        item?.providerConsumerId ??
-        item?.providerConsumer?.id ??
-        item?.providerConsumerUid ??
-        item?.consumer?.jaldeeId ??
-        item?.consumer?.id ??
-        item?.consumerId ??
-        item?.customerId ??
-        ""
+      item?.providerConsumer?.memberJaldeeId ??
+      item?.providerConsumerId ??
+      item?.providerConsumer?.id ??
+      item?.providerConsumerUid ??
+      item?.consumer?.jaldeeId ??
+      item?.consumer?.id ??
+      item?.consumerId ??
+      item?.customerId ??
+      ""
     ).trim();
     const source = mapOrderSourceDisplay(
       item?.orderSource ??
-        item?.source ??
-        item?.salesOrder?.orderSource ??
-        item?.salesOrder?.source ??
-        item?.order?.orderSource ??
-        item?.order?.source ??
-        "PROVIDER_CONSUMER"
+      item?.source ??
+      item?.salesOrder?.orderSource ??
+      item?.salesOrder?.source ??
+      item?.order?.orderSource ??
+      item?.order?.source ??
+      "PROVIDER_CONSUMER"
     );
     const storeName = String(
       item?.storeName ??
-        item?.store?.name ??
-        item?.departmentName ??
-        item?.salesOrder?.storeName ??
-        item?.salesOrder?.store?.name ??
-        item?.salesOrder?.departmentName ??
-        item?.order?.storeName ??
-        item?.order?.store?.name ??
-        item?.order?.departmentName ??
-        item?.locationName ??
-        ""
+      item?.store?.name ??
+      item?.departmentName ??
+      item?.salesOrder?.storeName ??
+      item?.salesOrder?.store?.name ??
+      item?.salesOrder?.departmentName ??
+      item?.order?.storeName ??
+      item?.order?.store?.name ??
+      item?.order?.departmentName ??
+      item?.locationName ??
+      ""
     ).trim();
 
     return {
@@ -2044,12 +2063,12 @@ function mapOrdersInvoices(payload: any): OrdersInvoiceRow[] {
       status: mapInvoiceStatusDisplay(item?.status ?? item?.invoiceStatus ?? item?.state ?? ""),
       totalAmount: toNumber(
         item?.totalAmount ??
-          item?.invoiceAmount ??
-          item?.grandTotal ??
-          item?.netTotal ??
-          item?.netRate ??
-          item?.amount ??
-          0
+        item?.invoiceAmount ??
+        item?.grandTotal ??
+        item?.netTotal ??
+        item?.netRate ??
+        item?.amount ??
+        0
       ),
       amountPaid: toOptionalNumber(item?.amountPaid ?? item?.paidAmount ?? item?.amountReceived),
       amountDue: toOptionalNumber(item?.amountDue ?? item?.balanceAmount ?? item?.dueAmount),
@@ -2507,11 +2526,11 @@ function mapOrdersItemDetail(payload: any, settings: OrdersItemSettings, analyti
     unit: readOrdersItemUnitLabel(payload, lookups.units),
     batchApplicable: readYesNoLabel(
       payload?.batchApplicable ??
-        payload?.isBatchApplicable ??
-        payload?.batchEnabled ??
-        payload?.isBatchEnabled ??
-        payload?.enableBatch ??
-        payload?.batch
+      payload?.isBatchApplicable ??
+      payload?.batchEnabled ??
+      payload?.isBatchEnabled ??
+      payload?.enableBatch ??
+      payload?.batch
     ),
     tax: row.tax && row.tax !== "-" ? row.tax : resolveItemTaxLabel(lookups.taxes, payload),
     gallery: readOrdersItemGallery(payload, row.imageUrl),
@@ -2905,14 +2924,14 @@ function mapOrdersItemConsumptionHistory(payload: any): OrdersItemConsumptionHis
     id: readFirstText(item?.uid, item?.encId, item?.id, item?.referenceNumber, item?.referenceNo) || `history-${index + 1}`,
     date: formatOrdersItemDate(
       item?.date ??
-        item?.createdDate ??
-        item?.createdOn ??
-        item?.createdAt ??
-        item?.dateTime ??
-        item?.transactionDate ??
-        item?.transactionTime ??
-        item?.updatedDate ??
-        item?.updatedOn
+      item?.createdDate ??
+      item?.createdOn ??
+      item?.createdAt ??
+      item?.dateTime ??
+      item?.transactionDate ??
+      item?.transactionTime ??
+      item?.updatedDate ??
+      item?.updatedOn
     ),
     batch: readFirstText(
       item?.batch,
@@ -3036,16 +3055,16 @@ function mapOrdersItemSettingOptions(payload: any, kind: string): OrdersItemSett
         kind === "tax"
           ? readTaxOptionLabel(item)
           : readFirstText(
-              item?.label,
-              item?.name,
-              item?.displayName,
-              item?.title,
-              item?.value,
-              item?.code,
-              item?.[`${kind}Name`],
-              item?.[`${kind}Type`],
-              item?.[`${kind}Code`]
-            );
+            item?.label,
+            item?.name,
+            item?.displayName,
+            item?.title,
+            item?.value,
+            item?.code,
+            item?.[`${kind}Name`],
+            item?.[`${kind}Type`],
+            item?.[`${kind}Code`]
+          );
 
       return {
         id,
@@ -3218,25 +3237,25 @@ function resolveItemTaxLabel(lookup: Map<string, string>, item: any) {
 
   const taxPercent = toOptionalNumber(
     item?.taxPercentage ??
-      item?.taxPercent ??
-      item?.gstPercentage ??
-      item?.gstPercent ??
-      item?.taxValue ??
-      item?.gstValue ??
-      item?.tax?.percentage ??
-      item?.tax?.taxPercentage ??
-      item?.tax?.taxPercent ??
-      item?.tax?.gstPercentage ??
-      item?.tax?.gstPercent ??
-      item?.taxSettings?.percentage ??
-      item?.taxSettings?.taxPercentage ??
-      item?.taxSettings?.taxPercent ??
-      item?.taxSettings?.gstPercentage ??
-      item?.taxSettings?.gstPercent ??
-      item?.gst?.percentage ??
-      item?.gst?.taxPercentage ??
-      item?.itemTax?.percentage ??
-      item?.itemTax?.taxPercentage
+    item?.taxPercent ??
+    item?.gstPercentage ??
+    item?.gstPercent ??
+    item?.taxValue ??
+    item?.gstValue ??
+    item?.tax?.percentage ??
+    item?.tax?.taxPercentage ??
+    item?.tax?.taxPercent ??
+    item?.tax?.gstPercentage ??
+    item?.tax?.gstPercent ??
+    item?.taxSettings?.percentage ??
+    item?.taxSettings?.taxPercentage ??
+    item?.taxSettings?.taxPercent ??
+    item?.taxSettings?.gstPercentage ??
+    item?.taxSettings?.gstPercent ??
+    item?.gst?.percentage ??
+    item?.gst?.taxPercentage ??
+    item?.itemTax?.percentage ??
+    item?.itemTax?.taxPercentage
   );
   if (taxPercent !== undefined) {
     return `GST ${taxPercent}%`;
@@ -3333,11 +3352,11 @@ function resolveTaxCodeListLabel(lookup: Map<string, string>, ...values: unknown
 
       const percent = toOptionalNumber(
         candidate?.percentage ??
-          candidate?.taxPercentage ??
-          candidate?.taxPercent ??
-          candidate?.gstPercentage ??
-          candidate?.gstPercent ??
-          candidate?.value
+        candidate?.taxPercentage ??
+        candidate?.taxPercent ??
+        candidate?.gstPercentage ??
+        candidate?.gstPercent ??
+        candidate?.value
       );
       if (percent !== undefined) {
         labels.push(`GST ${percent}%`);
@@ -3409,11 +3428,11 @@ function resolveNestedItemTaxLabel(lookup: Map<string, string>, item: any) {
 
     const percent = toOptionalNumber(
       candidate?.percentage ??
-        candidate?.taxPercentage ??
-        candidate?.taxPercent ??
-        candidate?.gstPercentage ??
-        candidate?.gstPercent ??
-        candidate?.value
+      candidate?.taxPercentage ??
+      candidate?.taxPercent ??
+      candidate?.gstPercentage ??
+      candidate?.gstPercent ??
+      candidate?.value
     );
     if (percent !== undefined) return `GST ${percent}%`;
 
@@ -3621,28 +3640,28 @@ function mapInvoiceTypeStatus(item: any) {
 function buildCustomerDisplayName(item: any) {
   const salutation = String(
     item?.providerConsumer?.salutation ??
-      item?.consumer?.salutation ??
-      item?.providerConsumer?.title ??
-      item?.consumer?.title ??
-      ""
+    item?.consumer?.salutation ??
+    item?.providerConsumer?.title ??
+    item?.consumer?.title ??
+    ""
   ).trim();
   const firstName = String(
     item?.providerConsumer?.firstName ??
-      item?.consumer?.firstName ??
-      ""
+    item?.consumer?.firstName ??
+    ""
   ).trim();
   const lastName = String(
     item?.providerConsumer?.lastName ??
-      item?.consumer?.lastName ??
-      ""
+    item?.consumer?.lastName ??
+    ""
   ).trim();
   const explicitName = String(
     item?.providerConsumer?.name ??
-      item?.consumer?.name ??
-      item?.consumerName ??
-      item?.consumer_label ??
-      item?.customerName ??
-      ""
+    item?.consumer?.name ??
+    item?.consumerName ??
+    item?.consumer_label ??
+    item?.customerName ??
+    ""
   ).trim();
 
   const composedName = [salutation, firstName, lastName].filter(Boolean).join(" ").trim();
@@ -3674,30 +3693,30 @@ function mapOrderTypeDisplay(value: unknown) {
 function buildInvoiceCustomerDisplayName(item: any) {
   const salutation = String(
     item?.providerConsumer?.salutation ??
-      item?.consumer?.salutation ??
-      item?.customer?.salutation ??
-      ""
+    item?.consumer?.salutation ??
+    item?.customer?.salutation ??
+    ""
   ).trim();
   const firstName = String(
     item?.providerConsumer?.firstName ??
-      item?.consumer?.firstName ??
-      item?.customer?.firstName ??
-      ""
+    item?.consumer?.firstName ??
+    item?.customer?.firstName ??
+    ""
   ).trim();
   const lastName = String(
     item?.providerConsumer?.lastName ??
-      item?.consumer?.lastName ??
-      item?.customer?.lastName ??
-      ""
+    item?.consumer?.lastName ??
+    item?.customer?.lastName ??
+    ""
   ).trim();
   const explicitName = String(
     item?.customerName ??
-      item?.customer ??
-      item?.consumerName ??
-      item?.consumer?.name ??
-      item?.providerConsumer?.name ??
-      item?.customer?.name ??
-      ""
+    item?.customer ??
+    item?.consumerName ??
+    item?.consumer?.name ??
+    item?.providerConsumer?.name ??
+    item?.customer?.name ??
+    ""
   ).trim();
   const composedName = [salutation, firstName, lastName].filter(Boolean).join(" ").trim();
 
@@ -3821,12 +3840,12 @@ function mapSalesOrderDetail(payload: any): OrdersOrderDetail | null {
 function readInvoiceUid(payload: any, baseRow: OrdersOrderRow) {
   const candidate = String(
     payload?.invoiceUid ??
-      payload?.invoiceUUID ??
-      payload?.invUid ??
-      payload?.invoice?.uid ??
-      payload?.invoice?.invoiceUid ??
-      payload?.bill?.uid ??
-      ""
+    payload?.invoiceUUID ??
+    payload?.invUid ??
+    payload?.invoice?.uid ??
+    payload?.invoice?.invoiceUid ??
+    payload?.bill?.uid ??
+    ""
   ).trim();
 
   if (candidate) {
@@ -3844,11 +3863,11 @@ function readSalesOrderItems(payload: any): OrdersOrderDetailLineItem[] {
       ? payload.itemList
       : Array.isArray(payload?.itemDtoList)
         ? payload.itemDtoList
-      : Array.isArray(payload?.orderItems)
-        ? payload.orderItems
-        : Array.isArray(payload?.cartItems)
-          ? payload.cartItems
-          : [];
+        : Array.isArray(payload?.orderItems)
+          ? payload.orderItems
+          : Array.isArray(payload?.cartItems)
+            ? payload.cartItems
+            : [];
 
   return rawItems.map((item: any, index: number) => {
     const quantity = Math.max(0, toNumber(item?.orderQuantity ?? item?.quantity ?? item?.qty ?? item?.count ?? 0));
@@ -4051,10 +4070,10 @@ function readStringArray(value: unknown) {
 
         return String(
           (item as any).label ??
-            (item as any).name ??
-            (item as any).userName ??
-            (item as any).displayName ??
-            ""
+          (item as any).name ??
+          (item as any).userName ??
+          (item as any).displayName ??
+          ""
         ).trim();
       }
 
@@ -4249,10 +4268,10 @@ export async function getDeliveryProfileByEncId(
     deliveryPolicyEnum: String(data.deliveryPolicyEnum || "priceRange"),
     priceRange: Array.isArray(data.priceRange)
       ? data.priceRange.map((p: any) => ({
-          min: Number(p.min || 0),
-          max: Number(p.max || 0),
-          amount: String(p.amount || ""),
-        }))
+        min: Number(p.min || 0),
+        max: Number(p.max || 0),
+        amount: String(p.amount || ""),
+      }))
       : [],
   };
 }
@@ -4298,4 +4317,112 @@ export async function assignDeliveryProfileToStore(
   data: { storeEncId: string; deliveryType: string; deliveryProfileConfigDto: { encId: string } }
 ): Promise<void> {
   await api.post("provider/deliveryprofile", data);
+}
+
+// Logistics
+export async function getLogisticsList(
+  api: ScopedApi,
+  params?: Record<string, any>
+): Promise<import("../types").LogisticsRow[]> {
+  const response = await api.get<any[]>("provider/shipment/shipmentOrder", { params });
+  return (response.data || []).map((item) => {
+    const customer = item.providerConsumerData || {};
+    const firstName = customer.customerFirstName || "";
+    const lastName = customer.customerLastName || "";
+    const fullName = [firstName, lastName].filter(Boolean).join(" ");
+
+    return {
+      id: String(item.id || ""),
+      uid: String(item.uuid || ""),
+      orderNum: String(item.originFromReferenceNo || ""),
+      orderId: String(item.originUid || ""),
+      orderEncId: String(item.originUid || ""),
+      providerConsumerName: fullName || "Unknown Customer",
+      storeName: String(item.pickupLocation || ""),
+      locationName: String(item.pickupLocation || ""),
+      createdDate: String(item.createdDateString || ""),
+      orderStatus: String(item.shipmentStatusName || ""),
+      shipmentStatus: String(item.shipRocketShipmentStatus || ""),
+      shipmentId: String(item.uuid || ""),
+      awbNumber: item.awbCode,
+      courierName: item.courierName || (item.courierId ? `Courier #${item.courierId}` : undefined),
+      itemList: item.itemList,
+      packageDetails: item.packageDetails,
+      paymentMethod: item.paymentMethod,
+      pickupLocation: item.pickupLocation,
+      pickupPincode: item.pickupPincode,
+      confirmPickup: item.confirmPickup,
+      totalAmount: String(item.totalAmount || "0"),
+    };
+  });
+}
+
+export async function getLogisticsCount(
+  api: ScopedApi,
+  params?: Record<string, any>
+): Promise<number> {
+  const response = await api.get<number>("provider/shipment/shipmentOrder/count", { params });
+  return response.data;
+}
+
+export async function getAvailableCouriers(
+  api: ScopedApi,
+  orderUid: string
+): Promise<import("../types").CourierRow[]> {
+  const response = await api.get<any>(`provider/sorder/${orderUid}/shipment/availableCouriers`);
+  return response.data?.available_courier_companies || [];
+}
+
+export async function createAwb(
+  api: ScopedApi,
+  orderUid: string,
+  courierId: number
+): Promise<void> {
+  await api.put(`provider/shipment/shipRocket/${orderUid}/courier/${courierId}/createAwb`);
+}
+
+export async function generateManifest(
+  api: ScopedApi,
+  orderUid: string
+): Promise<void> {
+  await api.put(`/provider/shipment/shipRocket/${orderUid}/generateManifest`);
+}
+
+export async function requestForShipmentPickup(
+  api: ScopedApi,
+  orderUid: string,
+  data: { pickupDate: string }
+): Promise<void> {
+  await api.put(`provider/shipment/shipRocket/${orderUid}/requestForShipmentPickup`, data);
+}
+
+export async function trackOrder(
+  api: ScopedApi,
+  orderUid: string
+): Promise<import("../types").ShipmentDetails> {
+  const response = await api.put<import("../types").ShipmentDetails>(`provider/sorder/${orderUid}/shipment/track`);
+  return response.data;
+}
+export async function getDealers(
+  api: ScopedApi,
+  params?: Record<string, any>
+): Promise<import("../types").DealerRow[]> {
+  const response = await api.get<any[]>("provider/partner", { params });
+  return (response.data || []).map((item) => ({
+    id: String(item.id || ""),
+    encId: String(item.encUid || ""),
+    referenceNo: String(item.referenceNo || ""),
+    name: String(item.partnerName || ""),
+    phone: `${item.countryCode || ""} ${item.partnerMobile || ""}`.trim(),
+    status: String(item.spInternalStatus || ""),
+    createdOn: String(item.createdDate || ""),
+  }));
+}
+
+export async function getDealersCount(
+  api: ScopedApi,
+  params?: Record<string, any>
+): Promise<number> {
+  const response = await api.get<number>("provider/partner/count", { params });
+  return response.data;
 }

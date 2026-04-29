@@ -28,6 +28,10 @@ export { OrdersRequestsList } from "./components/OrdersRequestsList";
 export { OrdersCatalogList } from "./components/OrdersCatalogList";
 export { OrdersInventoryList } from "./components/OrdersInventoryList";
 export { OrdersSettings } from "./components/OrdersSettings";
+export { OrdersDeliveryProfiles } from "./components/OrdersDeliveryProfiles";
+export { OrdersDeliveryProfileCreate } from "./components/OrdersDeliveryProfileCreate";
+export { OrdersDeliveryProfileDetails } from "./components/OrdersDeliveryProfileDetails";
+export { OrdersActiveCart } from "./components/OrdersActiveCart";
 export {
   useOrdersDataset,
   useOrdersInvoicesPage,
@@ -47,6 +51,10 @@ export {
   buildOrdersItemCreateHref,
   buildOrdersItemDetailHref,
   buildOrdersItemUpdateHref,
+  buildOrdersDeliveryProfileHref,
+  buildOrdersDeliveryProfileCreateHref,
+  buildOrdersDeliveryProfileEditHref,
+  buildOrdersDeliveryProfileDetailsHref,
   getDefaultOrdersCapabilities,
   getOrdersDashboardDataset,
   getOrdersStatusVariant,

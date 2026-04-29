@@ -29,7 +29,6 @@ export type OrdersAction = {
 export type OrdersCapabilities = {
   canCreateOrder: boolean;
   canViewOrders: boolean;
-  canViewRequests: boolean;
   canViewCatalogs: boolean;
   canViewStores: boolean;
   canViewItems: boolean;
@@ -39,6 +38,7 @@ export type OrdersCapabilities = {
   canViewLogistics: boolean;
   canViewDeliveryProfile: boolean;
   canViewActiveCart: boolean;
+  canViewReviews: boolean;
 };
 
 export type OrdersOrderStatus =
@@ -389,4 +389,64 @@ export type StoreRow = {
   encId: string;
   name: string;
   status: string;
+};
+
+export type LogisticsRow = {
+  id: string;
+  uid: string;
+  orderNum: string;
+  orderId: string;
+  orderEncId: string;
+  providerConsumerName: string;
+  storeName: string;
+  locationName: string;
+  createdDate: string;
+  orderStatus: string;
+  shipmentStatus: string;
+  shipmentId: string;
+  awbNumber?: string;
+  courierName?: string;
+  itemList?: Array<{ name: string; sku?: string }>;
+  packageDetails?: { length: string; breadth: string; height: string; weight: string };
+  paymentMethod?: string;
+  pickupLocation?: string;
+  pickupPincode?: string;
+  confirmPickup?: boolean;
+  totalAmount?: string;
+};
+
+export type CourierRow = {
+  courier_company_id: number;
+  courier_name: string;
+  rate: number;
+  estimated_delivery_days: string;
+  rating: string;
+};
+
+export type ShipmentDetails = {
+  tracking_data?: {
+    track_url?: string;
+    shipment_track?: Array<{
+      id: number;
+      pickup_date: string;
+      delivered_date: string;
+      current_status: string;
+      activities: Array<{
+        date: string;
+        status: string;
+        activity: string;
+        location: string;
+      }>;
+    }>;
+  };
+};
+
+export type DealerRow = {
+  id: string;
+  encId: string;
+  referenceNo: string;
+  name: string;
+  phone: string;
+  status: string;
+  createdOn: string;
 };

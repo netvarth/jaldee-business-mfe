@@ -28,6 +28,23 @@ import {
   updateSalesOrderNotes,
   createOrdersItem,
   updateOrdersItem,
+  getDeliveryProfilesConfig,
+  getDeliveryProfilesConfigCount,
+  getDeliveryProfileByEncId,
+  createDeliveryProfile,
+  updateDeliveryProfile,
+  updateDeliveryProfileStatus,
+  getDeliveryProfileStores,
+  assignDeliveryProfileToStore,
+  getLogisticsList,
+  getLogisticsCount,
+  getAvailableCouriers,
+  createAwb,
+  generateManifest,
+  requestForShipmentPickup,
+  trackOrder,
+  getDealers,
+  getDealersCount,
 } from "../services/orders";
 import type { OrdersBillAdjustmentKind, OrdersBillAdjustmentOption } from "../types";
 
@@ -511,5 +528,219 @@ export function useOrdersActiveCartCount() {
     queryKey: ["orders", "active-cart", "count"],
     queryFn: () => getActiveCartCount(api),
     staleTime: 30_000,
+  });
+}
+
+// ─── Delivery Profile Queries ──────────────────────────────────────────────────
+
+export function useOrdersDeliveryProfiles(page: number, pageSize: number, options?: { enabled?: boolean; name?: string }) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const name = String(options?.name ?? "").trim();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles", page, pageSize, name),
+    enabled: Boolean(location?.id) && (options?.enabled ?? true),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () =>
+      getDeliveryProfilesConfig(scopedApi, {
+        from: (page - 1) * pageSize,
+        count: pageSize,
+        ...(name ? { "name-eq": name } : {}),
+      }),
+  });
+}
+
+export function useOrdersDeliveryProfilesCount(options?: { enabled?: boolean; name?: string }) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const name = String(options?.name ?? "").trim();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles-count", name),
+    enabled: Boolean(location?.id) && (options?.enabled ?? true),
+    staleTime: 30_000,
+    queryFn: () => getDeliveryProfilesConfigCount(scopedApi, name ? { "name-eq": name } : {}),
+  });
+}
+
+export function useOrdersDeliveryProfileDetails(encId: string | null | undefined) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profile-details", encId),
+    enabled: Boolean(encId),
+    staleTime: 30_000,
+    queryFn: () => getDeliveryProfileByEncId(scopedApi, encId ?? ""),
+  });
+}
+
+export function useOrdersDeliveryProfileStores(options?: { enabled?: boolean }) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "stores-list"),
+    enabled: Boolean(location?.id) && (options?.enabled ?? true),
+    staleTime: 60_000,
+    queryFn: () => getDeliveryProfileStores(scopedApi, { "status-eq": "Active" }),
+  });
+}
+
+export function useCreateOrdersDeliveryProfile() {
+  const { location } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (payload: Partial<import("../types").DeliveryProfileDetails>) =>
+      createDeliveryProfile(scopedApi, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles") });
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles-count") });
+    },
+  });
+}
+
+export function useUpdateOrdersDeliveryProfile(encId: string) {
+  const { location } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (payload: Partial<import("../types").DeliveryProfileDetails>) =>
+      updateDeliveryProfile(scopedApi, encId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles") });
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profile-details", encId) });
+    },
+  });
+}
+
+export function useUpdateOrdersDeliveryProfileStatus(encId: string) {
+  const { location } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (status: string) => updateDeliveryProfileStatus(scopedApi, encId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles") });
+    },
+  });
+}
+
+export function useAssignOrdersDeliveryProfile() {
+  const { location } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (payload: { storeEncId: string; deliveryType: string; deliveryProfileConfigDto: { encId: string } }) =>
+      assignDeliveryProfileToStore(scopedApi, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "delivery-profiles") });
+    },
+  });
+}
+
+// Logistics
+export function useOrdersLogistics(page: number, pageSize: number, options?: Record<string, any>) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "logistics", page, pageSize, options),
+    queryFn: () => getLogisticsList(scopedApi, { from: (page - 1) * pageSize, count: pageSize, ...options }),
+    enabled: Boolean(location?.id),
+  });
+}
+
+export function useOrdersLogisticsCount(options?: Record<string, any>) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "logistics-count", options),
+    queryFn: () => getLogisticsCount(scopedApi, options),
+    enabled: Boolean(location?.id),
+  });
+}
+
+export function useOrdersAvailableCouriers(orderUid: string) {
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: ["orders", "logistics", "couriers", orderUid],
+    queryFn: () => getAvailableCouriers(scopedApi, orderUid),
+    enabled: Boolean(orderUid),
+  });
+}
+
+export function useOrdersCreateAwb() {
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: ({ orderUid, courierId }: { orderUid: string; courierId: number }) =>
+      createAwb(scopedApi, orderUid, courierId),
+    onSuccess: (_, { orderUid }) => {
+      queryClient.invalidateQueries({ queryKey: ["orders", "logistics"] });
+      queryClient.invalidateQueries({ queryKey: ["orders", "logistics", "couriers", orderUid] });
+    },
+  });
+}
+
+export function useOrdersGenerateManifest() {
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (orderUid: string) => generateManifest(scopedApi, orderUid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders", "logistics"] });
+    },
+  });
+}
+
+export function useOrdersRequestShipmentPickup() {
+  const queryClient = useQueryClient();
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: ({ orderUid, data }: { orderUid: string; data: { pickupDate: string } }) =>
+      requestForShipmentPickup(scopedApi, orderUid, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders", "logistics"] });
+    },
+  });
+}
+
+export function useOrdersTrackOrder() {
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (orderUid: string) => trackOrder(scopedApi, orderUid),
+  });
+}
+
+export function useOrdersDealers(page: number, pageSize: number, filters?: Record<string, any>) {
+  const { location, routeParams } = useSharedModulesContext();
+  const api = useApiScope();
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "dealers", routeParams?.view, page, pageSize, filters),
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getDealers(api, { from: (page - 1) * pageSize, count: pageSize, ...filters }),
+  });
+}
+
+export function useOrdersDealersCount(filters?: Record<string, any>) {
+  const { location, routeParams } = useSharedModulesContext();
+  const api = useApiScope();
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "dealers-count", routeParams?.view, filters),
+    queryFn: () => getDealersCount(api, filters),
   });
 }

@@ -15,6 +15,12 @@ import { OrderDetails } from "./components/OrderDetails";
 import { OrdersList } from "./components/OrdersList";
 import { OrdersRequestsList } from "./components/OrdersRequestsList";
 import { OrdersSettings } from "./components/OrdersSettings";
+import { OrdersDeliveryProfiles } from "./components/OrdersDeliveryProfiles";
+import { OrdersDeliveryProfileCreate } from "./components/OrdersDeliveryProfileCreate";
+import { OrdersDeliveryProfileDetails } from "./components/OrdersDeliveryProfileDetails";
+import { OrdersLogisticsList } from "./components/OrdersLogisticsList";
+import { OrdersCourierList } from "./components/OrdersCourierList";
+import { OrdersDealersList } from "./components/OrdersDealersList";
 
 export function OrdersModule() {
   const access = useModuleAccess("orders");
@@ -96,6 +102,30 @@ export function OrdersModule() {
 
   if (view === "active-cart") {
     return <OrdersActiveCart />;
+  }
+
+  if (view === "delivery-profile") {
+    if (subview === "create") {
+      return <OrdersDeliveryProfileCreate />;
+    }
+    if (subview === "edit" && recordId) {
+      return <OrdersDeliveryProfileCreate />;
+    }
+    if (subview === "details" && recordId) {
+      return <OrdersDeliveryProfileDetails />;
+    }
+    return <OrdersDeliveryProfiles />;
+  }
+
+  if (view === "dealers") {
+    return <OrdersDealersList />;
+  }
+
+  if (view === "logistics") {
+    if (subview === "courier") {
+      return <OrdersCourierList />;
+    }
+    return <OrdersLogisticsList />;
   }
 
   if (view === "dashboard" || view === "overview") {

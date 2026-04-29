@@ -772,6 +772,8 @@ function resolveActionIcon(imageKey?: string) {
       return <Icon name="refresh" />;
     case "delivery":
       return <Icon name="packagePlus" />;
+    case "reviews":
+      return <Icon name="clipboardCheck" />;
     case "active-cart":
       return <Icon name="cart" />;
     default:
