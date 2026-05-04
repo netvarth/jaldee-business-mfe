@@ -57,9 +57,14 @@ export default function App() {
       <Route path="pharmacy" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
-      <Route path="pharmacy/:view/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view/:subview" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view/:subview/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+
+      <Route path="order" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/:view" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/:view/:subview" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/:view/:subview/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
 
       <Route path="memberships" element={withBoundary(<HealthMembershipsPage />)} />
       <Route path="memberships/members" element={withBoundary(<HealthMembershipsPage />)} />

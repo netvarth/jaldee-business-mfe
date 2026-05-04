@@ -4,7 +4,12 @@ import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersOrdersPage } from "../queries/orders";
-import { buildOrdersDetailHref, getOrdersStatusVariant } from "../services/orders";
+import {
+  buildOrdersDetailHref,
+  getOrdersStatusVariant,
+  resolveInternalReturnToHref,
+  resolveReturnToLabel,
+} from "../services/orders";
 import type { OrdersOrderRow } from "../types";
 
 const ORDER_STATUS_OPTIONS = [
@@ -25,6 +30,11 @@ export function OrdersList() {
     namespace: "ordersGrid",
     resetDeps: [query, statusFilter],
   });
+
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const returnTo = searchParams?.get("returnTo") ?? "";
+  const backHref = useMemo(() => resolveInternalReturnToHref(returnTo), [returnTo]);
+  const backLabel = useMemo(() => resolveReturnToLabel(returnTo), [returnTo]);
   const [selectedOrderKeys, setSelectedOrderKeys] = useState<string[]>([]);
   const searchText = query.trim();
   const serverStatus = statusFilter === "all" ? "" : statusFilter;
@@ -128,7 +138,12 @@ export function OrdersList() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Orders" subtitle="Generated from the legacy sales-order grid and adapted for the shared React module." />
+      <PageHeader
+        title="Orders"
+        subtitle="Generated from the legacy sales-order grid and adapted for the shared React module."
+        back={backHref ? { label: backLabel, href: backHref } : undefined}
+        onNavigate={navigate}
+      />
       <SectionCard className="border-slate-200 shadow-sm" padding={false}>
         <div className="border-b border-slate-200 px-4 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -240,19 +255,4 @@ function normalizeOrderType(channel: string) {
   return String(channel ?? "").trim().toLowerCase() === "online" ? "Online" : "WalkIn";
 }
 
-function getCurrentReturnTo() {
-  if (typeof window === "undefined") return "";
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
 
-function appendReturnTo(href: string, returnTo: string) {
-  try {
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-    const url = new URL(href, origin);
-    url.searchParams.set("returnTo", returnTo);
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    const separator = href.includes("?") ? "&" : "?";
-    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`;
-  }
-}

@@ -91,6 +91,46 @@ export default function App() {
         }
       />
       <Route
+        path="order"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="order/:view"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="order/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="order/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="order/:view/:recordId"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
         path="inventory"
         element={
           <PageErrorBoundary>

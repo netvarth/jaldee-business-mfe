@@ -11,6 +11,7 @@ export default function HealthPharmacyPage() {
   const [queryClient] = useState(() => new QueryClient());
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
+  const moduleSegment = pathSegments[1] ?? "pharmacy";
   const sectionView = pathSegments[2] ?? null;
 
   const view =
@@ -19,8 +20,18 @@ export default function HealthPharmacyPage() {
       : sectionView === "catalogs"
         ? "catalogs"
         : params.view ?? "overview";
-  const resolvedRecordId = params.recordId ?? (view === "details" ? pathSegments[3] ?? null : null);
-  const resolvedSubview = view === "details" ? null : params.subview ?? null;
+  // Derive subview and recordId from path segments for reliability across route patterns.
+  let resolvedSubview: string | null = null;
+  let resolvedRecordId: string | null = null;
+
+  if (view === "details") {
+    resolvedRecordId = params.recordId ?? pathSegments[3] ?? null;
+  } else {
+    // For /pharmacy/:view/:subview/:recordId
+    // pathSegments are [0:health, 1:pharmacy, 2:view, 3:subview, 4:recordId]
+    resolvedSubview = params.subview ?? pathSegments[3] ?? null;
+    resolvedRecordId = params.recordId ?? pathSegments[4] ?? null;
+  }
 
   const sharedModuleProps = useMemo(
     () => ({
@@ -28,7 +39,8 @@ export default function HealthPharmacyPage() {
       product: "health" as const,
       apiScope: "location" as const,
       basePath: mfeProps.basePath,
-      user: mfeProps.user,
+      moduleBasePath: `${mfeProps.basePath}/${moduleSegment}`,
+      navigate: (to: string) => navigate(to),
       account: mfeProps.account,
       location: mfeProps.location,
       api: mfeProps.api!,
@@ -39,7 +51,7 @@ export default function HealthPharmacyPage() {
         recordId: resolvedRecordId,
       },
     }),
-    [mfeProps, resolvedRecordId, resolvedSubview, view]
+    [mfeProps, resolvedRecordId, resolvedSubview, view, moduleSegment]
   );
 
   return (

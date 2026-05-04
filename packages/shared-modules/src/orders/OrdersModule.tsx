@@ -1,6 +1,8 @@
 import { EmptyState, SectionCard } from "@jaldee/design-system";
 import { useModuleAccess } from "../useModuleAccess";
 import { useSharedModulesContext } from "../context";
+import { OrdersReviewsList } from "./components/OrdersReviewsList";
+import { OrdersInvoiceTypeCreate } from "./components/OrdersInvoiceTypeCreate";
 import { OrdersActiveCart } from "./components/OrdersActiveCart";
 import { OrdersCatalogList } from "./components/OrdersCatalogList";
 import { CreateOrder } from "./components/CreateOrder";
@@ -92,7 +94,10 @@ export function OrdersModule() {
     return <OrdersItemsList />;
   }
 
-  if (view === "invoice-types") {
+  if (view === "invoice-types" || view === "invoice-type") {
+    if (subview === "create" || subview === "edit" || subview === "view") {
+      return <OrdersInvoiceTypeCreate />;
+    }
     return <OrdersSettings />;
   }
 
@@ -126,6 +131,10 @@ export function OrdersModule() {
       return <OrdersCourierList />;
     }
     return <OrdersLogisticsList />;
+  }
+
+  if (view === "reviews") {
+    return <OrdersReviewsList />;
   }
 
   if (view === "dashboard" || view === "overview") {

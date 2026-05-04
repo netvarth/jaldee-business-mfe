@@ -36,6 +36,7 @@ export interface SharedModuleProps {
   product: ProductKey;
   apiScope: ApiScope;
   basePath: string;
+  moduleBasePath?: string;
   assetsBaseUrl?: string;
   /**
    * Optional client-side navigation handler provided by the host MFE.

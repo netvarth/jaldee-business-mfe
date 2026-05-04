@@ -200,6 +200,78 @@ export function buildOrdersItemUpdateHref(basePath: string, itemId: string, prod
   return joinPath(moduleRoot, `items/update/${encodeURIComponent(itemId)}`);
 }
 
+export function resolveInternalReturnToHref(returnTo: string) {
+  const raw = String(returnTo ?? "").trim();
+  if (!raw || raw === "#") return "";
+
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(raw, origin);
+    if (url.origin !== origin) return "";
+
+    const href = `${url.pathname}${url.search}${url.hash}`;
+    if (typeof window !== "undefined") {
+      const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (href === currentHref) return "";
+    }
+
+    return href;
+  } catch {
+    return "";
+  }
+}
+
+export function resolveReturnToLabel(returnTo: string): string {
+  if (!returnTo) return "Back";
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(returnTo, origin);
+    const segments = url.pathname.split("/").filter(Boolean).map((s) => s.toLowerCase());
+
+    const labelMap: Record<string, string> = {
+      dashboard: "Dashboard",
+      overview: "Dashboard",
+      invoices: "Invoices",
+      invoice: "Invoice",
+      orders: "Orders",
+      inventory: "Inventory",
+      catalog: "Catalog",
+      catalogs: "Catalogs",
+      reports: "Reports",
+      settings: "Settings",
+      "invoice-types": "Invoice Types",
+      "rx-requests-grid": "Requests",
+      "orders-grid": "Orders",
+      reviews: "Reviews",
+    };
+
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i];
+      if (labelMap[seg]) return labelMap[seg];
+    }
+  } catch {
+    // ignore
+  }
+  return "Back";
+}
+
+export function getCurrentReturnTo() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+export function appendReturnTo(href: string, returnTo: string) {
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(href, origin);
+    url.searchParams.set("returnTo", returnTo);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    const separator = href.includes("?") ? "&" : "?";
+    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`;
+  }
+}
+
 export function buildOrdersDeliveryProfileHref(basePath: string, product?: ProductKey) {
   const moduleRoot = resolveOrdersModuleRoot(basePath, product);
   return joinPath(moduleRoot, "delivery-profile");
@@ -283,7 +355,7 @@ function resolveProductRootBase(basePath: string) {
   const segments = normalizedBase.split("/").filter(Boolean);
   const lastSegment = segments[segments.length - 1];
 
-  if (lastSegment === "orders" || lastSegment === "pharmacy" || lastSegment === "inventory") {
+  if (lastSegment === "orders" || lastSegment === "order" || lastSegment === "pharmacy" || lastSegment === "inventory") {
     return `/${segments.slice(0, -1).join("/")}`;
   }
 
@@ -291,13 +363,21 @@ function resolveProductRootBase(basePath: string) {
 }
 
 function resolveOrdersModuleRoot(basePath: string, product?: ProductKey) {
+  const normalizedBase = String(basePath ?? "").replace(/\/+$/, "");
+  const segments = normalizedBase.split("/").filter(Boolean);
+  const lastSegment = segments[segments.length - 1];
+
+  if (lastSegment === "orders" || lastSegment === "order" || lastSegment === "pharmacy") {
+    return normalizedBase;
+  }
+
   const productRoot = resolveProductRootBase(basePath);
   return product === "health" ? joinPath(productRoot, "pharmacy") : joinPath(productRoot, "orders");
 }
 
 function resolveInventoryModuleRoot(basePath: string, product?: ProductKey) {
-  const productRoot = resolveProductRootBase(basePath);
-  return product === "health" ? joinPath(productRoot, "pharmacy/inventory") : joinPath(productRoot, "inventory");
+  const ordersRoot = resolveOrdersModuleRoot(basePath, product);
+  return joinPath(ordersRoot, "inventory");
 }
 
 function ensureInvoiceUid(recordId: string) {
@@ -373,7 +453,7 @@ function buildActionRoutes(product: ProductKey, basePath: string, capabilities: 
     { label: "Item Variants", route: inventoryRoot, note: "Manage categories, groups, and variants", accent: "rose", type: "functionCall", imageKey: "item-variant", enabled: capabilities.canViewItemVariants },
     { label: "Logistics", route: joinPath(ordersRoot, "logistics"), note: "Courier and shipment configuration", accent: "emerald", type: "route", imageKey: "logistics", enabled: capabilities.canViewLogistics },
     { label: "Delivery Profile", route: joinPath(ordersRoot, "delivery-profile"), note: "Manage delivery fees and rules", accent: "indigo", type: "route", imageKey: "delivery", enabled: capabilities.canViewDeliveryProfile !== false },
-    { label: "Reviews", route: settingsRoot, note: "Review sales-order feedback", accent: "indigo", type: "route", imageKey: "reviews", enabled: capabilities.canViewReviews },
+    { label: "Reviews", route: joinPath(ordersRoot, "reviews"), note: "Review sales-order feedback", accent: "indigo", type: "route", imageKey: "reviews", enabled: capabilities.canViewReviews },
     { label: "Active Cart", route: ordersRoot, note: "Resume the current cart flow", accent: "indigo", type: "route", imageKey: "active-cart", enabled: capabilities.canViewActiveCart },
   ];
 }
@@ -585,6 +665,23 @@ export async function getOrdersInvoiceTypesPage(
     rows: mapOrdersInvoiceTypes(pagePayload),
     total: Math.max(readOrdersTotal(countPayload), mapOrdersInvoiceTypes(pagePayload).length),
   };
+}
+
+export async function getOrdersInvoiceTypeDetail(scopedApi: ScopedApi, uid: string): Promise<OrdersInvoiceTypeRow | null> {
+  try {
+    const data = await scopedApi.get<any>(`provider/order/invoice/type/${uid}`).then((response) => response.data);
+    return mapOrdersInvoiceTypes([data])[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function createOrdersInvoiceType(scopedApi: ScopedApi, payload: Record<string, unknown>): Promise<any> {
+  return scopedApi.post<any>("provider/order/invoice/type", payload).then((response) => response.data);
+}
+
+export async function updateOrdersInvoiceType(scopedApi: ScopedApi, uid: string, payload: Record<string, unknown>): Promise<any> {
+  return scopedApi.put<any>(`provider/order/invoice/type/${uid}`, payload).then((response) => response.data);
 }
 
 export async function getOrdersInvoicesPage(
@@ -1946,13 +2043,31 @@ function mapOrdersInvoiceTypes(payload: any): OrdersInvoiceTypeRow[] {
       ? payload.content
       : Array.isArray(payload?.data)
         ? payload.data
-        : [];
+        : Array.isArray(payload?.response)
+          ? payload.response
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.results)
+              ? payload.results
+              : [];
 
   return items.map((item: any, index: number) => ({
     id: String(item?.id ?? item?.uid ?? item?.invoiceTypeId ?? `invoice-type-${index + 1}`),
-    type: String(item?.type ?? item?.invoiceType ?? item?.name ?? item?.displayName ?? "").trim() || "-",
-    prefix: String(item?.prefix ?? item?.invoicePrefix ?? "").trim() || "-",
-    suffix: String(item?.suffix ?? item?.invoiceSuffix ?? "").trim() || "-",
+    type:
+      String(
+        item?.orderInvoiceType ??
+        item?.type ??
+        item?.invoiceType ??
+        item?.invoiceTypeName ??
+        item?.typeName ??
+        item?.name ??
+        item?.label ??
+        item?.displayName ??
+        item?.title ??
+        ""
+      ).trim() || "-",
+    prefix: String(item?.prefix ?? item?.invoicePrefix ?? item?.prefixName ?? "").trim() || "-",
+    suffix: String(item?.suffix ?? item?.invoiceSuffix ?? item?.suffixName ?? "").trim() || "-",
     status: mapInvoiceTypeStatus(item),
     raw: item,
   }));
@@ -4425,4 +4540,53 @@ export async function getDealersCount(
 ): Promise<number> {
   const response = await api.get<number>("provider/partner/count", { params });
   return response.data;
+}
+
+export async function getOrdersReviewsPage(
+  api: ScopedApi,
+  params?: ApiFilter
+): Promise<{ rows: import("../types").OrdersReviewRow[]; total: number }> {
+  const [pagePayload, countPayload] = await Promise.all([
+    api.get<any>("provider/sorder/item/feedback", { params }).then((res) => res.data),
+    api.get<any>("provider/sorder/item/feedback/count", { params }).then((res) => res.data),
+  ]);
+
+  const rows = mapOrdersReviews(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+export async function updateOrdersReviewStatus(
+  api: ScopedApi,
+  reviewId: string,
+  status: "PUBLISHED" | "REJECTED"
+): Promise<void> {
+  await api.post(`provider/sorder/item/feedback/${reviewId}/publish`, null, {
+    params: { status },
+  });
+}
+
+function mapOrdersReviews(payload: any): import("../types").OrdersReviewRow[] {
+  const raw = Array.isArray(payload) ? payload : Array.isArray(payload?.content) ? payload.content : Array.isArray(payload?.feedbacks) ? payload.feedbacks : [];
+  return raw.map((item: any) => ({
+    id: String(item.id || item.uid || ""),
+    orderId: String(item.orderUid || item.orderId || ""),
+    orderNumber: String(item.orderNumber || ""),
+    customerName: String(item.consumerName || item.customerName || ""),
+    rating: Number(item.rating || 0),
+    comment: String(item.comment || ""),
+    status: item.status || "PENDING",
+    statusLabel: getReviewStatusLabel(item.status || "PENDING"),
+    createdDate: String(item.createdDate || ""),
+    raw: item,
+  }));
+}
+
+function getReviewStatusLabel(status: string): string {
+  const normalized = String(status).toUpperCase();
+  if (normalized === "PUBLISHED") return "Published";
+  if (normalized === "REJECTED") return "Rejected";
+  return "Pending";
 }

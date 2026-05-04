@@ -4,7 +4,14 @@ import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useOrdersItemsPage } from "../queries/orders";
-import { buildOrdersItemCreateHref, buildOrdersItemDetailHref } from "../services/orders";
+import {
+  buildOrdersItemCreateHref,
+  buildOrdersItemDetailHref,
+  resolveInternalReturnToHref,
+  resolveReturnToLabel,
+  getCurrentReturnTo,
+  appendReturnTo,
+} from "../services/orders";
 import type { OrdersItemRow, OrdersItemSettingsOption } from "../types";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -436,44 +443,6 @@ function getItemStatusVariant(status: string): "success" | "warning" | "danger" 
   return "neutral";
 }
 
-function resolveInternalReturnToHref(returnTo: string) {
-  const raw = String(returnTo ?? "").trim();
-  if (!raw || raw === "#") return "";
-
-  try {
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-    const url = new URL(raw, origin);
-    if (url.origin !== origin) return "";
-
-    const href = `${url.pathname}${url.search}${url.hash}`;
-    if (typeof window !== "undefined") {
-      const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      if (href === currentHref) return "";
-    }
-
-    return href;
-  } catch {
-    return "";
-  }
-}
-
-function getCurrentReturnTo() {
-  if (typeof window === "undefined") return "";
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-function appendReturnTo(href: string, returnTo: string) {
-  try {
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-    const url = new URL(href, origin);
-    url.searchParams.set("returnTo", returnTo);
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    const separator = href.includes("?") ? "&" : "?";
-    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`;
-  }
-}
-
 function FilterIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
@@ -490,41 +459,4 @@ function toAutomationId(value: string) {
     .replace(/^-+|-+$/g, "") || "unknown";
 }
 
-/**
- * Derives a human-readable back-navigation label from a `returnTo` URL path.
- * Reads the meaningful path segments (after /karty/ or /orders/) and maps them
- * to a display name. Falls back to "Back" for unrecognised paths.
- */
-function resolveReturnToLabel(returnTo: string): string {
-  if (!returnTo) return "Back";
-  try {
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-    const url = new URL(returnTo, origin);
-    const segments = url.pathname.split("/").filter(Boolean).map((s) => s.toLowerCase());
 
-    const labelMap: Record<string, string> = {
-      dashboard: "Dashboard",
-      overview: "Dashboard",
-      invoices: "Invoices",
-      invoice: "Invoice",
-      orders: "Orders",
-      inventory: "Inventory",
-      catalog: "Catalog",
-      catalogs: "Catalogs",
-      reports: "Reports",
-      settings: "Settings",
-      "invoice-types": "Invoice Types",
-      "rx-requests-grid": "Requests",
-      "orders-grid": "Orders",
-    };
-
-    // Walk segments from most specific to least to find a match
-    for (let i = segments.length - 1; i >= 0; i--) {
-      const seg = segments[i];
-      if (labelMap[seg]) return labelMap[seg];
-    }
-  } catch {
-    // ignore
-  }
-  return "Back";
-}

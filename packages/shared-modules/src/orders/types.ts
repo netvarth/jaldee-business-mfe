@@ -14,7 +14,8 @@ export type OrdersViewKey =
   | "items"
   | "catalogs"
   | "inventory"
-  | "settings";
+  | "settings"
+  | "reviews";
 
 export type OrdersAction = {
   label: string;
@@ -277,7 +278,7 @@ export type OrdersDataset = {
   catalogs: OrdersCatalogRow[];
   inventory: OrdersInventoryRow[];
   highlights: string[];
-  defaultDashboardView: "orders" | "rxRequests";
+  defaultDashboardView: "orders" | "rxRequests" | "reviews";
   canShowRequests: boolean;
   adminAnalytics: {
     todaySalesAmount: number;
@@ -449,4 +450,17 @@ export type DealerRow = {
   phone: string;
   status: string;
   createdOn: string;
+};
+
+export type OrdersReviewRow = {
+  id: string;
+  orderId: string;
+  orderNumber?: string;
+  customerName: string;
+  rating: number;
+  comment: string;
+  status: "PENDING" | "PUBLISHED" | "REJECTED" | string;
+  statusLabel: string;
+  createdDate: string;
+  raw?: unknown;
 };

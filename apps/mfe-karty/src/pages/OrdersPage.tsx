@@ -8,16 +8,19 @@ import { OrdersModule, SharedModulesProvider } from "@jaldee/shared-modules";
 function resolveKartyOrdersView(pathname: string, paramView?: string | null) {
   const pathSegments = pathname.split("/").filter(Boolean);
   const ordersIndex = pathSegments.indexOf("orders");
+  const orderIndex = pathSegments.indexOf("order");
   const inventoryIndex = pathSegments.indexOf("inventory");
   const catalogIndex = pathSegments.indexOf("catalog");
 
+  const actualOrdersIndex = ordersIndex >= 0 ? ordersIndex : orderIndex;
+
   const section =
-    ordersIndex >= 0 ? "orders" : inventoryIndex >= 0 ? "inventory" : catalogIndex >= 0 ? "catalog" : "orders";
+    actualOrdersIndex >= 0 ? "orders" : inventoryIndex >= 0 ? "inventory" : catalogIndex >= 0 ? "catalog" : "orders";
 
   // The segment immediately after the section keyword (e.g. "items", "details", "dashboard")
   const subsection =
-    section === "orders" && ordersIndex >= 0
-      ? pathSegments[ordersIndex + 1] ?? null
+    actualOrdersIndex >= 0
+      ? pathSegments[actualOrdersIndex + 1] ?? null
       : section === "inventory" && inventoryIndex >= 0
         ? pathSegments[inventoryIndex + 1] ?? null
         : section === "catalog" && catalogIndex >= 0
@@ -32,11 +35,11 @@ function resolveKartyOrdersView(pathname: string, paramView?: string | null) {
     return "catalogs";
   }
 
-  if (section === "orders" && (subsection === "details" || paramView === "details")) {
+  if (actualOrdersIndex >= 0 && (subsection === "details" || paramView === "details")) {
     return "details";
   }
 
-  if (section === "orders" && (subsection === "dashboard" || paramView === "dashboard")) {
+  if (actualOrdersIndex >= 0 && (subsection === "dashboard" || paramView === "dashboard")) {
     return "dashboard";
   }
 
@@ -68,7 +71,10 @@ export default function OrdersPage() {
   const view = resolveKartyOrdersView(location.pathname, params.view ?? null);
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const ordersIndex = pathSegments.indexOf("orders");
-  const isOrdersSection = ordersIndex >= 0;
+  const orderIndex = pathSegments.indexOf("order");
+  const actualOrdersIndex = ordersIndex >= 0 ? ordersIndex : orderIndex;
+  const isOrdersSection = actualOrdersIndex >= 0;
+  const moduleSegment = isOrdersSection ? pathSegments[actualOrdersIndex] : "orders";
 
   // Derive subview and recordId from path segments for reliability across route patterns.
   // For /karty/orders/items/create     → itemsIndex=2, subview="create",   recordId=null
@@ -79,7 +85,7 @@ export default function OrdersPage() {
   let resolvedRecordId: string | null = null;
 
   if (isOrdersSection) {
-    const afterOrders = pathSegments.slice(ordersIndex + 1); // e.g. ["items","create"] or ["details","abc"]
+    const afterOrders = pathSegments.slice(actualOrdersIndex + 1); // e.g. ["items","create"] or ["details","abc"]
     const viewSegment = afterOrders[0] ?? null;              // "items" | "details" | "dashboard" …
 
     if (view === "details") {
@@ -97,6 +103,7 @@ export default function OrdersPage() {
     product: "karty" as const,
     apiScope: "location" as const,
     basePath: mfeProps.basePath,
+    moduleBasePath: `${mfeProps.basePath}/${moduleSegment}`,
     navigate: (to: string) => routerNavigate(to),
     user: mfeProps.user,
     account: normalizeAccountContext(mfeProps.account),

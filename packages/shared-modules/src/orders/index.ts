@@ -25,6 +25,7 @@ export { OrdersItemCreate } from "./components/OrdersItemCreate";
 export { OrdersItemsList } from "./components/OrdersItemsList";
 export { OrdersList } from "./components/OrdersList";
 export { OrdersRequestsList } from "./components/OrdersRequestsList";
+export { OrdersReviewsList } from "./components/OrdersReviewsList";
 export { OrdersCatalogList } from "./components/OrdersCatalogList";
 export { OrdersInventoryList } from "./components/OrdersInventoryList";
 export { OrdersSettings } from "./components/OrdersSettings";
@@ -58,4 +59,8 @@ export {
   getDefaultOrdersCapabilities,
   getOrdersDashboardDataset,
   getOrdersStatusVariant,
+  resolveInternalReturnToHref,
+  resolveReturnToLabel,
+  getCurrentReturnTo,
+  appendReturnTo,
 } from "./services/orders";

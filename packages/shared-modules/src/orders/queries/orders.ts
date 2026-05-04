@@ -45,8 +45,39 @@ import {
   trackOrder,
   getDealers,
   getDealersCount,
+  getOrdersReviewsPage,
+  updateOrdersReviewStatus,
+  getOrdersInvoiceTypeDetail,
+  createOrdersInvoiceType,
+  updateOrdersInvoiceType,
 } from "../services/orders";
 import type { OrdersBillAdjustmentKind, OrdersBillAdjustmentOption } from "../types";
+
+export function useOrdersReviewsPage(page: number, pageSize: number, filters?: Record<string, any>) {
+  const { location, routeParams } = useSharedModulesContext();
+  const api = useApiScope();
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "reviews", routeParams?.view, page, pageSize, filters),
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getOrdersReviewsPage(api, { from: (page - 1) * pageSize, count: pageSize, ...filters }),
+  });
+}
+
+export function useUpdateOrdersReviewStatus() {
+  const { location, routeParams } = useSharedModulesContext();
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ reviewId, status }: { reviewId: string; status: "PUBLISHED" | "REJECTED" }) =>
+      updateOrdersReviewStatus(api, reviewId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: buildSharedQueryKey("orders", "location", location?.id, "reviews", routeParams?.view),
+      });
+    },
+  });
+}
 
 export function useOrdersDataset() {
   const { product, location, basePath, routeParams, user } = useSharedModulesContext();
@@ -742,5 +773,38 @@ export function useOrdersDealersCount(filters?: Record<string, any>) {
   return useQuery({
     queryKey: buildSharedQueryKey("orders", "location", location?.id, "dealers-count", routeParams?.view, filters),
     queryFn: () => getDealersCount(api, filters),
+  });
+}
+
+export function useOrdersInvoiceTypeDetail(uid: string | null) {
+  const api = useApiScope();
+  return useQuery({
+    queryKey: ["orders", "invoice-type", uid],
+    queryFn: () => getOrdersInvoiceTypeDetail(api, uid!),
+    enabled: Boolean(uid),
+  });
+}
+
+export function useCreateOrdersInvoiceType() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => createOrdersInvoiceType(api, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders", "location"] });
+    },
+  });
+}
+
+export function useUpdateOrdersInvoiceType() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uid, payload }: { uid: string; payload: Record<string, unknown> }) =>
+      updateOrdersInvoiceType(api, uid, payload),
+    onSuccess: (_, { uid }) => {
+      queryClient.invalidateQueries({ queryKey: ["orders", "location"] });
+      queryClient.invalidateQueries({ queryKey: ["orders", "invoice-type", uid] });
+    },
   });
 }
