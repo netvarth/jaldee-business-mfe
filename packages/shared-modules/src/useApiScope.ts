@@ -37,6 +37,7 @@ export function useApiScope() {
       post: <T>(path: string, data?: unknown, config?: unknown) =>
         api.post<T>(buildScopedUrl(path, apiScope, locationId), data, config),
       put: <T>(path: string, data?: unknown, config?: unknown) => api.put<T>(normalizePath(path), data, config),
+      patch: <T>(path: string, data?: unknown, config?: unknown) => api.patch<T>(normalizePath(path), data, config),
       delete: <T>(path: string, config?: unknown) => api.delete<T>(normalizePath(path), config),
     };
   }, [api, apiScope, location]);

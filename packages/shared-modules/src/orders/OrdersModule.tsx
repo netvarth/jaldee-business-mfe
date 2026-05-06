@@ -12,6 +12,7 @@ import { OrdersInvoicesList } from "./components/OrdersInvoicesList";
 import { OrdersInventoryList } from "./components/OrdersInventoryList";
 import { OrdersItemCreate } from "./components/OrdersItemCreate";
 import { OrdersItemDetails } from "./components/OrdersItemDetails";
+import { OrdersItemVariantsPage } from "./components/OrdersItemVariantsPage";
 import { OrdersItemsList } from "./components/OrdersItemsList";
 import { OrderDetails } from "./components/OrderDetails";
 import { OrdersList } from "./components/OrdersList";
@@ -78,6 +79,9 @@ export function OrdersModule() {
   }
 
   if (view === "inventory") {
+    if (subview) {
+      return <OrdersItemVariantsPage />;
+    }
     return <OrdersInventoryList />;
   }
 

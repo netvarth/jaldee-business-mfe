@@ -51,6 +51,18 @@ const DEFAULT_TABLE_PAGE_SIZE = 10;
 const DASHBOARD_ACTIONS_FOCUS_ID = "orders-dashboard-actions";
 const DASHBOARD_TABLE_FOCUS_ID = "orders-dashboard-table";
 
+const itemVariantOptions = [
+  { key: "categories", label: "Categories", icon: "layers" },
+  { key: "groups", label: "Groups", icon: "box" },
+  { key: "tags", label: "Tags", icon: "tag" },
+  { key: "types", label: "Types", icon: "list" },
+  { key: "manufacturers", label: "Manufacturers", icon: "database" },
+  { key: "units", label: "Units", icon: "chart" },
+  { key: "compositions", label: "Compositions", icon: "layers" },
+  { key: "hsn-codes", label: "HSN Codes", icon: "box" },
+  { key: "remarks", label: "Remarks", icon: "history" },
+] as const;
+
 export function OrdersDashboard() {
   const { data, error, isError, isLoading } = useOrdersDataset();
    const { product, basePath, moduleBasePath } = useSharedModulesContext();
@@ -68,9 +80,22 @@ export function OrdersDashboard() {
     resetDeps: [resolvedView, normalizedQuery, statusFilter],
   });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [itemVariantDialogOpen, setItemVariantDialogOpen] = useState(false);
   const [selectedActionKeys, setSelectedActionKeys] = useState<string[]>([]);
   const [draftSelectedActionKeys, setDraftSelectedActionKeys] = useState<string[]>([]);
   const focusedHashRef = useRef("");
+  const itemVariantActionHref = useMemo(
+    () => buildOrdersModuleHref(moduleBasePath || basePath, product, "inventory"),
+    [basePath, moduleBasePath, product]
+  );
+  const itemVariantSelectionOptions = useMemo(
+    () =>
+      itemVariantOptions.map((item) => ({
+        ...item,
+        href: `${itemVariantActionHref}/${item.key}`,
+      })),
+    [itemVariantActionHref]
+  );
 
   const ordersPageQuery = useOrdersOrdersPage(tablePage, tablePageSize, {
     enabled: Boolean(data) && resolvedView === "orders",
@@ -353,6 +378,19 @@ export function OrdersDashboard() {
     setEditDialogOpen(false);
   }
 
+  function handleDashboardActionClick(action: { label: string; route: string; imageKey?: string }) {
+    if (action.imageKey === "item-variant") {
+      setItemVariantDialogOpen(true);
+      return;
+    }
+    navigate(resolveDashboardActionHref(action, basePath, product, moduleBasePath));
+  }
+
+  function handleItemVariantSelection(href: string) {
+    setItemVariantDialogOpen(false);
+    navigate(href);
+  }
+
   if (isLoading) {
     return (
       <SharedOrdersLayout title="Sales Order" subtitle="Streamlined sales tracking." showBack={false}>
@@ -424,7 +462,7 @@ export function OrdersDashboard() {
                   data-testid={actionId}
                   data-state={action.enabled === false ? "disabled" : "ready"}
                   type="button"
-                  onClick={() => navigate(resolveDashboardActionHref(action, basePath, product, moduleBasePath))}
+                  onClick={() => handleDashboardActionClick(action)}
                   className={`h-[102px] w-[144px] shrink-0 rounded-2xl border px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${actionAccentClassMap[action.accent]}`}
                 >
                   <div className="flex flex-col items-center gap-3 text-center">
@@ -700,6 +738,36 @@ export function OrdersDashboard() {
             Done
           </Button>
         </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={itemVariantDialogOpen}
+        onClose={() => setItemVariantDialogOpen(false)}
+        title="Choose Item Variant"
+        description=""
+        size="fullscreen"
+        contentClassName="h-auto max-h-[88vh] w-[min(96vw,1480px)] max-w-[96vw] overflow-y-auto rounded-2xl p-7 sm:p-8"
+        headerClassName="mb-6"
+        closeButtonClassName="text-slate-500 hover:bg-slate-100"
+        closeIcon="x"
+      >
+        <div className="flex flex-wrap gap-4">
+          {itemVariantSelectionOptions.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => handleItemVariantSelection(item.href)}
+              className="h-[102px] w-[144px] shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+            >
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 shadow-sm">
+                  <Icon name={item.icon} />
+                </div>
+                <div className="text-[15px] font-semibold leading-5 text-slate-900">{item.label}</div>
+              </div>
+            </button>
+          ))}
+        </div>
       </Dialog>
     </SharedOrdersLayout>
   );

@@ -83,6 +83,8 @@ export default function OrdersPage() {
   // For /karty/orders/details/id       → view="details", subview=null,     recordId="id"
   let resolvedSubview: string | null = null;
   let resolvedRecordId: string | null = null;
+  const inventoryIndex = pathSegments.indexOf("inventory");
+  const catalogIndex = pathSegments.indexOf("catalog");
 
   if (isOrdersSection) {
     const afterOrders = pathSegments.slice(actualOrdersIndex + 1); // e.g. ["items","create"] or ["details","abc"]
@@ -96,6 +98,10 @@ export default function OrdersPage() {
       resolvedSubview = params.subview ?? afterOrders[1] ?? null;
       resolvedRecordId = params.recordId ?? afterOrders[2] ?? null;
     }
+  } else if (inventoryIndex >= 0) {
+    resolvedSubview = params.view ?? pathSegments[inventoryIndex + 1] ?? null;
+  } else if (catalogIndex >= 0) {
+    resolvedSubview = params.view ?? pathSegments[catalogIndex + 1] ?? null;
   }
 
   const sharedModuleProps = {

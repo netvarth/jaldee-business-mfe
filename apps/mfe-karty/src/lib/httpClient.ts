@@ -24,6 +24,10 @@ export const httpClient = {
     return getHttpClient().put<T>(url, data, config);
   },
 
+  patch<T>(url: string, data?: unknown, config?: unknown) {
+    return getHttpClient().patch<T>(url, data, config);
+  },
+
   delete<T>(url: string, config?: unknown) {
     return getHttpClient().delete<T>(url, config);
   },

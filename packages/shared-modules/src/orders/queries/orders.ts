@@ -449,13 +449,13 @@ export function useOrdersItemDetail(itemId: string | null | undefined) {
   });
 }
 
-export function useOrdersItemFormSettings() {
+export function useOrdersItemFormSettings(options?: { enabled?: boolean }) {
   const { location, routeParams } = useSharedModulesContext();
   const scopedApi = useApiScope();
 
   return useQuery({
     queryKey: buildSharedQueryKey("orders", "location", location?.id, "item-form-settings", routeParams?.view),
-    enabled: Boolean(location?.id),
+    enabled: Boolean(location?.id) && (options?.enabled ?? true),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     queryFn: () => getOrdersItemFormSettings(scopedApi),
