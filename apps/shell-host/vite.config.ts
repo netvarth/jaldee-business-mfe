@@ -61,6 +61,29 @@ export default defineConfig(({ mode }) => {
           secure: true,
           rewrite: (path) => path.replace(/^\/api/, "/v1/rest"),
         },
+        "/superadmin-api": {
+          target: "https://sascale.jaldee.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/superadmin-api/, "/superadmin/rest/mgmt"),
+        },
+      },
+    },
+    preview: {
+      port: 3000,
+      proxy: {
+        "/api": {
+          target: "https://scale.jaldee.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/api/, "/v1/rest"),
+        },
+        "/superadmin-api": {
+          target: "https://sascale.jaldee.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/superadmin-api/, "/superadmin/rest/mgmt"),
+        },
       },
     },
   };

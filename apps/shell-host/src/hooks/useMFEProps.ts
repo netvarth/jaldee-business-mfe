@@ -5,6 +5,12 @@ import { apiClient } from "@jaldee/api-client";
 import { normalizeAccountContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
 
+declare global {
+  interface Window {
+    __JALDEE_SUPERADMIN_API_BASE_URL__?: string;
+  }
+}
+
 export function useBuildMFEProps(
   mfeName: string,
   basePath: string
@@ -21,6 +27,11 @@ export function useBuildMFEProps(
 
   if (!user || !account || !resolvedLocation) return null;
   const normalizedAccount = normalizeAccountContext(account);
+  const superadminBaseUrl = import.meta.env.VITE_SUPERADMIN_API_BASE_URL?.trim();
+
+  if (typeof window !== "undefined" && superadminBaseUrl) {
+    window.__JALDEE_SUPERADMIN_API_BASE_URL__ = superadminBaseUrl.replace(/\/$/, "");
+  }
 
   return {
     mfeName,

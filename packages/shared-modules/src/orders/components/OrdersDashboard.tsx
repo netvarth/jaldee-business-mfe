@@ -22,6 +22,7 @@ import { buildOrdersDetailHref, buildOrdersModuleHref, formatOrdersCurrency, get
 import { SharedOrdersLayout } from "./shared";
 import type { OrdersOrderRow, OrdersRequestRow, OrdersReviewRow } from "../types";
 import { OrdersReviewsList } from "./OrdersReviewsList";
+import { CreateOrderSetupDialog, persistCreateOrderSetup } from "./CreateOrderSetupDialog";
 
 type DashboardView = "orders" | "rxRequests" | "reviews";
 
@@ -81,6 +82,7 @@ export function OrdersDashboard() {
   });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [itemVariantDialogOpen, setItemVariantDialogOpen] = useState(false);
+  const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
   const [selectedActionKeys, setSelectedActionKeys] = useState<string[]>([]);
   const [draftSelectedActionKeys, setDraftSelectedActionKeys] = useState<string[]>([]);
   const focusedHashRef = useRef("");
@@ -379,6 +381,10 @@ export function OrdersDashboard() {
   }
 
   function handleDashboardActionClick(action: { label: string; route: string; imageKey?: string }) {
+    if (action.label.trim().toLowerCase() === "create order") {
+      setCreateOrderDialogOpen(true);
+      return;
+    }
     if (action.imageKey === "item-variant") {
       setItemVariantDialogOpen(true);
       return;
@@ -443,7 +449,7 @@ export function OrdersDashboard() {
           type="button"
           variant="primary"
           size="sm"
-          onClick={() => navigate(visibleActions[0] ? resolveDashboardActionHref(visibleActions[0], basePath, product, moduleBasePath) : "#")}
+          onClick={() => setCreateOrderDialogOpen(true)}
         >
           Create Order
         </Button>
@@ -556,6 +562,16 @@ export function OrdersDashboard() {
           </div>
         </div>
       </SectionCard>
+
+      <CreateOrderSetupDialog
+        open={createOrderDialogOpen}
+        onClose={() => setCreateOrderDialogOpen(false)}
+        onSubmit={(data) => {
+          persistCreateOrderSetup(data);
+          setCreateOrderDialogOpen(false);
+          navigate(buildOrdersModuleHref(moduleBasePath || basePath, product, "create"));
+        }}
+      />
 
       <SectionCard
         title="Analytics"
