@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { PageErrorBoundary } from "@jaldee/design-system";
-import OverviewPage from "./pages/OverviewPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import CustomersPage from "./pages/CustomersPage";
 import StoresPage from "./pages/StoresPage";
@@ -15,8 +14,20 @@ export default function App() {
         element={<Navigate to="orders/dashboard" replace />}
       />
       <Route
+        path="orders/sales-returns"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
         path="orders"
-        element={<Navigate to="orders-grid" replace />}
+        element={<Navigate to="/orders/orders-grid" replace />}
+      />
+      <Route
+        path="orders-grid"
+        element={<Navigate to="/orders/orders-grid" replace />}
       />
       <Route
         path="orders/active-cart"
@@ -228,6 +239,54 @@ export default function App() {
       />
       <Route
         path="reports"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="users"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="finance"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="tasks"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="membership"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="leads"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="audit-log"
         element={
           <PageErrorBoundary>
             <PlaceholderPage />

@@ -5,7 +5,6 @@ import {
   Badge,
   Button,
   DataTable,
-  DataTableToolbar,
   Dialog,
   DialogFooter,
   EmptyState,
@@ -234,25 +233,71 @@ export default function GrnPage() {
 
   const columns = useMemo<ColumnDef<GrnRow>[]>(
     () => [
-      { key: "grnNumber", header: "GRN Number", render: (row) => <span className="font-mono text-xs font-semibold text-[var(--color-primary)]">{row.grnNumber}</span> },
-      { key: "poNumber", header: "PO Number", render: (row) => row.poNumber || "-" },
-      { key: "supplierName", header: "Supplier", render: (row) => <span className="font-medium">{row.supplierName || "-"}</span> },
-      { key: "receivedDate", header: "Received Date", render: (row) => formatDate(row.receivedDate) },
-      { key: "totalPieces", header: "Pieces", align: "right", render: (row) => <span className="tabular-nums">{row.totalPieces || 0}</span> },
-      { key: "status", header: "Status", render: (row) => <Badge variant={getBadgeVariant(row.status)}>{row.status}</Badge> },
+      {
+        key: "grnNumber",
+        header: "GRN Number",
+        sortable: true,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
+        render: (row) => <span className="font-mono text-xs font-semibold text-[var(--color-primary)]">{row.grnNumber}</span>,
+      },
+      {
+        key: "poNumber",
+        header: "PO Number",
+        sortable: true,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
+        render: (row) => <span className="font-mono text-xs text-[var(--color-text-secondary)]">{row.poNumber || "-"}</span>,
+      },
+      {
+        key: "supplierName",
+        header: "Supplier",
+        sortable: true,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
+        render: (row) => <span className="font-medium">{row.supplierName || "-"}</span>,
+      },
+      {
+        key: "receivedDate",
+        header: "Received Date",
+        sortable: true,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
+        render: (row) => formatDate(row.receivedDate),
+      },
+      {
+        key: "totalPieces",
+        header: "Pieces",
+        align: "right",
+        sortable: true,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
+        render: (row) => <span className="tabular-nums">{row.totalPieces || 0}</span>,
+      },
+      {
+        key: "status",
+        header: "Status",
+        sortable: true,
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
+        render: (row) => <Badge variant={getBadgeVariant(row.status)}>{row.status}</Badge>,
+      },
       {
         key: "actions",
         header: "Actions",
         align: "right",
+        headerClassName: "text-sm font-semibold text-slate-900",
+        className: "py-5",
         render: (row) => (
           <div className="flex justify-end gap-2">
+            <Button variant={row.status === "DRAFT" ? "primary" : "ghost"} size="sm" onClick={() => void openGrnDetails(row)}>
+              {row.status === "DRAFT" ? "Confirm" : "View"}
+            </Button>
             {row.poUid ? (
-              <Button variant="outline" size="sm" onClick={() => navigate(`/purchases/${row.poUid}`, { state: { returnTo: "/grn" } })}>Open PO</Button>
-            ) : (
-              <Button variant={row.status === "DRAFT" ? "primary" : "outline"} size="sm" onClick={() => void openGrnDetails(row)}>
-                {row.status === "DRAFT" ? "Confirm" : "View"}
+              <Button variant="outline" size="sm" onClick={() => navigate(`/purchases/${row.poUid}`, { state: { returnTo: "/grn" } })}>
+                Open PO
               </Button>
-            )}
+            ) : null}
           </div>
         ),
       },
@@ -273,31 +318,61 @@ export default function GrnPage() {
           <StatCard layout="compact" accent="amber" icon={<Icon name="refresh" />} label="PO Linked GRNs" value={stats.linkedPoCount} />
         </div>
 
-        <SectionCard>
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <DataTableToolbar query={searchQuery} onQueryChange={(value) => { setSearchQuery(value); setPage(1); }} searchPlaceholder="Search by PO, supplier, or tokens like po:, supplier:, from:, to:" recordCount={totalCount} />
-              <div className="w-full md:max-w-[220px]">
+        <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+          <div className="border-b border-slate-200 px-4 py-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1">
+                <div className="text-2xl font-semibold text-slate-900">GRNs ({isCountLoading ? "..." : totalCount})</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_220px_auto]">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Search by PO or supplier"
+                    className="h-[38px] w-full rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] pl-10 pr-4 text-[length:var(--text-sm)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:outline-none focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
+                  />
+                </div>
                 <Select
-                  label="Status"
                   value={statusFilter}
                   onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
-                  options={[{ label: "All", value: "all" }, { label: "Draft", value: "DRAFT" }, { label: "Confirmed", value: "CONFIRMED" }]}
+                  options={[{ label: "All Status", value: "all" }, { label: "Draft", value: "DRAFT" }, { label: "Confirmed", value: "CONFIRMED" }]}
                 />
+                <Button type="button" variant="ghost" size="sm" className="h-[38px] w-[38px] min-w-[38px] px-0 text-indigo-700">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+                    <path d="M2.25 3.75A.75.75 0 0 1 3 3h12a.75.75 0 0 1 .58 1.226L11.25 9.52v4.23a.75.75 0 0 1-.44.682l-3 1.385A.75.75 0 0 1 6.75 15V9.52L2.42 4.226A.75.75 0 0 1 2.25 3.75Z" />
+                  </svg>
+                </Button>
               </div>
             </div>
+          </div>
 
-            <div className="text-xs text-[var(--color-text-secondary)]">Showing {grns.length ? from + 1 : 0}-{Math.min(from + grns.length, totalCount)} of {isCountLoading ? "..." : totalCount}</div>
-
-            <DataTable data={grns} columns={columns} getRowId={(row) => row.id} loading={isLoading} emptyState={<EmptyState title="No GRNs found" description="Adjust the current filters or create a new GRN to start the inward workflow." />} className="border-0 shadow-none" />
-
-            {totalCount > PAGE_SIZE ? (
-              <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
-                <Button variant="outline" size="sm" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</Button>
-                <span className="text-sm text-[var(--color-text-secondary)]">Page {currentPage} of {totalPages}</span>
-                <Button variant="outline" size="sm" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= totalPages}>Next</Button>
-              </div>
-            ) : null}
+          <div>
+            <DataTable
+              data={grns}
+              columns={columns}
+              getRowId={(row) => row.id}
+              loading={isLoading}
+              emptyState={<EmptyState title="No GRNs found" description="Adjust the current filters or create a new GRN to start the inward workflow." />}
+              pagination={{
+                page: currentPage,
+                pageSize: PAGE_SIZE,
+                total: isCountLoading ? grns.length : totalCount,
+                mode: "server",
+                onChange: setPage,
+              }}
+              className="rounded-none border-0 bg-transparent shadow-none"
+              tableClassName="min-w-[980px] text-base"
+            />
           </div>
         </SectionCard>
 

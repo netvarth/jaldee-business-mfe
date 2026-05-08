@@ -7,7 +7,6 @@ import {
   DataTable,
   DataTableToolbar,
   Dialog,
-  DialogFooter,
   Drawer,
   EmptyState,
   Icon,
@@ -72,7 +71,6 @@ export default function SalesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<SalesRow | null>(null);
-  const [printOrder, setPrintOrder] = useState<SalesRow | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   useEffect(() => {
@@ -169,8 +167,8 @@ export default function SalesPage() {
         render: (row) => (
           <div className="flex justify-end gap-2">
             {row.status === "INVOICED" ? (
-              <Button variant="ghost" size="sm" onClick={() => setPrintOrder(row)}>
-                Print
+              <Button variant="ghost" size="sm" onClick={() => navigate(`${row.id}/invoice`, { relative: "path" })}>
+                Invoice
               </Button>
             ) : null}
             <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(row)}>
@@ -202,8 +200,11 @@ export default function SalesPage() {
         />
 
         <ExportDialog open={isExportOpen} onClose={() => setIsExportOpen(false)} rows={exportRows} />
-        <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} onPrint={setPrintOrder} />
-        <InvoiceDialog order={printOrder} onClose={() => setPrintOrder(null)} />
+        <OrderDetailDrawer
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onOpenInvoice={(order) => navigate(`${order.id}/invoice`, { relative: "path" })}
+        />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <StatCard layout="compact" accent="indigo" icon={<Icon name="cart" />} label="Today's Orders" value={stats.todayCount} />
@@ -296,11 +297,11 @@ function ExportDialog({
 function OrderDetailDrawer({
   order,
   onClose,
-  onPrint,
+  onOpenInvoice,
 }: {
   order: SalesRow | null;
   onClose: () => void;
-  onPrint: (order: SalesRow) => void;
+  onOpenInvoice: (order: SalesRow) => void;
 }) {
   if (!order) return null;
 
@@ -346,61 +347,14 @@ function OrderDetailDrawer({
 
         <div className="flex justify-end gap-2">
           {order.status === "INVOICED" ? (
-            <Button variant="outline" onClick={() => onPrint(order)}>
-              Print Invoice
+            <Button variant="outline" onClick={() => onOpenInvoice(order)}>
+              Open Invoice
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onClose}>Close</Button>
         </div>
       </div>
     </Drawer>
-  );
-}
-
-function InvoiceDialog({
-  order,
-  onClose,
-}: {
-  order: SalesRow | null;
-  onClose: () => void;
-}) {
-  if (!order) return null;
-
-  function printInvoice() {
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) return;
-
-    win.document.write(`
-      <html>
-        <head><title>Invoice ${order.orderNumber}</title></head>
-        <body style="font-family: Arial, sans-serif; padding: 24px;">
-          <h2>Invoice ${order.orderNumber}</h2>
-          <p><strong>Customer:</strong> ${order.customerName}</p>
-          <p><strong>Date:</strong> ${formatDate(order.orderDate)}</p>
-          <p><strong>Total:</strong> ${formatCurrency(order.totalAmount)}</p>
-          <p><strong>Balance Due:</strong> ${formatCurrency(order.balanceDue)}</p>
-        </body>
-      </html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
-    onClose();
-  }
-
-  return (
-    <Dialog open={Boolean(order)} onClose={onClose} title={`Print Invoice ${order.orderNumber}`} description="Preview the invoice summary and continue to browser print." size="sm">
-      <div className="space-y-2 text-sm">
-        <Field label="Customer" value={order.customerName} />
-        <Field label="Date" value={formatDate(order.orderDate)} />
-        <Field label="Total" value={formatCurrency(order.totalAmount)} />
-        <Field label="Amount Due" value={formatCurrency(order.balanceDue)} />
-      </div>
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={printInvoice}>Print</Button>
-      </DialogFooter>
-    </Dialog>
   );
 }
 

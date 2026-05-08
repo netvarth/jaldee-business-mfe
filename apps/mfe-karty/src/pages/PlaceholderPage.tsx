@@ -1,17 +1,29 @@
 import { EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 
 const sectionLabels: Record<string, string> = {
   orders: "Orders",
+  "sales-returns": "Sales Returns",
   inventory: "Inventory",
-  catalog: "Catalog",
+  catalog: "Items/Products",
+  stores: "Stores",
+  customers: "Customers",
+  users: "Users",
+  finance: "Finance",
   reports: "Reports",
+  drive: "Drive",
+  tasks: "Tasks",
+  membership: "Membership",
+  leads: "Leads",
+  "audit-log": "Audit Log",
   settings: "Settings",
 };
 
 export default function PlaceholderPage() {
+  const location = useLocation();
   const { section = "" } = useParams();
-  const title = sectionLabels[section] ?? "Section";
+  const pathSection = location.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  const title = sectionLabels[section] ?? sectionLabels[pathSection] ?? "Section";
 
   return (
     <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">

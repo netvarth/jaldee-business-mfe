@@ -13,6 +13,7 @@ import OldGoldPage from "./pages/OldGoldPage";
 import PurchasePage from "./pages/PurchasePage";
 import PurchaseWorkspacePage from "./pages/PurchaseWorkspacePage";
 import ReportsPage from "./pages/ReportsPage";
+import SalesInvoicePage from "./pages/SalesInvoicePage";
 import SalesPage from "./pages/SalesPage";
 import SalesOrderCreatePage from "./pages/SalesOrderCreatePage";
 import TagsPage from "./pages/TagsPage";
@@ -83,6 +84,14 @@ export default function App() {
         element={
           <PageErrorBoundary>
             <SalesPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="sales/:orderUid/invoice"
+        element={
+          <PageErrorBoundary>
+            <SalesInvoicePage />
           </PageErrorBoundary>
         }
       />

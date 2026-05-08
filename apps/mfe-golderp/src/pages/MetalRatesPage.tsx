@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Button,
+  DataTable,
   Dialog,
   DialogFooter,
   EmptyState,
@@ -10,6 +11,7 @@ import {
   PageHeader,
   SectionCard,
   Select,
+  type ColumnDef,
 } from "@jaldee/design-system";
 import { masterDataService, rateService } from "@/services";
 import { formatCurrency, formatDateTime, toApiDateTime } from "@/lib/gold-erp-utils";
@@ -26,6 +28,21 @@ type UpdateState = {
   ratePerGram: string;
   effectiveDate: string;
   status: EntityStatus;
+};
+
+type CurrentRateRow = {
+  id: string;
+  purityLabel: string;
+  ratePerGram: number | null;
+  effectiveFrom?: string;
+  status?: string;
+};
+
+type HistoryRateRow = {
+  id: string;
+  ratePerGram: number;
+  effectiveFrom?: string;
+  status?: string;
 };
 
 function normalizeMetal(metal: Metal): Metal {
@@ -160,6 +177,77 @@ export default function MetalRatesPage() {
     [purities, updateState.metalUid],
   );
 
+  const currentRateColumns = useMemo<ColumnDef<CurrentRateRow>[]>(
+    () => [
+      {
+        key: "purityLabel",
+        header: "Purity",
+        sortable: true,
+        render: (row) => <span className="font-medium">{row.purityLabel}</span>,
+      },
+      {
+        key: "ratePerGram",
+        header: "Rate / Gram",
+        align: "right",
+        sortable: true,
+        render: (row) => (
+          <span className="font-semibold tabular-nums">
+            {row.ratePerGram !== null ? `${formatCurrency(row.ratePerGram)}/g` : "Not set"}
+          </span>
+        ),
+      },
+      {
+        key: "effectiveFrom",
+        header: "Effective From",
+        sortable: true,
+        render: (row) => (
+          <span className="text-[var(--color-text-secondary)]">
+            {row.effectiveFrom ? formatDateTime(row.effectiveFrom) : "Not set"}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) =>
+          row.status ? (
+            <Badge variant={getBadgeVariant(row.status)}>{row.status}</Badge>
+          ) : (
+            <span className="text-sm text-[var(--color-text-secondary)]">Not set</span>
+          ),
+      },
+    ],
+    [],
+  );
+
+  const historyColumns = useMemo<ColumnDef<HistoryRateRow>[]>(
+    () => [
+      {
+        key: "ratePerGram",
+        header: "Rate / Gram",
+        align: "right",
+        sortable: true,
+        render: (row) => <span className="font-semibold tabular-nums">{formatCurrency(row.ratePerGram)}/g</span>,
+      },
+      {
+        key: "effectiveFrom",
+        header: "Effective From",
+        sortable: true,
+        render: (row) => (
+          <span className="text-[var(--color-text-secondary)]">
+            {formatDateTime(row.effectiveFrom)}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => <Badge variant={getBadgeVariant(row.status || "ACTIVE")}>{row.status || "ACTIVE"}</Badge>,
+      },
+    ],
+    [],
+  );
+
   useEffect(() => {
     if (!isHistoryOpen || !historyState.metalUid || !historyState.purityUid) {
       setHistoryRows([]);
@@ -263,34 +351,19 @@ export default function MetalRatesPage() {
                     description="Create active purity master records for this metal before managing rates."
                   />
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
-                          <th className="px-4 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)]">Purity</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-[var(--color-text-secondary)]">Rate / Gram</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)]">Effective From</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)]">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {purityRows.map(({ purity, rate }) => (
-                          <tr key={rate?.rateUid || `${metal.metalUid}-${purity.purityUid}`} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_24%,white)]">
-                            <td className="px-4 py-2 font-medium text-[var(--color-text-primary)]">{purity.label || purity.purityCode || "-"}</td>
-                            <td className="px-4 py-2 text-right font-semibold tabular-nums text-[var(--color-text-primary)]">
-                              {rate ? `${formatCurrency(rate.ratePerGram)}/g` : "Not set"}
-                            </td>
-                            <td className="px-4 py-2 text-[var(--color-text-secondary)]">
-                              {rate ? formatDateTime(rate.effectiveFrom || rate.effectiveDate) : "Not set"}
-                            </td>
-                            <td className="px-4 py-2">
-                              {rate ? <Badge variant={getBadgeVariant(rate.status || "ACTIVE")}>{rate.status || "ACTIVE"}</Badge> : <span className="text-sm text-[var(--color-text-secondary)]">Not set</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DataTable
+                    data={purityRows.map(({ purity, rate }) => ({
+                      id: rate?.rateUid || `${metal.metalUid}-${purity.purityUid}`,
+                      purityLabel: purity.label || purity.purityCode || "-",
+                      ratePerGram: rate ? rate.ratePerGram : null,
+                      effectiveFrom: rate?.effectiveFrom || rate?.effectiveDate,
+                      status: rate?.status || (rate ? "ACTIVE" : undefined),
+                    }))}
+                    columns={currentRateColumns}
+                    getRowId={(row) => row.id}
+                    emptyState={<EmptyState title={`No rates found for ${metal.name}`} description="Update rates to start tracking this metal." />}
+                    className="border-0 shadow-none"
+                  />
                 )}
               </SectionCard>
             ))}
@@ -396,26 +469,19 @@ export default function MetalRatesPage() {
             ) : historyRows.length === 0 ? (
               <EmptyState title="No rate history found" description="No saved rate history exists for this metal and purity combination." />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)]">Rate / Gram</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)]">Effective From</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)]">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyRows.map((row) => (
-                      <tr key={row.rateUid} className="border-b border-[var(--color-border)] last:border-0">
-                        <td className="px-4 py-2 font-semibold tabular-nums text-[var(--color-text-primary)]">{formatCurrency(row.ratePerGram)}/g</td>
-                        <td className="px-4 py-2 text-[var(--color-text-secondary)]">{formatDateTime(row.effectiveFrom || row.effectiveDate)}</td>
-                        <td className="px-4 py-2"><Badge variant={getBadgeVariant(row.status || "ACTIVE")}>{row.status || "ACTIVE"}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                data={historyRows.map((row) => ({
+                  id: row.rateUid,
+                  ratePerGram: row.ratePerGram,
+                  effectiveFrom: row.effectiveFrom || row.effectiveDate,
+                  status: row.status || "ACTIVE",
+                }))}
+                columns={historyColumns}
+                getRowId={(row) => row.id}
+                loading={isHistoryLoading}
+                emptyState={<EmptyState title="No rate history found" description="No saved rate history exists for this metal and purity combination." />}
+                className="border-0 shadow-none"
+              />
             )}
           </div>
           <DialogFooter>
