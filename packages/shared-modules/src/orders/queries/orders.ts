@@ -67,6 +67,7 @@ import {
   getOrdersInvoiceTypeDetail,
   createOrdersInvoiceType,
   updateOrdersInvoiceType,
+  getInventoryAuditLogsPage,
 } from "../services/orders";
 import type { OrdersBillAdjustmentKind, OrdersBillAdjustmentOption } from "../types";
 import type { InventoryAdjustmentDetailItem } from "../types";
@@ -1075,5 +1076,18 @@ export function useUpdateOrdersInvoiceType() {
       queryClient.invalidateQueries({ queryKey: ["orders", "location"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "invoice-type", uid] });
     },
+  });
+}
+
+export function useInventoryAuditLogsPage(page: number, pageSize: number) {
+  const { location } = useSharedModulesContext();
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-auditlogs", page, pageSize),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventoryAuditLogsPage(api, { page, pageSize }),
   });
 }

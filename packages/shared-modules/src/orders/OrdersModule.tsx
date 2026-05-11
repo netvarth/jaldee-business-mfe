@@ -28,6 +28,7 @@ import { OrdersSectionPlaceholder } from "./components/shared";
 import { InventoryAdjustmentsPage } from "./components/InventoryAdjustmentsPage";
 import { InventoryCatalogsPage } from "./components/InventoryCatalogsPage";
 import { InventoryStocksPage } from "./components/InventoryStocksPage";
+import { InventoryAuditLogsPage } from "./components/InventoryAuditLogsPage";
 
 export function OrdersModule() {
   const access = useModuleAccess("orders");
@@ -92,6 +93,9 @@ export function OrdersModule() {
       }
       if (subview === "stocks") {
         return <InventoryStocksPage />;
+      }
+      if (subview === "auditlogs") {
+        return <InventoryAuditLogsPage />;
       }
       if (!isInventoryVariantSubview(subview)) {
         return (

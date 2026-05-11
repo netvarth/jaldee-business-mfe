@@ -5175,3 +5175,119 @@ function getReviewStatusLabel(status: string): string {
   if (normalized === "REJECTED") return "Rejected";
   return "Pending";
 }
+
+export async function getInventoryAuditLogsPage(
+  scopedApi: ScopedApi,
+  options: { page: number; pageSize: number }
+): Promise<{ rows: InventoryAuditLogRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const params = {
+    from,
+    count,
+  } satisfies ApiFilter;
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/log", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/log/count", { params }).then((response) => response.data),
+  ]);
+
+  const rows = mapInventoryAuditLogs(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+function mapInventoryAuditLogs(raw: unknown): InventoryAuditLogRow[] {
+  const unwrapList = (payload: any): any[] => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.content)) return payload.content;
+    if (Array.isArray(payload?.items)) return payload.items;
+    return [];
+  };
+
+  const titleCase = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    if (!text) return "-";
+
+    return text
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase()
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const formatDateTime = (value: unknown) => {
+    if (!value) return "-";
+    const rawText = String(value).trim();
+    if (!rawText) return "-";
+
+    const tryDate = (() => {
+      if (typeof value === "number") {
+        const ms = value > 10_000_000_000 ? value : value * 1000;
+        const d = new Date(ms);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      const numeric = Number(rawText);
+      if (Number.isFinite(numeric) && rawText.length >= 10) {
+        const ms = numeric > 10_000_000_000 ? numeric : numeric * 1000;
+        const d = new Date(ms);
+        if (!Number.isNaN(d.getTime())) return d;
+      }
+      const d = new Date(rawText);
+      return Number.isNaN(d.getTime()) ? null : d;
+    })();
+
+    if (!tryDate) {
+      return rawText;
+    }
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const day = pad(tryDate.getDate());
+    const month = pad(tryDate.getMonth() + 1);
+    const year = String(tryDate.getFullYear()).slice(-2);
+    let hours = tryDate.getHours();
+    const minutes = pad(tryDate.getMinutes());
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const strHours = pad(hours);
+
+    return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+  };
+
+  return unwrapList(raw).map((item: any, index: number) => {
+    const uid = String(item?.uid ?? item?.id ?? item?.auditUid ?? index);
+
+    const date = formatDateTime(
+      item?.dateTime ??
+        item?.date ??
+        item?.createdDate ??
+        item?.createdOn ??
+        item?.createdAt ??
+        item?.actionDate ??
+        item?.auditDate ??
+        item?.timestamp ??
+        item?.time
+    );
+
+    const action = titleCase(
+      item?.auditLogAction ?? item?.action ?? item?.auditContext ?? item?.event ?? item?.operation ?? item?.auditType ?? "-"
+    );
+    const type = titleCase(item?.type ?? item?.objectType ?? item?.entityType ?? item?.module ?? "-");
+    const description = String(item?.description ?? item?.message ?? item?.auditMessage ?? "-").trim() || "-";
+    const user = String(item?.user ?? item?.userName ?? item?.username ?? item?.createdBy ?? item?.userId ?? "-").trim() || "-";
+
+    return { uid, date, action, type, description, user, raw: item };
+  });
+}
+
+function dummy() {
+}

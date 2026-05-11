@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, Button, DataTable, Dialog, DialogFooter, EmptyState, Input, Popover, PopoverSection, SectionCard, Select, Switch } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Dialog, DialogFooter, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Switch } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
@@ -139,17 +139,19 @@ function InventoryCatalogList() {
   );
 
   return (
-    <div className="space-y-2">
-      <div className="flex min-h-[64px] items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <button type="button" onClick={() => navigate(`${basePath}/inventory`)} className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-semibold text-slate-900 hover:text-indigo-700">
-          <span className="text-2xl leading-none">&larr;</span>
-          Catalogs
-        </button>
-        <Button type="button" variant="primary" onClick={() => undefined}>
-          <span className="mr-1 text-xl leading-none">+</span>
-          Create
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Catalogs"
+        subtitle=""
+        back={{ label: "Inventory", href: `${basePath}/inventory` }}
+        onNavigate={navigate}
+        actions={
+          <Button type="button" variant="primary" onClick={() => undefined}>
+            <span className="mr-1 text-xl leading-none">+</span>
+            Create
+          </Button>
+        }
+      />
 
       <SectionCard className="rounded-none border-slate-200 shadow-sm" padding={false}>
         <div className="px-4 pb-4 pt-5">
@@ -338,23 +340,25 @@ function InventoryCatalogDetails({ encId }: { encId: string }) {
   );
 
   return (
-    <div className="space-y-2">
-      <div className="flex min-h-[64px] items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <button type="button" onClick={() => navigate(`${basePath}/inventory/catalogs`)} className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-semibold text-slate-900 hover:text-indigo-700">
-          <span className="text-2xl leading-none">&larr;</span>
-          Catalog Details
-        </button>
-        {catalog ? (
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate(`${basePath}/inventory/catalogs/update/${encodeURIComponent(catalog.encId)}?source=inventory-catalog-details`)}>
-              Edit
-            </Button>
-            <Button type="button" variant="primary" onClick={() => updateCatalogStatus.mutate({ encId: catalog.encId, status: catalog.active ? "Inactive" : "Active" })}>
-              {catalog.active ? "Disable" : "Enable"}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Catalog Details"
+        subtitle=""
+        back={{ label: "Catalogs", href: `${basePath}/inventory/catalogs` }}
+        onNavigate={navigate}
+        actions={
+          catalog ? (
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => navigate(`${basePath}/inventory/catalogs/update/${encodeURIComponent(catalog.encId)}?source=inventory-catalog-details`)}>
+                Edit
+              </Button>
+              <Button type="button" variant="primary" onClick={() => updateCatalogStatus.mutate({ encId: catalog.encId, status: catalog.active ? "Inactive" : "Active" })}>
+                {catalog.active ? "Disable" : "Enable"}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
 
       <SectionCard className="rounded-none border-slate-200 shadow-sm" padding={false}>
         <div className="px-4 py-5">
@@ -515,13 +519,13 @@ function InventoryCatalogUpdate({ encId }: { encId: string }) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex min-h-[64px] items-center border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <button type="button" onClick={() => navigate(`${basePath}/inventory/catalogs`)} className="flex items-center gap-2 border-0 bg-transparent p-0 text-2xl font-semibold text-slate-900 hover:text-indigo-700">
-          <span className="text-2xl leading-none">&larr;</span>
-          Update Catalog
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Update Catalog"
+        subtitle=""
+        back={{ label: "Catalogs", href: `${basePath}/inventory/catalogs` }}
+        onNavigate={navigate}
+      />
 
       <SectionCard className="rounded-none border-slate-200 shadow-sm">
         <form onSubmit={submit} className="max-w-[680px] space-y-4 pt-10">

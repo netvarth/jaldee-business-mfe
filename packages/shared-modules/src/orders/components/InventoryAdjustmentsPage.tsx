@@ -87,21 +87,19 @@ function InventoryAdjustmentsList({ basePath, onNavigate }: { basePath: string; 
   );
 
   return (
-    <div className="space-y-2">
-      <div className="flex min-h-[64px] items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <button
-          type="button"
-          onClick={() => onNavigate(backHref)}
-          className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-semibold text-slate-900 transition hover:text-indigo-700"
-        >
-          <span className="text-2xl leading-none">←</span>
-          Inventory Adjustments
-        </button>
-        <Button type="button" variant="primary" onClick={() => onNavigate(createHref)}>
-          <span className="mr-1 text-xl leading-none">+</span>
-          Create
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Adjustments"
+        subtitle=""
+        back={{ label: "Inventory", href: backHref }}
+        onNavigate={onNavigate}
+        actions={
+          <Button type="button" variant="primary" onClick={() => onNavigate(createHref)}>
+            <span className="mr-1 text-xl leading-none">+</span>
+            Create
+          </Button>
+        }
+      />
 
       <SectionCard className="rounded-none border-slate-200 shadow-sm" padding={false}>
         <div className="px-4 pb-5 pt-7">

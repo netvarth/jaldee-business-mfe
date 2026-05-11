@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge, Button, DataTable, Dialog, EmptyState, SectionCard, Select } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Dialog, EmptyState, PageHeader, SectionCard, Select } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
@@ -129,17 +129,13 @@ export function InventoryStocksPage() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex min-h-[64px] items-center border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <button
-          type="button"
-          onClick={() => navigate(`${basePath}/inventory`)}
-          className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-semibold text-slate-900 transition hover:text-indigo-700"
-        >
-          <span className="text-2xl leading-none">&larr;</span>
-          Stocks
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Stocks"
+        subtitle=""
+        back={{ label: "Inventory", href: `${basePath}/inventory` }}
+        onNavigate={navigate}
+      />
 
       <SectionCard className="rounded-none border-slate-200 shadow-sm" padding={false}>
         <div className="px-3 py-7 md:px-4">
