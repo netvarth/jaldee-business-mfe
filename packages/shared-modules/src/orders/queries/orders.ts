@@ -68,6 +68,7 @@ import {
   createOrdersInvoiceType,
   updateOrdersInvoiceType,
   getInventoryAuditLogsPage,
+  getInventorySummaryPage,
 } from "../services/orders";
 import type { OrdersBillAdjustmentKind, OrdersBillAdjustmentOption } from "../types";
 import type { InventoryAdjustmentDetailItem } from "../types";
@@ -1089,5 +1090,25 @@ export function useInventoryAuditLogsPage(page: number, pageSize: number) {
     staleTime: 30_000,
     placeholderData: (previousData) => previousData,
     queryFn: () => getInventoryAuditLogsPage(api, { page, pageSize }),
+  });
+}
+
+export function useInventorySummaryPage(
+  page: number,
+  pageSize: number,
+  summaryType: "OUTOFSTOCK" | "EXPIRED" | "EXPIRY_7_DAYS" | "EXPIRY_14_DAYS" | "EXPIRY_30_DAYS" | "DATE_RANGE",
+  storeEncId?: string,
+  fromDate?: string,
+  toDate?: string
+) {
+  const { location } = useSharedModulesContext();
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-summary", summaryType, storeEncId, fromDate, toDate, page, pageSize),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventorySummaryPage(api, { page, pageSize, summaryType, storeEncId, fromDate, toDate }),
   });
 }

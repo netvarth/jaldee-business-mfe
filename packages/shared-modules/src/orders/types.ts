@@ -431,6 +431,15 @@ export type InventoryAuditLogRow = {
   raw?: unknown;
 };
 
+export type InventorySummaryRow = {
+  id: string;
+  itemName: string;
+  storeName: string;
+  expiryDate?: string;
+  batch?: string;
+  raw?: unknown;
+};
+
 export type OrdersInvoiceDetail = {
   invoiceUid: string;
   invoiceNumber: string;

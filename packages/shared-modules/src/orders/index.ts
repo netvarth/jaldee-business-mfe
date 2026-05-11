@@ -16,6 +16,7 @@ export type {
   InventoryStockRow,
   InventoryStocksFormOptions,
   InventoryAuditLogRow,
+  InventorySummaryRow,
   OrdersInventoryRow,
   OrdersItemConsumptionHistoryRow,
   OrdersItemDetail,
@@ -37,6 +38,7 @@ export { InventoryAdjustmentsPage } from "./components/InventoryAdjustmentsPage"
 export { InventoryCatalogsPage } from "./components/InventoryCatalogsPage";
 export { InventoryStocksPage } from "./components/InventoryStocksPage";
 export { InventoryAuditLogsPage } from "./components/InventoryAuditLogsPage";
+export { InventorySummaryPage } from "./components/InventorySummaryPage";
 export { OrdersInvoicesList } from "./components/OrdersInvoicesList";
 export { OrdersItemDetails } from "./components/OrdersItemDetails";
 export { OrdersItemCreate } from "./components/OrdersItemCreate";
@@ -63,6 +65,7 @@ export {
   useInventoryStocksFormOptions,
   useInventoryStocksPage,
   useInventoryAuditLogsPage,
+  useInventorySummaryPage,
   useUpdateInventoryCatalog,
   useUpdateInventoryCatalogItem,
   useUpdateInventoryCatalogItemStatus,
@@ -104,6 +107,7 @@ export {
   getInventoryStocksFormOptions,
   getInventoryStocksPage,
   getInventoryAuditLogsPage,
+  getInventorySummaryPage,
   updateInventoryCatalog,
   updateInventoryCatalogItem,
   updateInventoryCatalogItemStatus,

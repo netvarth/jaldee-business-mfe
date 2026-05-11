@@ -29,6 +29,7 @@ import { InventoryAdjustmentsPage } from "./components/InventoryAdjustmentsPage"
 import { InventoryCatalogsPage } from "./components/InventoryCatalogsPage";
 import { InventoryStocksPage } from "./components/InventoryStocksPage";
 import { InventoryAuditLogsPage } from "./components/InventoryAuditLogsPage";
+import { InventorySummaryPage } from "./components/InventorySummaryPage";
 
 export function OrdersModule() {
   const access = useModuleAccess("orders");
@@ -119,6 +120,12 @@ export function OrdersModule() {
     }
     if (subview === "details" && recordId) {
       return <OrdersItemDetails />;
+    }
+    if (subview === "outofstock") {
+      return <InventorySummaryPage type="OUTOFSTOCK" />;
+    }
+    if (subview === "expired") {
+      return <InventorySummaryPage type="EXPIRED" />;
     }
     return <OrdersItemsList />;
   }

@@ -23,6 +23,7 @@ import type {
   InventoryStockRow,
   InventoryStocksFormOptions,
   InventoryAuditLogRow,
+  InventorySummaryRow,
   OrdersItemConsumptionHistoryRow,
   OrdersItemDetail,
   OrdersItemOption,
@@ -5287,6 +5288,64 @@ function mapInventoryAuditLogs(raw: unknown): InventoryAuditLogRow[] {
 
     return { uid, date, action, type, description, user, raw: item };
   });
+}
+
+export function mapInventorySummaryRows(payload: any): InventorySummaryRow[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records.map((item: any, index: number) => {
+    const spItem = item?.spItem && typeof item.spItem === "object" ? item.spItem : {};
+    const itemSpCode = readFirstText(spItem?.spCode, item?.spItemCode, item?.itemCode, item?.spCode);
+    const id = readFirstText(item?.id, item?.uid, item?.encId, itemSpCode) || `summary-${index + 1}`;
+    const itemName = readFirstText(spItem?.name, item?.itemName, item?.name) || itemSpCode || "-";
+    const store = item?.store && typeof item.store === "object" ? item.store : {};
+    const storeName = readFirstText(store?.name, store?.storeName, item?.storeName, item?.store?.name) || "-";
+    return {
+      id,
+      itemName,
+      storeName,
+      expiryDate: formatOrdersItemDate(item?.expiryDate ?? item?.expDate),
+      batch: readFirstText(item?.batch, item?.batchName, item?.batchNumber),
+      raw: item,
+    };
+  });
+}
+
+export async function getInventorySummaryPage(
+  scopedApi: ScopedApi,
+  options: {
+    page: number;
+    pageSize: number;
+    summaryType: "OUTOFSTOCK" | "EXPIRED" | "EXPIRY_7_DAYS" | "EXPIRY_14_DAYS" | "EXPIRY_30_DAYS" | "DATE_RANGE";
+    storeEncId?: string;
+    fromDate?: string;
+    toDate?: string;
+  }
+): Promise<{ rows: InventorySummaryRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const params: Record<string, any> = {
+    from,
+    count,
+    "summaryType-eq": options.summaryType,
+  };
+  if (options.storeEncId) {
+    params["storeEncId-eq"] = options.storeEncId;
+  }
+  if (options.summaryType === "DATE_RANGE" && options.fromDate && options.toDate) {
+    params["date-ge"] = options.fromDate;
+    params["date-le"] = options.toDate;
+  }
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/inventoryitem/store/summary", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/inventoryitem/store/summary/count", { params }).then((response) => response.data),
+  ]);
+
+  const rows = mapInventorySummaryRows(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
 }
 
 function dummy() {
