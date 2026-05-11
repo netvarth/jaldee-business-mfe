@@ -1,123 +1,97 @@
-import { SectionCard } from "@jaldee/design-system";
+import { Button, EmptyState, SectionCard, SkeletonCard } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { useDriveDataset } from "../queries/drive";
-import { DrivePill } from "./shared";
-
-const ACCENT_STYLES = {
-  violet: "border-violet-200 bg-violet-50 text-violet-800",
-  sky: "border-sky-200 bg-sky-50 text-sky-800",
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  amber: "border-amber-200 bg-amber-50 text-amber-800",
-} as const;
+import { DrivePageShell, FolderGlyph } from "./shared";
 
 export function DriveOverview() {
   const dataset = useDriveDataset();
-  const { basePath } = useSharedModulesContext();
+  const { basePath, account } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
+  const staffLabel = account.labels.staff || "staff member";
+  const customerLabel = account.labels.customer || "customer";
+  const storage = dataset.data?.storage;
+  const usedPercent = storage
+    ? Math.min(100, Math.round((storage.usedStorage / Math.max(storage.totalStorage, 1)) * 100))
+    : 0;
 
   return (
-    <div className="space-y-6">
-      <SectionCard className="border-slate-200 shadow-sm">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-slate-900">{dataset.title}</h2>
-          <p className="text-sm text-slate-600">{dataset.subtitle}</p>
-        </div>
-      </SectionCard>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {dataset.summaries.map((item) => (
-          <SectionCard
-            key={item.label}
-            className={`border ${ACCENT_STYLES[item.accent]} shadow-sm`}
-          >
-            <div className="text-xs font-medium uppercase tracking-wide opacity-80">
-              {item.label}
-            </div>
-            <div className="mt-2 text-2xl font-semibold">{item.value}</div>
-          </SectionCard>
-        ))}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
-        <SectionCard className="border-slate-200 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900">Recent Files</h3>
+    <DrivePageShell
+      title="Jaldee Drive"
+      subtitle={`Manage the files uploaded by the ${staffLabel}s or ${customerLabel}s or you!`}
+    >
+      <div className="space-y-6">
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Files</h2>
+          <div className="grid max-w-5xl gap-5 md:grid-cols-2">
             <button
-              className="text-sm font-medium text-violet-700"
-              onClick={() => window.location.assign(`${basePath}/files`)}
+              className="group flex min-h-24 items-center gap-5 rounded-lg border border-slate-200 bg-white px-6 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+              onClick={() => navigate(`${basePath}/files`)}
               type="button"
             >
-              Open files
+              <FolderGlyph className="h-9 w-12" />
+              <div>
+                <span className="text-sm font-semibold text-slate-900">My Files</span>
+                <p className="mt-1 text-xs text-slate-500">Upload and manage your private drive files.</p>
+              </div>
+            </button>
+            <button
+              className="group flex min-h-24 items-center gap-5 rounded-lg border border-slate-200 bg-white px-6 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+              onClick={() => navigate(`${basePath}/shared`)}
+              type="button"
+            >
+              <FolderGlyph className="h-9 w-12" />
+              <div>
+                <span className="text-sm font-semibold text-slate-900">Shared Files</span>
+                <p className="mt-1 text-xs text-slate-500">Browse files shared by staff and customers.</p>
+              </div>
             </button>
           </div>
-          <div className="space-y-3">
-            {dataset.files.map((row) => (
-              <div key={row.id} className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="font-medium text-slate-900">{row.name}</div>
-                    <div className="text-sm text-slate-500">
-                      {row.category} · {row.owner}
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Storage</h2>
+          <SectionCard className="max-w-5xl border-slate-200 bg-white shadow-sm">
+            {dataset.isLoading && <SkeletonCard />}
+            {dataset.isError && (
+              <EmptyState
+                title="Storage could not load"
+                description="The live drive storage API returned an error."
+                action={<Button onClick={() => dataset.refetch()}>Retry</Button>}
+              />
+            )}
+            {!dataset.isLoading && !dataset.isError && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+                      <span className="text-lg font-semibold">GB</span>
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-slate-900">Available Space</span>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {storage ? `${Math.round(storage.usedStorage)} GB used` : "Storage usage unavailable"}
+                      </p>
                     </div>
                   </div>
-                  <DrivePill tone="slate">{row.size}</DrivePill>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {storage ? `${Math.round(storage.remainingStorage)} GB left` : "-"}
+                  </span>
                 </div>
-                <div className="mt-3 text-sm text-slate-600">Updated on {row.updatedOn}</div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard className="border-slate-200 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900">Shared Items</h3>
-            <button
-              className="text-sm font-medium text-violet-700"
-              onClick={() => window.location.assign(`${basePath}/shared`)}
-              type="button"
-            >
-              Manage sharing
-            </button>
-          </div>
-          <div className="space-y-3">
-            {dataset.shared.map((row) => (
-              <div key={row.id} className="rounded-2xl border border-slate-200 p-4">
-                <div className="font-medium text-slate-900">{row.title}</div>
-                <div className="mt-1 text-sm text-slate-500">{row.sharedWith}</div>
-                <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
-                  <DrivePill tone={row.permission === "Edit" ? "violet" : "sky"}>
-                    {row.permission}
-                  </DrivePill>
-                  <span>{row.expiresOn ? `Expires ${row.expiresOn}` : "No expiry"}</span>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-indigo-700" style={{ width: `${usedPercent}%` }} />
                 </div>
+                <p className="text-sm leading-6 text-slate-700">
+                  To purchase additional cloud storage, please contact our support team at the following
+                  contact information:
+                  <br />
+                  +91 8714766671. They will be happy to assist you.
+                </p>
               </div>
-            ))}
-          </div>
-        </SectionCard>
+            )}
+          </SectionCard>
+        </div>
       </div>
-
-      <SectionCard className="border-slate-200 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900">Activity</h3>
-          <button
-            className="text-sm font-medium text-violet-700"
-            onClick={() => window.location.assign(`${basePath}/activity`)}
-            type="button"
-          >
-            View activity
-          </button>
-        </div>
-        <div className="space-y-3">
-          {dataset.activity.map((row) => (
-            <div key={row.id} className="rounded-2xl border border-slate-200 p-4">
-              <div className="text-sm text-slate-700">
-                <span className="font-medium text-slate-900">{row.actor}</span> {row.action}{" "}
-                <span className="font-medium text-slate-900">{row.target}</span>
-              </div>
-              <div className="mt-1 text-xs text-slate-500">{row.occurredOn}</div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-    </div>
+    </DrivePageShell>
   );
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@jaldee/design-system";
+import { PageHeader, cn } from "@jaldee/design-system";
 
 export function DrivePill({
   tone,
@@ -20,6 +20,69 @@ export function DrivePill({
       )}
     >
       {children}
+    </span>
+  );
+}
+
+export function openDriveFile(filePath?: string) {
+  if (!filePath || typeof window === "undefined") return;
+  window.open(filePath, "_blank", "noopener,noreferrer");
+}
+
+export function DrivePageShell({
+  title,
+  subtitle,
+  onBack,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onBack?: () => void;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-h-[calc(100vh-2rem)] bg-slate-100">
+      <div className="border-b border-slate-200 bg-white px-4 py-5 md:px-7">
+        <PageHeader
+          actions={actions}
+          back={onBack ? { label: "Back", href: "#back" } : undefined}
+          className="mb-0"
+          onNavigate={() => onBack?.()}
+          subtitle={subtitle}
+          title={title}
+        />
+      </div>
+      <div className="w-full p-4 md:p-6">{children}</div>
+    </div>
+  );
+}
+
+export function FolderGlyph({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "relative inline-block h-16 w-24 shrink-0 rounded-md bg-[#ffd45a] shadow-sm ring-1 ring-amber-200",
+        className
+      )}
+    >
+      <span className="absolute -top-[18%] left-0 h-[34%] w-[38%] rounded-t-[inherit] bg-[#ffd45a] ring-1 ring-amber-200" />
+      <span className="absolute left-0 top-[8%] h-[20%] w-full rounded-t-[inherit] bg-[#ffe38f]/80" />
+    </span>
+  );
+}
+
+export function FileGlyph({ fileType }: { fileType?: string }) {
+  const label = (fileType || "file").toLowerCase().includes("pdf") ? "PDF" : "FILE";
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-sm border px-1 text-[9px] font-bold",
+        label === "PDF" ? "border-red-500 text-red-600" : "border-slate-400 text-slate-500"
+      )}
+    >
+      {label}
     </span>
   );
 }

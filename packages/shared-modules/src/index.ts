@@ -225,6 +225,8 @@ export type {
   DriveActivityRow,
   DriveDataset,
   DriveFileRow,
+  DriveFolderRow,
+  DriveShareInput,
   DriveSharedRow,
   DriveSummary,
   DriveViewKey,
@@ -233,13 +235,18 @@ export {
   DriveModule,
   DriveOverview,
   DriveFilesList,
+  DriveFoldersList,
   DriveSharedList,
   DriveActivityList,
   DriveSettings,
   useDriveActivity,
   useDriveDataset,
   useDriveFiles,
+  useDriveFolders,
   useDriveShared,
+  useDeleteDriveFile,
+  useShareDriveFile,
+  useUploadDriveFiles,
 } from "./drive";
 
 export type {

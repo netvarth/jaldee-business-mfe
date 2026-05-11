@@ -3,14 +3,21 @@ import { useSharedModulesContext } from "../context";
 import { useModuleAccess } from "../useModuleAccess";
 import { DriveActivityList } from "./components/DriveActivityList";
 import { DriveFilesList } from "./components/DriveFilesList";
+import { DriveFoldersList } from "./components/DriveFoldersList";
 import { DriveOverview } from "./components/DriveOverview";
 import { DriveSettings } from "./components/DriveSettings";
 import { DriveSharedList } from "./components/DriveSharedList";
 
 export function DriveModule() {
   const access = useModuleAccess("drive");
-  const { routeParams } = useSharedModulesContext();
+  const { basePath, routeParams } = useSharedModulesContext();
   const view = routeParams?.view ?? "overview";
+  const subview = routeParams?.subview ?? null;
+  const recordId = routeParams?.recordId ?? null;
+  const folderTitle =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("name")
+      : null;
 
   if (!access.allowed) {
     return (
@@ -30,10 +37,31 @@ export function DriveModule() {
   }
 
   if (view === "files") {
-    return <DriveFilesList />;
+    return <DriveFilesList folderName="private" title="My Files" subtitle="Manage your own files!" />;
   }
 
   if (view === "shared") {
+    if (subview === "staff" || subview === "customers") {
+      if (recordId) {
+        const isStaff = subview === "staff";
+        const title = folderTitle || (isStaff ? "Staff member" : "Customer");
+        return (
+          <DriveFilesList
+            allowUpload={false}
+            backTo={`${basePath}/shared/${subview}`}
+            folderId={recordId}
+            folderName={isStaff ? "public" : "shared"}
+            showContext
+            showOwner
+            subtitle={`Manage the files uploaded by the ${title}!`}
+            title={title}
+          />
+        );
+      }
+
+      return <DriveFoldersList type={subview} />;
+    }
+
     return <DriveSharedList />;
   }
 
