@@ -99,7 +99,9 @@ export default function OrdersPage() {
       resolvedRecordId = params.recordId ?? afterOrders[2] ?? null;
     }
   } else if (inventoryIndex >= 0) {
-    resolvedSubview = params.view ?? pathSegments[inventoryIndex + 1] ?? null;
+    const afterInventory = pathSegments.slice(inventoryIndex + 1);
+    resolvedSubview = params.view ?? afterInventory[0] ?? null;
+    resolvedRecordId = params.recordId ?? afterInventory[2] ?? null;
   } else if (catalogIndex >= 0) {
     resolvedSubview = params.view ?? pathSegments[catalogIndex + 1] ?? null;
   }
@@ -120,6 +122,7 @@ export default function OrdersPage() {
       view,
       subview: resolvedSubview,
       recordId: resolvedRecordId,
+      tab: inventoryIndex >= 0 ? pathSegments[inventoryIndex + 2] ?? null : null,
     },
   };
 

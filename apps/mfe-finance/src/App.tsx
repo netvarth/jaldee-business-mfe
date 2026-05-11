@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -1337,24 +1337,82 @@ function SettingsPage() {
   );
 }
 
+function PlaceholderPage() {
+  const location = useLocation();
+  const title = useMemo(() => {
+    const parts = location.pathname.split("/").filter(Boolean);
+    const section = parts[1] ?? "finance";
+    return section
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }, [location.pathname]);
+
+  return (
+    <PageShell
+      title={title}
+      subtitle="This finance route is registered and ready for its feature implementation."
+    >
+      <SectionCard>
+        <EmptyState
+          title={`${title} is routed`}
+          description="The route resolves through shell and the Finance microfrontend."
+        />
+      </SectionCard>
+    </PageShell>
+  );
+}
+
 function withBoundary(element: ReactNode) {
   return <PageErrorBoundary>{element}</PageErrorBoundary>;
 }
 
 export default function App() {
+  const placeholderRoutes = [
+    "summary",
+    "cash-flow",
+    "transactions/*",
+    "credit-notes/*",
+    "advance-payments/*",
+    "cheques/*",
+    "write-offs/*",
+    "multi-currency/*",
+    "donations/*",
+    "accounting/*",
+    "customers/*",
+    "leads/*",
+    "tasks/*",
+    "users/*",
+    "analytics/*",
+    "drive/*",
+    "membership/*",
+    "audit-log/*",
+    "settings/*",
+  ];
+
   return (
     <Routes>
       <Route path="" element={withBoundary(<OverviewPage />)} />
       <Route path="dashboard" element={withBoundary(<DashboardRedirect />)} />
       <Route path="estimates" element={withBoundary(<EstimatesPage />)} />
+      <Route path="estimates/new" element={withBoundary(<EstimatesPage />)} />
+      <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
       <Route path="vendors" element={withBoundary(<VendorsPage />)} />
       <Route path="ledger" element={withBoundary(<LedgerPage />)} />
       <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />
       <Route path="payable" element={withBoundary(<PayablesPage />)} />
       <Route path="expense" element={withBoundary(<ExpensesPage />)} />
       <Route path="invoice" element={withBoundary(<InvoicesPage />)} />
-      <Route path="invoices" element={<Navigate to="/finance/invoice" replace />} />
+      <Route path="invoices" element={withBoundary(<InvoicesPage />)} />
+      <Route path="invoices/new" element={withBoundary(<InvoicesPage />)} />
+      <Route path="invoices/overdue" element={withBoundary(<InvoicesPage />)} />
+      <Route path="invoices/:id" element={withBoundary(<InvoicesPage />)} />
       <Route path="payments" element={withBoundary(<PaymentsPage />)} />
+      <Route path="payments/refunds" element={withBoundary(<PaymentsPage />)} />
+      <Route path="payments/refunds/new" element={withBoundary(<PaymentsPage />)} />
+      <Route path="payments/refunds/:id" element={withBoundary(<PaymentsPage />)} />
+      <Route path="payments/methods" element={withBoundary(<PaymentsPage />)} />
+      <Route path="payments/:id" element={withBoundary(<PaymentsPage />)} />
       <Route path="category" element={withBoundary(<CategoryPage />)} />
       <Route path="status" element={withBoundary(<StatusPage />)} />
       <Route path="total" element={withBoundary(<TotalListPage />)} />
@@ -1364,6 +1422,9 @@ export default function App() {
       <Route path="master-invoice/:uid" element={withBoundary(<MasterInvoicePage />)} />
       <Route path="reports" element={withBoundary(<ReportsPage />)} />
       <Route path="settings" element={withBoundary(<SettingsPage />)} />
+      {placeholderRoutes.map((path) => (
+        <Route key={path} path={path} element={withBoundary(<PlaceholderPage />)} />
+      ))}
       <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
   );

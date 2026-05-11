@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef } from "r
 import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
-import { authService, clearStoredCredentials, getStoredCredentials, setStoredCredentials } from "../services/authService";
+import { authService, clearStoredCredentials, getAuthMode, getStoredAccessToken, getStoredCredentials, setStoredCredentials } from "../services/authService";
 import type { LoginRequest, SessionResponse } from "../services/authService";
 
 interface AuthContextValue {
@@ -40,6 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
     initApiClient(baseURL);
     setApiClientAuthHandlers({
+      refreshSession: async () => {
+        const response = await authService.refreshSession();
+        const { user, account, locations, token } = response;
+        setAuth(user, account, token ?? "");
+        setAvailableLocations(locations ?? []);
+        if ((locations ?? []).length) {
+          setLocation(locations[0]);
+        }
+        return getAuthMode() === "token" ? { authToken: token ?? "" } : undefined;
+      },
       onSessionExpired: () => {
         clearStoredCredentials();
         clearAuth();
@@ -49,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     setApiClientContext({
-      authMode: "session",
+      authMode: getAuthMode(),
       authToken: accessToken ?? "",
     });
   }, [accessToken]);
@@ -73,14 +83,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const storedCredentials = getStoredCredentials();
-    if (!storedCredentials) {
+    if (getAuthMode() === "session" && !storedCredentials) {
+      return;
+    }
+    const storedAccessToken = getStoredAccessToken();
+    if (getAuthMode() === "token" && !accessToken && !storedAccessToken) {
       return;
     }
 
     hasBootstrappedSessionRef.current = true;
     let cancelled = false;
 
-    authService.checkSession()
+    const bootstrapSession =
+      getAuthMode() === "session" && storedCredentials
+        ? authService.login(storedCredentials)
+        : authService.checkSession();
+
+    bootstrapSession
       .then((response) => {
         if (cancelled || response.multiFactorAuthenticationRequired) {
           return;
@@ -106,10 +125,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [clearAuth, hasHydrated, isAuthenticated, setAuth, setAvailableLocations, setLocation]);
+  }, [accessToken, clearAuth, hasHydrated, isAuthenticated, setAuth, setAvailableLocations, setLocation]);
 
   async function login(payload: LoginRequest) {
-    setStoredCredentials(payload);
+    if (getAuthMode() === "session") {
+      setStoredCredentials(payload);
+    }
     const response = await authService.login(payload);
 
     if (response.multiFactorAuthenticationRequired) {

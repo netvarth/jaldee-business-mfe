@@ -9,7 +9,8 @@ import { GoldErpMFE } from "./mfes/GoldErpMFE";
 import { FinanceMFE } from "./mfes/FinanceMFE";
 import { KartyMFE } from "./mfes/KartyMFE";
 import { useShellStore } from "./store/shellStore";
-import { getStoredCredentials } from "./services/authService";
+import { hasStoredAuthSession } from "./services/authService";
+import GlobalPlaceholderPage from "./pages/GlobalPlaceholderPage";
 import "./App.css";
 
 function HomePage() {
@@ -25,7 +26,7 @@ function HomePage() {
 export default function App() {
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
-  const hasStoredSession = Boolean(getStoredCredentials());
+  const hasStoredSession = hasStoredAuthSession();
 
   return (
     <Routes>
@@ -46,6 +47,15 @@ export default function App() {
             <ShellLayout>
               <Routes>
                 <Route path="/home" element={<HomePage />} />
+                <Route path="/customers/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/users/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/reports/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/drive/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/tasks/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/membership/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/leads/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/audit-log/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/settings/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/health/*" element={
                   <Suspense fallback={
                     <div className="shell-loading">Loading Health...</div>
@@ -85,6 +95,9 @@ export default function App() {
                     <FinanceMFE />
                   </Suspense>
                 } />
+                <Route path="/lending/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/hr/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/ai/*" element={<GlobalPlaceholderPage />} />
                 <Route path="*" element={<Navigate to="/home" replace />} />
               </Routes>
             </ShellLayout>

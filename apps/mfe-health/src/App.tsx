@@ -12,6 +12,7 @@ const HealthMembershipsPage = lazy(() => import("./pages/memberships/HealthMembe
 const HealthLeadsPage = lazy(() => import("./pages/leads/HealthLeadsPage"));
 const HealthFinancePage = lazy(() => import("./pages/finance/HealthFinancePage"));
 const HealthPharmacyPage = lazy(() => import("./pages/pharmacy/HealthPharmacyPage"));
+const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
 function RouteLoader() {
   return <div className="p-6 text-sm text-slate-500">Loading...</div>;
@@ -28,8 +29,34 @@ function withBoundary(element: ReactNode) {
 }
 
 export default function App() {
+  const placeholderRoutes = [
+    "",
+    "op",
+    "op/*",
+    "medical-records",
+    "medical-records/*",
+    "consent-forms/*",
+    "referrals/*",
+    "triage/*",
+    "diet-nutrition/*",
+    "nursing-notes/*",
+    "vaccinations/*",
+    "allergies/*",
+    "ot/*",
+    "tasks/*",
+    "users/*",
+    "analytics/*",
+    "reports/*",
+    "membership/*",
+    "audit-log/*",
+    "settings/*",
+  ];
+
   return (
     <Routes>
+      {placeholderRoutes.map((path) => (
+        <Route key={path || "overview"} path={path} element={withBoundary(<PlaceholderPage />)} />
+      ))}
       <Route path="customers" element={withBoundary(<HealthCustomersPage />)} />
       <Route path="customers/:recordId" element={withBoundary(<HealthCustomersPage />)} />
       <Route path="customers/:recordId/case" element={withBoundary(<HealthCasePage />)} />
@@ -91,7 +118,6 @@ export default function App() {
       <Route path="finance/:view/:subview" element={withBoundary(<HealthFinancePage />)} />
       <Route path="finance/:view/:subview/:recordId" element={withBoundary(<HealthFinancePage />)} />
 
-      <Route path="medical-records" element={<Navigate to="patients" replace />} />
       <Route path="*" element={<Navigate to="customers" replace />} />
     </Routes>
   );

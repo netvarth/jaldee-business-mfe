@@ -12,6 +12,17 @@ import type {
   OrdersInvoiceDetail,
   OrdersInvoiceRow,
   OrdersInvoiceTypeRow,
+  InventoryDashboardDataset,
+  InventoryAdjustmentDetail,
+  InventoryAdjustmentFormOptions,
+  InventoryAdjustmentItemOption,
+  InventoryAdjustmentOption,
+  InventoryAdjustmentRow,
+  InventoryCatalogItemRow,
+  InventoryCatalogRow,
+  InventoryStockRow,
+  InventoryStocksFormOptions,
+  InventoryAuditLogRow,
   OrdersItemConsumptionHistoryRow,
   OrdersItemDetail,
   OrdersItemOption,
@@ -584,6 +595,87 @@ export async function getOrdersDashboardDataset(
       weeklySalesPoints: graphMetrics.weeklySalesPoints,
       weeklyItemPoints: graphMetrics.weeklyItemPoints,
     },
+  };
+}
+
+export async function getInventoryDashboardDataset(
+  scopedApi: ScopedApi,
+  options: OrdersDashboardApiOptions
+): Promise<InventoryDashboardDataset> {
+  const storesResponse = await withTimeout(getActiveStores(scopedApi).catch(() => []), [], "inventory active stores");
+  const localSelectedStore = normalizeStore(options.selectedStore);
+  const resolvedStore =
+    localSelectedStore?.id || localSelectedStore?.encId
+      ? localSelectedStore
+      : resolveProviderStore(storesResponse, {
+        locationId: options.locationId,
+        locationName: options.locationName,
+        locationCode: options.locationCode,
+      });
+  const storeId = resolvedStore?.id ? Number(resolvedStore.id) : null;
+  const storeEncId = resolvedStore?.encId ?? null;
+  const productRoot = resolveProductRootBase(options.basePath) || options.basePath;
+  const ordersRoot = resolveOrdersModuleRoot(options.basePath, options.product);
+  const inventoryRoot = joinPath(productRoot, "inventory");
+
+  const [analyticsResponse, graphResponse, customersCount, vendorsCount, topStoresResponse] = await Promise.all([
+    withTimeout(getInventoryAnalytics(scopedApi, storeId).catch(() => []), [], "inventory analytics"),
+    withTimeout(getInventoryGraphAnalytics(scopedApi, storeId).catch(() => null), null, "inventory graph analytics"),
+    withTimeout(getProviderCustomersCount(scopedApi).catch(() => 0), 0, "inventory customers count"),
+    withTimeout(getProviderVendorCount(scopedApi).catch(() => 0), 0, "inventory vendors count"),
+    withTimeout(getTopSellingStoreAnalytics(scopedApi).catch(() => []), [], "inventory top stores"),
+  ]);
+
+  const metrics = indexAnalyticsMetrics(analyticsResponse);
+  const graph = parseInventoryGraphMetrics(graphResponse);
+  const topSellingStores = parseTopSellingStores(topStoresResponse);
+
+  return {
+    title: "Inventory Management",
+    subtitle: "Efficient tracking and control of items.",
+    actions: [
+      { label: "Create Item", href: joinPath(ordersRoot, "items/create"), icon: "box" },
+      { label: "Stores", href: joinPath(productRoot, "stores"), icon: "warehouse" },
+      { label: "Items", href: joinPath(ordersRoot, "items"), icon: "database" },
+      { label: "Inv.Catalogs", href: joinPath(inventoryRoot, "catalogs"), icon: "layers" },
+      { label: "Purchase", href: joinPath(inventoryRoot, "purchase"), icon: "cart" },
+      { label: "Inv.Adjust", href: joinPath(inventoryRoot, "adjust"), icon: "refresh" },
+      { label: "Stocks", href: joinPath(inventoryRoot, "stocks"), icon: "box" },
+      ...(storesResponse.length > 1 ? [{ label: "Stock Transfer", href: joinPath(inventoryRoot, "stockTransfer"), icon: "refresh" as const }] : []),
+      { label: "Item Variants", href: inventoryRoot, icon: "tag", actionType: "itemVariants" },
+      { label: "Vendors", href: joinPath(productRoot, "finance/vendors"), icon: "globe" },
+      { label: "Auditlogs", href: joinPath(inventoryRoot, "auditlogs"), icon: "history" },
+    ],
+    purchaseMetrics: [
+      { label: "Items Purchased", value: readMetricInt(metrics, ["INVENTORY_TOTAL_NO_OF_ITEMS_PURCHASED"]), icon: "box", tone: "emerald" },
+      { label: "Purchase Done", value: readMetricInt(metrics, ["INVENTORY_TOTAL_PURCHASE_ACCEPTED_COUNT"]), icon: "cart", tone: "rose" },
+      { label: "Worth of Purchase", value: readMetricNumber(metrics, ["INVENTORY_TOTAL_PURCHASE_COST"]), currency: true, icon: "chart", tone: "blue" },
+      { label: "Qty Purchased", value: readMetricInt(metrics, ["INVENTORY_TOTAL_QUANTITY_OF_ITEMS_PURCHASED"]), icon: "database", tone: "amber" },
+    ],
+    salesMetrics: [
+      { label: "Item Sold", value: readMetricInt(metrics, ["INVENTORY_TOTAL_ORDER_COUNT"]), icon: "cart", tone: "blue" },
+      { label: "Sales Completed", value: readMetricInt(metrics, ["INVENTORY_TOTAL_ORDER_SALES_COUNT"]), icon: "box", tone: "emerald" },
+      { label: "Sales Cost", value: readMetricNumber(metrics, ["INVENTORY_TOTAL_SALES_COST"]), currency: true, icon: "chart", tone: "rose" },
+      { label: "Item Quantity Sold", value: readMetricInt(metrics, ["INVENTORY_TOTAL_NO_OF_ITEMS_SOLD"]), icon: "database", tone: "slate" },
+    ],
+    stockActions: [
+      {
+        label: "Out of Stock Items",
+        href: storeEncId ? `${joinPath(ordersRoot, "items/outofstock")}?source=inventory-dashboard&storeEncid=${encodeURIComponent(storeEncId)}` : joinPath(ordersRoot, "items/outofstock"),
+        tone: "rose",
+        icon: "alert",
+      },
+      {
+        label: "Expired Items",
+        href: storeEncId ? `${joinPath(ordersRoot, "items/expired")}?source=inventory-dashboard&storeEncid=${encodeURIComponent(storeEncId)}` : joinPath(ordersRoot, "items/expired"),
+        tone: "amber",
+        icon: "box",
+      },
+    ],
+    customersTotal: Math.round(toNumber(customersCount)),
+    vendorsTotal: Math.round(toNumber(vendorsCount)),
+    topSellingStores,
+    graph,
   };
 }
 
@@ -1688,8 +1780,291 @@ async function getOrdersAnalytics(scopedApi: ScopedApi, frequency: "TODAY" | "MO
     .then((response) => response.data);
 }
 
+export async function getInventoryAdjustmentsPage(
+  scopedApi: ScopedApi,
+  options: { page: number; pageSize: number; filters?: Record<string, unknown> }
+): Promise<{ rows: InventoryAdjustmentRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const params = { from, count, ...(options.filters ?? {}) } satisfies ApiFilter;
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/stockadjust", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/stockadjust/count", { params }).then((response) => response.data),
+  ]);
+
+  return {
+    rows: mapInventoryAdjustmentRows(pagePayload),
+    total: Math.max(readOrdersTotal(countPayload), mapInventoryAdjustmentRows(pagePayload).length),
+  };
+}
+
+export async function getInventoryAdjustmentFormOptions(
+  scopedApi: ScopedApi,
+  storeEncId?: string | null
+): Promise<InventoryAdjustmentFormOptions> {
+  const [storesPayload, catalogsPayload, remarksPayload] = await Promise.all([
+    getActiveStores(scopedApi).catch(() => []),
+    storeEncId
+      ? scopedApi
+        .get<any>("provider/inventory/inventorycatalog", {
+          params: { "storeEncId-eq": storeEncId } satisfies ApiFilter,
+        })
+        .then((response) => response.data)
+        .catch(() => [])
+      : Promise.resolve([]),
+    scopedApi
+      .get<any>("provider/inventory/remark", {
+        params: { "transactionTypeEnum-eq": "ADJUSTMENT" } satisfies ApiFilter,
+      })
+      .then((response) => response.data)
+      .catch(() => []),
+  ]);
+
+  return {
+    stores: mapOptions(storesPayload, ["encId", "storeEncId", "id"], ["name", "storeName"]),
+    catalogs: mapOptions(catalogsPayload, ["encId", "uid", "id"], ["catalogName", "name"]),
+    remarks: mapOptions(remarksPayload, ["encId", "uid", "id"], ["remark", "name"]),
+    items: [],
+  };
+}
+
+export async function getInventoryCatalogItemsPage(
+  scopedApi: ScopedApi,
+  options: { catalogEncId: string; page: number; pageSize: number; searchText?: string }
+): Promise<{ rows: InventoryAdjustmentItemOption[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const searchText = String(options.searchText ?? "").trim();
+  const params = {
+    from,
+    count,
+    "orderCategory-eq": "SALES_ORDER",
+    "icEncId-eq": options.catalogEncId,
+    "itemNature-eq": "SINGLE_ITEM",
+    "status-eq": "Active",
+    ...(searchText ? { "itemName-like": searchText } : {}),
+  } satisfies ApiFilter;
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/inventorycatalog/items", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/inventorycatalog/items/count", { params }).then((response) => response.data),
+  ]);
+
+  return {
+    rows: mapInventoryCatalogItemOptions(pagePayload),
+    total: Math.max(readOrdersTotal(countPayload), mapInventoryCatalogItemOptions(pagePayload).length),
+  };
+}
+
+export async function getInventoryStocksFormOptions(
+  scopedApi: ScopedApi,
+  storeEncId?: string | null
+): Promise<InventoryStocksFormOptions> {
+  const [storesPayload, catalogsPayload] = await Promise.all([
+    getActiveStores(scopedApi).catch(() => []),
+    storeEncId
+      ? scopedApi
+        .get<any>("provider/inventory/inventorycatalog", {
+          params: { "storeEncId-eq": storeEncId } satisfies ApiFilter,
+        })
+        .then((response) => response.data)
+        .catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    stores: mapOptions(storesPayload, ["encId", "storeEncId", "id"], ["name", "storeName"]),
+    catalogs: mapOptions(catalogsPayload, ["encId", "uid", "id"], ["catalogName", "name"]),
+  };
+}
+
+export async function getInventoryStocksPage(
+  scopedApi: ScopedApi,
+  options: {
+    page: number;
+    pageSize: number;
+    storeEncId: string;
+    catalogEncId: string;
+    spItemCode?: string;
+  }
+): Promise<{ rows: InventoryStockRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const spItemCode = String(options.spItemCode ?? "").trim();
+  const params = {
+    from,
+    count,
+    "storeEncId-eq": options.storeEncId,
+    "invCatalogEncId-eq": options.catalogEncId,
+    ...(spItemCode ? { "spItemCode-eq": spItemCode } : {}),
+  } satisfies ApiFilter;
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/inventoryitem/store/inventorycatalog/summary", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/inventoryitem/store/inventorycatalog/summary/count", { params }).then((response) => response.data),
+  ]);
+
+  const rows = mapInventoryStockRows(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+export async function getInventoryCatalogsPage(
+  scopedApi: ScopedApi,
+  options: { page: number; pageSize: number; storeEncId?: string | null; searchText?: string; filters?: Record<string, unknown> }
+): Promise<{ rows: InventoryCatalogRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const storeEncId = String(options.storeEncId ?? "").trim();
+  const searchText = String(options.searchText ?? "").trim();
+  const params = {
+    from,
+    count,
+    ...(storeEncId ? { "storeEncId-eq": storeEncId } : {}),
+    ...(searchText ? { "catalogName-like": searchText } : {}),
+    ...(options.filters ?? {}),
+  } satisfies ApiFilter;
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/inventorycatalog", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/inventorycatalog/count", { params }).then((response) => response.data),
+  ]);
+  const rows = mapInventoryCatalogRows(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+export async function getInventoryCatalogDetail(scopedApi: ScopedApi, encId: string): Promise<InventoryCatalogRow | null> {
+  if (!encId) return null;
+  const payload = await scopedApi.get<any>(`provider/inventory/inventorycatalog/${encId}`).then((response) => response.data);
+  return mapInventoryCatalogRows([payload])[0] ?? null;
+}
+
+export async function getInventoryCatalogDetailItemsPage(
+  scopedApi: ScopedApi,
+  options: { catalogEncId: string; page: number; pageSize: number; searchText?: string; filters?: Record<string, unknown> }
+): Promise<{ rows: InventoryCatalogItemRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const searchText = String(options.searchText ?? "").trim();
+  const params = {
+    from,
+    count,
+    "icEncId-eq": options.catalogEncId,
+    "parentItemId-eq": 0,
+    ...(searchText ? { "itemName-like": searchText } : {}),
+    ...(options.filters ?? {}),
+  } satisfies ApiFilter;
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/inventorycatalog/items", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/inventorycatalog/items/count", { params }).then((response) => response.data),
+  ]);
+  const rows = mapInventoryCatalogItemRows(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+export async function updateInventoryCatalog(scopedApi: ScopedApi, encId: string, payload: Record<string, unknown>) {
+  return scopedApi.put<any>(`provider/inventory/inventorycatalog/${encId}`, payload).then((response) => response.data);
+}
+
+export async function updateInventoryCatalogStatus(scopedApi: ScopedApi, encId: string, status: string) {
+  return scopedApi.put<any>(`provider/inventory/inventorycatalog/${encId}/${status}`).then((response) => response.data);
+}
+
+export async function updateInventoryCatalogItemStatus(scopedApi: ScopedApi, encId: string, status: string) {
+  return scopedApi.put<any>(`provider/inventory/inventorycatalog/items/${encId}/${status}`).then((response) => response.data);
+}
+
+export async function updateInventoryCatalogItem(scopedApi: ScopedApi, encId: string, payload: Record<string, unknown>) {
+  return scopedApi.put<any>(`provider/inventory/inventorycatalog/items/${encId}`, payload).then((response) => response.data);
+}
+
+
+export async function getInventoryAdjustmentDetail(scopedApi: ScopedApi, uid: string): Promise<InventoryAdjustmentDetail | null> {
+  if (!uid) return null;
+  const payload = await scopedApi.get<any>(`provider/inventory/stockadjust/${uid}`).then((response) => response.data);
+  return mapInventoryAdjustmentDetail(payload);
+}
+
+export async function saveInventoryAdjustment(scopedApi: ScopedApi, payload: Record<string, unknown>, mode: "create" | "update") {
+  if (mode === "update") {
+    return scopedApi.put<any>("provider/inventory/stockadjust", payload).then((response) => response.data);
+  }
+  return scopedApi.post<any>("provider/inventory/stockadjust", payload).then((response) => response.data);
+}
+
+export async function changeInventoryAdjustmentStatus(scopedApi: ScopedApi, uid: string, status: string) {
+  return scopedApi.put<any>(`provider/inventory/stockadjust/${uid}/status/${status}`).then((response) => response.data);
+}
+
+export async function createInventoryAdjustmentRemark(scopedApi: ScopedApi, remark: string) {
+  return scopedApi
+    .post<any>("provider/inventory/remark", {
+      remark,
+      transactionTypeEnum: "ADJUSTMENT",
+    })
+    .then((response) => response.data);
+}
+
 async function getOrdersGraphAnalytics(scopedApi: ScopedApi, payload: unknown) {
   return scopedApi.put<any>("provider/analytics/graph", payload).then((response) => response.data);
+}
+
+async function getInventoryAnalytics(scopedApi: ScopedApi, storeId: number | null) {
+  return scopedApi
+    .get<any[]>("provider/analytics", {
+      params: {
+        frequency: "TILL_NOW",
+        config_metric_type: "INVENTORY_DASHBOARD_COUNT",
+        ...(storeId ? { store: storeId } : {}),
+      } satisfies ApiFilter,
+    })
+    .then((response) => response.data);
+}
+
+async function getTopSellingStoreAnalytics(scopedApi: ScopedApi) {
+  return scopedApi
+    .get<any[]>("provider/analytics", {
+      params: {
+        frequency: "TILL_NOW",
+        config_metric_type: "SO_DASHBOARD_COUNT",
+        metricId: 187,
+      } satisfies ApiFilter,
+    })
+    .then((response) => response.data);
+}
+
+async function getInventoryGraphAnalytics(scopedApi: ScopedApi, storeId: number | null) {
+  return scopedApi
+    .put<any>("provider/analytics/graph", {
+      category: "WEEKLY",
+      type: "BARCHART",
+      filter: {
+        config_metric_type: "INVENTORY_GRAPH",
+        ...(storeId ? { "store-eq": storeId } : {}),
+      },
+    })
+    .then((response) => response.data);
+}
+
+async function getProviderCustomersCount(scopedApi: ScopedApi) {
+  return scopedApi
+    .get<any>("provider/customers/count", {
+      params: {
+        "status-eq": "ACTIVE",
+      } satisfies ApiFilter,
+    })
+    .then((response) => response.data);
+}
+
+async function getProviderVendorCount(scopedApi: ScopedApi) {
+  return scopedApi.get<any>("provider/vendor/count").then((response) => response.data);
 }
 
 function applySettingsToActions(actions: OrdersAction[], settings: any) {
@@ -1774,6 +2149,216 @@ function parseGraphMetrics(payload: any) {
   const weeklyItemPoints = normalizeGraphPoints(rawPoints, ["item", "itemsold", "qty", "quantity"]);
 
   return { weeklySalesPoints, weeklyItemPoints };
+}
+
+function parseInventoryGraphMetrics(payload: any): InventoryDashboardDataset["graph"] {
+  const first = Array.isArray(payload) ? payload[0] : Array.isArray(payload?.data) ? payload.data[0] : payload;
+  const labels = Array.isArray(first?.labels) ? first.labels.map((label: unknown) => String(label)) : [];
+  const dataset = Array.isArray(first?.datasets) ? first.datasets[0] : null;
+  const data = Array.isArray(dataset?.data) ? dataset.data : [];
+  const purchase = readInventoryGraphSeries(data, 2, labels.length);
+  const sales = readInventoryGraphSeries(data, 6, labels.length);
+
+  if (labels.length) {
+    return { labels, purchase, sales };
+  }
+
+  const normalized = parseGraphMetrics(payload);
+  const fallbackLabels = Array.from(
+    new Set([
+      ...normalized.weeklySalesPoints.map((point) => point.label),
+      ...normalized.weeklyItemPoints.map((point) => point.label),
+    ])
+  );
+
+  return {
+    labels: fallbackLabels,
+    purchase: fallbackLabels.map((label) => normalized.weeklyItemPoints.find((point) => point.label === label)?.value ?? 0),
+    sales: fallbackLabels.map((label) => normalized.weeklySalesPoints.find((point) => point.label === label)?.value ?? 0),
+  };
+}
+
+function readInventoryGraphSeries(data: any[], index: number, length: number) {
+  const rawSeries = data[index]?.amount ?? data[index]?.value ?? data[index]?.data ?? [];
+  const series = Array.isArray(rawSeries) ? rawSeries.map(toNumber) : [];
+  if (series.length) return series;
+  return Array.from({ length: Math.max(length, 7) }, () => 0);
+}
+
+function parseTopSellingStores(payload: any): Array<{ label: string; value: number; color?: string }> {
+  const records =
+    Array.isArray(payload) ? payload :
+      Array.isArray(payload?.responseWithStore) ? payload.responseWithStore :
+        Array.isArray(payload?.data) ? payload.data :
+          [];
+
+  return records
+    .map((item: any, index: number) => {
+      const label = String(item?.byName ?? item?.storeName ?? item?.name ?? item?.label ?? "").trim();
+      const value = toNumber(item?.value ?? item?.count ?? item?.amount);
+      return label && value > 0
+        ? { label, value, color: ["#38A6E8", "#22C55E", "#F59E0B", "#EF4444"][index % 4] }
+        : null;
+    })
+    .filter((item): item is { label: string; value: number; color?: string } => Boolean(item));
+}
+
+function mapInventoryAdjustmentRows(payload: any): InventoryAdjustmentRow[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records.map((item: any, index: number) => {
+    const uid = readFirstText(item?.uid, item?.encId, item?.id) || `adjustment-${index + 1}`;
+    return {
+      uid,
+      storeName: readFirstText(item?.store?.name, item?.storeName, item?.store?.storeName),
+      remark: readFirstText(item?.remark, item?.inventoryRemarkDto?.remark, item?.remarkDto?.remark),
+      status: readFirstText(item?.invStatus, item?.status) || "DRAFT",
+      createdDate: formatOrdersItemDate(item?.createdDate ?? item?.createdTime ?? item?.date),
+      raw: item,
+    };
+  });
+}
+
+function mapInventoryAdjustmentDetail(payload: any): InventoryAdjustmentDetail {
+  return {
+    uid: readFirstText(payload?.uid, payload?.encId, payload?.id),
+    storeEncId: readFirstText(payload?.store?.encId, payload?.storeEncId),
+    catalogEncId: readFirstText(payload?.catalogDto?.encId, payload?.inventoryCatalog?.encId, payload?.catalogEncId),
+    remarkEncId: readFirstText(payload?.inventoryRemarkDto?.encId, payload?.remarkDto?.encId, payload?.remarkEncId),
+    notes: readFirstText(payload?.description, payload?.notes),
+    status: readFirstText(payload?.invStatus, payload?.status) || "DRAFT",
+    items: (Array.isArray(payload?.stockAdjustDetailsDtos) ? payload.stockAdjustDetailsDtos : []).map((item: any, index: number) => ({
+      id: readFirstText(item?.spItem?.spCode, item?.spCode, item?.id) || `item-${index + 1}`,
+      name: readFirstText(item?.spItem?.name, item?.name, item?.itemName),
+      inventoryCatalogEncId: readFirstText(item?.invCatalogItem?.encId, item?.inventoryCatalogEncId, item?.catalogItemEncId),
+      batch: readFirstText(item?.batch),
+      quantity: Math.max(1, toNumber(item?.qty ?? item?.quantity)),
+      batchApplicable: Boolean(item?.spItem?.batchApplicable ?? item?.batchApplicable),
+    })),
+    raw: payload,
+  };
+}
+
+function mapOptions(payload: any, idKeys: string[], labelKeys: string[]): InventoryAdjustmentOption[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records
+    .map((item: any) => {
+      const id = readFirstText(...idKeys.map((key) => item?.[key]));
+      const label = readFirstText(...labelKeys.map((key) => item?.[key])) || id;
+      return id ? { id, label, raw: item } : null;
+    })
+    .filter((item): item is InventoryAdjustmentOption => Boolean(item));
+}
+
+function mapInventoryCatalogItemOptions(payload: any): InventoryAdjustmentItemOption[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records
+    .map((item: any) => {
+      const id = readFirstText(item?.encId, item?.uid, item?.catalogItemEncId, item?.invCatalogItemEncId, item?.id);
+      const spCode = readFirstText(item?.spItem?.spCode, item?.spCode, item?.itemCode, item?.item?.spCode);
+      const label =
+        readFirstText(
+          item?.item?.name,
+          item?.item?.itemName,
+          item?.spItem?.name,
+          item?.catalogItem?.itemName,
+          item?.catalogItem?.name,
+          item?.invCatalogItem?.itemName,
+          item?.invCatalogItem?.name,
+          item?.parentItemName,
+          item?.displayName,
+          item?.itemName
+        ) || spCode || id;
+      const description = readFirstText(
+        item?.item?.shortDesc,
+        item?.item?.description,
+        item?.item?.shortDescription,
+        item?.item?.itemDescription,
+        item?.item?.itemDesc,
+        item?.item?.internalDesc,
+        item?.spItem?.description,
+        item?.spItem?.shortDesc,
+        item?.spItem?.shortDescription,
+        item?.spItem?.itemDescription,
+        item?.spItem?.itemDesc,
+        item?.spItem?.internalDesc,
+        item?.spItem?.longDesc,
+        item?.catalogItem?.description,
+        item?.catalogItem?.shortDesc,
+        item?.catalogItem?.shortDescription,
+        item?.catalogItem?.itemDescription,
+        item?.invCatalogItem?.description,
+        item?.invCatalogItem?.shortDesc,
+        item?.invCatalogItem?.itemDescription,
+        item?.description,
+        item?.itemDescription,
+        item?.itemDesc,
+        item?.shortDesc,
+        item?.shortDescription,
+        item?.internalDesc,
+        item?.longDesc
+      );
+      return id ? { id, label, spCode, batchApplicable: Boolean(item?.batchApplicable ?? item?.spItem?.batchApplicable), description, raw: item } : null;
+    })
+    .filter((item): item is InventoryAdjustmentItemOption => Boolean(item));
+}
+
+function mapInventoryStockRows(payload: any): InventoryStockRow[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records.map((item: any, index: number) => {
+    const spItem = item?.spItem && typeof item.spItem === "object" ? item.spItem : {};
+    const itemSpCode = readFirstText(spItem?.spCode, item?.spItemCode, item?.itemCode, item?.spCode);
+    const id = readFirstText(item?.id, item?.uid, item?.encId, item?.batch, itemSpCode) || `stock-${index + 1}`;
+    return {
+      id,
+      itemName: readFirstText(spItem?.name, item?.itemName, item?.name) || itemSpCode || "-",
+      itemSpCode,
+      inhand: toNumber(item?.trueAvailableQty ?? item?.availableQty ?? item?.inhand ?? item?.quantity),
+      onHoldQty: toNumber(item?.onHoldQty ?? item?.onHoldQuantity ?? item?.holdQty),
+      batch: readFirstText(item?.batch, item?.batchName, item?.batchNumber),
+      expiryDate: formatOrdersItemDate(item?.expiryDate ?? item?.expDate),
+      raw: item,
+    };
+  });
+}
+
+function mapInventoryCatalogRows(payload: any): InventoryCatalogRow[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records.map((item: any, index: number) => {
+    const encId = readFirstText(item?.encId, item?.uid, item?.id) || `inventory-catalog-${index + 1}`;
+    const status = readFirstText(item?.status, item?.catalogStatus) || "Active";
+    return {
+      id: readFirstText(item?.id, item?.catalogId, encId) || encId,
+      encId,
+      name: readFirstText(item?.catalogName, item?.name, item?.displayName) || encId,
+      storeName: readFirstText(item?.store?.name, item?.storeName, item?.store?.storeName) || "-",
+      storeEncId: readFirstText(item?.store?.encId, item?.storeEncId, item?.store?.storeEncId),
+      status,
+      active: status.toLowerCase() === "active",
+      raw: item,
+    };
+  });
+}
+
+function mapInventoryCatalogItemRows(payload: any): InventoryCatalogItemRow[] {
+  const records = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  return records.map((item: any, index: number) => {
+    const nestedItem = item?.item && typeof item.item === "object" ? item.item : {};
+    const encId = readFirstText(item?.encId, item?.uid, item?.id) || `inventory-catalog-item-${index + 1}`;
+    const status = readFirstText(item?.status) || "Active";
+    const itemNature = readFirstText(item?.itemNature, nestedItem?.itemNature);
+    return {
+      id: readFirstText(item?.id, encId) || encId,
+      encId,
+      itemName: readFirstText(nestedItem?.name, nestedItem?.itemName, item?.itemName, item?.name) || "-",
+      spCode: readFirstText(nestedItem?.spCode, item?.spCode, item?.itemCode),
+      reorderQuantity: toOptionalNumber(nestedItem?.reorderQuantity ?? item?.reorderQuantity),
+      hasAttributes: itemNature.toUpperCase() === "VIRTUAL_ITEM",
+      status,
+      active: status.toLowerCase() === "active",
+      itemNature,
+      raw: item,
+    };
+  });
 }
 
 function normalizeGraphPoints(rawPoints: any[], preferredKeys: string[]) {

@@ -5,13 +5,16 @@ import {
   normalizeAccountContext,
 } from "@jaldee/auth-context";
 import type { UserContext, AccountContext, BranchLocation } from "@jaldee/auth-context";
-import { apiClient } from "@jaldee/api-client";
+import { apiClient, setApiClientContext } from "@jaldee/api-client";
+import { baseService } from "./baseService";
+import { TOKEN_AUTH_ENDPOINTS, buildAuthServiceUrl } from "./serviceUrls";
 
 export interface SessionResponse {
   user:      UserContext;
   account:   AccountContext;
   locations: BranchLocation[];
   token?:    string;
+  refreshToken?: string;
   multiFactorAuthenticationRequired?: boolean;
   otpLength?: number;
   maskedDestination?: string;
@@ -43,11 +46,28 @@ export interface AccountSettingsResponse {
   onlinePayment?: boolean;
 }
 
+interface TokenLoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresInSeconds?: number;
+  refreshExpiresInSeconds?: number;
+}
+
+interface StoredTokenSession extends TokenLoginResponse {
+  accessExpiresAt?: number;
+  refreshExpiresAt?: number;
+}
+
 const isMock = import.meta.env.VITE_USE_MOCK === "true";
+const authMode = import.meta.env.VITE_AUTH_MODE === "token" ? "token" : "session";
 const M_UNIQUE_ID_KEY = "mUniqueId";
 const LOGIN_CREDENTIALS_KEY = "ynw-credentials";
+const TOKEN_SESSION_KEY = "jaldee-token-session";
 const ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=";
 const ENCRYPTION_IV_B64 = "RW5jRGVjSmFsZGVlMDYyMw==";
+export function getAuthMode() {
+  return authMode;
+}
 
 function getStorage() {
   if (typeof window === "undefined") return null;
@@ -74,6 +94,14 @@ export function getStoredCredentials(): LoginRequest | null {
   }
 }
 
+export function getStoredAccessToken(): string {
+  return getStoredTokenSession()?.accessToken ?? "";
+}
+
+export function hasStoredAuthSession(): boolean {
+  return authMode === "token" ? Boolean(getStoredAccessToken()) : Boolean(getStoredCredentials());
+}
+
 export function setStoredCredentials(payload: LoginRequest) {
   const storage = getStorage();
   if (!storage) return;
@@ -90,6 +118,37 @@ export function setStoredCredentials(payload: LoginRequest) {
 
 export function clearStoredCredentials() {
   getStorage()?.removeItem(LOGIN_CREDENTIALS_KEY);
+  clearStoredTokenSession();
+}
+
+function getStoredTokenSession(): StoredTokenSession | null {
+  const raw = getStorage()?.getItem(TOKEN_SESSION_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as StoredTokenSession;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredTokenSession(tokens: TokenLoginResponse) {
+  const storage = getStorage();
+  if (!storage) return;
+
+  const now = Date.now();
+  storage.setItem(
+    TOKEN_SESSION_KEY,
+    JSON.stringify({
+      ...tokens,
+      accessExpiresAt: tokens.accessExpiresInSeconds ? now + tokens.accessExpiresInSeconds * 1000 : undefined,
+      refreshExpiresAt: tokens.refreshExpiresInSeconds ? now + tokens.refreshExpiresInSeconds * 1000 : undefined,
+    })
+  );
+}
+
+function clearStoredTokenSession() {
+  getStorage()?.removeItem(TOKEN_SESSION_KEY);
 }
 
 function buildLoginRequest(payload: LoginRequest): EncryptedLoginRequest {
@@ -215,6 +274,14 @@ function normalizeRoles(input: unknown): UserContext["roles"] {
 function normalizeLocations(input: unknown): BranchLocation[] {
   if (Array.isArray(input) && input.length > 0) {
     return input.map((location, index) => {
+      if (typeof location === "string") {
+        return {
+          id: location,
+          name: location,
+          code: location,
+        };
+      }
+
       const candidate = (typeof location === "object" && location !== null
         ? location
         : {}) as Record<string, unknown>;
@@ -234,6 +301,10 @@ async function fetchProviderLocations(): Promise<BranchLocation[]> {
   if (isMock) {
     const { mockLocations } = await import("../mocks/mockAuth");
     return mockLocations;
+  }
+
+  if (authMode === "token") {
+    return baseService.getLocations();
   }
 
   const response = await apiClient.get<unknown>("/provider/locations");
@@ -351,12 +422,14 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
     roles: normalizeRoles(rawUser.roles),
     permissions: Array.isArray(rawUser.permissions)
       ? rawUser.permissions.map((permission) => String(permission))
+      : Array.isArray(rawUser.perms)
+        ? rawUser.perms.map((permission) => String(permission))
       : [],
   };
 
   const account: AccountContext = {
     id: String(rawAccount.id ?? rawAccount.accountId ?? rawAccount.providerId ?? user.id),
-    name: String(rawAccount.name ?? rawAccount.businessName ?? user.name ?? "Jaldee Business"),
+    name: String(rawAccount.name ?? rawAccount.businessName ?? rawAccount.tenantName ?? user.name ?? "Jaldee Business"),
     licensedProducts: Array.isArray(rawAccount.licensedProducts)
       ? (rawAccount.licensedProducts as AccountContext["licensedProducts"])
       : DEFAULT_LICENSED_PRODUCTS,
@@ -408,7 +481,7 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
     user,
     account: normalizedAccount,
     locations,
-    token: typeof candidate.token === "string" ? candidate.token : undefined,
+    token: typeof candidate.token === "string" ? candidate.token : getStoredAccessToken() || undefined,
     multiFactorAuthenticationRequired:
       candidate.multiFactorAuthenticationRequired === true,
     otpLength:
@@ -435,11 +508,22 @@ export const authService = {
       token:     mockToken,
     };
   }
-  const res = await apiClient.get<SessionResponse>("/auth/me");
+  const storedTokens = authMode === "token" ? getStoredTokenSession() : null;
+  if (storedTokens?.accessToken) {
+    setApiClientContext({ authMode: "token", authToken: storedTokens.accessToken });
+  }
+
+  const res = await apiClient.get<SessionResponse>(
+    authMode === "token" ? buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.me) : "/auth/me",
+  );
   return normalizeLoginResponse(res.data);
 },
 
   async login(payload: LoginRequest): Promise<SessionResponse> {
+    if (authMode === "token" && !isMock) {
+      return this.tokenLogin(payload);
+    }
+
     const requestBody = buildLoginRequest(payload);
 
     if (isMock) {
@@ -449,6 +533,30 @@ export const authService = {
 
     const encryptedInput = await encryptUsingAES256(requestBody);
     return this.encryptLogin(encryptedInput);
+  },
+
+  async tokenLogin(payload: LoginRequest): Promise<SessionResponse> {
+    const res = await apiClient.post<TokenLoginResponse>(
+      buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.passwordLogin),
+      {
+        userType: "TENANT_USER",
+        identifierType: "LOGIN_ID",
+        identifier: payload.loginId,
+        password: payload.password,
+      },
+      { _skipAuthRefresh: true } as unknown,
+    );
+
+    const tokens = res.data;
+    setStoredTokenSession(tokens);
+    setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
+
+    const context = await this.checkSession();
+    return {
+      ...context,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   },
 
   async encryptLogin(body: string): Promise<SessionResponse> {
@@ -464,7 +572,9 @@ export const authService = {
       },
       transformRequest: [(data) => data],
       transformResponse: [(data) => data],
-    });
+      _skipAuthRefresh: true,
+      _skipCsrf: true,
+    } as unknown);
 
     console.log("[authService] raw encrypted login response:", res.data);
     const decryptedResponse = await decryptUsingAES256(res.data);
@@ -476,6 +586,35 @@ export const authService = {
   },
 
   async refreshSession(): Promise<SessionResponse> {
+    if (authMode === "token") {
+      const storedTokens = getStoredTokenSession();
+      if (!storedTokens?.refreshToken) {
+        throw new Error("No refresh token available");
+      }
+
+      const refreshPath = import.meta.env.VITE_AUTH_REFRESH_PATH?.trim() || TOKEN_AUTH_ENDPOINTS.refresh;
+
+      const res = await apiClient.post<TokenLoginResponse>(
+        buildAuthServiceUrl(refreshPath),
+        { refreshToken: storedTokens.refreshToken },
+        { _skipAuthRefresh: true } as unknown,
+      );
+
+      const tokens = {
+        ...res.data,
+        refreshToken: res.data.refreshToken || storedTokens.refreshToken,
+      };
+      setStoredTokenSession(tokens);
+      setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
+
+      const context = await this.checkSession();
+      return {
+        ...context,
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      };
+    }
+
     const credentials = getStoredCredentials();
     if (!credentials) {
       throw new Error("No stored credentials available for session refresh");
@@ -486,6 +625,15 @@ export const authService = {
 
   async logout(): Promise<void> {
     if (isMock) return;
+    if (authMode === "token") {
+      await apiClient.post(
+        buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.logout),
+        null,
+        { _skipAuthRefresh: true } as unknown,
+      ).catch(() => {});
+      clearStoredTokenSession();
+      return;
+    }
     await apiClient.delete("/provider/login").catch(() => {});
   },
 };

@@ -9,7 +9,7 @@ import { CreateOrder } from "./components/CreateOrder";
 import { OrdersDashboard } from "./components/OrdersDashboard";
 import { OrdersInvoice } from "./components/OrdersInvoice";
 import { OrdersInvoicesList } from "./components/OrdersInvoicesList";
-import { OrdersInventoryList } from "./components/OrdersInventoryList";
+import { InventoryDashboard } from "./components/InventoryDashboard";
 import { OrdersItemCreate } from "./components/OrdersItemCreate";
 import { OrdersItemDetails } from "./components/OrdersItemDetails";
 import { OrdersItemVariantsPage } from "./components/OrdersItemVariantsPage";
@@ -24,6 +24,10 @@ import { OrdersDeliveryProfileDetails } from "./components/OrdersDeliveryProfile
 import { OrdersLogisticsList } from "./components/OrdersLogisticsList";
 import { OrdersCourierList } from "./components/OrdersCourierList";
 import { OrdersDealersList } from "./components/OrdersDealersList";
+import { OrdersSectionPlaceholder } from "./components/shared";
+import { InventoryAdjustmentsPage } from "./components/InventoryAdjustmentsPage";
+import { InventoryCatalogsPage } from "./components/InventoryCatalogsPage";
+import { InventoryStocksPage } from "./components/InventoryStocksPage";
 
 export function OrdersModule() {
   const access = useModuleAccess("orders");
@@ -80,9 +84,26 @@ export function OrdersModule() {
 
   if (view === "inventory") {
     if (subview) {
+      if (subview === "adjust") {
+        return <InventoryAdjustmentsPage />;
+      }
+      if (subview === "catalogs") {
+        return <InventoryCatalogsPage />;
+      }
+      if (subview === "stocks") {
+        return <InventoryStocksPage />;
+      }
+      if (!isInventoryVariantSubview(subview)) {
+        return (
+          <OrdersSectionPlaceholder
+            title={formatInventorySubviewTitle(subview)}
+            description="This inventory workflow is routed from the React dashboard and is ready for the next conversion slice."
+          />
+        );
+      }
       return <OrdersItemVariantsPage />;
     }
-    return <OrdersInventoryList />;
+    return <InventoryDashboard />;
   }
 
   if (view === "items") {
@@ -146,4 +167,27 @@ export function OrdersModule() {
   }
 
   return <OrdersDashboard />;
+}
+
+function isInventoryVariantSubview(value: string) {
+  return new Set([
+    "categories",
+    "groups",
+    "tags",
+    "types",
+    "manufacturers",
+    "units",
+    "compositions",
+    "hsn",
+    "hsn-codes",
+    "remarks",
+  ]).has(value);
+}
+
+function formatInventorySubviewTitle(value: string) {
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
 }

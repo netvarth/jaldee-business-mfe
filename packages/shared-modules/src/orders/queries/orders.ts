@@ -12,6 +12,23 @@ import {
   getOrdersCreditSystemSettings,
   getOrdersCustomer,
   getOrdersDashboardDataset,
+  getInventoryDashboardDataset,
+  getInventoryAdjustmentsPage,
+  getInventoryAdjustmentFormOptions,
+  getInventoryCatalogItemsPage,
+  getInventoryAdjustmentDetail,
+  getInventoryCatalogsPage,
+  getInventoryCatalogDetail,
+  getInventoryCatalogDetailItemsPage,
+  getInventoryStocksFormOptions,
+  getInventoryStocksPage,
+  updateInventoryCatalog,
+  updateInventoryCatalogItem,
+  updateInventoryCatalogItemStatus,
+  updateInventoryCatalogStatus,
+  saveInventoryAdjustment,
+  changeInventoryAdjustmentStatus,
+  createInventoryAdjustmentRemark,
   getOrdersInvoicesPage,
   getOrdersInvoiceTypesPage,
   getOrdersItemConsumptionHistory,
@@ -52,6 +69,7 @@ import {
   updateOrdersInvoiceType,
 } from "../services/orders";
 import type { OrdersBillAdjustmentKind, OrdersBillAdjustmentOption } from "../types";
+import type { InventoryAdjustmentDetailItem } from "../types";
 
 export function useOrdersReviewsPage(page: number, pageSize: number, filters?: Record<string, any>) {
   const { location, routeParams } = useSharedModulesContext();
@@ -90,6 +108,28 @@ export function useOrdersDataset() {
     enabled: Boolean(userId),
     queryFn: () =>
       getOrdersDashboardDataset(scopedApi, {
+        product,
+        basePath,
+        userId,
+        locationId: location?.id,
+        locationName: location?.name,
+        locationCode: location?.code,
+        selectedStore,
+      }),
+  });
+}
+
+export function useInventoryDashboardDataset() {
+  const { product, location, basePath, routeParams, user } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const selectedStore = readSelectedStoreFromLocalStorage();
+  const userId = user?.id ?? null;
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, product, basePath, "inventory-dashboard", routeParams?.view, userId),
+    enabled: Boolean(userId),
+    queryFn: () =>
+      getInventoryDashboardDataset(scopedApi, {
         product,
         basePath,
         userId,
@@ -520,6 +560,235 @@ export function useOrdersItemConsumptionHistory(
 export function useOrdersInventory() {
   const datasetQuery = useOrdersDataset();
   return { ...datasetQuery, data: datasetQuery.data?.inventory ?? [] };
+}
+
+export function useInventoryAdjustmentsPage(page: number, pageSize: number, filters?: Record<string, unknown>) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-adjustments", routeParams?.view, page, pageSize, filters),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventoryAdjustmentsPage(scopedApi, { page, pageSize, filters }),
+  });
+}
+
+export function useInventoryAdjustmentFormOptions(storeEncId?: string | null, catalogEncId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-adjustment-options", storeEncId, catalogEncId),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    queryFn: () => getInventoryAdjustmentFormOptions(scopedApi, storeEncId),
+  });
+}
+
+export function useInventoryCatalogItemsPage(catalogEncId: string | null | undefined, page: number, pageSize: number, searchText?: string) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-items", catalogEncId, page, pageSize, searchText),
+    enabled: Boolean(location?.id && catalogEncId),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventoryCatalogItemsPage(scopedApi, { catalogEncId: catalogEncId ?? "", page, pageSize, searchText }),
+  });
+}
+
+export function useInventoryStocksFormOptions(storeEncId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-stocks-options", storeEncId),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    queryFn: () => getInventoryStocksFormOptions(scopedApi, storeEncId),
+  });
+}
+
+export function useInventoryStocksPage(
+  page: number,
+  pageSize: number,
+  options: { storeEncId?: string | null; catalogEncId?: string | null; spItemCode?: string | null; enabled?: boolean }
+) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const storeEncId = String(options.storeEncId ?? "").trim();
+  const catalogEncId = String(options.catalogEncId ?? "").trim();
+  const spItemCode = String(options.spItemCode ?? "").trim();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-stocks", page, pageSize, storeEncId, catalogEncId, spItemCode),
+    enabled: Boolean(location?.id && storeEncId && catalogEncId) && (options.enabled ?? true),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventoryStocksPage(scopedApi, { page, pageSize, storeEncId, catalogEncId, spItemCode }),
+  });
+}
+
+export function useInventoryCatalogsPage(
+  page: number,
+  pageSize: number,
+  storeEncId?: string | null,
+  options?: { searchText?: string; filters?: Record<string, unknown> }
+) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const searchText = String(options?.searchText ?? "").trim();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalogs", routeParams?.view, page, pageSize, storeEncId, searchText, options?.filters),
+    enabled: Boolean(location?.id),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventoryCatalogsPage(scopedApi, { page, pageSize, storeEncId, searchText, filters: options?.filters }),
+  });
+}
+
+export function useInventoryCatalogDetail(encId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-detail", encId),
+    enabled: Boolean(encId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: () => getInventoryCatalogDetail(scopedApi, encId ?? ""),
+  });
+}
+
+export function useInventoryCatalogDetailItemsPage(
+  catalogEncId: string | null | undefined,
+  page: number,
+  pageSize: number,
+  options?: { searchText?: string; filters?: Record<string, unknown> }
+) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const searchText = String(options?.searchText ?? "").trim();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-detail-items", catalogEncId, page, pageSize, searchText, options?.filters),
+    enabled: Boolean(location?.id && catalogEncId),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => getInventoryCatalogDetailItemsPage(scopedApi, { catalogEncId: catalogEncId ?? "", page, pageSize, searchText, filters: options?.filters }),
+  });
+}
+
+export function useUpdateInventoryCatalog() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ encId, payload }: { encId: string; payload: Record<string, unknown> }) => updateInventoryCatalog(scopedApi, encId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalogs") });
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-detail", variables.encId) });
+    },
+  });
+}
+
+export function useUpdateInventoryCatalogStatus() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ encId, status }: { encId: string; status: string }) => updateInventoryCatalogStatus(scopedApi, encId, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalogs") });
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-detail", variables.encId) });
+    },
+  });
+}
+
+export function useUpdateInventoryCatalogItemStatus(catalogEncId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ encId, status }: { encId: string; status: string }) => updateInventoryCatalogItemStatus(scopedApi, encId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-detail-items", catalogEncId) });
+    },
+  });
+}
+
+export function useUpdateInventoryCatalogItem(catalogEncId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ encId, payload }: { encId: string; payload: Record<string, unknown> }) =>
+      updateInventoryCatalogItem(scopedApi, encId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-catalog-detail-items", catalogEncId) });
+    },
+  });
+}
+
+export function useInventoryAdjustmentDetail(uid?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-adjustment-detail", uid),
+    enabled: Boolean(uid),
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: () => getInventoryAdjustmentDetail(scopedApi, uid ?? ""),
+  });
+}
+
+export function useSaveInventoryAdjustment() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ payload, mode }: { payload: Record<string, unknown>; mode: "create" | "update"; items?: InventoryAdjustmentDetailItem[] }) =>
+      saveInventoryAdjustment(scopedApi, payload, mode),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-adjustments") });
+    },
+  });
+}
+
+export function useChangeInventoryAdjustmentStatus() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ uid, status }: { uid: string; status: string }) => changeInventoryAdjustmentStatus(scopedApi, uid, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-adjustments") });
+    },
+  });
+}
+
+export function useCreateInventoryAdjustmentRemark() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (remark: string) => createInventoryAdjustmentRemark(scopedApi, remark),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-adjustment-options") });
+    },
+  });
 }
 
 function readSelectedStoreFromLocalStorage() {

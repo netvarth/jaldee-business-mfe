@@ -7,6 +7,7 @@ interface RequestConfigWithMeta extends InternalAxiosRequestConfig {
   };
   _retry?: boolean;
   _skipAuthRefresh?: boolean;
+  _skipCsrf?: boolean;
 }
 
 interface RefreshResult {
@@ -111,7 +112,7 @@ export function createApiClient(baseURL: string): AxiosInstance {
 
       const method = config.method?.toLowerCase() ?? "";
       const isMutating = ["post", "put", "patch", "delete"].includes(method);
-      if (isMutating && _authMode === "session") {
+      if (isMutating && _authMode === "session" && !config._skipCsrf) {
         const csrf = getCsrfToken();
         if (csrf) config.headers["X-CSRF-Token"] = csrf;
       }

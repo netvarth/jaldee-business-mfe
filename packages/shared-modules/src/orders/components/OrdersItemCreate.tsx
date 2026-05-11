@@ -9,7 +9,7 @@ import {
   useOrdersItemFormSettings,
   useUpdateOrdersItem,
 } from "../queries/orders";
-import { buildOrdersItemDetailHref, buildOrdersModuleHref } from "../services/orders";
+import { buildOrdersItemDetailHref, buildOrdersModuleHref, resolveInternalReturnToHref, resolveReturnToLabel } from "../services/orders";
 import type { OrdersItemSettingsOption } from "../types";
 
 type ItemAttribute = {
@@ -96,6 +96,10 @@ export function OrdersItemCreate() {
   const [attributeDraft, setAttributeDraft] = useState({ attribute: "", value: "", unit: "" });
   const [error, setError] = useState("");
   const listHref = useMemo(() => buildOrdersModuleHref(basePath, product, "items"), [basePath, product]);
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const returnTo = searchParams?.get("returnTo") ?? "";
+  const backHref = useMemo(() => resolveInternalReturnToHref(returnTo) || listHref, [listHref, returnTo]);
+  const backLabel = useMemo(() => resolveReturnToLabel(returnTo), [returnTo]);
 
   useEffect(() => {
     if (!isUpdate || !detailQuery.data?.raw) return;
@@ -185,7 +189,7 @@ export function OrdersItemCreate() {
       <PageHeader
         title={isUpdate ? "Update Item" : "Create Item"}
         subtitle={isUpdate ? "Update inventory item information" : "Add a new inventory item"}
-        back={{ label: "Items", href: listHref }}
+        back={{ label: backHref === listHref ? "Items" : backLabel, href: backHref }}
         onNavigate={navigate}
       />
 
@@ -313,7 +317,7 @@ export function OrdersItemCreate() {
               data-testid="orders-item-create-cancel"
               type="button"
               variant="outline"
-              onClick={() => navigate(listHref)}
+              onClick={() => navigate(backHref)}
             >
               Cancel
             </Button>

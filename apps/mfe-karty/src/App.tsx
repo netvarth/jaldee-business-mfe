@@ -7,11 +7,27 @@ import DrivePage from "./pages/DrivePage";
 import OrdersPage from "./pages/OrdersPage";
 
 export default function App() {
+  const placeholderRoutes = [
+    "suppliers/*",
+    "discounts/*",
+    "price-lists/*",
+    "barcode/*",
+    "delivery/*",
+    "commissions/*",
+    "loyalty/*",
+    "analytics/*",
+    "settings/*",
+  ];
+
   return (
     <Routes>
       <Route
         path=""
-        element={<Navigate to="orders/dashboard" replace />}
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
       />
       <Route
         path="orders/sales-returns"
@@ -23,7 +39,43 @@ export default function App() {
       />
       <Route
         path="orders"
-        element={<Navigate to="/orders/orders-grid" replace />}
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="orders/new"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="orders/pending"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="orders/completed"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="orders/returns"
+        element={
+          <PageErrorBoundary>
+            <PlaceholderPage />
+          </PageErrorBoundary>
+        }
       />
       <Route
         path="orders-grid"
@@ -158,6 +210,22 @@ export default function App() {
         }
       />
       <Route
+        path="inventory/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="inventory/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
         path="catalog"
         element={
           <PageErrorBoundary>
@@ -167,6 +235,22 @@ export default function App() {
       />
       <Route
         path="catalog/:view"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="catalog/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="catalog/:view/:subview/:recordId"
         element={
           <PageErrorBoundary>
             <OrdersPage />
@@ -301,6 +385,17 @@ export default function App() {
           </PageErrorBoundary>
         }
       />
+      {placeholderRoutes.map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <PageErrorBoundary>
+              <PlaceholderPage />
+            </PageErrorBoundary>
+          }
+        />
+      ))}
       <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
   );

@@ -25,6 +25,10 @@ const PRODUCT_ORDER: ProductKey[] = [
   "ai",
 ];
 
+const PRODUCT_HOME_PATHS: Partial<Record<ProductKey, string>> = {
+  karty: "/karty/orders/dashboard",
+};
+
 export default function IconRail() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,7 +55,7 @@ export default function IconRail() {
 
   function handleNavigate(key: ProductKey) {
     setActiveProduct(key);
-    navigate(`/${key}`);
+    navigate(PRODUCT_HOME_PATHS[key] ?? `/${key}`);
   }
 
   function handleHome() {

@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
-import { getStoredCredentials } from "../services/authService";
+import { hasStoredAuthSession } from "../services/authService";
 
 interface Props {
   children: React.ReactNode;
@@ -9,7 +9,7 @@ interface Props {
 export default function ProtectedRoute({ children }: Props) {
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
-  const hasStoredSession = Boolean(getStoredCredentials());
+  const hasStoredSession = hasStoredAuthSession();
 
   if (!hasHydrated) {
     return <div className="shell-loading">Loading session...</div>;

@@ -3,6 +3,18 @@ export type {
   OrdersCapabilities,
   OrdersCatalogRow,
   OrdersDataset,
+  InventoryDashboardDataset,
+  InventoryAdjustmentDetail,
+  InventoryAdjustmentDetailItem,
+  InventoryAdjustmentFormOptions,
+  InventoryAdjustmentItemOption,
+  InventoryAdjustmentOption,
+  InventoryAdjustmentRow,
+  InventoryAdjustmentStatus,
+  InventoryCatalogItemRow,
+  InventoryCatalogRow,
+  InventoryStockRow,
+  InventoryStocksFormOptions,
   OrdersInventoryRow,
   OrdersItemConsumptionHistoryRow,
   OrdersItemDetail,
@@ -19,6 +31,10 @@ export type {
 } from "./types";
 export { OrdersModule } from "./OrdersModule";
 export { OrdersDashboard } from "./components/OrdersDashboard";
+export { InventoryDashboard } from "./components/InventoryDashboard";
+export { InventoryAdjustmentsPage } from "./components/InventoryAdjustmentsPage";
+export { InventoryCatalogsPage } from "./components/InventoryCatalogsPage";
+export { InventoryStocksPage } from "./components/InventoryStocksPage";
 export { OrdersInvoicesList } from "./components/OrdersInvoicesList";
 export { OrdersItemDetails } from "./components/OrdersItemDetails";
 export { OrdersItemCreate } from "./components/OrdersItemCreate";
@@ -35,6 +51,23 @@ export { OrdersDeliveryProfileDetails } from "./components/OrdersDeliveryProfile
 export { OrdersActiveCart } from "./components/OrdersActiveCart";
 export {
   useOrdersDataset,
+  useInventoryDashboardDataset,
+  useInventoryAdjustmentsPage,
+  useInventoryAdjustmentFormOptions,
+  useInventoryCatalogItemsPage,
+  useInventoryCatalogsPage,
+  useInventoryCatalogDetail,
+  useInventoryCatalogDetailItemsPage,
+  useInventoryStocksFormOptions,
+  useInventoryStocksPage,
+  useUpdateInventoryCatalog,
+  useUpdateInventoryCatalogItem,
+  useUpdateInventoryCatalogItemStatus,
+  useUpdateInventoryCatalogStatus,
+  useInventoryAdjustmentDetail,
+  useSaveInventoryAdjustment,
+  useChangeInventoryAdjustmentStatus,
+  useCreateInventoryAdjustmentRemark,
   useOrdersInvoicesPage,
   useOrdersItemConsumptionHistory,
   useOrdersItemDetail,
@@ -58,6 +91,23 @@ export {
   buildOrdersDeliveryProfileDetailsHref,
   getDefaultOrdersCapabilities,
   getOrdersDashboardDataset,
+  getInventoryDashboardDataset,
+  getInventoryAdjustmentsPage,
+  getInventoryAdjustmentFormOptions,
+  getInventoryCatalogItemsPage,
+  getInventoryCatalogsPage,
+  getInventoryCatalogDetail,
+  getInventoryCatalogDetailItemsPage,
+  getInventoryStocksFormOptions,
+  getInventoryStocksPage,
+  updateInventoryCatalog,
+  updateInventoryCatalogItem,
+  updateInventoryCatalogItemStatus,
+  updateInventoryCatalogStatus,
+  getInventoryAdjustmentDetail,
+  saveInventoryAdjustment,
+  changeInventoryAdjustmentStatus,
+  createInventoryAdjustmentRemark,
   getOrdersStatusVariant,
   resolveInternalReturnToHref,
   resolveReturnToLabel,

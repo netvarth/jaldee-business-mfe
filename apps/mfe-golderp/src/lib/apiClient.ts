@@ -39,7 +39,7 @@ export function ensureApiClientInitialized(mfeName = "mfe_golderp", authToken = 
   setApiClientContext({
     mfeName,
     productScope: "golderp",
-    authMode: "session",
+    authMode: authToken ? "token" : "session",
     authToken,
   });
 }

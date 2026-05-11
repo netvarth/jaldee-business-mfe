@@ -5,6 +5,8 @@ import path from "path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const authServiceProxyTarget = env.VITE_AUTH_SERVICE_PROXY_TARGET || "http://192.168.29.87:8080";
+  const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET || authServiceProxyTarget;
 
   return {
     plugins: [
@@ -67,6 +69,16 @@ export default defineConfig(({ mode }) => {
           secure: true,
           rewrite: (path) => path.replace(/^\/superadmin-api/, "/superadmin/rest/mgmt"),
         },
+        "/auth-service": {
+          target: authServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/base-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
     preview: {
@@ -83,6 +95,16 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/superadmin-api/, "/superadmin/rest/mgmt"),
+        },
+        "/auth-service": {
+          target: authServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/base-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
         },
       },
     },

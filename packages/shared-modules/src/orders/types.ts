@@ -297,6 +297,140 @@ export type OrdersDataset = {
   };
 };
 
+export type InventoryDashboardAction = {
+  label: string;
+  href: string;
+  icon: "box" | "warehouse" | "database" | "cart" | "refresh" | "layers" | "tag" | "globe" | "history" | "list" | "chart";
+  enabled?: boolean;
+  actionType?: "route" | "itemVariants" | "editActions";
+};
+
+export type InventoryDashboardMetric = {
+  label: string;
+  value: number;
+  currency?: boolean;
+  icon: "box" | "cart" | "chart" | "database" | "warehouse" | "alert";
+  tone: "emerald" | "blue" | "amber" | "rose" | "slate";
+};
+
+export type InventoryDashboardDataset = {
+  title: string;
+  subtitle: string;
+  actions: InventoryDashboardAction[];
+  purchaseMetrics: InventoryDashboardMetric[];
+  salesMetrics: InventoryDashboardMetric[];
+  stockActions: Array<{ label: string; href: string; tone: "rose" | "amber"; icon: "alert" | "box" }>;
+  customersTotal: number;
+  vendorsTotal: number;
+  topSellingStores: Array<{ label: string; value: number; color?: string }>;
+  graph: {
+    labels: string[];
+    purchase: number[];
+    sales: number[];
+  };
+};
+
+export type InventoryAdjustmentStatus = "DRAFT" | "SUBMITTED" | "PROCESSED" | string;
+
+export type InventoryAdjustmentRow = {
+  uid: string;
+  storeName: string;
+  remark: string;
+  status: InventoryAdjustmentStatus;
+  createdDate: string;
+  raw?: unknown;
+};
+
+export type InventoryAdjustmentOption = {
+  id: string;
+  label: string;
+  raw?: unknown;
+};
+
+export type InventoryAdjustmentItemOption = InventoryAdjustmentOption & {
+  spCode: string;
+  batchApplicable: boolean;
+  description?: string;
+};
+
+export type InventoryAdjustmentDetailItem = {
+  id: string;
+  name: string;
+  inventoryCatalogEncId: string;
+  batch: string;
+  quantity: number;
+  stock?: number;
+  batchApplicable?: boolean;
+};
+
+export type InventoryAdjustmentDetail = {
+  uid: string;
+  storeEncId: string;
+  catalogEncId: string;
+  remarkEncId: string;
+  notes: string;
+  status: InventoryAdjustmentStatus;
+  items: InventoryAdjustmentDetailItem[];
+  raw?: unknown;
+};
+
+export type InventoryAdjustmentFormOptions = {
+  stores: InventoryAdjustmentOption[];
+  catalogs: InventoryAdjustmentOption[];
+  remarks: InventoryAdjustmentOption[];
+  items: InventoryAdjustmentItemOption[];
+};
+
+export type InventoryStockRow = {
+  id: string;
+  itemName: string;
+  itemSpCode: string;
+  inhand: number;
+  onHoldQty: number;
+  batch?: string;
+  expiryDate?: string;
+  raw?: unknown;
+};
+
+export type InventoryStocksFormOptions = {
+  stores: InventoryAdjustmentOption[];
+  catalogs: InventoryAdjustmentOption[];
+};
+
+export type InventoryCatalogRow = {
+  id: string;
+  encId: string;
+  name: string;
+  storeName: string;
+  storeEncId: string;
+  status: string;
+  active: boolean;
+  raw?: unknown;
+};
+
+export type InventoryCatalogItemRow = {
+  id: string;
+  encId: string;
+  itemName: string;
+  spCode: string;
+  reorderQuantity?: number;
+  hasAttributes: boolean;
+  status: string;
+  active: boolean;
+  itemNature: string;
+  raw?: unknown;
+};
+
+export type InventoryAuditLogRow = {
+  uid: string;
+  date: string;
+  action: string;
+  type: string;
+  description: string;
+  user: string;
+  raw?: unknown;
+};
+
 export type OrdersInvoiceDetail = {
   invoiceUid: string;
   invoiceNumber: string;

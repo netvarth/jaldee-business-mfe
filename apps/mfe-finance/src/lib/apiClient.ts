@@ -39,7 +39,7 @@ export function ensureApiClientInitialized(mfeName = "mfe_finance", authToken = 
   setApiClientContext({
     mfeName,
     productScope: "finance",
-    authMode: "session",
+    authMode: authToken ? "token" : "session",
     authToken,
   });
 }

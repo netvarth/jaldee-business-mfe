@@ -14,6 +14,7 @@ import {
 import { DatePickerPopover, PageErrorBoundary as DesignSystemPageErrorBoundary } from '@jaldee/design-system';
 import TopBar from './components/TopBar';
 import DrivePage from './pages/DrivePage';
+import PlaceholderPage from './pages/PlaceholderPage';
 
 const ListView = lazy(() => import('./components/ListView'));
 const BookingModal = lazy(() => import('./components/BookingModal'));
@@ -338,9 +339,65 @@ function DashboardView({
 
 function App() {
   const today = new Date();
+  const placeholderRoutes = [
+    'appointments/*',
+    'requests/*',
+    'tokens/*',
+    'checkin/*',
+    'queue/*',
+    'schedule-settings/*',
+    'calendar/*',
+    'resources/*',
+    'services/*',
+    'staff-availability/*',
+    'online-page/*',
+    'deposits/*',
+    'customers/*',
+    'leads/*',
+    'tasks/*',
+    'users/*',
+    'finance/*',
+    'analytics/*',
+    'reports/*',
+    'membership/*',
+    'audit-log/*',
+    'settings/*',
+  ];
 
   return (
     <Routes>
+      <Route
+        path="day/:year/:month/:day"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DashboardView defaultView="day" />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="week/:year/:month/:day"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DashboardView defaultView="week" />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="month/:year/:month"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DashboardView defaultView="month" />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="list"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <DashboardView startLayout="list" defaultView="week" />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
       <Route
         path="bookings/day/:year/:month/:day"
         element={
@@ -404,6 +461,21 @@ function App() {
             <DrivePage />
           </DesignSystemPageErrorBoundary>
         }
+      />
+      {placeholderRoutes.map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <DesignSystemPageErrorBoundary>
+              <PlaceholderPage />
+            </DesignSystemPageErrorBoundary>
+          }
+        />
+      ))}
+      <Route
+        path=""
+        element={<Navigate replace to={buildRoutePath('week', today)} />}
       />
       <Route
         path="bookings"

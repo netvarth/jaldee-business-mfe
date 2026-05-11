@@ -1,5 +1,6 @@
 import {
   cloneElement,
+  forwardRef,
   isValidElement,
   useEffect,
   useId,
@@ -7,6 +8,7 @@ import {
   useState,
 } from "react";
 import type { HTMLAttributes, MouseEvent, ReactElement, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../utils";
 
 type PopoverTriggerElement = ReactElement<{
@@ -25,6 +27,7 @@ export interface PopoverProps {
   align?: "start" | "center" | "end";
   contentClassName?: string;
   disabled?: boolean;
+  portal?: boolean;
   "data-testid"?: string;
 }
 
@@ -38,10 +41,13 @@ export function Popover({
   align = "start",
   contentClassName,
   disabled,
+  portal = false,
   "data-testid": testId = "popover",
 }: PopoverProps) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [portalPosition, setPortalPosition] = useState({ top: 0, left: 0 });
   const contentId = useId();
   const isControlled = open !== undefined;
   const isOpen = isControlled ? open : internalOpen;
@@ -59,7 +65,8 @@ export function Popover({
     }
 
     function handlePointerDown(event: globalThis.MouseEvent) {
-      if (!popoverRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!popoverRef.current?.contains(target) && !contentRef.current?.contains(target)) {
         setOpenState(false);
       }
     }
@@ -78,6 +85,30 @@ export function Popover({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !portal) {
+      return;
+    }
+
+    function updatePortalPosition() {
+      const rect = popoverRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPortalPosition({
+        top: placement === "bottom" ? rect.bottom + 8 : rect.top - 8,
+        left: align === "end" ? rect.right : align === "center" ? rect.left + rect.width / 2 : rect.left,
+      });
+    }
+
+    updatePortalPosition();
+    window.addEventListener("resize", updatePortalPosition);
+    window.addEventListener("scroll", updatePortalPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePortalPosition);
+      window.removeEventListener("scroll", updatePortalPosition, true);
+    };
+  }, [align, isOpen, placement, portal]);
 
   if (!isValidElement(trigger)) {
     return null;
@@ -101,25 +132,85 @@ export function Popover({
       })}
 
       {isOpen && !disabled && (
-        <div
-          id={contentId}
-          role="dialog"
-          data-testid={`${testId}-content`}
-          className={cn(
-            "absolute z-[150] min-w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg",
-            placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
-            align === "start" && "left-0",
-            align === "center" && "left-1/2 -translate-x-1/2",
-            align === "end" && "right-0",
-            contentClassName
-          )}
-        >
-          {children}
-        </div>
+        portal && typeof document !== "undefined"
+          ? createPortal(
+            <PopoverContent
+              ref={contentRef}
+              contentId={contentId}
+              testId={testId}
+              placement={placement}
+              align={align}
+              contentClassName={contentClassName}
+              portalPosition={portalPosition}
+              portal
+            >
+              {children}
+            </PopoverContent>,
+            document.body
+          )
+          : (
+            <PopoverContent
+              ref={contentRef}
+              contentId={contentId}
+              testId={testId}
+              placement={placement}
+              align={align}
+              contentClassName={contentClassName}
+            >
+              {children}
+            </PopoverContent>
+          )
       )}
     </div>
   );
 }
+
+const PopoverContent = forwardRef<HTMLDivElement, {
+  contentId: string;
+  testId: string;
+  placement: "top" | "bottom";
+  align: "start" | "center" | "end";
+  contentClassName?: string;
+  portalPosition?: { top: number; left: number };
+  portal?: boolean;
+  children: ReactNode;
+}>(function PopoverContent(
+  {
+    contentId,
+    testId,
+    placement,
+    align,
+    contentClassName,
+    portalPosition,
+    portal = false,
+    children,
+  },
+  ref
+) {
+  return (
+  <div
+    ref={ref}
+    id={contentId}
+    role="dialog"
+    data-testid={`${testId}-content`}
+    style={portal ? { top: portalPosition?.top ?? 0, left: portalPosition?.left ?? 0 } : undefined}
+    className={cn(
+      portal ? "fixed z-[300]" : "absolute z-[150]",
+      "min-w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg",
+      !portal && (placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"),
+      !portal && align === "start" && "left-0",
+      !portal && align === "center" && "left-1/2 -translate-x-1/2",
+      !portal && align === "end" && "right-0",
+      portal && placement === "top" && "-translate-y-full",
+      portal && align === "center" && "-translate-x-1/2",
+      portal && align === "end" && "-translate-x-full",
+      contentClassName
+    )}
+  >
+    {children}
+  </div>
+  );
+});
 
 export interface PopoverSectionProps extends HTMLAttributes<HTMLDivElement> {}
 

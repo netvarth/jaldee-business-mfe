@@ -2,10 +2,18 @@ import { EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
 import { useLocation, useParams } from "react-router-dom";
 
 const sectionLabels: Record<string, string> = {
+  karty: "Overview",
   orders: "Orders",
   "sales-returns": "Sales Returns",
   inventory: "Inventory",
   catalog: "Items/Products",
+  suppliers: "Suppliers",
+  discounts: "Discounts & Coupons",
+  "price-lists": "Price Lists",
+  barcode: "Barcode / QR",
+  delivery: "Delivery Tracking",
+  commissions: "Sales Targets & Commissions",
+  loyalty: "Loyalty Points",
   stores: "Stores",
   customers: "Customers",
   users: "Users",
