@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, Input, Select, SkeletonTable } from "@jaldee/design-system";
 import { useGeneratedReportCount, useGeneratedReports } from "../queries/reports";
 import { useSharedNavigate } from "../../useSharedNavigate";
@@ -17,6 +17,25 @@ export function GeneratedReportsList({ backHref }: { backHref: string }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [toast, setToast] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const reportId = params.get("reportId");
+    if (reportId) {
+      const newUrl = window.location.pathname + window.location.search.replace(/[?&]reportId=[^&]+/, "").replace(/^&/, "?");
+      window.history.replaceState({}, "", newUrl);
+      return `Report generation started. ID: ${reportId}`;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const filter = useMemo(
     () => ({
       search,
@@ -53,6 +72,11 @@ export function GeneratedReportsList({ backHref }: { backHref: string }) {
         </div>
       }
     >
+      {toast && (
+        <div className="fixed right-5 top-20 z-[9999] rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-lg">
+          {toast}
+        </div>
+      )}
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {reports.isLoading && (
           <div className="p-4">

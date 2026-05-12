@@ -615,7 +615,7 @@ export function DriveFilesList({
       onBack={() => navigate(backTo ?? basePath)}
     >
       {toast && (
-        <div className="fixed right-5 top-5 z-50">
+        <div className="fixed right-5 top-20 z-[9999]">
           <div
             className={
               toast.type === "success"

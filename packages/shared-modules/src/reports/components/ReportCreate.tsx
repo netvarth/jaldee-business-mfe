@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Button, EmptyState, Input, MultiCombobox, Select, SkeletonCard } from "@jaldee/design-system";
 import { useGenerateReport, useReportCreateConfig } from "../queries/reports";
 import type { ReportCreateConfig, ReportFieldConfig, ReportGeneratePayload } from "../types";
+import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { ReportsPageShell } from "./shared";
 
 type FormState = Record<string, string | string[]>;
@@ -15,6 +17,8 @@ export function ReportCreate({
   reportName?: string;
   backHref: string;
 }) {
+  const { basePath } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
   const config = useReportCreateConfig(reportType, reportName);
   const generate = useGenerateReport();
   const [form, setForm] = useState<FormState>({});
@@ -28,10 +32,42 @@ export function ReportCreate({
 
   const handleGenerate = async () => {
     if (!config.data) return;
-    const payload = buildGeneratePayload(config.data, values);
-    await generate.mutateAsync(payload);
-    setToast(`${config.data.reportName} generation started.`);
-    window.setTimeout(() => setToast(null), 3500);
+    try {
+      const payload = buildGeneratePayload(config.data, values);
+      const response = await generate.mutateAsync(payload);
+      
+      let generatedId = "";
+      if (response) {
+        if (typeof response === "string") {
+          generatedId = response;
+        } else if (typeof response === "object") {
+          const data = "data" in response ? (response as any).data : response;
+          if (data) {
+            if (typeof data === "string") {
+              generatedId = data;
+            } else if (typeof data === "object") {
+              generatedId = String(
+                data.reportToken ??
+                data.token ??
+                data.uid ??
+                data.id ??
+                ""
+              );
+            }
+          }
+        }
+      }
+
+      if (!generatedId) {
+        generatedId = "Started";
+      }
+
+      navigate(`${basePath}/generated?reportId=${encodeURIComponent(generatedId)}`);
+    } catch (err) {
+      console.error("Failed to generate report", err);
+      setToast("Failed to generate report. Please try again.");
+      window.setTimeout(() => setToast(null), 4000);
+    }
   };
 
   return (
@@ -41,7 +77,7 @@ export function ReportCreate({
       back={{ label: "Back", href: backHref }}
     >
       {toast && (
-        <div className="fixed right-5 top-5 z-50 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-lg">
+        <div className="fixed right-5 top-20 z-[9999] rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-lg">
           {toast}
         </div>
       )}

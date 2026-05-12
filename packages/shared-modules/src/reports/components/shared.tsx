@@ -18,7 +18,7 @@ export function ReportsPageShell({
   const navigate = useSharedNavigate();
 
   return (
-    <div className="w-full space-y-6 p-4 md:p-6">
+    <div className="w-full space-y-6">
       <PageHeader
         actions={actions}
         back={back}
