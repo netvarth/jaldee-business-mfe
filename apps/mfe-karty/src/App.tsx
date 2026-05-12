@@ -4,6 +4,7 @@ import PlaceholderPage from "./pages/PlaceholderPage";
 import CustomersPage from "./pages/CustomersPage";
 import StoresPage from "./pages/StoresPage";
 import DrivePage from "./pages/DrivePage";
+import ReportsPage from "./pages/ReportsPage";
 import OrdersPage from "./pages/OrdersPage";
 
 export default function App() {
@@ -325,7 +326,31 @@ export default function App() {
         path="reports"
         element={
           <PageErrorBoundary>
-            <PlaceholderPage />
+            <ReportsPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports/:view"
+        element={
+          <PageErrorBoundary>
+            <ReportsPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <ReportsPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <ReportsPage />
           </PageErrorBoundary>
         }
       />

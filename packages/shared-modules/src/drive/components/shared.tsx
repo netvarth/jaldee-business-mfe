@@ -43,18 +43,15 @@ export function DrivePageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-[calc(100vh-2rem)] bg-slate-100">
-      <div className="border-b border-slate-200 bg-white px-4 py-5 md:px-7">
-        <PageHeader
-          actions={actions}
-          back={onBack ? { label: "Back", href: "#back" } : undefined}
-          className="mb-0"
-          onNavigate={() => onBack?.()}
-          subtitle={subtitle}
-          title={title}
-        />
-      </div>
-      <div className="w-full p-4 md:p-6">{children}</div>
+    <div className="w-full space-y-6 p-4 md:p-6">
+      <PageHeader
+        actions={actions}
+        back={onBack ? { label: "Back", href: "#back" } : undefined}
+        onNavigate={() => onBack?.()}
+        subtitle={subtitle}
+        title={title}
+      />
+      {children}
     </div>
   );
 }

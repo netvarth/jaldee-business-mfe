@@ -8,6 +8,7 @@ const HealthCasePage = lazy(() => import("./pages/cases/HealthCasePage"));
 const HealthPatientsPage = lazy(() => import("./pages/patients/HealthPatientsPage"));
 const HealthIpPage = lazy(() => import("./pages/ip/HealthIpPage"));
 const HealthDrivePage = lazy(() => import("./pages/drive/HealthDrivePage"));
+const HealthReportsPage = lazy(() => import("./pages/reports/HealthReportsPage"));
 const HealthMembershipsPage = lazy(() => import("./pages/memberships/HealthMembershipsPage"));
 const HealthLeadsPage = lazy(() => import("./pages/leads/HealthLeadsPage"));
 const HealthFinancePage = lazy(() => import("./pages/finance/HealthFinancePage"));
@@ -46,7 +47,6 @@ export default function App() {
     "tasks/*",
     "users/*",
     "analytics/*",
-    "reports/*",
     "membership/*",
     "audit-log/*",
     "settings/*",
@@ -80,6 +80,11 @@ export default function App() {
       <Route path="drive/:view" element={withBoundary(<HealthDrivePage />)} />
       <Route path="drive/:view/:subview" element={withBoundary(<HealthDrivePage />)} />
       <Route path="drive/:view/:subview/:recordId" element={withBoundary(<HealthDrivePage />)} />
+
+      <Route path="reports" element={withBoundary(<HealthReportsPage />)} />
+      <Route path="reports/:view" element={withBoundary(<HealthReportsPage />)} />
+      <Route path="reports/:view/:subview" element={withBoundary(<HealthReportsPage />)} />
+      <Route path="reports/:view/:subview/:recordId" element={withBoundary(<HealthReportsPage />)} />
 
       <Route path="pharmacy" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view" element={withBoundary(<HealthPharmacyPage />)} />

@@ -14,6 +14,7 @@ import {
 import { DatePickerPopover, PageErrorBoundary as DesignSystemPageErrorBoundary } from '@jaldee/design-system';
 import TopBar from './components/TopBar';
 import DrivePage from './pages/DrivePage';
+import ReportsPage from './pages/ReportsPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 const ListView = lazy(() => import('./components/ListView'));
@@ -358,7 +359,6 @@ function App() {
     'users/*',
     'finance/*',
     'analytics/*',
-    'reports/*',
     'membership/*',
     'audit-log/*',
     'settings/*',
@@ -459,6 +459,38 @@ function App() {
         element={
           <DesignSystemPageErrorBoundary>
             <DrivePage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <ReportsPage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports/:view"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <ReportsPage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports/:view/:subview"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <ReportsPage />
+          </DesignSystemPageErrorBoundary>
+        }
+      />
+      <Route
+        path="reports/:view/:subview/:recordId"
+        element={
+          <DesignSystemPageErrorBoundary>
+            <ReportsPage />
           </DesignSystemPageErrorBoundary>
         }
       />
