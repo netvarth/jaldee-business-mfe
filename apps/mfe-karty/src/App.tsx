@@ -6,6 +6,7 @@ import StoresPage from "./pages/StoresPage";
 import DrivePage from "./pages/DrivePage";
 import ReportsPage from "./pages/ReportsPage";
 import OrdersPage from "./pages/OrdersPage";
+import UsersPage from "./pages/UsersPage";
 
 export default function App() {
   const placeholderRoutes = [
@@ -358,7 +359,39 @@ export default function App() {
         path="users"
         element={
           <PageErrorBoundary>
-            <PlaceholderPage />
+            <UsersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="users/:view"
+        element={
+          <PageErrorBoundary>
+            <UsersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="users/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <UsersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="users/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <UsersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="users/:recordId"
+        element={
+          <PageErrorBoundary>
+            <UsersPage />
           </PageErrorBoundary>
         }
       />

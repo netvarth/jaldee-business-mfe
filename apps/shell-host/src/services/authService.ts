@@ -63,8 +63,10 @@ const authMode = import.meta.env.VITE_AUTH_MODE === "token" ? "token" : "session
 const M_UNIQUE_ID_KEY = "mUniqueId";
 const LOGIN_CREDENTIALS_KEY = "ynw-credentials";
 const TOKEN_SESSION_KEY = "jaldee-token-session";
-const ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=";
-const ENCRYPTION_IV_B64 = "RW5jRGVjSmFsZGVlMDYyMw==";
+const SESSION_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=";
+const SESSION_ENCRYPTION_IV_B64 = "RW5jRGVjSmFsZGVlMDYyMw==";
+const TOKEN_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xMTA1MjY=";
+const TOKEN_ENCRYPTION_IV = "H/x9FjXoH0ZfXHMK";
 export function getAuthMode() {
   return authMode;
 }
@@ -196,9 +198,11 @@ function normalizeEncryptedPayload(value: string): string {
   return trimmed;
 }
 
-async function encryptUsingAES256(payload: EncryptedLoginRequest): Promise<string> {
-  const keyBytes = decodeBase64Utf8(ENCRYPTION_KEY_B64);
-  const ivBytes = decodeBase64Utf8(ENCRYPTION_IV_B64);
+async function encryptUsingAES256(
+  payload: EncryptedLoginRequest,
+  keyBytes: Uint8Array,
+  ivBytes: Uint8Array
+): Promise<string> {
   const encodedPayload = new TextEncoder().encode(JSON.stringify(payload));
 
   const cryptoKey = await crypto.subtle.importKey(
@@ -219,8 +223,46 @@ async function encryptUsingAES256(payload: EncryptedLoginRequest): Promise<strin
 }
 
 async function decryptUsingAES256(encryptedText: string): Promise<string> {
-  const keyBytes = decodeBase64Utf8(ENCRYPTION_KEY_B64);
-  const ivBytes = decodeBase64Utf8(ENCRYPTION_IV_B64);
+  const keyBytes = decodeBase64Utf8(SESSION_ENCRYPTION_KEY_B64);
+  const ivBytes = decodeBase64Utf8(SESSION_ENCRYPTION_IV_B64);
+  const encryptedBytes = decodeBase64Bytes(encryptedText);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-CBC" },
+    false,
+    ["decrypt"]
+  );
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: ivBytes },
+    cryptoKey,
+    encryptedBytes
+  );
+
+  return new TextDecoder().decode(decrypted);
+}
+
+async function encryptSessionLogin(payload: EncryptedLoginRequest): Promise<string> {
+  return encryptUsingAES256(
+    payload,
+    decodeBase64Utf8(SESSION_ENCRYPTION_KEY_B64),
+    decodeBase64Utf8(SESSION_ENCRYPTION_IV_B64)
+  );
+}
+
+async function encryptTokenLogin(payload: EncryptedLoginRequest): Promise<string> {
+  return encryptUsingAES256(
+    payload,
+    decodeBase64Utf8(TOKEN_ENCRYPTION_KEY_B64),
+    new TextEncoder().encode(TOKEN_ENCRYPTION_IV)
+  );
+}
+
+async function decryptTokenLoginResponse(encryptedText: string): Promise<string> {
+  const keyBytes = decodeBase64Utf8(TOKEN_ENCRYPTION_KEY_B64);
+  const ivBytes = new TextEncoder().encode(TOKEN_ENCRYPTION_IV);
   const encryptedBytes = decodeBase64Bytes(encryptedText);
 
   const cryptoKey = await crypto.subtle.importKey(
@@ -531,23 +573,35 @@ export const authService = {
       return doMockLogin(payload.loginId, payload.password);
     }
 
-    const encryptedInput = await encryptUsingAES256(requestBody);
+    const encryptedInput = await encryptSessionLogin(requestBody);
     return this.encryptLogin(encryptedInput);
   },
 
   async tokenLogin(payload: LoginRequest): Promise<SessionResponse> {
-    const res = await apiClient.post<TokenLoginResponse>(
-      buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.passwordLogin),
+    const requestBody = buildLoginRequest(payload);
+    const encryptedInput = await encryptTokenLogin(requestBody);
+    return this.tokenEncryptedLogin(encryptedInput);
+  },
+
+  async tokenEncryptedLogin(body: string): Promise<SessionResponse> {
+    const res = await apiClient.post<string | TokenLoginResponse>(
+      buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.encryptedPasswordLogin),
+      body,
       {
-        userType: "TENANT_USER",
-        identifierType: "LOGIN_ID",
-        identifier: payload.loginId,
-        password: payload.password,
-      },
-      { _skipAuthRefresh: true } as unknown,
+        headers: {
+          "Content-Type": "text/plain",
+        },
+        transformRequest: [(data) => data],
+        transformResponse: [(data) => data],
+        _skipAuthRefresh: true,
+      } as unknown,
     );
 
-    const tokens = res.data;
+    const tokens =
+      typeof res.data === "string"
+        ? (JSON.parse(await decryptTokenLoginResponse(res.data)) as TokenLoginResponse)
+        : res.data;
+
     setStoredTokenSession(tokens);
     setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
 

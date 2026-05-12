@@ -3,6 +3,7 @@ export const TOKEN_AUTH_ENDPOINTS = {
   otpStart: "/auth-service/v1/api/auth/login/otp/start",
   otpVerify: "/auth-service/v1/api/auth/login/otp/verify",
   passwordLogin: "/auth-service/v1/api/auth/login/password",
+  encryptedPasswordLogin: "/auth-service/v1/api/auth/login/password/enc",
   logout: "/auth-service/v1/api/auth/logout",
   me: "/auth-service/v1/api/auth/me",
   refresh: "/auth-service/v1/api/auth/refresh",

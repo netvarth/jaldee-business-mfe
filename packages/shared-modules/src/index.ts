@@ -83,7 +83,7 @@ export {
   useOrdersRequests,
   useOrdersCatalogs,
   useOrdersInventory,
-  getOrdersDataset,
+  getOrdersDashboardDataset,
   formatOrdersCurrency,
   getOrdersStatusVariant,
 } from "./orders";
@@ -250,6 +250,33 @@ export {
   useShareDriveFile,
   useUploadDriveFiles,
 } from "./drive";
+
+export type {
+  UserDepartment,
+  UserDetail,
+  UserLocation,
+  UserStatus,
+  UserSummary,
+  UserTeam,
+  UsersDataset,
+  UsersFilters,
+  UsersSummary,
+  UsersViewKey,
+} from "./users";
+export {
+  UsersModule,
+  UsersOverview,
+  UsersList,
+  UserTeamsList,
+  UserDetailView,
+  useUsersDataset,
+  useUsersList,
+  useUsersCount,
+  useUserDetail,
+  useUserTeams,
+  useUserDepartments,
+  useUserLocations,
+} from "./users";
 
 export type {
   FinanceDataset,
