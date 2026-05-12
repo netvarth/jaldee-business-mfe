@@ -227,6 +227,7 @@ export type {
   DriveFileRow,
   DriveFolderRow,
   DriveShareInput,
+  DriveShareRecipient,
   DriveSharedRow,
   DriveSummary,
   DriveViewKey,
@@ -245,6 +246,7 @@ export {
   useDriveFolders,
   useDriveShared,
   useDeleteDriveFile,
+  useSearchDriveShareRecipients,
   useShareDriveFile,
   useUploadDriveFiles,
 } from "./drive";

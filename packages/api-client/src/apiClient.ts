@@ -110,6 +110,21 @@ export function createApiClient(baseURL: string): AxiosInstance {
         config.headers["Authorization"] = `Bearer ${_authToken}`;
       }
 
+      if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+        const headers = config.headers as unknown as {
+          delete?: (name: string) => void;
+          [key: string]: unknown;
+        };
+
+        if (typeof headers.delete === "function") {
+          headers.delete("Content-Type");
+          headers.delete("content-type");
+        } else {
+          delete headers["Content-Type"];
+          delete headers["content-type"];
+        }
+      }
+
       const method = config.method?.toLowerCase() ?? "";
       const isMutating = ["post", "put", "patch", "delete"].includes(method);
       if (isMutating && _authMode === "session" && !config._skipCsrf) {

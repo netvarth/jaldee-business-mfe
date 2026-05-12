@@ -2,6 +2,7 @@ import { Button, EmptyState, SectionCard, SkeletonCard } from "@jaldee/design-sy
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useDriveDataset } from "../queries/drive";
+import { formatDriveStorageGb } from "../services/drive";
 import { DrivePageShell } from "./shared";
 
 export function DriveSettings() {
@@ -42,19 +43,19 @@ export function DriveSettings() {
             <div className="rounded-lg border border-slate-200 p-4">
               <div className="text-sm text-slate-500">Total</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">
-                {Math.round(storage.totalStorage)} GB
+                {formatDriveStorageGb(storage.totalStorage)}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 p-4">
               <div className="text-sm text-slate-500">Used</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">
-                {Math.round(storage.usedStorage)} GB
+                {formatDriveStorageGb(storage.usedStorage)}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 p-4">
               <div className="text-sm text-slate-500">Remaining</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">
-                {Math.round(storage.remainingStorage)} GB
+                {formatDriveStorageGb(storage.remainingStorage)}
               </div>
             </div>
           </div>

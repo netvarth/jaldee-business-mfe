@@ -83,3 +83,9 @@ export type DriveShareInput = {
     appNotification: boolean;
   };
 };
+
+export type DriveShareRecipient = {
+  id: string;
+  label: string;
+  detail?: string;
+};

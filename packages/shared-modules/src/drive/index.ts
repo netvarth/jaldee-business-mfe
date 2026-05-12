@@ -4,6 +4,7 @@ export type {
   DriveFileRow,
   DriveFolderRow,
   DriveShareInput,
+  DriveShareRecipient,
   DriveSharedRow,
   DriveSummary,
   DriveViewKey,
@@ -22,15 +23,18 @@ export {
   useDriveFolders,
   useDriveShared,
   useDeleteDriveFile,
+  useSearchDriveShareRecipients,
   useShareDriveFile,
   useUploadDriveFiles,
 } from "./queries/drive";
 export {
   deleteDriveFile,
+  formatDriveStorageGb,
   getDriveDataset,
   getDriveStorage,
   listDriveFolders,
   listDriveFiles,
+  searchDriveShareRecipients,
   shareDriveFile,
   uploadDriveFiles,
 } from "./services/drive";

@@ -2,6 +2,7 @@ import { Button, EmptyState, SectionCard, SkeletonCard } from "@jaldee/design-sy
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useDriveDataset } from "../queries/drive";
+import { formatDriveStorageGb } from "../services/drive";
 import { DrivePageShell, FolderGlyph } from "./shared";
 
 export function DriveOverview() {
@@ -12,7 +13,7 @@ export function DriveOverview() {
   const customerLabel = account.labels.customer || "customer";
   const storage = dataset.data?.storage;
   const usedPercent = storage
-    ? Math.min(100, Math.round((storage.usedStorage / Math.max(storage.totalStorage, 1)) * 100))
+    ? Math.min(100, (storage.usedStorage / Math.max(storage.totalStorage, 1)) * 100)
     : 0;
 
   return (
@@ -70,12 +71,12 @@ export function DriveOverview() {
                     <div>
                       <span className="text-sm font-semibold text-slate-900">Available Space</span>
                       <p className="mt-1 text-xs text-slate-500">
-                        {storage ? `${Math.round(storage.usedStorage)} GB used` : "Storage usage unavailable"}
+                        {storage ? `${formatDriveStorageGb(storage.usedStorage)} used` : "Storage usage unavailable"}
                       </p>
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-slate-900">
-                    {storage ? `${Math.round(storage.remainingStorage)} GB left` : "-"}
+                    {storage ? `${formatDriveStorageGb(storage.remainingStorage)} left` : "-"}
                   </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">

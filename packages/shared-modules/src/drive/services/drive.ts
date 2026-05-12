@@ -4,6 +4,7 @@ import type {
   DriveFileRow,
   DriveFolderRow,
   DriveShareInput,
+  DriveShareRecipient,
   DriveSharedRow,
   DriveStorage,
   DriveUploadInput,
@@ -66,6 +67,12 @@ function formatSize(sizeMb: number) {
   if (sizeMb <= 0) return "0 KB";
   if (sizeMb < 1) return `${Math.max(1, Math.round(sizeMb * 1024))} KB`;
   return `${Math.round(sizeMb * 10) / 10} MB`;
+}
+
+export function formatDriveStorageGb(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 GB";
+  if (value < 1) return `${Math.round(value * 1024 * 10) / 10} MB`;
+  return `${value.toFixed(2)} GB`;
 }
 
 function fileTypeLabel(fileType: string) {
@@ -170,7 +177,7 @@ function buildSummaries(files: DriveFileRow[], shared: DriveSharedRow[], storage
     { label: "Recent Uploads", value: String(recentCount), accent: "emerald" },
     {
       label: "Storage Left",
-      value: storage ? `${Math.round(storage.remainingStorage)} GB` : "-",
+      value: storage ? formatDriveStorageGb(storage.remainingStorage) : "-",
       accent: "amber",
     },
   ];
@@ -225,18 +232,111 @@ export async function deleteDriveFile(api: ScopedApi, fileId: string): Promise<u
 }
 
 export async function shareDriveFile(api: ScopedApi, input: DriveShareInput): Promise<unknown> {
-  return api.post("provider/fileShare/sharefiles", {
-    fileId: input.fileId,
-    fileName: input.fileName,
-    sharedTo: input.recipient,
-    message: input.message || "",
-    notification: {
-      email: input.channels.email,
-      sms: input.channels.sms,
-      whatsapp: input.channels.whatsapp,
-      appNotification: input.channels.appNotification,
-    },
+  const formData = new FormData();
+  const owner = Number(input.recipient);
+  const attachmentId = Number(input.fileId);
+
+  formData.append(
+    "sharedto",
+    new Blob(
+      [
+        JSON.stringify([
+          {
+            owner: Number.isFinite(owner) ? owner : input.recipient,
+            ownerType: "ProviderConsumer",
+          },
+        ]),
+      ],
+      { type: "application/json" }
+    )
+  );
+  formData.append(
+    "attachments",
+    new Blob([JSON.stringify([Number.isFinite(attachmentId) ? attachmentId : input.fileId])], {
+      type: "application/json",
+    })
+  );
+  formData.append(
+    "communication",
+    new Blob(
+      [
+        JSON.stringify({
+          medium: {
+            email: input.channels.email,
+            whatsapp: input.channels.whatsapp,
+            sms: input.channels.sms,
+            pushNotification: input.channels.appNotification,
+          },
+          communicationMessage: input.message || "",
+        }),
+      ],
+      { type: "application/json" }
+    )
+  );
+
+  return api.post("provider/fileShare/sharefiles", formData, {
+    skipLocationScope: true,
   });
+}
+
+function toShareRecipient(raw: Record<string, unknown>): DriveShareRecipient {
+  const firstName = asString(raw.firstName);
+  const lastName = asString(raw.lastName);
+  const phone = asString(raw.phoneNo ?? raw.primaryMobileNo);
+  const email = asString(raw.email);
+  const jaldeeId = asString(raw.jaldeeId);
+  const name = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const nestedProviderConsumer =
+    raw.providerConsumer && typeof raw.providerConsumer === "object"
+      ? (raw.providerConsumer as Record<string, unknown>)
+      : null;
+  const nestedConsumer = raw.consumer && typeof raw.consumer === "object" ? (raw.consumer as Record<string, unknown>) : null;
+  const ownerId = [
+    raw.providerConsumerId,
+    raw.proConId,
+    nestedProviderConsumer?.id,
+    nestedProviderConsumer?.uid,
+    raw.id,
+    raw.uid,
+    raw.consumerId,
+    nestedConsumer?.id,
+    nestedConsumer?.uid,
+    typeof raw.providerConsumer === "string" || typeof raw.providerConsumer === "number" ? raw.providerConsumer : undefined,
+  ].find((value) => typeof value === "string" || typeof value === "number");
+
+  return {
+    id: ownerId === undefined || ownerId === null ? "" : String(ownerId),
+    label: name || jaldeeId || phone || email || "Customer",
+    detail: [jaldeeId, phone, email].filter(Boolean).join(" | "),
+  };
+}
+
+function buildShareRecipientSearchParams(searchText: string) {
+  const term = searchText.trim();
+  const compactPhone = term.replace(/[\s\-()+]/g, "");
+
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)) {
+    return { "email-eq": term };
+  }
+
+  if (/^\d{6,15}$/.test(compactPhone)) {
+    return { "phoneNo-eq": compactPhone };
+  }
+
+  return {
+    or: [`jaldeeId-eq=${term}`, `firstName-eq=${term}`].join(","),
+  };
+}
+
+export async function searchDriveShareRecipients(api: ScopedApi, searchText: string): Promise<DriveShareRecipient[]> {
+  const term = searchText.trim();
+  if (!term) return [];
+
+  const response = await api.get<Record<string, unknown>[]>("provider/customers", {
+    params: buildShareRecipientSearchParams(term),
+  });
+
+  return response.data.map(toShareRecipient).filter((recipient) => recipient.id);
 }
 
 export async function uploadDriveFiles(api: ScopedApi, userId: string, input: DriveUploadInput): Promise<void> {

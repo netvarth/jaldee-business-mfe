@@ -7,6 +7,7 @@ import {
   getDriveDataset,
   listDriveFolders,
   listDriveFiles,
+  searchDriveShareRecipients,
   shareDriveFile,
   uploadDriveFiles,
 } from "../services/drive";
@@ -96,5 +97,13 @@ export function useShareDriveFile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["drive"] });
     },
+  });
+}
+
+export function useSearchDriveShareRecipients() {
+  const scopedApi = useApiScope();
+
+  return useMutation({
+    mutationFn: (searchText: string) => searchDriveShareRecipients(scopedApi, searchText),
   });
 }
