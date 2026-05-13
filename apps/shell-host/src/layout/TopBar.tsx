@@ -52,7 +52,7 @@ export default function TopBar() {
         <div className="shell-divider" />
 
         <TopBarIcon id="topbar-inbox" icon={"\u{1F4AC}"} title="Inbox" onClick={() => {}} />
-        <TopBarIcon id="topbar-ivr" icon={"\u{1F4DE}"} title="IVR" onClick={() => {}} />
+        <TopBarIcon id="topbar-ivr" icon={"\u{1F4DE}"} title="IVR" onClick={() => navigate("/ivr")} />
 
         <div className="topbar-notification">
           <TopBarIcon

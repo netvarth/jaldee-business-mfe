@@ -373,6 +373,11 @@
   --sidebar-accent-subtle: var(--color-product-ai-subtle);
 }
 
+.sidebar[data-product="ivr"] {
+  --sidebar-accent: var(--color-product-ivr);
+  --sidebar-accent-subtle: var(--color-product-ivr-subtle);
+}
+
 .sidebar-location-switcher {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
@@ -552,6 +557,10 @@
   --icon-rail-active-accent: var(--color-product-ai);
 }
 
+.icon-rail[data-product="ivr"] {
+  --icon-rail-active-accent: var(--color-product-ivr);
+}
+
 .icon-rail[data-product="default"] {
   --icon-rail-active-accent: var(--color-primary);
 }
@@ -622,6 +631,11 @@
 .icon-rail-item[data-product="ai"] {
   --rail-accent: var(--color-product-ai);
   --rail-accent-subtle: var(--color-product-ai-subtle);
+}
+
+.icon-rail-item[data-product="ivr"] {
+  --rail-accent: var(--color-product-ivr);
+  --rail-accent-subtle: var(--color-product-ivr-subtle);
 }
 
 .icon-rail-item[data-product="default"] {

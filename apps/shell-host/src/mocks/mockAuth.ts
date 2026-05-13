@@ -39,7 +39,7 @@ export const mockUser: UserContext = {
 export const mockAccount: AccountContext = {
   id:   "acc-001",
   name: "Jaldee Business Solutions",
-  licensedProducts: ["health", "bookings", "golderp", "karty", "finance", "lending", "hr"],
+  licensedProducts: ["health", "bookings", "golderp", "karty", "finance", "lending", "hr", "ivr"],
   enabledModules:   [
     "customers", "leads", "tasks", "users",
     "finance", "analytics", "reports", "drive",

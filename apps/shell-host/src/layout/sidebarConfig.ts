@@ -200,6 +200,12 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "ai-automation", label: "Automation", icon: "\u2699", path: "/ai/automation" },
     { id: "ai-insights", label: "Insights", icon: "\u{1F4A1}", path: "/ai/insights" },
   ],
+  ivr: [
+    { id: "ivr-overview", label: "Overview", icon: "\u25A6", path: "/ivr" },
+    { id: "ivr-call-logs", label: "Call Logs", icon: "\u{1F4CB}", path: "/ivr/calllogs" },
+    { id: "ivr-schedules", label: "Schedules", icon: "\u{1F5D3}", path: "/ivr/schedules" },
+    { id: "ivr-settings", label: "Settings", icon: "\u2699", path: "/ivr/settings" },
+  ],
 };
 
 export const PRODUCT_ACCENTS: Partial<Record<ProductKey, string>> = {
@@ -211,4 +217,5 @@ export const PRODUCT_ACCENTS: Partial<Record<ProductKey, string>> = {
   lending: "#7C3AED",
   hr: "#0369A1",
   ai: "#6366F1",
+  ivr: "#0EA5E9",
 };
