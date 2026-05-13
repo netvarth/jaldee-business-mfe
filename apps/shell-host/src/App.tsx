@@ -12,12 +12,15 @@ import { KartyMFE } from "./mfes/KartyMFE";
 import { useShellStore } from "./store/shellStore";
 import { hasStoredAuthSession } from "./services/authService";
 import GlobalPlaceholderPage from "./pages/GlobalPlaceholderPage";
+import IvrPage from "./pages/ivr/IvrPage";
+import IvrCallLogs from "./pages/ivr/IvrCallLogs";
+import IvrSchedules from "./pages/ivr/IvrSchedules";
 import "./App.css";
 
-function HomePage() {
+function BasePage() {
   return (
     <div className="shell-home">
-      <h2 className="shell-home-title">Home</h2>
+      <h2 className="shell-home-title">Base</h2>
       <p className="shell-home-copy">Welcome to Jaldee Business</p>
     </div>
   );
@@ -35,7 +38,7 @@ export default function App() {
         path="/login"
         element={
           hasHydrated && (isAuthenticated || hasStoredSession) ? (
-            <Navigate to="/home" replace />
+            <Navigate to="/base" replace />
           ) : (
             <LoginPage />
           )
@@ -57,7 +60,7 @@ export default function App() {
           <ProtectedRoute>
             <ShellLayout>
               <Routes>
-                <Route path="/home" element={<HomePage />} />
+                <Route path="/base" element={<BasePage />} />
                 <Route path="/customers/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/users/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/reports/*" element={<GlobalPlaceholderPage />} />
@@ -67,6 +70,9 @@ export default function App() {
                 <Route path="/leads/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/audit-log/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/settings/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/ivr" element={<IvrPage />} />
+                <Route path="/ivr/calllogs" element={<IvrCallLogs />} />
+                <Route path="/ivr/schedules" element={<IvrSchedules />} />
                 <Route path="/health/*" element={
                   <Suspense fallback={
                     <div className="shell-loading">Loading Health...</div>
@@ -109,7 +115,7 @@ export default function App() {
                 <Route path="/lending/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/hr/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/ai/*" element={<GlobalPlaceholderPage />} />
-                <Route path="*" element={<Navigate to="/home" replace />} />
+                <Route path="*" element={<Navigate to="/base" replace />} />
               </Routes>
             </ShellLayout>
           </ProtectedRoute>

@@ -12,6 +12,7 @@ const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: string }> = {
   lending: { label: "Lending", icon: "\u{1F3E6}" },
   hr: { label: "HR", icon: "\u{1F465}" },
   ai: { label: "AI", icon: "\u2728" },
+  ivr: { label: "IVR", icon: "\u{1F4DE}" },
 };
 
 const PRODUCT_ORDER: ProductKey[] = [
@@ -23,6 +24,7 @@ const PRODUCT_ORDER: ProductKey[] = [
   "lending",
   "hr",
   "ai",
+  "ivr",
 ];
 
 const PRODUCT_HOME_PATHS: Partial<Record<ProductKey, string>> = {
@@ -48,7 +50,7 @@ export default function IconRail() {
       return;
     }
 
-    if (location.pathname === "/home" || location.pathname === "/") {
+    if (location.pathname === "/base" || location.pathname === "/") {
       setActiveProduct(null);
     }
   }, [account.licensedProducts, location.pathname, setActiveProduct]);
@@ -58,9 +60,9 @@ export default function IconRail() {
     navigate(PRODUCT_HOME_PATHS[key] ?? `/${key}`);
   }
 
-  function handleHome() {
+  function handleBase() {
     setActiveProduct(null);
-    navigate("/home");
+    navigate("/base");
   }
 
   const isActive = (key: string) => location.pathname.startsWith(`/${key}`);
@@ -75,18 +77,18 @@ export default function IconRail() {
       <div
         data-testid="icon-rail-logo"
         className="icon-rail-logo"
-        onClick={handleHome}
+        onClick={handleBase}
       >
         {"\u2726"}
       </div>
 
       <RailItem
-        id="icon-rail-item-home"
+        id="icon-rail-item-base"
         product="default"
         icon={"\u{1F3E0}"}
-        label="Home"
-        active={location.pathname === "/home"}
-        onClick={handleHome}
+        label="Base"
+        active={location.pathname === "/base"}
+        onClick={handleBase}
       />
 
       {licensedProducts.map((key) => {

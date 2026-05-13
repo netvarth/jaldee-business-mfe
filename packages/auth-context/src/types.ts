@@ -8,7 +8,8 @@ export type ProductKey =
   | "finance"
   | "lending"
   | "hr"
-  | "ai";
+  | "ai"
+  | "ivr";
 
 export type ModuleKey =
   | "customers"

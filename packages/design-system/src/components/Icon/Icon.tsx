@@ -15,7 +15,8 @@ export type IconName =
   | "refresh"
   | "tag"
   | "trend"
-  | "warehouse";
+  | "warehouse"
+  | "x";
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name"> {
   name: IconName;
@@ -60,6 +61,8 @@ export function Icon({ name, className, ...props }: IconProps) {
       return <svg {...sharedProps}><path d="M12 4l8 4-8 4-8-4 8-4z" /><path d="M4 12l8 4 8-4" /><path d="M4 16l8 4 8-4" /></svg>;
     case "alert":
       return <svg {...sharedProps}><path d="M12 4l8 14H4L12 4z" /><path d="M12 9v4" /><circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" /></svg>;
+    case "x":
+      return <svg {...sharedProps}><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg>;
     default:
       return null;
   }

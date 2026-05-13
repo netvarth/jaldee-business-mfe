@@ -66,6 +66,8 @@
   --color-product-hr-subtle:       rgba(3, 105, 161, 0.08);
   --color-product-ai:              #6366F1;
   --color-product-ai-subtle:       rgba(99, 102, 241, 0.08);
+  --color-product-ivr:             #0EA5E9;
+  --color-product-ivr-subtle:      rgba(14, 165, 233, 0.08);
 
   /* ─── Typography ──────────────────────────── */
   --font-family-base:      ui-sans-serif,system-ui,sans-serif,"Apple Color Emoji","Segoe UI Emoji",Segoe UI Symbol,"Noto Color Emoji";

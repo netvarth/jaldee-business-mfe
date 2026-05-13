@@ -91,8 +91,9 @@ export function MultiCombobox({
   }, [open, searchQuery]);
 
   function toggleOption(optionValue: string) {
-    const next = selectedValues.includes(optionValue)
-      ? selectedValues.filter((v) => v !== optionValue)
+    const isPresent = selectedValues.some((v) => v.toLowerCase() === optionValue.toLowerCase());
+    const next = isPresent
+      ? selectedValues.filter((v) => v.toLowerCase() !== optionValue.toLowerCase())
       : [...selectedValues, optionValue];
 
     if (!isControlled) setInternalValue(next);
@@ -124,7 +125,10 @@ export function MultiCombobox({
   const triggerLabel = (() => {
     if (selectedValues.length === 0) return null;
     const labels = selectedValues
-      .map((v) => options.find((o) => o.value === v)?.label)
+      .map((v) => {
+        const found = options.find((o) => o.value.toLowerCase() === v.toLowerCase());
+        return found ? found.label : v;
+      })
       .filter(Boolean) as string[];
     if (labels.length <= maxDisplay) return labels.join(", ");
     return `${labels.slice(0, maxDisplay).join(", ")} +${labels.length - maxDisplay} more`;
@@ -238,7 +242,7 @@ export function MultiCombobox({
                 <div className="px-3 py-4 text-center text-sm text-gray-400">{emptyMessage}</div>
               ) : (
                 filteredOptions.map((option, index) => {
-                  const isChecked = selectedValues.includes(option.value);
+                  const isChecked = selectedValues.some((v) => v.toLowerCase() === option.value.toLowerCase());
                   const isHighlighted = index === highlightedIndex;
 
                   return (

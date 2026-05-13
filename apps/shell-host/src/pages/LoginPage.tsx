@@ -51,10 +51,10 @@ export default function LoginPage() {
         return;
       }
 
-      navigate("/home");
+      navigate("/base");
     } catch (err: unknown) {
       if (isSessionAlreadyExistsError(err)) {
-        navigate("/home", { replace: true });
+        navigate("/base", { replace: true });
         return;
       }
 
@@ -71,7 +71,7 @@ export default function LoginPage() {
   }
 
   if (hasHydrated && isAuthenticated) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/base" replace />;
   }
 
   return (
