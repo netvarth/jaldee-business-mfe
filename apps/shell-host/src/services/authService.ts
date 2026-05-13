@@ -7,13 +7,13 @@ import {
 import type { UserContext, AccountContext, BranchLocation } from "@jaldee/auth-context";
 import { apiClient, setApiClientContext } from "@jaldee/api-client";
 import { baseService } from "./baseService";
-import { TOKEN_AUTH_ENDPOINTS, buildAuthServiceUrl } from "./serviceUrls";
+import { BASE_SERVICE_ENDPOINTS, TOKEN_AUTH_ENDPOINTS, buildAuthServiceUrl, buildBaseServiceUrl } from "./serviceUrls";
 
 export interface SessionResponse {
-  user:      UserContext;
-  account:   AccountContext;
+  user: UserContext;
+  account: AccountContext;
   locations: BranchLocation[];
-  token?:    string;
+  token?: string;
   refreshToken?: string;
   multiFactorAuthenticationRequired?: boolean;
   otpLength?: number;
@@ -34,6 +34,13 @@ export interface EncryptedLoginRequest {
   mUniqueId?: string;
   multiFactorAuthenticationLogin?: boolean;
   otp?: string;
+}
+
+interface TokenEncryptedLoginRequest {
+  userType: "TENANT_USER";
+  identifierType: "LOGIN_ID";
+  identifier: string;
+  password: string;
 }
 
 export interface AccountSettingsResponse {
@@ -58,6 +65,28 @@ interface StoredTokenSession extends TokenLoginResponse {
   refreshExpiresAt?: number;
 }
 
+export interface TenantSignupOtpRequest {
+  loginId: string;
+  mobile?: string;
+  email?: string;
+  firstName: string;
+  lastName?: string;
+  password: string;
+}
+
+export interface TenantSignupOtpResponse {
+  otpId: string;
+  expiresInSeconds?: number;
+  nextResendInSeconds?: number;
+  maskedTarget?: string;
+}
+
+export interface TenantSignupVerifyRequest {
+  otpId: string;
+  otp: string;
+  purpose?: "TENANT_SIGNUP_VERIFY_MOBILE" | "TENANT_SIGNUP_VERIFY_EMAIL";
+}
+
 const isMock = import.meta.env.VITE_USE_MOCK === "true";
 const authMode = import.meta.env.VITE_AUTH_MODE === "token" ? "token" : "session";
 const M_UNIQUE_ID_KEY = "mUniqueId";
@@ -66,13 +95,13 @@ const TOKEN_SESSION_KEY = "jaldee-token-session";
 const SESSION_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=";
 const SESSION_ENCRYPTION_IV_B64 = "RW5jRGVjSmFsZGVlMDYyMw==";
 const TOKEN_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xMTA1MjY=";
-const TOKEN_ENCRYPTION_IV = "H/x9FjXoH0ZfXHMK";
+const TOKEN_ENCRYPTION_IV_B64 = "H/x9FjXoH0ZfXHMK";
 
 const GCM_IV_LENGTH_BYTES = 12;
 const GCM_TAG_LENGTH_BITS = 128;
 
 const SECRET_KEY_BASE64 = import.meta.env.VITE_AES_SECRET_KEY_BASE64 || TOKEN_ENCRYPTION_KEY_B64;
-const IV_KEY_BASE64 = import.meta.env.VITE_AES_IV_KEY_BASE64 || btoa(TOKEN_ENCRYPTION_IV.slice(0, GCM_IV_LENGTH_BYTES));
+const IV_KEY_BASE64 = import.meta.env.VITE_AES_IV_KEY_BASE64 || TOKEN_ENCRYPTION_IV_B64;
 
 function concatBytes(first: Uint8Array, second: Uint8Array): Uint8Array {
   const result = new Uint8Array(first.length + second.length);
@@ -97,6 +126,34 @@ function xorIv(nonce: Uint8Array, ivKey: Uint8Array): Uint8Array {
   }
 
   return iv;
+}
+
+async function importAesGcmTokenKey(): Promise<CryptoKey> {
+  const keyBytes = decodeBase64Utf8(SECRET_KEY_BASE64);
+
+  if (keyBytes.length !== 32) {
+    throw new Error("AES secret key must be 32 bytes after Base64 decode");
+  }
+
+  return crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    {
+      name: "AES-GCM",
+    },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+function getTokenIvKeyBytes(): Uint8Array {
+  const ivKey = decodeBase64Utf8(IV_KEY_BASE64);
+
+  if (ivKey.length !== GCM_IV_LENGTH_BYTES) {
+    throw new Error("AES-GCM IV key must be 12 bytes after Base64 decode");
+  }
+
+  return ivKey;
 }
 export function getAuthMode() {
   return authMode;
@@ -184,6 +241,18 @@ function clearStoredTokenSession() {
   getStorage()?.removeItem(TOKEN_SESSION_KEY);
 }
 
+async function establishTokenSession(tokens: TokenLoginResponse): Promise<SessionResponse> {
+  setStoredTokenSession(tokens);
+  setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
+
+  const context = await authService.checkSession();
+  return {
+    ...context,
+    token: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  };
+}
+
 function buildLoginRequest(payload: LoginRequest): EncryptedLoginRequest {
   const storedMUniqueId = getStoredMUniqueId();
 
@@ -193,6 +262,15 @@ function buildLoginRequest(payload: LoginRequest): EncryptedLoginRequest {
     mUniqueId: (payload.mUniqueId ?? storedMUniqueId) || undefined,
     multiFactorAuthenticationLogin: payload.multiFactorAuthenticationLogin,
     otp: payload.otp,
+  };
+}
+
+function buildTokenLoginRequest(payload: LoginRequest): TokenEncryptedLoginRequest {
+  return {
+    userType: "TENANT_USER",
+    identifierType: "LOGIN_ID",
+    identifier: payload.loginId,
+    password: payload.password,
   };
 }
 
@@ -283,27 +361,10 @@ async function encryptSessionLogin(payload: EncryptedLoginRequest): Promise<stri
   );
 }
 
-async function encryptTokenLogin(payload: EncryptedLoginRequest): Promise<string> {
-  const keyBytes = decodeBase64Utf8(SECRET_KEY_BASE64);
-
-  if (keyBytes.length !== 32) {
-    throw new Error("AES secret key must be 32 bytes after Base64 decode");
-  }
-
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    {
-      name: "AES-GCM",
-    },
-    false,
-    ["encrypt"]
-  );
-
-  const ivKey = decodeBase64Utf8(IV_KEY_BASE64);
-  const nonce = crypto.getRandomValues(
-    new Uint8Array(GCM_IV_LENGTH_BYTES)
-  );
+async function encryptTokenLogin(payload: TokenEncryptedLoginRequest): Promise<string> {
+  const aesKey = await importAesGcmTokenKey();
+  const ivKey = getTokenIvKeyBytes();
+  const nonce = crypto.getRandomValues(new Uint8Array(GCM_IV_LENGTH_BYTES));
 
   const iv = xorIv(nonce, ivKey);
 
@@ -327,23 +388,8 @@ async function encryptTokenLogin(payload: EncryptedLoginRequest): Promise<string
 }
 
 async function decryptTokenLoginResponse(encryptedText: string): Promise<string> {
-  const keyBytes = decodeBase64Utf8(SECRET_KEY_BASE64);
-
-  if (keyBytes.length !== 32) {
-    throw new Error("AES secret key must be 32 bytes after Base64 decode");
-  }
-
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    {
-      name: "AES-GCM",
-    },
-    false,
-    ["decrypt"]
-  );
-
-  const ivKey = decodeBase64Utf8(IV_KEY_BASE64);
+  const aesKey = await importAesGcmTokenKey();
+  const ivKey = getTokenIvKeyBytes();
   const payload = decodeBase64Bytes(encryptedText);
 
   if (payload.length < GCM_IV_LENGTH_BYTES) {
@@ -552,7 +598,7 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
       ? rawUser.permissions.map((permission) => String(permission))
       : Array.isArray(rawUser.perms)
         ? rawUser.perms.map((permission) => String(permission))
-      : [],
+        : [],
   };
 
   const account: AccountContext = {
@@ -567,13 +613,13 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
     theme: {
       primaryColor: String(
         (rawAccount.theme as Record<string, unknown> | undefined)?.primaryColor ??
-          rawAccount.primaryColor ??
-          "#5B21D1"
+        rawAccount.primaryColor ??
+        "#5B21D1"
       ),
       logoUrl: String(
         (rawAccount.theme as Record<string, unknown> | undefined)?.logoUrl ??
-          rawAccount.logoUrl ??
-          ""
+        rawAccount.logoUrl ??
+        ""
       ),
       faviconUrl: typeof (rawAccount.theme as Record<string, unknown> | undefined)?.faviconUrl === "string"
         ? String((rawAccount.theme as Record<string, unknown>).faviconUrl)
@@ -585,11 +631,11 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
         : "growth",
     domain:
       rawAccount.domain === "retail" ||
-      rawAccount.domain === "service" ||
-      rawAccount.domain === "finance" ||
-      rawAccount.domain === "corporate" ||
-      rawAccount.domain === "education" ||
-      rawAccount.domain === "other"
+        rawAccount.domain === "service" ||
+        rawAccount.domain === "finance" ||
+        rawAccount.domain === "corporate" ||
+        rawAccount.domain === "education" ||
+        rawAccount.domain === "other"
         ? rawAccount.domain
         : "healthcare",
     labels: {
@@ -623,29 +669,29 @@ export const authService = {
   getProviderLocations: fetchProviderLocations,
 
   async checkSession(): Promise<SessionResponse> {
-  if (isMock) {
-    const { mockUser, mockAccount, mockLocations, mockToken } = 
-      await import("../mocks/mockAuth");
-    
-    console.log("[authService] mock locations:", mockLocations);
-    
-    return {
-      user:      mockUser,
-      account:   mockAccount,
-      locations: mockLocations,
-      token:     mockToken,
-    };
-  }
-  const storedTokens = authMode === "token" ? getStoredTokenSession() : null;
-  if (storedTokens?.accessToken) {
-    setApiClientContext({ authMode: "token", authToken: storedTokens.accessToken });
-  }
+    if (isMock) {
+      const { mockUser, mockAccount, mockLocations, mockToken } =
+        await import("../mocks/mockAuth");
 
-  const res = await apiClient.get<SessionResponse>(
-    authMode === "token" ? buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.me) : "/auth/me",
-  );
-  return normalizeLoginResponse(res.data);
-},
+      console.log("[authService] mock locations:", mockLocations);
+
+      return {
+        user: mockUser,
+        account: mockAccount,
+        locations: mockLocations,
+        token: mockToken,
+      };
+    }
+    const storedTokens = authMode === "token" ? getStoredTokenSession() : null;
+    if (storedTokens?.accessToken) {
+      setApiClientContext({ authMode: "token", authToken: storedTokens.accessToken });
+    }
+
+    const res = await apiClient.get<SessionResponse>(
+      authMode === "token" ? buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.me) : "/auth/me",
+    );
+    return normalizeLoginResponse(res.data);
+  },
 
   async login(payload: LoginRequest): Promise<SessionResponse> {
     if (authMode === "token" && !isMock) {
@@ -664,8 +710,9 @@ export const authService = {
   },
 
   async tokenLogin(payload: LoginRequest): Promise<SessionResponse> {
-    const requestBody = buildLoginRequest(payload);
+    const requestBody = buildTokenLoginRequest(payload);
     const encryptedInput = await encryptTokenLogin(requestBody);
+
     return this.tokenEncryptedLogin(encryptedInput);
   },
 
@@ -687,16 +734,38 @@ export const authService = {
       typeof res.data === "string"
         ? (JSON.parse(await decryptTokenLoginResponse(res.data)) as TokenLoginResponse)
         : res.data;
+    return establishTokenSession(tokens);
+  },
 
-    setStoredTokenSession(tokens);
-    setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
+  async issueTenantSignupOtp(payload: TenantSignupOtpRequest): Promise<TenantSignupOtpResponse> {
+    const response = await apiClient.post<TenantSignupOtpResponse>(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSignup.issueOtp),
+      {
+        loginId: payload.loginId.trim(),
+        mobile: payload.mobile?.trim() || undefined,
+        email: payload.email?.trim() || undefined,
+        firstName: payload.firstName.trim(),
+        lastName: payload.lastName?.trim() || undefined,
+        password: payload.password,
+      },
+      { _skipAuthRefresh: true } as unknown,
+    );
 
-    const context = await this.checkSession();
-    return {
-      ...context,
-      token: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-    };
+    return response.data;
+  },
+
+  async verifyTenantSignupOtp(payload: TenantSignupVerifyRequest): Promise<SessionResponse> {
+    const response = await apiClient.post<TokenLoginResponse & { verified?: boolean }>(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSignup.verifyOtp),
+      {
+        otpId: payload.otpId,
+        otp: payload.otp.trim(),
+        purpose: payload.purpose ?? "TENANT_SIGNUP_VERIFY_EMAIL",
+      },
+      { _skipAuthRefresh: true } as unknown,
+    );
+
+    return establishTokenSession(response.data);
   },
 
   async encryptLogin(body: string): Promise<SessionResponse> {
@@ -770,10 +839,10 @@ export const authService = {
         buildAuthServiceUrl(TOKEN_AUTH_ENDPOINTS.logout),
         null,
         { _skipAuthRefresh: true } as unknown,
-      ).catch(() => {});
+      ).catch(() => { });
       clearStoredTokenSession();
       return;
     }
-    await apiClient.delete("/provider/login").catch(() => {});
+    await apiClient.delete("/provider/login").catch(() => { });
   },
 };

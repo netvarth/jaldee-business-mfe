@@ -3,12 +3,20 @@ import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
 import { authService, clearStoredCredentials, getAuthMode, getStoredAccessToken, getStoredCredentials, setStoredCredentials } from "../services/authService";
-import type { LoginRequest, SessionResponse } from "../services/authService";
+import type {
+  LoginRequest,
+  SessionResponse,
+  TenantSignupOtpRequest,
+  TenantSignupOtpResponse,
+  TenantSignupVerifyRequest,
+} from "../services/authService";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (payload: LoginRequest) => Promise<SessionResponse>;
+  issueTenantSignupOtp: (payload: TenantSignupOtpRequest) => Promise<TenantSignupOtpResponse>;
+  verifyTenantSignupOtp: (payload: TenantSignupVerifyRequest) => Promise<SessionResponse>;
   logout: () => Promise<void>;
 }
 
@@ -151,6 +159,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }
 
+  async function issueTenantSignupOtp(payload: TenantSignupOtpRequest) {
+    return authService.issueTenantSignupOtp(payload);
+  }
+
+  async function verifyTenantSignupOtp(payload: TenantSignupVerifyRequest) {
+    const response = await authService.verifyTenantSignupOtp(payload);
+    const { user, account, locations, token } = response;
+
+    setAuth(user, account, token ?? "");
+    setAvailableLocations(locations ?? []);
+
+    if ((locations ?? []).length) {
+      setLocation(locations[0]);
+    }
+
+    hasBootstrappedSessionRef.current = true;
+    hasFetchedLocationsRef.current = false;
+
+    return response;
+  }
+
   useEffect(() => {
     if (!hasHydrated || !isAuthenticated) {
       return;
@@ -209,7 +238,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, isLoading: !hasHydrated, login, logout }}
+      value={{
+        isAuthenticated,
+        isLoading: !hasHydrated,
+        login,
+        issueTenantSignupOtp,
+        verifyTenantSignupOtp,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

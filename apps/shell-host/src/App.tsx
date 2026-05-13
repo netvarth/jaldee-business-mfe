@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Suspense } from "react";
 import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ShellLayout from "./layout/ShellLayout";
 import { HealthMFE } from "./mfes/HealthMFE";
@@ -37,6 +38,16 @@ export default function App() {
             <Navigate to="/home" replace />
           ) : (
             <LoginPage />
+          )
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          hasHydrated && (isAuthenticated || hasStoredSession) ? (
+            <Navigate to="/home" replace />
+          ) : (
+            <SignupPage />
           )
         }
       />
