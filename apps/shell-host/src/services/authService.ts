@@ -67,6 +67,37 @@ const SESSION_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=
 const SESSION_ENCRYPTION_IV_B64 = "RW5jRGVjSmFsZGVlMDYyMw==";
 const TOKEN_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xMTA1MjY=";
 const TOKEN_ENCRYPTION_IV = "H/x9FjXoH0ZfXHMK";
+
+const GCM_IV_LENGTH_BYTES = 12;
+const GCM_TAG_LENGTH_BITS = 128;
+
+const SECRET_KEY_BASE64 = import.meta.env.VITE_AES_SECRET_KEY_BASE64 || TOKEN_ENCRYPTION_KEY_B64;
+const IV_KEY_BASE64 = import.meta.env.VITE_AES_IV_KEY_BASE64 || btoa(TOKEN_ENCRYPTION_IV.slice(0, GCM_IV_LENGTH_BYTES));
+
+function concatBytes(first: Uint8Array, second: Uint8Array): Uint8Array {
+  const result = new Uint8Array(first.length + second.length);
+  result.set(first, 0);
+  result.set(second, first.length);
+  return result;
+}
+
+function xorIv(nonce: Uint8Array, ivKey: Uint8Array): Uint8Array {
+  if (nonce.length !== GCM_IV_LENGTH_BYTES) {
+    throw new Error("Nonce must be 12 bytes");
+  }
+
+  if (ivKey.length !== GCM_IV_LENGTH_BYTES) {
+    throw new Error("IV key must be 12 bytes");
+  }
+
+  const iv = new Uint8Array(GCM_IV_LENGTH_BYTES);
+
+  for (let i = 0; i < GCM_IV_LENGTH_BYTES; i++) {
+    iv[i] = nonce[i] ^ ivKey[i];
+  }
+
+  return iv;
+}
 export function getAuthMode() {
   return authMode;
 }
@@ -253,33 +284,88 @@ async function encryptSessionLogin(payload: EncryptedLoginRequest): Promise<stri
 }
 
 async function encryptTokenLogin(payload: EncryptedLoginRequest): Promise<string> {
-  return encryptUsingAES256(
-    payload,
-    decodeBase64Utf8(TOKEN_ENCRYPTION_KEY_B64),
-    new TextEncoder().encode(TOKEN_ENCRYPTION_IV)
+  const keyBytes = decodeBase64Utf8(SECRET_KEY_BASE64);
+
+  if (keyBytes.length !== 32) {
+    throw new Error("AES secret key must be 32 bytes after Base64 decode");
+  }
+
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    {
+      name: "AES-GCM",
+    },
+    false,
+    ["encrypt"]
   );
+
+  const ivKey = decodeBase64Utf8(IV_KEY_BASE64);
+  const nonce = crypto.getRandomValues(
+    new Uint8Array(GCM_IV_LENGTH_BYTES)
+  );
+
+  const iv = xorIv(nonce, ivKey);
+
+  const plainText = JSON.stringify(payload);
+  const plainBytes = new TextEncoder().encode(plainText);
+
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv,
+      tagLength: GCM_TAG_LENGTH_BITS,
+    },
+    aesKey,
+    plainBytes
+  );
+
+  const encryptedBytes = new Uint8Array(encryptedBuffer);
+  const finalPayload = concatBytes(nonce, encryptedBytes);
+
+  return encodeBase64(finalPayload);
 }
 
 async function decryptTokenLoginResponse(encryptedText: string): Promise<string> {
-  const keyBytes = decodeBase64Utf8(TOKEN_ENCRYPTION_KEY_B64);
-  const ivBytes = new TextEncoder().encode(TOKEN_ENCRYPTION_IV);
-  const encryptedBytes = decodeBase64Bytes(encryptedText);
+  const keyBytes = decodeBase64Utf8(SECRET_KEY_BASE64);
 
-  const cryptoKey = await crypto.subtle.importKey(
+  if (keyBytes.length !== 32) {
+    throw new Error("AES secret key must be 32 bytes after Base64 decode");
+  }
+
+  const aesKey = await crypto.subtle.importKey(
     "raw",
     keyBytes,
-    { name: "AES-CBC" },
+    {
+      name: "AES-GCM",
+    },
     false,
     ["decrypt"]
   );
 
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-CBC", iv: ivBytes },
-    cryptoKey,
+  const ivKey = decodeBase64Utf8(IV_KEY_BASE64);
+  const payload = decodeBase64Bytes(encryptedText);
+
+  if (payload.length < GCM_IV_LENGTH_BYTES) {
+    throw new Error("Invalid encrypted payload");
+  }
+
+  const nonce = payload.slice(0, GCM_IV_LENGTH_BYTES);
+  const encryptedBytes = payload.slice(GCM_IV_LENGTH_BYTES);
+
+  const iv = xorIv(nonce, ivKey);
+
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv,
+      tagLength: GCM_TAG_LENGTH_BITS,
+    },
+    aesKey,
     encryptedBytes
   );
 
-  return new TextDecoder().decode(decrypted);
+  return new TextDecoder().decode(decryptedBuffer);
 }
 
 function normalizeRoles(input: unknown): UserContext["roles"] {
