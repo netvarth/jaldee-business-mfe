@@ -28,13 +28,27 @@ export function UsersPageShell({
   );
 }
 
-export function UserAvatar({ name, subtitle }: { name: string; subtitle?: string }) {
+export function UserAvatar({
+  name,
+  subtitle,
+  size = "md",
+  prominent = false,
+}: {
+  name: string;
+  subtitle?: string;
+  size?: "sm" | "md" | "lg";
+  prominent?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <Avatar name={name} size="md" />
-      <div className="min-w-0">
-        <div className="truncate font-semibold text-slate-900">{name}</div>
-        {subtitle ? <div className="truncate text-xs text-slate-500">{subtitle}</div> : null}
+    <div className={cn("flex gap-3", prominent ? "items-start py-1" : "items-center")}>
+      <div className={cn("shrink-0", prominent && "pt-0.5")}>
+        <Avatar name={name} size={size} />
+      </div>
+      <div className={cn("min-w-0", prominent && "flex min-h-[48px] flex-col justify-center")}>
+        <div className={cn("truncate text-slate-900", prominent ? "text-sm font-semibold leading-5" : "font-semibold")}>
+          {name}
+        </div>
+        {subtitle ? <div className="truncate text-xs leading-5 text-slate-500">{subtitle}</div> : null}
       </div>
     </div>
   );
@@ -115,6 +129,16 @@ export function FunnelGlyph() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
       <path d="M3 5h18l-7 8v5.5a1 1 0 0 1-.4.8l-2.8 2.1a.75.75 0 0 1-1.2-.6V13L3 5Z" />
+    </svg>
+  );
+}
+
+export function MoreGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
     </svg>
   );
 }

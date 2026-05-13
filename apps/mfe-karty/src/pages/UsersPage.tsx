@@ -14,6 +14,7 @@ const USERS_DETAIL_SECTIONS = new Set([
   "schedules",
   "non-working-days",
 ]);
+const USERS_DETAIL_MODES = new Set(["profile", "settings"]);
 
 export default function UsersPage() {
   const mfeProps = useContext(MFEPropsContext);
@@ -61,6 +62,7 @@ export default function UsersPage() {
         view: "overview",
         subview: null,
         recordId: null,
+        tab: null,
       };
     }
 
@@ -69,6 +71,16 @@ export default function UsersPage() {
         view: firstSegment,
         subview: params.subview ?? routeSegments[1] ?? null,
         recordId: params.recordId ?? routeSegments[2] ?? null,
+        tab: null,
+      };
+    }
+
+    if (USERS_DETAIL_MODES.has(firstSegment)) {
+      return {
+        view: "detail",
+        subview: "personal-details",
+        recordId: routeSegments[1] ?? params.recordId ?? null,
+        tab: firstSegment === "profile" ? "standalone" : "settings",
       };
     }
 
@@ -77,6 +89,7 @@ export default function UsersPage() {
         view: "detail",
         subview: firstSegment,
         recordId: params.recordId ?? params.subview ?? routeSegments[1] ?? null,
+        tab: "settings",
       };
     }
 
@@ -84,6 +97,7 @@ export default function UsersPage() {
       view: "detail",
       subview: "personal-details",
       recordId: firstSegment,
+      tab: "settings",
     };
   }, [location.pathname, params.recordId, params.subview, params.view]);
 
@@ -116,6 +130,7 @@ export default function UsersPage() {
       recordId: routeState.recordId,
       view: routeState.view,
       subview: routeState.subview,
+      tab: routeState.tab,
     },
   };
 

@@ -4,10 +4,13 @@ import {
   DataTable,
   EmptyState,
   Icon,
+  Popover,
+  PopoverSection,
   SectionCard,
   Select,
   StatCard,
   Tabs,
+  cn,
   type ColumnDef,
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
@@ -15,14 +18,15 @@ import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useUserDepartments, useUserTeams, useUsersCount, useUsersList } from "../queries/users";
 import type { UserSummary } from "../types";
-import {
-  FunnelGlyph,
-  PlusGlyph,
-  UserAvatar,
-  UsersPageShell,
-} from "./shared";
+import { FunnelGlyph, MoreGlyph, PlusGlyph, UserAvatar, UsersPageShell } from "./shared";
+import { AssignLocationsDialog, ChangeLoginIdDialog, CreateTeamDialog, CreateUserDialog } from "./UserCreateDialogs";
 
 const DEFAULT_PAGE_SIZE = 10;
+
+function canOpenSettings(row: UserSummary) {
+  const normalizedUserType = (row.userType || "").toUpperCase();
+  return normalizedUserType === "PROVIDER";
+}
 
 export function UsersList() {
   const { basePath } = useSharedModulesContext();
@@ -32,6 +36,10 @@ export function UsersList() {
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
+  const [assignLocationsUser, setAssignLocationsUser] = useState<UserSummary | null>(null);
+  const [changeLoginIdUser, setChangeLoginIdUser] = useState<UserSummary | null>(null);
 
   const { page, setPage, pageSize, setPageSize } = useUrlPagination({
     namespace: "users",
@@ -68,6 +76,10 @@ export function UsersList() {
   const totalUsers = countQuery.data || rows.length;
   const activeUsers = activeCountQuery.data || rows.length;
   const totalTeams = teamsQuery.data?.length ?? 0;
+  const departmentNameMap = useMemo(
+    () => new Map((departmentsQuery.data ?? []).map((department) => [String(department.id), department.name])),
+    [departmentsQuery.data]
+  );
 
   const columns = useMemo<ColumnDef<UserSummary>[]>(
     () => [
@@ -75,7 +87,14 @@ export function UsersList() {
         key: "name",
         header: "Name",
         headerClassName: "font-semibold text-slate-900",
-        render: (row) => <UserAvatar name={row.name} subtitle={row.email || row.mobile || row.employeeId} />,
+        render: (row) => (
+          <UserAvatar
+            name={row.name}
+            subtitle={row.email || row.mobile || row.employeeId || row.roleName || row.userType}
+            size="lg"
+            prominent
+          />
+        ),
       },
       {
         key: "locations",
@@ -87,27 +106,51 @@ export function UsersList() {
         key: "departmentName",
         header: "Department",
         headerClassName: "font-semibold text-slate-900",
-        render: (row) => row.departmentName || "-",
+        render: (row) => row.departmentName || departmentNameMap.get(String(row.departmentId ?? "")) || "-",
       },
       {
         key: "id",
         header: "",
         width: "8%",
         render: (row) => (
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 text-3xl leading-none text-slate-800"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`${basePath}/${row.id}`);
-            }}
-          >
-            ⋮
-          </button>
+          <div onClick={(event) => event.stopPropagation()} className="flex justify-end">
+            <Popover
+              align="end"
+              contentClassName="min-w-[220px] p-2"
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`More actions for ${row.name}`}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-700 transition-colors hover:bg-slate-100"
+                >
+                  <MoreGlyph />
+                </button>
+              }
+            >
+              <PopoverSection className="space-y-1">
+                <UserMenuAction
+                  label={canOpenSettings(row) ? "Settings" : "Personal Details"}
+                  onClick={() =>
+                    navigate(
+                      canOpenSettings(row) ? `${basePath}/settings/${row.id}` : `${basePath}/profile/${row.id}`
+                    )
+                  }
+                />
+                <UserMenuAction label="Assign to Locations" onClick={() => setAssignLocationsUser(row)} muted />
+                <UserMenuAction label="Change Login ID" onClick={() => setChangeLoginIdUser(row)} muted />
+                <UserMenuAction
+                  label={row.status === "ACTIVE" ? "Disable" : "Enable"}
+                  onClick={() => {}}
+                  muted
+                  destructive={row.status === "ACTIVE"}
+                />
+              </PopoverSection>
+            </Popover>
+          </div>
         ),
       },
     ],
-    [basePath, navigate]
+    [basePath, departmentNameMap, navigate]
   );
 
   const departmentOptions = useMemo(
@@ -125,7 +168,31 @@ export function UsersList() {
     <UsersPageShell
       title="User Overview"
       subtitle="Create And Manage Users"
+      actions={
+        <Popover
+          align="end"
+          contentClassName="min-w-[220px] p-2"
+          trigger={
+            <Button type="button" variant="primary" size="lg" icon={<PlusGlyph />} className="min-w-[134px] rounded-md">
+              Create
+            </Button>
+          }
+        >
+          <PopoverSection className="space-y-1">
+            <UserMenuAction label="Create User" onClick={() => setCreateDialogOpen(true)} />
+            <UserMenuAction label="Create Team" onClick={() => setCreateTeamDialogOpen(true)} muted />
+          </PopoverSection>
+        </Popover>
+      }
     >
+      <SectionCard className="border-slate-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="grid gap-4 md:grid-cols-3">
+          <StatCard label="Total Users" value={totalUsers} accent="indigo" icon={<Icon name="list" />} />
+          <StatCard label="Total Teams" value={totalTeams} accent="amber" icon={<Icon name="layers" />} />
+          <StatCard label="Active Users" value={activeUsers} accent="emerald" icon={<Icon name="list" />} />
+        </div>
+      </SectionCard>
+
       <SectionCard className="border-slate-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]" padding={false}>
         <div className="space-y-8 p-5">
           <div className="flex items-center justify-between gap-4">
@@ -140,40 +207,6 @@ export function UsersList() {
               ]}
               className="border-b-0"
             />
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="grid flex-1 gap-4 md:grid-cols-3">
-              <StatCard
-                label="Total Users"
-                value={totalUsers}
-                accent="indigo"
-                icon={<Icon name="list" />}
-              />
-              <StatCard
-                label="Total Teams"
-                value={totalTeams}
-                accent="amber"
-                icon={<Icon name="layers" />}
-              />
-              <StatCard
-                label="Active Users"
-                value={activeUsers}
-                accent="emerald"
-                icon={<Icon name="list" />}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              icon={<PlusGlyph />}
-              onClick={() => {}}
-              title="Create user flow not integrated yet"
-              className="min-w-[134px] rounded-md"
-            >
-              Create
-            </Button>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -237,17 +270,58 @@ export function UsersList() {
                 mode: "server",
               }}
               className="rounded-xl border-0 shadow-none"
-              tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-5"
-              emptyState={
-                <EmptyState
-                  title="No users found"
-                  description="Try adjusting the active filters."
-                />
-              }
+              tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-4"
+              emptyState={<EmptyState title="No users found" description="Try adjusting the active filters." />}
             />
           </div>
         </div>
       </SectionCard>
+      <CreateUserDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onCreated={(userId) => navigate(`${basePath}/${userId}`)}
+      />
+      <CreateTeamDialog open={createTeamDialogOpen} onClose={() => setCreateTeamDialogOpen(false)} />
+      <AssignLocationsDialog
+        open={Boolean(assignLocationsUser)}
+        onClose={() => setAssignLocationsUser(null)}
+        userId={assignLocationsUser?.id ?? null}
+        userName={assignLocationsUser?.name}
+        initialLocationIds={assignLocationsUser?.locationIds ?? []}
+      />
+      <ChangeLoginIdDialog
+        open={Boolean(changeLoginIdUser)}
+        onClose={() => setChangeLoginIdUser(null)}
+        userId={changeLoginIdUser?.id ?? null}
+      />
     </UsersPageShell>
+  );
+}
+
+function UserMenuAction({
+  label,
+  onClick,
+  muted = false,
+  destructive = false,
+}: {
+  label: string;
+  onClick: () => void;
+  muted?: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-50",
+        destructive ? "text-rose-600" : muted ? "text-slate-700" : "text-slate-900"
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      {label}
+    </button>
   );
 }

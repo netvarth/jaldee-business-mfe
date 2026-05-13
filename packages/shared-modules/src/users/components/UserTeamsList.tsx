@@ -1,16 +1,19 @@
 import { useMemo, useState } from "react";
-import { Button, DataTable, EmptyState, Icon, SectionCard, Select, StatCard, Tabs, type ColumnDef } from "@jaldee/design-system";
+import { Button, DataTable, EmptyState, Icon, Popover, PopoverSection, SectionCard, Select, StatCard, Tabs, type ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUserTeams, useUsersCount } from "../queries/users";
 import type { UserTeam } from "../types";
 import { FunnelGlyph, PlusGlyph, UserStatusBadge, UsersPageShell } from "./shared";
+import { CreateTeamDialog, CreateUserDialog } from "./UserCreateDialogs";
 
 export function UserTeamsList() {
   const { basePath } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const [status, setStatus] = useState("ACTIVE");
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const teamsQuery = useUserTeams(status);
   const allTeamsQuery = useUserTeams("all");
   const activeUsersQuery = useUsersCount({
@@ -64,7 +67,58 @@ export function UserTeamsList() {
     <UsersPageShell
       title="User Overview"
       subtitle="Create And Manage Users"
+      actions={
+        <Popover
+          align="end"
+          contentClassName="min-w-[220px] p-2"
+          trigger={
+            <Button type="button" variant="primary" size="lg" icon={<PlusGlyph />} className="min-w-[134px] rounded-md">
+              Create
+            </Button>
+          }
+        >
+          <PopoverSection className="space-y-1">
+            <button
+              type="button"
+              className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+              onClick={() => setCreateUserDialogOpen(true)}
+            >
+              Create User
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Create Team
+            </button>
+          </PopoverSection>
+        </Popover>
+      }
     >
+      <SectionCard className="border-slate-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="grid gap-4 md:grid-cols-3">
+          <StatCard
+            label="Total Users"
+            value={totalUsersQuery.data ?? "-"}
+            accent="indigo"
+            icon={<Icon name="list" />}
+          />
+          <StatCard
+            label="Total Teams"
+            value={totalTeams}
+            accent="amber"
+            icon={<Icon name="layers" />}
+          />
+          <StatCard
+            label="Active Users"
+            value={activeUsersQuery.data ?? "-"}
+            accent="emerald"
+            icon={<Icon name="list" />}
+          />
+        </div>
+      </SectionCard>
+
       <SectionCard className="border-slate-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]" padding={false}>
         <div className="space-y-8 p-5">
           <Tabs
@@ -78,40 +132,6 @@ export function UserTeamsList() {
             ]}
             className="border-b-0"
           />
-
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="grid flex-1 gap-4 md:grid-cols-3">
-              <StatCard
-                label="Total Users"
-                value={totalUsersQuery.data ?? "-"}
-                accent="indigo"
-                icon={<Icon name="list" />}
-              />
-              <StatCard
-                label="Total Teams"
-                value={totalTeams}
-                accent="amber"
-                icon={<Icon name="layers" />}
-              />
-              <StatCard
-                label="Active Users"
-                value={activeUsersQuery.data ?? "-"}
-                accent="emerald"
-                icon={<Icon name="list" />}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              icon={<PlusGlyph />}
-              onClick={() => {}}
-              title="Create team flow not integrated yet"
-              className="min-w-[134px] rounded-md"
-            >
-              Create
-            </Button>
-          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="w-full max-w-[262px]">
@@ -156,6 +176,8 @@ export function UserTeamsList() {
           </div>
         </div>
       </SectionCard>
+      <CreateUserDialog open={createUserDialogOpen} onClose={() => setCreateUserDialogOpen(false)} />
+      <CreateTeamDialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} />
     </UsersPageShell>
   );
 }

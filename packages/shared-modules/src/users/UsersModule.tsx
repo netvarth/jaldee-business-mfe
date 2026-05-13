@@ -12,6 +12,7 @@ export function UsersModule() {
   const view = routeParams?.view ?? "overview";
   const recordId = routeParams?.recordId ?? null;
   const subview = routeParams?.subview ?? null;
+  const tab = routeParams?.tab ?? null;
 
   if (!access.allowed) {
     return (
@@ -31,7 +32,13 @@ export function UsersModule() {
   }
 
   if (recordId) {
-    return <UserDetailView userId={recordId} section={subview ?? "personal-details"} />;
+    return (
+      <UserDetailView
+        userId={recordId}
+        section={subview ?? "personal-details"}
+        standalone={tab === "standalone"}
+      />
+    );
   }
 
   if (view === "list") {

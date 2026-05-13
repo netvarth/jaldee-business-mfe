@@ -15,6 +15,13 @@ import {
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUserDepartments, useUserDetail } from "../queries/users";
+import {
+  UserAccountPanel,
+  UserNonWorkingDaysPanel,
+  UserQueuesPanel,
+  UserSchedulesPanel,
+  UserServicesPanel,
+} from "./UserFeaturePanels";
 import { UserAvatar, UsersPageShell } from "./shared";
 
 type DetailSectionKey =
@@ -70,6 +77,14 @@ const USER_TYPE_OPTIONS = [
   { value: "ADMIN", label: "Admin" },
   { value: "USER", label: "User" },
 ];
+
+function ChevronDownGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="m5 7 5 6 5-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function normalizeDateInput(value?: string) {
   if (!value) return "";
@@ -133,29 +148,14 @@ function buildInitialFormState(detail?: {
   };
 }
 
-function SectionPlaceholder({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <SectionCard className="border-slate-200 shadow-sm">
-      <div className="space-y-3">
-        <div className="text-lg font-semibold text-slate-900">{title}</div>
-        <p className="max-w-2xl text-sm text-slate-600">{description}</p>
-      </div>
-    </SectionCard>
-  );
-}
-
 export function UserDetailView({
   userId,
   section,
+  standalone = false,
 }: {
   userId: string;
   section?: string | null;
+  standalone?: boolean;
 }) {
   const { basePath, routeParams } = useSharedModulesContext();
   const subview = section ?? routeParams?.subview ?? null;
@@ -167,7 +167,7 @@ export function UserDetailView({
   const [formState, setFormState] = useState<UserDetailFormState>(() => buildInitialFormState());
 
   useEffect(() => {
-    const nextSection = DETAIL_SECTIONS.some((section) => section.key === subview)
+    const nextSection = DETAIL_SECTIONS.some((item) => item.key === subview)
       ? (subview as DetailSectionKey)
       : "personal-details";
     setActiveSection(nextSection);
@@ -228,17 +228,21 @@ export function UserDetailView({
     []
   );
 
-  function openSection(section: DetailSectionKey) {
-    setActiveSection(section);
-    navigate(`${basePath}/${section}/${userId}`);
+  function openSection(nextSection: DetailSectionKey) {
+    setActiveSection(nextSection);
+    navigate(`${basePath}/${nextSection}/${userId}`);
   }
 
+  const showSidebar = !standalone;
+  const pageTitle = standalone ? "User Details" : "Users";
+  const pageSubtitle = standalone
+    ? undefined
+    : detail?.name
+      ? `Manage ${detail.name}`
+      : "Manage user details and feature access";
+
   return (
-    <UsersPageShell
-      title="Users"
-      subtitle={detail?.name ? `Manage ${detail.name}` : "Manage user details and feature access"}
-      onBack={() => navigate(basePath)}
-    >
+    <UsersPageShell title={pageTitle} subtitle={pageSubtitle} onBack={() => navigate(basePath)}>
       {detailQuery.isLoading && <SkeletonCard />}
       {detailQuery.isError && (
         <SectionCard className="border-slate-200 shadow-sm">
@@ -251,42 +255,47 @@ export function UserDetailView({
       )}
 
       {!detailQuery.isLoading && !detailQuery.isError && detail && (
-        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
-            <div className="flex flex-col items-center border-b border-slate-200 px-6 py-8 text-center">
-              <UserAvatar name={detail.name} subtitle={detail.roleName || detail.userType} />
-              <div className="mt-3 text-sm font-semibold text-slate-900">{detail.name}</div>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {DETAIL_SECTIONS.map((section) => (
-                <button
-                  key={section.key}
-                  type="button"
-                  onClick={() => openSection(section.key)}
-                  className={`w-full px-5 py-4 text-left transition ${
-                    activeSection === section.key
-                      ? "bg-[color:color-mix(in_srgb,var(--color-primary)_10%,white)] font-medium text-[var(--color-primary)]"
-                      : "bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="text-sm font-medium">{section.label}</div>
-                  <div className="mt-1 text-xs text-slate-500">{SECTION_DESCRIPTIONS[section.key]}</div>
-                </button>
-              ))}
-            </div>
-          </SectionCard>
+        <div className={`grid gap-6 ${showSidebar ? "xl:grid-cols-[320px_minmax(0,1fr)]" : ""}`}>
+          {showSidebar ? (
+            <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
+              <div className="flex flex-col items-center border-b border-slate-200 px-6 py-8 text-center">
+                <UserAvatar name={detail.name} subtitle={detail.roleName || detail.userType} />
+                <div className="mt-3 text-sm font-semibold text-slate-900">{detail.name}</div>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {DETAIL_SECTIONS.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => openSection(item.key)}
+                    className={`w-full px-5 py-4 text-left transition ${
+                      activeSection === item.key
+                        ? "bg-[color:color-mix(in_srgb,var(--color-primary)_10%,white)] font-medium text-[var(--color-primary)]"
+                        : "bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{item.label}</div>
+                    <div className="mt-1 text-xs text-slate-500">{SECTION_DESCRIPTIONS[item.key]}</div>
+                  </button>
+                ))}
+              </div>
+            </SectionCard>
+          ) : null}
 
           {activeSection === "personal-details" ? (
             <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
-              <div className="space-y-8 p-5">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-semibold text-slate-900">Personal Details</h2>
-                  <p className="text-sm text-slate-500">
-                    Manage profile information, communication channels, department assignment, and user privileges.
-                  </p>
-                </div>
-
-                <Divider />
+              <div className={`space-y-8 ${standalone ? "p-5 md:p-6" : "p-5"}`}>
+                {!standalone ? (
+                  <>
+                    <div className="space-y-1">
+                      <h2 className="text-lg font-semibold text-slate-900">Personal Details</h2>
+                      <p className="text-sm text-slate-500">
+                        Manage profile information, communication channels, department assignment, and user privileges.
+                      </p>
+                    </div>
+                    <Divider />
+                  </>
+                ) : null}
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input
@@ -349,7 +358,9 @@ export function UserDetailView({
                     className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-700"
                   >
                     <span>Additional details</span>
-                    <span className="text-slate-400">⌃</span>
+                    <span className="text-slate-400">
+                      <ChevronDownGlyph />
+                    </span>
                   </button>
                 </div>
 
@@ -439,51 +450,27 @@ export function UserDetailView({
                 <Divider />
 
                 <div className="flex justify-start gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => (standalone ? navigate(basePath) : setFormState(buildInitialFormState(detail)))}
+                  >
+                    Cancel
+                  </Button>
                   <Button type="button" variant="primary" size="sm" onClick={() => {}}>
                     Save
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setFormState(buildInitialFormState(detail))}>
-                    Reset
                   </Button>
                 </div>
               </div>
             </SectionCard>
           ) : null}
 
-          {activeSection === "my-account" ? (
-            <SectionPlaceholder
-              title="My Account"
-              description="This section is the right place to add account-specific user settings, access scope, role mappings, and authentication controls next."
-            />
-          ) : null}
-
-          {activeSection === "services" ? (
-            <SectionPlaceholder
-              title="Services"
-              description="Port the provider user services capability here next, using the legacy `user-services` area as the reference slice."
-            />
-          ) : null}
-
-          {activeSection === "queues" ? (
-            <SectionPlaceholder
-              title="Queues"
-              description="This panel can host user queue configuration, waitlist privileges, and queue assignment details from the legacy users module."
-            />
-          ) : null}
-
-          {activeSection === "schedules" ? (
-            <SectionPlaceholder
-              title="Schedules"
-              description="This section can be extended with provider schedule management and schedule-detail workflows from the original users feature."
-            />
-          ) : null}
-
-          {activeSection === "non-working-days" ? (
-            <SectionPlaceholder
-              title="Non Working Days"
-              description="This is the natural place to port non-working-day creation, listing, and calendar controls for the selected user."
-            />
-          ) : null}
+          {activeSection === "my-account" ? <UserAccountPanel userId={userId} /> : null}
+          {activeSection === "services" ? <UserServicesPanel userId={userId} /> : null}
+          {activeSection === "queues" ? <UserQueuesPanel userId={userId} /> : null}
+          {activeSection === "schedules" ? <UserSchedulesPanel userId={userId} /> : null}
+          {activeSection === "non-working-days" ? <UserNonWorkingDaysPanel userId={userId} /> : null}
         </div>
       )}
     </UsersPageShell>
