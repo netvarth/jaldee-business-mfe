@@ -12,6 +12,7 @@ interface Call {
   assignedTo: string;
   duration?: string;
   remarks?: string;
+  incoming?: boolean;
 }
 
 interface Customer {
@@ -106,6 +107,19 @@ export default function IvrPage() {
   const [languageTooltip, setLanguageTooltip] = useState<ChartTooltipState | null>(null);
   const [analyticsTooltip, setAnalyticsTooltip] = useState<ChartTooltipState | null>(null);
   const [selectedGraphDate, setSelectedGraphDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [hiddenSeries, setHiddenSeries] = useState<string[]>([]);
+
+  const toggleSeries = (seriesKey: string) => {
+    if (hiddenSeries.includes(seriesKey)) {
+      setHiddenSeries(hiddenSeries.filter((s) => s !== seriesKey));
+    } else {
+      const otherKey = seriesKey === "Answered Calls" ? "Missed Call" : "Answered Calls";
+      if (hiddenSeries.includes(otherKey)) {
+        return;
+      }
+      setHiddenSeries([...hiddenSeries, seriesKey]);
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isInitialMount = useRef(true);
@@ -230,7 +244,7 @@ export default function IvrPage() {
     try {
       const d = new Date(dateInput);
       return isNaN(d.getTime()) ? String(dateInput) : d.toLocaleString([], {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit'
       });
     } catch {
       return String(dateInput);
@@ -269,7 +283,8 @@ export default function IvrPage() {
       status: formatText(c.callStatus, "connected"),
       assignedTo: formatText(c.userName, c.userId ? "Operator" : "Unassigned"),
       duration: formatText(c.duration || c.callDuration || c.totalDuration),
-      remarks: formatText(c.notes)
+      remarks: formatText(c.notes),
+      incoming: c.callType ? c.callType === "INCOMING" : (c.incoming ?? true)
     }));
   };
 
@@ -571,7 +586,11 @@ export default function IvrPage() {
   const renderLineChart = () => {
     const chart = normalizeChartData(lineChartData, ["Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday"]);
     const labels = chart.labels;
-    const maxValue = Math.max(1, ...chart.datasets.flatMap((dataset) => dataset.data));
+    const visibleDatasets = chart.datasets.filter((dataset, index) => {
+      const seriesKey = index === 0 ? "Answered Calls" : "Missed Call";
+      return !hiddenSeries.includes(seriesKey);
+    });
+    const maxValue = Math.max(1, ...visibleDatasets.flatMap((dataset) => dataset.data));
     const pointsFor = (data: number[]) =>
       labels
         .map((_, index) => {
@@ -591,7 +610,7 @@ export default function IvrPage() {
           {[0, 50, 100].map((y) => (
             <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#EBEDEF" strokeWidth="0.4" vectorEffect="non-scaling-stroke" />
           ))}
-          {chart.datasets.map((dataset) => (
+          {visibleDatasets.map((dataset) => (
             <polyline
               key={dataset.label}
               fill="none"
@@ -601,7 +620,7 @@ export default function IvrPage() {
               vectorEffect="non-scaling-stroke"
             />
           ))}
-          {chart.datasets.map((dataset) =>
+          {visibleDatasets.map((dataset) =>
             dataset.data.map((value, index) => {
               const x = labels.length === 1 ? 50 : (index / (labels.length - 1)) * 100;
               const y = 100 - ((value || 0) / maxValue) * 100;
@@ -760,9 +779,21 @@ export default function IvrPage() {
           <div className="bg-white border border-gray-200 rounded p-4">
              <div className="text-center mb-6">
                 <h3 className="text-base font-bold text-gray-800">Analytics</h3>
-                <div className="flex justify-center gap-4 text-sm font-medium text-gray-500 mt-2">
-                  <span className="flex items-center gap-1"><span className="w-4 h-2 bg-blue-400"></span> Answered Calls</span>
-                  <span className="flex items-center gap-1"><span className="w-4 h-2 bg-red-400"></span> Missed Call</span>
+                <div className="flex justify-center gap-6 text-sm font-medium text-gray-600 mt-2 select-none">
+                  <button
+                    type="button"
+                    onClick={() => toggleSeries("Answered Calls")}
+                    className={`flex items-center gap-1.5 transition-opacity cursor-pointer outline-none ${hiddenSeries.includes("Answered Calls") ? "line-through text-gray-400 opacity-50" : "opacity-100 font-semibold"}`}
+                  >
+                    <span className="w-4 h-2 bg-blue-400 rounded-sm"></span> Answered Calls
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleSeries("Missed Call")}
+                    className={`flex items-center gap-1.5 transition-opacity cursor-pointer outline-none ${hiddenSeries.includes("Missed Call") ? "line-through text-gray-400 opacity-50" : "opacity-100 font-semibold"}`}
+                  >
+                    <span className="w-4 h-2 bg-red-400 rounded-sm"></span> Missed Call
+                  </button>
                 </div>
              </div>
              {renderLineChart()}
@@ -770,7 +801,7 @@ export default function IvrPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <div className="hidden">
+          <div className="bg-white border border-gray-200 rounded p-4 shadow-sm">
              <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2 [&>button[aria-label]]:hidden">
                    <Button variant="outline" size="sm" iconOnly aria-label="Assign user"><span className="text-base leading-none">▣</span></Button>
@@ -803,47 +834,85 @@ export default function IvrPage() {
              </div>
              <p className="text-sm text-gray-400 mb-4">{formatTimeText(refreshSeconds)}</p>
 
-             <div className="border-b border-gray-200 flex gap-6 text-sm font-semibold text-gray-500 px-2">
-                <button onClick={() => setActiveTab("queue")} className={`pb-2 border-b-2 flex gap-1 ${activeTab === "queue" ? "border-blue-700 text-blue-700" : "border-transparent"}`}><span>👤</span> My Queue({myQueue.length})</button>
-                <button onClick={() => setActiveTab("callbacks")} className={`pb-2 border-b-2 flex gap-1 ${activeTab === "callbacks" ? "border-blue-700 text-blue-700" : "border-transparent"}`}><span>📞</span> CallBacks({callbacks.length})</button>
-                <button onClick={() => setActiveTab("history")} className={`pb-2 border-b-2 flex gap-1 ${activeTab === "history" ? "border-blue-700 text-blue-700" : "border-transparent"}`}><span>🕒</span> Call History({history.length})</button>
+             <div className="border-b border-gray-200 flex gap-6 text-sm font-semibold text-gray-500 px-2 mb-4">
+                <button onClick={() => setActiveTab("queue")} className={`pb-3 border-b-2 flex items-center gap-1.5 font-bold outline-none cursor-pointer ${activeTab === "queue" ? "border-blue-700 text-blue-700 font-bold" : "border-transparent hover:text-gray-700"}`}><span>👤</span> My Queue({myQueue.length})</button>
+                <button onClick={() => setActiveTab("callbacks")} className={`pb-3 border-b-2 flex items-center gap-1.5 font-bold outline-none cursor-pointer ${activeTab === "callbacks" ? "border-blue-700 text-blue-700 font-bold" : "border-transparent hover:text-gray-700"}`}><span>📞</span> CallBacks({callbacks.length})</button>
+                <button onClick={() => setActiveTab("history")} className={`pb-3 border-b-2 flex items-center gap-1.5 font-bold outline-none cursor-pointer ${activeTab === "history" ? "border-blue-700 text-blue-700 font-bold" : "border-transparent hover:text-gray-700"}`}><span>🕒</span> Call History({history.length})</button>
              </div>
 
-             <div className="min-h-[260px] divide-y divide-gray-100 text-sm">
+             <div className="space-y-3 text-sm mb-4">
                 {loadingCalls ? <p className="py-10 text-center text-gray-500">Loading...</p> : activeCalls.length === 0 ? (
-                  <div className="py-10 text-center text-gray-500 font-medium">No calls found.</div>
+                  <div className="py-10 text-center text-gray-500 font-medium">No data found.</div>
                 ) : (
-                  paginatedCalls.map(c => (
-                    <div key={c.id} className="flex items-start justify-between gap-4 py-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <p className="font-semibold text-slate-700">{c.customerName}</p>
-                          <p className="font-semibold text-slate-900">{c.phone}</p>
+                  paginatedCalls.map(c => {
+                    const isMissed = c.status.toLowerCase().includes("missed");
+                    return (
+                      <div key={c.id} className="flex items-center justify-between gap-4 p-4 bg-white border border-gray-200 rounded shadow-xs hover:border-blue-300 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-gray-800 text-sm sm:text-base">{c.customerName}</p>
+                          <div className="flex items-center gap-1 font-bold text-xs sm:text-sm text-gray-800 mt-1 select-none">
+                            {c.incoming !== false ? (
+                              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" title="Incoming">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" title="Outgoing">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                              </svg>
+                            )}
+                            <span>{c.phone}</span>
+                          </div>
+                          <p className="mt-1 font-bold text-xs sm:text-sm text-gray-900">{c.time}</p>
                         </div>
-                        <p className="mt-2 font-semibold text-slate-900">{c.time}</p>
+                        <div className="min-w-[150px] text-left">
+                          <p className="font-bold text-blue-600 text-sm sm:text-base">{c.assignedTo}</p>
+                          <p className={`mt-1 font-bold text-xs sm:text-sm capitalize ${isMissed ? "text-red-600" : "text-emerald-600"}`}>{formatStatus(c.status)}</p>
+                          {c.duration ? <p className="mt-1 font-bold text-xs sm:text-sm text-gray-900">{c.duration}</p> : null}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Popover
+                            align="end"
+                            portal
+                            contentClassName="w-44 p-1 space-y-0.5 shadow-lg border border-gray-200 bg-white rounded-md"
+                            trigger={
+                              <Button variant="ghost" size="sm" iconOnly icon={<span className="text-xl font-bold leading-none text-gray-700">⋮</span>} aria-label={`Actions for ${c.customerName}`} />
+                            }
+                          >
+                            <button className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                              <span className="text-gray-500 text-base leading-none">👁️</span> View
+                            </button>
+                            {!(activeTab === "history" || c.status.toLowerCase().includes("connect") || c.status.toLowerCase().includes("complet")) ? (
+                              <>
+                                <button className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                                  <span className="text-gray-500 text-base leading-none">📄</span> Call Log
+                                </button>
+                                <button className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                                  <span className="text-gray-500 text-base leading-none">📞</span> Callback
+                                </button>
+                                <button onClick={() => handleAction(c.id, "assign")} className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                                  <span className="text-gray-500 text-base leading-none">👤</span> Unassign
+                                </button>
+                                <button onClick={() => handleAction(c.id, "assign")} className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                                  <span className="text-gray-500 text-base leading-none">🔄</span> Change Assignee
+                                </button>
+                                <button onClick={() => handleAction(c.id, "complete")} className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                                  <span className="text-gray-500 text-base leading-none">✔️</span> Complete
+                                </button>
+                              </>
+                            ) : null}
+                            <button className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                              <span className="text-gray-500 text-base leading-none">🏷️</span> Labels
+                            </button>
+                            {!(activeTab === "history" || c.status.toLowerCase().includes("connect") || c.status.toLowerCase().includes("complet")) ? (
+                              <button onClick={() => handleAction(c.id, "block")} className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                                <span className="text-gray-500 text-base leading-none">🚫</span> Block
+                              </button>
+                            ) : null}
+                          </Popover>
+                        </div>
                       </div>
-                      <div className="min-w-[150px] text-left">
-                        <p className="font-semibold text-blue-700">{c.assignedTo}</p>
-                        <p className="mt-1 font-semibold text-green-700">{formatStatus(c.status)}</p>
-                        {c.duration ? <p className="mt-1 font-semibold text-slate-900">{c.duration}</p> : null}
-                      </div>
-                      <Popover
-                        align="end"
-                        portal
-                        contentClassName="w-36 p-1"
-                        trigger={
-                          <Button variant="ghost" size="sm" iconOnly aria-label={`Actions for ${c.customerName}`}>
-                            <span className="text-lg leading-none">⋮</span>
-                          </Button>
-                        }
-                      >
-                        <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">View</button>
-                        <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Call Log</button>
-                        <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Labels</button>
-                        <button onClick={() => handleAction(c.id, "block")} className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Block</button>
-                      </Popover>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
              </div>
 
@@ -874,41 +943,13 @@ export default function IvrPage() {
           <div className="bg-white border border-gray-200 rounded p-4 shadow-sm">
              <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-2">
-                   <h3 className="text-base font-bold text-slate-800">Calls</h3>
+                   <h3 className="text-base font-bold text-slate-800">Clients</h3>
                    <button onClick={refreshAllData} className="text-sm text-green-500 border border-green-500 rounded-full px-2 py-0.5 flex items-center gap-1 hover:bg-green-50">
                      <span>↻</span> Refresh
                    </button>
                 </div>
-                <div className="flex items-center gap-2">
-                   <button className="p-1.5 border border-blue-700 rounded text-blue-700 hover:bg-slate-50"><span className="text-xs block font-bold leading-none">▣</span></button>
-                   <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx" className="hidden" />
-                   <button onClick={() => fileInputRef.current?.click()} className="p-1.5 border border-blue-700 rounded text-blue-700 hover:bg-slate-50" title="Import XLSX"><span className="text-xs block font-bold leading-none">⇧</span></button>
-                   <button className="p-1.5 border border-blue-700 rounded text-blue-700 hover:bg-slate-50"><span className="text-xs block font-bold leading-none">▼</span></button>
-                   <select value={callDateRange} onChange={(event) => setCallDateRange(event.target.value as "LAST_WEEK" | "LAST_MONTH" | "CUSTOM_RANGE")} className="border border-blue-700 text-blue-700 text-sm font-semibold rounded px-2 py-1 outline-none ml-2">
-                     <option value="LAST_WEEK">Last 7 Days</option>
-                     <option value="LAST_MONTH">Last Month</option>
-                     <option value="CUSTOM_RANGE">Date Range</option>
-                   </select>
-                </div>
              </div>
              <p className="text-sm text-gray-400 mb-4">{formatTimeText(refreshSeconds)}</p>
-             {callDateRange === "CUSTOM_RANGE" ? (
-                <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-                  <div className="w-[220px]">
-                    <Input type="date" value={customCallStartDate} onChange={(event) => setCustomCallStartDate(event.target.value)} />
-                  </div>
-                  <span className="text-gray-400">to</span>
-                  <div className="w-[220px]">
-                    <Input type="date" value={customCallEndDate} onChange={(event) => setCustomCallEndDate(event.target.value)} />
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="border-b border-gray-200 flex gap-6 text-sm font-semibold text-gray-500 px-2">
-                 <button onClick={() => setActiveTab("queue")} className={`pb-2 border-b-2 flex gap-1 ${activeTab === "queue" ? "border-blue-700 text-blue-700" : "border-transparent"}`}>My Queue({queueCount})</button>
-                 <button onClick={() => setActiveTab("callbacks")} className={`pb-2 border-b-2 flex gap-1 ${activeTab === "callbacks" ? "border-blue-700 text-blue-700" : "border-transparent"}`}>CallBacks({callbacksCount})</button>
-                 <button onClick={() => setActiveTab("history")} className={`pb-2 border-b-2 flex gap-1 ${activeTab === "history" ? "border-blue-700 text-blue-700" : "border-transparent"}`}>Call History({historyCount})</button>
-              </div>
 
              <div className="border-b border-gray-200 flex gap-6 text-sm font-semibold text-gray-500 px-2 mb-4">
                 <button onClick={() => setCrmTab("ACTIVE")} className={`pb-2 border-b-2 ${crmTab === "ACTIVE" ? "border-blue-700 text-blue-700" : "border-transparent"}`}>Active</button>
