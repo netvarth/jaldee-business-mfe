@@ -2,6 +2,7 @@ import {
   Button,
   DataTable,
   DataTableToolbar,
+  DatePicker,
   EmptyState,
   PageHeader,
   PieChart,
@@ -387,20 +388,8 @@ export function LeadsDashboard() {
               </select>
               {range === "dateRange" ? (
                 <>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    max={dateTo}
-                    onChange={(event) => setDateFrom(event.target.value)}
-                    className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                  />
-                  <input
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom}
-                    onChange={(event) => setDateTo(event.target.value)}
-                    className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
-                  />
+                  <DatePicker value={dateFrom} max={dateTo} onChange={(event) => setDateFrom(event.target.value)} />
+                  <DatePicker value={dateTo} min={dateFrom} onChange={(event) => setDateTo(event.target.value)} />
                 </>
               ) : null}
             </div>

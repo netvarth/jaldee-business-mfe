@@ -1,42 +1,59 @@
-import { forwardRef }                                  from "react";
-import type { InputHTMLAttributes, ReactNode }         from "react";
-import { cn }                                          from "../../utils";
+import { forwardRef } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
+import { DatePicker } from "../DatePicker/DatePicker";
+import { cn } from "../../utils";
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> {
-  label?:  string;
-  error?:  string;
-  hint?:   string;
+  label?: ReactNode;
+  error?: string;
+  hint?: string;
   prefix?: ReactNode;
   suffix?: ReactNode;
-  icon?:   ReactNode;
+  icon?: ReactNode;
   containerClassName?: string;
   fullWidth?: boolean;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, containerClassName, label, error, hint, prefix, suffix, icon, id, fullWidth = true, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+    const inputId = id ?? (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+
+    if (props.type === "date") {
+      return (
+        <DatePicker
+          ref={ref}
+          id={inputId}
+          label={typeof label === "string" ? label : undefined}
+          error={error}
+          hint={hint}
+          fullWidth={fullWidth}
+          containerClassName={containerClassName}
+          className={className}
+          {...props}
+        />
+      );
+    }
 
     return (
       <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full", containerClassName)}>
-        {label && (
+        {label ? (
           <label
             htmlFor={inputId}
             className="ds-form-label"
           >
             {label}
           </label>
-        )}
+        ) : null}
 
         <div className={cn("relative flex items-center", fullWidth && "w-full")}>
-          {icon && (
+          {icon ? (
             <span className="pointer-events-none absolute left-3 text-[length:var(--text-sm)] text-[var(--color-text-disabled)]">
               {icon}
             </span>
-          )}
-          {prefix && (
+          ) : null}
+          {prefix ? (
             <span className="absolute left-3 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">{prefix}</span>
-          )}
+          ) : null}
           <input
             ref={ref}
             id={inputId}
@@ -58,17 +75,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             {...props}
           />
-          {suffix && (
+          {suffix ? (
             <span className="absolute right-3 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">{suffix}</span>
-          )}
+          ) : null}
         </div>
 
-        {hint && !error && (
+        {hint && !error ? (
           <p className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">{hint}</p>
-        )}
-        {error && (
+        ) : null}
+        {error ? (
           <p role="alert" className="text-[length:var(--text-xs)] text-[var(--color-danger)]">{error}</p>
-        )}
+        ) : null}
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DataTable, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
+import { DataTable, DatePicker, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
@@ -159,29 +159,29 @@ export function InventorySummaryPage({ type }: InventorySummaryPageProps) {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From</span>
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        max={dateTo}
-                        onChange={(e) => {
-                          setDateFrom(e.target.value);
-                          setPage(1);
-                        }}
-                        className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white shadow-sm focus:outline-none cursor-pointer"
-                      />
+                      <div className="w-[220px]">
+                        <DatePicker
+                          value={dateFrom}
+                          max={dateTo}
+                          onChange={(e) => {
+                            setDateFrom(e.target.value);
+                            setPage(1);
+                          }}
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To</span>
-                      <input
-                        type="date"
-                        value={dateTo}
-                        min={dateFrom}
-                        onChange={(e) => {
-                          setDateTo(e.target.value);
-                          setPage(1);
-                        }}
-                        className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white shadow-sm focus:outline-none cursor-pointer"
-                      />
+                      <div className="w-[220px]">
+                        <DatePicker
+                          value={dateTo}
+                          min={dateFrom}
+                          onChange={(e) => {
+                            setDateTo(e.target.value);
+                            setPage(1);
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

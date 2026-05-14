@@ -1,18 +1,19 @@
 import { useEffect } from "react";
+import type { ReactNode, SVGProps } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import type { ProductKey } from "../store/shellStore";
 
-const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: string }> = {
-  health: { label: "Health", icon: "\u{1F3E5}" },
-  bookings: { label: "Bookings", icon: "\u{1F4C5}" },
-  golderp: { label: "Gold ERP", icon: "\u{1F4BC}" },
-  karty: { label: "Karty", icon: "\u{1F6D2}" },
-  finance: { label: "Finance", icon: "\u{1F4B0}" },
-  lending: { label: "Lending", icon: "\u{1F3E6}" },
-  hr: { label: "HR", icon: "\u{1F465}" },
-  ai: { label: "AI", icon: "\u2728" },
-  ivr: { label: "IVR", icon: "\u{1F4DE}" },
+const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: ReactNode }> = {
+  health: { label: "Health", icon: <ShieldMedicalIcon /> },
+  bookings: { label: "Bookings", icon: <CalendarIcon /> },
+  golderp: { label: "Gold ERP", icon: <BriefcaseIcon /> },
+  karty: { label: "Karty", icon: <CartIcon /> },
+  finance: { label: "Finance", icon: <BankIcon /> },
+  lending: { label: "Lending", icon: <TrendIcon /> },
+  hr: { label: "HR", icon: <UsersIcon /> },
+  ai: { label: "AI", icon: <SparklesIcon /> },
+  ivr: { label: "IVR", icon: <PhoneIcon /> },
 };
 
 const PRODUCT_ORDER: ProductKey[] = [
@@ -79,14 +80,14 @@ export default function IconRail() {
         className="icon-rail-logo"
         onClick={handleBase}
       >
-        {"\u2726"}
+        <SparklesIcon />
       </div>
 
       <RailItem
         id="icon-rail-item-base"
         product="default"
-        icon={"\u{1F3E0}"}
-        label="Base"
+        icon={<HomeIcon />}
+        label="Home"
         active={location.pathname === "/base"}
         onClick={handleBase}
       />
@@ -113,7 +114,7 @@ export default function IconRail() {
       <RailItem
         id="icon-rail-item-more"
         product="default"
-        icon={"\u22EF"}
+        icon={<MoreIcon />}
         label="More"
         active={false}
         onClick={() => {}}
@@ -122,7 +123,7 @@ export default function IconRail() {
       <RailItem
         id="icon-rail-item-settings"
         product="default"
-        icon={"\u2699"}
+        icon={<SettingsIcon />}
         label="Settings"
         active={location.pathname.startsWith("/settings")}
         onClick={() => navigate("/settings")}
@@ -134,7 +135,7 @@ export default function IconRail() {
 interface RailItemProps {
   id: string;
   product: ProductKey | "default";
-  icon: string;
+  icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
@@ -157,4 +158,67 @@ function RailItem({ id, product, icon, label, active, onClick }: RailItemProps) 
       </span>
     </div>
   );
+}
+
+function RailSvg(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    />
+  );
+}
+
+function HomeIcon() {
+  return <RailSvg><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V21h13V9.5" /><path d="M9.5 21v-6h5v6" /></RailSvg>;
+}
+
+function CalendarIcon() {
+  return <RailSvg><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M4 10h16" /></RailSvg>;
+}
+
+function ShieldMedicalIcon() {
+  return <RailSvg><path d="M12 3 19 6v6c0 4.5-2.8 7.7-7 9-4.2-1.3-7-4.5-7-9V6l7-3Z" /><path d="M12 8v7" /><path d="M8.5 11.5h7" /></RailSvg>;
+}
+
+function CartIcon() {
+  return <RailSvg><circle cx="9" cy="19" r="1.4" /><circle cx="17" cy="19" r="1.4" /><path d="M3 5h2l2.2 9.5a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 8H7" /></RailSvg>;
+}
+
+function TrendIcon() {
+  return <RailSvg><path d="m4 16 5-5 4 4 7-7" /><path d="M14 8h6v6" /></RailSvg>;
+}
+
+function BankIcon() {
+  return <RailSvg><path d="M3 9 12 4l9 5" /><path d="M5 10v8" /><path d="M9.5 10v8" /><path d="M14.5 10v8" /><path d="M19 10v8" /><path d="M3 20h18" /></RailSvg>;
+}
+
+function BriefcaseIcon() {
+  return <RailSvg><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M3 12h18" /></RailSvg>;
+}
+
+function UsersIcon() {
+  return <RailSvg><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="10" cy="7" r="3" /><path d="M20 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 4.13a3 3 0 0 1 0 5.74" /></RailSvg>;
+}
+
+function SparklesIcon() {
+  return <RailSvg><path d="m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1L6.5 8.5l4.1-1.4L12 3Z" /><path d="m18 15 .8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8L18 15Z" /><path d="m6 14 .6 1.6L8.2 16l-1.6.6L6 18.2l-.6-1.6L3.8 16l1.6-.4L6 14Z" /></RailSvg>;
+}
+
+function PhoneIcon() {
+  return <RailSvg><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3.2a2 2 0 0 1-.6 1.8l-1.4 1.4a16 16 0 0 0 6 6l1.4-1.4a2 2 0 0 1 1.8-.6l3.2.5A2 2 0 0 1 22 16.9Z" /></RailSvg>;
+}
+
+function SettingsIcon() {
+  return <RailSvg><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1 .2l-.2.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1l-.1-.2a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1-.2l.2-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.4 1.6Z" /></RailSvg>;
+}
+
+function MoreIcon() {
+  return <RailSvg><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" /></RailSvg>;
 }

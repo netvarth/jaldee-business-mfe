@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "../Button/Button";
 import { Select } from "../Select/Select";
 import { cn } from "../../utils";
@@ -27,6 +28,7 @@ export interface DatePickerPopoverProps {
   onClose?: () => void;
   title?: string;
   width?: number;
+  align?: "start" | "end";
   className?: string;
   overlayClassName?: string;
 }
@@ -60,7 +62,8 @@ export function DatePickerPopover({
   onSelectDate,
   onClose,
   title = "Change date",
-  width = 340,
+  width = 332,
+  align = "end",
   className,
   overlayClassName,
 }: DatePickerPopoverProps) {
@@ -80,7 +83,7 @@ export function DatePickerPopover({
     const current = today.getFullYear();
     const years: number[] = [];
 
-    for (let year = current - 100; year <= current + 5; year += 1) {
+    for (let year = current - 100; year <= current + 10; year += 1) {
       years.push(year);
     }
 
@@ -95,23 +98,39 @@ export function DatePickerPopover({
     setViewDate((prev) => new Date(Number(event.target.value), prev.getMonth(), 1));
   };
 
-  const { innerWidth } = typeof window !== "undefined" ? window : { innerWidth: 1024 };
+  const { innerWidth, innerHeight } = typeof window !== "undefined" ? window : { innerWidth: 1024, innerHeight: 768 };
+  const anchorLeft =
+    anchorRect != null
+      ? align === "end"
+        ? anchorRect.right - width + 8
+        : anchorRect.left
+      : undefined;
   const computedLeft =
-    anchorRect != null ? Math.min(Math.max(8, anchorRect.left), innerWidth - width - 16) : undefined;
+    anchorLeft != null ? Math.min(Math.max(8, anchorLeft), innerWidth - width - 16) : undefined;
+  const estimatedHeight = 404;
+  const spaceBelow = anchorRect != null ? innerHeight - anchorRect.bottom - 12 : innerHeight;
+  const spaceAbove = anchorRect != null ? anchorRect.top - 12 : 0;
+  const shouldOpenAbove = anchorRect != null && spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+  const computedTop =
+    anchorRect != null
+        ? shouldOpenAbove
+          ? Math.max(8, anchorRect.top - estimatedHeight - 6)
+          : anchorRect.bottom + 6
+      : undefined;
 
   const popoverStyle: CSSProperties =
     anchorRect != null
-      ? { position: "fixed", top: anchorRect.bottom + 6, left: computedLeft, width: `min(${width}px, 92vw)` }
+      ? { position: "fixed", top: computedTop, left: computedLeft, width: `min(${width}px, 92vw)` }
       : { position: "fixed", width: `min(${width}px, 92vw)` };
 
-  return (
+  const content = (
     <div
-      className={cn("fixed inset-0 z-50 pointer-events-auto", overlayClassName)}
+      className={cn("fixed inset-0 z-[260] pointer-events-auto", overlayClassName)}
       onClick={onClose}
     >
       <div
         className={cn(
-          "box-border flex h-auto max-h-[460px] flex-col gap-3 rounded-[22px] bg-white p-5 shadow-[0_35px_60px_rgba(9,6,31,0.25)]",
+          "box-border flex h-auto max-h-[404px] flex-col gap-3 rounded-[20px] border border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.16)]",
           className
         )}
         style={popoverStyle}
@@ -119,18 +138,18 @@ export function DatePickerPopover({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="m-0 text-[0.85rem] text-[#8a8aa8]">{title}</p>
-            <strong className="m-0 block overflow-hidden text-ellipsis whitespace-nowrap text-[1.1rem] text-[#1f2040]">
+            <p className="m-0 text-[0.82rem] text-[#8a8aa8]">{title}</p>
+            <strong className="m-0 block overflow-hidden text-ellipsis whitespace-nowrap text-[1.45rem] font-bold leading-none text-[#252b56]">
               {monthLabel}
             </strong>
           </div>
 
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="ghost"
               size="md"
-              className="h-[34px] min-w-[34px] rounded-[10px] border border-[#d2d4e8] bg-[#f5f3ff] p-0 text-[1.2rem] font-semibold text-[#4f4a94]"
+              className="h-[34px] min-w-[34px] rounded-[10px] border border-[#d9dcf2] bg-[#f8f7ff] p-0 text-[1rem] font-semibold text-[#6e61b5]"
               onClick={() => setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
               aria-label="Previous month"
             >
@@ -140,7 +159,7 @@ export function DatePickerPopover({
               type="button"
               variant="ghost"
               size="md"
-              className="h-[34px] min-w-[34px] rounded-[10px] border border-[#d2d4e8] bg-[#f5f3ff] p-0 text-[1.2rem] font-semibold text-[#4f4a94]"
+              className="h-[34px] min-w-[34px] rounded-[10px] border border-[#d9dcf2] bg-[#f8f7ff] p-0 text-[1rem] font-semibold text-[#6e61b5]"
               onClick={() => setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
               aria-label="Next month"
             >
@@ -151,7 +170,7 @@ export function DatePickerPopover({
 
         <div className="flex justify-between gap-3">
           <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="date-picker-popover-month" className="text-[0.65rem] uppercase tracking-[0.05em] text-[#a3a5c6]">
+            <label htmlFor="date-picker-popover-month" className="text-[0.75rem] uppercase tracking-[0.04em] text-[#a3a5c6]">
               Month
             </label>
             <Select
@@ -159,12 +178,12 @@ export function DatePickerPopover({
               value={String(viewDate.getMonth())}
               onChange={handleMonthChange}
               options={MONTH_LABELS.map((label, index) => ({ value: String(index), label }))}
-              className="min-h-[38px] rounded-[10px] border-[#dfe1f2] bg-[#f8f7ff] px-[10px] text-[0.9rem] text-[#1f2040]"
+              className="min-h-[38px] rounded-[12px] border-[#dfe1f2] bg-[#f8f7ff] px-3 text-[0.9rem] text-[#252b56]"
             />
           </div>
 
           <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="date-picker-popover-year" className="text-[0.65rem] uppercase tracking-[0.05em] text-[#a3a5c6]">
+            <label htmlFor="date-picker-popover-year" className="text-[0.75rem] uppercase tracking-[0.04em] text-[#a3a5c6]">
               Year
             </label>
             <Select
@@ -172,19 +191,19 @@ export function DatePickerPopover({
               value={String(viewDate.getFullYear())}
               onChange={handleYearChange}
               options={yearOptions.map((year) => ({ value: String(year), label: String(year) }))}
-              className="min-h-[38px] rounded-[10px] border-[#dfe1f2] bg-[#f8f7ff] px-[10px] text-[0.9rem] text-[#1f2040]"
+              className="min-h-[38px] rounded-[12px] border-[#dfe1f2] bg-[#f8f7ff] px-3 text-[0.9rem] text-[#252b56]"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center text-[0.7rem] uppercase tracking-[0.08em] text-[#a3a5c6]">
+        <div className="grid grid-cols-7 gap-1 text-center text-[0.72rem] uppercase tracking-[0.05em] text-[#a3a5c6]">
           {WEEKDAYS.map((day) => (
             <span key={day}>{day}</span>
           ))}
         </div>
 
         <div className="flex flex-1 flex-col">
-          <div className="grid flex-1 grid-cols-7 gap-2 overflow-hidden pr-2">
+          <div className="grid flex-1 grid-cols-7 gap-y-1.5 gap-x-1 overflow-hidden">
             {days.map((day, index) => {
               const isToday = isSameDay(day, today);
               const isSelected = isSameDay(day, selectedDate);
@@ -196,10 +215,10 @@ export function DatePickerPopover({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-xl border-0 bg-transparent p-0 text-[0.85rem] text-[#141432]",
+                    "flex h-8 w-8 items-center justify-center rounded-[12px] border-0 bg-transparent p-0 text-[0.92rem] font-medium text-[#1b2040]",
                     "transition-colors duration-200 hover:bg-[#f4f1ff]",
-                    isSelected && "bg-[#6c32ff] text-white shadow-[0_10px_20px_rgba(108,50,255,0.35)] hover:bg-[#6c32ff]",
-                    isToday && "border border-[rgba(108,50,255,0.7)]",
+                    isSelected && "bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)] text-white shadow-[0_14px_28px_rgba(108,50,255,0.32)] hover:bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)]",
+                    isToday && "border border-[rgba(108,50,255,0.24)] bg-[#faf7ff]",
                     !day && "cursor-default opacity-0 hover:bg-transparent"
                   )}
                   onClick={() => day && onSelectDate?.(day)}
@@ -214,4 +233,10 @@ export function DatePickerPopover({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return content;
+  }
+
+  return createPortal(content, document.body);
 }

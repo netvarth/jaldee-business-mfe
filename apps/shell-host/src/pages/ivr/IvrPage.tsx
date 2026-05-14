@@ -750,7 +750,9 @@ export default function IvrPage() {
           <div className="bg-white border border-gray-200 rounded p-4">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-base font-bold text-gray-800">Language Availability Analytics</h3>
-              <input type="date" value={selectedGraphDate} onChange={(e) => setSelectedGraphDate(e.target.value)} className="border border-gray-300 rounded px-2 py-1 text-sm text-gray-600 outline-none" />
+              <div className="w-[220px]">
+                <Input type="date" value={selectedGraphDate} onChange={(e) => setSelectedGraphDate(e.target.value)} />
+              </div>
             </div>
             {renderBarChart()}
           </div>
@@ -892,9 +894,13 @@ export default function IvrPage() {
              <p className="text-sm text-gray-400 mb-4">{formatTimeText(refreshSeconds)}</p>
              {callDateRange === "CUSTOM_RANGE" ? (
                 <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-                  <input type="date" value={customCallStartDate} onChange={(event) => setCustomCallStartDate(event.target.value)} className="border border-gray-300 rounded px-2 py-1 outline-none" />
+                  <div className="w-[220px]">
+                    <Input type="date" value={customCallStartDate} onChange={(event) => setCustomCallStartDate(event.target.value)} />
+                  </div>
                   <span className="text-gray-400">to</span>
-                  <input type="date" value={customCallEndDate} onChange={(event) => setCustomCallEndDate(event.target.value)} className="border border-gray-300 rounded px-2 py-1 outline-none" />
+                  <div className="w-[220px]">
+                    <Input type="date" value={customCallEndDate} onChange={(event) => setCustomCallEndDate(event.target.value)} />
+                  </div>
                 </div>
               ) : null}
 

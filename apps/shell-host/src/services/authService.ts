@@ -79,12 +79,13 @@ export interface TenantSignupOtpResponse {
   expiresInSeconds?: number;
   nextResendInSeconds?: number;
   maskedTarget?: string;
+  targetType?: "EMAIL" | "MOBILE" | string;
 }
 
 export interface TenantSignupVerifyRequest {
   otpId: string;
   otp: string;
-  purpose?: "TENANT_SIGNUP_VERIFY_MOBILE" | "TENANT_SIGNUP_VERIFY_EMAIL";
+  purpose?: "TENANT_SIGNUP_VERIFY_MOBILE" | "TENANT_SIGNUP_VERIFY_EMAIL" | "TENANT_SIGNUP_VERIFY";
 }
 
 const isMock = import.meta.env.VITE_USE_MOCK === "true";

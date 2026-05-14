@@ -43,11 +43,18 @@
   --color-chart-label:     var(--color-text-secondary);
 
   /* ─── Nav ─────────────────────────────────── */
-  --color-nav-bg:          #FFFFFF;
-  --color-nav-active-bg:   #EDE9FE;
-  --color-nav-active-text: #5B21D1;
-  --color-nav-text:        #6B7280;
-  --color-nav-hover-bg:    #F3F4F6;
+  --color-nav-bg:          #FCFCFE;
+  --color-nav-surface:     #FFFFFF;
+  --color-nav-active-bg:   #F2EBFF;
+  --color-nav-active-strong:#5F3DC4;
+  --color-nav-active-text: #5F3DC4;
+  --color-nav-text:        #64748B;
+  --color-nav-icon:        #94A3B8;
+  --color-nav-heading:     #94A3B8;
+  --color-nav-hover-bg:    #F6F8FC;
+  --color-nav-rail-active-bg: #F3ECFF;
+  --color-nav-rail-active-text: #5F3DC4;
+  --color-nav-shadow:      0 10px 24px rgba(95, 61, 196, 0.18);
 
   /* Product accents */
   --color-product-health:          #0D9488;
@@ -135,6 +142,7 @@
   --color-border:          #2D2D3A;
   --color-border-strong:   #3D3D4E;
   --color-nav-bg:          #0F0F13;
+  --color-nav-surface:     #0F0F13;
   --color-nav-text:        #9CA3AF;
   --color-nav-hover-bg:    #1A1A22;
 }

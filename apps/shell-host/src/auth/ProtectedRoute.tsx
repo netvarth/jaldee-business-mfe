@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import { hasStoredAuthSession } from "../services/authService";
 
@@ -9,7 +9,9 @@ interface Props {
 export default function ProtectedRoute({ children }: Props) {
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
+  const onboardingStatus = useShellStore((s) => s.onboardingStatus);
   const hasStoredSession = hasStoredAuthSession();
+  const location = useLocation();
 
   if (!hasHydrated) {
     return <div className="shell-loading">Loading session...</div>;
@@ -21,6 +23,14 @@ export default function ProtectedRoute({ children }: Props) {
 
   if (!isAuthenticated && !hasStoredSession) {
     return <Navigate to="/signup" replace />;
+  }
+
+  if (isAuthenticated && onboardingStatus === "pending" && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (isAuthenticated && onboardingStatus === "complete" && location.pathname === "/onboarding") {
+    return <Navigate to="/base" replace />;
   }
 
   return <>{children}</>;

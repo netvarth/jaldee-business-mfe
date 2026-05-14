@@ -31,6 +31,8 @@ export type { IconProps, IconName }       from "./components/Icon/Icon";
 // Layer 2 — Form Controls
 export { Input }                          from "./components/Input/Input";
 export type { InputProps }                from "./components/Input/Input";
+export { OtpInput }                       from "./components/OtpInput/OtpInput";
+export type { OtpInputProps }             from "./components/OtpInput/OtpInput";
 export { PhoneInput, DEFAULT_PHONE_COUNTRY_OPTIONS } from "./components/PhoneInput/PhoneInput";
 export type { PhoneInputProps, PhoneInputOption, PhoneInputValue } from "./components/PhoneInput/PhoneInput";
 

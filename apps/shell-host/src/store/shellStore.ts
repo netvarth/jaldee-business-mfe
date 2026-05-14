@@ -51,6 +51,7 @@ type PersistedShellStore = Partial<
     | "account"
     | "accessToken"
     | "isAuthenticated"
+    | "onboardingStatus"
     | "activeLocation"
     | "availableLocations"
     | "activeProduct"
@@ -64,6 +65,7 @@ interface ShellStore {
   accessToken:     string | null;
   isAuthenticated: boolean;
   hasHydrated:     boolean;
+  onboardingStatus: "complete" | "pending";
 
   // Location
   activeLocation:     BranchLocation | null;
@@ -77,6 +79,7 @@ interface ShellStore {
   // Actions
   setAuth:          (user: UserContext, account: AccountContext, token: string) => void;
   clearAuth:        () => void;
+  setOnboardingStatus: (status: "complete" | "pending") => void;
   setLocation:      (location: BranchLocation) => void;
   setAvailableLocations: (locations: BranchLocation[]) => void;
   setActiveProduct: (product: ProductKey | null) => void;
@@ -93,6 +96,7 @@ export const useShellStore = create<ShellStore>()(
       accessToken:        null,
       isAuthenticated:    false,
       hasHydrated:        false,
+      onboardingStatus:   "complete",
       activeLocation:     null,
       availableLocations: [],
       activeProduct:      null,
@@ -107,12 +111,16 @@ export const useShellStore = create<ShellStore>()(
           isAuthenticated: true,
         }),
 
+      setOnboardingStatus: (status) =>
+        set({ onboardingStatus: status }),
+
       clearAuth: () =>
         set({
           user: DEFAULT_USER,
           account: DEFAULT_ACCOUNT,
           accessToken: null,
           isAuthenticated: false,
+          onboardingStatus: "complete",
           activeLocation: null,
           availableLocations: [],
           activeProduct: null,
@@ -149,6 +157,7 @@ export const useShellStore = create<ShellStore>()(
         activeLocation: state.activeLocation,
         availableLocations: state.availableLocations,
         activeProduct: state.activeProduct,
+        onboardingStatus: state.onboardingStatus,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as PersistedShellStore;
@@ -161,6 +170,7 @@ export const useShellStore = create<ShellStore>()(
           availableLocations:
             persisted.availableLocations ?? currentState.availableLocations,
           activeLocation: persisted.activeLocation ?? currentState.activeLocation,
+          onboardingStatus: persisted.onboardingStatus ?? "complete",
         };
 
         if (merged.isAuthenticated && (!merged.user || !merged.account)) {

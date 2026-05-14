@@ -1,5 +1,6 @@
 import {
   Button,
+  DatePicker,
   Dialog,
   Icon,
 } from "@jaldee/design-system";
@@ -25,9 +26,7 @@ export function OrdersLogisticsPickupDialog({
       <div className="space-y-6 py-4">
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Pickup Date</label>
-          <input
-            type="date"
-            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+          <DatePicker
             value={date}
             min={new Date().toISOString().split("T")[0]}
             onChange={(e) => setDate(e.target.value)}

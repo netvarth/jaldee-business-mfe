@@ -615,26 +615,26 @@ export default function IvrSchedules() {
         {/* Date Range Picker */}
         <div className="grid gap-4 md:grid-cols-2 mt-4">
           <div className="flex flex-col gap-1.5">
-            <label className="ds-form-label text-gray-700" htmlFor="schedule-form-start-date">Start Date</label>
-            <input
+            <Input
+              label="Start Date"
               type="date"
               id="schedule-form-start-date"
               data-testid="schedule-form-start-date"
               value={formStartDate}
               onChange={(e) => setFormStartDate(e.target.value)}
-              className="h-10 border border-gray-300 rounded px-3 text-sm focus:border-blue-900 outline-none w-full"
+              className="w-full"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="ds-form-label text-gray-700" htmlFor="schedule-form-end-date">End Date</label>
-            <input
+            <Input
+              label="End Date"
               type="date"
               id="schedule-form-end-date"
               data-testid="schedule-form-end-date"
               value={formEndDate}
               onChange={(e) => setFormEndDate(e.target.value)}
-              className="h-10 border border-gray-300 rounded px-3 text-sm focus:border-blue-900 outline-none w-full"
+              className="w-full"
             />
           </div>
         </div>

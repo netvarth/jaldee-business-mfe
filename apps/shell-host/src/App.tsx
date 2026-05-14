@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Suspense } from "react";
 import LoginPage from "./pages/LoginPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import SignupPage from "./pages/SignupPage";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ShellLayout from "./layout/ShellLayout";
@@ -30,6 +31,7 @@ function BasePage() {
 export default function App() {
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
+  const onboardingStatus = useShellStore((s) => s.onboardingStatus);
   const hasStoredSession = hasStoredAuthSession();
 
   return (
@@ -38,7 +40,7 @@ export default function App() {
         path="/login"
         element={
           hasHydrated && (isAuthenticated || hasStoredSession) ? (
-            <Navigate to="/base" replace />
+            <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/base"} replace />
           ) : (
             <LoginPage />
           )
@@ -48,10 +50,18 @@ export default function App() {
         path="/signup"
         element={
           hasHydrated && (isAuthenticated || hasStoredSession) ? (
-            <Navigate to="/home" replace />
+            <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/home"} replace />
           ) : (
             <SignupPage />
           )
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <OnboardingPage />
+          </ProtectedRoute>
         }
       />
       <Route

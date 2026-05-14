@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Button, Input, PhoneInput } from "@jaldee/design-system";
+import { Button, Checkbox, Icon, Input, OtpInput, PhoneInput } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { useAuth } from "../auth/AuthProvider";
 import { useShellStore } from "../store/shellStore";
@@ -38,12 +38,14 @@ const EMPTY_SIGNUP_FORM: SignupFormState = {
 export default function SignupPage() {
   const navigate = useNavigate();
   const { issueTenantSignupOtp, verifyTenantSignupOtp } = useAuth();
+  const setOnboardingStatus = useShellStore((s) => s.setOnboardingStatus);
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
   const [form, setForm] = useState<SignupFormState>(EMPTY_SIGNUP_FORM);
   const [otp, setOtp] = useState("");
   const [otpId, setOtpId] = useState("");
   const [maskedTarget, setMaskedTarget] = useState("");
+  const [otpTargetType, setOtpTargetType] = useState<"EMAIL" | "MOBILE" | "">("");
   const [otpExpiresInSeconds, setOtpExpiresInSeconds] = useState<number | null>(null);
   const [nextResendInSeconds, setNextResendInSeconds] = useState<number | null>(null);
   const [step, setStep] = useState<"details" | "verify">("details");
@@ -52,15 +54,17 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<SignupFieldKey, string>>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const canSubmitDetails = useMemo(() => {
     return (
       form.loginId.trim().length > 0 &&
       form.firstName.trim().length > 0 &&
       form.password.length > 0 &&
-      (form.mobile.number.trim().length > 0 || form.email.trim().length > 0)
+      (form.mobile.number.trim().length > 0 || form.email.trim().length > 0) &&
+      agreedToTerms
     );
-  }, [form]);
+  }, [agreedToTerms, form]);
 
   useEffect(() => {
     if (step !== "verify") {
@@ -97,6 +101,7 @@ export default function SignupPage() {
 
       setOtpId(response.otpId);
       setMaskedTarget(response.maskedTarget ?? "");
+      setOtpTargetType(response.targetType === "EMAIL" ? "EMAIL" : response.targetType === "MOBILE" ? "MOBILE" : "");
       setOtpExpiresInSeconds(response.expiresInSeconds ?? null);
       setNextResendInSeconds(response.nextResendInSeconds ?? null);
       setOtp("");
@@ -120,11 +125,10 @@ export default function SignupPage() {
       await verifyTenantSignupOtp({
         otpId,
         otp,
-        purpose: form.mobile.number.trim()
-          ? "TENANT_SIGNUP_VERIFY_MOBILE"
-          : "TENANT_SIGNUP_VERIFY_EMAIL",
+        purpose: otpTargetType === "EMAIL" ? "TENANT_SIGNUP_VERIFY_EMAIL" : "TENANT_SIGNUP_VERIFY_MOBILE",
       });
-      navigate("/home");
+      setOnboardingStatus("pending");
+      navigate("/onboarding");
     } catch (err) {
       const parsed = getAuthErrorDetails(err);
       setError(parsed.message);
@@ -151,6 +155,7 @@ export default function SignupPage() {
 
       setOtpId(response.otpId);
       setMaskedTarget(response.maskedTarget ?? "");
+      setOtpTargetType(response.targetType === "EMAIL" ? "EMAIL" : response.targetType === "MOBILE" ? "MOBILE" : "");
       setOtpExpiresInSeconds(response.expiresInSeconds ?? null);
       setNextResendInSeconds(response.nextResendInSeconds ?? null);
       setOtp("");
@@ -168,6 +173,7 @@ export default function SignupPage() {
     setOtp("");
     setError("");
     setFieldErrors({});
+    setOtpTargetType("");
   }
 
   return (
@@ -175,171 +181,197 @@ export default function SignupPage() {
       <section className="auth-form-panel">
         <div className="auth-form-wrap">
           <div className="login-card auth-card-flat">
-            <div className="login-header auth-header-left">
-              <div className="login-badge auth-brand-badge">J</div>
-              <h1 className="login-title">
-                {step === "verify" ? "Create Jaldee Business Account" : "Create your Jaldee account"}
-              </h1>
-              <p className="login-subtitle">
-                {step === "verify"
-                  ? `Enter the OTP${maskedTarget ? ` sent to ${maskedTarget}` : ""}`
-                  : "Start your trial and verify with email or phone OTP."}
-              </p>
-            </div>
-
             {step === "details" ? (
-              <form className="login-form" onSubmit={handleIssueOtp}>
-                <Input
-                  type="text"
-                  label="Login ID"
-                  value={form.loginId}
-                  onChange={(event) => setForm((current) => ({ ...current, loginId: event.target.value }))}
-                  fullWidth
-                  containerClassName="login-field"
-                  placeholder="Choose a login ID"
-                  error={fieldErrors.loginId}
-                />
-                <div className="auth-name-grid">
+              <>
+                <div className="login-header auth-header-left">
+                  <div className="login-badge auth-brand-badge">J</div>
+                  <h1 className="login-title">Create your Jaldee account</h1>
+                  <p className="login-subtitle">Start your trial and verify with email or phone OTP.</p>
+                </div>
+                <form className="login-form" onSubmit={handleIssueOtp}>
                   <Input
                     type="text"
-                    label="First Name"
-                    value={form.firstName}
-                    onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
+                    label="Login ID"
+                    value={form.loginId}
+                    onChange={(event) => setForm((current) => ({ ...current, loginId: event.target.value }))}
                     fullWidth
                     containerClassName="login-field"
-                    placeholder="Enter your first name"
-                    error={fieldErrors.firstName}
+                    placeholder="Choose a login ID"
+                    error={fieldErrors.loginId}
+                  />
+                  <div className="auth-name-grid">
+                    <Input
+                      type="text"
+                      label="First Name"
+                      value={form.firstName}
+                      onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
+                      fullWidth
+                      containerClassName="login-field"
+                      placeholder="Enter your first name"
+                      error={fieldErrors.firstName}
+                    />
+                    <Input
+                      type="text"
+                      label="Last Name"
+                      value={form.lastName}
+                      onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
+                      fullWidth
+                      containerClassName="login-field"
+                      placeholder="Enter your last name"
+                      error={fieldErrors.lastName}
+                    />
+                  </div>
+                  <Input
+                    type="email"
+                    label="Work Email"
+                    value={form.email}
+                    onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                    fullWidth
+                    containerClassName="login-field"
+                    placeholder="you@example.com"
+                    hint="We'll send a verification code here if email is used."
+                    error={fieldErrors.email}
                   />
                   <Input
-                    type="text"
-                    label="Last Name"
-                    value={form.lastName}
-                    onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
+                    type={showPassword ? "text" : "password"}
+                    label="Password"
+                    value={form.password}
+                    onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
                     fullWidth
                     containerClassName="login-field"
-                    placeholder="Enter your last name"
-                    error={fieldErrors.lastName}
+                    placeholder="Create a password"
+                    hint="8-30 characters with uppercase, lowercase, number, and special character."
+                    error={fieldErrors.password}
+                    suffix={
+                      <button
+                        type="button"
+                        className="login-password-toggle"
+                        onClick={() => setShowPassword((value) => !value)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    }
                   />
-                </div>
-                <Input
-                  type="email"
-                  label="Work Email"
-                  value={form.email}
-                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                  fullWidth
-                  containerClassName="login-field"
-                  placeholder="you@example.com"
-                  hint="We'll send a verification code here if email is used."
-                  error={fieldErrors.email}
-                />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  label="Password"
-                  value={form.password}
-                  onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-                  fullWidth
-                  containerClassName="login-field"
-                  placeholder="Create a password"
-                  hint="8-30 characters with uppercase, lowercase, number, and special character."
-                  error={fieldErrors.password}
-                  suffix={
-                    <button
-                      type="button"
-                      className="login-password-toggle"
-                      onClick={() => setShowPassword((value) => !value)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? "Hide" : "Show"}
-                    </button>
-                  }
-                />
-                <PhoneInput
-                  label="WhatsApp / Mobile Number"
-                  value={form.mobile}
-                  onChange={(value) => setForm((current) => ({ ...current, mobile: value }))}
-                  containerClassName="login-field"
-                  numberPlaceholder="Enter phone number"
-                  hint="Use either email or phone. You'll receive an OTP on the selected channel."
-                  error={fieldErrors.mobile}
-                  preferredCountries={["in"]}
-                />
-                {error ? <div className="login-error">{error}</div> : null}
+                  <PhoneInput
+                    label="WhatsApp / Mobile Number"
+                    value={form.mobile}
+                    onChange={(value) => setForm((current) => ({ ...current, mobile: value }))}
+                    containerClassName="login-field"
+                    numberPlaceholder="Enter phone number"
+                    hint="Use either email or phone. You'll receive an OTP on the selected channel."
+                    error={fieldErrors.mobile}
+                    preferredCountries={["in"]}
+                  />
+                  <Checkbox
+                    checked={agreedToTerms}
+                    onChange={(event) => setAgreedToTerms(event.target.checked)}
+                    containerClassName="auth-consent"
+                    label={(
+                      <span className="auth-consent-copy">
+                        I agree to the{" "}
+                        <button type="button" className="auth-inline-link auth-consent-link">
+                          Terms of Service
+                        </button>{" "}
+                        and{" "}
+                        <button type="button" className="auth-inline-link auth-consent-link">
+                          Privacy Policy
+                        </button>
+                      </span>
+                    )}
+                  />
+                  {error ? <div className="login-error">{error}</div> : null}
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  loading={loading}
-                  disabled={loading || !canSubmitDetails}
-                  fullWidth
-                  className="login-submit"
-                >
-                  {loading ? "Sending OTP..." : "Create account"}
-                </Button>
-                <div className="auth-inline-footer">
-                  <span className="auth-inline-copy">Already have an account?</span>
-                  <button type="button" className="auth-inline-link" onClick={() => navigate("/login")}>
-                    Sign in
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form className="login-form" onSubmit={handleVerifyOtp}>
-                <Input
-                  type="text"
-                  label="OTP"
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  fullWidth
-                  containerClassName="login-field"
-                  placeholder="Enter OTP"
-                  error={fieldErrors.otp}
-                />
-
-                {otpExpiresInSeconds ? (
-                  <p className="login-otp-meta">OTP expires in {formatSeconds(otpExpiresInSeconds)}.</p>
-                ) : null}
-                {nextResendInSeconds && nextResendInSeconds > 0 ? (
-                  <p className="login-otp-meta">Next resend available in {formatSeconds(nextResendInSeconds)}.</p>
-                ) : null}
-                {error ? <div className="login-error">{error}</div> : null}
-
-                <div className="login-resend-row">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={loading || resendingOtp || Boolean(nextResendInSeconds && nextResendInSeconds > 0)}
-                    className="login-resend-button"
-                    onClick={() => void handleResendOtp()}
-                  >
-                    {resendingOtp ? "Resending..." : "Resend OTP"}
-                  </Button>
-                </div>
-
-                <div className="login-actions login-otp-actions">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    disabled={loading}
-                    className="login-secondary-action login-otp-back"
-                    onClick={handleBack}
-                  >
-                    Back
-                  </Button>
                   <Button
                     type="submit"
                     variant="primary"
                     size="lg"
                     loading={loading}
-                    disabled={loading || otp.trim().length < 4 || !otpId}
-                    className="login-submit login-otp-submit"
+                    disabled={loading || !canSubmitDetails}
+                    fullWidth
+                    className="login-submit"
                   >
-                    {loading ? "Verifying..." : "Verify OTP"}
+                    {loading ? "Sending OTP..." : "Create account"}
                   </Button>
+                  <div className="auth-inline-footer">
+                    <span className="auth-inline-copy">Already have an account?</span>
+                    <button type="button" className="auth-inline-link" onClick={() => navigate("/login")}>
+                      Sign in
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className="signup-otp-shell">
+                <button type="button" className="signup-otp-back-link" onClick={handleBack}>
+                  <span aria-hidden="true" className="signup-otp-back-arrow">←</span>
+                  <span>Back to Sign Up</span>
+                </button>
+
+                <div className="signup-otp-card">
+                  <div className="signup-otp-icon">
+                    <Icon name="globe" className="signup-otp-icon-svg" />
+                  </div>
+                  <h1 className="signup-otp-title">Verify your identity</h1>
+                  <p className="signup-otp-copy">
+                    {maskedTarget
+                      ? `We've sent a 6-digit code to ${maskedTarget}. Please enter it below to continue.`
+                      : "We've sent a 6-digit code. Please enter it below to continue."}
+                  </p>
+
+                  <form className="login-form signup-otp-form" onSubmit={handleVerifyOtp}>
+                    <OtpInput
+                      value={otp}
+                      onChange={(value) => setOtp(value.slice(0, 6))}
+                      length={6}
+                      error={fieldErrors.otp}
+                      containerClassName="signup-otp-field"
+                    />
+
+                    {error ? <div className="login-error">{error}</div> : null}
+
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      loading={loading}
+                      disabled={loading || otp.trim().length < 6 || !otpId}
+                      fullWidth
+                      className="signup-otp-submit"
+                    >
+                      {loading ? "Verifying..." : "Verify Code"}
+                    </Button>
+
+                    <div className="signup-otp-status-row">
+                      {otpExpiresInSeconds ? (
+                        <div className="signup-otp-status-pill">
+                          <span className="signup-otp-status-label">Expires in</span>
+                          <span className="signup-otp-status-value">{formatSeconds(otpExpiresInSeconds)}</span>
+                        </div>
+                      ) : null}
+                      {nextResendInSeconds && nextResendInSeconds > 0 ? (
+                        <div className="signup-otp-status-pill">
+                          <span className="signup-otp-status-label">Resend in</span>
+                          <span className="signup-otp-status-value">{formatSeconds(nextResendInSeconds)}</span>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="signup-otp-resend-block">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={loading || resendingOtp || Boolean(nextResendInSeconds && nextResendInSeconds > 0)}
+                        className="login-resend-button signup-otp-resend-button"
+                        onClick={() => void handleResendOtp()}
+                      >
+                        {resendingOtp ? "Resending..." : "Resend OTP"}
+                      </Button>
+                    </div>
+                  </form>
                 </div>
-              </form>
+              </div>
             )}
           </div>
         </div>
