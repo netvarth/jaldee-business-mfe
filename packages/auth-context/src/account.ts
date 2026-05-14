@@ -6,7 +6,6 @@ export const DEFAULT_LICENSED_PRODUCTS: AccountContext["licensedProducts"] = [
   "golderp",
   "karty",
   "finance",
-  "ivr",
 ];
 
 export const DEFAULT_ENABLED_MODULES: AccountContext["enabledModules"] = [

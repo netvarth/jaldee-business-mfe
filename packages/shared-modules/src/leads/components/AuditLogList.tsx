@@ -36,6 +36,7 @@ function toRows(data: unknown): AuditRow[] {
 
 export function AuditLogList() {
   const { basePath } = useSharedModulesContext();
+  const backHref = basePath.includes("/audit-log") ? basePath : `${basePath}/dashboard`;
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const { page, setPage, pageSize, setPageSize } = useUrlPagination({
@@ -88,7 +89,7 @@ export function AuditLogList() {
       <PageHeader
         title="Audit Log"
         subtitle="Lead-manager activity stream from the CRM endpoints."
-        back={{ label: "Back", href: `${basePath}/dashboard` }}
+        back={{ label: "Back", href: backHref }}
         onNavigate={(href) => window.location.assign(href)}
       />
 

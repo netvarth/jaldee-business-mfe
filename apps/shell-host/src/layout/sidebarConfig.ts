@@ -16,6 +16,28 @@ export interface SidebarSection {
   children?: SidebarItem[];
 }
 
+export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
+  { id: "basecrm-customers", label: "Customers", icon: "\u{1F464}", path: "/customers" },
+  { id: "basecrm-users", label: "Users", icon: "\u{1F465}", path: "/users" },
+  { id: "basecrm-drive", label: "Drive", icon: "\u{1F5C2}", path: "/drive" },
+  { id: "basecrm-tasks", label: "Tasks", icon: "\u{1F4CB}", path: "/tasks" },
+  { id: "basecrm-membership", label: "Membership", icon: "\u{1F5C3}", path: "/membership" },
+  { id: "basecrm-leads", label: "Leads", icon: "\u{1F4E8}", path: "/leads" },
+  { id: "basecrm-reports", label: "Reports", icon: "\u{1F4CA}", path: "/reports" },
+  { id: "basecrm-audit-log", label: "Audit Log", icon: "\u{1F4DD}", path: "/audit-log" },
+  {
+    id: "basecrm-ivr",
+    label: "IVR",
+    icon: "\u{1F4DE}",
+    path: "/ivr",
+    children: [
+      { id: "basecrm-ivr-overview", label: "Overview", icon: "", path: "/ivr" },
+      { id: "basecrm-ivr-calllogs", label: "Call Logs", icon: "", path: "/ivr/calllogs" },
+      { id: "basecrm-ivr-schedules", label: "Schedules", icon: "", path: "/ivr/schedules" },
+    ],
+  },
+];
+
 export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
   health: [
     { id: "health-overview", label: "Overview", icon: "\u25A6", path: "/health" },
@@ -200,12 +222,6 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "ai-automation", label: "Automation", icon: "\u2699", path: "/ai/automation" },
     { id: "ai-insights", label: "Insights", icon: "\u{1F4A1}", path: "/ai/insights" },
   ],
-  ivr: [
-    { id: "ivr-overview", label: "Overview", icon: "\u25A6", path: "/ivr" },
-    { id: "ivr-call-logs", label: "Call Logs", icon: "\u{1F4CB}", path: "/ivr/calllogs" },
-    { id: "ivr-schedules", label: "Schedules", icon: "\u{1F5D3}", path: "/ivr/schedules" },
-    { id: "ivr-settings", label: "Settings", icon: "\u2699", path: "/ivr/settings" },
-  ],
 };
 
 export const PRODUCT_ACCENTS: Partial<Record<ProductKey, string>> = {
@@ -217,5 +233,4 @@ export const PRODUCT_ACCENTS: Partial<Record<ProductKey, string>> = {
   lending: "#7C3AED",
   hr: "#0369A1",
   ai: "#6366F1",
-  ivr: "#0EA5E9",
 };

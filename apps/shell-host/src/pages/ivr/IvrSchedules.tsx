@@ -23,6 +23,31 @@ interface IvrUserOption {
   label: string;
 }
 
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function extractList(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+
+  const candidates = [
+    payload.content,
+    payload.records,
+    payload.data,
+    payload.items,
+    payload.results,
+    payload.schedules,
+    payload.users,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  return [];
+}
+
 export default function IvrSchedules() {
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -53,16 +78,6 @@ export default function IvrSchedules() {
 
   const [ivrUsers, setIvrUsers] = useState<IvrUserOption[]>([]);
   const [userLoading, setUserLoading] = useState(false);
-
-  const fallbackSchedules: Schedule[] = [
-    { id: "1", userName: "Balu K", providerId: "1", scheduleName: "Balu's schedule", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "09:00 AM - 10:00 AM", dateRange: "30/07/2025 - 20/11/2029", startDate: "2025-07-30", endDate: "2029-11-20", status: false },
-    { id: "2", userName: "Beena K", providerId: "2", scheduleName: "Beena's schedule", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "09:00 AM - 08:00 PM", dateRange: "03/07/2025 - 10/05/2028", startDate: "2025-07-03", endDate: "2028-05-10", status: true },
-    { id: "3", userName: "Remesh K", providerId: "3", scheduleName: "Remesh's schedule", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "02:00 PM - 06:00 PM", dateRange: "30/07/2025 - 02/05/2029", startDate: "2025-07-30", endDate: "2029-05-02", status: false },
-    { id: "4", userName: "Reshma Mohan", providerId: "4", scheduleName: "Reshma's schedule", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "12:00 PM - 04:00 PM", dateRange: "27/04/2026 - 01/05/2029", startDate: "2026-04-27", endDate: "2029-05-01", status: false },
-    { id: "5", userName: "Sachin S", providerId: "5", scheduleName: "Sachin", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "10:00 AM - 07:00 PM", dateRange: "11/08/2023 - 31/12/2026", startDate: "2023-08-11", endDate: "2026-12-31", status: true },
-    { id: "6", userName: "Sanoop as", providerId: "6", scheduleName: "Sanoop", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "10:00 AM - 08:00 PM", dateRange: "12/01/2024 - 07/04/2027", startDate: "2024-01-12", endDate: "2027-04-07", status: false },
-    { id: "7", userName: "Yedu Kondalu", providerId: "7", scheduleName: "Test", days: "Sun,Mon,Tue,Wed,Thu,Fri,Sat", repeatIntervals: [1,2,3,4,5,6,7], timeSlot: "01:00 PM - 11:30 PM", dateRange: "30/07/2025 - 30/11/2025", startDate: "2025-07-30", endDate: "2025-11-30", status: false }
-  ];
 
   const daysOfWeek = [
     { name: "Sun", value: 1 },
@@ -98,27 +113,28 @@ export default function IvrSchedules() {
     setUserLoading(true);
     try {
       const res = await apiClient.get("provider/ivr/users", { params: { "extension-ge": 0 } });
-      const rawList = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.content) ? res.data.content : []);
+      const rawList = extractList(res.data);
       if (rawList.length > 0) {
         const mappedUsers = rawList.map((u: any) => ({
-          value: String(u.id || u.userId || u.uid || ""),
-          label: String(u.userName || `${u.firstName || ""} ${u.lastName || ""}`.trim() || "Agent")
+          value: String(u.id || u.userId || u.uid || u.providerId || ""),
+          label: String(
+            u.userName ||
+              u.providerName ||
+              u.name ||
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              "Agent",
+          ),
         }));
         setIvrUsers(mappedUsers);
-        if (mappedUsers.length > 0) {
+        if (!formProviderId && mappedUsers.length > 0) {
           setFormProviderId(mappedUsers[0].value);
         }
       } else {
-        // Fallback options
-        const fallbackUsers = fallbackSchedules.map((s) => ({ value: s.providerId, label: s.userName }));
-        setIvrUsers(fallbackUsers);
-        setFormProviderId(fallbackUsers[0].value);
+        setIvrUsers([]);
       }
     } catch (e) {
       console.error("Failed to load IVR users list", e);
-      const fallbackUsers = fallbackSchedules.map((s) => ({ value: s.providerId, label: s.userName }));
-      setIvrUsers(fallbackUsers);
-      setFormProviderId(fallbackUsers[0].value);
+      setIvrUsers([]);
     } finally {
       setUserLoading(false);
     }
@@ -128,44 +144,64 @@ export default function IvrSchedules() {
     setLoading(true);
     try {
       const res = await apiClient.get("provider/schedule");
-      const rawList = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.content) ? res.data.content : []);
+      const rawList = extractList(res.data);
       if (rawList.length > 0) {
         const mapped: Schedule[] = rawList.map((s: any) => {
-          const repeatIntervals = s.scheduleTime?.repeatIntervals || [];
-          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+          const repeatIntervals = Array.isArray(s.scheduleTime?.repeatIntervals)
+            ? s.scheduleTime.repeatIntervals
+            : Array.isArray(s.repeatIntervals)
+              ? s.repeatIntervals
+              : [];
           const daysStr = repeatIntervals.length > 0 
             ? repeatIntervals.map((i: number) => dayNames[i - 1]).filter(Boolean).join(",") 
-            : "Sun,Mon,Tue,Wed,Thu,Fri,Sat";
+            : "-";
 
-          const sTime = s.scheduleTime?.timeSlots?.[0]?.sTime || "09:00 AM";
-          const eTime = s.scheduleTime?.timeSlots?.[0]?.eTime || "05:00 PM";
+          const firstTimeSlot = s.scheduleTime?.timeSlots?.[0] || s.timeSlots?.[0] || null;
+          const sTime = firstTimeSlot?.sTime || firstTimeSlot?.startTime || firstTimeSlot?.start || "-";
+          const eTime = firstTimeSlot?.eTime || firstTimeSlot?.endTime || firstTimeSlot?.end || "-";
           const formattedTimeSlot = `${sTime} - ${eTime}`;
 
-          const startDate = s.scheduleTime?.startDate || getTodayDateString();
-          const endDate = s.scheduleTime?.terminator?.endDate || getFutureDateString(5);
+          const startDate = s.scheduleTime?.startDate || s.startDate || "";
+          const endDate = s.scheduleTime?.terminator?.endDate || s.terminator?.endDate || s.endDate || "";
           const formattedDateRange = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
+          const providerId = String(
+            s.providerId || s.provider?.id || s.userId || s.user?.id || s.uid || "",
+          );
 
           return {
-            id: String(s.id || Math.random().toString()),
-            userName: s.providerName || s.userName || findUserName(s.providerId),
-            providerId: String(s.providerId || ""),
-            scheduleName: s.name || "Custom schedule",
+            id: String(s.id || s.uid || s.scheduleId || Math.random().toString()),
+            userName:
+              s.providerName ||
+              s.userName ||
+              s.provider?.userName ||
+              s.provider?.name ||
+              s.user?.userName ||
+              s.user?.name ||
+              findUserName(providerId),
+            providerId,
+            scheduleName: s.name || s.scheduleName || s.title || "Untitled schedule",
             days: daysStr,
             repeatIntervals: repeatIntervals,
             timeSlot: formattedTimeSlot,
             dateRange: formattedDateRange,
             startDate: startDate,
             endDate: endDate,
-            status: s.scheduleState === "ENABLED" || s.state === "ENABLED" || s.status === "ENABLED" || s.status === true
+            status:
+              s.scheduleState === "ENABLED" ||
+              s.state === "ENABLED" ||
+              s.status === "ENABLED" ||
+              s.status === "ACTIVE" ||
+              s.enabled === true ||
+              s.status === true,
           };
         });
         setSchedules(mapped);
       } else {
-        setSchedules(fallbackSchedules);
+        setSchedules([]);
       }
     } catch (e) {
       console.error("Failed to load callback schedules", e);
-      setSchedules(fallbackSchedules);
+      setSchedules([]);
     } finally {
       setLoading(false);
     }
@@ -174,8 +210,7 @@ export default function IvrSchedules() {
   function findUserName(id: string): string {
     const userObj = ivrUsers.find((u) => u.value === id);
     if (userObj) return userObj.label;
-    const matchFallback = fallbackSchedules.find((s) => s.providerId === id);
-    return matchFallback ? matchFallback.userName : "Agent";
+    return "Agent";
   }
 
   function formatDisplayDate(dateStr: string): string {

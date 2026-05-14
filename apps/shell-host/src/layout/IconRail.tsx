@@ -13,7 +13,6 @@ const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: ReactNode }> = {
   lending: { label: "Lending", icon: <TrendIcon /> },
   hr: { label: "HR", icon: <UsersIcon /> },
   ai: { label: "AI", icon: <SparklesIcon /> },
-  ivr: { label: "IVR", icon: <PhoneIcon /> },
 };
 
 const PRODUCT_ORDER: ProductKey[] = [
@@ -25,12 +24,23 @@ const PRODUCT_ORDER: ProductKey[] = [
   "lending",
   "hr",
   "ai",
-  "ivr",
 ];
 
 const PRODUCT_HOME_PATHS: Partial<Record<ProductKey, string>> = {
   karty: "/karty/orders/dashboard",
 };
+
+const BASE_CRM_PATH_PREFIXES = [
+  "/customers",
+  "/users",
+  "/reports",
+  "/drive",
+  "/tasks",
+  "/membership",
+  "/leads",
+  "/audit-log",
+  "/ivr",
+];
 
 export default function IconRail() {
   const navigate = useNavigate();
@@ -42,6 +52,15 @@ export default function IconRail() {
   if (!account) return null;
 
   useEffect(() => {
+    const isBaseCrmRoute = BASE_CRM_PATH_PREFIXES.some((path) =>
+      location.pathname === path || location.pathname.startsWith(`${path}/`)
+    );
+
+    if (isBaseCrmRoute) {
+      setActiveProduct(null);
+      return;
+    }
+
     const matchedProduct = account.licensedProducts.find((key) =>
       location.pathname.startsWith(`/${key}`)
     );
@@ -66,7 +85,15 @@ export default function IconRail() {
     navigate("/base");
   }
 
+  function handleBaseCrm() {
+    setActiveProduct(null);
+    navigate("/customers");
+  }
+
   const isActive = (key: string) => location.pathname.startsWith(`/${key}`);
+  const isBaseCrmActive = BASE_CRM_PATH_PREFIXES.some((path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`)
+  );
   const licensedProducts = PRODUCT_ORDER.filter((key) => account.licensedProducts.includes(key));
 
   return (
@@ -112,12 +139,12 @@ export default function IconRail() {
       <div className="icon-rail-spacer" />
 
       <RailItem
-        id="icon-rail-item-more"
+        id="icon-rail-item-basecrm"
         product="default"
-        icon={<MoreIcon />}
-        label="More"
-        active={false}
-        onClick={() => {}}
+        icon={<BaseCrmIcon />}
+        label="Base CRM"
+        active={isBaseCrmActive}
+        onClick={handleBaseCrm}
       />
 
       <RailItem
@@ -211,14 +238,10 @@ function SparklesIcon() {
   return <RailSvg><path d="m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1L6.5 8.5l4.1-1.4L12 3Z" /><path d="m18 15 .8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8L18 15Z" /><path d="m6 14 .6 1.6L8.2 16l-1.6.6L6 18.2l-.6-1.6L3.8 16l1.6-.4L6 14Z" /></RailSvg>;
 }
 
-function PhoneIcon() {
-  return <RailSvg><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3.2a2 2 0 0 1-.6 1.8l-1.4 1.4a16 16 0 0 0 6 6l1.4-1.4a2 2 0 0 1 1.8-.6l3.2.5A2 2 0 0 1 22 16.9Z" /></RailSvg>;
-}
-
 function SettingsIcon() {
   return <RailSvg><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1 .2l-.2.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1l-.1-.2a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1-.2l.2-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.4 1.6Z" /></RailSvg>;
 }
 
-function MoreIcon() {
-  return <RailSvg><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" /></RailSvg>;
+function BaseCrmIcon() {
+  return <RailSvg><path d="M5 6h14" /><path d="M5 12h14" /><path d="M5 18h14" /><circle cx="3.5" cy="6" r="1.1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="12" r="1.1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="18" r="1.1" fill="currentColor" stroke="none" /></RailSvg>;
 }

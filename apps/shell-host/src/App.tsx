@@ -3,6 +3,16 @@ import { Suspense } from "react";
 import LoginPage from "./pages/LoginPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import SignupPage from "./pages/SignupPage";
+import SettingsPage from "./pages/SettingsPage";
+import LeadsPage from "./pages/LeadsPage";
+import {
+  ShellAuditLogPage,
+  ShellCustomersPage,
+  ShellDrivePage,
+  ShellMembershipPage,
+  ShellReportsPage,
+  ShellUsersPage,
+} from "./pages/BaseCrmPages";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ShellLayout from "./layout/ShellLayout";
 import { HealthMFE } from "./mfes/HealthMFE";
@@ -71,15 +81,15 @@ export default function App() {
             <ShellLayout>
               <Routes>
                 <Route path="/base" element={<BasePage />} />
-                <Route path="/customers/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/users/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/reports/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/drive/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/customers/*" element={<ShellCustomersPage />} />
+                <Route path="/users/*" element={<ShellUsersPage />} />
+                <Route path="/reports/*" element={<ShellReportsPage />} />
+                <Route path="/drive/*" element={<ShellDrivePage />} />
                 <Route path="/tasks/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/membership/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/leads/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/audit-log/*" element={<GlobalPlaceholderPage />} />
-                <Route path="/settings/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/membership/*" element={<ShellMembershipPage />} />
+                <Route path="/leads/*" element={<LeadsPage />} />
+                <Route path="/audit-log/*" element={<ShellAuditLogPage />} />
+                <Route path="/settings/*" element={<SettingsPage />} />
                 <Route path="/ivr" element={<IvrPage />} />
                 <Route path="/ivr/calllogs" element={<IvrCallLogs />} />
                 <Route path="/ivr/schedules" element={<IvrSchedules />} />

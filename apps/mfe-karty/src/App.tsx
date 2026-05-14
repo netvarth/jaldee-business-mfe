@@ -8,6 +8,7 @@ import ReportsPage from "./pages/ReportsPage";
 import OrdersPage from "./pages/OrdersPage";
 import UsersPage from "./pages/UsersPage";
 import LeadsPage from "./pages/LeadsPage";
+import MembershipPage from "./pages/MembershipPage";
 
 export default function App() {
   const placeholderRoutes = [
@@ -416,7 +417,31 @@ export default function App() {
         path="membership"
         element={
           <PageErrorBoundary>
-            <PlaceholderPage />
+            <MembershipPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="membership/:view"
+        element={
+          <PageErrorBoundary>
+            <MembershipPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="membership/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <MembershipPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="membership/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <MembershipPage />
           </PageErrorBoundary>
         }
       />

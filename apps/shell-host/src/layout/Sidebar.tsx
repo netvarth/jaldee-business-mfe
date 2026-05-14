@@ -15,9 +15,21 @@ function useIsSmallScreen() {
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
-import { SIDEBAR_CONFIG } from "./sidebarConfig";
+import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
 import type { ProductKey } from "../store/shellStore";
+
+const BASE_CRM_PATH_PREFIXES = [
+  "/customers",
+  "/users",
+  "/reports",
+  "/drive",
+  "/tasks",
+  "/membership",
+  "/leads",
+  "/audit-log",
+  "/ivr",
+];
 
 export default function Sidebar() {
   const activeProduct = useShellStore((s) => s.activeProduct);
@@ -37,9 +49,16 @@ export default function Sidebar() {
     }
   }, [isSmallScreen]);
 
-  if (!activeProduct) return null;
+  const isBaseCrmRoute = BASE_CRM_PATH_PREFIXES.some((path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`)
+  );
 
-  const sections = SIDEBAR_CONFIG[activeProduct];
+  const sections: SidebarSection[] | undefined = activeProduct
+    ? SIDEBAR_CONFIG[activeProduct]
+    : isBaseCrmRoute
+      ? BASE_CRM_SIDEBAR_SECTIONS
+      : undefined;
+
   if (!sections) return null;
 
   function toggleExpand(id: string) {
@@ -62,7 +81,7 @@ export default function Sidebar() {
   return (
     <div className="sidebar-frame">
       {sidebarVisible && (
-        <div data-testid="sidebar" data-product={activeProduct} className="sidebar">
+        <div data-testid="sidebar" data-product={activeProduct ?? "default"} className="sidebar">
           <LocationSwitcher />
 
           <div className="sidebar-spacer">
@@ -116,6 +135,18 @@ function SidebarItemRow({
   const isOpen = expanded[section.id] ?? isActive(section.path);
   const active = isActive(section.path);
 
+  function isChildActive(childPath: string) {
+    if (location.pathname === childPath) {
+      return true;
+    }
+
+    if (childPath === section.path) {
+      return false;
+    }
+
+    return location.pathname.startsWith(`${childPath}/`);
+  }
+
   return (
     <div data-testid={`sidebar-section-${section.id}`}>
       <div
@@ -145,7 +176,7 @@ function SidebarItemRow({
       {hasChildren && isOpen && (
         <div data-testid={`sidebar-children-${section.id}`}>
           {section.children!.map((child) => {
-            const childActive = isActive(child.path);
+            const childActive = isChildActive(child.path);
 
             return (
               <div

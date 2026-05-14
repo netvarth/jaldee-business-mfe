@@ -13,6 +13,7 @@ const HealthMembershipsPage = lazy(() => import("./pages/memberships/HealthMembe
 const HealthLeadsPage = lazy(() => import("./pages/leads/HealthLeadsPage"));
 const HealthFinancePage = lazy(() => import("./pages/finance/HealthFinancePage"));
 const HealthPharmacyPage = lazy(() => import("./pages/pharmacy/HealthPharmacyPage"));
+const HealthUsersPage = lazy(() => import("./pages/users/HealthUsersPage"));
 const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
 function RouteLoader() {
@@ -45,7 +46,6 @@ export default function App() {
     "allergies/*",
     "ot/*",
     "tasks/*",
-    "users/*",
     "analytics/*",
     "membership/*",
     "audit-log/*",
@@ -117,6 +117,12 @@ export default function App() {
       <Route path="leads/:view" element={withBoundary(<HealthLeadsPage />)} />
       <Route path="leads/:view/:subview" element={withBoundary(<HealthLeadsPage />)} />
       <Route path="leads/:view/:subview/:recordId" element={withBoundary(<HealthLeadsPage />)} />
+
+      <Route path="users" element={withBoundary(<HealthUsersPage />)} />
+      <Route path="users/:view" element={withBoundary(<HealthUsersPage />)} />
+      <Route path="users/:view/:subview" element={withBoundary(<HealthUsersPage />)} />
+      <Route path="users/:view/:subview/:recordId" element={withBoundary(<HealthUsersPage />)} />
+      <Route path="users/:recordId" element={withBoundary(<HealthUsersPage />)} />
 
       <Route path="finance" element={withBoundary(<HealthFinancePage />)} />
       <Route path="finance/:view" element={withBoundary(<HealthFinancePage />)} />
