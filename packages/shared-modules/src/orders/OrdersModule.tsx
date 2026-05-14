@@ -27,6 +27,7 @@ import { OrdersDealersList } from "./components/OrdersDealersList";
 import { OrdersSectionPlaceholder } from "./components/shared";
 import { InventoryAdjustmentsPage } from "./components/InventoryAdjustmentsPage";
 import { InventoryCatalogsPage } from "./components/InventoryCatalogsPage";
+import { InventoryPurchasePage } from "./components/InventoryPurchasePage";
 import { InventoryStocksPage } from "./components/InventoryStocksPage";
 import { InventoryAuditLogsPage } from "./components/InventoryAuditLogsPage";
 import { InventorySummaryPage } from "./components/InventorySummaryPage";
@@ -88,6 +89,9 @@ export function OrdersModule() {
     if (subview) {
       if (subview === "adjust") {
         return <InventoryAdjustmentsPage />;
+      }
+      if (subview === "purchase") {
+        return <InventoryPurchasePage />;
       }
       if (subview === "catalogs") {
         return <InventoryCatalogsPage />;

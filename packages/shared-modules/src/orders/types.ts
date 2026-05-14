@@ -332,6 +332,80 @@ export type InventoryDashboardDataset = {
 
 export type InventoryAdjustmentStatus = "DRAFT" | "SUBMITTED" | "PROCESSED" | string;
 
+export type InventoryPurchaseStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | string;
+
+export type InventoryPurchaseRow = {
+  uid: string;
+  purchaseReferenceNo: string;
+  vendorName: string;
+  storeName: string;
+  invoiceReferenceNo: string;
+  invoiceDate: string;
+  purchaseStatus: InventoryPurchaseStatus;
+  totalQuantity: number;
+  totalFreeQuantity: number;
+  pushedToFinance: boolean;
+  raw?: unknown;
+};
+
+export type InventoryPurchaseItemDraft = {
+  id: string;
+  encId?: string;
+  name: string;
+  spCode: string;
+  inventoryCatalogEncId: string;
+  quantity: number;
+  freeQuantity: number;
+  price: number;
+  mrp: number;
+  discount: number;
+  discountType: "fixed" | "percentage";
+  discountAmount: number;
+  taxableAmt: number;
+  taxAmount: number;
+  cgst: number;
+  sgst: number;
+  cess: number;
+  cessAmt: number;
+  taxPercentage: number;
+  batchApplicable: boolean;
+  batchValue: string;
+  unitValue: string;
+  expDate?: string;
+  orderCatalog?: string;
+  totalPrice: number;
+  netTotalPrice: number;
+};
+
+export type InventoryPurchaseDetail = {
+  uid: string;
+  storeEncId: string;
+  vendorEncId: string;
+  inventoryCatalogEncId: string;
+  invoiceReferenceNo: string;
+  invoiceDate: string;
+  purchaseNote: string;
+  roundOff: number;
+  purchaseStatus: InventoryPurchaseStatus;
+  totalNetRateInWords?: string;
+  items: InventoryPurchaseItemDraft[];
+  raw?: unknown;
+};
+
+export type InventoryPurchaseFormOptions = {
+  stores: InventoryAdjustmentOption[];
+  vendors: InventoryAdjustmentOption[];
+  catalogs: InventoryAdjustmentOption[];
+  units: InventoryAdjustmentOption[];
+};
+
+export type InventoryPurchasePriceRow = {
+  id: string;
+  purchaseItemEncId: string;
+  orderCatalog: string;
+  salesPrice: number | "";
+};
+
 export type InventoryAdjustmentRow = {
   uid: string;
   storeName: string;

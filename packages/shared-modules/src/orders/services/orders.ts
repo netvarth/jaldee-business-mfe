@@ -17,6 +17,11 @@ import type {
   InventoryAdjustmentFormOptions,
   InventoryAdjustmentItemOption,
   InventoryAdjustmentOption,
+  InventoryPurchaseDetail,
+  InventoryPurchaseFormOptions,
+  InventoryPurchaseItemDraft,
+  InventoryPurchasePriceRow,
+  InventoryPurchaseRow,
   InventoryAdjustmentRow,
   InventoryCatalogItemRow,
   InventoryCatalogRow,
@@ -1799,6 +1804,129 @@ export async function getInventoryAdjustmentsPage(
   };
 }
 
+export async function getInventoryPurchasePage(
+  scopedApi: ScopedApi,
+  options: { page: number; pageSize: number; searchText?: string; status?: string; storeEncId?: string | null }
+): Promise<{ rows: InventoryPurchaseRow[]; total: number }> {
+  const from = Math.max(0, (options.page - 1) * options.pageSize);
+  const count = Math.max(1, options.pageSize);
+  const searchText = String(options.searchText ?? "").trim();
+  const status = String(options.status ?? "").trim();
+  const storeEncId = String(options.storeEncId ?? "").trim();
+  const params = {
+    from,
+    count,
+    ...(searchText ? { "purchaseReferenceNo-like": searchText } : {}),
+    ...(status ? { "purchaseStatus-eq": status } : {}),
+    ...(storeEncId ? { "storeEncId-eq": storeEncId } : {}),
+  } satisfies ApiFilter;
+
+  const [pagePayload, countPayload] = await Promise.all([
+    scopedApi.get<any>("provider/inventory/purchase", { params }).then((response) => response.data),
+    scopedApi.get<any>("provider/inventory/purchase/count", { params }).then((response) => response.data),
+  ]);
+
+  const rows = mapInventoryPurchaseRows(pagePayload);
+  return {
+    rows,
+    total: Math.max(readOrdersTotal(countPayload), rows.length),
+  };
+}
+
+export async function getInventoryPurchaseDetail(scopedApi: ScopedApi, uid: string): Promise<InventoryPurchaseDetail | null> {
+  if (!uid) return null;
+  const payload = await scopedApi.get<any>(`provider/inventory/purchase/${uid}`).then((response) => response.data);
+  return mapInventoryPurchaseDetail(payload);
+}
+
+export async function getInventoryPurchaseFormOptions(
+  scopedApi: ScopedApi,
+  storeEncId?: string | null
+): Promise<InventoryPurchaseFormOptions> {
+  const [storesPayload, vendorsPayload, catalogsPayload, unitsPayload] = await Promise.all([
+    getActiveStores(scopedApi).catch(() => []),
+    scopedApi
+      .get<any>("provider/vendor", { params: { "status-eq": "Enable" } satisfies ApiFilter })
+      .then((response) => response.data)
+      .catch(() => []),
+    storeEncId
+      ? scopedApi
+          .get<any>("provider/inventory/inventorycatalog", {
+            params: { "storeEncId-eq": storeEncId, "status-eq": "Active" } satisfies ApiFilter,
+          })
+          .then((response) => response.data)
+          .catch(() => [])
+      : Promise.resolve([]),
+    scopedApi
+      .get<any>("provider/spitem/settings/unit", { params: { "status-eq": "Enable" } satisfies ApiFilter })
+      .then((response) => response.data)
+      .catch(() => []),
+  ]);
+
+  return {
+    stores: mapOptions(storesPayload, ["encId", "storeEncId", "id"], ["name", "storeName"]),
+    vendors: mapOptions(vendorsPayload, ["encId", "uid", "id"], ["vendorName", "name"]),
+    catalogs: mapOptions(catalogsPayload, ["encId", "uid", "id"], ["catalogName", "name"]),
+    units: mapOptions(unitsPayload, ["unitCode", "code", "id"], ["unitName", "name"]),
+  };
+}
+
+export async function calculateInventoryPurchaseItem(scopedApi: ScopedApi, payload: Record<string, unknown>) {
+  return scopedApi.post<any>("provider/inventory/purchase/item/details", payload).then((response) => response.data);
+}
+
+export async function saveInventoryPurchase(
+  scopedApi: ScopedApi,
+  payload: Record<string, unknown>,
+  mode: "create" | "update",
+  uid?: string | null
+) {
+  if (mode === "update" && uid) {
+    return scopedApi.put<any>(`provider/inventory/purchase/${uid}`, payload).then((response) => response.data);
+  }
+  return scopedApi.post<any>("provider/inventory/purchase", payload).then((response) => response.data);
+}
+
+export async function changeInventoryPurchaseStatus(scopedApi: ScopedApi, uid: string, status: string) {
+  return scopedApi.put<any>(`provider/inventory/purchase/${uid}/status/${status}`).then((response) => response.data);
+}
+
+export async function pushInventoryPurchaseToFinance(scopedApi: ScopedApi, uid: string) {
+  return scopedApi.put<any>(`provider/inventory/purchase/${uid}/pushToFinance`).then((response) => response.data);
+}
+
+export async function getInventoryPurchaseItemsByUid(scopedApi: ScopedApi, uid: string): Promise<InventoryPurchasePriceRow[]> {
+  if (!uid) return [];
+  const payload = await scopedApi.get<any>(`provider/inventory/purchase/items/${uid}`).then((response) => response.data);
+  return unwrapOrdersList(payload).map((item: any, index: number) => ({
+    id: readFirstText(item?.id, item?.encId, item?.uid) || `purchase-price-${index + 1}`,
+    purchaseItemEncId: readFirstText(item?.purchaseItemEncId, item?.purchaseItem?.encId, item?.purchaseItemUid) || "",
+    orderCatalog: readFirstText(item?.sOrderCatalog?.encId, item?.orderCatalog, item?.catalogEncId) || "",
+    salesPrice: readFirstNumber(item?.salesRate, item?.price, item?.amount) || "",
+  }));
+}
+
+export async function getInventoryPurchaseSalesOrderCatalogs(
+  scopedApi: ScopedApi,
+  inventoryCatalogEncId?: string | null
+): Promise<InventoryAdjustmentOption[]> {
+  const params = inventoryCatalogEncId ? ({ "invCatEncId-like": inventoryCatalogEncId } satisfies ApiFilter) : undefined;
+  const payload = await scopedApi.get<any>("provider/so/catalog", params ? { params } : undefined).then((response) => response.data);
+  return mapOptions(payload, ["encId", "uid", "id"], ["name", "catalogName"]);
+}
+
+export async function saveInventoryPurchasePrices(
+  scopedApi: ScopedApi,
+  uid: string,
+  payload: Record<string, unknown>[],
+  mode: "create" | "update"
+) {
+  if (mode === "update") {
+    return scopedApi.put<any>(`provider/inventory/purchase/items/${uid}`, payload).then((response) => response.data);
+  }
+  return scopedApi.post<any>(`provider/inventory/purchase/items/${uid}`, payload).then((response) => response.data);
+}
+
 export async function getInventoryAdjustmentFormOptions(
   scopedApi: ScopedApi,
   storeEncId?: string | null
@@ -2235,6 +2363,76 @@ function mapInventoryAdjustmentDetail(payload: any): InventoryAdjustmentDetail {
       quantity: Math.max(1, toNumber(item?.qty ?? item?.quantity)),
       batchApplicable: Boolean(item?.spItem?.batchApplicable ?? item?.batchApplicable),
     })),
+    raw: payload,
+  };
+}
+
+function mapInventoryPurchaseRows(payload: any): InventoryPurchaseRow[] {
+  return unwrapOrdersList(payload).map((item: any, index: number) => ({
+    uid: readFirstText(item?.uid, item?.encId, item?.id) || `purchase-${index + 1}`,
+    purchaseReferenceNo: readFirstText(item?.purchaseReferenceNo, item?.referenceNo, item?.referenceNumber, item?.displayId) || "-",
+    vendorName: readFirstText(item?.vendor?.vendorName, item?.vendorName, item?.vendor?.name) || "-",
+    storeName: readFirstText(item?.store?.name, item?.storeName, item?.store?.storeName) || "-",
+    invoiceReferenceNo: readFirstText(item?.invoiceReferenceNo, item?.invoiceNo, item?.billNo, item?.invoiceNumber) || "-",
+    invoiceDate: formatOrdersItemDate(item?.invoiceDate ?? item?.billDate ?? item?.createdDate ?? item?.createdOn),
+    purchaseStatus: readFirstText(item?.purchaseStatus, item?.status) || "DRAFT",
+    totalQuantity: readFirstNumber(item?.totalQuantity, item?.quantity, item?.totalQty),
+    totalFreeQuantity: readFirstNumber(item?.totalFreeQuantity, item?.freeQuantity, item?.totalFreeQty),
+    pushedToFinance: Boolean(item?.pushedToFinance),
+    raw: item,
+  }));
+}
+
+function mapInventoryPurchaseDetail(payload: any): InventoryPurchaseDetail {
+  return {
+    uid: readFirstText(payload?.uid, payload?.encId, payload?.id) || "",
+    storeEncId: readFirstText(payload?.store?.encId, payload?.storeEncId, payload?.store?.storeEncId) || "",
+    vendorEncId: readFirstText(payload?.vendor?.encId, payload?.vendorEncId) || "",
+    inventoryCatalogEncId: readFirstText(payload?.inventoryCatalog?.encId, payload?.inventoryCatalogEncId) || "",
+    invoiceReferenceNo: readFirstText(payload?.invoiceReferenceNo, payload?.invoiceNo, payload?.billNo) || "",
+    invoiceDate: readFirstText(payload?.invoiceDate, payload?.billDate) || "",
+    purchaseNote: readFirstText(payload?.purchaseNote, payload?.description, payload?.note) || "",
+    roundOff: readFirstNumber(payload?.roundOff),
+    purchaseStatus: readFirstText(payload?.purchaseStatus, payload?.status) || "DRAFT",
+    totalNetRateInWords: readFirstText(payload?.totalNetRateInWords, payload?.amountInWords) || undefined,
+    items: (Array.isArray(payload?.purchaseItemDtoList) ? payload.purchaseItemDtoList : []).map((item: any, index: number) => {
+      const quantity = readFirstNumber(item?.quantity, item?.qty, item?.itemQuantity) || 0;
+      const price = readFirstNumber(item?.amount, item?.price, item?.purchasePrice, item?.salesRate);
+      const totalPrice = quantity * price;
+      const discountAmount = readFirstNumber(item?.discountAmount, item?.fixedDiscount, item?.discount);
+      const taxableAmt = readFirstNumber(item?.taxableAmount, item?.taxableAmt, totalPrice - discountAmount);
+      const taxAmount = readFirstNumber(item?.taxAmount);
+      const cessAmt = readFirstNumber(item?.cess);
+
+      return {
+        id: readFirstText(item?.id, item?.encId, item?.inventoryCatalogItem?.item?.spCode, item?.inventoryCatalogItem?.encId) || `purchase-item-${index + 1}`,
+        encId: readFirstText(item?.encId) || undefined,
+        name: readFirstText(item?.inventoryCatalogItem?.item?.name, item?.itemName, item?.name) || "-",
+        spCode: readFirstText(item?.inventoryCatalogItem?.item?.spCode, item?.spCode, item?.itemCode) || "",
+        inventoryCatalogEncId: readFirstText(item?.inventoryCatalogItem?.encId, item?.inventoryCatalogEncId) || "",
+        quantity,
+        freeQuantity: readFirstNumber(item?.freeQuantity),
+        price,
+        mrp: readFirstNumber(item?.mrp),
+        discount: readFirstNumber(item?.discountPercentage) > 0 ? readFirstNumber(item?.discountPercentage) : discountAmount,
+        discountType: readFirstNumber(item?.discountPercentage) > 0 ? "percentage" : "fixed",
+        discountAmount,
+        taxableAmt,
+        taxAmount,
+        cgst: readFirstNumber(item?.cgstPercentage, item?.cgst),
+        sgst: readFirstNumber(item?.sgstPercentage, item?.sgst),
+        cess: readFirstNumber(item?.cessPercentage),
+        cessAmt,
+        taxPercentage: readFirstNumber(item?.taxPercentage),
+        batchApplicable: Boolean(item?.inventoryCatalogItem?.item?.batchApplicable ?? item?.batchApplicable ?? readFirstText(item?.batchNo, item?.batchValue, item?.batch)),
+        batchValue: readFirstText(item?.batchNo, item?.batchValue, item?.batch) || "",
+        unitValue: readFirstText(item?.unitCode, item?.unitValue) || "",
+        expDate: readFirstText(item?.expiryDate, item?.expDate) || undefined,
+        orderCatalog: readFirstText(item?.invSOrderCatalog?.encId, item?.orderCatalog) || undefined,
+        totalPrice,
+        netTotalPrice: taxableAmt + taxAmount + cessAmt,
+      } satisfies InventoryPurchaseItemDraft;
+    }),
     raw: payload,
   };
 }

@@ -14,6 +14,16 @@ import {
   getOrdersDashboardDataset,
   getInventoryDashboardDataset,
   getInventoryAdjustmentsPage,
+  getInventoryPurchasePage,
+  getInventoryPurchaseDetail,
+  getInventoryPurchaseFormOptions,
+  calculateInventoryPurchaseItem,
+  saveInventoryPurchase,
+  changeInventoryPurchaseStatus,
+  pushInventoryPurchaseToFinance,
+  getInventoryPurchaseItemsByUid,
+  getInventoryPurchaseSalesOrderCatalogs,
+  saveInventoryPurchasePrices,
   getInventoryAdjustmentFormOptions,
   getInventoryCatalogItemsPage,
   getInventoryAdjustmentDetail,
@@ -562,6 +572,147 @@ export function useOrdersItemConsumptionHistory(
 export function useOrdersInventory() {
   const datasetQuery = useOrdersDataset();
   return { ...datasetQuery, data: datasetQuery.data?.inventory ?? [] };
+}
+
+export function useInventoryPurchasePage(
+  page: number,
+  pageSize: number,
+  options?: { searchText?: string; status?: string; enabled?: boolean }
+) {
+  const { location, routeParams } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const selectedStore = readSelectedStoreFromLocalStorage();
+  const searchText = String(options?.searchText ?? "").trim();
+  const status = String(options?.status ?? "").trim();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchases", routeParams?.view, page, pageSize, searchText, status, selectedStore?.encId),
+    enabled: Boolean(location?.id) && (options?.enabled ?? true),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+    queryFn: () =>
+      getInventoryPurchasePage(scopedApi, {
+        page,
+        pageSize,
+        searchText,
+        status,
+        storeEncId: selectedStore?.encId ?? selectedStore?.storeEncId ?? null,
+      }),
+  });
+}
+
+export function useInventoryPurchaseDetail(uid?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-detail", uid),
+    enabled: Boolean(uid),
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: () => getInventoryPurchaseDetail(scopedApi, uid ?? ""),
+  });
+}
+
+export function useInventoryPurchaseFormOptions(storeEncId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-options", storeEncId),
+    enabled: Boolean(location?.id),
+    staleTime: 60_000,
+    queryFn: () => getInventoryPurchaseFormOptions(scopedApi, storeEncId),
+  });
+}
+
+export function useCalculateInventoryPurchaseItem() {
+  const scopedApi = useApiScope();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => calculateInventoryPurchaseItem(scopedApi, payload),
+  });
+}
+
+export function useSaveInventoryPurchase() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ payload, mode, uid }: { payload: Record<string, unknown>; mode: "create" | "update"; uid?: string | null }) =>
+      saveInventoryPurchase(scopedApi, payload, mode, uid),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchases") });
+      if (variables.uid) {
+        queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-detail", variables.uid) });
+      }
+    },
+  });
+}
+
+export function useChangeInventoryPurchaseStatus() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ uid, status }: { uid: string; status: string }) => changeInventoryPurchaseStatus(scopedApi, uid, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchases") });
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-detail", variables.uid) });
+    },
+  });
+}
+
+export function usePushInventoryPurchaseToFinance() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (uid: string) => pushInventoryPurchaseToFinance(scopedApi, uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchases") });
+    },
+  });
+}
+
+export function useInventoryPurchaseItemsByUid(uid?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-items", uid),
+    enabled: Boolean(uid),
+    queryFn: () => getInventoryPurchaseItemsByUid(scopedApi, uid ?? ""),
+  });
+}
+
+export function useInventoryPurchaseSalesOrderCatalogs(inventoryCatalogEncId?: string | null) {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+
+  return useQuery({
+    queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-so-catalogs", inventoryCatalogEncId),
+    enabled: Boolean(inventoryCatalogEncId),
+    staleTime: 60_000,
+    queryFn: () => getInventoryPurchaseSalesOrderCatalogs(scopedApi, inventoryCatalogEncId),
+  });
+}
+
+export function useSaveInventoryPurchasePrices() {
+  const { location } = useSharedModulesContext();
+  const scopedApi = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ uid, payload, mode }: { uid: string; payload: Record<string, unknown>[]; mode: "create" | "update" }) =>
+      saveInventoryPurchasePrices(scopedApi, uid, payload, mode),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchase-items", variables.uid) });
+      queryClient.invalidateQueries({ queryKey: buildSharedQueryKey("orders", "location", location?.id, "inventory-purchases") });
+    },
+  });
 }
 
 export function useInventoryAdjustmentsPage(page: number, pageSize: number, filters?: Record<string, unknown>) {
