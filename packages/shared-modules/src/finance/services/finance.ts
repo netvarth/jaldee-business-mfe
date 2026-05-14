@@ -21,8 +21,9 @@ export function formatFinanceCurrency(value: number) {
   }).format(value);
 }
 
-export function getFinanceStatusVariant(status: FinanceInvoiceStatus): "success" | "warning" | "danger" {
+export function getFinanceStatusVariant(status: FinanceInvoiceStatus): "success" | "warning" | "danger" | "info" {
   if (status === "Paid") return "success";
+  if (status === "Partially Paid") return "info";
   if (status === "Pending") return "warning";
   return "danger";
 }
@@ -52,6 +53,7 @@ export function financeFormatDate(value: unknown): string {
 
 export function financeMapInvoiceStatus(value: unknown): FinanceInvoiceStatus {
   const s = String(value ?? "").toLowerCase();
+  if (s.includes("partiallypaid") || s.includes("partially")) return "Partially Paid";
   if (s.includes("paid") || s.includes("settled")) return "Paid";
   if (s.includes("overdue")) return "Overdue";
   return "Pending";
@@ -77,13 +79,16 @@ export function financeExtractList(payload: unknown): unknown[] {
 export function normalizeFinanceInvoices(payload: unknown): FinanceInvoiceRow[] {
   return financeExtractList(payload).map((item, index) => {
     const i = item as Record<string, unknown>;
+    const pcd = i["providerConsumerData"] as Record<string, unknown> | undefined;
+    const fullName = pcd?.["firstName"] ? `${pcd["firstName"]} ${pcd["lastName"] ?? ""}`.trim() : undefined;
+
     return {
-      id: financeText(i["invoiceUid"] ?? i["uid"] ?? i["id"] ?? i["invoiceId"] ?? `invoice-${index}`),
-      customer: financeText(i["customerName"] ?? i["consumerName"] ?? (i["customer"] as Record<string, unknown>)?.["name"] ?? i["invoiceFor"]),
+      id: financeText(i["invoiceNum"] ?? i["uid"] ?? i["invoiceUid"] ?? i["invoiceId"] ?? i["uuid"] ?? i["id"] ?? `invoice-${index}`),
+      customer: financeText(fullName ?? i["customerName"] ?? i["consumerName"] ?? (i["customer"] as Record<string, unknown>)?.["name"] ?? i["invoiceFor"]),
       category: financeText(i["categoryName"] ?? i["invoiceCategoryName"] ?? (i["category"] as Record<string, unknown>)?.["name"] ?? i["notes"]),
       amount: financeAmt(i["netTotal"] ?? i["totalAmount"] ?? i["amount"] ?? i["total"]),
       dueDate: financeFormatDate(i["dueDate"] ?? i["invoiceDate"] ?? i["createdDate"]),
-      status: financeMapInvoiceStatus(i["billStatus"] ?? i["status"] ?? i["paymentStatus"]),
+      status: financeMapInvoiceStatus(i["billPaymentStatus"] ?? i["billStatus"] ?? i["status"] ?? i["paymentStatus"]),
     };
   });
 }

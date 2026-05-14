@@ -120,7 +120,7 @@ export function setFiltersFromPrimeTable(
   return apiFilter;
 }
 
-const vendors = createCrudApi("provider/jp/finance/vendor");
+const vendors = createCrudApi("provider/vendor");
 const expenses = createCrudApi("provider/jp/finance/expense");
 const payables = createCrudApi("provider/jp/finance/paymentsOut");
 const revenue = createCrudApi("provider/jp/finance/paymentsIn");

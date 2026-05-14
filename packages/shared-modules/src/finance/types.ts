@@ -4,7 +4,7 @@ export type FinanceSummary = {
   accent: "indigo" | "emerald" | "amber" | "rose";
 };
 
-export type FinanceInvoiceStatus = "Paid" | "Pending" | "Overdue";
+export type FinanceInvoiceStatus = "Paid" | "Pending" | "Overdue" | "Partially Paid";
 export type FinanceActionIcon = "packagePlus" | "alert" | "trend" | "history" | "globe" | "list" | "layers" | "chart" | "database" | "warehouse";
 
 export type FinanceInvoiceRow = {

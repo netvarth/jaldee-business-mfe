@@ -1,4 +1,4 @@
-export type FinanceStatus = "Paid" | "Pending" | "Overdue";
+export type FinanceStatus = "Paid" | "Pending" | "Overdue" | "Partially Paid";
 
 export type FinanceSummaryCard = {
   label: string;

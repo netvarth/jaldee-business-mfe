@@ -41,7 +41,7 @@ export function useFinanceDataset() {
         api.get<unknown>("provider/jp/finance/paymentsIn", listParams),
         api.get<unknown>("provider/jp/finance/expense", listParams),
         api.get<unknown>("provider/jp/finance/paymentsOut", listParams),
-        api.get<unknown>("provider/jp/finance/vendor", listParams),
+        api.get<unknown>("provider/vendor", { params: { from: 0, count: 8 } }),
         api.get<unknown>("provider/jp/finance/cashbalance"),
         api.get<unknown>("provider/jp/finance/paymentsIn/paymentsInOut", listParams),
         api.get<number>("provider/jp/finance/paymentsIn/paymentsInOut/count", locParams),

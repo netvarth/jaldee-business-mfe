@@ -120,20 +120,25 @@ function formatDate(value: any): string {
 
 function mapInvoiceStatus(value: any): FinanceStatus {
   const normalized = String(value ?? "").toLowerCase();
+  if (normalized.includes("partiallypaid") || normalized.includes("partially")) return "Partially Paid";
   if (normalized.includes("paid") || normalized.includes("settled")) return "Paid";
   if (normalized.includes("overdue") || normalized.includes("due")) return "Overdue";
   return "Pending";
 }
 
 function normalizeInvoices(payload: any): FinanceInvoice[] {
-  return extractList(payload).map((item: any, index) => ({
-    id: text(item.invoiceUid || item.uid || item.id || item.invoiceId || `invoice-${index}`),
-    customer: text(item.customerName || item.consumerName || item.customer?.name || item.invoiceFor || item.providerConsumer?.firstName),
-    category: text(item.categoryName || item.invoiceCategoryName || item.category?.name || item.invoiceCategory || item.notes),
-    amount: amount(item.netTotal || item.totalAmount || item.amount || item.total || item.invoiceAmount),
-    dueDate: formatDate(item.dueDate || item.invoiceDate || item.createdDate),
-    status: mapInvoiceStatus(item.billStatus || item.status || item.paymentStatus),
-  }));
+  return extractList(payload).map((item: any, index) => {
+    const pcd = item.providerConsumerData;
+    const fullName = pcd?.firstName ? `${pcd.firstName} ${pcd.lastName ?? ""}`.trim() : undefined;
+    return {
+      id: text(item.invoiceNum || item.uid || item.invoiceUid || item.invoiceId || item.uuid || item.id || `invoice-${index}`),
+      customer: text(fullName || item.customerName || item.consumerName || item.customer?.name || item.invoiceFor || item.providerConsumer?.firstName),
+      category: text(item.categoryName || item.invoiceCategoryName || item.category?.name || item.invoiceCategory || item.notes),
+      amount: amount(item.netTotal || item.totalAmount || item.amount || item.total || item.invoiceAmount),
+      dueDate: formatDate(item.dueDate || item.invoiceDate || item.createdDate),
+      status: mapInvoiceStatus(item.billPaymentStatus || item.billStatus || item.status || item.paymentStatus),
+    };
+  });
 }
 
 function normalizePayments(payload: any): FinancePayment[] {
@@ -335,7 +340,7 @@ export function FinanceLiveProvider({ children }: { children: ReactNode }) {
       ] = await Promise.allSettled([
         financeApi.invoices.listGeneral(listFilter),
         financeApi.revenue.list(listFilter),
-        financeApi.vendors.list(listFilter),
+        financeApi.vendors.list({ from: 0, count: 8 }),
         financeApi.ledger.list(listFilter),
         financeApi.payables.list(listFilter),
         financeApi.expenses.list(listFilter),
