@@ -82,6 +82,9 @@ export type FinanceDataset = {
   invoices: FinanceInvoiceRow[];
   payments: FinancePaymentRow[];
   reports: FinanceReportRow[];
+  statistics: { label: string; value: number; revenue?: number; payout?: number; expense?: number }[];
+  monthlyStatistics: { label: string; value: number; revenue?: number; payout?: number; expense?: number }[];
+  totalCount: number;
 };
 
 export type FinanceViewKey = "overview" | "invoices" | "payments" | "reports" | "settings";

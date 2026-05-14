@@ -9,6 +9,7 @@ import OrdersPage from "./pages/OrdersPage";
 import UsersPage from "./pages/UsersPage";
 import LeadsPage from "./pages/LeadsPage";
 import MembershipPage from "./pages/MembershipPage";
+import FinancePage from "./pages/FinancePage";
 
 export default function App() {
   const placeholderRoutes = [
@@ -401,7 +402,31 @@ export default function App() {
         path="finance"
         element={
           <PageErrorBoundary>
-            <PlaceholderPage />
+            <FinancePage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="finance/:view"
+        element={
+          <PageErrorBoundary>
+            <FinancePage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="finance/:view/:subview"
+        element={
+          <PageErrorBoundary>
+            <FinancePage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="finance/:view/:subview/:recordId"
+        element={
+          <PageErrorBoundary>
+            <FinancePage />
           </PageErrorBoundary>
         }
       />

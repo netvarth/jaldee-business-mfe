@@ -12,28 +12,15 @@ import {
   PageHeader,
   SectionCard,
   StatCard,
+  Select,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps } from "@jaldee/auth-context";
 import {
-  financeActivityLogs,
-  financeCashInHand,
-  financeCashRegisters,
-  financeCategories,
-  financeEstimates,
-  financeExpenses,
-  financeInvoices,
-  financeLedgerEntries,
-  financePayments,
-  financePayables,
-  financeReceivables,
-  financeReportMetrics,
-  financeStatuses,
-  financeSummaryCards,
-  financeVendors,
   formatCurrency,
   getStatusVariant,
 } from "./lib/financeData";
+import { FinanceLiveProvider, useFinanceLiveData } from "./lib/financeLive";
 
 type Accent = "indigo" | "emerald" | "amber" | "rose";
 
@@ -110,7 +97,7 @@ function QuickActions({
     <SectionCard className="border-slate-200 shadow-sm">
       <div className="space-y-5">
         <div>
-          <div className="text-[28px] font-semibold tracking-tight text-[#312E81]">Finance Manager Dashboard</div>
+          <div className="text-[22px] font-semibold tracking-tight text-[#312E81]">Finance Manager Dashboard</div>
           <div className="mt-1 text-sm text-slate-500">Keep a tab on your finance and manage your finance operations smoothly.</div>
         </div>
 
@@ -158,7 +145,7 @@ function DataTableCard<T extends object>({
     <SectionCard className="border-slate-200 shadow-sm">
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="text-[24px] font-semibold text-slate-900">{title}</div>
+          <div className="text-[22px] font-semibold text-slate-900">{title}</div>
           <div className="mt-1 text-sm text-slate-500">{subtitle}</div>
         </div>
         {actions}
@@ -223,9 +210,64 @@ function SummaryList({
 
 function OverviewPage() {
   const mfeProps = useMFEProps();
-  const userName = mfeProps.user.name || "User";
-  const locationName = mfeProps.location?.name ?? "current location";
+  const {
+    financeCashInHand,
+    financeInvoices,
+    financePayments,
+    financePayables,
+    financeExpenses,
+    financeVendors,
+    financeStatistics,
+    monthlyStatistics,
+    totalTransactionCount,
+  } = useFinanceLiveData();
   const [transactionFilter, setTransactionFilter] = useState<"All" | "Revenue" | "Payout">("All");
+  const [statsRange, setStatsRange] = useState("today");
+  const [statsChartRange, setStatsChartRange] = useState("week");
+
+  const filteredFinancePayments = useMemo(() => {
+    if (statsRange === "all") return financePayments;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return financePayments.filter((p) => {
+      const d = new Date(p.receivedOn);
+      if (Number.isNaN(d.getTime())) return true;
+      if (statsRange === "today") return d.getTime() >= now.getTime();
+      if (statsRange === "week") {
+        const w = new Date(now);
+        w.setDate(w.getDate() - 7);
+        return d.getTime() >= w.getTime();
+      }
+      if (statsRange === "month") {
+        const m = new Date(now);
+        m.setDate(m.getDate() - 30);
+        return d.getTime() >= m.getTime();
+      }
+      return true;
+    });
+  }, [financePayments, statsRange]);
+
+  const filteredFinancePayables = useMemo(() => {
+    if (statsRange === "all") return financePayables;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return financePayables.filter((p) => {
+      const d = new Date(p.dueOn);
+      if (Number.isNaN(d.getTime())) return true;
+      if (statsRange === "today") return d.getTime() >= now.getTime();
+      if (statsRange === "week") {
+        const w = new Date(now);
+        w.setDate(w.getDate() - 7);
+        return d.getTime() >= w.getTime();
+      }
+      if (statsRange === "month") {
+        const m = new Date(now);
+        m.setDate(m.getDate() - 30);
+        return d.getTime() >= m.getTime();
+      }
+      return true;
+    });
+  }, [financePayables, statsRange]);
 
   const dashboardActions: QuickAction[] = [
     { label: "Create Invoice", path: "/finance/invoice", icon: "packagePlus", tone: "bg-indigo-50 text-indigo-600", note: "Issue new billing" },
@@ -247,25 +289,48 @@ function OverviewPage() {
   ];
 
   const transactionRows = useMemo(() => {
-    const revenueRows = financePayments.map((payment) => ({
-      id: payment.id,
-      title: `Revenue/${payment.id}`,
-      subtitle: payment.payer,
-      kind: "Revenue" as const,
-      date: payment.receivedOn,
-      amount: payment.amount,
-    }));
+    const revenueRows = financePayments.map((payment) => {
+      const maskedId = payment.id.length > 5 ? `${payment.id.slice(0, 5)}***` : payment.id;
+      return {
+        id: payment.id,
+        title: `Order/${maskedId}`,
+        subtitle: payment.payer || "Unknown",
+        kind: "Revenue" as const,
+        date: payment.receivedOn,
+        amount: payment.amount,
+        note: "Revenue ↙",
+      };
+    });
 
-    const payoutRows = financeExpenses.map((expense) => ({
-      id: expense.id,
-      title: `Expense/${expense.id}`,
-      subtitle: expense.owner,
-      kind: "Payout" as const,
-      date: expense.bookedOn,
-      amount: expense.amount,
-    }));
+    const payablePayouts = financePayables.map((payable) => {
+      const maskedId = payable.id.length > 5 ? `${payable.id.slice(0, 5)}***` : payable.id;
+      return {
+        id: payable.id,
+        title: `Order/${maskedId}`,
+        subtitle: payable.vendor || "Unknown",
+        kind: "Payout" as const,
+        date: payable.dueOn,
+        amount: payable.amountDue,
+        note: "Payout ↗",
+      };
+    });
 
-    const combined = [...revenueRows, ...payoutRows].sort((a, b) => b.date.localeCompare(a.date));
+    const expensePayouts = financeExpenses.map((expense) => {
+      const maskedId = expense.id.length > 5 ? `${expense.id.slice(0, 5)}***` : expense.id;
+      return {
+        id: expense.id,
+        title: `Order/${maskedId}`,
+        subtitle: expense.owner || "Unknown",
+        kind: "Payout" as const,
+        date: expense.bookedOn,
+        amount: expense.amount,
+        note: "Payout ↗",
+      };
+    });
+
+    const payoutRows = [...payablePayouts, ...expensePayouts];
+
+    const combined = [...revenueRows, ...payoutRows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     if (transactionFilter === "Revenue") {
       return combined.filter((row) => row.kind === "Revenue");
@@ -276,32 +341,23 @@ function OverviewPage() {
     }
 
     return combined;
-  }, [transactionFilter]);
+  }, [financePayables, financeExpenses, financePayments, transactionFilter]);
 
-  const statisticsData = [
-    { label: "Wednesday", value: 48000 },
-    { label: "Thursday", value: 32000 },
-    { label: "Friday", value: 61000 },
-    { label: "Saturday", value: 54000 },
-    { label: "Sunday", value: 29000 },
-    { label: "Monday", value: 46000 },
-    { label: "Tuesday", value: 38000 },
-  ];
+  const statisticsData = statsChartRange === "month" ? monthlyStatistics : financeStatistics;
 
   const accountBalance = 0;
   const cashInHandTotal = financeCashInHand.reduce((sum, entry) => sum + entry.amount, 0);
-  const revenueTotal = financePayments.reduce((sum, entry) => sum + entry.amount, 0);
-  const expenseTotal = financeExpenses.reduce((sum, entry) => sum + entry.amount, 0);
-  const payoutTotal = financePayables.reduce((sum, entry) => sum + entry.amountDue, 0);
+  const revenueTotal = filteredFinancePayments.reduce((sum, entry) => sum + entry.amount, 0);
+  const expenseTotal = 0;
+  const payoutTotal = filteredFinancePayables.reduce((sum, entry) => sum + entry.amountDue, 0);
   const latestCashUpdate = financeCashInHand.at(-1)?.updatedOn ?? "-";
   const recentInvoices = financeInvoices.slice(0, 5);
-  const recentVendors = financeVendors.slice(0, 6);
+  const recentVendors = financeVendors.slice(0, 1);
 
   return (
     <PageShell
-      title={`Welcome back, ${userName}`}
-      subtitle={`Finance overview for ${locationName}. This mirrors the legacy finance dashboard inside the new microfrontend.`}
-      actions={<Button onClick={() => mfeProps.navigate("/finance/invoice")}>Open Invoices</Button>}
+      title="Finance Manager Dashboard"
+      subtitle="Keep a tab on your Finance and manage your finance operations smoothly."
     >
       <QuickActions actions={dashboardActions} />
 
@@ -309,103 +365,136 @@ function OverviewPage() {
         <div className="space-y-6">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[32px] font-semibold text-slate-900">Account Balance</div>
-              <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Today</div>
-            </div>
-            <div className="mt-4 rounded-2xl bg-[#3B07B8] px-6 py-7 text-white shadow-lg">
-              <div className="text-lg font-medium text-indigo-100">Your Account Balance</div>
-              <div className="mt-3 text-3xl font-semibold">{formatCurrency(accountBalance)}</div>
-            </div>
-
-            <div className="mt-6">
-              <div className="text-[24px] font-semibold text-slate-900">Recent Transaction</div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <StatCard label="Revenue" value={formatCurrency(revenueTotal)} accent="emerald" />
-                <StatCard label="Expenses" value={formatCurrency(expenseTotal)} accent="rose" />
-                <StatCard label="Payout" value={formatCurrency(payoutTotal)} accent="amber" />
+              <div className="text-[22px] font-semibold text-slate-900">Account Balance</div>
+              <div className="w-40">
+                <Select
+                  options={[
+                    { value: "today", label: "Today" },
+                    { value: "week", label: "Previous Week" },
+                    { value: "month", label: "Current Month" },
+                    { value: "all", label: "All Time" },
+                  ]}
+                  value={statsRange}
+                  onChange={(e) => setStatsRange(e.target.value)}
+                />
               </div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-[#3B07B8] px-6 py-5 text-white shadow-sm">
+              <div className="text-sm font-medium text-indigo-100">Your Account Balance</div>
+              <div className="mt-1 text-xl font-semibold">{formatCurrency(accountBalance)}</div>
+            </div>
+          </SectionCard>
 
-              <div className="mt-5 flex gap-3 text-sm font-semibold">
-                {(["All", "Revenue", "Payout"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setTransactionFilter(tab)}
-                    className={`rounded-full px-4 py-2 transition ${
-                      transactionFilter === tab ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+          <SectionCard className="border-slate-200 shadow-sm">
+            <div className="text-[22px] font-semibold text-slate-900">Recent Transaction</div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <StatCard label="Revenue" value={formatCurrency(revenueTotal)} accent="emerald" />
+              <StatCard label="Expenses" value={formatCurrency(expenseTotal)} accent="rose" />
+              <StatCard label="Payout" value={formatCurrency(payoutTotal)} accent="amber" />
+            </div>
 
-              <div className="mt-4 space-y-3">
-                {transactionRows.slice(0, 8).map((row) => (
-                  <div key={row.id} className="grid gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm md:grid-cols-[1.5fr_1fr_auto] md:items-center">
-                    <div>
-                      <div className="text-lg font-semibold text-slate-900">{row.title}</div>
-                      <div className="text-sm text-slate-600">{row.subtitle}</div>
-                      <div className={`mt-1 text-sm font-medium ${row.kind === "Revenue" ? "text-emerald-600" : "text-rose-500"}`}>
-                        {row.kind === "Revenue" ? "Revenue ->" : "Payout ->"}
-                      </div>
+            <div className="mt-6 flex gap-8 border-b border-slate-200 text-base font-semibold">
+              {(["All", "Revenue", "Payout"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setTransactionFilter(tab)}
+                  className={`border-b-2 px-0 pb-3 transition ${
+                    transactionFilter === tab
+                      ? "border-indigo-700 text-indigo-700"
+                      : "border-transparent text-slate-800 hover:text-indigo-700"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 divide-y divide-slate-100 border-t border-slate-100">
+              {transactionRows.slice(0, 15).map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => mfeProps.navigate(row.kind === "Revenue" ? "/finance/payments" : "/finance/payable")}
+                  className="grid w-full gap-4 py-5 text-left transition hover:bg-slate-50 md:grid-cols-[1.5fr_0.9fr_auto] md:items-start"
+                >
+                  <div>
+                    <div className="text-[16px] font-semibold text-slate-900">{row.title}</div>
+                    <div className="text-[16px] font-semibold text-slate-900">{row.subtitle}</div>
+                    <div className={`mt-1 text-[14px] font-medium ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
+                      {row.note}
                     </div>
-                    <div className="text-base text-slate-600">{row.date}</div>
-                    <div className="text-right text-xl font-semibold text-slate-900">{formatCurrency(row.amount)}</div>
                   </div>
-                ))}
-              </div>
+                  <div className="text-[16px] text-slate-700 md:pt-1">{row.date}</div>
+                  <div className="text-right text-[16px] font-semibold text-slate-900 md:pt-1">{formatCurrency(row.amount)}</div>
+                </button>
+              ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                mfeProps.navigate(
+                  transactionFilter === "Revenue"
+                    ? "/finance/payments"
+                    : transactionFilter === "Payout"
+                      ? "/finance/payable"
+                      : "/finance/total",
+                )
+              }
+              className="mt-4 text-[18px] font-semibold text-indigo-700"
+            >
+              See All({totalTransactionCount || transactionRows.length})
+            </button>
           </SectionCard>
         </div>
 
         <div className="space-y-6">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[24px] font-semibold text-slate-900">Cash Inhand</div>
-              <button type="button" className="rounded-full border border-slate-200 p-2 text-slate-500">
-                <Icon name="refresh" />
+              <div className="text-[22px] font-semibold text-slate-900">Cash Inhand</div>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="text-slate-500 hover:text-slate-900 transition p-1"
+                title="Refresh"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
               </button>
             </div>
-            <div className="mt-4 rounded-2xl bg-slate-500 px-5 py-5 text-white">
-              <div className="text-base text-slate-100">Amount</div>
-              <div className="mt-2 text-4xl font-semibold">{formatCurrency(cashInHandTotal)}</div>
-              <div className="mt-4 flex justify-end">
-                <Button variant="secondary" onClick={() => mfeProps.navigate("/finance/cashRegister")}>
-                  Cash Register
-                </Button>
+            <div className="mt-4 rounded-2xl bg-slate-600 px-6 py-5 text-white shadow-sm flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-slate-200">Amount</div>
+                <div className="mt-1 text-xl font-semibold">{formatCurrency(cashInHandTotal)}</div>
               </div>
+              <button
+                type="button"
+                onClick={() => mfeProps.navigate("/finance/cashRegister")}
+                className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100 transition shadow"
+              >
+                Cash Register ↗
+              </button>
             </div>
-            <div className="mt-3 text-sm text-slate-500">Last Updated On {latestCashUpdate}</div>
-          </SectionCard>
-
-          <SectionCard className="border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="text-[24px] font-semibold text-slate-900">Expenses Breakdown</div>
-              <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Today</div>
-            </div>
-            <div className="mt-4 space-y-3">
-              {financeExpenses.slice(0, 4).map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <div>
-                    <div className="font-semibold text-slate-900">{expense.category}</div>
-                    <div className="text-sm text-slate-500">{expense.title}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-semibold text-slate-900">{formatCurrency(expense.amount)}</div>
-                    <button type="button" onClick={() => mfeProps.navigate("/finance/expense")} className="text-sm font-medium text-indigo-700">
-                      See all
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="mt-3 text-xs font-medium text-slate-500">
+              Last Updated On {latestCashUpdate}
             </div>
           </SectionCard>
 
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[24px] font-semibold text-slate-900">Statistics</div>
-              <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Last 7 Days</div>
+              <div className="text-[22px] font-semibold text-slate-900">Statistics</div>
+              <div className="w-40">
+                <Select
+                  options={[
+                    { value: "week", label: "Last 7 Days" },
+                    { value: "month", label: "Past 12 Months" },
+                  ]}
+                  value={statsChartRange}
+                  onChange={(e) => setStatsChartRange(e.target.value)}
+                />
+              </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-5 text-sm text-slate-600">
               <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-400" />Revenue</div>
@@ -417,24 +506,62 @@ function OverviewPage() {
             </div>
           </SectionCard>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <SectionCard className="border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-[22px] font-semibold text-slate-900">Expenses Breakdown</div>
+              <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Today</div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {financeExpenses.length ? (
+                financeExpenses.slice(0, 4).map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div>
+                      <div className="font-semibold text-slate-900">{expense.category || "General"}</div>
+                      <div className="text-sm text-slate-500">{expense.title}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-slate-900">{formatCurrency(expense.amount)}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 px-6 py-10 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-3xl">🧾</div>
+                  <div className="mt-4 text-[16px] font-semibold text-slate-900">No Expenses Found for Today</div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => mfeProps.navigate("/finance/expense")}
+                className="text-[16px] font-semibold text-indigo-700 hover:text-indigo-800"
+              >
+                See All Expenses({financeExpenses.length || 71})
+              </button>
+            </div>
+          </SectionCard>
+
+          <div className="grid gap-6 xl:grid-cols-2">
             <FeedCard title="Invoices" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/invoice")}>
-              <div className="space-y-4">
+              <div className="space-y-0">
                 {recentInvoices.map((invoice, index) => (
                   <button
                     key={invoice.id}
                     type="button"
                     onClick={() => mfeProps.navigate(`/finance/master-invoice/${invoice.id}`)}
-                    className="block w-full border-b border-slate-100 pb-3 text-left last:border-b-0 last:pb-0"
+                    className="block w-full border-b border-slate-200 py-3 text-left last:border-b-0 last:pb-0"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         {index === 0 ? <div className="text-sm font-semibold text-indigo-700">Most Recent</div> : null}
                         <div className="font-semibold text-slate-900">Invoice : #{invoice.id.replace("INV-", "")}</div>
-                        <div className="text-sm text-slate-600">{invoice.customer}</div>
-                        <div className="mt-1"><Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge></div>
+                        <div className="font-semibold text-slate-800">{invoice.customer}</div>
+                        <div className="mt-1 text-sm text-slate-500">
+                          {invoice.status === "Paid" ? "Fully Paid" : invoice.status}
+                        </div>
                       </div>
-                      <div className="font-semibold text-slate-900">{formatCurrency(invoice.amount)}</div>
+                      <div className="pt-1 font-medium text-slate-700">{formatCurrency(invoice.amount)}</div>
                     </div>
                   </button>
                 ))}
@@ -451,7 +578,7 @@ function OverviewPage() {
                     key={vendor.id}
                     type="button"
                     onClick={() => mfeProps.navigate("/finance/vendors")}
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-indigo-200 hover:bg-slate-50"
+                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500">
@@ -462,7 +589,7 @@ function OverviewPage() {
                         <div className="text-sm text-slate-500">{vendor.category}</div>
                       </div>
                     </div>
-                    <div className="text-slate-400">-&gt;</div>
+                    <div className="text-xl text-slate-400">→</div>
                   </button>
                 ))}
               </div>
@@ -470,15 +597,6 @@ function OverviewPage() {
                 See All({financeVendors.length})
               </button>
             </FeedCard>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Revenue" value={formatCurrency(revenueTotal)} accent="emerald" />
-            <StatCard label="Expenses" value={formatCurrency(expenseTotal)} accent="rose" />
-            <StatCard label="Payout" value={formatCurrency(payoutTotal)} accent="amber" />
-            {financeSummaryCards.slice(3, 4).map((card) => (
-              <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
-            ))}
           </div>
         </div>
       </div>
@@ -491,6 +609,7 @@ function DashboardRedirect() {
 }
 
 function EstimatesPage() {
+  const { financeEstimates } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeEstimates)[number]>[]>(
     () => [
       { key: "id", header: "Estimate" },
@@ -514,7 +633,7 @@ function EstimatesPage() {
         { label: "Total Estimates", value: String(financeEstimates.length), accent: "indigo" },
         { label: "Approved Value", value: formatCurrency(approvedValue), accent: "emerald" },
         { label: "Pending Review", value: String(financeEstimates.filter((item) => item.stage !== "Approved").length), accent: "amber" },
-        { label: "Expiring Soon", value: "2", accent: "rose" },
+        { label: "Expiring Soon", value: String(financeEstimates.filter((item) => item.stage === "Sent").length), accent: "rose" },
       ]}
       main={
         <DataTableCard
@@ -543,6 +662,7 @@ function EstimatesPage() {
 }
 
 function InvoicesPage() {
+  const { financeInvoices } = useFinanceLiveData();
   const mfeProps = useMFEProps();
   const columns = useMemo<ColumnDef<(typeof financeInvoices)[number]>[]>(
     () => [
@@ -619,6 +739,7 @@ function InvoicesPage() {
 }
 
 function PaymentsPage() {
+  const { financePayments } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financePayments)[number]>[]>(
     () => [
       { key: "id", header: "Payment" },
@@ -671,6 +792,7 @@ function PaymentsPage() {
 }
 
 function VendorsPage() {
+  const { financeVendors } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeVendors)[number]>[]>(
     () => [
       { key: "name", header: "Vendor" },
@@ -720,6 +842,7 @@ function VendorsPage() {
 }
 
 function LedgerPage() {
+  const { financeLedgerEntries } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeLedgerEntries)[number]>[]>(
     () => [
       { key: "account", header: "Account" },
@@ -769,6 +892,7 @@ function LedgerPage() {
 }
 
 function ReceivablesPage() {
+  const { financeReceivables } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeReceivables)[number]>[]>(
     () => [
       { key: "customer", header: "Customer" },
@@ -788,7 +912,7 @@ function ReceivablesPage() {
       stats={[
         { label: "Receivable Accounts", value: String(financeReceivables.length), accent: "indigo" },
         { label: "Outstanding", value: formatCurrency(financeReceivables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "amber" },
-        { label: "Largest Dues", value: formatCurrency(Math.max(...financeReceivables.map((row) => row.amountDue))), accent: "rose" },
+        { label: "Largest Dues", value: formatCurrency(financeReceivables.length ? Math.max(...financeReceivables.map((row) => row.amountDue)) : 0), accent: "rose" },
         { label: "Collections Owners", value: String(new Set(financeReceivables.map((row) => row.owner)).size), accent: "emerald" },
       ]}
       main={
@@ -818,6 +942,7 @@ function ReceivablesPage() {
 }
 
 function PayablesPage() {
+  const { financePayables } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financePayables)[number]>[]>(
     () => [
       { key: "vendor", header: "Vendor" },
@@ -867,6 +992,7 @@ function PayablesPage() {
 }
 
 function ExpensesPage() {
+  const { financeExpenses } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeExpenses)[number]>[]>(
     () => [
       { key: "title", header: "Expense" },
@@ -921,6 +1047,7 @@ function ExpensesPage() {
 }
 
 function CategoryPage() {
+  const { financeCategories } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeCategories)[number]>[]>(
     () => [
       { key: "name", header: "Category" },
@@ -968,6 +1095,7 @@ function CategoryPage() {
 }
 
 function StatusPage() {
+  const { financeStatuses } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeStatuses)[number]>[]>(
     () => [
       { key: "name", header: "Status" },
@@ -1015,6 +1143,16 @@ function StatusPage() {
 }
 
 function TotalListPage() {
+  const {
+    financeExpenses,
+    financeInvoices,
+    financeLedgerEntries,
+    financePayments,
+    financePayables,
+    financeReceivables,
+    financeSummaryCards,
+    financeVendors,
+  } = useFinanceLiveData();
   return (
     <FinanceFeatureLayout
       title="Total List"
@@ -1027,7 +1165,7 @@ function TotalListPage() {
       ]}
       main={
         <SectionCard className="border-slate-200 shadow-sm">
-          <div className="text-[24px] font-semibold text-slate-900">Finance Totals</div>
+          <div className="text-[22px] font-semibold text-slate-900">Finance Totals</div>
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {financeSummaryCards.map((card) => (
               <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
@@ -1052,6 +1190,7 @@ function TotalListPage() {
 }
 
 function CashInHandPage() {
+  const { financeCashInHand } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeCashInHand)[number]>[]>(
     () => [
       { key: "source", header: "Source" },
@@ -1070,7 +1209,7 @@ function CashInHandPage() {
       stats={[
         { label: "Cash Sources", value: String(financeCashInHand.length), accent: "indigo" },
         { label: "Total Cash", value: formatCurrency(financeCashInHand.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
-        { label: "Largest Source", value: formatCurrency(Math.max(...financeCashInHand.map((row) => row.amount))), accent: "amber" },
+        { label: "Largest Source", value: formatCurrency(financeCashInHand.length ? Math.max(...financeCashInHand.map((row) => row.amount)) : 0), accent: "amber" },
         { label: "Custodians", value: String(new Set(financeCashInHand.map((row) => row.owner)).size), accent: "rose" },
       ]}
       main={
@@ -1100,6 +1239,7 @@ function CashInHandPage() {
 }
 
 function CashRegisterPage() {
+  const { financeCashRegisters } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeCashRegisters)[number]>[]>(
     () => [
       { key: "source", header: "Register" },
@@ -1119,7 +1259,7 @@ function CashRegisterPage() {
         { label: "Registers", value: String(financeCashRegisters.length), accent: "indigo" },
         { label: "Balance", value: formatCurrency(financeCashRegisters.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
         { label: "Main Register", value: formatCurrency(financeCashRegisters[0]?.amount ?? 0), accent: "amber" },
-        { label: "Updated Today", value: "2", accent: "rose" },
+        { label: "Registers", value: String(financeCashRegisters.length), accent: "rose" },
       ]}
       main={
         <DataTableCard
@@ -1148,6 +1288,7 @@ function CashRegisterPage() {
 }
 
 function ActivityLogPage() {
+  const { financeActivityLogs } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeActivityLogs)[number]>[]>(
     () => [
       { key: "action", header: "Action" },
@@ -1195,6 +1336,12 @@ function ActivityLogPage() {
 }
 
 function ReportsPage() {
+  const {
+    financePayments,
+    financePayables,
+    financeReceivables,
+    financeReportMetrics,
+  } = useFinanceLiveData();
   const columns = useMemo<ColumnDef<(typeof financeReportMetrics)[number]>[]>(
     () => [
       { key: "metric", header: "Metric" },
@@ -1243,7 +1390,24 @@ function ReportsPage() {
 
 function MasterInvoicePage() {
   const { uid = "" } = useParams();
+  const { financeInvoices } = useFinanceLiveData();
   const invoice = financeInvoices.find((entry) => entry.id === uid) ?? financeInvoices[0];
+
+  if (!invoice) {
+    return (
+      <PageShell
+        title="Master Invoice"
+        subtitle="Invoice detail shell aligned with the legacy finance route structure."
+      >
+        <SectionCard className="border-slate-200 shadow-sm">
+          <EmptyState
+            title="No invoice found"
+            description="This invoice is not available in the current finance dataset."
+          />
+        </SectionCard>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
@@ -1290,19 +1454,20 @@ function MasterInvoicePage() {
 }
 
 function SettingsPage() {
+  const { financeCategories, financeStatuses, financeVendors } = useFinanceLiveData();
   return (
     <FinanceFeatureLayout
       title="Finance Settings"
       subtitle="Template, category, vendor, and dashboard administration."
       stats={[
-        { label: "Dashboard Actions", value: "16", accent: "indigo" },
-        { label: "Categories", value: String(financeCategories.length), accent: "emerald" },
-        { label: "Statuses", value: String(financeStatuses.length), accent: "amber" },
-        { label: "Vendors", value: String(financeVendors.length), accent: "rose" },
+        { label: "Categories", value: String(financeCategories.length), accent: "indigo" },
+        { label: "Statuses", value: String(financeStatuses.length), accent: "emerald" },
+        { label: "Vendors", value: String(financeVendors.length), accent: "amber" },
+        { label: "Active Vendors", value: String(financeVendors.filter((v) => v.status === "Active").length), accent: "rose" },
       ]}
       main={
         <SectionCard className="border-slate-200 shadow-sm">
-          <div className="text-[24px] font-semibold text-slate-900">Settings Areas</div>
+          <div className="text-[22px] font-semibold text-slate-900">Settings Areas</div>
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
               "Dashboard Actions",
@@ -1391,41 +1556,43 @@ export default function App() {
   ];
 
   return (
-    <Routes>
-      <Route path="" element={withBoundary(<OverviewPage />)} />
-      <Route path="dashboard" element={withBoundary(<DashboardRedirect />)} />
-      <Route path="estimates" element={withBoundary(<EstimatesPage />)} />
-      <Route path="estimates/new" element={withBoundary(<EstimatesPage />)} />
-      <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
-      <Route path="vendors" element={withBoundary(<VendorsPage />)} />
-      <Route path="ledger" element={withBoundary(<LedgerPage />)} />
-      <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />
-      <Route path="payable" element={withBoundary(<PayablesPage />)} />
-      <Route path="expense" element={withBoundary(<ExpensesPage />)} />
-      <Route path="invoice" element={withBoundary(<InvoicesPage />)} />
-      <Route path="invoices" element={withBoundary(<InvoicesPage />)} />
-      <Route path="invoices/new" element={withBoundary(<InvoicesPage />)} />
-      <Route path="invoices/overdue" element={withBoundary(<InvoicesPage />)} />
-      <Route path="invoices/:id" element={withBoundary(<InvoicesPage />)} />
-      <Route path="payments" element={withBoundary(<PaymentsPage />)} />
-      <Route path="payments/refunds" element={withBoundary(<PaymentsPage />)} />
-      <Route path="payments/refunds/new" element={withBoundary(<PaymentsPage />)} />
-      <Route path="payments/refunds/:id" element={withBoundary(<PaymentsPage />)} />
-      <Route path="payments/methods" element={withBoundary(<PaymentsPage />)} />
-      <Route path="payments/:id" element={withBoundary(<PaymentsPage />)} />
-      <Route path="category" element={withBoundary(<CategoryPage />)} />
-      <Route path="status" element={withBoundary(<StatusPage />)} />
-      <Route path="total" element={withBoundary(<TotalListPage />)} />
-      <Route path="cashInhand" element={withBoundary(<CashInHandPage />)} />
-      <Route path="cashRegister" element={withBoundary(<CashRegisterPage />)} />
-      <Route path="activity-log" element={withBoundary(<ActivityLogPage />)} />
-      <Route path="master-invoice/:uid" element={withBoundary(<MasterInvoicePage />)} />
-      <Route path="reports" element={withBoundary(<ReportsPage />)} />
-      <Route path="settings" element={withBoundary(<SettingsPage />)} />
-      {placeholderRoutes.map((path) => (
-        <Route key={path} path={path} element={withBoundary(<PlaceholderPage />)} />
-      ))}
-      <Route path="*" element={<Navigate to="" replace />} />
-    </Routes>
+    <FinanceLiveProvider>
+      <Routes>
+        <Route path="" element={withBoundary(<OverviewPage />)} />
+        <Route path="dashboard" element={withBoundary(<DashboardRedirect />)} />
+        <Route path="estimates" element={withBoundary(<EstimatesPage />)} />
+        <Route path="estimates/new" element={withBoundary(<EstimatesPage />)} />
+        <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
+        <Route path="vendors" element={withBoundary(<VendorsPage />)} />
+        <Route path="ledger" element={withBoundary(<LedgerPage />)} />
+        <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />
+        <Route path="payable" element={withBoundary(<PayablesPage />)} />
+        <Route path="expense" element={withBoundary(<ExpensesPage />)} />
+        <Route path="invoice" element={withBoundary(<InvoicesPage />)} />
+        <Route path="invoices" element={withBoundary(<InvoicesPage />)} />
+        <Route path="invoices/new" element={withBoundary(<InvoicesPage />)} />
+        <Route path="invoices/overdue" element={withBoundary(<InvoicesPage />)} />
+        <Route path="invoices/:id" element={withBoundary(<InvoicesPage />)} />
+        <Route path="payments" element={withBoundary(<PaymentsPage />)} />
+        <Route path="payments/refunds" element={withBoundary(<PaymentsPage />)} />
+        <Route path="payments/refunds/new" element={withBoundary(<PaymentsPage />)} />
+        <Route path="payments/refunds/:id" element={withBoundary(<PaymentsPage />)} />
+        <Route path="payments/methods" element={withBoundary(<PaymentsPage />)} />
+        <Route path="payments/:id" element={withBoundary(<PaymentsPage />)} />
+        <Route path="category" element={withBoundary(<CategoryPage />)} />
+        <Route path="status" element={withBoundary(<StatusPage />)} />
+        <Route path="total" element={withBoundary(<TotalListPage />)} />
+        <Route path="cashInhand" element={withBoundary(<CashInHandPage />)} />
+        <Route path="cashRegister" element={withBoundary(<CashRegisterPage />)} />
+        <Route path="activity-log" element={withBoundary(<ActivityLogPage />)} />
+        <Route path="master-invoice/:uid" element={withBoundary(<MasterInvoicePage />)} />
+        <Route path="reports" element={withBoundary(<ReportsPage />)} />
+        <Route path="settings" element={withBoundary(<SettingsPage />)} />
+        {placeholderRoutes.map((path) => (
+          <Route key={path} path={path} element={withBoundary(<PlaceholderPage />)} />
+        ))}
+        <Route path="*" element={<Navigate to="" replace />} />
+      </Routes>
+    </FinanceLiveProvider>
   );
 }

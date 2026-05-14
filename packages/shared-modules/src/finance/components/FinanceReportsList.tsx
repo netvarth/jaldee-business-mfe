@@ -6,14 +6,13 @@ import type { FinanceReportRow } from "../types";
 import { SharedFinanceLayout } from "./shared";
 
 export function FinanceReportsList() {
-  const datasetQuery = useFinanceDataset();
-  const dataset = datasetQuery.data;
+  const { data: dataset, isLoading, isError } = useFinanceDataset();
 
   const columns = useMemo<ColumnDef<FinanceReportRow>[]>(
     () => [
-      { key: "metric", header: "Metric" },
-      { key: "value", header: "Value" },
-      { key: "note", header: "Notes" },
+      { key: "metric", header: "Metric", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5" },
+      { key: "value", header: "Value", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5" },
+      { key: "note", header: "Notes", headerClassName: "text-sm font-semibold text-slate-900", className: "py-5" },
     ],
     []
   );
@@ -23,13 +22,20 @@ export function FinanceReportsList() {
       title={`${dataset?.title ?? "Finance"} Reports`}
       subtitle="Operational finance indicators for the active product."
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <DataTable
-          data={dataset?.reports ?? []}
-          columns={columns}
-          getRowId={(row) => row.id}
-          emptyState={<EmptyState title="No report data" description="Report metrics will appear here." />}
-        />
+      <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+        {isError ? (
+          <div className="p-6">
+            <EmptyState title="Reports unavailable" description="Finance report metrics could not be loaded right now." />
+          </div>
+        ) : (
+          <DataTable
+            data={dataset?.reports ?? []}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={isLoading}
+            emptyState={<EmptyState title="No report data" description="Report metrics will appear here." />}
+          />
+        )}
       </SectionCard>
     </SharedFinanceLayout>
   );

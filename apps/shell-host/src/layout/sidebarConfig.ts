@@ -161,7 +161,19 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "karty-stores", label: "Stores", icon: "\u{1F3EC}", path: "/karty/stores" },
     { id: "karty-customers", label: "Customers", icon: "\u{1F464}", path: "/karty/customers" },
     { id: "karty-users", label: "Users", icon: "\u{1F465}", path: "/karty/users" },
-    { id: "karty-finance", label: "Finance", icon: "\u{1F4B3}", path: "/karty/finance" },
+    {
+      id: "karty-finance",
+      label: "Finance",
+      icon: "\u{1F4B3}",
+      path: "/karty/finance",
+      children: [
+        { id: "karty-finance-overview", label: "Overview", icon: "", path: "/karty/finance" },
+        { id: "karty-finance-invoices", label: "Invoices", icon: "", path: "/karty/finance/invoices" },
+        { id: "karty-finance-payments", label: "Payments", icon: "", path: "/karty/finance/payments" },
+        { id: "karty-finance-reports", label: "Reports", icon: "", path: "/karty/finance/reports" },
+        { id: "karty-finance-settings", label: "Settings", icon: "", path: "/karty/finance/settings" },
+      ],
+    },
     { id: "karty-reports", label: "Reports", icon: "\u{1F4CA}", path: "/karty/reports" },
     {
       id: "karty-drive",
