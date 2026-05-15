@@ -5,6 +5,7 @@ import { FinanceActivityLogList } from "./components/FinanceActivityLogList";
 import { FinanceInvoiceCreate } from "./components/FinanceInvoiceCreate";
 import { FinanceInvoicesList } from "./components/FinanceInvoicesList";
 import { FinanceExpensesList } from "./components/FinanceExpensesList";
+import { FinancePayoutsList } from "./components/FinancePayoutsList";
 import { FinanceOverview } from "./components/FinanceOverview";
 import { FinancePaymentsList } from "./components/FinancePaymentsList";
 import { FinanceReceivablesList } from "./components/FinanceReceivablesList";
@@ -62,6 +63,10 @@ export function FinanceModule() {
 
   if ((view === "payout" || view === "payable") && routeParams?.subview === "create") {
     return <FinanceMoneyCreate kind="payout" />;
+  }
+
+  if (view === "payout" || view === "payable") {
+    return <FinancePayoutsList />;
   }
 
   if (view === "payments") {

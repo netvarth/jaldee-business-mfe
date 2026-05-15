@@ -353,6 +353,7 @@ export function buildFinanceActions(productBasePath: string): FinanceQuickAction
     { label: "Expenses", route: `${productBasePath}/expense`, icon: "alert", note: "Monitor spends", tone: "" },
     { label: "Revenue", route: `${productBasePath}/receivables`, icon: "trend", note: "Review inflows", tone: "" },
     { label: "Vendors", route: `${productBasePath}/vendors`, icon: "globe", note: "Vendor directory", tone: "" },
+    { label: "Payouts", route: `${productBasePath}/payout`, icon: "history", note: "Track payouts", tone: "" },
     { label: "Reports", route: `${productBasePath}/reports`, icon: "chart", note: "Track trends", tone: "" },
     { label: "Activity Log", route: `${productBasePath}/activity-log`, icon: "history", note: "Audit trail", tone: "" },
   ];

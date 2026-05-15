@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Button, EmptyState, Icon, Input, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import { Button, Dialog, DialogFooter, EmptyState, Icon, Input, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
-import { useCreateFinanceInvoice, useFinanceInvoiceCategories } from "../queries/finance";
+import { useCreateFinanceCategory, useCreateFinanceInvoice, useFinanceInvoiceCategories } from "../queries/finance";
 import { SharedFinanceLayout } from "./shared";
 
 function todayIsoDate() {
@@ -36,6 +36,10 @@ export function FinanceInvoiceCreate() {
   const [items, setItems] = useState<Array<{ id: string; name: string; quantity: string; price: string }>>([]);
   const [formError, setFormError] = useState("");
 
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const createCategory = useCreateFinanceCategory();
+
   useEffect(() => {
     if (!categoryId && categories.length > 0) {
       const financeCat = categories.find(c => c.name.toLowerCase() === "finance") || categories[0];
@@ -61,6 +65,28 @@ export function FinanceInvoiceCreate() {
 
   const handleRemoveItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+
+    try {
+      const result = await createCategory.mutateAsync({
+        name: newCategoryName.trim(),
+        categoryType: "Invoice",
+        status: "Enable",
+      });
+      
+      const newId = (result as any)?.id || (result as any)?.uid;
+      if (newId) {
+        setCategoryId(newId);
+      }
+      
+      setNewCategoryName("");
+      setIsCategoryModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create category:", error);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -120,7 +146,7 @@ export function FinanceInvoiceCreate() {
                 placeholder="Enter Name or Phone or Email or Id"
                 value={customerSearch}
                 onChange={(event) => setCustomerSearch(event.target.value)}
-                className="pl-4 h-12 text-slate-600 bg-slate-50 border-slate-200"
+                className="h-12 text-slate-600 bg-slate-50 border-slate-200"
                 icon={<Icon name="search" className="h-5 w-5 text-slate-400" />}
               />
             </div>
@@ -133,14 +159,21 @@ export function FinanceInvoiceCreate() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-bold text-slate-700">Invoice Category</label>
-                <div className="flex gap-2">
+                <div className="flex items-center">
                   <Select
                     value={categoryId}
                     onChange={(event) => setCategoryId(event.target.value)}
-                    className="flex-1"
+                    containerClassName="flex-1"
+                    className="rounded-r-none border-r-0 h-[38px]"
                     options={categories.map((category) => ({ value: category.id, label: category.name }))}
                   />
-                  <Button type="button" variant="ghost" size="sm" className="bg-indigo-900 text-white h-10 w-10 p-0 rounded" icon={<span className="text-xl">+</span>} />
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="bg-indigo-900 text-white h-[38px] w-10 p-0 rounded-l-none shrink-0" 
+                    icon={<span className="text-xl">+</span>} 
+                    onClick={() => setIsCategoryModalOpen(true)}
+                  />
                 </div>
               </div>
 
@@ -262,6 +295,50 @@ export function FinanceInvoiceCreate() {
           </form>
         )}
       </SectionCard>
+
+      <Dialog
+        open={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Create Invoice Category"
+        size="md"
+      >
+        <div className="space-y-6 pt-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">
+              Category Name <span className="text-rose-500">*</span>
+            </label>
+            <Input
+              placeholder="Enter Category Name"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              fullWidth
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">Category Type</label>
+            <Input value="Invoice" disabled fullWidth />
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCategoryModalOpen(false)}
+              className="px-8"
+            >
+              CLOSE
+            </Button>
+            <Button 
+              onClick={handleCreateCategory} 
+              loading={createCategory.isPending}
+              disabled={!newCategoryName.trim()}
+              className="bg-indigo-200 text-indigo-900 hover:bg-indigo-300 px-8 border-0"
+            >
+              SAVE
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
     </SharedFinanceLayout>
   );
 }

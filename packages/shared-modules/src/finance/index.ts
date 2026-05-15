@@ -20,6 +20,7 @@ export { FinanceMoneyCreate } from "./components/FinanceMoneyCreate";
 export { FinanceOverview } from "./components/FinanceOverview";
 export { FinanceInvoicesList } from "./components/FinanceInvoicesList";
 export { FinanceExpensesList } from "./components/FinanceExpensesList";
+export { FinancePayoutsList } from "./components/FinancePayoutsList";
 export { FinancePaymentsList } from "./components/FinancePaymentsList";
 export { FinanceReceivablesList } from "./components/FinanceReceivablesList";
 export { FinanceReportsList } from "./components/FinanceReportsList";
@@ -27,6 +28,7 @@ export { FinanceSettings } from "./components/FinanceSettings";
 export { FinanceVendorCreate } from "./components/FinanceVendorCreate";
 export { FinanceVendorsList } from "./components/FinanceVendorsList";
 export {
+  useCreateFinanceCategory,
   useCreateFinanceExpense,
   useCreateFinanceInvoice,
   useCreateFinancePayout,
@@ -40,9 +42,11 @@ export {
   useFinanceInvoices,
   useFinanceInvoiceCategories,
   useFinancePaginatedExpenses,
+  useFinancePaginatedPayouts,
   useFinancePaginatedRevenue,
   useFinancePaginatedVendors,
   useFinancePayments,
+  useFinancePayoutsCount,
   useFinanceRevenueCount,
   useFinanceReports,
   useFinanceSummaries,

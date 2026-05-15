@@ -5,6 +5,8 @@ import { useFinanceInvoicesCount, useFinancePaginatedInvoices } from "../queries
 import type { FinanceInvoiceRow } from "../types";
 import { SharedFinanceLayout } from "./shared";
 import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
+import { appendReturnTo, buildOrdersInvoiceHref, getCurrentReturnTo } from "../../orders/services/orders";
 
 function formatInvoiceAmount(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -14,7 +16,8 @@ function formatInvoiceAmount(value: number) {
 }
 
 export function FinanceInvoicesList() {
-  const { navigate } = useSharedModulesContext();
+  const { basePath, product } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -54,11 +57,14 @@ export function FinanceInvoicesList() {
     } else if (row.product === "BOOKING" && row.internalInvoiceType !== "MASTER_INVOICE") {
       navigate(`/bookingInvoice/view?invId=${row.uid}`);
     } else if (row.product === "FINANCE" && row.internalInvoiceType !== "MASTER_INVOICE") {
-      navigate(`/finance/invoice/view_new?invId=${row.uid}`);
+      navigate(`${basePath}/invoice/view_new?invId=${row.uid}`);
     } else if (row.product === "FINANCE" && row.internalInvoiceType === "MASTER_INVOICE") {
-      navigate(`/finance/master-invoice/${row.uid}`);
+      navigate(`${basePath}/master-invoice/${row.uid}`);
     } else {
-      navigate(`/salesorder/invoice/${row.uid}?invUid=${row.uid}`);
+      // For sales orders, use the correct MFE-internal route
+      const href = buildOrdersInvoiceHref(basePath, row.uid, { from: "finance" }, product);
+      const returnTo = getCurrentReturnTo();
+      navigate(returnTo ? appendReturnTo(href, returnTo) : href);
     }
   };
 
@@ -224,7 +230,7 @@ export function FinanceInvoicesList() {
     <SharedFinanceLayout
       title="Invoices"
       subtitle="Manage all invoices across your organization."
-      actions={<Button onClick={() => navigate("/finance/invoice/newInvoice")}>Create Invoice</Button>}
+      actions={<Button onClick={() => navigate(`${basePath}/invoice/newInvoice`)}>Create Invoice</Button>}
     >
       <SectionCard className="border-slate-200 shadow-sm" padding={false}>
         <div className="flex items-center justify-between gap-4 px-4 py-4">

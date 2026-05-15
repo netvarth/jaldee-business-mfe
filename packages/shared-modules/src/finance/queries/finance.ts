@@ -323,6 +323,13 @@ export function useCreateFinancePayout() {
   ]);
 }
 
+export function useCreateFinanceCategory() {
+  return useFinanceCreateMutation("provider/jp/finance/category", [
+    "finance-invoice-categories",
+    "finance-categories",
+  ]);
+}
+
 export function useCreateFinanceVendor() {
   return useFinanceCreateMutation("provider/vendor", [
     "finance-paginated-vendors",
@@ -373,6 +380,30 @@ export function useFinanceRevenueCount(filters: Record<string, any>) {
     queryKey: ["finance-paginated-revenue-count", filters],
     queryFn: async () => {
       const response = await api.get<number>("provider/jp/finance/paymentsIn/count", { params: filters });
+      return Number((response as { data: number }).data) || 0;
+    },
+  });
+}
+
+export function useFinancePaginatedPayouts(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-payouts", filters],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/paymentsOut", { params: filters });
+      return normalizeFinanceExpenses((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinancePayoutsCount(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-payouts-count", filters],
+    queryFn: async () => {
+      const response = await api.get<number>("provider/jp/finance/paymentsOut/count", { params: filters });
       return Number((response as { data: number }).data) || 0;
     },
   });
