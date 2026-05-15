@@ -169,8 +169,12 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
       children: [
         { id: "karty-finance-overview", label: "Overview", icon: "", path: "/karty/finance" },
         { id: "karty-finance-invoices", label: "Invoices", icon: "", path: "/karty/finance/invoices" },
+        { id: "karty-finance-receivables", label: "Receivables", icon: "", path: "/karty/finance/receivables" },
+        { id: "karty-finance-expenses", label: "Expenses", icon: "", path: "/karty/finance/expense" },
+        { id: "karty-finance-vendors", label: "Vendors", icon: "", path: "/karty/finance/vendors" },
         { id: "karty-finance-payments", label: "Payments", icon: "", path: "/karty/finance/payments" },
         { id: "karty-finance-reports", label: "Reports", icon: "", path: "/karty/finance/reports" },
+        { id: "karty-finance-activity-log", label: "Activity Log", icon: "", path: "/karty/finance/activity-log" },
         { id: "karty-finance-settings", label: "Settings", icon: "", path: "/karty/finance/settings" },
       ],
     },

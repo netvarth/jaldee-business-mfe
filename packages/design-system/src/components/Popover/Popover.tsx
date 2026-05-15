@@ -48,6 +48,7 @@ export function Popover({
   const popoverRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [portalPosition, setPortalPosition] = useState({ top: 0, left: 0 });
+  const [effectivePlacement, setEffectivePlacement] = useState<"top" | "bottom">(placement);
   const contentId = useId();
   const isControlled = open !== undefined;
   const isOpen = isControlled ? open : internalOpen;
@@ -94,8 +95,20 @@ export function Popover({
     function updatePortalPosition() {
       const rect = popoverRef.current?.getBoundingClientRect();
       if (!rect) return;
+      const contentHeight = contentRef.current?.offsetHeight ?? 0;
+      const gap = 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const nextPlacement =
+        placement === "bottom" && contentHeight > 0 && spaceBelow < contentHeight + gap && spaceAbove > spaceBelow
+          ? "top"
+          : placement === "top" && contentHeight > 0 && spaceAbove < contentHeight + gap && spaceBelow > spaceAbove
+            ? "bottom"
+            : placement;
+
+      setEffectivePlacement(nextPlacement);
       setPortalPosition({
-        top: placement === "bottom" ? rect.bottom + 8 : rect.top - 8,
+        top: nextPlacement === "bottom" ? rect.bottom + gap : rect.top - gap,
         left: align === "end" ? rect.right : align === "center" ? rect.left + rect.width / 2 : rect.left,
       });
     }
@@ -138,7 +151,7 @@ export function Popover({
               ref={contentRef}
               contentId={contentId}
               testId={testId}
-              placement={placement}
+              placement={effectivePlacement}
               align={align}
               contentClassName={contentClassName}
               portalPosition={portalPosition}
@@ -153,7 +166,7 @@ export function Popover({
               ref={contentRef}
               contentId={contentId}
               testId={testId}
-              placement={placement}
+              placement={effectivePlacement}
               align={align}
               contentClassName={contentClassName}
             >

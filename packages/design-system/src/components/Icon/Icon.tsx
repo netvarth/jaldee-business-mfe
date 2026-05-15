@@ -9,14 +9,18 @@ export type IconName =
   | "database"
   | "globe"
   | "history"
+  | "filter"
   | "layers"
   | "list"
+  | "moreVertical"
   | "packagePlus"
   | "refresh"
   | "tag"
   | "trend"
   | "warehouse"
-  | "x";
+  | "x"
+  | "search"
+  | "calendar";
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name"> {
   name: IconName;
@@ -45,10 +49,14 @@ export function Icon({ name, className, ...props }: IconProps) {
       return <svg {...sharedProps}><ellipse cx="12" cy="5" rx="7" ry="3" /><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5" /><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>;
     case "list":
       return <svg {...sharedProps}><path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><circle cx="5" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="5" cy="18" r="1" fill="currentColor" stroke="none" /></svg>;
+    case "moreVertical":
+      return <svg {...sharedProps}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none" /></svg>;
     case "refresh":
       return <svg {...sharedProps}><path d="M20 6v5h-5" /><path d="M4 18v-5h5" /><path d="M6.5 9A7 7 0 0 1 18 6" /><path d="M17.5 15A7 7 0 0 1 6 18" /></svg>;
     case "globe":
       return <svg {...sharedProps}><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a15 15 0 0 1 0 18" /><path d="M12 3a15 15 0 0 0 0 18" /></svg>;
+    case "filter":
+      return <svg {...sharedProps}><path d="M4 5h16l-6 7v6l-4 2v-8L4 5z" fill="currentColor" stroke="none" /></svg>;
     case "trend":
       return <svg {...sharedProps}><path d="M4 16l5-5 4 4 7-7" /><path d="M14 8h6v6" /></svg>;
     case "warehouse":
@@ -63,6 +71,10 @@ export function Icon({ name, className, ...props }: IconProps) {
       return <svg {...sharedProps}><path d="M12 4l8 14H4L12 4z" /><path d="M12 9v4" /><circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" /></svg>;
     case "x":
       return <svg {...sharedProps}><path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    case "search":
+      return <svg {...sharedProps}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
+    case "calendar":
+      return <svg {...sharedProps}><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>;
     default:
       return null;
   }

@@ -1,16 +1,20 @@
 import type { ProductKey } from "@jaldee/auth-context";
 import type {
+  FinanceActivityLogRow,
   FinanceDataset,
   FinanceExpenseBreakdownRow,
   FinanceExpenseRow,
+  FinanceInvoiceCategoryOption,
   FinanceInvoiceRow,
   FinanceInvoiceStatus,
   FinancePaymentRow,
   FinanceQuickAction,
   FinanceReportRow,
+  FinanceRevenueRow,
   FinanceSummary,
   FinanceTransactionRow,
   FinanceVendorRow,
+  FinanceVendorStatusOption,
 } from "../types";
 
 export function formatFinanceCurrency(value: number) {
@@ -52,6 +56,28 @@ export function financeFormatDate(value: unknown): string {
   }
 }
 
+export function financeFormatDateTime(value: unknown): string {
+  if (!value || value === "-") return "-";
+  try {
+    const rawText = String(value).trim();
+    const numeric = Number(rawText);
+    const dateValue = typeof value === "number" || (Number.isFinite(numeric) && rawText.length >= 10)
+      ? (Number.isFinite(numeric) ? (numeric > 10_000_000_000 ? numeric : numeric * 1000) : value)
+      : value;
+    const d = new Date(dateValue as string | number);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(value);
+  }
+}
+
 export function financeMapInvoiceStatus(value: unknown): FinanceInvoiceStatus {
   const s = String(value ?? "").toLowerCase();
   if (s.includes("partiallypaid") || s.includes("partially")) return "Partially Paid";
@@ -81,15 +107,41 @@ export function normalizeFinanceInvoices(payload: unknown): FinanceInvoiceRow[] 
   return financeExtractList(payload).map((item, index) => {
     const i = item as Record<string, unknown>;
     const pcd = i["providerConsumerData"] as Record<string, unknown> | undefined;
+    const salesOrder = i["salesOrder"] as Record<string, unknown> | undefined;
+    const order = i["order"] as Record<string, unknown> | undefined;
     const fullName = pcd?.["firstName"] ? `${pcd["firstName"]} ${pcd["lastName"] ?? ""}`.trim() : undefined;
+    const orderSource =
+      i["orderSource"] ??
+      salesOrder?.["orderSource"] ??
+      order?.["orderSource"];
 
     return {
       id: financeText(i["invoiceNum"] ?? i["uid"] ?? i["invoiceUid"] ?? i["invoiceId"] ?? i["uuid"] ?? i["id"] ?? `invoice-${index}`),
+      uid: financeText(i["uid"] ?? i["invoiceUid"] ?? i["id"] ?? i["uuid"] ?? `invoice-${index}`),
       customer: financeText(fullName ?? i["customerName"] ?? i["consumerName"] ?? (i["customer"] as Record<string, unknown>)?.["name"] ?? i["invoiceFor"]),
       category: financeText(i["categoryName"] ?? i["invoiceCategoryName"] ?? (i["category"] as Record<string, unknown>)?.["name"] ?? i["notes"]),
-      amount: financeAmt(i["netTotal"] ?? i["totalAmount"] ?? i["amount"] ?? i["total"]),
+      amount: financeAmt(i["netRate"] ?? i["netTotal"] ?? i["totalAmount"] ?? i["amount"] ?? i["total"]),
+      amountDue: financeAmt(i["amountDue"] ?? 0),
       dueDate: financeFormatDate(i["dueDate"] ?? i["invoiceDate"] ?? i["createdDate"]),
+      orderSource: orderSource ? String(orderSource) : "PROVIDER_CONSUMER",
+      storeName: i["storeName"] ? String(i["storeName"]) : (i["store"] as Record<string, unknown>)?.["name"] ? String((i["store"] as Record<string, unknown>)["name"]) : undefined,
       status: financeMapInvoiceStatus(i["billPaymentStatus"] ?? i["billStatus"] ?? i["status"] ?? i["paymentStatus"]),
+      assignedUserName: i["assignedUserName"] ? String(i["assignedUserName"]) : undefined,
+      product: i["product"] ? String(i["product"]) : undefined,
+      internalInvoiceType: i["internalInvoiceType"] ? String(i["internalInvoiceType"]) : undefined,
+      billPaymentStatus: i["billPaymentStatus"] ? String(i["billPaymentStatus"]) : undefined,
+      billStatus: i["billStatus"] ? String(i["billStatus"]) : undefined,
+      providerConsumerId: i["providerConsumerId"] ? String(i["providerConsumerId"]) : pcd?.["id"] ? String(pcd["id"]) : undefined,
+    };
+  });
+}
+
+export function normalizeFinanceInvoiceCategories(payload: unknown): FinanceInvoiceCategoryOption[] {
+  return financeExtractList(payload).map((item, index) => {
+    const i = item as Record<string, unknown>;
+    return {
+      id: financeText(i["id"] ?? i["uid"] ?? i["encId"] ?? `invoice-category-${index}`),
+      name: financeText(i["name"] ?? i["categoryName"] ?? i["displayName"], "Invoice"),
     };
   });
 }
@@ -113,6 +165,46 @@ export function normalizeFinancePayments(payload: unknown): FinancePaymentRow[] 
   });
 }
 
+export function normalizeFinanceRevenue(payload: unknown): FinanceRevenueRow[] {
+  return financeExtractList(payload).map((item, index) => {
+    const i = item as Record<string, unknown>;
+    const pcd = i["providerConsumerDto"] as Record<string, unknown> | undefined;
+    const vendor = i["vendorData"] as Record<string, unknown> | undefined;
+    const firstName = pcd?.["firstName"];
+    const lastName = pcd?.["lastName"];
+    const fullName = firstName ? `${firstName} ${lastName ?? ""}`.trim() : undefined;
+
+    return {
+      id: financeText(i["paymentsInUid"] ?? i["payInOutUid"] ?? i["uid"] ?? i["id"] ?? `revenue-${index}`),
+      uid: financeText(i["paymentsInUid"] ?? i["payInOutUid"] ?? i["uid"] ?? i["id"] ?? `revenue-${index}`),
+      receivedDate: financeFormatDate(i["receivedDate"] ?? i["paymentDate"] ?? i["createdDate"] ?? i["date"]),
+      amount: financeAmt(i["amount"] ?? i["paymentAmount"] ?? i["receivedAmount"] ?? i["netTotal"]),
+      categoryName: financeText(i["categoryName"] ?? i["paymentsInCategoryName"] ?? i["source"], "-"),
+      invoiceCategoryName: financeText(i["invoiceCategoryName"] ?? i["invoiceCategory"] ?? "-", "-"),
+      invoiceId: i["invoiceId"] ? String(i["invoiceId"]) : i["invoiceNo"] ? String(i["invoiceNo"]) : undefined,
+      referenceNo: i["referenceNo"] ? String(i["referenceNo"]) : undefined,
+      customerName: financeText(fullName ?? i["customerName"] ?? i["consumerName"], ""),
+      vendorName: financeText(vendor?.["vendorName"] ?? vendor?.["name"] ?? i["vendorName"], ""),
+      locationName: i["locationName"] ? String(i["locationName"]) : undefined,
+      status: i["paymentsInStatusName"] ? String(i["paymentsInStatusName"]) : i["status"] ? String(i["status"]) : undefined,
+      isEdit: Boolean(i["isEdit"]),
+    };
+  });
+}
+
+export function normalizeFinanceActivityLogs(payload: unknown): FinanceActivityLogRow[] {
+  return financeExtractList(payload).map((item, index) => {
+    const i = item as Record<string, unknown>;
+    return {
+      id: financeText(i["uid"] ?? i["id"] ?? i["logId"] ?? `${i["dateTime"] ?? "log"}-${index}`),
+      dateTime: financeFormatDateTime(i["dateTime"] ?? i["createdDate"] ?? i["createdOn"] ?? i["time"]),
+      action: financeText(i["subject"] ?? i["action"] ?? i["event"] ?? i["activity"]),
+      description: financeText(i["description"] ?? i["message"] ?? i["details"]),
+      userName: financeText(i["userName"] ?? i["user"] ?? i["createdBy"] ?? i["updatedBy"]),
+    };
+  });
+}
+
 export function normalizeFinanceExpenses(payload: unknown): FinanceExpenseRow[] {
   return financeExtractList(payload).map((item, index) => {
     const i = item as Record<string, unknown>;
@@ -127,7 +219,14 @@ export function normalizeFinanceExpenses(payload: unknown): FinanceExpenseRow[] 
       category: financeText(i["categoryName"] ?? i["expenseCategoryName"] ?? i["category"], "General"),
       owner: financeText(fullName ?? i["owner"] ?? i["createdByName"] ?? i["assignedTo"], "Finance"),
       amount: financeAmt(i["amount"] ?? i["totalAmount"] ?? i["expenseAmount"]),
+      amountPaid: financeAmt(i["amountPaid"] ?? i["paidAmount"] ?? i["amountPaidTotal"] ?? 0),
+      amountDue: financeAmt(i["amountDue"] ?? i["dueAmount"] ?? i["balanceAmount"] ?? 0),
       bookedOn: financeFormatDate(i["paidDate"] ?? i["bookedOn"] ?? i["expenseDate"] ?? i["createdDate"]),
+      expenseUid: i["expenseUid"] ? String(i["expenseUid"]) : i["uid"] ? String(i["uid"]) : undefined,
+      locationName: i["locationName"] ? String(i["locationName"]) : (i["location"] as Record<string, unknown>)?.["name"] ? String((i["location"] as Record<string, unknown>)["name"]) : undefined,
+      status: i["expenseStatusName"] ? String(i["expenseStatusName"]) : i["status"] ? String(i["status"]) : undefined,
+      payoutCreated: Boolean(i["payoutCreated"]),
+      isEdit: Boolean(i["isEdit"]),
     };
   });
 }
@@ -157,11 +256,25 @@ export function normalizeFinanceVendors(payload: unknown): FinanceVendorRow[] {
   return financeExtractList(payload).map((item, index) => {
     const i = item as Record<string, unknown>;
     return {
-      id: financeText(i["uid"] ?? i["id"] ?? i["vendorId"] ?? `vendor-${index}`),
+      id: financeText(i["id"] ?? i["vendorId"] ?? i["uid"] ?? i["encId"] ?? `vendor-${index}`),
+      encId: financeText(i["encId"] ?? i["uid"] ?? i["vendorUid"] ?? i["id"] ?? `vendor-${index}`),
       name: financeText(i["name"] ?? i["vendorName"] ?? `${i["firstName"] ?? ""} ${i["lastName"] ?? ""}`.trim()),
-      category: financeText(i["categoryName"] ?? i["category"] ?? i["vendorCategory"], "General"),
+      category: financeText(i["vendorCategoryName"] ?? i["categoryName"] ?? i["category"] ?? i["vendorCategory"], "General"),
       payable: financeAmt(i["payable"] ?? i["amountDue"] ?? i["balanceAmount"] ?? i["pendingAmount"]),
-      status: String(i["status"] ?? i["vendorStatus"] ?? "").toLowerCase().includes("hold") ? "On Hold" : "Active",
+      status: financeText(i["status"] ?? i["vendorStatus"] ?? i["vendorStatusName"], "Enable"),
+      vendorStatusName: i["vendorStatusName"] ? String(i["vendorStatusName"]) : undefined,
+      vendorStatusId: i["vendorStatusId"] ? String(i["vendorStatusId"]) : undefined,
+      createdDate: financeFormatDate(i["createdDate"] ?? i["createdOn"] ?? i["date"]),
+    };
+  });
+}
+
+export function normalizeFinanceVendorStatuses(payload: unknown): FinanceVendorStatusOption[] {
+  return financeExtractList(payload).map((item, index) => {
+    const i = item as Record<string, unknown>;
+    return {
+      id: financeText(i["id"] ?? i["uid"] ?? i["encId"] ?? `vendor-status-${index}`),
+      name: financeText(i["name"] ?? i["statusName"] ?? i["vendorStatusName"]),
     };
   });
 }
@@ -231,17 +344,17 @@ function buildReports(invoices: FinanceInvoiceRow[], payments: FinancePaymentRow
 
 export function buildFinanceActions(productBasePath: string): FinanceQuickAction[] {
   return [
-    { label: "Create Invoice", route: `${productBasePath}/invoices`, icon: "packagePlus", note: "Issue new billing", tone: "" },
-    { label: "Create Expense", route: `${productBasePath}/payments`, icon: "alert", note: "Book operations cost", tone: "" },
-    { label: "Add Revenue", route: `${productBasePath}/payments`, icon: "trend", note: "Record collections", tone: "" },
-    { label: "Create Payout", route: `${productBasePath}/payments`, icon: "history", note: "Queue payout", tone: "" },
-    { label: "Create Vendor", route: `${productBasePath}/settings`, icon: "globe", note: "Add vendor profile", tone: "" },
+    { label: "Create Invoice", route: `${productBasePath}/invoice/newInvoice`, icon: "packagePlus", note: "Issue new billing", tone: "" },
+    { label: "Create Expense", route: `${productBasePath}/expense/new`, icon: "alert", note: "Book operations cost", tone: "" },
+    { label: "Add Revenue", route: `${productBasePath}/receivables/create`, icon: "trend", note: "Record collections", tone: "" },
+    { label: "Create Payout", route: `${productBasePath}/payout/create`, icon: "history", note: "Queue payout", tone: "" },
+    { label: "Create Vendor", route: `${productBasePath}/vendors/create`, icon: "globe", note: "Add vendor profile", tone: "" },
     { label: "Invoices", route: `${productBasePath}/invoices`, icon: "list", note: "See all invoices", tone: "" },
-    { label: "Expenses", route: `${productBasePath}/payments`, icon: "alert", note: "Monitor spends", tone: "" },
-    { label: "Revenue", route: `${productBasePath}/payments`, icon: "trend", note: "Review inflows", tone: "" },
-    { label: "Vendors", route: `${productBasePath}/settings`, icon: "globe", note: "Vendor directory", tone: "" },
+    { label: "Expenses", route: `${productBasePath}/expense`, icon: "alert", note: "Monitor spends", tone: "" },
+    { label: "Revenue", route: `${productBasePath}/receivables`, icon: "trend", note: "Review inflows", tone: "" },
+    { label: "Vendors", route: `${productBasePath}/vendors`, icon: "globe", note: "Vendor directory", tone: "" },
     { label: "Reports", route: `${productBasePath}/reports`, icon: "chart", note: "Track trends", tone: "" },
-    { label: "Activity Log", route: `${productBasePath}/settings`, icon: "history", note: "Audit trail", tone: "" },
+    { label: "Activity Log", route: `${productBasePath}/activity-log`, icon: "history", note: "Audit trail", tone: "" },
   ];
 }
 

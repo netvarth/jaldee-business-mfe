@@ -165,21 +165,21 @@ export default function IvrPage() {
     const dateFilters = getCallDateFilter(callDateRange, customCallStartDate, customCallEndDate);
     try {
       const qRes = await apiClient.get("provider/ivr/count", {
-        params: { ...dateFilters, "callStatus-neq": "callCompleted", "userId-neq": "null" }
+        params: { ...dateFilters, "callStatus-neq": "callCompleted", "userId-neq": "null", "parent-eq": "true,false" }
       });
       setQueueCount(parseCount(qRes.data));
     } catch (e) { console.error(e); }
 
     try {
       const cRes = await apiClient.get("provider/ivr/count", {
-        params: { ...dateFilters, "callStatus-neq": "callCompleted,connected", "userId-eq": "null" }
+        params: { ...dateFilters, "callStatus-neq": "callCompleted,connected", "userId-eq": "null", "parent-eq": "true,false" }
       });
       setCallbacksCount(parseCount(cRes.data));
     } catch (e) { console.error(e); }
 
     try {
       const hRes = await apiClient.get("provider/ivr/count", {
-        params: { ...dateFilters, "callStatus-eq": "callCompleted" }
+        params: { ...dateFilters, "callStatus-eq": "callCompleted", "parent-eq": "true,false" }
       });
       setHistoryCount(parseCount(hRes.data));
     } catch (e) { console.error(e); }
@@ -324,7 +324,8 @@ export default function IvrPage() {
           from: 0,
           count: 5,
           "callStatus-neq": "callCompleted",
-          "userId-neq": "null"
+          "userId-neq": "null",
+          "parent-eq": "true,false"
         }
       });
       setMyQueue(mapCalls(res.data));
@@ -343,7 +344,8 @@ export default function IvrPage() {
           from: 0,
           count: 5,
           "callStatus-neq": "callCompleted,connected",
-          "userId-eq": "null"
+          "userId-eq": "null",
+          "parent-eq": "true,false"
         }
       });
       setCallbacks(mapCalls(res.data));
@@ -359,7 +361,8 @@ export default function IvrPage() {
           ...getCallDateFilter(callDateRange, customCallStartDate, customCallEndDate),
           from: 0,
           count: 5,
-          "callStatus-eq": "callCompleted"
+          "callStatus-eq": "callCompleted",
+          "parent-eq": "true,false"
         }
       });
       setHistory(mapCalls(res.data));

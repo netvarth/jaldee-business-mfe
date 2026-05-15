@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSharedModulesContext } from "../../context";
 import { useApiScope } from "../../useApiScope";
 import {
@@ -6,13 +6,17 @@ import {
   financeAmt,
   financeExtractList,
   financeFormatDate,
+  normalizeFinanceActivityLogs,
   normalizeFinanceExpenseBreakdown,
   normalizeFinanceExpenses,
+  normalizeFinanceInvoiceCategories,
   normalizeFinanceInvoices,
   normalizeFinancePayments,
+  normalizeFinanceRevenue,
+  normalizeFinanceVendorStatuses,
   normalizeFinanceVendors,
 } from "../services/finance";
-import type { FinanceExpenseBreakdownRow } from "../types";
+import type { FinanceExpenseBreakdownRow, FinanceInvoiceCreatePayload } from "../types";
 
 export type FinanceExpenseBreakdownFilter = "TODAY" | "PREVIOUS_WEEK" | "CURRENT_MONTH" | "PREVIOUS_MONTH" | "DATE_RANGE";
 
@@ -177,6 +181,261 @@ export function useFinanceInvoices() {
     ...datasetQuery,
     data: datasetQuery.data?.invoices ?? [],
   };
+}
+
+export function useFinancePaginatedInvoices(filters: Record<string, any>) {
+  const api = useApiScope();
+  
+  return useQuery({
+    queryKey: ["finance-paginated-invoices", filters],
+    queryFn: async () => {
+      // Add default filter out of PREPAYMENT_PENDING_INVOICE and FAILED_ORDER_INVOICE if no billStatus filter
+      const apiFilters = { ...filters };
+      if (!apiFilters["billStatus-eq"] && !apiFilters["billStatus-in"] && !apiFilters["billStatus"]) {
+        apiFilters["billStatus-neq"] = ["PREPAYMENT_PENDING_INVOICE", "FAILED_ORDER_INVOICE"].join(",");
+      }
+
+      const response = await api.get<unknown>("provider/jp/finance/invoice/general", { params: apiFilters });
+      return normalizeFinanceInvoices((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceInvoicesCount(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-invoices-count", filters],
+    queryFn: async () => {
+      const apiFilters = { ...filters };
+      if (!apiFilters["billStatus-eq"] && !apiFilters["billStatus-in"] && !apiFilters["billStatus"]) {
+        apiFilters["billStatus-neq"] = ["PREPAYMENT_PENDING_INVOICE", "FAILED_ORDER_INVOICE"].join(",");
+      }
+      
+      const response = await api.get<number>("provider/jp/finance/invoice/general/count", { params: apiFilters });
+      return Number((response as { data: number }).data) || 0;
+    },
+  });
+}
+
+export function useFinanceInvoiceCategories() {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-invoice-categories"],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/category/list", {
+        params: {
+          "categoryType-eq": "Invoice",
+          "status-eq": "Enable",
+        },
+      });
+      return normalizeFinanceInvoiceCategories((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceCategories(categoryType: "Expense" | "PaymentsInOut" | "Invoice") {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-categories", categoryType],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/category/list", {
+        params: {
+          "categoryType-eq": categoryType,
+          "status-eq": "Enable",
+        },
+      });
+      return normalizeFinanceInvoiceCategories((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceStatuses(categoryType: "Expense" | "PaymentsInOut" | "Invoice") {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-statuses", categoryType],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/status/list", {
+        params: {
+          "categoryType-eq": categoryType,
+          "status-eq": "Enable",
+        },
+      });
+      return normalizeFinanceInvoiceCategories((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useCreateFinanceInvoice() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: FinanceInvoiceCreatePayload) => {
+      const response = await api.post<unknown>("provider/jp/finance/invoice/general", payload);
+      return (response as { data: unknown }).data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance-paginated-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-paginated-invoices-count"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-shared-dataset"] });
+    },
+  });
+}
+
+function useFinanceCreateMutation(endpoint: string, invalidateKeys: string[]) {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const response = await api.post<unknown>(endpoint, payload);
+      return (response as { data: unknown }).data;
+    },
+    onSuccess: () => {
+      invalidateKeys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+      queryClient.invalidateQueries({ queryKey: ["finance-shared-dataset"] });
+    },
+  });
+}
+
+export function useCreateFinanceExpense() {
+  return useFinanceCreateMutation("provider/jp/finance/expense", [
+    "finance-paginated-expenses",
+    "finance-paginated-expenses-count",
+  ]);
+}
+
+export function useCreateFinanceRevenue() {
+  return useFinanceCreateMutation("provider/jp/finance/paymentsIn", [
+    "finance-paginated-revenue",
+    "finance-paginated-revenue-count",
+  ]);
+}
+
+export function useCreateFinancePayout() {
+  return useFinanceCreateMutation("provider/jp/finance/paymentsOut", [
+    "finance-paginated-expenses",
+    "finance-paginated-expenses-count",
+  ]);
+}
+
+export function useCreateFinanceVendor() {
+  return useFinanceCreateMutation("provider/vendor", [
+    "finance-paginated-vendors",
+    "finance-paginated-vendors-count",
+  ]);
+}
+
+export function useFinancePaginatedExpenses(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-expenses", filters],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/expense", { params: filters });
+      return normalizeFinanceExpenses((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceExpensesCount(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-expenses-count", filters],
+    queryFn: async () => {
+      const response = await api.get<number>("provider/jp/finance/expense/count", { params: filters });
+      return Number((response as { data: number }).data) || 0;
+    },
+  });
+}
+
+export function useFinancePaginatedRevenue(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-revenue", filters],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/paymentsIn", { params: filters });
+      return normalizeFinanceRevenue((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceRevenueCount(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-revenue-count", filters],
+    queryFn: async () => {
+      const response = await api.get<number>("provider/jp/finance/paymentsIn/count", { params: filters });
+      return Number((response as { data: number }).data) || 0;
+    },
+  });
+}
+
+export function useFinanceActivityLogs(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-activity-logs", filters],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/jp/finance/log", { params: filters });
+      return normalizeFinanceActivityLogs((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceActivityLogsCount(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-activity-logs-count", filters],
+    queryFn: async () => {
+      const response = await api.get<number>("provider/jp/finance/log/count", { params: filters });
+      return Number((response as { data: number }).data) || 0;
+    },
+  });
+}
+
+export function useFinancePaginatedVendors(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-vendors", filters],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/vendor", { params: filters });
+      return normalizeFinanceVendors((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceVendorsCount(filters: Record<string, any>) {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-paginated-vendors-count", filters],
+    queryFn: async () => {
+      const response = await api.get<number>("provider/vendor/count", { params: filters });
+      return Number((response as { data: number }).data) || 0;
+    },
+  });
+}
+
+export function useFinanceVendorStatuses() {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-vendor-statuses", "enabled"],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/vendor/status", { params: { "isEnabled-eq": "Enable" } });
+      return normalizeFinanceVendorStatuses((response as { data: unknown }).data);
+    },
+  });
 }
 
 export function useFinancePayments() {
