@@ -1,11 +1,12 @@
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Badge,
   BarChart,
   Button,
   DataTable,
+  DatePicker,
   EmptyState,
   Icon,
   PageErrorBoundary,
@@ -20,6 +21,8 @@ import {
   formatCurrency,
   getStatusVariant,
 } from "./lib/financeData";
+import type { FinanceExpenseBreakdown } from "./lib/financeData";
+import { financeApi } from "./lib/financeApi";
 import { FinanceLiveProvider, useFinanceLiveData } from "./lib/financeLive";
 
 type Accent = "indigo" | "emerald" | "amber" | "rose";
@@ -31,6 +34,26 @@ type QuickAction = {
   tone: string;
   note: string;
 };
+
+type ExpenseBreakdownFilter = "TODAY" | "PREVIOUS_WEEK" | "CURRENT_MONTH" | "PREVIOUS_MONTH" | "DATE_RANGE";
+
+function normalizeExpenseBreakdownResponse(payload: any): FinanceExpenseBreakdown[] {
+  const metricValues = Array.isArray(payload?.metricValues) ? payload.metricValues : [];
+  const expenseMetric = metricValues.find(
+    (item: any) =>
+      Number(item?.metricId) === 168 ||
+      String(item?.metricName || "").toUpperCase() === "FINANCE_EXPENSE_TOTAL"
+  );
+  const compareData = Array.isArray(expenseMetric?.compareData) ? expenseMetric.compareData : [];
+
+  return compareData.map((item: any, index: number) => ({
+    id: String(item?.categoryName || `expense-breakdown-${index}`),
+    category: String(item?.categoryName || "General"),
+    amountDifference: Number(item?.amountDifference) || 0,
+    percentage: Number(item?.percentage) || 0,
+    increased: Boolean(item?.increased),
+  }));
+}
 
 function PageShell({
   title,
@@ -224,6 +247,10 @@ function OverviewPage() {
   const [transactionFilter, setTransactionFilter] = useState<"All" | "Revenue" | "Payout">("All");
   const [statsRange, setStatsRange] = useState("today");
   const [statsChartRange, setStatsChartRange] = useState("week");
+  const [expenseBreakdownFilter, setExpenseBreakdownFilter] = useState<ExpenseBreakdownFilter>("PREVIOUS_MONTH");
+  const [expenseBreakdownFrom, setExpenseBreakdownFrom] = useState("");
+  const [expenseBreakdownTo, setExpenseBreakdownTo] = useState("");
+  const [expenseBreakdownRows, setExpenseBreakdownRows] = useState<FinanceExpenseBreakdown[]>([]);
 
   const filteredFinancePayments = useMemo(() => {
     if (statsRange === "all") return financePayments;
@@ -268,6 +295,55 @@ function OverviewPage() {
       return true;
     });
   }, [financePayables, statsRange]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadExpenseBreakdown() {
+      const filter: Record<string, unknown> = {
+        metricId: 168,
+        categoryType: "Expense",
+        from: 0,
+        count: 6,
+      };
+
+      if (mfeProps.location?.id) {
+        filter.locationId = mfeProps.location.id;
+      }
+
+      if (expenseBreakdownFilter === "DATE_RANGE") {
+        if (!expenseBreakdownFrom || !expenseBreakdownTo) {
+          if (active) {
+            setExpenseBreakdownRows([]);
+          }
+          return;
+        }
+        filter.frequency = "DATE_RANGE";
+        filter["date-ge"] = expenseBreakdownFrom;
+        filter["date-le"] = expenseBreakdownTo;
+      } else {
+        filter.frequency = expenseBreakdownFilter;
+      }
+
+      try {
+        const response = await financeApi.expenses.listByCategory(filter);
+        if (active) {
+          setExpenseBreakdownRows(normalizeExpenseBreakdownResponse(response.data));
+        }
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load expense breakdown", error);
+        if (active) {
+          setExpenseBreakdownRows([]);
+        }
+      }
+    }
+
+    loadExpenseBreakdown();
+
+    return () => {
+      active = false;
+    };
+  }, [expenseBreakdownFilter, expenseBreakdownFrom, expenseBreakdownTo, mfeProps.location?.id]);
 
   const dashboardActions: QuickAction[] = [
     { label: "Create Invoice", path: "/finance/invoice", icon: "packagePlus", tone: "bg-indigo-50 text-indigo-600", note: "Issue new billing" },
@@ -509,25 +585,53 @@ function OverviewPage() {
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="text-[22px] font-semibold text-slate-900">Expenses Breakdown</div>
-              <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">Today</div>
+              <div className="w-48">
+                <Select
+                  options={[
+                    { value: "TODAY", label: "Today" },
+                    { value: "PREVIOUS_WEEK", label: "Previous Week" },
+                    { value: "CURRENT_MONTH", label: "Current Month" },
+                    { value: "PREVIOUS_MONTH", label: "Previous Month" },
+                    { value: "DATE_RANGE", label: "Date Range" },
+                  ]}
+                  value={expenseBreakdownFilter}
+                  onChange={(e) => setExpenseBreakdownFilter(e.target.value as ExpenseBreakdownFilter)}
+                />
+              </div>
             </div>
+            {expenseBreakdownFilter === "DATE_RANGE" ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <DatePicker value={expenseBreakdownFrom} max={expenseBreakdownTo || undefined} onChange={(e) => setExpenseBreakdownFrom(e.target.value)} />
+                <DatePicker value={expenseBreakdownTo} min={expenseBreakdownFrom || undefined} onChange={(e) => setExpenseBreakdownTo(e.target.value)} />
+              </div>
+            ) : null}
             <div className="mt-4 space-y-3">
-              {financeExpenses.length ? (
-                financeExpenses.slice(0, 4).map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <div>
-                      <div className="font-semibold text-slate-900">{expense.category || "General"}</div>
-                      <div className="text-sm text-slate-500">{expense.title}</div>
+              {expenseBreakdownRows.length ? (
+                expenseBreakdownRows.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="font-semibold text-slate-900">{item.category}</div>
+                        <div className={`text-sm ${item.percentage === 0 ? "text-slate-500" : item.increased ? "text-rose-500" : "text-emerald-600"}`}>
+                          {item.percentage === 0 ? "No change" : item.increased ? "Increase" : "Decrease"} {Math.abs(item.percentage).toFixed(2)}%
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-semibold text-slate-900">{formatCurrency(item.amountDifference)}</div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-semibold text-slate-900">{formatCurrency(expense.amount)}</div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className={`h-full rounded-full ${item.percentage === 0 ? "bg-slate-300" : item.increased ? "bg-rose-400" : "bg-emerald-400"}`}
+                        style={{ width: `${Math.max(6, Math.min(Math.abs(item.percentage), 100))}%` }}
+                      />
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 px-6 py-10 text-center">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-3xl">🧾</div>
-                  <div className="mt-4 text-[16px] font-semibold text-slate-900">No Expenses Found for Today</div>
+                  <div className="mt-4 text-[16px] font-semibold text-slate-900">No Expense Breakdown Found</div>
                 </div>
               )}
             </div>
@@ -537,7 +641,7 @@ function OverviewPage() {
                 onClick={() => mfeProps.navigate("/finance/expense")}
                 className="text-[16px] font-semibold text-indigo-700 hover:text-indigo-800"
               >
-                See All Expenses({financeExpenses.length || 71})
+                See All Expenses({expenseBreakdownRows.length})
               </button>
             </div>
           </SectionCard>

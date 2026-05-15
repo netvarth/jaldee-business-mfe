@@ -19,7 +19,7 @@ export function CustomerActionsDialog({
   onClose,
   onEdit,
 }: CustomerActionsDialogProps) {
-  const { basePath } = useSharedModulesContext();
+  const { basePath, product } = useSharedModulesContext();
   const [confirmStatusChange, setConfirmStatusChange] = useState(false);
   const statusMutation = useChangeCustomerStatus(customer.id);
   const nextStatus = useMemo<"ACTIVE" | "INACTIVE">(
@@ -29,6 +29,7 @@ export function CustomerActionsDialog({
 
   const statusLabel = nextStatus === "ACTIVE" ? "Activate" : "Deactivate";
   const isActive = customer.status !== "INACTIVE";
+  const canOpenWritingPad = product === "health";
 
   function navigateToBookings(path: string, params: Record<string, string>) {
     if (typeof window === "undefined") {
@@ -37,6 +38,30 @@ export function CustomerActionsDialog({
 
     const url = new URL(window.location.origin + path);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+    window.location.assign(url.pathname + url.search);
+  }
+
+  function getMedicalRecordsBasePath() {
+    if (basePath.endsWith("/customers")) {
+      return `${basePath.slice(0, -"/customers".length)}/medical-records`;
+    }
+
+    if (basePath.endsWith("/patients")) {
+      return `${basePath.slice(0, -"/patients".length)}/medical-records`;
+    }
+
+    return `/${product}/medical-records`;
+  }
+
+  function openPrescriptionWritingPad() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const url = new URL(window.location.origin + getMedicalRecordsBasePath());
+    url.searchParams.set("customerId", customer.id);
+    url.searchParams.set("source", "customers");
+    url.searchParams.set("view", "prescription");
     window.location.assign(url.pathname + url.search);
   }
 
@@ -100,6 +125,23 @@ export function CustomerActionsDialog({
               </span>
             </span>
           </button>
+
+          {canOpenWritingPad ? (
+            <button
+              type="button"
+              onClick={openPrescriptionWritingPad}
+              disabled={!isActive}
+              data-testid="customer-actions-open-writing-pad"
+              className="flex w-full items-start justify-between rounded-xl border border-[var(--color-border)] px-4 py-3 text-left transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span>
+                <span className="block text-[length:var(--text-sm)] font-semibold text-[var(--color-text-primary)]">Open Writing Pad</span>
+                <span className="block text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
+                  Start typing a prescription for this {customerLabel.toLowerCase()}.
+                </span>
+              </span>
+            </button>
+          ) : null}
 
           <button
             type="button"

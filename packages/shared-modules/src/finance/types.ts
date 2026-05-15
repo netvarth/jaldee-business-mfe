@@ -36,6 +36,15 @@ export type FinanceExpenseRow = {
   increased?: boolean;
 };
 
+export type FinanceExpenseBreakdownRow = {
+  id: string;
+  category: string;
+  currentAmount: number;
+  amountDifference: number;
+  percentage: number;
+  increased: boolean;
+};
+
 export type FinanceVendorRow = {
   id: string;
   name: string;

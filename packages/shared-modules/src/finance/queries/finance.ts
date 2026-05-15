@@ -6,11 +6,68 @@ import {
   financeAmt,
   financeExtractList,
   financeFormatDate,
+  normalizeFinanceExpenseBreakdown,
   normalizeFinanceExpenses,
   normalizeFinanceInvoices,
   normalizeFinancePayments,
   normalizeFinanceVendors,
 } from "../services/finance";
+import type { FinanceExpenseBreakdownRow } from "../types";
+
+export type FinanceExpenseBreakdownFilter = "TODAY" | "PREVIOUS_WEEK" | "CURRENT_MONTH" | "PREVIOUS_MONTH" | "DATE_RANGE";
+
+function mapExpenseBreakdownFrequency(filter: FinanceExpenseBreakdownFilter): string {
+  switch (filter) {
+    case "PREVIOUS_MONTH":
+      return "LAST_MONTH";
+    case "PREVIOUS_WEEK":
+      return "WEEKLY";
+    case "CURRENT_MONTH":
+      return "THIS_MONTH";
+    case "TODAY":
+      return "TODAY";
+    case "DATE_RANGE":
+      return "NONE";
+    default:
+      return "TODAY";
+  }
+}
+
+function extractFinanceAccountId(payload: unknown): string {
+  const profile = typeof payload === "object" && payload !== null ? payload as Record<string, unknown> : {};
+  const accountId = String(profile.accountId ?? "").trim();
+  if (accountId) {
+    return accountId;
+  }
+
+  const profileId = String(profile.id ?? "").trim();
+  if (profileId) {
+    return profileId;
+  }
+
+  return "";
+}
+
+function isPlaceholderLocationId(locationId: string | null | undefined): boolean {
+  if (!locationId) {
+    return true;
+  }
+
+  return locationId === "loc-default";
+}
+
+function shouldIncludeExpenseComparisonLocation(location: { id?: string | null; name?: string | null } | null | undefined): boolean {
+  if (!location) {
+    return false;
+  }
+
+  if (isPlaceholderLocationId(location.id)) {
+    return false;
+  }
+
+  const normalizedName = String(location.name ?? "").trim().toLowerCase();
+  return normalizedName !== "all locations";
+}
 
 export function useFinanceDataset() {
   const { product, location } = useSharedModulesContext();
@@ -136,6 +193,70 @@ export function useFinanceReports() {
     ...datasetQuery,
     data: datasetQuery.data?.reports ?? [],
   };
+}
+
+export function useFinanceExpenseBreakdown(
+  filter: FinanceExpenseBreakdownFilter,
+  fromDate?: string,
+  toDate?: string,
+) {
+  const { account, location } = useSharedModulesContext();
+  const api = useApiScope();
+  const businessProfileQuery = useQuery({
+    queryKey: ["finance-business-profile", account.id],
+    queryFn: () => api.get<unknown>("provider/bProfile").then((response) => response.data),
+    staleTime: 300_000,
+  });
+  const resolvedAccountId = extractFinanceAccountId(businessProfileQuery.data);
+  const expenseComparisonLocationId = shouldIncludeExpenseComparisonLocation(location) ? location?.id ?? null : null;
+
+  return useQuery<FinanceExpenseBreakdownRow[]>({
+    queryKey: ["finance-expense-breakdown", resolvedAccountId, expenseComparisonLocationId, filter, fromDate, toDate],
+    queryFn: async () => {
+      if (filter === "DATE_RANGE" && (!fromDate || !toDate)) {
+        return [];
+      }
+
+      const params: Record<string, unknown> = {
+        accId: resolvedAccountId,
+        metricId: 168,
+        categoryType: "Expense",
+        from: 0,
+        count: 6,
+      };
+
+      if (expenseComparisonLocationId) {
+        params.locationId = expenseComparisonLocationId;
+      }
+
+      if (filter === "DATE_RANGE") {
+        params.frequency = mapExpenseBreakdownFrequency(filter);
+        params.dateFrom = fromDate;
+        params.dateTo = toDate;
+      } else {
+        params.frequency = mapExpenseBreakdownFrequency(filter);
+      }
+
+      const response = await api.get<unknown>("provider/jp/finance/analytics/categorywise/comparison", { params });
+      return normalizeFinanceExpenseBreakdown((response as { data: unknown }).data);
+    },
+    enabled: businessProfileQuery.isSuccess && Boolean(resolvedAccountId),
+  });
+}
+
+export function useFinanceExpenseCount(
+  enabled = true,
+) {
+  const { api } = useSharedModulesContext();
+
+  return useQuery<number>({
+    queryKey: ["finance-expense-count"],
+    queryFn: async () => {
+      const response = await api.get<number>("provider/jp/finance/expense/count");
+      return Number((response as { data: number }).data) || 0;
+    },
+    enabled,
+  });
 }
 
 export function useFinanceSummaries() {

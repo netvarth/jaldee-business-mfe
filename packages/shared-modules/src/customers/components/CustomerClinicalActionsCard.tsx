@@ -8,6 +8,7 @@ interface CustomerClinicalActionsCardProps {
 
 export function CustomerClinicalActionsCard({ customerId, customerLabel }: CustomerClinicalActionsCardProps) {
   const { basePath, product } = useSharedModulesContext();
+  const canOpenClinicalWorkspace = product === "health";
 
   function getMedicalRecordsBasePath() {
     if (basePath.endsWith("/customers")) {
@@ -39,17 +40,23 @@ export function CustomerClinicalActionsCard({ customerId, customerLabel }: Custo
         <p className="text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">
           Continue this {customerLabel.toLowerCase()} into the medical records workspace.
         </p>
-        <div className="flex flex-wrap gap-3">
-          <Button data-testid="customer-clinical-open-records" variant="outline" size="sm" onClick={() => openClinicalRoute("records")}>
-            Open Medical Records
-          </Button>
-          <Button data-testid="customer-clinical-open-notes" variant="outline" size="sm" onClick={() => openClinicalRoute("clinical-notes")}>
-            Clinical Notes
-          </Button>
-          <Button data-testid="customer-clinical-open-prescription" variant="outline" size="sm" onClick={() => openClinicalRoute("prescription")}>
-            Prescription
-          </Button>
-        </div>
+        {canOpenClinicalWorkspace ? (
+          <div className="flex flex-wrap gap-3">
+            <Button data-testid="customer-clinical-open-records" variant="outline" size="sm" onClick={() => openClinicalRoute("records")}>
+              Open Medical Records
+            </Button>
+            <Button data-testid="customer-clinical-open-notes" variant="outline" size="sm" onClick={() => openClinicalRoute("clinical-notes")}>
+              Clinical Notes
+            </Button>
+            <Button data-testid="customer-clinical-open-prescription" variant="outline" size="sm" onClick={() => openClinicalRoute("prescription")}>
+              Prescription
+            </Button>
+          </div>
+        ) : (
+          <p className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
+            Clinical workspace actions are available only in the Health product.
+          </p>
+        )}
       </div>
     </SectionCard>
   );

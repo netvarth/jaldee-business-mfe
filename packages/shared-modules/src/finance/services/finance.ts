@@ -1,6 +1,7 @@
 import type { ProductKey } from "@jaldee/auth-context";
 import type {
   FinanceDataset,
+  FinanceExpenseBreakdownRow,
   FinanceExpenseRow,
   FinanceInvoiceRow,
   FinanceInvoiceStatus,
@@ -129,6 +130,27 @@ export function normalizeFinanceExpenses(payload: unknown): FinanceExpenseRow[] 
       bookedOn: financeFormatDate(i["paidDate"] ?? i["bookedOn"] ?? i["expenseDate"] ?? i["createdDate"]),
     };
   });
+}
+
+export function normalizeFinanceExpenseBreakdown(payload: unknown): FinanceExpenseBreakdownRow[] {
+  const root = (payload ?? {}) as Record<string, unknown>;
+  const metricValues = Array.isArray(root["metricValues"]) ? root["metricValues"] as Record<string, unknown>[] : [];
+  const expenseMetric = metricValues.find((item) =>
+    Number(item["metricId"]) === 168 ||
+    String(item["metricName"] ?? "").toUpperCase() === "FINANCE_EXPENSE_TOTAL"
+  );
+  const compareData = Array.isArray(expenseMetric?.["compareData"]) ? expenseMetric["compareData"] as Record<string, unknown>[] : [];
+
+  return compareData
+    .map((item, index) => ({
+      id: financeText(item["categoryName"] ?? `expense-breakdown-${index}`),
+      category: financeText(item["categoryName"], "General"),
+      currentAmount: financeAmt(item["currentAmount"]),
+      amountDifference: financeAmt(item["amountDifference"]),
+      percentage: financeAmt(item["percentage"]),
+      increased: Boolean(item["increased"]),
+    }))
+    .filter((item) => item.currentAmount !== 0 || item.amountDifference !== 0);
 }
 
 export function normalizeFinanceVendors(payload: unknown): FinanceVendorRow[] {

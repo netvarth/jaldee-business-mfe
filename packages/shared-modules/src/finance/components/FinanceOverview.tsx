@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, EmptyState, Icon, SectionCard, StatCard, Select, BarChart } from "@jaldee/design-system";
+import { Badge, Button, DatePicker, EmptyState, Icon, SectionCard, StatCard, Select, BarChart } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
-import { useFinanceDataset } from "../queries/finance";
+import { useFinanceDataset, useFinanceExpenseBreakdown, useFinanceExpenseCount, type FinanceExpenseBreakdownFilter } from "../queries/finance";
 import { formatFinanceCurrency, getFinanceStatusVariant } from "../services/finance";
 import type { FinanceQuickAction, FinanceTransactionRow } from "../types";
 import { SharedFinanceLayout } from "./shared";
@@ -21,7 +21,7 @@ function QuickActions({ actions }: { actions: FinanceQuickAction[] }) {
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 shadow-sm">
                 <Icon name={action.icon} className="h-5 w-5" />
               </div>
-              <div className="text-[15px] font-semibold leading-5 text-slate-900">{action.label}</div>
+              <div className="text-[14px] font-semibold leading-5 text-slate-900">{action.label}</div>
             </div>
           </button>
         ))}
@@ -36,7 +36,7 @@ function QuickActions({ actions }: { actions: FinanceQuickAction[] }) {
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-700 shadow-sm">
               <Icon name="layers" className="h-5 w-5" />
             </div>
-            <div className="text-[15px] font-semibold leading-5 text-slate-900">Edit Actions</div>
+            <div className="text-[14px] font-semibold leading-5 text-slate-900">Edit Actions</div>
           </div>
         </button>
       </div>
@@ -58,8 +58,8 @@ function TransactionList({
 
   return (
     <div className="mt-6">
-      <div className="text-[22px] font-semibold text-slate-900">Recent Transactions</div>
-      <div className="mt-4 flex gap-3 text-sm font-semibold">
+      <div className="text-[20px] font-semibold text-slate-900">Recent Transactions</div>
+      <div className="mt-4 flex gap-3 text-xs font-semibold">
         {(["All", "Revenue", "Payout"] as const).map((tab) => (
           <button
             key={tab}
@@ -80,14 +80,14 @@ function TransactionList({
             {filteredRows.slice(0, 15).map((row) => (
               <div key={row.id} className="grid gap-4 py-5 md:grid-cols-[1.5fr_1fr_auto] md:items-start text-left">
                 <div>
-                  <div className="text-[16px] font-semibold text-slate-900">{row.title}</div>
-                  <div className="text-[16px] font-semibold text-slate-900">{row.subtitle}</div>
-                  <div className={`mt-1 text-[14px] font-medium ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
+                  <div className="text-[14px] font-semibold text-slate-900">{row.title}</div>
+                  <div className="text-[14px] font-semibold text-slate-900">{row.subtitle}</div>
+                  <div className={`mt-1 text-[13px] font-medium ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
                     {row.kind === "Revenue" ? "Revenue ↙" : "Payout ↗"}
                   </div>
                 </div>
-                <div className="text-[16px] text-slate-700 md:pt-1">{row.date}</div>
-                <div className="text-right text-[16px] font-semibold text-slate-900 md:pt-1">{formatFinanceCurrency(row.amount)}</div>
+                <div className="text-[14px] text-slate-700 md:pt-1">{row.date}</div>
+                <div className="text-right text-[14px] font-semibold text-slate-900 md:pt-1">{formatFinanceCurrency(row.amount)}</div>
               </div>
             ))}
           </div>
@@ -99,7 +99,7 @@ function TransactionList({
             <button
               type="button"
               onClick={() => window.location.assign("/finance/transactions")}
-              className="text-[16px] font-semibold text-indigo-700 hover:text-indigo-800"
+              className="text-[14px] font-semibold text-indigo-700 hover:text-indigo-800"
             >
               See All({filteredRows.length})
             </button>
@@ -112,11 +112,17 @@ function TransactionList({
 
 export function FinanceOverview() {
   const [statsRange, setStatsRange] = useState("today");
-  const [expenseRange, setExpenseRange] = useState("today");
+  const [expenseRange, setExpenseRange] = useState<FinanceExpenseBreakdownFilter>("TODAY");
+  const [expenseFromDate, setExpenseFromDate] = useState("");
+  const [expenseToDate, setExpenseToDate] = useState("");
   const [chartRange, setChartRange] = useState("week");
   const datasetQuery = useFinanceDataset();
   const dataset = datasetQuery.data;
   const { basePath } = useSharedModulesContext();
+  const expenseBreakdownQuery = useFinanceExpenseBreakdown(expenseRange, expenseFromDate, expenseToDate);
+  const expenseBreakdown = expenseBreakdownQuery.data ?? [];
+  const expenseCountQuery = useFinanceExpenseCount();
+  const expenseCount = expenseCountQuery.data ?? 0;
 
   const filteredTransactions = useMemo(() => {
     if (!dataset) return [];
@@ -172,7 +178,7 @@ export function FinanceOverview() {
             ))}
           </div>
         </SectionCard>
-        <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+        <div className="grid gap-6 xl:grid-cols-2">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="space-y-4">
               <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-100" />
@@ -225,11 +231,11 @@ export function FinanceOverview() {
     >
       <QuickActions actions={dataset?.actions ?? []} />
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+      <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-6">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[22px] font-semibold text-slate-900">Account Balance</div>
+              <div className="text-[20px] font-semibold text-slate-900">Account Balance</div>
               <div className="w-40">
                 <Select
                   options={[
@@ -245,12 +251,12 @@ export function FinanceOverview() {
             </div>
             <div className="mt-4 rounded-2xl bg-[#3B07B8] px-6 py-5 text-white shadow-sm">
               <div className="text-sm font-medium text-indigo-100">Your Account Balance</div>
-              <div className="mt-1 text-xl font-semibold">{formatFinanceCurrency(dataset?.accountBalance ?? 0)}</div>
+              <div className="mt-1 text-lg font-semibold">{formatFinanceCurrency(dataset?.accountBalance ?? 0)}</div>
             </div>
           </SectionCard>
 
           <SectionCard className="border-slate-200 shadow-sm">
-            <div className="text-[22px] font-semibold text-slate-900">Recent Transaction</div>
+            <div className="text-[20px] font-semibold text-slate-900">Recent Transaction</div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               {filteredSummaries.map((summary) => (
                 <StatCard key={summary.label} label={summary.label} value={summary.value} accent={summary.accent} />
@@ -265,7 +271,7 @@ export function FinanceOverview() {
         <div className="space-y-6">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[22px] font-semibold text-slate-900">Cash Inhand</div>
+              <div className="text-[20px] font-semibold text-slate-900">Cash Inhand</div>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
@@ -280,7 +286,7 @@ export function FinanceOverview() {
             <div className="mt-4 rounded-2xl bg-slate-600 px-6 py-5 text-white shadow-sm flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-slate-200">Amount</div>
-                <div className="mt-1 text-xl font-semibold">{formatFinanceCurrency(dataset?.cashInHand ?? 0)}</div>
+                <div className="mt-1 text-lg font-semibold">{formatFinanceCurrency(dataset?.cashInHand ?? 0)}</div>
               </div>
               <button
                 type="button"
@@ -296,41 +302,77 @@ export function FinanceOverview() {
           </SectionCard>
 
           <SectionCard className="border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="text-[22px] font-semibold text-slate-900">Expenses Breakdown</div>
-              <div className="w-40">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-[20px] font-semibold text-slate-900">Expenses Breakdown</div>
+              <div className="w-full sm:w-40">
                 <Select
                   options={[
-                    { value: "today", label: "Today" },
-                    { value: "week", label: "Last 7 Days" },
-                    { value: "month", label: "Last 30 Days" },
+                    { value: "TODAY", label: "Today" },
+                    { value: "PREVIOUS_WEEK", label: "Previous Week" },
+                    { value: "CURRENT_MONTH", label: "Current Month" },
+                    { value: "PREVIOUS_MONTH", label: "Previous Month" },
+                    { value: "DATE_RANGE", label: "Date Range" },
                   ]}
                   value={expenseRange}
-                  onChange={(e) => setExpenseRange(e.target.value)}
+                  onChange={(e) => setExpenseRange(e.target.value as FinanceExpenseBreakdownFilter)}
                 />
               </div>
             </div>
-            <div className="mt-4 space-y-3">
-              {(dataset?.expenses ?? []).length ? (
-                dataset?.expenses.slice(0, 4).map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <div>
-                      <div className="font-semibold text-slate-900">{expense.category}</div>
-                      <div className="text-sm text-slate-500">{expense.title}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-semibold text-slate-900">{formatFinanceCurrency(expense.amount)}</div>
-                      <div className={`text-sm font-medium ${expense.increased ? "text-rose-500" : "text-emerald-600"}`}>
-                        {expense.difference ?? 0}
+            {expenseRange === "DATE_RANGE" ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <DatePicker value={expenseFromDate} max={expenseToDate || undefined} onChange={(e) => setExpenseFromDate(e.target.value)} />
+                <DatePicker value={expenseToDate} min={expenseFromDate || undefined} onChange={(e) => setExpenseToDate(e.target.value)} />
+              </div>
+            ) : null}
+              <div className="mt-4">
+              {expenseBreakdown.length ? (
+                <div className="flex flex-wrap items-start justify-start gap-x-6 gap-y-4">
+                  {expenseBreakdown.map((item) => (
+                    <div
+                      key={item.id}
+                      className="grid w-[calc(50%-0.75rem)] grid-cols-[2.75rem,minmax(0,1fr),1.25rem] items-center gap-2 py-2 xl:w-[calc(33.333%-1rem)] sm:grid-cols-[3.25rem,minmax(0,1fr),1.5rem] sm:gap-3"
+                    >
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 sm:h-[3.25rem] sm:w-[3.25rem]">
+                        <Icon name="warehouse" className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] leading-4 text-slate-500 sm:text-[13px]">{item.category}</div>
+                        <div className="truncate text-[14px] font-semibold leading-5 text-slate-900 sm:text-[15px]">{formatFinanceCurrency(item.currentAmount)}</div>
+                        <div className={`flex items-center gap-1 text-[11px] leading-4 sm:text-xs ${item.increased ? "text-rose-500" : "text-emerald-600"}`}>
+                          <span>{formatFinanceCurrency(Math.abs(item.amountDifference))}</span>
+                          <svg
+                            className={item.increased ? "h-3 w-3 text-rose-500" : "h-3 w-3 text-emerald-600"}
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                          >
+                            <path
+                              d={item.increased ? "M6 10V2M6 2L3.5 4.5M6 2L8.5 4.5" : "M6 2V10M6 10L3.5 7.5M6 10L8.5 7.5"}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <svg
+                        className="h-5 w-5 shrink-0 self-center text-slate-400 sm:h-6 sm:w-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M5 12H19" strokeLinecap="round" />
+                        <path d="M13 6L19 12L13 18" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               ) : (
                 <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 px-6 py-10 text-center">
                   <EmptyState 
                     icon={<img src="/assets/images/expense.svg" alt="no expense" className="h-24 w-24 object-contain mx-auto" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
-                    title="No Expenses Found for Today" 
+                    title="No Expense Breakdown Found" 
                   />
                 </div>
               )}
@@ -339,16 +381,16 @@ export function FinanceOverview() {
               <button
                 type="button"
                 onClick={() => window.location.assign(basePath + "/expense")}
-                className="text-[16px] font-semibold text-indigo-700 hover:text-indigo-800"
+                className="text-[14px] font-semibold text-indigo-700 hover:text-indigo-800"
               >
-                See All Expenses({(dataset?.expenses ?? []).length || 71})
+                See All Expenses({expenseCount})
               </button>
             </div>
           </SectionCard>
 
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[24px] font-semibold text-slate-900">Statistics</div>
+              <div className="text-[20px] font-semibold text-slate-900">Statistics</div>
               <div className="w-40">
                 <Select
                   options={[
@@ -373,8 +415,8 @@ export function FinanceOverview() {
           <div className="grid gap-6 lg:grid-cols-2">
             <SectionCard className="border-slate-200 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="text-[22px] font-semibold text-slate-900">Invoices</div>
-                <button type="button" onClick={() => window.location.assign(`${basePath}/invoices`)} className="text-base font-semibold text-indigo-700">
+                <div className="text-[20px] font-semibold text-slate-900">Invoices</div>
+                <button type="button" onClick={() => window.location.assign(`${basePath}/invoices`)} className="text-sm font-semibold text-indigo-700">
                   + Add New
                 </button>
               </div>
@@ -384,24 +426,24 @@ export function FinanceOverview() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         {index === 0 ? <div className="text-sm font-semibold text-indigo-700">Most Recent</div> : null}
-                        <div className="font-semibold text-slate-900">Invoice : #{invoice.id}</div>
+                        <div className="text-[14px] font-semibold text-slate-900">Invoice : #{invoice.id}</div>
                         <div className="text-sm text-slate-600">{invoice.customer}</div>
                         <div className="mt-1"><Badge variant={getFinanceStatusVariant(invoice.status)}>{invoice.status}</Badge></div>
                       </div>
-                      <div className="font-semibold text-slate-900">{formatFinanceCurrency(invoice.amount)}</div>
+                      <div className="text-[14px] font-semibold text-slate-900">{formatFinanceCurrency(invoice.amount)}</div>
                     </div>
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => window.location.assign(`${basePath}/invoices`)} className="mt-4 text-lg font-semibold text-indigo-700">
+              <button type="button" onClick={() => window.location.assign(`${basePath}/invoices`)} className="mt-4 text-base font-semibold text-indigo-700">
                 See All({dataset?.invoices.length ?? 0})
               </button>
             </SectionCard>
 
             <SectionCard className="border-slate-200 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="text-[22px] font-semibold text-slate-900">Vendors</div>
-                <button type="button" onClick={() => window.location.assign(`${basePath}/settings`)} className="text-base font-semibold text-indigo-700">
+                <div className="text-[20px] font-semibold text-slate-900">Vendors</div>
+                <button type="button" onClick={() => window.location.assign(`${basePath}/settings`)} className="text-sm font-semibold text-indigo-700">
                   + Add New
                 </button>
               </div>
@@ -413,7 +455,7 @@ export function FinanceOverview() {
                         <Icon name="globe" />
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-900">{vendor.name}</div>
+                        <div className="text-[14px] font-semibold text-slate-900">{vendor.name}</div>
                         <div className="text-sm text-slate-500">{vendor.category}</div>
                       </div>
                     </div>
@@ -421,7 +463,7 @@ export function FinanceOverview() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => window.location.assign(`${basePath}/settings`)} className="mt-4 text-lg font-semibold text-indigo-700">
+              <button type="button" onClick={() => window.location.assign(`${basePath}/settings`)} className="mt-4 text-base font-semibold text-indigo-700">
                 See All({dataset?.vendors.length ?? 0})
               </button>
             </SectionCard>

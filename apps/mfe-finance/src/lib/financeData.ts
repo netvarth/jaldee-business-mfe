@@ -84,6 +84,14 @@ export type FinanceExpense = {
   bookedOn: string;
 };
 
+export type FinanceExpenseBreakdown = {
+  id: string;
+  category: string;
+  amountDifference: number;
+  percentage: number;
+  increased: boolean;
+};
+
 export type FinanceCategory = {
   id: string;
   name: string;
