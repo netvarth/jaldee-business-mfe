@@ -49,7 +49,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
       path: "/health/ip",
       children: [
         { id: "health-ip-overview", label: "Overview", icon: "", path: "/health/ip" },
-        { id: "health-ip-patients", label: "Patients", icon: "", path: "/health/ip/patients" },
+        { id: "health-ip-patients", label: "Patients", icon: "", path: "/health/ip/inpatient" },
         { id: "health-ip-admissions", label: "Admissions", icon: "", path: "/health/ip/admissions" },
         { id: "health-ip-beds", label: "Beds", icon: "", path: "/health/ip/beds" },
         { id: "health-ip-billing", label: "Billing", icon: "", path: "/health/ip/billing" },

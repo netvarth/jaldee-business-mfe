@@ -4,7 +4,7 @@ import { useSharedModulesContext } from "./context";
 const SHARED_TO_AUTH_MODULE: SharedModuleToAuthModuleMap = {
   customers: "customers",
   orders: null,
-  ip: "ip",
+  ip: null,
   "audit-log": null,
   settings: "settings",
   tasks: "tasks",

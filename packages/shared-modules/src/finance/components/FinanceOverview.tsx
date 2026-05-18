@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Badge, Button, DatePicker, EmptyState, Icon, SectionCard, StatCard, Select, BarChart } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { useFinanceDataset, useFinanceExpenseBreakdown, useFinanceExpenseCount, type FinanceExpenseBreakdownFilter } from "../queries/finance";
 import { formatFinanceCurrency, getFinanceStatusVariant } from "../services/finance";
 import type { FinanceQuickAction, FinanceTransactionRow } from "../types";
 import { SharedFinanceLayout } from "./shared";
 
-function QuickActions({ actions }: { actions: FinanceQuickAction[] }) {
+function QuickActions({ actions, onNavigate }: { actions: FinanceQuickAction[]; onNavigate: (href: string) => void }) {
   return (
     <SectionCard className="border-slate-200 shadow-sm">
       <div className="flex flex-wrap gap-4">
@@ -14,7 +15,7 @@ function QuickActions({ actions }: { actions: FinanceQuickAction[] }) {
           <button
             key={action.label}
             type="button"
-            onClick={() => window.location.assign(action.route)}
+            onClick={() => onNavigate(action.route)}
             className="h-[102px] w-[144px] shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           >
             <div className="flex flex-col items-center gap-3 text-center">
@@ -29,7 +30,7 @@ function QuickActions({ actions }: { actions: FinanceQuickAction[] }) {
           id="finance-overview-edit-actions"
           data-testid="finance-overview-edit-actions"
           type="button"
-          onClick={() => window.location.assign("/finance/settings")}
+          onClick={() => onNavigate("/finance/settings")}
           className="h-[102px] w-[144px] shrink-0 rounded-2xl border border-dashed border-slate-300 bg-white px-3 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:shadow-md"
         >
           <div className="flex flex-col items-center gap-3 text-center">
@@ -46,8 +47,10 @@ function QuickActions({ actions }: { actions: FinanceQuickAction[] }) {
 
 function TransactionList({
   rows,
+  onNavigate,
 }: {
   rows: FinanceTransactionRow[];
+  onNavigate: (href: string) => void;
 }) {
   const [filter, setFilter] = useState<"All" | "Revenue" | "Payout">("All");
 
@@ -98,7 +101,7 @@ function TransactionList({
           <div className="mt-4 border-t border-slate-100 pt-4">
             <button
               type="button"
-              onClick={() => window.location.assign("/finance/transactions")}
+              onClick={() => onNavigate("/finance/transactions")}
               className="text-[14px] font-semibold text-indigo-700 hover:text-indigo-800"
             >
               See All({filteredRows.length})
@@ -119,6 +122,7 @@ export function FinanceOverview() {
   const datasetQuery = useFinanceDataset();
   const dataset = datasetQuery.data;
   const { basePath } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
   const expenseBreakdownQuery = useFinanceExpenseBreakdown(expenseRange, expenseFromDate, expenseToDate);
   const expenseBreakdown = expenseBreakdownQuery.data ?? [];
   const expenseCountQuery = useFinanceExpenseCount();
@@ -227,9 +231,9 @@ export function FinanceOverview() {
     <SharedFinanceLayout
       title={`Welcome back, Finance User`}
       subtitle={dataset?.subtitle ?? "A lightweight finance view scoped to the active product."}
-      actions={<Button onClick={() => window.location.assign("/finance")}>Open Full Finance</Button>}
+      actions={<Button onClick={() => navigate("/finance")}>Open Full Finance</Button>}
     >
-      <QuickActions actions={dataset?.actions ?? []} />
+      <QuickActions actions={dataset?.actions ?? []} onNavigate={navigate} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-6">
@@ -263,7 +267,7 @@ export function FinanceOverview() {
               ))}
             </div>
             <div className="mt-6">
-              <TransactionList rows={dataset?.transactions ?? []} />
+              <TransactionList rows={dataset?.transactions ?? []} onNavigate={navigate} />
             </div>
           </SectionCard>
         </div>
@@ -290,7 +294,7 @@ export function FinanceOverview() {
               </div>
               <button
                 type="button"
-                onClick={() => window.location.assign("/finance/cashRegister")}
+                onClick={() => navigate("/finance/cashRegister")}
                 className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100 transition shadow"
               >
                 Cash Register ↗
@@ -380,7 +384,7 @@ export function FinanceOverview() {
             <div className="mt-4 border-t border-slate-100 pt-4">
               <button
                 type="button"
-                onClick={() => window.location.assign(basePath + "/expense")}
+                onClick={() => navigate(basePath + "/expense")}
                 className="text-[14px] font-semibold text-indigo-700 hover:text-indigo-800"
               >
                 See All Expenses({expenseCount})
@@ -416,7 +420,7 @@ export function FinanceOverview() {
             <SectionCard className="border-slate-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="text-[20px] font-semibold text-slate-900">Invoices</div>
-                <button type="button" onClick={() => window.location.assign(`${basePath}/invoices`)} className="text-sm font-semibold text-indigo-700">
+                <button type="button" onClick={() => navigate(`${basePath}/invoices`)} className="text-sm font-semibold text-indigo-700">
                   + Add New
                 </button>
               </div>
@@ -435,7 +439,7 @@ export function FinanceOverview() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => window.location.assign(`${basePath}/invoices`)} className="mt-4 text-base font-semibold text-indigo-700">
+              <button type="button" onClick={() => navigate(`${basePath}/invoices`)} className="mt-4 text-base font-semibold text-indigo-700">
                 See All({dataset?.invoices.length ?? 0})
               </button>
             </SectionCard>
@@ -443,7 +447,7 @@ export function FinanceOverview() {
             <SectionCard className="border-slate-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="text-[20px] font-semibold text-slate-900">Vendors</div>
-                <button type="button" onClick={() => window.location.assign(`${basePath}/settings`)} className="text-sm font-semibold text-indigo-700">
+                <button type="button" onClick={() => navigate(`${basePath}/settings`)} className="text-sm font-semibold text-indigo-700">
                   + Add New
                 </button>
               </div>
@@ -463,7 +467,7 @@ export function FinanceOverview() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => window.location.assign(`${basePath}/settings`)} className="mt-4 text-base font-semibold text-indigo-700">
+              <button type="button" onClick={() => navigate(`${basePath}/settings`)} className="mt-4 text-base font-semibold text-indigo-700">
                 See All({dataset?.vendors.length ?? 0})
               </button>
             </SectionCard>

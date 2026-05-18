@@ -70,7 +70,7 @@ export default function IconRail() {
       return;
     }
 
-    if (location.pathname === "/base" || location.pathname === "/") {
+    if (location.pathname === "/home" || location.pathname === "/base" || location.pathname === "/") {
       setActiveProduct(null);
     }
   }, [account.licensedProducts, location.pathname, setActiveProduct]);
@@ -82,7 +82,7 @@ export default function IconRail() {
 
   function handleBase() {
     setActiveProduct(null);
-    navigate("/base");
+    navigate("/home");
   }
 
   function handleBaseCrm() {
@@ -115,7 +115,7 @@ export default function IconRail() {
         product="default"
         icon={<HomeIcon />}
         label="Home"
-        active={location.pathname === "/base"}
+        active={location.pathname === "/home" || location.pathname === "/base"}
         onClick={handleBase}
       />
 

@@ -4,6 +4,7 @@ import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialo
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { resolveCustomerLabel } from "../../labels";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeCustomerStatus,
@@ -39,6 +40,7 @@ const SEARCH_FIELD_OPTIONS = [
 
 export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const { account, product, apiScope, user, basePath } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
   const customerLabel = resolveCustomerLabel(account.labels, product);
   const [activeTab, setActiveTab] = useState<ListTab>("customers");
   const [searchField, setSearchField] = useState<SearchField>("all");
@@ -270,7 +272,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                   key: "appointment",
                   label: "Create Appointment",
                   onClick: () =>
-                    navigateToPath("/bookings/appointments", {
+                    navigateToPath(navigate, "/bookings/appointments", {
                       checkin_type: "WALK_IN_APPOINTMENT",
                       source: "customerList",
                       customerId: customer.id,
@@ -283,7 +285,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                   key: "checkin",
                   label: "Create Token",
                   onClick: () =>
-                    navigateToPath("/bookings/queue", {
+                    navigateToPath(navigate, "/bookings/queue", {
                       checkin_type: "WALK_IN_CHECKIN",
                       showtoken: "true",
                       source: "customerList",
@@ -296,7 +298,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
               key: "order",
               label: "Create Order",
               onClick: () =>
-                navigateToPath("/golderp/sales/new", {
+                navigateToPath(navigate, "/golderp/sales/new", {
                   source: "customers",
                   customerId: customer.id,
                   p_source: basePath,
@@ -306,7 +308,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
               key: "invoice",
               label: "Create Invoice",
               onClick: () =>
-                navigateToPath("/finance/invoices", {
+                navigateToPath(navigate, "/finance/invoices", {
                   custId: customer.id,
                   type: "custom",
                   from: "patientInvoice",
@@ -318,7 +320,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                   key: "case",
                   label: "Create Case",
                   onClick: () =>
-                    navigateToPath(`${getCanonicalCustomerRouteBasePath(basePath, product)}/${customer.id}/new-case`, {
+                    navigateToPath(navigate, `${getCanonicalCustomerRouteBasePath(basePath, product)}/${customer.id}/new-case`, {
                       consumerId: customer.id,
                       source: "patientRecord",
                       p_source: basePath,
@@ -337,7 +339,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                   key: "reminder",
                   label: "Reminder",
                   onClick: () =>
-                    navigateToPath(`${getModuleRoot(basePath, product)}/settings`, {
+                    navigateToPath(navigate, `${getModuleRoot(basePath, product)}/settings`, {
                       view: "comm-reminder",
                       customerId: customer.id,
                       source: "customers",
@@ -1078,14 +1080,19 @@ function stopRowAction(event: MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
 
-function navigateToPath(path: string, params: Record<string, string>) {
-  if (typeof window === "undefined") {
-    return;
-  }
+function navigateToPath(
+  navigate: (href: string) => void,
+  path: string,
+  params: Record<string, string>
+) {
+  const [pathWithoutHash, hash = ""] = path.split("#", 2);
+  const [pathname, query = ""] = pathWithoutHash.split("?", 2);
+  const searchParams = new URLSearchParams(query);
 
-  const url = new URL(window.location.origin + path);
-  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-  window.location.assign(url.pathname + url.search);
+  Object.entries(params).forEach(([key, value]) => searchParams.set(key, value));
+
+  const nextQuery = searchParams.toString();
+  navigate(`${pathname}${nextQuery ? `?${nextQuery}` : ""}${hash ? `#${hash}` : ""}`);
 }
 
 function navigateToExternal(href: string) {

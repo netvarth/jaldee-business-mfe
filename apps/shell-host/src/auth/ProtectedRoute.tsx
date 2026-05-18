@@ -30,7 +30,7 @@ export default function ProtectedRoute({ children }: Props) {
   }
 
   if (isAuthenticated && onboardingStatus === "complete" && location.pathname === "/onboarding") {
-    return <Navigate to="/base" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <>{children}</>;

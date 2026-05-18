@@ -1,5 +1,6 @@
 import { Badge, Button, EmptyState, SectionCard } from "@jaldee/design-system";
 import type { ReactNode } from "react";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { mapLeadStatusLabel } from "../utils";
 
 export function StatusBadge({ status }: { status: unknown }) {
@@ -25,11 +26,13 @@ export function ModulePlaceholder({
   description: string;
   backHref: string;
 }) {
+  const navigate = useSharedNavigate();
+
   return (
     <SectionCard className="border-slate-200 shadow-sm">
       <EmptyState title={title} description={description} />
       <div className="mt-4 flex justify-center">
-        <Button variant="secondary" onClick={() => window.location.assign(backHref)}>
+        <Button variant="secondary" onClick={() => navigate(backHref)}>
           Back
         </Button>
       </div>

@@ -95,7 +95,7 @@ export default function OnboardingPage() {
 
   function completeOnboarding() {
     setOnboardingStatus("complete");
-    navigate("/base", { replace: true });
+    navigate("/home", { replace: true });
   }
 
   function toggleBusinessType(id: string) {

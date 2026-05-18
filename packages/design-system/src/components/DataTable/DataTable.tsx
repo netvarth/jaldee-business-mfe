@@ -214,12 +214,12 @@ export function DataTable<T extends object>({
         <table
           role="table"
           data-testid={`${testId}-table`}
-          className={cn("w-full border-collapse text-[length:var(--text-sm)]", tableClassName)}
+          className={cn("w-full table-fixed border-collapse text-[length:var(--text-sm)]", tableClassName)}
         >
           <thead>
             <tr className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
               {selection && (
-                <th scope="col" className="w-12 px-5 py-2.5 text-left">
+                <th scope="col" className="w-12 px-3 py-2.5 text-left md:px-5">
                   <input
                     type="checkbox"
                     data-testid={`${testId}-select-all`}
@@ -256,7 +256,7 @@ export function DataTable<T extends object>({
                     style={{ width: col.width }}
                     onClick={() => col.sortable && handleSort(String(col.key))}
                     className={cn(
-                      "px-5 py-2.5 text-[length:var(--text-xs)] font-medium whitespace-nowrap",
+                      "px-3 py-2.5 text-[length:var(--text-xs)] font-medium whitespace-normal break-words md:px-5",
                       "text-[var(--color-text-secondary)]",
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
@@ -298,13 +298,13 @@ export function DataTable<T extends object>({
                   className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)]"
                 >
                   {selection && (
-                    <td className="px-5 py-3">
+                    <td className="px-3 py-3 md:px-5">
                       <Skeleton height={12} width="16px" />
                     </td>
                   )}
 
                   {visibleColumns.map((col) => (
-                    <td key={String(col.key)} className="px-5 py-3">
+                    <td key={String(col.key)} className="px-3 py-3 md:px-5">
                       <Skeleton height={12} width="80%" />
                     </td>
                   ))}
@@ -343,7 +343,7 @@ export function DataTable<T extends object>({
                   >
                     {selection && (
                       <td
-                        className="px-5 py-3"
+                        className="px-3 py-3 md:px-5"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
@@ -365,7 +365,7 @@ export function DataTable<T extends object>({
                         key={String(col.key)}
                         data-testid={`${testId}-cell-${rowId}-${String(col.key)}`}
                         className={cn(
-                          "px-5 py-3 align-middle text-[var(--color-text-primary)]",
+                          "px-3 py-3 align-top text-[var(--color-text-primary)] whitespace-normal break-words md:px-5",
                           col.align === "center" && "text-center",
                           col.align === "right" && "text-right",
                           col.sticky === "left" && "sticky left-0 z-10 bg-inherit",
@@ -387,9 +387,9 @@ export function DataTable<T extends object>({
           {visibleColumns.some((col) => col.footer) && (
             <tfoot>
               <tr className="border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_30%,white)] font-semibold">
-                {selection && <td className="px-5 py-3" />}
+                {selection && <td className="px-3 py-3 md:px-5" />}
                 {visibleColumns.map((col) => (
-                  <td key={String(col.key)} className="px-5 py-3">
+                  <td key={String(col.key)} className="px-3 py-3 md:px-5">
                     {col.footer?.()}
                   </td>
                 ))}
@@ -402,7 +402,7 @@ export function DataTable<T extends object>({
       {pagination && totalPages > 1 && (
         <div
           data-testid={`${testId}-pagination`}
-          className="flex items-center justify-between border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[var(--color-surface)] px-6 py-3"
+          className="flex flex-col gap-3 border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[var(--color-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between md:px-6"
         >
           <span className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
             Showing {(currentPage - 1) * pagination.pageSize + 1} to{" "}
@@ -410,7 +410,7 @@ export function DataTable<T extends object>({
             {pagination.total} records
           </span>
 
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <PaginationBtn
               label="«"
               disabled={currentPage === 1}
@@ -546,8 +546,8 @@ export function DataTableToolbar({
   recordCount,
 }: DataTableToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="relative w-full max-w-sm">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative w-full sm:max-w-sm">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
@@ -571,7 +571,7 @@ export function DataTableToolbar({
       </div>
 
       {typeof recordCount === "number" && (
-        <span className="text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">
+        <span className="text-[length:var(--text-sm)] text-[var(--color-text-secondary)] sm:whitespace-nowrap">
           {recordCount} records
         </span>
       )}

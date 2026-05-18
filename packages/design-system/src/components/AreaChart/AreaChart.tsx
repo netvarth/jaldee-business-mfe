@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "../../utils";
 import { ChartTooltip } from "../ChartTooltip/ChartTooltip";
 import { Popover, PopoverSection } from "../Popover/Popover";
@@ -250,13 +250,19 @@ export function AreaChart({
   );
 }
 
-function ChartToolButton({ children, label }: { children: ReactNode; label: string }) {
+function ChartToolButton({
+  children,
+  label,
+  className,
+  ...props
+}: { children: ReactNode; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      className="flex h-5 w-5 items-center justify-center rounded-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+      className={cn("flex h-5 w-5 items-center justify-center rounded-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-700", className)}
+      {...props}
     >
       {children}
     </button>

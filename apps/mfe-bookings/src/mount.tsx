@@ -9,11 +9,12 @@ import { MFEErrorBoundary } from "./error/MFEErrorBoundary";
 export const CONTRACT_VERSION = "3.4";
 
 let root: ReactDOM.Root | null = null;
+let currentContainer: HTMLElement | null = null;
+let currentProps: MFEProps | null = null;
 const cleanupFns: Array<() => void> = [];
 
-export function mount(container: HTMLElement, props: MFEProps) {
-  root = ReactDOM.createRoot(container);
-  root.render(
+function renderApp(props: MFEProps) {
+  root?.render(
     <MFEPropsContext.Provider value={props}>
       <BrowserRouter basename={props.basePath}>
         <MFEErrorBoundary
@@ -28,6 +29,13 @@ export function mount(container: HTMLElement, props: MFEProps) {
   );
 }
 
+export function mount(container: HTMLElement, props: MFEProps) {
+  currentContainer = container;
+  currentProps = props;
+  root = ReactDOM.createRoot(container);
+  renderApp(props);
+}
+
 export function unmount(_container: HTMLElement) {
   // Run all cleanup functions
   // event bus listeners, RxJS subscriptions etc.
@@ -35,10 +43,21 @@ export function unmount(_container: HTMLElement) {
   cleanupFns.length = 0;
   root?.unmount();
   root = null;
+  currentContainer = null;
+  currentProps = null;
 }
 
 // Call this from anywhere inside mfe-health
 // to register cleanup on unmount
 export function registerCleanup(fn: () => void) {
   cleanupFns.push(fn);
+}
+
+export function updateProps(nextProps: Partial<MFEProps>) {
+  if (!root || !currentContainer || !currentProps) {
+    return;
+  }
+
+  currentProps = { ...currentProps, ...nextProps };
+  renderApp(currentProps);
 }

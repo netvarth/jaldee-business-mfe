@@ -2,6 +2,7 @@ import { Button, DataTable, DataTableToolbar, EmptyState, PageHeader, SectionCar
 import type { ColumnDef } from "@jaldee/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useLeads, useLeadsCount } from "../queries/leads";
 import { formatDate, fullName, mapLeadStatusLabel, unwrapCount, unwrapList } from "../utils";
@@ -35,6 +36,7 @@ function toRows(data: unknown): LeadRow[] {
 
 export function LeadsList() {
   const { basePath } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -89,7 +91,7 @@ export function LeadsList() {
             variant="outline"
             onClick={(event) => {
               event.stopPropagation();
-              window.location.assign(`${basePath}/leads/details/${row.uid}`);
+              navigate(`${basePath}/leads/details/${row.uid}`);
             }}
           >
             View
@@ -106,8 +108,8 @@ export function LeadsList() {
         title="Leads"
         subtitle="Track inbound leads, their channels, locations, and lifecycle status."
         back={{ label: "Back", href: `${basePath}/dashboard` }}
-        onNavigate={(href) => window.location.assign(href)}
-        actions={<Button onClick={() => window.location.assign(`${basePath}/leads/create`)}>Create</Button>}
+        onNavigate={navigate}
+        actions={<Button onClick={() => navigate(`${basePath}/leads/create`)}>Create</Button>}
       />
 
       <SectionCard className="border-slate-200 shadow-sm" padding={false}>
@@ -147,7 +149,7 @@ export function LeadsList() {
             columns={columns}
             getRowId={(row) => row.uid}
             loading={leadsQuery.isLoading || leadsCountQuery.isLoading}
-            onRowClick={(row) => window.location.assign(`${basePath}/leads/details/${row.uid}`)}
+            onRowClick={(row) => navigate(`${basePath}/leads/details/${row.uid}`)}
             pagination={{
               page,
               pageSize,

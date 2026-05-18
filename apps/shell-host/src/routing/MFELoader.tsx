@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
-import type { MFEProps } from "@jaldee/auth-context";
+import { MFE_CONTRACT_VERSION, type MFEProps } from "@jaldee/auth-context";
 
 interface MFELifecycleModule {
+  CONTRACT_VERSION?: string;
   mount: (container: HTMLElement, props: MFEProps) => void;
   unmount: (container: HTMLElement) => void;
+  updateProps?: (props: Partial<MFEProps>) => void;
 }
 
 interface MFELoaderProps {
@@ -13,10 +14,11 @@ interface MFELoaderProps {
 }
 
 export function MFELoader({ remote, props }: MFELoaderProps) {
-  const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
   const lifecycleRef = useRef<MFELifecycleModule | null>(null);
-  const loadIdRef = useRef(0);
+  const propsRef = useRef(props);
+
+  propsRef.current = props;
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -24,25 +26,23 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
     }
 
     let cancelled = false;
-    const currentLoadId = ++loadIdRef.current;
-
-    if (lifecycleRef.current) {
-      lifecycleRef.current.unmount(containerRef.current);
-      lifecycleRef.current = null;
-    }
 
     remote()
       .then((loadedModule) => {
-        if (cancelled || loadIdRef.current !== currentLoadId) {
+        if (cancelled || !containerRef.current) {
           return;
         }
 
         const lifecycleModule = "default" in loadedModule ? loadedModule.default : loadedModule;
-        console.log("[MFELoader] mounting", props.mfeName);
-        if (!containerRef.current) {
-          return;
+        const contractVersion = lifecycleModule.CONTRACT_VERSION;
+
+        if (contractVersion !== MFE_CONTRACT_VERSION) {
+          throw new Error(
+            `[MFELoader] Contract version mismatch for ${propsRef.current.mfeName}: expected ${MFE_CONTRACT_VERSION}, received ${contractVersion ?? "unknown"}`
+          );
         }
-        lifecycleModule.mount(containerRef.current, props);
+
+        lifecycleModule.mount(containerRef.current, propsRef.current);
         lifecycleRef.current = lifecycleModule;
       })
       .catch((err) => {
@@ -51,12 +51,26 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
 
     return () => {
       cancelled = true;
-      if (containerRef.current && lifecycleRef.current && loadIdRef.current === currentLoadId) {
+      if (containerRef.current && lifecycleRef.current) {
         lifecycleRef.current.unmount(containerRef.current);
         lifecycleRef.current = null;
       }
     };
-  }, [location.pathname, props, remote]);
+  }, [remote]);
+
+  useEffect(() => {
+    if (!containerRef.current || !lifecycleRef.current) {
+      return;
+    }
+
+    if (lifecycleRef.current.updateProps) {
+      lifecycleRef.current.updateProps(props);
+      return;
+    }
+
+    lifecycleRef.current.unmount(containerRef.current);
+    lifecycleRef.current.mount(containerRef.current, props);
+  }, [props]);
 
   return (
     <div

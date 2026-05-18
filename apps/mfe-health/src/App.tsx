@@ -72,9 +72,16 @@ export default function App() {
       <Route path="patients/:recordId/new-case/:caseId" element={withBoundary(<HealthCasePage />)} />
 
       <Route path="ip" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/dashboard" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/details/:recordId" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/invoice/:recordId" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/master-invoice/:recordId" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/transfer/:recordId" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/log/:recordId" element={withBoundary(<HealthIpPage />)} />
       <Route path="ip/:view" element={withBoundary(<HealthIpPage />)} />
       <Route path="ip/:view/:subview" element={withBoundary(<HealthIpPage />)} />
       <Route path="ip/:view/:subview/:recordId" element={withBoundary(<HealthIpPage />)} />
+      <Route path="ip/*" element={withBoundary(<HealthIpPage />)} />
 
       <Route path="drive" element={withBoundary(<HealthDrivePage />)} />
       <Route path="drive/:view" element={withBoundary(<HealthDrivePage />)} />

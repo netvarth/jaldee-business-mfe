@@ -11,7 +11,6 @@ export const DEFAULT_LICENSED_PRODUCTS: AccountContext["licensedProducts"] = [
 export const DEFAULT_ENABLED_MODULES: AccountContext["enabledModules"] = [
   "customers",
   "drive",
-  "ip",
   "users",
   "reports",
   "settings",

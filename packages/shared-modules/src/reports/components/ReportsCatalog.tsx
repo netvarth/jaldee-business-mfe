@@ -33,7 +33,7 @@ export function ReportsCatalog({ onViewGenerated }: { onViewGenerated: () => voi
 
   const handleRoute = (report: ReportCatalogItem) => {
     if (!report.routeTo) return;
-    window.location.assign(`/${report.routeTo}`);
+    navigate(`/${report.routeTo}`);
   };
 
   return (

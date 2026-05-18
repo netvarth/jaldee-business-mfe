@@ -99,6 +99,7 @@ export {
 export { SharedModulesContext, SharedModulesProvider, useSharedModulesContext } from "./context";
 export { useModuleAccess } from "./useModuleAccess";
 export { useApiScope } from "./useApiScope";
+export { useSharedNavigate } from "./useSharedNavigate";
 export { useUrlPagination } from "./useUrlPagination";
 export type { Customer, CustomerFilters, CustomerFormValues, CustomerVisit } from "./customers";
 export {
@@ -139,31 +140,6 @@ export {
   useUpdateMembership,
   useDeleteMembership,
 } from "./memberships";
-
-export type {
-  IpAdmissionRow,
-  IpBedRow,
-  IpBillingRow,
-  IpDataset,
-  IpPatientRow,
-  IpPatientStatus,
-  IpSummary,
-  IpViewKey,
-} from "./ip";
-export {
-  IpModule,
-  IpOverview,
-  IpPatientsList,
-  IpAdmissionsList,
-  IpBedsList,
-  IpBillingList,
-  IpSettings,
-  useIpAdmissions,
-  useIpBeds,
-  useIpBilling,
-  useIpDataset,
-  useIpPatients,
-} from "./ip";
 
 export type { LeadListFilters, LeadSummary, LeadEntityFormMode } from "./leads";
 export {

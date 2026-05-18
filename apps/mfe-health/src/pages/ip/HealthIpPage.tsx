@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { normalizeAccountContext, useMFEProps } from "@jaldee/auth-context";
-import { IpModule, SharedModulesProvider } from "@jaldee/shared-modules";
+import { SharedModulesProvider } from "@jaldee/shared-modules";
+import { IpModule } from "../../modules/ip";
 
 export default function HealthIpPage() {
   const mfeProps = useMFEProps();
@@ -30,6 +31,7 @@ export default function HealthIpPage() {
       view: params.view ?? routeSegments[0] ?? null,
       subview: params.subview ?? routeSegments[1] ?? null,
       recordId: params.recordId ?? routeSegments[2] ?? null,
+      tab: routeSegments[3] ?? null,
     };
   }, [location.pathname, params.recordId, params.subview, params.view]);
 
@@ -40,6 +42,7 @@ export default function HealthIpPage() {
       apiScope: "location" as const,
       basePath: `${mfeProps.basePath}/ip`,
       assetsBaseUrl: mfeProps.assetsBaseUrl,
+      navigate: mfeProps.navigate,
       user: mfeProps.user,
       account: normalizeAccountContext(mfeProps.account),
       location: mfeProps.location,
@@ -49,6 +52,7 @@ export default function HealthIpPage() {
         recordId: routeState.recordId,
         view: routeState.view,
         subview: routeState.subview,
+        tab: routeState.tab,
       },
     }),
     [mfeProps, routeState]

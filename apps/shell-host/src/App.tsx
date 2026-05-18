@@ -28,10 +28,10 @@ import IvrCallLogs from "./pages/ivr/IvrCallLogs";
 import IvrSchedules from "./pages/ivr/IvrSchedules";
 import "./App.css";
 
-function BasePage() {
+function HomePage() {
   return (
     <div className="shell-home">
-      <h2 className="shell-home-title">Base</h2>
+      <h2 className="shell-home-title">Home</h2>
       <p className="shell-home-copy">Welcome to Jaldee Business</p>
     </div>
   );
@@ -50,7 +50,7 @@ export default function App() {
         path="/login"
         element={
           hasHydrated && (isAuthenticated || hasStoredSession) ? (
-            <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/base"} replace />
+            <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/home"} replace />
           ) : (
             <LoginPage />
           )
@@ -80,7 +80,8 @@ export default function App() {
           <ProtectedRoute>
             <ShellLayout>
               <Routes>
-                <Route path="/base" element={<BasePage />} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/base" element={<Navigate to="/home" replace />} />
                 <Route path="/customers/*" element={<ShellCustomersPage />} />
                 <Route path="/users/*" element={<ShellUsersPage />} />
                 <Route path="/reports/*" element={<ShellReportsPage />} />
@@ -135,7 +136,7 @@ export default function App() {
                 <Route path="/lending/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/hr/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/ai/*" element={<GlobalPlaceholderPage />} />
-                <Route path="*" element={<Navigate to="/base" replace />} />
+                <Route path="*" element={<Navigate to="/home" replace />} />
               </Routes>
             </ShellLayout>
           </ProtectedRoute>

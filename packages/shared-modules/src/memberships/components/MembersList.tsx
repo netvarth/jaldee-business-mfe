@@ -19,6 +19,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef, TabItem } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import {
   useCreateMemberGroup,
@@ -169,6 +170,7 @@ function toGroupRows(data: unknown): GroupRow[] {
 
 export function MembersList() {
   const { basePath, routeParams } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
   const [activeTab, setActiveTab] = useState<ListTab>(
     routeParams?.tab === "groups" ? "groups" : "members"
   );
@@ -350,7 +352,7 @@ export function MembersList() {
             variant="outline"
             onClick={(event) => {
               event.stopPropagation();
-              window.location.assign(`${basePath}/members/update/${member.uid}`);
+              navigate(`${basePath}/members/update/${member.uid}`);
             }}
           >
             Edit
@@ -360,7 +362,7 @@ export function MembersList() {
             variant="outline"
             onClick={(event) => {
               event.stopPropagation();
-              window.location.assign(`${basePath}/members/memberdetails/${member.uid}`);
+              navigate(`${basePath}/members/memberdetails/${member.uid}`);
             }}
           >
             View
@@ -422,7 +424,7 @@ export function MembersList() {
             variant="outline"
             onClick={(event) => {
               event.stopPropagation();
-              window.location.assign(`${basePath}/members/groupdetails/${group.uid}`);
+              navigate(`${basePath}/members/groupdetails/${group.uid}`);
             }}
           >
             View
@@ -450,7 +452,7 @@ export function MembersList() {
               <Button
                 fullWidth
                 variant="outline"
-                onClick={() => window.location.assign(`${basePath}/members/create`)}
+                onClick={() => navigate(`${basePath}/members/create`)}
               >
                 Create Member
               </Button>
@@ -513,7 +515,7 @@ export function MembersList() {
                 columns={memberColumns}
                 getRowId={(row) => row.uid}
                 loading={membersQuery.isLoading || memberCountQuery.isLoading}
-                onRowClick={(member) => window.location.assign(`${basePath}/members/memberdetails/${member.uid}`)}
+                onRowClick={(member) => navigate(`${basePath}/members/memberdetails/${member.uid}`)}
                 pagination={{
                   page: membersPage,
                   pageSize: membersPageSize,
@@ -547,7 +549,7 @@ export function MembersList() {
                 columns={groupColumns}
                 getRowId={(row) => row.uid}
                 loading={groupsQuery.isLoading || groupCountQuery.isLoading}
-                onRowClick={(group) => window.location.assign(`${basePath}/members/groupdetails/${group.uid}`)}
+                onRowClick={(group) => navigate(`${basePath}/members/groupdetails/${group.uid}`)}
                 pagination={{
                   page: groupsPage,
                   pageSize: groupsPageSize,
@@ -650,7 +652,7 @@ export function MembersList() {
               <Button
                 onClick={() => {
                   if (createdGroupUid) {
-                    window.location.assign(`${basePath}/members/groupdetails/${createdGroupUid}`);
+                    navigate(`${basePath}/members/groupdetails/${createdGroupUid}`);
                   }
                 }}
               >

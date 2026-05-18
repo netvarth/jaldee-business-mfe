@@ -40,7 +40,7 @@ export default function HealthPharmacyPage() {
       apiScope: "location" as const,
       basePath: mfeProps.basePath,
       moduleBasePath: `${mfeProps.basePath}/${moduleSegment}`,
-      navigate: (to: string) => navigate(to),
+      navigate: (to: string) => mfeProps.navigate(to),
       account: mfeProps.account,
       location: mfeProps.location,
       api: mfeProps.api!,

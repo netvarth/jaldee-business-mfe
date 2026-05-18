@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { PageHeader } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { useSharedNavigate } from "../../useSharedNavigate";
 
 export function SharedFinanceLayout({
   title,
@@ -14,6 +15,7 @@ export function SharedFinanceLayout({
   children: ReactNode;
 }) {
   const { basePath } = useSharedModulesContext();
+  const navigate = useSharedNavigate();
 
   return (
     <div className="space-y-6">
@@ -21,7 +23,7 @@ export function SharedFinanceLayout({
         title={title}
         subtitle={subtitle}
         back={{ label: "Back", href: basePath }}
-        onNavigate={(href) => window.location.assign(href)}
+        onNavigate={navigate}
         actions={actions}
       />
       {children}
