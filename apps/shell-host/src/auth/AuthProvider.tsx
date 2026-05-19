@@ -35,14 +35,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     setAuth,
     clearAuth,
+    setAuthResolved,
     setAvailableLocations,
     setLocation,
+    setHasHydrated,
     isAuthenticated,
     accessToken,
     hasHydrated,
     activeLocation,
     availableLocations,
   } = useShellStore();
+
+  useEffect(() => {
+    if (hasHydrated) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setHasHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [hasHydrated, setHasHydrated]);
 
   useLayoutEffect(() => {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
@@ -79,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (isAuthenticated) {
       hasBootstrappedSessionRef.current = true;
+      setAuthResolved(true);
       return;
     }
 
@@ -91,11 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const storedCredentials = getStoredCredentials();
-    if (getAuthMode() === "session" && !storedCredentials) {
-      return;
-    }
     const storedAccessToken = getStoredAccessToken();
     if (getAuthMode() === "token" && !accessToken && !storedAccessToken) {
+      setAuthResolved(true);
       return;
     }
 
@@ -120,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLocation(locations[0]);
         }
         hasFetchedLocationsRef.current = false;
+        setAuthResolved(true);
       })
       .catch(() => {
         if (!cancelled) {
@@ -127,13 +141,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           hasFetchedLocationsRef.current = false;
           clearStoredCredentials();
           clearAuth();
+          setAuthResolved(true);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [accessToken, clearAuth, hasHydrated, isAuthenticated, setAuth, setAvailableLocations, setLocation]);
+  }, [accessToken, clearAuth, hasHydrated, isAuthenticated, setAuth, setAuthResolved, setAvailableLocations, setLocation]);
 
   async function login(payload: LoginRequest) {
     if (getAuthMode() === "session") {
@@ -149,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAuth(user, account, token ?? "");
     setAvailableLocations(locations ?? []);
+    setAuthResolved(true);
 
     if ((locations ?? []).length) {
       setLocation(locations[0]);
@@ -169,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAuth(user, account, token ?? "");
     setAvailableLocations(locations ?? []);
+    setAuthResolved(true);
 
     if ((locations ?? []).length) {
       setLocation(locations[0]);
@@ -233,6 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       locationsRequestInFlightRef.current = false;
       clearStoredCredentials();
       clearAuth();
+      setAuthResolved(true);
     }
   }
 

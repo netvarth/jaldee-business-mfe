@@ -65,6 +65,7 @@ interface ShellStore {
   accessToken:     string | null;
   isAuthenticated: boolean;
   hasHydrated:     boolean;
+  authResolved:    boolean;
   onboardingStatus: "complete" | "pending";
 
   // Location
@@ -80,6 +81,7 @@ interface ShellStore {
   setAuth:          (user: UserContext, account: AccountContext, token: string) => void;
   clearAuth:        () => void;
   setOnboardingStatus: (status: "complete" | "pending") => void;
+  setAuthResolved:   (value: boolean) => void;
   setLocation:      (location: BranchLocation) => void;
   setAvailableLocations: (locations: BranchLocation[]) => void;
   setActiveProduct: (product: ProductKey | null) => void;
@@ -96,6 +98,7 @@ export const useShellStore = create<ShellStore>()(
       accessToken:        null,
       isAuthenticated:    false,
       hasHydrated:        false,
+      authResolved:       false,
       onboardingStatus:   "complete",
       activeLocation:     null,
       availableLocations: [],
@@ -114,12 +117,16 @@ export const useShellStore = create<ShellStore>()(
       setOnboardingStatus: (status) =>
         set({ onboardingStatus: status }),
 
+      setAuthResolved: (value) =>
+        set({ authResolved: value }),
+
       clearAuth: () =>
         set({
           user: DEFAULT_USER,
           account: DEFAULT_ACCOUNT,
           accessToken: null,
           isAuthenticated: false,
+          authResolved: true,
           onboardingStatus: "complete",
           activeLocation: null,
           availableLocations: [],
@@ -177,6 +184,7 @@ export const useShellStore = create<ShellStore>()(
           return {
             ...currentState,
             hasHydrated: true,
+            authResolved: false,
           };
         }
 

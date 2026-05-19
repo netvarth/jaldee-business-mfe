@@ -12,6 +12,7 @@ export const DEFAULT_LICENSED_PRODUCTS: AccountContext["licensedProducts"] = [
 export const DEFAULT_ENABLED_MODULES: AccountContext["enabledModules"] = [
   "customers",
   "drive",
+  "leads",
   "users",
   "reports",
   "settings",
@@ -48,6 +49,7 @@ export function normalizeAccountContext(
   );
 
   enabledModules.add("drive");
+  enabledModules.add("leads");
 
   if (licensedProducts.has("finance")) {
     enabledModules.add("finance");

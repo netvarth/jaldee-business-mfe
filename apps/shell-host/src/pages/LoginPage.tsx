@@ -30,32 +30,42 @@ export default function LoginPage() {
     }
   }, []);
 
+  async function attemptLogin() {
+    const response = await login({
+      loginId: loginId.trim(),
+      password,
+      multiFactorAuthenticationLogin: requiresMfa,
+      otp: requiresMfa ? otp.trim() : undefined,
+    });
+
+    if (response.multiFactorAuthenticationRequired) {
+      setRequiresMfa(true);
+      setOtp("");
+      setOtpLength(response.otpLength ?? 4);
+      setMaskedDestination(response.maskedDestination ?? "");
+      return;
+    }
+
+    navigate("/home");
+  }
+
   async function handleLogin(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const response = await login({
-        loginId: loginId.trim(),
-        password,
-        multiFactorAuthenticationLogin: requiresMfa,
-        otp: requiresMfa ? otp.trim() : undefined,
-      });
-
-      if (response.multiFactorAuthenticationRequired) {
-        setRequiresMfa(true);
-        setOtp("");
-        setOtpLength(response.otpLength ?? 4);
-        setMaskedDestination(response.maskedDestination ?? "");
-        return;
-      }
-
-      navigate("/home");
+      await attemptLogin();
     } catch (err: unknown) {
       if (isSessionAlreadyExistsError(err)) {
-        navigate("/home", { replace: true });
-        return;
+        try {
+          await logout();
+          await attemptLogin();
+          return;
+        } catch (retryError) {
+          setError(getErrorMessage(retryError));
+          return;
+        }
       }
 
       setError(getErrorMessage(err));

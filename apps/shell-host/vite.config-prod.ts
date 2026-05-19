@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET || authServiceProxyTarget;
 
   return {
-    base: "/",
+    base: "/shell/",
     plugins: [
       react(),
       federation({
