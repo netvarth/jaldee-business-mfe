@@ -34,6 +34,11 @@ export default defineConfig(({ mode }) => {
             from: "vite",
             externalType: "url",
           },
+          mfe_lending: {
+            external: `${env.VITE_LENDING_URL}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          },
           mfe_karty: {
             external: `${env.VITE_KARTY_URL}/assets/remoteEntry.js`,
             from: "vite",

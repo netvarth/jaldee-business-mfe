@@ -16,12 +16,12 @@ export default function LoginPage() {
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
   const navigate = useNavigate();
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const muid = params.get("muid");
@@ -68,6 +68,21 @@ export default function LoginPage() {
     setRequiresMfa(false);
     setOtp("");
     setError("");
+  }
+
+  async function handleManualLogout() {
+    setError("");
+    setLoggingOut(true);
+
+    try {
+      await logout();
+      setRequiresMfa(false);
+      setOtp("");
+    } catch (logoutError) {
+      setError(getErrorMessage(logoutError));
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   if (hasHydrated && isAuthenticated) {
@@ -137,6 +152,21 @@ export default function LoginPage() {
               )}
 
               {error && <div className="login-error">{error}</div>}
+
+              {!requiresMfa ? (
+                <div className="login-field">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    disabled={loading || loggingOut}
+                    onClick={() => void handleManualLogout()}
+                    fullWidth
+                  >
+                    {loggingOut ? "Signing out..." : "Logout existing session"}
+                  </Button>
+                </div>
+              ) : null}
 
               {requiresMfa ? (
                 <div className="login-actions">

@@ -20,6 +20,7 @@ import { BookingsMFE } from "./mfes/BookingsMFE";
 import { GoldErpMFE } from "./mfes/GoldErpMFE";
 import { FinanceMFE } from "./mfes/FinanceMFE";
 import { KartyMFE } from "./mfes/KartyMFE";
+import { LendingMFE } from "./mfes/LendingMFE";
 import { useShellStore } from "./store/shellStore";
 import { hasStoredAuthSession } from "./services/authService";
 import GlobalPlaceholderPage from "./pages/GlobalPlaceholderPage";
@@ -49,7 +50,7 @@ export default function App() {
       <Route
         path="/login"
         element={
-          hasHydrated && (isAuthenticated || hasStoredSession) ? (
+          hasHydrated && isAuthenticated ? (
             <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/home"} replace />
           ) : (
             <LoginPage />
@@ -133,7 +134,15 @@ export default function App() {
                     <FinanceMFE />
                   </Suspense>
                 } />
-                <Route path="/lending/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/lending/*" element={
+                  <Suspense fallback={
+                    <div className="shell-loading">Loading Lending...</div>
+                  }>
+                    <div className="mfe-wrapper">
+                      <LendingMFE />
+                    </div>
+                  </Suspense>
+                } />
                 <Route path="/hr/*" element={<GlobalPlaceholderPage />} />
                 <Route path="/ai/*" element={<GlobalPlaceholderPage />} />
                 <Route path="*" element={<Navigate to="/home" replace />} />

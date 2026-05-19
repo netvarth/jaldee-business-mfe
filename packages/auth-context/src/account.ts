@@ -6,6 +6,7 @@ export const DEFAULT_LICENSED_PRODUCTS: AccountContext["licensedProducts"] = [
   "golderp",
   "karty",
   "finance",
+  "lending",
 ];
 
 export const DEFAULT_ENABLED_MODULES: AccountContext["enabledModules"] = [
@@ -38,6 +39,7 @@ export function normalizeAccountContext(
 
   licensedProducts.add("finance");
   licensedProducts.add("karty");
+  licensedProducts.add("lending");
 
   const enabledModules = new Set<string>(
     Array.isArray(account.enabledModules)
