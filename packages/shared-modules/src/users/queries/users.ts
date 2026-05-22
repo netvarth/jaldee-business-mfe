@@ -19,6 +19,9 @@ import {
   listUserServices,
   listUsers,
   listUserTeams,
+  updateTenantUser,
+  updateTenantUserAvailableStatus,
+  updateTenantUserStatus,
 } from "../services/users";
 import type { ChangeLoginIdInput, CreateTeamInput, CreateUserInput, UsersFilters } from "../types";
 
@@ -228,5 +231,55 @@ export function useUserLocations() {
     queryKey: [USERS_KEY, "locations"],
     queryFn: () => listUserLocations(api),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useUpdateTenantUser(uid: string | number) {
+  const { api } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: unknown) => updateTenantUser(api, uid, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "detail", uid] }),
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "list"] }),
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "dataset"] }),
+      ]);
+    },
+  });
+}
+
+export function useUpdateTenantUserAvailableStatus() {
+  const { api } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ uid, status }: { uid: string | number; status: string }) =>
+      updateTenantUserAvailableStatus(api, uid, status),
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "detail", variables.uid] }),
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "list"] }),
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "dataset"] }),
+      ]);
+    },
+  });
+}
+
+export function useUpdateTenantUserStatus() {
+  const { api } = useSharedModulesContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ uid, status }: { uid: string | number; status: string }) =>
+      updateTenantUserStatus(api, uid, status),
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "detail", variables.uid] }),
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "list"] }),
+        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "dataset"] }),
+      ]);
+    },
   });
 }

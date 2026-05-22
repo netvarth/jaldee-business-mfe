@@ -44,3 +44,7 @@ export {
   useProviderLocations,
   useProviderUsers,
 } from "./queries/leads";
+
+export * from "./services/crmLeads";
+export * from "./queries/crmLeads";
+

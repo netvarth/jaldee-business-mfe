@@ -110,15 +110,6 @@ export default function IconRail() {
         <SparklesIcon />
       </div>
 
-      <RailItem
-        id="icon-rail-item-base"
-        product="default"
-        icon={<HomeIcon />}
-        label="Home"
-        active={location.pathname === "/home" || location.pathname === "/base"}
-        onClick={handleBase}
-      />
-
       {licensedProducts.map((key) => {
         const config = PRODUCT_CONFIG[key];
         if (!config) return null;
@@ -200,10 +191,6 @@ function RailSvg(props: SVGProps<SVGSVGElement>) {
       {...props}
     />
   );
-}
-
-function HomeIcon() {
-  return <RailSvg><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V21h13V9.5" /><path d="M9.5 21v-6h5v6" /></RailSvg>;
 }
 
 function CalendarIcon() {

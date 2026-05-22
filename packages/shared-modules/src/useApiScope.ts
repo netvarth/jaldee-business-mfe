@@ -8,7 +8,8 @@ type ScopedRequestConfig = {
 };
 
 function buildScopedUrl(path: string, apiScope: ScopeAwareRequestConfig["apiScope"], locationId?: string | null) {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const isAbsolute = path.startsWith("http://") || path.startsWith("https://") || path.startsWith("//");
+  const normalizedPath = isAbsolute ? path : (path.startsWith("/") ? path : `/${path}`);
 
   if (apiScope === "global") {
     return normalizedPath;
@@ -32,7 +33,12 @@ export function useApiScope() {
   return useMemo(() => {
     const locationId = location?.id ?? null;
 
-    const normalizePath = (path: string) => (path.startsWith("/") ? path : `/${path}`);
+    const normalizePath = (path: string) => {
+      if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("//")) {
+        return path;
+      }
+      return path.startsWith("/") ? path : `/${path}`;
+    };
     const isScopedRequestConfig = (config: unknown): config is ScopedRequestConfig =>
       Boolean(config) && typeof config === "object" && !Array.isArray(config);
     const preparePostRequest = (path: string, config?: unknown) => {

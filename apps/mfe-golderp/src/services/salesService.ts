@@ -3,12 +3,42 @@ import type {
   ChargeType,
   OrderStatus,
   OrderType,
+  ProviderCustomerRef,
   SalesAdvance,
   SalesDiscount,
   SalesOrder,
 } from "@/lib/gold-erp-types";
+import { appendQuery, normalizeCountResponse } from "./serviceUtils";
 
 type SalesInvoiceRecord = SalesOrder & Record<string, unknown>;
+
+export interface SalesOrderListFilters {
+  orderUid?: string;
+  orderNumber?: string;
+  status?: string;
+  orderType?: string;
+  invoiceNumber?: string;
+  customerName?: string;
+  orderDateFrom?: string;
+  orderDateTo?: string;
+  from?: number;
+  count?: number;
+}
+
+function buildSalesOrderPath(path: string, filters: SalesOrderListFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.orderUid?.trim()) params.set("orderUid-eq", filters.orderUid.trim());
+  if (filters.orderNumber?.trim()) params.set("orderNumber-like", filters.orderNumber.trim());
+  if (filters.status?.trim() && filters.status !== "all") params.set("status-eq", filters.status.trim());
+  if (filters.orderType?.trim() && filters.orderType !== "all") params.set("orderType-eq", filters.orderType.trim());
+  if (filters.invoiceNumber?.trim()) params.set("invoiceNumber-like", filters.invoiceNumber.trim());
+  if (filters.customerName?.trim()) params.set("customerName-like", filters.customerName.trim());
+  if (filters.orderDateFrom?.trim()) params.set("orderDate-ge", filters.orderDateFrom.trim());
+  if (filters.orderDateTo?.trim()) params.set("orderDate-le", filters.orderDateTo.trim());
+  if (typeof filters.from === "number") params.set("from", String(Math.max(0, filters.from)));
+  if (typeof filters.count === "number") params.set("count", String(Math.max(1, filters.count)));
+  return appendQuery(path, params);
+}
 
 function extractInvoiceUid(response: unknown): string | null {
   if (typeof response === "string") {
@@ -129,7 +159,12 @@ function normalizeSalesInvoice(response: unknown, fallback?: Partial<SalesOrder>
   } as SalesInvoiceRecord;
 }
 
-async function fetchSalesOrderHeaders() {
+async function fetchSalesOrderHeaders(filters: SalesOrderListFilters = {}) {
+  if (Object.keys(filters).length > 0) {
+    const res = await httpClient.get<SalesOrder[]>(buildSalesOrderPath("/provider/golderp/sales/order", filters));
+    return res.data;
+  }
+
   const statuses: OrderStatus[] = ["DRAFT", "CONFIRMED", "INVOICED", "CANCELLED"];
   const grouped = await Promise.all(
     statuses.map(async (status) => {
@@ -149,8 +184,13 @@ async function fetchSalesOrderHeaders() {
 export const salesService = {
   getSalesOrderHeaders: fetchSalesOrderHeaders,
 
-  async getSalesOrdersWithDetails() {
-    const headers = await fetchSalesOrderHeaders();
+  async getSalesOrderCount(filters: Omit<SalesOrderListFilters, "from" | "count"> = {}) {
+    const res = await httpClient.get<unknown>(buildSalesOrderPath("/provider/golderp/sales/order/count", filters));
+    return normalizeCountResponse(res.data);
+  },
+
+  async getSalesOrdersWithDetails(filters: SalesOrderListFilters = {}) {
+    const headers = await fetchSalesOrderHeaders(filters);
     return Promise.all(
       headers.map(async (order) => {
           try {
@@ -171,8 +211,12 @@ export const salesService = {
   async createSalesOrder(data: {
     orderNumber: string;
     orderType: OrderType;
+    providerConsumerId?: number;
     customerName: string;
     customerPhone?: string;
+    customerEmail?: string | null;
+    customerGstin?: string | null;
+    customer?: ProviderCustomerRef;
     orderDate: string;
     totalAmount: number;
     discountAmount?: number;

@@ -322,13 +322,15 @@
 }
 
 .sidebar {
-  width: 240px;
+  width: 274px;
   height: 100%;
-  background: var(--color-nav-surface);
-  border-right: 1px solid var(--color-border);
+  background:
+    radial-gradient(circle at top left, rgba(124, 58, 237, 0.06), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  border-right: 1px solid #edf1f7;
   overflow-y: auto;
   flex-shrink: 0;
-  padding: 14px 12px 24px;
+  padding: 18px 14px 28px;
   display: flex;
   flex-direction: column;
 }
@@ -339,24 +341,24 @@
 }
 
 .sidebar-location-switcher {
-  padding: 0 0 14px;
-  border-bottom: 1px solid #edf2f7;
+  padding: 0 4px 18px;
+  border-bottom: 1px solid #eef2f8;
   flex-shrink: 0;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .sidebar-location-select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #dbe4f0;
-  border-radius: 12px;
+  padding: 11px 13px;
+  border: 1px solid #dfe7f1;
+  border-radius: 14px;
   font-size: 13px;
-  color: var(--color-text-primary);
-  background: #fbfcfe;
+  color: #50627f;
+  background: #ffffff;
   cursor: pointer;
   outline: none;
-  font-weight: 600;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
 .sidebar-toggle {
@@ -394,34 +396,36 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 14px;
+  padding: 13px 16px;
   cursor: pointer;
   background: transparent;
   border-left: 0;
-  border-radius: 13px;
+  border-radius: 12px;
   color: #64748b;
-  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
-  margin-bottom: 4px;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  margin-bottom: 6px;
+  position: relative;
 }
 
 .sidebar-item[data-active="true"] {
   background: linear-gradient(180deg, #6d44b8 0%, #5f3aa9 100%);
-  box-shadow: 0 10px 24px rgba(95, 58, 169, 0.2);
+  box-shadow: 0 10px 24px rgba(95, 58, 169, 0.24);
+  transform: translateX(1px);
 }
 
 .sidebar-item-icon {
-  font-size: 16px;
-  width: 18px;
+  font-size: 18px;
+  width: 22px;
   text-align: center;
   color: #8ca0bd;
 }
 
 .sidebar-item-label {
   flex: 1;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.35;
-  color: #64748b;
+  color: #61728f;
 }
 
 .sidebar-item-label[data-active="true"] {
@@ -449,36 +453,59 @@
   font-size: 10px;
   color: #8ca0bd;
   transition: transform 0.15s;
+  font-weight: 700;
 }
 
 .sidebar-item-chevron[data-open="true"] {
   transform: rotate(180deg);
 }
 
+.sidebar-children {
+  position: relative;
+  margin: 2px 0 10px;
+  padding-left: 28px;
+}
+
+.sidebar-children::before {
+  content: "";
+  position: absolute;
+  left: 45px;
+  top: 2px;
+  bottom: 8px;
+  width: 1px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      #d9e1ec 0 5px,
+      transparent 5px 12px
+    );
+}
+
 .sidebar-child {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 14px;
+  padding: 9px 10px;
   cursor: pointer;
   background: transparent;
   transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
-  border-radius: 13px;
-  margin: 4px 0 0;
+  border-radius: 10px;
+  margin: 2px 0 0;
+  position: relative;
 }
 
 .sidebar-child[data-active="true"] {
-  background: #f3ecff;
-  box-shadow: inset 0 0 0 1px rgba(109, 68, 184, 0.14);
+  background: transparent;
+  box-shadow: none;
 }
 
 .sidebar-child:hover:not([data-active="true"]) {
-  background: rgba(124, 58, 237, 0.06);
+  background: rgba(124, 58, 237, 0.05);
 }
 
 .sidebar-child-dot {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -486,6 +513,7 @@
   background: transparent;
   flex-shrink: 0;
   position: relative;
+  margin-left: -1px;
 }
 
 .sidebar-child-dot::before {
@@ -493,11 +521,11 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: #d4dce8;
 }
 
 .sidebar-child-dot[data-active="true"] {
-  background: transparent;
+  background: rgba(109, 68, 184, 0.12);
 }
 
 .sidebar-child-dot[data-active="true"]::before {
@@ -508,11 +536,11 @@
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
-  color: #64748b;
+  color: #c4cfdd;
 }
 
 .sidebar-child-label[data-active="true"] {
-  font-weight: 600;
+  font-weight: 700;
   color: #5f3aa9;
 }
 

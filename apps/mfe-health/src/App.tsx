@@ -94,16 +94,36 @@ export default function App() {
       <Route path="reports/:view/:subview/:recordId" element={withBoundary(<HealthReportsPage />)} />
 
       <Route path="pharmacy" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/create" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/dashboard" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/orders-grid" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/orders-grid/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/items/create" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/items/update/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/items/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/inventory" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/inventory/:subview" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/inventory/:subview/:tab" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/inventory/:subview/:tab/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view/:subview" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="pharmacy/:view/:subview/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="pharmacy/:view/:subview/:tab/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
 
       <Route path="order" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/create" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/dashboard" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/orders-grid" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/orders-grid/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/items/create" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/items/update/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/items/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="order/:view" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="order/details/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="order/:view/:subview" element={withBoundary(<HealthPharmacyPage />)} />
       <Route path="order/:view/:subview/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
+      <Route path="order/:view/:subview/:tab/:recordId" element={withBoundary(<HealthPharmacyPage />)} />
 
       <Route path="memberships" element={withBoundary(<HealthMembershipsPage />)} />
       <Route path="memberships/members" element={withBoundary(<HealthMembershipsPage />)} />

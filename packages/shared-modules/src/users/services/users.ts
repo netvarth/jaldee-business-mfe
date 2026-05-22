@@ -16,6 +16,14 @@ import type {
   UsersFilters,
 } from "../types";
 
+import {
+  BASE_SERVICE_ENDPOINTS,
+  PROVIDER_ENDPOINTS,
+  buildBaseServiceUrl,
+  buildProviderUrl,
+  isTokenAuthMode,
+} from "../../serviceUrls";
+
 interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
   post: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
@@ -433,16 +441,26 @@ function buildDatasetSummaries(users: UserSummary[], totalUsers: number, teams: 
 }
 
 export async function listUsers(api: ScopedApi, filters: UsersFilters): Promise<UserSummary[]> {
-  const [usersResponse, departments, locations] = await Promise.all([
-    api.get<RawRecord[]>("provider/user", {
-      params: buildUsersQuery(filters),
-    }),
-    listUserDepartments(api).catch(() => []),
-    listUserLocations(api).catch(() => []),
-  ]);
+  const url = isTokenAuthMode()
+    ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.list)
+    : buildProviderUrl("provider/user");
 
-  const users = Array.isArray(usersResponse.data) ? usersResponse.data.map(normalizeUser) : [];
-  return searchUsersLocally(enrichUsers(users, departments, locations), filters.searchText);
+  const usersResponse = await api.get<RawRecord[] | { content?: RawRecord[]; data?: RawRecord[] }>(
+    url,
+    {
+      params: buildUsersQuery(filters),
+    }
+  );
+
+  const rows = Array.isArray(usersResponse.data)
+    ? usersResponse.data
+    : Array.isArray(usersResponse.data?.content)
+      ? usersResponse.data.content
+      : Array.isArray(usersResponse.data?.data)
+        ? usersResponse.data.data
+        : [];
+  const users = rows.map(normalizeUser);
+  return searchUsersLocally(users, filters.searchText);
 }
 
 export async function getUsersCount(
@@ -450,19 +468,33 @@ export async function getUsersCount(
   filters: Omit<UsersFilters, "page" | "pageSize" | "searchText">
 ): Promise<number> {
   try {
-    const response = await api.get<number>("provider/user/count", {
-      params: buildUsersCountQuery(filters),
-    });
-    return typeof response.data === "number" ? response.data : 0;
+    const url = isTokenAuthMode()
+      ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.searchCount)
+      : buildProviderUrl("provider/user/count");
+
+    const response = await api.get<number | { count?: number; data?: number }>(
+      url,
+      {
+        params: buildUsersCountQuery(filters),
+      }
+    );
+    if (typeof response.data === "number") return response.data;
+    if (typeof response.data?.count === "number") return response.data.count;
+    if (typeof response.data?.data === "number") return response.data.data;
+    return 0;
   } catch {
     return 0;
   }
 }
 
 export async function getUserDetail(api: ScopedApi, userId: string): Promise<UserDetail> {
+  const detailUrl = isTokenAuthMode()
+    ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId))
+    : buildProviderUrl(`provider/user/${userId}`);
+
   const [detailResponse, signatureResponse] = await Promise.allSettled([
-    api.get<RawRecord>(`provider/user/${userId}`),
-    api.get<RawRecord | string>(`provider/user/digitalSign/${userId}`),
+    api.get<RawRecord>(detailUrl),
+    api.get<RawRecord | string>(buildProviderUrl(PROVIDER_ENDPOINTS.digitalSign(userId))),
   ]);
 
   const detailRaw =
@@ -482,7 +514,7 @@ export async function getUserDetail(api: ScopedApi, userId: string): Promise<Use
 }
 
 export async function listUserTeams(api: ScopedApi, status = "ACTIVE"): Promise<UserTeam[]> {
-  const response = await api.get<RawRecord[]>("provider/user/teams", {
+  const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.teams), {
     params: status && status !== "all" ? { "status-eq": status } : undefined,
   });
 
@@ -491,7 +523,7 @@ export async function listUserTeams(api: ScopedApi, status = "ACTIVE"): Promise<
 
 export async function listUserDepartments(api: ScopedApi): Promise<UserDepartment[]> {
   try {
-    const response = await api.get<RawRecord[] | RawRecord>("provider/departments");
+    const response = await api.get<RawRecord[] | RawRecord>(buildProviderUrl(PROVIDER_ENDPOINTS.departments));
     const departmentRows = Array.isArray(response.data)
       ? response.data
       : Array.isArray((response.data as RawRecord)?.departments)
@@ -512,7 +544,7 @@ export async function listUserDepartments(api: ScopedApi): Promise<UserDepartmen
 
 export async function listUserLocations(api: ScopedApi): Promise<UserLocation[]> {
   try {
-    const response = await api.get<RawRecord[]>("provider/locations");
+    const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.locations));
     if (!Array.isArray(response.data)) return [];
 
     return response.data
@@ -529,7 +561,7 @@ export async function listUserLocations(api: ScopedApi): Promise<UserLocation[]>
 
 export async function getUserAccountProfile(api: ScopedApi, userId: string): Promise<UserAccountProfile> {
   try {
-    const response = await api.get<RawRecord>(`provider/user/providerBprofile/${userId}`);
+    const response = await api.get<RawRecord>(buildProviderUrl(PROVIDER_ENDPOINTS.providerBprofile(userId)));
     return typeof response.data === "object" && response.data !== null
       ? normalizeAccountProfile(response.data as RawRecord)
       : normalizeAccountProfile({});
@@ -539,7 +571,7 @@ export async function getUserAccountProfile(api: ScopedApi, userId: string): Pro
 }
 
 export async function listUserServices(api: ScopedApi, userId: string): Promise<UserServiceAssignment[]> {
-  const response = await api.get<RawRecord[]>("provider/services", {
+  const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.services), {
     params: {
       "provider-eq": userId,
       "serviceType-neq": "donationService",
@@ -550,7 +582,7 @@ export async function listUserServices(api: ScopedApi, userId: string): Promise<
 }
 
 export async function listUserQueues(api: ScopedApi, userId: string): Promise<UserQueueAssignment[]> {
-  const response = await api.get<RawRecord[]>("provider/waitlist/queues", {
+  const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.queues), {
     params: {
       "provider-eq": userId,
     },
@@ -560,7 +592,7 @@ export async function listUserQueues(api: ScopedApi, userId: string): Promise<Us
 }
 
 export async function listUserSchedules(api: ScopedApi, userId: string): Promise<UserScheduleAssignment[]> {
-  const response = await api.get<RawRecord[]>("provider/appointment/schedule", {
+  const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.schedules), {
     params: {
       "provider-eq": userId,
     },
@@ -575,7 +607,7 @@ export async function listUserNonWorkingDays(
   page = 1,
   pageSize = 10
 ): Promise<UserNonWorkingDay[]> {
-  const response = await api.get<RawRecord[]>(`provider/vacation/getvacation/${userId}`, {
+  const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.vacations(userId)), {
     params: {
       from: Math.max(0, (page - 1) * pageSize),
       count: pageSize,
@@ -587,7 +619,7 @@ export async function listUserNonWorkingDays(
 
 export async function getUserNonWorkingDaysCount(api: ScopedApi, userId: string): Promise<number> {
   try {
-    const response = await api.get<number>(`provider/vacation/getvacation/${userId}/count`);
+    const response = await api.get<number>(buildProviderUrl(PROVIDER_ENDPOINTS.vacationCount(userId)));
     return typeof response.data === "number" ? response.data : 0;
   } catch {
     return 0;
@@ -610,12 +642,19 @@ export async function createUser(api: ScopedApi, input: CreateUserInput): Promis
     payload.bProfilePermitted = true;
   }
 
-  const response = await api.post<string | number>("provider/user", payload);
+  const url = isTokenAuthMode()
+    ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.create)
+    : buildProviderUrl("provider/user");
+
+  const response = await api.post<string | number>(
+    url,
+    payload
+  );
   return String(response.data ?? "");
 }
 
 export async function createUserTeam(api: ScopedApi, input: CreateTeamInput): Promise<string> {
-  const response = await api.post<string | number>("provider/user/team", {
+  const response = await api.post<string | number>(buildProviderUrl(PROVIDER_ENDPOINTS.createTeam), {
     name: input.name.trim(),
     description: input.description.trim() || "",
   });
@@ -624,7 +663,7 @@ export async function createUserTeam(api: ScopedApi, input: CreateTeamInput): Pr
 }
 
 export async function assignUserLocations(api: ScopedApi, userId: string, locationIds: string[]): Promise<void> {
-  await api.put("provider/user/updateBusinessLoc", {
+  await api.put(buildProviderUrl(PROVIDER_ENDPOINTS.updateBusinessLoc), {
     userIds: [userId],
     bussLocations: locationIds,
   });
@@ -632,7 +671,7 @@ export async function assignUserLocations(api: ScopedApi, userId: string, locati
 
 export async function getUserLoginId(api: ScopedApi, userId: string): Promise<string> {
   try {
-    const response = await api.get<string>(`provider/login/suggestion/loginId/${userId}`);
+    const response = await api.get<string>(buildProviderUrl(PROVIDER_ENDPOINTS.loginSuggestion(userId)));
     return typeof response.data === "string" ? response.data : "";
   } catch {
     return "";
@@ -640,7 +679,7 @@ export async function getUserLoginId(api: ScopedApi, userId: string): Promise<st
 }
 
 export async function changeUserLoginId(api: ScopedApi, input: ChangeLoginIdInput): Promise<void> {
-  await api.post("provider/login/reset/loginId", {
+  await api.post(buildProviderUrl(PROVIDER_ENDPOINTS.loginReset), {
     userId: input.userId,
     loginId: input.loginId.trim(),
   });
@@ -660,4 +699,30 @@ export async function getUsersDataset(api: ScopedApi): Promise<UsersDataset> {
     users,
     teams,
   };
+}
+
+
+
+export async function updateTenantUser(
+  api: ScopedApi,
+  uid: string | number,
+  payload: unknown
+): Promise<void> {
+  await api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.update(uid)), payload);
+}
+
+export async function updateTenantUserAvailableStatus(
+  api: ScopedApi,
+  uid: string | number,
+  status: string
+): Promise<void> {
+  await api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.availableStatus(uid, status)));
+}
+
+export async function updateTenantUserStatus(
+  api: ScopedApi,
+  uid: string | number,
+  status: string
+): Promise<void> {
+  await api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.userStatus(uid, status)));
 }

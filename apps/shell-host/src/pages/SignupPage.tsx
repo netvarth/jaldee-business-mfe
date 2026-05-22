@@ -4,6 +4,8 @@ import { Button, Checkbox, Icon, Input, OtpInput, PhoneInput } from "@jaldee/des
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { useAuth } from "../auth/AuthProvider";
 import { useShellStore } from "../store/shellStore";
+import { getPreferredLandingPath } from "../utils/landing";
+import { getAuthMode } from "../services/authService";
 import "./LoginPage.css";
 
 type SignupFormState = {
@@ -41,6 +43,7 @@ export default function SignupPage() {
   const setOnboardingStatus = useShellStore((s) => s.setOnboardingStatus);
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
+  const account = useShellStore((s) => s.account);
   const [form, setForm] = useState<SignupFormState>(EMPTY_SIGNUP_FORM);
   const [otp, setOtp] = useState("");
   const [otpId, setOtpId] = useState("");
@@ -80,7 +83,7 @@ export default function SignupPage() {
   }, [step]);
 
   if (hasHydrated && isAuthenticated) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={getPreferredLandingPath(account)} replace />;
   }
 
   async function handleIssueOtp(event: React.FormEvent) {
@@ -122,13 +125,19 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      await verifyTenantSignupOtp({
+      const response = await verifyTenantSignupOtp({
         otpId,
         otp,
         purpose: otpTargetType === "EMAIL" ? "TENANT_SIGNUP_VERIFY_EMAIL" : "TENANT_SIGNUP_VERIFY_MOBILE",
       });
-      setOnboardingStatus("pending");
-      navigate("/onboarding");
+      if (getAuthMode() === "token") {
+        setOnboardingStatus("pending");
+        navigate("/onboarding");
+        return;
+      }
+
+      setOnboardingStatus("complete");
+      navigate(getPreferredLandingPath(response.account));
     } catch (err) {
       const parsed = getAuthErrorDetails(err);
       setError(parsed.message);

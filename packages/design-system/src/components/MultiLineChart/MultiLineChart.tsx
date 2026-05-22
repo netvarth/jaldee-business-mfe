@@ -42,6 +42,15 @@ export function MultiLineChart({
   const yTicks = Array.from({ length: maxValue + 1 }, (_, index) => index);
   const stepX = data.length > 1 ? plotWidth / (data.length - 1) : 0;
   const hoveredPoint = hoveredIndex >= 0 ? data[hoveredIndex] : null;
+  const hoveredX = hoveredIndex >= 0 ? margin.left + stepX * hoveredIndex : 0;
+  const tooltipPosition =
+    hoveredX > width * 0.72
+      ? { right: "12px", top: "18px" }
+      : {
+        left: `${(hoveredX / width) * 100}%`,
+        top: "18px",
+        transform: "translateX(12px)",
+      };
 
   const seriesPaths = series.map((line) => {
     const points = data.map((point, index) => {
@@ -96,12 +105,8 @@ export function MultiLineChart({
       <div className="relative">
         {hoveredPoint ? (
           <div
-            className="pointer-events-none absolute z-10 min-w-[206px] rounded-lg border border-slate-200 bg-white shadow-lg"
-            style={{
-              left: `${((margin.left + stepX * hoveredIndex) / width) * 100}%`,
-              top: "18px",
-              transform: "translateX(12px)",
-            }}
+            className="pointer-events-none absolute z-10 w-[260px] rounded-lg border border-slate-200 bg-white shadow-lg"
+            style={tooltipPosition}
           >
             <div className="border-b border-slate-200 px-4 py-2.5 text-[14px] font-medium text-slate-800">{hoveredPoint.fullLabel}</div>
             <div className="space-y-3 px-4 py-3">

@@ -27,7 +27,23 @@ export function unwrapList<T = any>(value: unknown): T[] {
 }
 
 export function unwrapCount(value: unknown) {
-  return Number(unwrapPayload(value)) || 0;
+  const payload = unwrapPayload(value);
+
+  if (typeof payload === "number") {
+    return payload;
+  }
+
+  if (typeof payload === "object" && payload !== null) {
+    const candidate = payload as Record<string, unknown>;
+    return Number(
+      candidate.count ??
+      candidate.total ??
+      candidate.totalCount ??
+      candidate.data
+    ) || 0;
+  }
+
+  return Number(payload) || 0;
 }
 
 export function formatDate(value: unknown) {

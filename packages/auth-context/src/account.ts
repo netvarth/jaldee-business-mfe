@@ -38,12 +38,8 @@ export function normalizeAccountContext(
       : DEFAULT_LICENSED_PRODUCTS
   );
 
-  licensedProducts.add("finance");
-  licensedProducts.add("karty");
-  licensedProducts.add("lending");
-
   const enabledModules = new Set<string>(
-    Array.isArray(account.enabledModules)
+    Array.isArray(account.enabledModules) && account.enabledModules.length > 0
       ? account.enabledModules.map(String)
       : DEFAULT_ENABLED_MODULES
   );

@@ -22,20 +22,17 @@ import { FinanceMFE } from "./mfes/FinanceMFE";
 import { KartyMFE } from "./mfes/KartyMFE";
 import { LendingMFE } from "./mfes/LendingMFE";
 import { useShellStore } from "./store/shellStore";
-import { hasStoredAuthSession } from "./services/authService";
+import { getAuthMode, hasStoredAuthSession } from "./services/authService";
 import GlobalPlaceholderPage from "./pages/GlobalPlaceholderPage";
 import IvrPage from "./pages/ivr/IvrPage";
 import IvrCallLogs from "./pages/ivr/IvrCallLogs";
 import IvrSchedules from "./pages/ivr/IvrSchedules";
+import { getPreferredLandingPath } from "./utils/landing";
 import "./App.css";
 
 function HomePage() {
-  return (
-    <div className="shell-home">
-      <h2 className="shell-home-title">Home</h2>
-      <p className="shell-home-copy">Welcome to Jaldee Business</p>
-    </div>
-  );
+  const account = useShellStore((s) => s.account);
+  return <Navigate to={getPreferredLandingPath(account)} replace />;
 }
 
 
@@ -43,7 +40,10 @@ export default function App() {
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
   const onboardingStatus = useShellStore((s) => s.onboardingStatus);
+  const account = useShellStore((s) => s.account);
   const hasStoredSession = hasStoredAuthSession();
+  const landingPath = getPreferredLandingPath(account);
+  const tokenOnboardingEnabled = getAuthMode() === "token";
 
   return (
     <Routes>
@@ -51,7 +51,7 @@ export default function App() {
         path="/login"
         element={
           hasHydrated && isAuthenticated ? (
-            <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/home"} replace />
+            <Navigate to={tokenOnboardingEnabled && onboardingStatus === "pending" ? "/onboarding" : landingPath} replace />
           ) : (
             <LoginPage />
           )
@@ -61,7 +61,7 @@ export default function App() {
         path="/signup"
         element={
           hasHydrated && (isAuthenticated || hasStoredSession) ? (
-            <Navigate to={onboardingStatus === "pending" ? "/onboarding" : "/home"} replace />
+            <Navigate to={tokenOnboardingEnabled && onboardingStatus === "pending" ? "/onboarding" : landingPath} replace />
           ) : (
             <SignupPage />
           )
@@ -70,9 +70,13 @@ export default function App() {
       <Route
         path="/onboarding"
         element={
-          <ProtectedRoute>
-            <OnboardingPage />
-          </ProtectedRoute>
+          tokenOnboardingEnabled ? (
+            <ProtectedRoute>
+              <OnboardingPage />
+            </ProtectedRoute>
+          ) : (
+            <Navigate to={landingPath} replace />
+          )
         }
       />
       <Route

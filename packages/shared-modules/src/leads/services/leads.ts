@@ -1,3 +1,5 @@
+import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl, isTokenAuthMode } from "../../serviceUrls";
+
 interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
   post: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
@@ -45,10 +47,18 @@ export async function changeLeadStatus(scopedApi: ScopedApi, uid: string, status
 }
 
 export async function getLeadLogs(scopedApi: ScopedApi, filter: {} = {}) {
+  if (isTokenAuthMode()) {
+    return scopedApi.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.auditLogs.search), { params: filter });
+  }
+
   return scopedApi.get("provider/crm/lead/log", { params: filter });
 }
 
 export async function getLeadLogsCount(scopedApi: ScopedApi, filter: {} = {}) {
+  if (isTokenAuthMode()) {
+    return Promise.resolve({ data: 0 });
+  }
+
   return scopedApi.get("provider/crm/lead/log/count", { params: filter });
 }
 

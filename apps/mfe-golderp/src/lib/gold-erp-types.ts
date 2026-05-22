@@ -85,6 +85,7 @@ export interface JewelleryItem {
   typicalNetWt?: number;
   hsnCode?: string;
   taxRate?: number;
+  taxCodes?: string[];
   description?: string;
   imageUrl?: string;
   availableOnline?: boolean;
@@ -104,7 +105,16 @@ export interface PurchaseOrderLine {
   quantityReceived?: number;
   unitPrice: number;
   lineTotal: number;
+  grossWt?: number;
+  netWt?: number;
+  stoneWt?: number;
+  stoneDetails?: PurchaseOrderStoneDetail[];
   notes?: string;
+}
+
+export interface PurchaseOrderStoneDetail {
+  stoneUid: string;
+  count: number;
 }
 
 export interface DraftStoneDetail {
@@ -126,6 +136,7 @@ export interface DraftTag {
   netWt?: number;
   stoneWt?: number;
   wastageWt?: number;
+  confirmedTagId?: number | null;
   notes?: string;
   stoneDetails?: DraftStoneDetail[];
 }
@@ -258,8 +269,12 @@ export interface SalesOrder {
   orderUid: string;
   orderNumber: string;
   orderType?: OrderType;
+  providerConsumerId?: number;
   customerName: string;
   customerPhone?: string;
+  customerEmail?: string | null;
+  customerGstin?: string | null;
+  customer?: ProviderCustomerRef;
   orderDate?: string;
   notes?: string;
   totalAmount: number;
@@ -271,7 +286,32 @@ export interface SalesOrder {
   lines?: SalesOrderLine[];
   advances?: SalesAdvance[];
   oldGoldEntries?: OldGoldExchange[];
+  oldGoldExchanges?: OldGoldExchange[];
+  discount?: SalesDiscount;
   discounts?: SalesDiscount[];
+}
+
+export interface ProviderCustomerRef {
+  id?: number;
+  title?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNo?: string;
+  countryCode?: string;
+  email?: string | null;
+  name?: string;
+  memberJaldeeId?: string;
+}
+
+export interface ProviderCustomer extends ProviderCustomerRef {
+  id: number;
+  userProfile?: {
+    firstName?: string;
+    lastName?: string;
+    primaryMobileNo?: string;
+    countryCode?: string;
+    email?: string | null;
+  };
 }
 
 export interface TransferLine {
@@ -300,4 +340,47 @@ export interface StockTransfer {
   status: TransferStatus;
   receivedDate?: string | null;
   lines?: TransferLine[];
+}
+
+export interface StockSummary {
+  availableQty: number;
+  onHoldQty: number;
+  totalQty: number;
+  availableGrossWt: number;
+  availableNetWt: number;
+  availableStoneWt: number;
+  availableValue: number;
+  onHoldGrossWt: number;
+  onHoldNetWt: number;
+  onHoldStoneWt: number;
+  onHoldValue: number;
+  totalGrossWt: number;
+  totalNetWt: number;
+  totalStoneWt: number;
+  totalValue: number;
+}
+
+export interface StockItemTypeSummary extends StockSummary {
+  itemType?: ItemType | string | null;
+}
+
+export interface StockMetalSummary extends StockSummary {
+  metalId?: number;
+  metalUid?: string;
+  metalName?: string;
+}
+
+export interface StockPuritySummary extends StockMetalSummary {
+  purityId?: number;
+  purityUid?: string;
+  purityCode?: string;
+  purityLabel?: string;
+}
+
+export interface StockItemSummary extends StockPuritySummary {
+  itemId?: number;
+  itemUid?: string;
+  itemCode?: string;
+  itemName?: string;
+  itemType?: ItemType | string | null;
 }

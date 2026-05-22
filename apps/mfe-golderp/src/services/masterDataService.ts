@@ -26,6 +26,11 @@ export const masterDataService = {
     return res.data;
   },
 
+  async deleteMetal(metalUid: string) {
+    const res = await httpClient.delete<null>(`/provider/golderp/master/metal/${metalUid}`);
+    return res.data;
+  },
+
   async getPurities() {
     const res = await httpClient.get<MetalPurity[]>("/provider/golderp/master/purity");
     return res.data;
@@ -46,6 +51,11 @@ export const masterDataService = {
     data: { metalUid: string; purityCode: string; label: string; purityRatio: number; status: EntityStatus },
   ) {
     const res = await httpClient.put<MetalPurity>(`/provider/golderp/master/purity/${purityUid}`, data);
+    return res.data;
+  },
+
+  async deletePurity(purityUid: string) {
+    const res = await httpClient.delete<null>(`/provider/golderp/master/purity/${purityUid}`);
     return res.data;
   },
 
@@ -82,6 +92,11 @@ export const masterDataService = {
     }>,
   ) {
     const res = await httpClient.put<Stone>(`/provider/golderp/master/stone/${stoneUid}`, data);
+    return res.data;
+  },
+
+  async deleteStone(stoneUid: string) {
+    const res = await httpClient.delete<null>(`/provider/golderp/master/stone/${stoneUid}`);
     return res.data;
   },
 };

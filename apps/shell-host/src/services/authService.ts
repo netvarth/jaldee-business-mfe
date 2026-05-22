@@ -53,6 +53,15 @@ export interface AccountSettingsResponse {
   onlinePayment?: boolean;
 }
 
+interface TenantSettingsResponse {
+  finance?: boolean | null;
+  booking?: boolean | null;
+  health?: boolean | null;
+  lending?: boolean | null;
+  ecommerce?: boolean | null;
+  eCommerce?: boolean | null;
+}
+
 interface TokenLoginResponse {
   accessToken: string;
   refreshToken: string;
@@ -513,12 +522,48 @@ async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
     };
   }
 
+  if (authMode === "token") {
+    return {};
+  }
+
   try {
     const response = await apiClient.get<unknown>("provider/account/settings");
     return normalizeAccountSettings(response.data);
   } catch (error) {
     console.warn("[authService] failed to fetch account settings", error);
     return {};
+  }
+}
+
+function normalizeTenantSettings(raw: unknown): TenantSettingsResponse {
+  const candidate = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+
+  return {
+    finance: typeof candidate.finance === "boolean" ? candidate.finance : null,
+    booking: typeof candidate.booking === "boolean" ? candidate.booking : null,
+    health: typeof candidate.health === "boolean" ? candidate.health : null,
+    lending: typeof candidate.lending === "boolean" ? candidate.lending : null,
+    eCommerce: typeof candidate.eCommerce === "boolean" ? candidate.eCommerce : null,
+  };
+}
+
+async function fetchTenantSettings(): Promise<TenantSettingsResponse | null> {
+  if (isMock) {
+    return {
+      health: true,
+      booking: true,
+      finance: true,
+      eCommerce: true,
+      lending: true,
+    };
+  }
+
+  try {
+    const response = await apiClient.get<unknown>(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.get));
+    return normalizeTenantSettings(response.data);
+  } catch (error) {
+    console.warn("[authService] failed to fetch tenant settings", error);
+    return null;
   }
 }
 
@@ -537,39 +582,93 @@ function deriveEnabledModules(
     modules.add("finance");
   }
 
-  if (settings.enableMembership) {
+  if (settings.enableMembership === true) {
     modules.add("membership");
-  } else {
+  } else if (settings.enableMembership === false) {
     modules.delete("membership");
   }
 
-  if (settings.enableTask) {
+  if (settings.enableTask === true) {
     modules.add("tasks");
-  } else {
+  } else if (settings.enableTask === false) {
     modules.delete("tasks");
   }
 
-  if (settings.enableLead || settings.enableCrmLead) {
+  if (settings.enableLead === true || settings.enableCrmLead === true) {
     modules.add("leads");
-  } else {
+  } else if (settings.enableLead === false && settings.enableCrmLead === false) {
     modules.delete("leads");
   }
 
   return Array.from(modules) as AccountContext["enabledModules"];
 }
 
+function deriveLicensedProductsFromTenantSettings(
+  currentProducts: AccountContext["licensedProducts"],
+  settings: TenantSettingsResponse | null
+): AccountContext["licensedProducts"] {
+  if (!settings) {
+    return currentProducts;
+  }
+
+  const recognizedFlags = [
+    settings.health,
+    settings.booking,
+    settings.finance,
+    settings.lending,
+    settings.ecommerce,
+    settings.eCommerce,
+  ];
+
+  const hasRecognizedSetting = recognizedFlags.some((value) => typeof value === "boolean");
+  if (!hasRecognizedSetting) {
+    return currentProducts;
+  }
+
+  const products: AccountContext["licensedProducts"] = [];
+
+  if (settings.health) {
+    products.push("health");
+  }
+  if (settings.booking) {
+    products.push("bookings");
+  }
+  if (settings.finance) {
+    products.push("finance");
+  }
+  if (settings.lending) {
+    products.push("lending");
+  }
+  if (settings.ecommerce || settings.eCommerce) {
+    products.push("karty");
+  }
+
+  return products;
+}
+
 async function normalizeLoginResponse(raw: unknown): Promise<SessionResponse> {
   const normalized = normalizeSessionResponse(raw);
-  const settings = await fetchAccountSettings();
+  const [accountSettings, tenantSettings] = await Promise.all([
+    fetchAccountSettings(),
+    authMode === "token" ? fetchTenantSettings() : Promise.resolve(null),
+  ]);
+  const licensedProducts =
+    authMode === "token"
+      ? deriveLicensedProductsFromTenantSettings(
+        normalized.account.licensedProducts,
+        tenantSettings
+      )
+      : normalized.account.licensedProducts;
 
   return {
     ...normalized,
     account: normalizeAccountContext({
       ...normalized.account,
+      licensedProducts,
       enabledModules: deriveEnabledModules(
         normalized.account.enabledModules,
-        settings,
-        normalized.account.licensedProducts
+        accountSettings,
+        licensedProducts
       ),
     }),
   };
@@ -603,11 +702,22 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
   };
 
   const account: AccountContext = {
-    id: String(rawAccount.id ?? rawAccount.accountId ?? rawAccount.providerId ?? user.id),
+    id: String(
+      rawAccount.tenantUid ??
+      rawAccount.tenantId ??
+      rawAccount.uid ??
+      rawAccount.id ??
+      rawAccount.accountId ??
+      rawAccount.providerId ??
+      user.id
+    ),
+    tenantUid: typeof rawAccount.tenantUid === "string" ? rawAccount.tenantUid : typeof candidate.tenantUid === "string" ? candidate.tenantUid : undefined,
     name: String(rawAccount.name ?? rawAccount.businessName ?? rawAccount.tenantName ?? user.name ?? "Jaldee Business"),
     licensedProducts: Array.isArray(rawAccount.licensedProducts)
       ? (rawAccount.licensedProducts as AccountContext["licensedProducts"])
-      : DEFAULT_LICENSED_PRODUCTS,
+      : authMode === "token"
+        ? []
+        : DEFAULT_LICENSED_PRODUCTS,
     enabledModules: Array.isArray(rawAccount.enabledModules)
       ? (rawAccount.enabledModules as AccountContext["enabledModules"])
       : DEFAULT_ENABLED_MODULES,

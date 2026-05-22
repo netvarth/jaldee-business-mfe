@@ -23,6 +23,9 @@ export {
   useUserTeams,
   useUserDepartments,
   useUserLocations,
+  useUpdateTenantUser,
+  useUpdateTenantUserAvailableStatus,
+  useUpdateTenantUserStatus,
 } from "./queries/users";
 export {
   getUsersDataset,
@@ -32,4 +35,7 @@ export {
   listUserTeams,
   listUserDepartments,
   listUserLocations,
+  updateTenantUser,
+  updateTenantUserAvailableStatus,
+  updateTenantUserStatus,
 } from "./services/users";

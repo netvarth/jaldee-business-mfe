@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
+import { getAuthMode } from "../services/authService";
 
 interface Props {
   children: React.ReactNode;
@@ -20,11 +21,17 @@ export default function ProtectedRoute({ children }: Props) {
     return <Navigate to="/signup" replace />;
   }
 
-  if (isAuthenticated && onboardingStatus === "pending" && location.pathname !== "/onboarding") {
+  const tokenOnboardingEnabled = getAuthMode() === "token";
+
+  if (!tokenOnboardingEnabled && location.pathname === "/onboarding") {
+    return <Navigate to="/home" replace />;
+  }
+
+  if (tokenOnboardingEnabled && isAuthenticated && onboardingStatus === "pending" && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
 
-  if (isAuthenticated && onboardingStatus === "complete" && location.pathname === "/onboarding") {
+  if (tokenOnboardingEnabled && isAuthenticated && onboardingStatus === "complete" && location.pathname === "/onboarding") {
     return <Navigate to="/home" replace />;
   }
 

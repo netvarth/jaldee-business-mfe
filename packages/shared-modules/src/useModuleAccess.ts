@@ -17,14 +17,25 @@ const SHARED_TO_AUTH_MODULE: SharedModuleToAuthModuleMap = {
   reports: "reports",
 };
 
+const BASE_CRM_MODULES = new Set<SharedModuleName>([
+  "customers",
+  "users",
+  "drive",
+  "tasks",
+  "membership",
+  "leads",
+  "reports",
+  "audit-log",
+]);
+
 export function getModuleAccess(
   moduleName: SharedModuleName,
   apiScope: "global" | "location",
   enabledModules: string[],
   locationId: string | null | undefined
 ): ModuleAccessResult {
-  if (moduleName === "audit-log") {
-    return { allowed: true, requiresBypass: true };
+  if (BASE_CRM_MODULES.has(moduleName)) {
+    return { allowed: true, requiresBypass: moduleName === "audit-log" };
   }
 
   if (moduleName === "settings" && apiScope === "global" && locationId) {

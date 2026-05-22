@@ -1,5 +1,14 @@
 import { httpClient } from "@/lib/httpClient";
-import type { JewelleryTag, StockTransfer, TransferLine } from "@/lib/gold-erp-types";
+import type {
+  JewelleryTag,
+  StockItemSummary,
+  StockItemTypeSummary,
+  StockMetalSummary,
+  StockPuritySummary,
+  StockSummary,
+  StockTransfer,
+  TransferLine,
+} from "@/lib/gold-erp-types";
 
 export interface CreateTransferPayload {
   transferNumber: string;
@@ -32,6 +41,31 @@ export const inventoryService = {
 
   async getTagDetails(tagUid: string) {
     const res = await httpClient.get<JewelleryTag>(`/provider/golderp/tag/${tagUid}`);
+    return res.data;
+  },
+
+  async getStockSummary() {
+    const res = await httpClient.get<StockSummary>("/provider/golderp/stock/summary");
+    return res.data;
+  },
+
+  async getStockByItemType() {
+    const res = await httpClient.get<StockItemTypeSummary[]>("/provider/golderp/stock/item-type");
+    return res.data;
+  },
+
+  async getStockByMetal() {
+    const res = await httpClient.get<StockMetalSummary[]>("/provider/golderp/stock/metal");
+    return res.data;
+  },
+
+  async getStockByPurity() {
+    const res = await httpClient.get<StockPuritySummary[]>("/provider/golderp/stock/purity");
+    return res.data;
+  },
+
+  async getStockByItem() {
+    const res = await httpClient.get<StockItemSummary[]>("/provider/golderp/stock/item");
     return res.data;
   },
 

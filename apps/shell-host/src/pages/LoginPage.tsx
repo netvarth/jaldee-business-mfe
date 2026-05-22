@@ -4,6 +4,7 @@ import { Button, Input } from "@jaldee/design-system";
 import { useAuth } from "../auth/AuthProvider";
 import { setStoredMUniqueId } from "../services/authService";
 import { useShellStore } from "../store/shellStore";
+import { getPreferredLandingPath } from "../utils/landing";
 import "./LoginPage.css";
 
 export default function LoginPage() {
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const { login, logout } = useAuth();
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
   const hasHydrated = useShellStore((s) => s.hasHydrated);
+  const account = useShellStore((s) => s.account);
   const navigate = useNavigate();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -46,7 +48,7 @@ export default function LoginPage() {
       return;
     }
 
-    navigate("/home");
+    navigate(getPreferredLandingPath(response.account));
   }
 
   async function handleLogin(event: React.FormEvent) {
@@ -96,7 +98,7 @@ export default function LoginPage() {
   }
 
   if (hasHydrated && isAuthenticated) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={getPreferredLandingPath(account)} replace />;
   }
 
   return (
@@ -271,21 +273,24 @@ export default function LoginPage() {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error &&
-    typeof error.response === "object" &&
-    error.response !== null &&
-    "data" in error.response
-  ) {
-    const data = (error.response as { data?: unknown }).data;
-    if (typeof data === "string") {
-      return data;
+  function extractMessageFromPayload(payload: unknown): string {
+    if (typeof payload === "string") {
+      const trimmed = payload.trim();
+
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        try {
+          return extractMessageFromPayload(JSON.parse(trimmed));
+        } catch {
+          return payload;
+        }
+      }
+
+      return payload;
     }
-    if (typeof data === "object" && data !== null) {
-      const details = "details" in data && typeof data.details === "object" && data.details !== null
-        ? (data.details as {
+
+    if (typeof payload === "object" && payload !== null) {
+      const details = "details" in payload && typeof payload.details === "object" && payload.details !== null
+        ? (payload.details as {
             fieldErrors?: Array<{ field?: string; message?: string }>;
             globalErrors?: Array<{ message?: string } | string>;
           })
@@ -319,13 +324,35 @@ function getErrorMessage(error: unknown): string {
         return globalMessages.join("\n");
       }
 
-      if ("message" in data && typeof data.message === "string") {
-        return data.message;
+      if ("message" in payload && typeof payload.message === "string") {
+        return payload.message;
       }
+    }
+
+    return "";
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof error.response === "object" &&
+    error.response !== null &&
+    "data" in error.response
+  ) {
+    const data = (error.response as { data?: unknown }).data;
+    const extractedMessage = extractMessageFromPayload(data);
+    if (extractedMessage) {
+      return extractedMessage;
     }
   }
 
-  return error instanceof Error ? error.message : "Login failed";
+  if (error instanceof Error) {
+    const extractedMessage = extractMessageFromPayload(error.message);
+    return extractedMessage || error.message;
+  }
+
+  return "Login failed";
 }
 
 function isSessionAlreadyExistsError(error: unknown): boolean {

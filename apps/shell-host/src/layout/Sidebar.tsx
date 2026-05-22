@@ -1,5 +1,9 @@
-// Custom hook to detect small screens (up to 1024px)
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useShellStore } from "../store/shellStore";
+import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
+import type { SidebarSection } from "./sidebarConfig";
+import type { ProductKey } from "../store/shellStore";
 
 function useIsSmallScreen() {
   const [isSmall, setIsSmall] = useState(() => window.innerWidth <= 1024);
@@ -12,24 +16,6 @@ function useIsSmallScreen() {
   }, []);
   return isSmall;
 }
-import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useShellStore } from "../store/shellStore";
-import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
-import type { SidebarSection } from "./sidebarConfig";
-import type { ProductKey } from "../store/shellStore";
-
-const BASE_CRM_PATH_PREFIXES = [
-  "/customers",
-  "/users",
-  "/reports",
-  "/drive",
-  "/tasks",
-  "/membership",
-  "/leads",
-  "/audit-log",
-  "/ivr",
-];
 
 export default function Sidebar() {
   const activeProduct = useShellStore((s) => s.activeProduct);
@@ -49,17 +35,9 @@ export default function Sidebar() {
     }
   }, [isSmallScreen]);
 
-  const isBaseCrmRoute = BASE_CRM_PATH_PREFIXES.some((path) =>
-    location.pathname === path || location.pathname.startsWith(`${path}/`)
-  );
-
-  const sections: SidebarSection[] | undefined = activeProduct
-    ? SIDEBAR_CONFIG[activeProduct]
-    : isBaseCrmRoute
-      ? BASE_CRM_SIDEBAR_SECTIONS
-      : undefined;
-
-  if (!sections) return null;
+  const sections: SidebarSection[] = activeProduct
+    ? SIDEBAR_CONFIG[activeProduct] ?? []
+    : BASE_CRM_SIDEBAR_SECTIONS;
 
   function toggleExpand(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -115,7 +93,7 @@ export default function Sidebar() {
 }
 
 interface RowProps {
-  product: ProductKey;
+  product: ProductKey | null;
   section: SidebarSection;
   isActive: (path: string) => boolean;
   expanded: Record<string, boolean>;
@@ -174,7 +152,10 @@ function SidebarItemRow({
       </div>
 
       {hasChildren && isOpen && (
-        <div data-testid={`sidebar-children-${section.id}`}>
+        <div
+          data-testid={`sidebar-children-${section.id}`}
+          className="sidebar-children"
+        >
           {section.children!.map((child) => {
             const childActive = isChildActive(child.path);
 

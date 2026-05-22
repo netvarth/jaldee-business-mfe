@@ -2,6 +2,7 @@ import { DataTable, DataTableToolbar, EmptyState, PageHeader, SectionCard } from
 import type { ColumnDef } from "@jaldee/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
+import { isTokenAuthMode } from "../../serviceUrls";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useLeadLogs, useLeadLogsCount } from "../queries/leads";
 import { unwrapCount, unwrapList } from "../utils";
@@ -68,7 +69,9 @@ export function AuditLogList() {
   const itemsQuery = useLeadLogs(filters);
   const countQuery = useLeadLogsCount(countFilters);
   const rows = useMemo(() => toRows(itemsQuery.data), [itemsQuery.data]);
-  const total = unwrapCount(countQuery.data) || rows.length;
+  const total = isTokenAuthMode()
+    ? unwrapCount(itemsQuery.data) || rows.length
+    : unwrapCount(countQuery.data) || rows.length;
 
   const columns = useMemo<ColumnDef<AuditRow>[]>(
     () => [

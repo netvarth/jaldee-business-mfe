@@ -10,6 +10,7 @@ import UsersPage from "./pages/UsersPage";
 import LeadsPage from "./pages/LeadsPage";
 import MembershipPage from "./pages/MembershipPage";
 import FinancePage from "./pages/FinancePage";
+import InventoryNewPage from "./inventorynew/InventoryNewPage";
 
 export default function App() {
   const placeholderRoutes = [
@@ -195,6 +196,22 @@ export default function App() {
         element={
           <PageErrorBoundary>
             <OrdersPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="inventorynew"
+        element={
+          <PageErrorBoundary>
+            <InventoryNewPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="inventorynew/:tab"
+        element={
+          <PageErrorBoundary>
+            <InventoryNewPage />
           </PageErrorBoundary>
         }
       />

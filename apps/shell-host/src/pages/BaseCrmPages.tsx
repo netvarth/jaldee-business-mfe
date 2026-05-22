@@ -24,6 +24,7 @@ function useSharedQueryClient() {
             retry: false,
             refetchOnWindowFocus: false,
             refetchOnReconnect: false,
+            staleTime: 30_000,
           },
         },
       }),
@@ -34,16 +35,15 @@ function usePreferredProduct(): ProductKey | null {
   const account = useShellStore((s) => s.account);
 
   return useMemo(() => {
-    if (!account) {
-      return null;
-    }
-    if (account.licensedProducts.includes("health")) {
+    const normalizedAccount = normalizeAccountContext(account);
+    if (!normalizedAccount) return "karty";
+    if (normalizedAccount.licensedProducts.includes("health")) {
       return "health";
     }
-    if (account.licensedProducts.includes("karty")) {
+    if (normalizedAccount.licensedProducts.includes("karty")) {
       return "karty";
     }
-    return account.licensedProducts[0] ?? null;
+    return normalizedAccount.licensedProducts[0] ?? "karty";
   }, [account]);
 }
 
@@ -104,7 +104,7 @@ export function ShellCustomersPage() {
   const queryClient = useSharedQueryClient();
   const { routeSegments } = useRouteSegments("customers");
 
-  if (!user || !account || !product) {
+  if (!user || !account) {
     return <ShellContextEmptyState title="Customers" />;
   }
 
@@ -188,7 +188,7 @@ export function ShellUsersPage() {
     };
   }, [routeSegments]);
 
-  if (!user || !account || !product) {
+  if (!user || !account) {
     return <ShellContextEmptyState title="Users" />;
   }
 
@@ -230,7 +230,7 @@ export function ShellDrivePage() {
   const queryClient = useSharedQueryClient();
   const { routeSegments } = useRouteSegments("drive");
 
-  if (!user || !account || !product) {
+  if (!user || !account) {
     return <ShellContextEmptyState title="Drive" />;
   }
 
@@ -270,7 +270,7 @@ export function ShellMembershipPage() {
   const queryClient = useSharedQueryClient();
   const { routeSegments, tab } = useRouteSegments("membership");
 
-  if (!user || !account || !product) {
+  if (!user || !account) {
     return <ShellContextEmptyState title="Membership" />;
   }
 
@@ -311,7 +311,7 @@ export function ShellReportsPage() {
   const queryClient = useSharedQueryClient();
   const { routeSegments } = useRouteSegments("reports");
 
-  if (!user || !account || !product) {
+  if (!user || !account) {
     return <ShellContextEmptyState title="Reports" />;
   }
 
@@ -351,7 +351,7 @@ export function ShellAuditLogPage() {
   const queryClient = useSharedQueryClient();
   const navigateWithinModule = useModuleNavigate("/audit-log");
 
-  if (!user || !account || !product) {
+  if (!user || !account) {
     return <ShellContextEmptyState title="Audit Log" />;
   }
 

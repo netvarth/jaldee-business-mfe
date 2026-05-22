@@ -19,6 +19,10 @@
   overflow: hidden;
 }
 
+.onboarding-card--location {
+  max-width: 920px;
+}
+
 .onboarding-progress {
   display: flex;
   justify-content: center;
@@ -62,6 +66,19 @@
 
 .onboarding-body {
   padding: 20px 24px 28px;
+}
+
+.onboarding-body--location {
+  padding: 16px 30px 14px;
+}
+
+.onboarding-body--location .onboarding-title {
+  margin-top: 8px;
+}
+
+.onboarding-body--location .onboarding-subtitle {
+  margin-top: 8px;
+  line-height: 1.45;
 }
 
 .onboarding-step-label {
@@ -209,30 +226,48 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-top: 28px;
+  margin-top: 22px;
+}
+
+.onboarding-location-toolbar > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.onboarding-location-toolbar > :not(:first-child) {
+  flex: 0 0 auto;
 }
 
 .onboarding-map-placeholder {
   margin-top: 14px;
-  min-height: 280px;
+  height: 255px;
+  min-height: 255px;
   border: 1px solid #dbe4f0;
-  border-radius: 16px;
-  background:
-    linear-gradient(rgba(15, 23, 42, 0.03), rgba(15, 23, 42, 0.03)),
-    repeating-linear-gradient(
-      45deg,
-      #e2e8f0,
-      #e2e8f0 16px,
-      #f8fafc 16px,
-      #f8fafc 32px
-    );
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 24px;
+  border-radius: 12px;
+  background: #eef2f7;
+  position: relative;
   color: #475569;
+  overflow: hidden;
+}
+
+.onboarding-google-map {
+  width: 100%;
+  height: 100%;
+}
+
+.onboarding-map-message {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #475569;
+  font-size: 13px;
+  text-align: center;
 }
 
 .onboarding-map-placeholder__pin {
@@ -242,6 +277,15 @@
   background: #2563eb;
   box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.14);
   margin-bottom: 16px;
+}
+
+.onboarding-body--location .onboarding-grid {
+  gap: 14px 24px;
+  margin-top: 16px;
+}
+
+.onboarding-body--location .onboarding-map-placeholder + .onboarding-grid {
+  margin-top: 18px;
 }
 
 .onboarding-stack {
@@ -312,6 +356,20 @@
   background: #ffffff;
 }
 
+.onboarding-footer--location {
+  padding: 16px 30px 18px;
+}
+
+.onboarding-footer--location .onboarding-link-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.onboarding-footer--location [type="button"]:last-child {
+  min-width: 138px;
+}
+
 .onboarding-link-button {
   border: 0;
   background: transparent;
@@ -353,4 +411,29 @@
     flex-direction: column;
     align-items: stretch;
   }
+
+  .onboarding-body--location {
+    padding-inline: 16px;
+  }
+
+  .onboarding-map-placeholder {
+    height: 220px;
+    min-height: 220px;
+  }
+
+  .onboarding-footer--location {
+    padding-inline: 16px;
+  }
+}
+
+.onboarding-error {
+  max-width: 620px;
+  margin: 16px auto 0;
+  padding: 12px 16px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 14px;
+  text-align: center;
 }

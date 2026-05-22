@@ -70,6 +70,7 @@ export interface AccountTheme {
 
 export interface AccountContext {
   id: string;
+  tenantUid?: string;
   name: string;
   licensedProducts: ProductKey[];
   enabledModules: ModuleKey[];
