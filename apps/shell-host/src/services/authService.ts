@@ -472,9 +472,11 @@ function normalizeLocations(input: unknown): BranchLocation[] {
 
       return {
         id: String(candidate.id ?? candidate.locationId ?? `loc-${index + 1}`),
-        name: String(candidate.name ?? candidate.locationName ?? candidate.branchName ?? `Location ${index + 1}`),
+        locationId: candidate.id ?? candidate.locationId,
+        uid: String(candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId ?? `loc-${index + 1}`),
+        name: String(candidate.place ?? candidate.name ?? candidate.locationName ?? candidate.branchName ?? `Location ${index + 1}`),
         code: String(candidate.code ?? candidate.branchCode ?? `LOC${index + 1}`),
-      };
+      } as any;
     });
   }
 

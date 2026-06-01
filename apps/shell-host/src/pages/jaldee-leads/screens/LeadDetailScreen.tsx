@@ -5,6 +5,8 @@ import { cn } from '../lib/utils';
 import { format } from '../lib/dateUtils';
 import { mockUsers } from '../mockData';
 import { PageHeader, SectionCard, Button, Input, Select, Textarea, Checkbox, Dialog, DialogFooter } from "@jaldee/design-system";
+import { leadService } from '../services/leadService';
+import { useShellStore } from '../../../store/shellStore';
 
 interface LeadDetailScreenProps {
   lead: CrmLeadDto;
@@ -69,7 +71,14 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const [manualTaskType, setManualTaskType] = useState<'CALL' | 'EMAIL' | 'MEETING' | 'DOCUMENT' | 'TASK'>('TASK');
   const [manualTaskPriority, setManualTaskPriority] = useState<Priority>('LOW');
   const [manualTaskDescription, setManualTaskDescription] = useState('');
+  const availableLocations = useShellStore((state) => state.availableLocations);
   const [manualTaskLocation, setManualTaskLocation] = useState('Kanattukara');
+
+  React.useEffect(() => {
+    if (availableLocations.length && (manualTaskLocation === 'Kanattukara' || !manualTaskLocation)) {
+      setManualTaskLocation(availableLocations[0].name);
+    }
+  }, [availableLocations, manualTaskLocation]);
   const [manualTaskAssignee, setManualTaskAssignee] = useState('');
   const [manualTaskDate, setManualTaskDate] = useState('2026-05-22');
   const [manualTaskCategory, setManualTaskCategory] = useState('');
@@ -182,7 +191,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   }
 
   // Handle task checkbox toggles
-  const handleToggleTask = (taskUid: string) => {
+  const handleToggleTask = async (taskUid: string) => {
     const updatedTasks = tasks.map(t => t.uid === taskUid ? { ...t, completed: !t.completed } : t);
     
     // Add audit log for completed task
@@ -196,13 +205,24 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       });
     }
 
-    onUpdate({
+    const updatedLead = {
       ...lead,
       stageTasks: updatedTasks,
       generalNotes: newNotes,
       lastActivityAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    try {
+      const response = await leadService.update(lead.uid, updatedLead);
+      onUpdate({
+        ...updatedLead,
+        ...response
+      });
+    } catch (err) {
+      console.error("Failed to update task toggle on backend:", err);
+      onUpdate(updatedLead);
+    }
   };
 
   // Open Add Manual Task Modal instead of prompt
@@ -211,7 +231,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   };
 
   // Save manual task from custom modal input
-  const handleSaveManualTask = () => {
+  const handleSaveManualTask = async () => {
     if (!manualTaskTitle.trim()) {
       alert('Task title is required.');
       return;
@@ -241,13 +261,24 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       createdDate: new Date().toISOString()
     });
 
-    onUpdate({
+    const updatedLead = {
       ...lead,
       stageTasks: [...tasks, newTask],
       generalNotes: newNotes,
       lastActivityAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    try {
+      const response = await leadService.update(lead.uid, updatedLead);
+      onUpdate({
+        ...updatedLead,
+        ...response
+      });
+    } catch (err) {
+      console.error("Failed to append manual task on backend:", err);
+      onUpdate(updatedLead);
+    }
 
     // Reset states
     setManualTaskTitle('');
@@ -271,7 +302,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   };
 
   // Core Lead Conversion Operational Handler
-  const handleConfirmConversion = () => {
+  const handleConfirmConversion = async () => {
     const targetType = conversionMapping?.targetType || 'Appointment';
     const targetModule = conversionMapping?.targetModule || 'General Intake';
     const postStatus = conversionMapping?.postConversionStatus || 'COMPLETED';
@@ -325,8 +356,21 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
     updatedLead.generalNotes = [auditRecord, ...(lead.generalNotes || [])];
 
-    // Trigger parent state update
-    onUpdate(updatedLead);
+    try {
+      const response = await leadService.update(lead.uid, updatedLead);
+      try {
+        await leadService.updateStatus(lead.uid, postStatus);
+      } catch (statusErr) {
+        console.error("Failed to update status on backend, continuing anyway:", statusErr);
+      }
+      onUpdate({
+        ...updatedLead,
+        ...response
+      });
+    } catch (err) {
+      console.error("Failed to perform lead conversion updates on backend:", err);
+      onUpdate(updatedLead);
+    }
 
     // Save successful outcome data
     setConversionSuccessData({
@@ -404,7 +448,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   };
 
   // Move stage action logic
-  const handleProcessMoveStage = () => {
+  const handleProcessMoveStage = async () => {
     const targetStage = stages.find(s => s.uid === targetStageUid);
     if (!targetStage) return;
 
@@ -453,7 +497,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       createdDate: new Date().toISOString()
     });
 
-    onUpdate({
+    const updatedLead = {
       ...lead,
       currentPipelineStageUid: targetStage.uid,
       currentPipelineStageName: targetStage.stageName,
@@ -462,7 +506,18 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       generalNotes: newNotes,
       lastActivityAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    try {
+      const response = await leadService.update(lead.uid, updatedLead);
+      onUpdate({
+        ...updatedLead,
+        ...response
+      });
+    } catch (err) {
+      console.error("Failed to move lead stage on backend:", err);
+      onUpdate(updatedLead);
+    }
 
     // Reset modals
     setShowMoveModal(false);
@@ -470,12 +525,23 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
     setOverrideReason('');
   };
 
-  const handleSaveContactDetails = () => {
-    onUpdate({
-      ...editedLead,
-      lastActivityAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+  const handleSaveContactDetails = async () => {
+    try {
+      const response = await leadService.update(lead.uid, editedLead);
+      onUpdate({
+        ...editedLead,
+        ...response,
+        lastActivityAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Failed to update contact details on backend:", err);
+      onUpdate({
+        ...editedLead,
+        lastActivityAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
     setIsEditing(false);
   };
 
@@ -1325,13 +1391,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
               label="Location *"
               value={manualTaskLocation}
               onChange={e => setManualTaskLocation(e.target.value)}
-              options={[
-                { value: "Kanattukara", label: "Kanattukara" },
-                { value: "Main Reception", label: "Main Reception" },
-                { value: "Digital Storefront", label: "Digital Storefront" },
-                { value: "Mobile Call Center", label: "Mobile Call Center" },
-                { value: "Partner Affiliate Hub", label: "Partner Affiliate Hub" }
-              ]}
+              options={availableLocations.map(loc => ({ value: loc.name, label: loc.name }))}
             />
             <Select 
               label="Assignees"

@@ -33,7 +33,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
   });
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans text-slate-900 border-l border-slate-200">
+    <div className="h-full flex flex-col bg-slate-50 overflow-hidden text-slate-900 border-l border-slate-200">
 
       {/* Header */}
       <div className="px-4 py-3 shrink-0">

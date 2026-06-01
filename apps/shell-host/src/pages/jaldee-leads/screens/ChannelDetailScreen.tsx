@@ -52,6 +52,7 @@ export default function ChannelDetailScreen({
   const derivedPipeline = pipelines.find(p => p.uid === mappedProduct?.defaultPipelineUid) || pipelines[0];
   const initialStage = derivedPipeline?.stages?.[0];
   const currentTemplate = mockForms.find(f => f.uid === mappedProduct?.leadTemplateUid) || mockForms[0];
+  const productNames = channel.productName || (products.filter(p => channel.productUids?.includes(p.uid)).map(p => p.name).join(", ")) || 'NONE';
 
   const handleSimulatedSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,16 +136,17 @@ export default function ChannelDetailScreen({
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans text-slate-900 border-l border-slate-200">
-      {/* 1. Creative Header */}
-      <div className="px-4 sm:px-6 py-3 shrink-0">
+    <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans text-slate-900">
+
+      {/* Page Header — matches LeadDetailScreen standard */}
+      <div className="px-4 py-3 md:px-6 md:py-4 shrink-0">
         <PageHeader
           title={`Node: ${channel.name}`}
-          subtitle="Ingestion Gateway Controller"
-          back={{ label: "Back", href: "#" }}
+          subtitle={`Ingestion Gateway Controller • ${channel.type || 'ONLINE'} • ${leads.filter(l => l.channelUid === channel.uid).length} Leads Captured`}
+          back={{ label: "Channels", href: "#" }}
           onNavigate={onBack}
           actions={
-            <Button 
+            <Button
               onClick={onBack}
               variant="primary"
               className="text-sm font-semibold active-scale"
@@ -155,8 +157,8 @@ export default function ChannelDetailScreen({
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8 space-y-8 pb-32">
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
+        <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-8">
           
           {/* 2. Top Bento Row */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -179,15 +181,15 @@ export default function ChannelDetailScreen({
                     <label className="block text-xs font-semibold text-slate-500 mb-1">
                       Assigned Offer Sku
                     </label>
-                    <p className="font-sans text-xs font-semibold text-white truncate">
-                      {mappedProduct ? mappedProduct.name : 'NONE'}
+                    <p className="text-xs font-semibold text-white break-words">
+                      {productNames}
                     </p>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">
                       Auto Routing Flow
                     </label>
-                    <p className="font-sans text-xs font-semibold text-white truncate">
+                    <p className="text-xs font-semibold text-white truncate">
                       {derivedPipeline ? derivedPipeline.name : 'NONE'}
                     </p>
                   </div>
@@ -195,7 +197,7 @@ export default function ChannelDetailScreen({
                     <label className="block text-xs font-semibold text-slate-500 mb-1">
                       Landing Target
                     </label>
-                    <p className="font-sans text-xs font-semibold text-indigo-400 truncate">
+                    <p className="text-xs font-semibold text-indigo-400 truncate">
                       {initialStage ? initialStage.stageName : 'ASSESSING'}
                     </p>
                   </div>
@@ -322,7 +324,7 @@ export default function ChannelDetailScreen({
                       {/* Dynamic Landing Header */}
                       <div className="border-b border-slate-100 pb-4 text-center">
                         <h4 className="text-xs sm:text-sm font-semibold text-slate-900">
-                          {mappedProduct ? mappedProduct.name : 'Inquiry Portal'}
+                          {productNames !== 'NONE' ? productNames : 'Inquiry Portal'}
                         </h4>
                         <p className="text-xs font-bold text-slate-400 mt-1">
                           {channel.name} Official Opt-in Form
@@ -517,7 +519,6 @@ export default function ChannelDetailScreen({
             </div>
 
           </div>
-
         </div>
       </div>
     </div>

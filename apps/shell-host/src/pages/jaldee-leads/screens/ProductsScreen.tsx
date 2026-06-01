@@ -18,9 +18,27 @@ interface ProductsScreenProps {
   forms: FormTemplate[];
   initialSelectedId?: string;
   onNavigate: (route: string, selection?: any) => void;
+  fetchLeads?: () => void;
+  fetchPipelines?: () => void;
+  fetchChannels?: () => void;
+  fetchTemplates?: () => void;
 }
 
-export default function ProductsScreen({ products, setProducts, leads, pipelines, channels, setChannels, forms, initialSelectedId, onNavigate }: ProductsScreenProps) {
+export default function ProductsScreen({
+  products,
+  setProducts,
+  leads,
+  pipelines,
+  channels,
+  setChannels,
+  forms,
+  initialSelectedId,
+  onNavigate,
+  fetchLeads,
+  fetchPipelines,
+  fetchChannels,
+  fetchTemplates
+}: ProductsScreenProps) {
   const navigate = useNavigate();
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
@@ -42,53 +60,6 @@ export default function ProductsScreen({ products, setProducts, leads, pipelines
     }
   }, [initialSelectedId, products]);
 
-  React.useEffect(() => {
-    let active = true;
-
-    async function loadProducts() {
-      setIsLoadingProducts(true);
-      setProductsError(null);
-      try {
-        const remoteProducts = await leadProductService.search({}, { page: 0, size: 100 });
-        if (!active) return;
-        setProducts((current) =>
-          remoteProducts.map((remoteProduct) => {
-            const existingProduct = current.find((item) => item.uid === remoteProduct.uid);
-            if (!existingProduct) return remoteProduct;
-
-            return {
-              ...existingProduct,
-              ...remoteProduct,
-              name: remoteProduct.name || existingProduct.name,
-              displayName: remoteProduct.displayName || existingProduct.displayName,
-              defaultPipelineUid: remoteProduct.defaultPipelineUid || existingProduct.defaultPipelineUid,
-              defaultPipelineName: remoteProduct.defaultPipelineName || existingProduct.defaultPipelineName,
-              leadTemplateUid: remoteProduct.leadTemplateUid || existingProduct.leadTemplateUid,
-              leadTemplateName: remoteProduct.leadTemplateName || existingProduct.leadTemplateName,
-              templateTitle: remoteProduct.templateTitle || existingProduct.templateTitle,
-              description: remoteProduct.description || existingProduct.description,
-              productType: remoteProduct.productType || existingProduct.productType,
-              productTypeEnum: remoteProduct.productTypeEnum || existingProduct.productTypeEnum,
-              productEnum: remoteProduct.productEnum || existingProduct.productEnum,
-              status: remoteProduct.status || existingProduct.status,
-            };
-          }),
-        );
-      } catch (error) {
-        if (!active) return;
-        setProductsError(error instanceof Error ? error.message : 'Unable to load products.');
-      } finally {
-        if (active) setIsLoadingProducts(false);
-      }
-    }
-
-    loadProducts();
-
-    return () => {
-      active = false;
-    };
-  }, [setProducts]);
-
   const handleDelete = async (uid: string) => {
     if (confirm('Deactivate this product line?')) {
       setMutatingProductUid(uid);
@@ -109,6 +80,9 @@ export default function ProductsScreen({ products, setProducts, leads, pipelines
 
   const handleOpenProduct = async (product: Product) => {
     setSelectedProduct(product);
+    fetchLeads?.();
+    fetchPipelines?.();
+    fetchChannels?.();
     setProductsError(null);
 
     try {
@@ -127,7 +101,11 @@ export default function ProductsScreen({ products, setProducts, leads, pipelines
         subtitle="Portfolio Offerings & Workflow Deployments"
         actions={
           <Button
-            onClick={() => navigate('/jaldee-leads/products/create')}
+            onClick={() => {
+              fetchChannels?.();
+              fetchTemplates?.();
+              navigate('/jaldee-leads/products/create');
+            }}
             variant="primary"
             icon={<ICONS.ADD className="w-4 h-4" />}
             className="px-6 py-3 text-xs font-semibold active-scale"
@@ -178,7 +156,12 @@ export default function ProductsScreen({ products, setProducts, leads, pipelines
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setEditingProduct(product); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingProduct(product);
+                      fetchChannels?.();
+                      fetchTemplates?.();
+                    }}
                     size="sm"
                     variant="ghost"
                     iconOnly

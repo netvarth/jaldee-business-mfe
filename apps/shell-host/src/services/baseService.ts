@@ -50,9 +50,11 @@ export function normalizeBaseLocations(input: unknown): BranchLocation[] {
 
       return {
         id: String(candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId ?? `loc-${index + 1}`),
-        name: String(candidate.name ?? candidate.locationName ?? candidate.branchName ?? candidate.displayName ?? `Location ${index + 1}`),
+        locationId: candidate.id ?? candidate.locationId,
+        uid: String(candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId ?? `loc-${index + 1}`),
+        name: String(candidate.place ?? candidate.name ?? candidate.locationName ?? candidate.branchName ?? candidate.displayName ?? `Location ${index + 1}`),
         code: String(candidate.code ?? candidate.locationCode ?? candidate.branchCode ?? candidate.shortName ?? `LOC${index + 1}`),
-      };
+      } as any;
     });
   }
 

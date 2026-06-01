@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import DashboardScreen from './screens/DashboardScreen';
 import LeadsScreen from './screens/LeadsScreen';
 import PipelinesScreen from './screens/PipelinesScreen';
@@ -15,6 +15,8 @@ import { mockLeads, mockPipelines, mockProducts, mockChannels, mockForms } from 
 import { leadProductService } from './services/productService';
 import { leadTemplateService } from './services/templateService';
 import { leadPipelineService } from './services/pipelineService';
+import { leadChannelService } from './services/channelService';
+import { leadService } from './services/leadService';
 
 function TemplateEditRoute({
   forms,
@@ -40,40 +42,121 @@ function TemplateEditRoute({
 
 export default function JaldeeLeadsPage() {
   const navigate = useNavigate();
-  const [leads, setLeads] = useState<CrmLeadDto[]>(mockLeads);
-  const [pipelines, setPipelines] = useState<CrmLeadPipelineDto[]>(mockPipelines);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [channels, setChannels] = useState<Channel[]>(mockChannels);
-  const [forms, setForms] = useState<FormTemplate[]>(mockForms);
+  const location = useLocation();
+  const [leads, setLeads] = useState<CrmLeadDto[]>([]);
+  const [pipelines, setPipelines] = useState<CrmLeadPipelineDto[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [forms, setForms] = useState<FormTemplate[]>([]);
   const [activeSelection, setActiveSelection] = useState<{ type: string; id: string } | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const fetchedRef = useRef({
+    leads: false,
+    pipelines: false,
+    products: false,
+    channels: false,
+    forms: false
+  });
 
+  const triggerFetchTemplates = (active = true) => {
+    if (fetchedRef.current.forms) return;
     leadTemplateService.list()
       .then((templates) => {
         if (active && templates.length) {
           setForms(templates);
+          fetchedRef.current.forms = true;
         }
       })
-      .catch(() => {
-        // Keep mock templates as local fallback when the API is unavailable.
-      });
+      .catch(() => {});
+  };
 
+  const triggerFetchPipelines = (active = true) => {
+    if (fetchedRef.current.pipelines) return;
     leadPipelineService.search({}, { page: 0, size: 100 })
       .then((data) => {
         if (active && data.length) {
           setPipelines(data);
+          fetchedRef.current.pipelines = true;
         }
       })
-      .catch(() => {
-        // Keep mock pipelines as local fallback when the API is unavailable.
-      });
+      .catch(() => {});
+  };
+
+  const triggerFetchChannels = (active = true) => {
+    if (fetchedRef.current.channels) return;
+    leadChannelService.search({}, { page: 0, size: 100 })
+      .then((data) => {
+        if (active && data.length) {
+          setChannels(data);
+          fetchedRef.current.channels = true;
+        }
+      })
+      .catch(() => {});
+  };
+
+  const triggerFetchProducts = (active = true) => {
+    if (fetchedRef.current.products) return;
+    leadProductService.search({}, { page: 0, size: 100 })
+      .then((data) => {
+        if (active && data.length) {
+          setProducts(data);
+          fetchedRef.current.products = true;
+        }
+      })
+      .catch(() => {});
+  };
+
+  const triggerFetchLeads = (active = true) => {
+    if (fetchedRef.current.leads) return;
+    leadService.search({}, { page: 0, size: 100 })
+      .then((data) => {
+        if (active && data.length) {
+          setLeads(data);
+          fetchedRef.current.leads = true;
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    let active = true;
+    const path = location.pathname;
+
+    if (path.includes('/dashboard')) {
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+    } else if (path.includes('/leads')) {
+      triggerFetchLeads(active);
+    } else if (path.includes('/pipelines')) {
+      triggerFetchPipelines(active);
+      triggerFetchLeads(active);
+    } else if (path.includes('/products/create')) {
+      triggerFetchChannels(active);
+      triggerFetchTemplates(active);
+    } else if (path.includes('/products')) {
+      triggerFetchProducts(active);
+    } else if (path.includes('/templates')) {
+      triggerFetchTemplates(active);
+    } else if (path.includes('/channels')) {
+      triggerFetchChannels(active);
+    } else if (path.includes('/bulk-import')) {
+      triggerFetchLeads(active);
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+      triggerFetchPipelines(active);
+    } else {
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+    }
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [location.pathname]);
 
   const handleNavigate = (route: string, selection?: { type: string; id: string }) => {
     if (selection) {
@@ -110,6 +193,11 @@ export default function JaldeeLeadsPage() {
               setPipelines={setPipelines}
               products={products}
               channels={channels}
+              forms={forms}
+              fetchPipelines={() => triggerFetchPipelines(true)}
+              fetchProducts={() => triggerFetchProducts(true)}
+              fetchChannels={() => triggerFetchChannels(true)}
+              fetchTemplates={() => triggerFetchTemplates(true)}
             />
           }
         />
@@ -138,6 +226,10 @@ export default function JaldeeLeadsPage() {
               forms={forms}
               initialSelectedId={activeSelection?.type === 'product' ? activeSelection.id : undefined}
               onNavigate={handleNavigate}
+              fetchLeads={() => triggerFetchLeads(true)}
+              fetchPipelines={() => triggerFetchPipelines(true)}
+              fetchChannels={() => triggerFetchChannels(true)}
+              fetchTemplates={() => triggerFetchTemplates(true)}
             />
           }
         />
@@ -215,6 +307,9 @@ export default function JaldeeLeadsPage() {
               pipelines={pipelines}
               initialSelectedId={activeSelection?.type === 'channel' ? activeSelection.id : undefined}
               onNavigate={handleNavigate}
+              fetchLeads={() => triggerFetchLeads(true)}
+              fetchProducts={() => triggerFetchProducts(true)}
+              fetchPipelines={() => triggerFetchPipelines(true)}
             />
           }
         />

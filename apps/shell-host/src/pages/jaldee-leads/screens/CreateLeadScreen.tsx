@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { CrmLeadDto, Product, Channel, FormTemplate, User, CrmLeadPipelineDto } from '../types';
-import { mockForms, mockUsers } from '../mockData';
+import { mockUsers } from '../mockData';
 import { Button, Input, Select, Checkbox, Badge } from '@jaldee/design-system';
+import { leadService } from '../services/leadService';
 
 interface CreateLeadScreenProps {
   onBack: () => void;
@@ -12,9 +13,10 @@ interface CreateLeadScreenProps {
   products: Product[];
   channels: Channel[];
   leads: CrmLeadDto[];
+  forms: FormTemplate[];
 }
 
-export default function CreateLeadScreen({ onBack, onSave, pipelines, products, channels, leads }: CreateLeadScreenProps) {
+export default function CreateLeadScreen({ onBack, onSave, pipelines, products, channels, leads, forms }: CreateLeadScreenProps) {
   const [formData, setFormData] = useState<Partial<CrmLeadDto>>({
     consumerFirstName: '',
     consumerLastName: '',
@@ -61,7 +63,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
         setSelectedStageUid('');
       }
       if (product?.leadTemplateUid) {
-        const template = mockForms.find(f => f.uid === product.leadTemplateUid);
+        const template = forms.find(f => f.uid === product.leadTemplateUid);
         setCurrentTemplate(template || null);
       } else {
         setCurrentTemplate(null);
@@ -77,7 +79,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
       }
       setCurrentTemplate(null);
     }
-  }, [formData.productUid, products, pipelines]);
+  }, [formData.productUid, products, pipelines, forms]);
 
   // Real-time duplicate check based on email or phone
   useEffect(() => {
@@ -125,7 +127,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.consumerFirstName || !formData.consumerLastName) {
       alert('Please enter at least First and Last name.');
       return;
@@ -151,42 +153,90 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
       createdAt: new Date().toISOString()
     })) || [];
 
-    onSave({
-      ...formData as CrmLeadDto,
-      uid: `L-${Math.random().toString(36).substr(2, 7).toUpperCase()}`,
-      referenceNo: `REF-${Math.floor(1000 + Math.random() * 90000)}`,
-      leadDate: new Date().toISOString(),
-      pipelineUid: pipeline.uid,
-      pipelineName: pipeline.name,
-      currentPipelineStageUid: initialStage.uid,
-      currentPipelineStageName: initialStage.stageName,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastActivityAt: new Date().toISOString(),
-      nextFollowupAt: hasFirstFollowup && firstFollowupDate ? new Date(firstFollowupDate).toISOString() : undefined,
-      generalNotes: [],
-      stageHistory: [
-        {
-          fromStageName: 'PRE_INTAKE',
-          toStageName: initialStage.stageName,
-          movedByName: 'Global Ingest Port',
-          movedAt: new Date().toISOString(),
-          durationMinutes: 0,
-          isBackward: false,
-          isSkip: false,
-          isTerminal: !!initialStage.isTerminal,
-          reasonNote: 'Lead created, initiated pipeline.'
-        }
-      ],
-      attachments: [],
-      assignees: [],
-      tags: [],
-      isRejected: false,
-      isConverted: false,
-      isDuplicate: !!duplicateLead,
-      createdByName: 'Current Owner',
-      stageTasks: initialStageTasks
-    });
+    try {
+      const savedLead = await leadService.create({
+        ...formData,
+        pipelineUid: pipeline.uid,
+        currentPipelineStageUid: initialStage.uid,
+      });
+
+      onSave({
+        ...formData as CrmLeadDto,
+        ...savedLead,
+        uid: savedLead.uid || `L-${Math.random().toString(36).substr(2, 7).toUpperCase()}`,
+        referenceNo: savedLead.referenceNo || `REF-${Math.floor(1000 + Math.random() * 90000)}`,
+        leadDate: savedLead.leadDate || new Date().toISOString(),
+        pipelineUid: savedLead.pipelineUid || pipeline.uid,
+        pipelineName: savedLead.pipelineName || pipeline.name,
+        currentPipelineStageUid: savedLead.currentPipelineStageUid || initialStage.uid,
+        currentPipelineStageName: savedLead.currentPipelineStageName || initialStage.stageName,
+        createdAt: savedLead.createdAt || new Date().toISOString(),
+        updatedAt: savedLead.updatedAt || new Date().toISOString(),
+        lastActivityAt: savedLead.lastActivityAt || new Date().toISOString(),
+        nextFollowupAt: savedLead.nextFollowupAt || (hasFirstFollowup && firstFollowupDate ? new Date(firstFollowupDate).toISOString() : undefined),
+        generalNotes: savedLead.generalNotes?.length ? savedLead.generalNotes : [],
+        stageHistory: savedLead.stageHistory?.length ? savedLead.stageHistory : [
+          {
+            fromStageName: 'PRE_INTAKE',
+            toStageName: savedLead.currentPipelineStageName || initialStage.stageName,
+            movedByName: 'Global Ingest Port',
+            movedAt: new Date().toISOString(),
+            durationMinutes: 0,
+            isBackward: false,
+            isSkip: false,
+            isTerminal: !!initialStage.isTerminal,
+            reasonNote: 'Lead created, initiated pipeline.'
+          }
+        ],
+        attachments: savedLead.attachments || [],
+        assignees: savedLead.assignees || [],
+        tags: savedLead.tags || [],
+        isRejected: savedLead.isRejected || false,
+        isConverted: savedLead.isConverted || false,
+        isDuplicate: savedLead.isDuplicate || !!duplicateLead,
+        createdByName: savedLead.createdByName || 'Current Owner',
+        stageTasks: savedLead.stageTasks?.length ? savedLead.stageTasks : initialStageTasks
+      });
+    } catch (err) {
+      console.error("Failed to save lead to backend:", err);
+      // Fallback: save locally
+      onSave({
+        ...formData as CrmLeadDto,
+        uid: `L-${Math.random().toString(36).substr(2, 7).toUpperCase()}`,
+        referenceNo: `REF-${Math.floor(1000 + Math.random() * 90000)}`,
+        leadDate: new Date().toISOString(),
+        pipelineUid: pipeline.uid,
+        pipelineName: pipeline.name,
+        currentPipelineStageUid: initialStage.uid,
+        currentPipelineStageName: initialStage.stageName,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+        nextFollowupAt: hasFirstFollowup && firstFollowupDate ? new Date(firstFollowupDate).toISOString() : undefined,
+        generalNotes: [],
+        stageHistory: [
+          {
+            fromStageName: 'PRE_INTAKE',
+            toStageName: initialStage.stageName,
+            movedByName: 'Global Ingest Port',
+            movedAt: new Date().toISOString(),
+            durationMinutes: 0,
+            isBackward: false,
+            isSkip: false,
+            isTerminal: !!initialStage.isTerminal,
+            reasonNote: 'Lead created, initiated pipeline.'
+          }
+        ],
+        attachments: [],
+        assignees: [],
+        tags: [],
+        isRejected: false,
+        isConverted: false,
+        isDuplicate: !!duplicateLead,
+        createdByName: 'Current Owner',
+        stageTasks: initialStageTasks
+      });
+    }
   };
 
   return (

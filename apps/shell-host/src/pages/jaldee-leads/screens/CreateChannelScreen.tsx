@@ -1,45 +1,61 @@
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
-import { Channel, ChannelType } from '../types';
+import { Channel, ChannelType, Product } from '../types';
 import { mockProducts } from '../mockData';
-import { Button, Input, Select } from '@jaldee/design-system';
+import { Button, Input, MultiCombobox, Select } from '@jaldee/design-system';
+import { useShellStore } from '../../../store/shellStore';
 
 interface CreateChannelScreenProps {
   onBack: () => void;
   onSave: (channel: Channel) => void;
+  products: Product[];
+  initialChannel?: Channel;
 }
 
-export default function CreateChannelScreen({ onBack, onSave }: CreateChannelScreenProps) {
+export default function CreateChannelScreen({ onBack, onSave, products, initialChannel }: CreateChannelScreenProps) {
+  const availableLocations = useShellStore((s) => s.availableLocations);
   const [formData, setFormData] = useState({
-    name: '',
-    type: '' as ChannelType | '',
-    productName: '',
-    location: '',
+    name: initialChannel?.name || '',
+    type: (initialChannel?.type || '') as ChannelType | '',
+    productUids: initialChannel?.productUids || (initialChannel?.productUid ? [initialChannel?.productUid] : []),
+    location: initialChannel?.location || '',
   });
+
+  React.useEffect(() => {
+    if (availableLocations.length && !formData.location) {
+      setFormData(prev => ({ ...prev, location: availableLocations[0].name }));
+    }
+  }, [availableLocations, formData.location]);
 
   const handleSubmit = () => {
     if (!formData.name || !formData.type) return;
     
-    const channel: Channel = {
-      uid: `c${Date.now()}`,
+    const firstProductUid = formData.productUids[0] || undefined;
+    const firstProduct = products.find(p => p.uid === firstProductUid);
+    
+    const channel: Partial<Channel> = {
+      ...initialChannel,
       name: formData.name,
       type: formData.type as ChannelType,
-      location: formData.location,
-      productName: formData.productName,
+      location: formData.location || undefined,
+      productUid: firstProductUid,
+      productName: firstProduct?.name || undefined,
+      productUids: formData.productUids,
+      status: initialChannel?.status || 'ACTIVE'
     };
     
-    onSave(channel);
+    onSave(channel as Channel);
   };
 
   return (
-    <div className="h-full flex flex-col bg-white overflow-hidden font-sans text-slate-900">
+    <div className="h-full flex flex-col bg-white overflow-hidden text-slate-900">
       {/* 1. Header Area - Matching Screenshot */}
       <div className="border-b border-slate-100 px-4 sm:px-8 py-4 sm:py-6 flex items-center gap-4">
         <button onClick={onBack} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
           <ICONS.PREV className="w-5 h-5 text-slate-900" />
         </button>
-        <h1 className="text-xl font-bold text-slate-900">Create Channel</h1>
+        <h1 className="text-xl font-bold text-slate-900">{initialChannel ? "Edit Channel" : "Create Channel"}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-12 no-scrollbar">
@@ -73,13 +89,13 @@ export default function CreateChannelScreen({ onBack, onSave }: CreateChannelScr
             />
 
             {/* Product/Service */}
-            <Select 
-              id="productService"
-              label="Product/Service"
-              value={formData.productName}
-              onChange={e => setFormData({...formData, productName: e.target.value})}
-              placeholder="Select Product/Service"
-              options={mockProducts.map(p => ({ value: p.name, label: p.name }))}
+            <MultiCombobox
+              id="productServices"
+              label="Products/Services"
+              value={formData.productUids}
+              onValueChange={value => setFormData({...formData, productUids: value})}
+              placeholder="Select Products/Services"
+              options={products.map(p => ({ value: p.uid, label: p.name, description: p.productEnum || p.productType }))}
             />
 
             {/* Location */}
@@ -89,13 +105,7 @@ export default function CreateChannelScreen({ onBack, onSave }: CreateChannelScr
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
               placeholder="Select Location"
-              options={[
-                { value: "Main Reception", label: "Main Reception" },
-                { value: "Digital Storefront", label: "Digital Storefront" },
-                { value: "Mobile API", label: "Mobile API" },
-                { value: "Call Center", label: "Call Center" },
-                { value: "Affiliate Network", label: "Affiliate Network" }
-              ]}
+              options={availableLocations.map(loc => ({ value: loc.name, label: loc.name }))}
             />
           </div>
 
@@ -115,7 +125,7 @@ export default function CreateChannelScreen({ onBack, onSave }: CreateChannelScr
               variant="primary"
               className="w-full sm:w-auto px-8 py-3 text-sm font-bold text-center"
             >
-              Create Channel
+              {initialChannel ? "Save Changes" : "Create Channel"}
             </Button>
           </div>
 

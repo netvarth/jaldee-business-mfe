@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel } from '../types';
+import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel, FormTemplate } from '../types';
 import CreateLeadScreen from './CreateLeadScreen';
 import LeadDetailScreen from './LeadDetailScreen';
 import { ICONS } from '../constants';
@@ -14,15 +14,49 @@ interface LeadsScreenProps {
   setPipelines: React.Dispatch<React.SetStateAction<CrmLeadPipelineDto[]>>;
   products: Product[];
   channels: Channel[];
+  forms: FormTemplate[];
   initialForceCreate?: boolean;
+  fetchPipelines?: () => void;
+  fetchProducts?: () => void;
+  fetchChannels?: () => void;
+  fetchTemplates?: () => void;
 }
 
-export default function LeadsScreen({ leads, setLeads, pipelines, setPipelines, products, channels, initialForceCreate }: LeadsScreenProps) {
+export default function LeadsScreen({
+  leads,
+  setLeads,
+  pipelines,
+  setPipelines,
+  products,
+  channels,
+  forms,
+  initialForceCreate,
+  fetchPipelines,
+  fetchProducts,
+  fetchChannels,
+  fetchTemplates
+}: LeadsScreenProps) {
   const [isCreatingLead, setIsCreatingLead] = useState(!!initialForceCreate);
   const [selectedLead, setSelectedLead] = useState<CrmLeadDto | null>(null);
   const [search, setSearch] = useState('');
   const [statusTab, setStatusTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'REJECTED' | 'OVERDUE' | 'UNASSIGNED'>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+
+  React.useEffect(() => {
+    if (isCreatingLead) {
+      fetchPipelines?.();
+      fetchProducts?.();
+      fetchChannels?.();
+      fetchTemplates?.();
+    }
+  }, [isCreatingLead, fetchPipelines, fetchProducts, fetchChannels, fetchTemplates]);
+
+  React.useEffect(() => {
+    if (selectedLead) {
+      fetchPipelines?.();
+      fetchProducts?.();
+    }
+  }, [selectedLead, fetchPipelines, fetchProducts]);
 
   const filteredLeads = leads.filter(lead => {
     // Search filter
@@ -83,6 +117,7 @@ export default function LeadsScreen({ leads, setLeads, pipelines, setPipelines, 
         products={products}
         channels={channels}
         leads={leads}
+        forms={forms}
         onBack={() => setIsCreatingLead(false)}
         onSave={(newLead) => {
           setLeads([newLead, ...leads]);

@@ -114,11 +114,29 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
       {editingPipeline ? (
         <PipelineBuilder 
           pipeline={editingPipeline} 
-          onClose={() => setEditingPipeline(null)} 
-          onSave={(p) => {
+          onClose={async () => {
+            setEditingPipeline(null);
+            try {
+              const updatedPipelines = await leadPipelineService.search({}, { page: 0, size: 100 });
+              if (updatedPipelines && updatedPipelines.length > 0) {
+                setPipelines(updatedPipelines);
+              }
+            } catch (err) {
+              console.error("Failed to refetch pipelines after close:", err);
+            }
+          }} 
+          onSave={async (p) => {
             const isNew = !pipelines.find(exp => exp.uid === p.uid);
             setPipelines(isNew ? [...pipelines, p] : pipelines.map(exp => exp.uid === p.uid ? p : exp));
             setEditingPipeline(null);
+            try {
+              const updatedPipelines = await leadPipelineService.search({}, { page: 0, size: 100 });
+              if (updatedPipelines && updatedPipelines.length > 0) {
+                setPipelines(updatedPipelines);
+              }
+            } catch (err) {
+              console.error("Failed to refetch pipelines after save:", err);
+            }
           }}
         />
       ) : selectedPipeline ? (
@@ -180,7 +198,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                    </div>
     
                    <div>
-                      <h3 className="text-base font-semibold text-slate-900 truncate leading-none mb-2 group-hover:text-indigo-600 transition-colors">{p.name}</h3>
+                      <h3 className="text-base font-semibold text-slate-900 truncate leading-normal mb-2 group-hover:text-indigo-600 transition-colors">{p.name}</h3>
                       <div className="text-xs font-semibold text-slate-400 flex flex-wrap items-center gap-1.5">
                          <span>{p.stages.length} Stages</span>
                          <span className="w-1 h-1 rounded-full bg-slate-300"></span> 

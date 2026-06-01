@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
 import { Pencil } from "lucide-react";
@@ -24,35 +24,6 @@ function schemaRequired(schema: unknown) {
 
 export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProps) {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadTemplates() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const remoteTemplates = await leadTemplateService.list();
-        if (!active) return;
-        if (remoteTemplates.length) {
-          setForms(remoteTemplates);
-        }
-      } catch (templateError) {
-        if (!active) return;
-        setError(templateError instanceof Error ? templateError.message : "Unable to load templates.");
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    }
-
-    loadTemplates();
-
-    return () => {
-      active = false;
-    };
-  }, [setForms]);
 
   const sortedForms = useMemo(() => [...forms].sort((a, b) => a.name.localeCompare(b.name)), [forms]);
 
@@ -73,17 +44,6 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
         }
       />
 
-      {error ? (
-        <div role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-          {error}
-        </div>
-      ) : null}
-
-      {isLoading ? (
-        <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-500">
-          Loading templates...
-        </div>
-      ) : null}
 
       {sortedForms.length === 0 ? (
         <SectionCard className="border-slate-200 bg-white p-8 shadow-sm">
