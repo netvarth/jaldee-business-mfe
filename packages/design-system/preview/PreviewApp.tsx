@@ -1,18 +1,21 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Alert,
   Avatar,
   AvatarGroup,
   Badge,
+  BarChart,
   BulkActionBar,
   Button,
   Checkbox,
   Combobox,
   ComponentErrorBoundary,
+  ComparisonBarChart,
   ConfirmDialog,
   DataTable,
   DataTableToolbar,
   DatePicker,
+  DatePickerPopover,
   DateRangePicker,
   DescriptionList,
   Dialog,
@@ -23,14 +26,21 @@ import {
   ErrorState,
   FileUpload,
   FormSection,
+  Icon,
   Input,
   KanbanBoard,
+  KpiStrip,
   LiveQueue,
+  MultiCombobox,
+  MultiLineChart,
+  OtpInput,
   PageErrorBoundary,
   PageHeader,
+  PhoneInput,
   Popover,
   PopoverSection,
   RadioGroup,
+  RichTextEditor,
   SectionCard,
   Select,
   Skeleton,
@@ -51,6 +61,7 @@ import type {
   KanbanColumn,
   KanbanItem,
   LiveQueueItem,
+  PhoneInputValue,
   TimelineEvent,
   VitalPoint,
 } from "../src";
@@ -116,6 +127,51 @@ const vitalsSeries: VitalPoint[] = [
   { label: "13:00", value: 103, timestamp: "13:00" },
 ];
 
+const revenueTrend = [
+  { label: "Mon", value: 42 },
+  { label: "Tue", value: 58 },
+  { label: "Wed", value: 37 },
+  { label: "Thu", value: 66 },
+  { label: "Fri", value: 74 },
+];
+
+const patientFlowTrend = [
+  {
+    key: "sat",
+    fullLabel: "Saturday",
+    values: { admitted: 2, reserved: 1, discharged: 1 },
+  },
+  {
+    key: "sun",
+    fullLabel: "Sunday",
+    values: { admitted: 1, reserved: 2, discharged: 0 },
+  },
+  {
+    key: "mon",
+    fullLabel: "Monday",
+    values: { admitted: 3, reserved: 2, discharged: 2 },
+  },
+  {
+    key: "tue",
+    fullLabel: "Tuesday",
+    values: { admitted: 2, reserved: 3, discharged: 1 },
+  },
+];
+
+const patientFlowSeries = [
+  { key: "admitted", label: "Admitted", color: "#2563EB" },
+  { key: "reserved", label: "Reserved", color: "#10B981" },
+  { key: "discharged", label: "Discharged", color: "#F59E0B" },
+];
+
+const comparisonTrend = [
+  { label: "Jan", value: 32 },
+  { label: "Feb", value: 46 },
+  { label: "Mar", value: 28 },
+  { label: "Apr", value: 61 },
+  { label: "May", value: 52 },
+];
+
 function PreviewGalleryCrash({ enabled }: { enabled: boolean }) {
   if (enabled) {
     throw new Error("Preview page crash test");
@@ -146,9 +202,12 @@ export default function PreviewApp() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [selectedPopoverDate, setSelectedPopoverDate] = useState<Date | null>(new Date(2026, 2, 26));
   const [pageCrash, setPageCrash] = useState(false);
   const [componentCrash, setComponentCrash] = useState(false);
   const [boardItems, setBoardItems] = useState(initialBoardItems);
+  const datePopoverAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,6 +216,14 @@ export default function PreviewApp() {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [otpValue, setOtpValue] = useState("123");
+  const [phoneValue, setPhoneValue] = useState<PhoneInputValue>({
+    countryCode: "+91",
+    number: "9876543210",
+    e164Number: "+919876543210",
+  });
+  const [multiComboboxValue, setMultiComboboxValue] = useState(["consult", "lab"]);
+  const [richTextValue, setRichTextValue] = useState("<strong>Initial assessment:</strong> patient is stable.");
 
   const columns = useMemo<ColumnDef<PatientRow>[]>(
     () => [
@@ -259,7 +326,7 @@ export default function PreviewApp() {
           <div className="grid gap-4 sm:grid-cols-2">
             <StatCard
               label="Components"
-              value="30"
+              value="40"
               trend={{ value: 12, direction: "up", label: "this sprint" }}
               icon="DS"
               accent="indigo"
@@ -307,6 +374,17 @@ export default function PreviewApp() {
                     { name: "Nikhil Varma" },
                   ]}
                 />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {(["search", "calendar", "filter", "chart", "warehouse", "alert"] as const).map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600"
+                    title={name}
+                  >
+                    <Icon name={name} />
+                  </span>
+                ))}
               </div>
             </div>
             <div className="space-y-4">
@@ -391,7 +469,42 @@ export default function PreviewApp() {
                   { value: "suma", label: "Dr. Suma", description: "Paediatrics" },
                 ]}
               />
+              <MultiCombobox
+                label="Care services"
+                hint="Searchable multi-select preview"
+                value={multiComboboxValue}
+                onValueChange={setMultiComboboxValue}
+                options={[
+                  { value: "consult", label: "Consultation", description: "Doctor visit" },
+                  { value: "lab", label: "Lab work", description: "Diagnostics" },
+                  { value: "pharmacy", label: "Pharmacy", description: "Medicines" },
+                  { value: "billing", label: "Billing", description: "Payment desk" },
+                ]}
+              />
+              <PhoneInput
+                label="Phone number"
+                value={phoneValue}
+                onChange={setPhoneValue}
+                hint="intl-tel-input backed phone field"
+              />
+              <OtpInput
+                label="Verification code"
+                value={otpValue}
+                onChange={setOtpValue}
+                hint="Paste or type one-time codes"
+              />
               <DatePicker label="Visit date" defaultValue="2026-03-26" />
+              <div className="flex flex-col gap-1.5">
+                <span className="ds-form-label">Date picker popover</span>
+                <Button
+                  ref={datePopoverAnchorRef}
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDatePopoverOpen(true)}
+                >
+                  {selectedPopoverDate?.toLocaleDateString() ?? "Choose date"}
+                </Button>
+              </div>
               <DateRangePicker
                 label="Admission window"
                 defaultValue={{ start: "2026-03-26", end: "2026-03-29" }}
@@ -402,6 +515,13 @@ export default function PreviewApp() {
                 label="Clinical note"
                 hint="Use this to preview multi-line input styling."
                 defaultValue="Follow-up visit scheduled for review after lab results."
+              />
+              <RichTextEditor
+                label="Rich clinical note"
+                value={richTextValue}
+                onChange={setRichTextValue}
+                hint="Formatted text editor preview"
+                minHeightClassName="min-h-[120px]"
               />
               <FileUpload
                 label="Attachments"
@@ -422,6 +542,19 @@ export default function PreviewApp() {
                   { value: "routine", label: "Routine" },
                   { value: "urgent", label: "Urgent" },
                   { value: "critical", label: "Critical" },
+                ]}
+              />
+              <RadioGroup
+                label="Lead priority"
+                name="lead-priority"
+                variant="segmented"
+                value="normal"
+                onChange={() => undefined}
+                options={[
+                  { value: "low", label: "LOW" },
+                  { value: "normal", label: "NORMAL" },
+                  { value: "high", label: "HIGH" },
+                  { value: "urgent", label: "URGENT" },
                 ]}
               />
               <Switch label="Enable reminders" checked={notify} onChange={setNotify} />
@@ -517,6 +650,14 @@ export default function PreviewApp() {
 
         <SectionCard title="Data Display">
           <div className="space-y-6">
+            <KpiStrip
+              items={[
+                { label: "Visits", value: 128, icon: <Icon name="chart" />, accent: "indigo" },
+                { label: "Revenue", value: "Rs. 42k", icon: <Icon name="trend" />, accent: "emerald" },
+                { label: "Alerts", value: 3, icon: <Icon name="alert" />, accent: "rose" },
+              ]}
+            />
+
             {bulkCount > 0 && (
               <BulkActionBar
                 count={bulkCount}
@@ -576,6 +717,27 @@ export default function PreviewApp() {
                 <Timeline events={timelineEvents} />
               </SectionCard>
             </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <SectionCard title="Bar chart">
+                <BarChart
+                  data={revenueTrend}
+                  showMenuIcon
+                  yAxisLabel="Rs."
+                />
+              </SectionCard>
+              <SectionCard title="Comparison chart">
+                <ComparisonBarChart data={comparisonTrend} />
+              </SectionCard>
+            </div>
+
+            <SectionCard title="Multi-line chart">
+              <MultiLineChart
+                data={patientFlowTrend}
+                series={patientFlowSeries}
+                chartHeight={260}
+              />
+            </SectionCard>
 
             <div className="grid gap-6 xl:grid-cols-2">
               <LiveQueue
@@ -709,6 +871,18 @@ export default function PreviewApp() {
           </div>
         </div>
       </Drawer>
+
+      {datePopoverOpen ? (
+        <DatePickerPopover
+          selectedDate={selectedPopoverDate}
+          anchorRect={datePopoverAnchorRef.current?.getBoundingClientRect() ?? null}
+          onSelectDate={(date) => {
+            setSelectedPopoverDate(date);
+            setDatePopoverOpen(false);
+          }}
+          onClose={() => setDatePopoverOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

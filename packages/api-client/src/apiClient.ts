@@ -8,6 +8,7 @@ interface RequestConfigWithMeta extends InternalAxiosRequestConfig {
   _retry?: boolean;
   _skipAuthRefresh?: boolean;
   _skipCsrf?: boolean;
+  _skipLocationParam?: boolean;
 }
 
 interface RefreshResult {
@@ -127,9 +128,36 @@ export function createApiClient(baseURL: string): AxiosInstance {
 
       const method = config.method?.toLowerCase() ?? "";
       const isMutating = ["post", "put", "patch", "delete"].includes(method);
-      if (isMutating && _authMode === "session" && !config._skipCsrf) {
-        const csrf = getCsrfToken();
-        if (csrf) config.headers["X-CSRF-Token"] = csrf;
+      if (isMutating) {
+        if (!config._skipLocationParam) {
+          let locationId = "";
+          try {
+            const shellStoreStr = localStorage.getItem("jaldee-shell-store");
+            if (shellStoreStr) {
+              const parsed = JSON.parse(shellStoreStr);
+              if (parsed?.state?.activeLocation?.id) {
+                locationId = String(parsed.state.activeLocation.id);
+              }
+            }
+            if (!locationId) {
+              locationId = localStorage.getItem("p-location") || "";
+            }
+          } catch (e) {
+            // ignore localStorage errors in non-browser environments
+          }
+
+          if (locationId) {
+            config.params = config.params || {};
+            if (config.params.location === undefined) {
+              config.params.location = locationId;
+            }
+          }
+        }
+
+        if (_authMode === "session" && !config._skipCsrf) {
+          const csrf = getCsrfToken();
+          if (csrf) config.headers["X-CSRF-Token"] = csrf;
+        }
       }
 
       return config;

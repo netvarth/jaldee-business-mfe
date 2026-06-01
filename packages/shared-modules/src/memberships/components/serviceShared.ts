@@ -14,11 +14,62 @@ export function unwrapPayload<T>(value: T): any {
 
 export function unwrapList(value: unknown): any[] {
   const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === "object") {
+    const candidate = payload as any;
+    if (Array.isArray(candidate.content)) {
+      return candidate.content;
+    }
+    if (Array.isArray(candidate.data)) {
+      return candidate.data;
+    }
+    if (Array.isArray(candidate.records)) {
+      return candidate.records;
+    }
+    if (Array.isArray(candidate.items)) {
+      return candidate.items;
+    }
+  }
+
+  return [];
 }
 
 export function unwrapCount(value: unknown) {
-  return Number(unwrapPayload(value)) || 0;
+  const payload = unwrapPayload(value);
+
+  if (typeof payload === "number") {
+    return payload;
+  }
+
+  if (payload && typeof payload === "object") {
+    const candidate = payload as any;
+    const pageTotal = candidate.page?.totalElements ?? candidate.page?.total;
+    if (pageTotal !== undefined) {
+      const num = Number(pageTotal);
+      if (!isNaN(num)) return num;
+    }
+
+    const count =
+      candidate.count ??
+      candidate.total ??
+      candidate.totalElements ??
+      candidate.totalCount;
+
+    if (count !== undefined) {
+      const num = Number(count);
+      if (!isNaN(num)) return num;
+    }
+
+    if (typeof candidate.data === "number") {
+      return candidate.data;
+    }
+  }
+
+  return Number(payload) || 0;
 }
 
 export function formatDate(value: unknown) {

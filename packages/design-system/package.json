@@ -13,6 +13,7 @@
     "./src/tokens.css": "./src/tokens.css"
   },
   "scripts": {
+    "clean": "node -e \"const fs = require('fs'); ['dist', 'build'].forEach(d => fs.rmSync(d, { recursive: true, force: true }));\"",
     "dev": "tsc --watch",
     "build": "tsc",
     "preview:dev": "vite --config vite.preview.config.ts",
