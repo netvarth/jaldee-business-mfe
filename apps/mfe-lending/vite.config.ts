@@ -21,6 +21,7 @@ export default defineConfig({
       "@jaldee/auth-context": path.resolve(__dirname, "../../packages/auth-context/src/index.ts"),
       "@jaldee/event-bus": path.resolve(__dirname, "../../packages/event-bus/src/index.ts"),
       "@jaldee/api-client": path.resolve(__dirname, "../../packages/api-client/src/index.ts"),
+      "@jaldee/shared-modules": path.resolve(__dirname, "../../packages/shared-modules/src/index.ts"),
     },
   },
   build: {

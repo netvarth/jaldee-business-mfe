@@ -38,3 +38,59 @@
     width: 100%;
     height: 100%;
 }
+
+/* Jaldee Leads CRM Styles */
+.jaldee-leads-page .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.jaldee-leads-page .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.jaldee-leads-page .geometric-grid {
+  background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.jaldee-leads-page .glass-morphism {
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.jaldee-leads-page .software-shadow {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.jaldee-leads-page .active-scale {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.jaldee-leads-page .active-scale:active {
+  transform: scale(0.95);
+}
+
+.jaldee-leads-page .compact-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.jaldee-leads-page .compact-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.jaldee-leads-page .compact-scroll::-webkit-scrollbar-thumb {
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.jaldee-leads-page .animate-in {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

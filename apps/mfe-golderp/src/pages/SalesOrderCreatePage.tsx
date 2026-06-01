@@ -4,20 +4,26 @@ import {
   Alert,
   Badge,
   Button,
+  Dialog,
+  DialogFooter,
   EmptyState,
   Input,
   PageHeader,
+  RadioGroup,
   SectionCard,
   Select,
   Textarea,
 } from "@jaldee/design-system";
-import { inventoryService, masterDataService, salesService } from "@/services";
+import { customerService, inventoryService, masterDataService, salesService } from "@/services";
 import type {
   ChargeType,
   JewelleryTag,
   Metal,
   MetalPurity,
   OrderType,
+  ProviderCustomer,
+  ProviderCustomerRef,
+  ProviderUserTitle,
 } from "@/lib/gold-erp-types";
 import { formatCurrency } from "@/lib/gold-erp-utils";
 
@@ -34,11 +40,51 @@ interface SalesLineDraft {
   discountOnLine: string;
 }
 
+interface CustomerCreateDraft {
+  title: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  secondaryPhoneNo: string;
+  whatsApp: string;
+  telegram: string;
+  gender: string;
+  dob: string;
+  ageYears: string;
+  ageMonths: string;
+  ageDays: string;
+  address: string;
+}
+
 interface NoticeState {
   variant: "success" | "warning" | "danger" | "info";
   title: string;
   message: string;
 }
+
+const createCustomerDraft = (): CustomerCreateDraft => ({
+  title: "",
+  firstName: "",
+  lastName: "",
+  email: "",
+  mobile: "",
+  secondaryPhoneNo: "",
+  whatsApp: "",
+  telegram: "",
+  gender: "",
+  dob: "",
+  ageYears: "0",
+  ageMonths: "0",
+  ageDays: "0",
+  address: "",
+});
+
+const getCustomerDisplayName = (customer: ProviderCustomer | ProviderCustomerRef | null | undefined) =>
+  customer?.name || [customer?.firstName, customer?.lastName].filter(Boolean).join(" ").trim() || "";
+
+const getCustomerPhone = (customer: ProviderCustomer | ProviderCustomerRef | null | undefined) =>
+  customer?.phoneNo || ("userProfile" in (customer || {}) ? (customer as any).userProfile?.primaryMobileNo : "") || "";
 
 const createSalesLine = (): SalesLineDraft => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -104,6 +150,14 @@ export default function SalesOrderCreatePage() {
   const [orderType, setOrderType] = useState<OrderType>("WALK_IN");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<ProviderCustomer | null>(null);
+  const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false);
+  const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
+  const [customerCreateDraft, setCustomerCreateDraft] = useState<CustomerCreateDraft>(createCustomerDraft());
+  const [userTitles, setUserTitles] = useState<ProviderUserTitle[]>([]);
+  const [matchedCustomers, setMatchedCustomers] = useState<ProviderCustomer[]>([]);
+
   const [orderDate, setOrderDate] = useState(getTodayInputValue());
   const [notes, setNotes] = useState("");
   const [salesLines, setSalesLines] = useState<SalesLineDraft[]>([createSalesLine()]);
@@ -134,12 +188,14 @@ export default function SalesOrderCreatePage() {
       inventoryService.getTags(),
       masterDataService.getMetals(),
       masterDataService.getPurities(),
+      customerService.getUserTitles(),
     ])
-      .then(([loadedTags, loadedMetals, loadedPurities]) => {
+      .then(([loadedTags, loadedMetals, loadedPurities, loadedTitles]) => {
         if (cancelled) return;
         setAllTags(Array.isArray(loadedTags) ? loadedTags : []);
         setMetals(Array.isArray(loadedMetals) ? loadedMetals : []);
         setPurities(Array.isArray(loadedPurities) ? loadedPurities : []);
+        setUserTitles(Array.isArray(loadedTitles) ? loadedTitles : []);
         setNotice(null);
       })
       .catch((loadError: unknown) => {
@@ -147,10 +203,11 @@ export default function SalesOrderCreatePage() {
         setAllTags([]);
         setMetals([]);
         setPurities([]);
+        setUserTitles([]);
         setNotice({
           variant: "danger",
           title: "Could not load sales dependencies",
-          message: loadError instanceof Error ? loadError.message : "Failed to load inventory and master data.",
+          message: loadError instanceof Error ? loadError.message : "Failed to load dependencies.",
         });
       })
       .finally(() => {
@@ -161,6 +218,224 @@ export default function SalesOrderCreatePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const trimmedName = customerName.trim();
+    if (!trimmedName || (selectedCustomer && getCustomerDisplayName(selectedCustomer) === trimmedName)) {
+      setMatchedCustomers([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const firstName = trimmedName.split(/\s+/)[0];
+      customerService.getCustomers({
+        firstName,
+        countryCode: "91",
+        status: "ACTIVE",
+        from: 0,
+        count: 10
+      })
+      .then((res) => {
+        setMatchedCustomers(res || []);
+      })
+      .catch((err) => {
+        console.error("Error searching customers:", err);
+      });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [customerName, selectedCustomer]);
+
+  const handleCustomerNameChange = (value: string) => {
+    setCustomerName(value);
+    setSelectedCustomer(null);
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setIsCustomerMenuOpen(Boolean(value.trim()));
+  };
+
+  const handleSelectCustomer = (customer: ProviderCustomer) => {
+    setSelectedCustomer(customer);
+    setCustomerName(getCustomerDisplayName(customer));
+    setCustomerPhone(getCustomerPhone(customer));
+    setCustomerEmail(customer.email || customer.userProfile?.email || "");
+    setIsCustomerMenuOpen(false);
+  };
+
+  const openCreateCustomerDialog = () => {
+    const baseName = selectedCustomer ? "" : customerName.trim();
+    const baseEmail = selectedCustomer ? "" : customerEmail.trim();
+    const basePhone = selectedCustomer ? "" : customerPhone.trim();
+    const { firstName, lastName } = splitCustomerName(baseName);
+    setCustomerCreateDraft({
+      ...createCustomerDraft(),
+      firstName,
+      lastName,
+      email: baseEmail,
+      mobile: basePhone,
+      whatsApp: basePhone,
+      telegram: basePhone,
+    });
+    setIsCreateCustomerDialogOpen(true);
+    setIsCustomerMenuOpen(false);
+  };
+
+  const updateCustomerCreateDraft = (field: keyof CustomerCreateDraft, value: string) => {
+    setCustomerCreateDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleCreateCustomerSubmit = async () => {
+    const firstName = customerCreateDraft.firstName.trim();
+    const lastName = customerCreateDraft.lastName.trim();
+    const phoneNo = customerCreateDraft.mobile.trim();
+    const email = customerCreateDraft.email.trim();
+
+    try {
+      const createdCustomer = await customerService.createCustomer({
+        title: customerCreateDraft.title || undefined,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        email: email || undefined,
+        countryCode: phoneNo ? "91" : undefined,
+        phoneNo: phoneNo || undefined,
+        secondaryCountryCode: customerCreateDraft.secondaryPhoneNo.trim() ? "91" : undefined,
+        secondaryPhoneNo: customerCreateDraft.secondaryPhoneNo.trim() || undefined,
+        whatsAppNum:
+          customerCreateDraft.whatsApp.trim() || phoneNo
+            ? {
+                countryCode: "91",
+                number: customerCreateDraft.whatsApp.trim() || phoneNo,
+              }
+            : undefined,
+        telegramNum:
+          customerCreateDraft.telegram.trim() || phoneNo
+            ? {
+                countryCode: "91",
+                number: customerCreateDraft.telegram.trim() || phoneNo,
+              }
+            : undefined,
+        gender: customerCreateDraft.gender || undefined,
+        dob: customerCreateDraft.dob || undefined,
+        address: customerCreateDraft.address.trim() || undefined,
+        age: {
+          year: Number(customerCreateDraft.ageYears) || 0,
+          month: Number(customerCreateDraft.ageMonths) || 0,
+          day: Number(customerCreateDraft.ageDays) || 0,
+        },
+      });
+
+      const normalizedCustomer = createdCustomer.id
+        ? await customerService.getCustomerDetails(createdCustomer.id)
+        : ({ ...createdCustomer, name: [firstName, lastName].filter(Boolean).join(" ") } as ProviderCustomer);
+
+      const hydratedCustomer: ProviderCustomer = {
+        ...normalizedCustomer,
+        title: normalizedCustomer.title || customerCreateDraft.title || undefined,
+        firstName: normalizedCustomer.firstName || normalizedCustomer.userProfile?.firstName || firstName || undefined,
+        lastName: normalizedCustomer.lastName || normalizedCustomer.userProfile?.lastName || lastName || undefined,
+        phoneNo: normalizedCustomer.phoneNo || normalizedCustomer.userProfile?.primaryMobileNo || phoneNo || undefined,
+        countryCode: normalizedCustomer.countryCode || normalizedCustomer.userProfile?.countryCode || (phoneNo ? "91" : undefined),
+        email: normalizedCustomer.email || normalizedCustomer.userProfile?.email || email || undefined,
+        name:
+          getCustomerDisplayName(normalizedCustomer) ||
+          [firstName, lastName].filter(Boolean).join(" ").trim() ||
+          undefined,
+      };
+
+      handleSelectCustomer(hydratedCustomer);
+      setIsCreateCustomerDialogOpen(false);
+      setNotice({
+        variant: "success",
+        title: "Customer created",
+        message: `Created and selected customer ${hydratedCustomer.name || ""}.`
+      });
+    } catch (error: any) {
+      setNotice({
+        variant: "danger",
+        title: "Failed to create customer",
+        message: error.message || "An error occurred during customer creation."
+      });
+    }
+  };
+
+  const splitCustomerName = (name: string) => {
+    const normalized = name.trim().replace(/\s+/g, " ");
+    if (!normalized) {
+      return { firstName: "", lastName: "" };
+    }
+
+    const [firstName, ...rest] = normalized.split(" ");
+    return {
+      firstName,
+      lastName: rest.join(" "),
+    };
+  };
+
+  const buildWalkInCustomerPayload = (): ProviderCustomerRef => {
+    const normalizedPhone = customerPhone.trim();
+    const normalizedName = customerName.trim();
+    const { firstName, lastName } = splitCustomerName(normalizedName);
+
+    return {
+      id: 0,
+      name: normalizedName,
+      firstName,
+      lastName: lastName || undefined,
+      phoneNo: normalizedPhone,
+      countryCode: "91",
+      email: customerEmail.trim() || undefined,
+    };
+  };
+
+  const buildCustomerPayload = async (): Promise<ProviderCustomerRef> => {
+    const normalizedPhone = customerPhone.trim();
+    const normalizedName = customerName.trim();
+    const normalizedEmail = customerEmail.trim();
+
+    const matchedCustomer = selectedCustomer || matchedCustomers.find((customer) => {
+      const customerPhoneValue = customer.phoneNo || customer.userProfile?.primaryMobileNo || "";
+      const customerNameValue = customer.name || `${customer.firstName || ""} ${customer.lastName || ""}`.trim();
+
+      if (normalizedPhone && customerPhoneValue === normalizedPhone) {
+        return true;
+      }
+
+      if (!normalizedPhone && normalizedName && customerNameValue.toLowerCase() === normalizedName.toLowerCase()) {
+        return true;
+      }
+
+      return false;
+    }) || matchedCustomers[0];
+
+    if (matchedCustomer?.id) {
+      return customerService.getCustomerDetails(matchedCustomer.id);
+    }
+
+    if (!normalizedPhone) {
+      return buildWalkInCustomerPayload();
+    }
+
+    const { firstName, lastName } = splitCustomerName(normalizedName);
+    const createdCustomer = await customerService.createCustomer({
+      firstName: firstName || normalizedName,
+      lastName: lastName || undefined,
+      phoneNo: normalizedPhone,
+      countryCode: "91",
+      email: normalizedEmail || undefined,
+    });
+
+    if (createdCustomer?.id) {
+      return customerService.getCustomerDetails(createdCustomer.id);
+    }
+
+    return {
+      ...createdCustomer,
+      name: createdCustomer.name || normalizedName,
+      phoneNo: createdCustomer.phoneNo || normalizedPhone,
+      countryCode: createdCustomer.countryCode || "91",
+      email: createdCustomer.email ?? normalizedEmail ?? undefined,
+    };
+  };
 
   const inStockTags = useMemo(
     () => allTags.filter((tag) => (tag.status || "DRAFT") === "IN_STOCK"),
@@ -411,6 +686,11 @@ export default function SalesOrderCreatePage() {
     setOrderType("WALK_IN");
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerEmail("");
+    setSelectedCustomer(null);
+    setIsCustomerMenuOpen(false);
+    setIsCreateCustomerDialogOpen(false);
+    setCustomerCreateDraft(createCustomerDraft());
     setOrderDate(getTodayInputValue());
     setNotes("");
     setSalesLines([createSalesLine()]);
@@ -433,11 +713,11 @@ export default function SalesOrderCreatePage() {
     event.preventDefault();
     setNotice(null);
 
-    if (!orderNumber.trim() || !customerName.trim() || !orderDate) {
+    if (!orderNumber.trim() || !customerName.trim() || !customerPhone.trim() || !orderDate) {
       setNotice({
         variant: "danger",
         title: "Missing required fields",
-        message: "Order number, customer name, and order date are required.",
+        message: "Order number, customer name, customer phone, and order date are required.",
       });
       return;
     }
@@ -506,11 +786,22 @@ export default function SalesOrderCreatePage() {
     setIsSubmitting(true);
 
     try {
+      const customer = await buildCustomerPayload();
+      const resolvedCustomerName =
+        customer.name ||
+        [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() ||
+        customerName.trim();
+      const resolvedCustomerPhone = customer.phoneNo || customerPhone.trim();
+      const resolvedCustomerEmail = customer.email ?? customerEmail.trim() ?? undefined;
+
       const order = await salesService.createSalesOrder({
         orderNumber: orderNumber.trim(),
         orderType,
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim() || undefined,
+        providerConsumerId: typeof customer.id === "number" ? customer.id : undefined,
+        customerName: resolvedCustomerName,
+        customerPhone: resolvedCustomerPhone,
+        customerEmail: resolvedCustomerEmail ?? null,
+        customer,
         orderDate,
         totalAmount,
         discountAmount: headerDiscountAmount || undefined,
@@ -594,8 +885,73 @@ export default function SalesOrderCreatePage() {
                   { label: "Online", value: "ONLINE" },
                 ]}
               />
-              <Input label="Customer Name *" required value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
-              <Input label="Customer Phone" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} />
+              <div className="relative md:col-span-2 xl:col-span-3">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Input
+                      label="Customer Name *"
+                      required
+                      value={customerName}
+                      onChange={(event) => handleCustomerNameChange(event.target.value)}
+                      onFocus={() => setIsCustomerMenuOpen(Boolean(customerName.trim()))}
+                      onBlur={() => {
+                        setTimeout(() => setIsCustomerMenuOpen(false), 200);
+                      }}
+                      placeholder="Search customer by name"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openCreateCustomerDialog}
+                    className="h-10"
+                    title="Create customer"
+                  >
+                    + New Customer
+                  </Button>
+                </div>
+
+                {isCustomerMenuOpen && (
+                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 border border-slate-200">
+                    {matchedCustomers.length > 0 ? (
+                      matchedCustomers.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          className="flex w-full flex-col px-4 py-2 text-left hover:bg-slate-100 transition-colors"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            handleSelectCustomer(customer);
+                          }}
+                        >
+                          <span className="font-medium text-slate-900 text-sm">
+                            {getCustomerDisplayName(customer)}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            ID: {customer.id} | Phone: {getCustomerPhone(customer) || "-"}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-slate-500 flex flex-col gap-2">
+                        <div>No customers found.</div>
+                        <button
+                          type="button"
+                          className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium text-left"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            openCreateCustomerDialog();
+                          }}
+                        >
+                          Create new customer "{customerName}"
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Input label="Customer Phone *" required value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} />
+              <Input label="Customer Email" type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} />
               <Input label="Order Date" type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} />
               <div className="md:col-span-2 xl:col-span-3">
                 <Textarea label="Notes" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
@@ -799,6 +1155,137 @@ export default function SalesOrderCreatePage() {
           </form>
         </SectionCard>
       </div>
+
+      <Dialog
+        open={isCreateCustomerDialogOpen}
+        onClose={() => setIsCreateCustomerDialogOpen(false)}
+        title="Create New Customer"
+        size="lg"
+      >
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label="Title"
+              value={customerCreateDraft.title}
+              onChange={(e) => updateCustomerCreateDraft("title", e.target.value)}
+              options={[
+                { label: "Select Title", value: "" },
+                ...userTitles.map((title) => {
+                  const titleValue = title.name || "";
+                  const titleLabel = title.displayName || title.name || "";
+                  return { label: titleLabel, value: titleValue };
+                }).filter((o) => o.value),
+              ]}
+            />
+            <Input
+              label="First Name"
+              value={customerCreateDraft.firstName}
+              onChange={(e) => updateCustomerCreateDraft("firstName", e.target.value)}
+              placeholder="First Name"
+              required
+            />
+            <Input
+              label="Last Name"
+              value={customerCreateDraft.lastName}
+              onChange={(e) => updateCustomerCreateDraft("lastName", e.target.value)}
+              placeholder="Last Name"
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={customerCreateDraft.email}
+              onChange={(e) => updateCustomerCreateDraft("email", e.target.value)}
+              placeholder="Email (user@xyz.com)"
+            />
+            <Input
+              label="Mobile Number"
+              value={customerCreateDraft.mobile}
+              onChange={(e) => updateCustomerCreateDraft("mobile", e.target.value)}
+              placeholder="Mobile Number"
+              required
+            />
+            <Input
+              label="Secondary Phone"
+              value={customerCreateDraft.secondaryPhoneNo}
+              onChange={(e) => updateCustomerCreateDraft("secondaryPhoneNo", e.target.value)}
+              placeholder="Secondary Phone"
+            />
+            <Input
+              label="WhatsApp Number"
+              value={customerCreateDraft.whatsApp}
+              onChange={(e) => updateCustomerCreateDraft("whatsApp", e.target.value)}
+              placeholder="WhatsApp Number"
+            />
+            <Input
+              label="Telegram Number"
+              value={customerCreateDraft.telegram}
+              onChange={(e) => updateCustomerCreateDraft("telegram", e.target.value)}
+              placeholder="Telegram Number"
+            />
+          </div>
+
+          <RadioGroup
+            label="Gender"
+            name="customer-gender"
+            value={customerCreateDraft.gender}
+            onChange={(val) => updateCustomerCreateDraft("gender", val)}
+            options={[
+              { label: "Male", value: "male" },
+              { label: "Female", value: "female" },
+              { label: "Others", value: "other" },
+            ]}
+          />
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Date of Birth"
+              type="date"
+              value={customerCreateDraft.dob}
+              onChange={(e) => updateCustomerCreateDraft("dob", e.target.value)}
+            />
+            <div className="grid gap-2 grid-cols-3">
+              <Input
+                label="Age (Years)"
+                type="number"
+                min="0"
+                value={customerCreateDraft.ageYears}
+                onChange={(e) => updateCustomerCreateDraft("ageYears", e.target.value)}
+              />
+              <Input
+                label="Age (Months)"
+                type="number"
+                min="0"
+                value={customerCreateDraft.ageMonths}
+                onChange={(e) => updateCustomerCreateDraft("ageMonths", e.target.value)}
+              />
+              <Input
+                label="Age (Days)"
+                type="number"
+                min="0"
+                value={customerCreateDraft.ageDays}
+                onChange={(e) => updateCustomerCreateDraft("ageDays", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <Textarea
+            label="Address"
+            rows={3}
+            value={customerCreateDraft.address}
+            onChange={(e) => updateCustomerCreateDraft("address", e.target.value)}
+            placeholder="Enter Customer Address"
+          />
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setIsCreateCustomerDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleCreateCustomerSubmit}>
+            Save
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

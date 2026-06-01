@@ -23,6 +23,22 @@ export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
   { id: "basecrm-tasks", label: "Tasks", icon: "\u{1F4CB}", path: "/tasks" },
   { id: "basecrm-membership", label: "Membership", icon: "\u{1F5C3}", path: "/membership" },
   { id: "basecrm-leads", label: "Leads", icon: "\u{1F4E8}", path: "/leads" },
+  {
+    id: "basecrm-jaldee-leads",
+    label: "Jaldee Leads",
+    icon: "\u{1F3AF}",
+    path: "/jaldee-leads",
+    children: [
+      { id: "basecrm-jaldee-leads-dashboard", label: "Dashboard", icon: "", path: "/jaldee-leads/dashboard" },
+      { id: "basecrm-jaldee-leads-list", label: "Leads List", icon: "", path: "/jaldee-leads/leads" },
+      { id: "basecrm-jaldee-leads-pipelines", label: "Pipelines", icon: "", path: "/jaldee-leads/pipelines" },
+      { id: "basecrm-jaldee-leads-products", label: "Products", icon: "", path: "/jaldee-leads/products" },
+      { id: "basecrm-jaldee-leads-templates", label: "Templates", icon: "", path: "/jaldee-leads/templates" },
+      { id: "basecrm-jaldee-leads-channels", label: "Channels", icon: "", path: "/jaldee-leads/channels" },
+      { id: "basecrm-jaldee-leads-bulk-import", label: "Bulk Import", icon: "", path: "/jaldee-leads/bulk-import" },
+      { id: "basecrm-jaldee-leads-audit-log", label: "Audit Log", icon: "", path: "/jaldee-leads/audit-log" },
+    ],
+  },
   { id: "basecrm-reports", label: "Reports", icon: "\u{1F4CA}", path: "/reports" },
   { id: "basecrm-audit-log", label: "Audit Log", icon: "\u{1F4DD}", path: "/audit-log" },
   {

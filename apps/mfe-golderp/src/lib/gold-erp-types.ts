@@ -314,6 +314,11 @@ export interface ProviderCustomer extends ProviderCustomerRef {
   };
 }
 
+export interface ProviderUserTitle {
+  name?: string;
+  displayName?: string;
+}
+
 export interface TransferLine {
   lineUid?: string;
   stlUid?: string;

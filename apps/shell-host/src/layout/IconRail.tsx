@@ -38,6 +38,7 @@ const BASE_CRM_PATH_PREFIXES = [
   "/tasks",
   "/membership",
   "/leads",
+  "/jaldee-leads",
   "/audit-log",
   "/ivr",
 ];

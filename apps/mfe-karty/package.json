@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "clean": "node -e \"const fs = require('fs'); ['dist', 'build'].forEach(d => fs.rmSync(d, { recursive: true, force: true }));\"",
     "dev": "vite --port 3005",
     "build": "vite build",
     "preview": "vite preview --port 3005 --strictPort",

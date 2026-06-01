@@ -3,13 +3,15 @@ import {
   Alert,
   Button,
   Checkbox,
+  Dialog,
+  DialogFooter,
   Input,
   PageHeader,
   SectionCard,
   Textarea,
 } from "@jaldee/design-system";
 import { catalogueService, masterDataService, purchaseService } from "@/services";
-import type { GoodsReceiptNote, JewelleryItem, PurchaseOrder, Stone } from "@/lib/gold-erp-types";
+import type { GoodsReceiptNote, JewelleryItem, PurchaseOrder, Stone, PurchaseOrderLine } from "@/lib/gold-erp-types";
 import { formatDate, formatWeight } from "@/lib/gold-erp-utils";
 
 interface DraftStoneLine {
@@ -30,23 +32,107 @@ interface DraftTagLine {
   stoneDetails: DraftStoneLine[];
 }
 
-const createStoneLine = (): DraftStoneLine => ({
+interface PoTagSeed {
+  tagNumber?: string;
+  grossWt?: number | string;
+  netWt?: number | string;
+  stoneWt?: number | string;
+  notes?: string;
+  stoneDetails?: Array<{
+    stoneUid?: string;
+    count?: number | string;
+  }>;
+}
+
+type LinkedPoDraftTags = Record<string, DraftTagLine[]>;
+
+const createStoneLine = (seed?: { stoneUid?: string; count?: number | string }): DraftStoneLine => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  stoneUid: "",
-  count: "1",
+  stoneUid: seed?.stoneUid || "",
+  count: seed?.count !== undefined ? String(seed.count) : "1",
 });
 
-const createDraftTagLine = (): DraftTagLine => ({
+const createDraftTagLine = (seed?: Partial<DraftTagLine>): DraftTagLine => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  itemUid: "",
-  tagNumber: "",
-  grossWt: "",
-  netWt: "",
-  stoneWt: "",
-  wastageWt: "",
-  notes: "",
-  stoneDetails: [],
+  itemUid: seed?.itemUid || "",
+  tagNumber: seed?.tagNumber || "",
+  grossWt: seed?.grossWt || "",
+  netWt: seed?.netWt || "",
+  stoneWt: seed?.stoneWt || "",
+  wastageWt: seed?.wastageWt || "",
+  notes: seed?.notes || "",
+  stoneDetails: seed?.stoneDetails || [],
 });
+
+const cloneDraftTagLine = (tag: DraftTagLine): DraftTagLine => ({
+  ...tag,
+  stoneDetails: tag.stoneDetails.map((stone) => ({ ...stone })),
+});
+
+const parseTagSeed = (seed: PoTagSeed | undefined, itemUid: string): DraftTagLine =>
+  createDraftTagLine({
+    itemUid,
+    tagNumber: seed?.tagNumber || "",
+    grossWt: seed?.grossWt !== undefined ? String(seed.grossWt) : "",
+    netWt: seed?.netWt !== undefined ? String(seed.netWt) : "",
+    stoneWt: seed?.stoneWt !== undefined ? String(seed.stoneWt) : "",
+    notes: seed?.notes || "",
+    stoneDetails: (seed?.stoneDetails || []).map((stone) => createStoneLine(stone)),
+  });
+
+const getLineTagSeeds = (line: PurchaseOrderLine): PoTagSeed[] => {
+  const candidateCollections = [
+    (line as any).draftTags,
+    (line as any).tagDetails,
+    (line as any).tags,
+    (line as any).pieces,
+  ];
+
+  return candidateCollections.find((candidate) => Array.isArray(candidate) && candidate.length > 0) || [];
+};
+
+const buildLinkedPoDraftTags = (lines: PurchaseOrderLine[] | undefined): LinkedPoDraftTags => {
+  if (!lines?.length) {
+    return {};
+  }
+
+  return lines.reduce<LinkedPoDraftTags>((accumulator, line) => {
+    const quantity = Math.max(1, Number(line.quantityOrdered) || 1);
+    const tagSeeds = getLineTagSeeds(line);
+    const defaultSeed: PoTagSeed = {
+      grossWt: line.grossWt,
+      netWt: line.netWt,
+      stoneWt: line.stoneWt,
+      notes: line.notes || "",
+      stoneDetails: (line.stoneDetails || []).map((stone) => ({
+        stoneUid: stone.stoneUid,
+        count: stone.count,
+      })),
+    };
+
+    accumulator[line.lineUid] = Array.from({ length: quantity }, (_, index) => {
+      const seed = tagSeeds[index];
+      return parseTagSeed(
+        seed
+          ? seed
+          : defaultSeed,
+        line.itemUid,
+      );
+    });
+
+    return accumulator;
+  }, {});
+};
+
+const getResolvedItemName = (
+  itemUid: string,
+  items: Array<{ itemUid: string; name: string; itemCode?: string }>,
+  fallbackName?: string,
+  fallbackCode?: string,
+) => {
+  const matchedItem = items.find((item) => item.itemUid === itemUid);
+  return fallbackName || matchedItem?.name || fallbackCode || matchedItem?.itemCode || itemUid;
+};
 
 function normalizeItem(item: JewelleryItem): JewelleryItem {
   return {
@@ -98,6 +184,14 @@ export default function IndependentGrnPage() {
   const [draftTags, setDraftTags] = useState<DraftTagLine[]>([createDraftTagLine()]);
   const [createdGrn, setCreatedGrn] = useState<GoodsReceiptNote | null>(null);
 
+  // New PO integration states
+  const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrder | null>(null);
+  const [isSelectedPurchaseOrderLoading, setIsSelectedPurchaseOrderLoading] = useState(false);
+  const [linkedPoDraftTags, setLinkedPoDraftTags] = useState<LinkedPoDraftTags>({});
+  const [activePoLineUid, setActivePoLineUid] = useState<string | null>(null);
+  const [isPoTagDialogOpen, setIsPoTagDialogOpen] = useState(false);
+  const [poDialogTags, setPoDialogTags] = useState<DraftTagLine[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
@@ -130,32 +224,187 @@ export default function IndependentGrnPage() {
     };
   }, []);
 
+  // Fetch linked PO details
+  useEffect(() => {
+    if (!isPurchaseLinked) {
+      return;
+    }
+
+    if (!poUid) {
+      setSelectedPurchaseOrder(null);
+      setLinkedPoDraftTags({});
+      return;
+    }
+
+    let cancelled = false;
+    setIsSelectedPurchaseOrderLoading(true);
+
+    purchaseService.getPurchaseOrderDetails(poUid)
+      .then((details) => {
+        if (cancelled) return;
+        setSelectedPurchaseOrder(details);
+      })
+      .catch((err) => {
+        console.error("[IndependentGrnPage] failed to load PO details", err);
+        if (cancelled) return;
+        setSelectedPurchaseOrder(null);
+        setError(err instanceof Error ? err.errMessage || err.message : "Failed to load Purchase Order details.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsSelectedPurchaseOrderLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPurchaseLinked, poUid]);
+
+  // Set supplier name & seed tag details when selected PO changes
+  useEffect(() => {
+    if (!isPurchaseLinked) {
+      return;
+    }
+
+    if (!selectedPurchaseOrder) {
+      setLinkedPoDraftTags({});
+      return;
+    }
+
+    setSupplierName(selectedPurchaseOrder.supplierName || "");
+    setLinkedPoDraftTags(buildLinkedPoDraftTags(selectedPurchaseOrder.lines));
+  }, [isPurchaseLinked, selectedPurchaseOrder]);
+
+  const normalizeTags = (tagsToNormalize: DraftTagLine[]) =>
+    tagsToNormalize.map((tag) => {
+      const selectedItem = items.find((item) => item.itemUid === tag.itemUid);
+      return {
+        itemUid: tag.itemUid,
+        itemCode: selectedItem?.itemCode,
+        tagNumber: tag.tagNumber,
+        grossWt: Number(tag.grossWt) || 0,
+        netWt: Number(tag.netWt) || 0,
+        stoneWt: tag.stoneWt ? Number(tag.stoneWt) : undefined,
+        // wastageWt: tag.wastageWt ? Number(tag.wastageWt) : undefined,
+        notes: tag.notes || undefined,
+        stoneDetails: tag.stoneDetails.map((stoneLine) => ({
+          stoneUid: stoneLine.stoneUid,
+          count: Number(stoneLine.count) || 0,
+        })),
+      };
+    });
+
+  const normalizedDraftTags = useMemo(() => normalizeTags(draftTags), [draftTags, items]);
+
   const availablePurchaseOrders = useMemo(
-    () => purchaseOrders.filter((purchaseOrder) => purchaseOrder.status !== "CLOSED").sort((a, b) => (b.orderDate || "").localeCompare(a.orderDate || "")),
+    () =>
+      purchaseOrders
+        .filter((purchaseOrder) => purchaseOrder.status !== "CLOSED")
+        .sort((a, b) => (b.orderDate || "").localeCompare(a.orderDate || "")),
     [purchaseOrders],
   );
 
-  const normalizedDraftTags = useMemo(
-    () =>
-      draftTags.map((tag) => {
-        const selectedItem = items.find((item) => item.itemUid === tag.itemUid);
+  const linkedPoLines = selectedPurchaseOrder?.lines || [];
+
+  const linkedTotalPieces = useMemo(
+    () => linkedPoLines.reduce((sum, line) => sum + (Number(line.quantityOrdered) || 0), 0),
+    [linkedPoLines],
+  );
+
+  useEffect(() => {
+    if (isPurchaseLinked && poUid) {
+      setTotalPieces(String(linkedTotalPieces || 0));
+    }
+  }, [isPurchaseLinked, poUid, linkedTotalPieces]);
+
+  const linkedPoNormalizedDraftTags = useMemo(
+    () => normalizeTags(Object.values(linkedPoDraftTags).flat()),
+    [linkedPoDraftTags, items],
+  );
+
+  const activeLinkedPoLine = useMemo(
+    () => linkedPoLines.find((line) => line.lineUid === activePoLineUid) || null,
+    [activePoLineUid, linkedPoLines],
+  );
+
+  const openPoTagDialog = (line: PurchaseOrderLine) => {
+    const existingTags = linkedPoDraftTags[line.lineUid] || [];
+    setActivePoLineUid(line.lineUid);
+    setPoDialogTags(existingTags.map(cloneDraftTagLine));
+    setIsPoTagDialogOpen(true);
+  };
+
+  const closePoTagDialog = () => {
+    setIsPoTagDialogOpen(false);
+    setActivePoLineUid(null);
+    setPoDialogTags([]);
+  };
+
+  const updatePoDialogTag = (tagId: string, field: Exclude<keyof DraftTagLine, "id" | "stoneDetails">, value: string) => {
+    setPoDialogTags((currentTags) =>
+      currentTags.map((tag) => (tag.id === tagId ? { ...tag, [field]: value } : tag)),
+    );
+  };
+
+  const addStoneToPoDialogTag = (tagId: string) => {
+    setPoDialogTags((currentTags) =>
+      currentTags.map((tag) => (
+        tag.id === tagId ? { ...tag, stoneDetails: [...tag.stoneDetails, createStoneLine()] } : tag
+      )),
+    );
+  };
+
+  const updatePoDialogStoneLine = (tagId: string, stoneId: string, field: keyof Omit<DraftStoneLine, "id">, value: string) => {
+    setPoDialogTags((currentTags) =>
+      currentTags.map((tag) => {
+        if (tag.id !== tagId) {
+          return tag;
+        }
+
         return {
-          itemUid: tag.itemUid,
-          itemCode: selectedItem?.itemCode,
-          tagNumber: tag.tagNumber,
-          grossWt: Number(tag.grossWt) || 0,
-          netWt: Number(tag.netWt) || 0,
-          stoneWt: tag.stoneWt ? Number(tag.stoneWt) : undefined,
-          wastageWt: tag.wastageWt ? Number(tag.wastageWt) : undefined,
-          notes: tag.notes || undefined,
-          stoneDetails: tag.stoneDetails.map((stoneLine) => ({
-            stoneUid: stoneLine.stoneUid,
-            count: Number(stoneLine.count) || 0,
-          })),
+          ...tag,
+          stoneDetails: tag.stoneDetails.map((stoneLine) => (
+            stoneLine.id === stoneId ? { ...stoneLine, [field]: value } : stoneLine
+          )),
         };
       }),
-    [draftTags, items],
-  );
+    );
+  };
+
+  const removePoDialogStoneLine = (tagId: string, stoneId: string) => {
+    setPoDialogTags((currentTags) =>
+      currentTags.map((tag) => (
+        tag.id === tagId
+          ? { ...tag, stoneDetails: tag.stoneDetails.filter((stoneLine) => stoneLine.id !== stoneId) }
+          : tag
+      )),
+    );
+  };
+
+  const savePoDialogTags = () => {
+    if (!activePoLineUid) {
+      return;
+    }
+
+    const hasInvalidTag = poDialogTags.some((tag) => !tag.tagNumber || !tag.grossWt || !tag.netWt);
+    if (hasInvalidTag) {
+      setError("Complete tag number, gross weight, and net weight for all pieces.");
+      return;
+    }
+
+    const hasInvalidStone = poDialogTags.some((tag) => tag.stoneDetails.some((stoneLine) => !stoneLine.stoneUid || (Number(stoneLine.count) || 0) <= 0));
+    if (hasInvalidStone) {
+      setError("Complete all stone rows with a valid stone UID and count.");
+      return;
+    }
+
+    setLinkedPoDraftTags((current) => ({
+      ...current,
+      [activePoLineUid]: poDialogTags.map(cloneDraftTagLine),
+    }));
+    setError("");
+    setSuccessMessage("Tag details updated.");
+    closePoTagDialog();
+  };
 
   function resetForm() {
     setGrnNumber("");
@@ -167,6 +416,11 @@ export default function IndependentGrnPage() {
     setTotalPieces("1");
     setNotes("");
     setDraftTags([createDraftTagLine()]);
+    setLinkedPoDraftTags({});
+    setActivePoLineUid(null);
+    setPoDialogTags([]);
+    setIsPoTagDialogOpen(false);
+    setSelectedPurchaseOrder(null);
   }
 
   function updateDraftTag(tagId: string, field: Exclude<keyof DraftTagLine, "id" | "stoneDetails">, value: string) {
@@ -217,7 +471,8 @@ export default function IndependentGrnPage() {
       return;
     }
 
-    const totalPiecesValue = Number(totalPieces) || 0;
+    const effectiveDraftTags = isPurchaseLinked ? linkedPoNormalizedDraftTags : normalizedDraftTags;
+    const totalPiecesValue = isPurchaseLinked ? linkedTotalPieces : Number(totalPieces) || 0;
     if (totalPiecesValue <= 0) {
       setError("Total pieces must be greater than zero.");
       return;
@@ -228,13 +483,23 @@ export default function IndependentGrnPage() {
       return;
     }
 
-    const hasInvalidTag = normalizedDraftTags.some((tag) => !tag.itemUid || !tag.tagNumber || tag.grossWt <= 0 || tag.netWt <= 0);
+    if (isPurchaseLinked && !selectedPurchaseOrder) {
+      setError("Purchase order details are still loading.");
+      return;
+    }
+
+    if (!effectiveDraftTags.length) {
+      setError("Add at least one draft tag.");
+      return;
+    }
+
+    const hasInvalidTag = effectiveDraftTags.some((tag) => !tag.itemUid || !tag.tagNumber || tag.grossWt <= 0 || tag.netWt <= 0);
     if (hasInvalidTag) {
       setError("Complete the required draft-tag fields.");
       return;
     }
 
-    const hasInvalidStone = normalizedDraftTags.some((tag) => tag.stoneDetails.some((stoneLine) => !stoneLine.stoneUid || stoneLine.count <= 0));
+    const hasInvalidStone = effectiveDraftTags.some((tag) => tag.stoneDetails.some((stoneLine) => !stoneLine.stoneUid || stoneLine.count <= 0));
     if (hasInvalidStone) {
       setError("Complete all stone rows with a valid stone UID and count.");
       return;
@@ -251,7 +516,7 @@ export default function IndependentGrnPage() {
         totalPieces: totalPiecesValue,
         status: "DRAFT",
         notes: notes || undefined,
-        draftTags: normalizedDraftTags,
+        draftTags: effectiveDraftTags,
       });
       setCreatedGrn(savedGrn);
       setSuccessMessage("Independent GRN created successfully.");
@@ -277,15 +542,15 @@ export default function IndependentGrnPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Input label="GRN Number" required value={grnNumber} onChange={(event) => setGrnNumber(event.target.value)} />
               <Input label="Received Date" required type="date" value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} />
-              <Input label="Supplier Name" required value={supplierName} onChange={(event) => setSupplierName(event.target.value)} />
+              <Input label="Supplier Name" required value={supplierName} onChange={(event) => setSupplierName(event.target.value)} readOnly={isPurchaseLinked && !!poUid} />
               <Input label="Received By" value={receivedBy} onChange={(event) => setReceivedBy(event.target.value)} />
               <div className="space-y-2">
                 <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Purchase Order</div>
                 <div className="flex min-h-10 items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-                  <Checkbox checked={isPurchaseLinked} onChange={(event) => { const enabled = event.target.checked; setIsPurchaseLinked(enabled); if (!enabled) setPoUid(""); }} label="Link this GRN to a purchase order" />
+                  <Checkbox checked={isPurchaseLinked} onChange={(event) => { const enabled = event.target.checked; setIsPurchaseLinked(enabled); if (!enabled) { setPoUid(""); setLinkedPoDraftTags({}); setTotalPieces("1"); setSelectedPurchaseOrder(null); } }} label="Link this GRN to a purchase order" />
                 </div>
               </div>
-              <Input label="Total Pieces" type="number" min="1" step="1" value={totalPieces} onChange={(event) => setTotalPieces(event.target.value)} />
+              <Input label="Total Pieces" type="number" min="1" step="1" value={isPurchaseLinked && poUid ? String(linkedTotalPieces || 0) : totalPieces} onChange={(event) => setTotalPieces(event.target.value)} readOnly={isPurchaseLinked && !!poUid} />
               {isPurchaseLinked ? (
                 <div className="space-y-2">
                   <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Purchase Order</div>
@@ -308,97 +573,159 @@ export default function IndependentGrnPage() {
               <div className="md:col-span-2"><Textarea label="Notes" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-[var(--color-text-primary)]">Draft Tags</div>
-                  <div className="text-xs text-[var(--color-text-secondary)]">Add one or more draft tags to this GRN.</div>
+            {isPurchaseLinked && poUid ? (
+              <div className="space-y-4 rounded-md border border-[var(--color-border)] p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">PO Items & Tags</div>
+                    <div className="text-xs text-[var(--color-text-secondary)]">
+                      Click an item pill to view and edit the tag details for each received piece.
+                    </div>
+                  </div>
+                  {selectedPurchaseOrder ? (
+                    <div className="text-right text-xs text-[var(--color-text-secondary)]">
+                      <div>{selectedPurchaseOrder.poNumber}</div>
+                      <div>{selectedPurchaseOrder.supplierName}</div>
+                    </div>
+                  ) : null}
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addDraftTag}>Add Draft Tag</Button>
+
+                {isSelectedPurchaseOrderLoading ? (
+                  <div className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-sm text-[var(--color-text-secondary)]">
+                    Loading purchase order details...
+                  </div>
+                ) : linkedPoLines.length ? (
+                  <div className="flex flex-wrap gap-3">
+                    {linkedPoLines.map((line) => {
+                      const lineItem = items.find((item) => item.itemUid === line.itemUid);
+                      const configuredTags = linkedPoDraftTags[line.lineUid] || [];
+                      const savedTagsCount = configuredTags.filter((tag) => tag.tagNumber && tag.grossWt && tag.netWt).length;
+
+                      return (
+                        <button
+                          key={line.lineUid}
+                          type="button"
+                          onClick={() => openPoTagDialog(line)}
+                          className="inline-flex min-w-[210px] items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left transition hover:border-[var(--color-primary)] hover:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_24%,white)]"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                              <span>Item</span>
+                            </div>
+                            <div className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                              {getResolvedItemName(line.itemUid, items, line.itemName, line.itemCode)}
+                            </div>
+                            <div className="truncate text-xs text-[var(--color-text-secondary)]">
+                              {line.itemCode || lineItem?.itemCode || ""}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-sm font-semibold text-[var(--color-text-primary)]">{line.quantityOrdered}</div>
+                            <div className="text-[11px] text-[var(--color-text-secondary)]">{savedTagsCount}/{line.quantityOrdered} saved</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-sm text-[var(--color-text-secondary)]">
+                    No PO lines were returned for the selected purchase order.
+                  </div>
+                )}
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-[var(--color-text-primary)]">Draft Tags</div>
+                    <div className="text-xs text-[var(--color-text-secondary)]">Add one or more draft tags to this GRN.</div>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addDraftTag}>Add Draft Tag</Button>
+                </div>
 
-              {draftTags.map((tag, index) => {
-                const selectedItem = items.find((item) => item.itemUid === tag.itemUid);
-                return (
-                  <div key={tag.id} className="space-y-4 rounded-md border border-[var(--color-border)] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium text-[var(--color-text-primary)]">Draft Tag {index + 1}</div>
-                        <div className="text-xs text-[var(--color-text-secondary)]">{selectedItem?.name || "Select an item for this piece."}</div>
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeDraftTag(tag.id)} disabled={draftTags.length === 1}>Remove</Button>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Item UID</div>
-                        <input
-                          list={`grn-items-${tag.id}`}
-                          value={tag.itemUid}
-                          onChange={(event) => updateDraftTag(tag.id, "itemUid", event.target.value)}
-                          placeholder="Select item UID"
-                          className="block w-full min-h-[38px] rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] px-4 py-2 text-[var(--text-sm)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
-                        />
-                        <datalist id={`grn-items-${tag.id}`}>
-                          {items.map((item) => (
-                            <option key={item.itemUid} value={item.itemUid}>{item.itemCode} - {item.name}</option>
-                          ))}
-                        </datalist>
-                      </div>
-                      <Input label="Item Code" value={selectedItem?.itemCode || ""} readOnly />
-                      <Input label="Tag Number" required value={tag.tagNumber} onChange={(event) => updateDraftTag(tag.id, "tagNumber", event.target.value)} />
-                      <Input label="Gross Weight (g)" required type="number" min="0.001" step="0.001" value={tag.grossWt} onChange={(event) => updateDraftTag(tag.id, "grossWt", event.target.value)} />
-                      <Input label="Net Weight (g)" required type="number" min="0.001" step="0.001" value={tag.netWt} onChange={(event) => updateDraftTag(tag.id, "netWt", event.target.value)} />
-                      <Input label="Stone Weight (g)" type="number" min="0" step="0.001" value={tag.stoneWt} onChange={(event) => updateDraftTag(tag.id, "stoneWt", event.target.value)} />
-                      <div className="md:col-span-2"><Textarea label="Notes" rows={2} value={tag.notes} onChange={(event) => updateDraftTag(tag.id, "notes", event.target.value)} /></div>
-                    </div>
-
-                    <div className="space-y-3 rounded-md border border-[color:color-mix(in_srgb,var(--color-border)_80%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_24%,white)] p-3">
+                {draftTags.map((tag, index) => {
+                  const selectedItem = items.find((item) => item.itemUid === tag.itemUid);
+                  return (
+                    <div key={tag.id} className="space-y-4 rounded-md border border-[var(--color-border)] p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-xs font-semibold text-[var(--color-text-primary)]">Stone Details</div>
-                          <div className="text-[11px] text-[var(--color-text-secondary)]">Add stones only when the piece contains them.</div>
+                          <div className="text-sm font-medium text-[var(--color-text-primary)]">Draft Tag {index + 1}</div>
+                          <div className="text-xs text-[var(--color-text-secondary)]">{selectedItem?.name || "Select an item for this piece."}</div>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => addStoneToTag(tag.id)}>Add Stone</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeDraftTag(tag.id)} disabled={draftTags.length === 1}>Remove</Button>
                       </div>
 
-                      {tag.stoneDetails.length > 0 ? (
-                        <div className="space-y-3">
-                          {tag.stoneDetails.map((stoneLine, stoneIndex) => (
-                            <div key={stoneLine.id} className="rounded-md border border-[var(--color-border)] bg-white p-3">
-                              <div className="mb-2 flex items-center justify-between gap-2">
-                                <div className="text-xs font-medium text-[var(--color-text-primary)]">Stone {stoneIndex + 1}</div>
-                                <Button type="button" variant="ghost" size="sm" onClick={() => removeStoneLine(tag.id, stoneLine.id)}>Remove</Button>
-                              </div>
-                              <div className="grid gap-3 md:grid-cols-2">
-                                <div className="space-y-1">
-                                  <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Stone UID</div>
-                                  <input
-                                    list={`grn-stones-${tag.id}`}
-                                    value={stoneLine.stoneUid}
-                                    onChange={(event) => updateStoneLine(tag.id, stoneLine.id, "stoneUid", event.target.value)}
-                                    placeholder="Select stone UID"
-                                    className="block w-full min-h-[38px] rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] px-4 py-2 text-[var(--text-sm)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
-                                  />
-                                </div>
-                                <Input label="Count" type="number" min="1" step="1" value={stoneLine.count} onChange={(event) => updateStoneLine(tag.id, stoneLine.id, "count", event.target.value)} />
-                              </div>
-                            </div>
-                          ))}
-                          <datalist id={`grn-stones-${tag.id}`}>
-                            {stones.map((stone) => (
-                              <option key={stone.stoneUid} value={stone.stoneUid}>{stone.stoneCode} - {stone.name}</option>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Item UID</div>
+                          <input
+                            list={`grn-items-${tag.id}`}
+                            value={tag.itemUid}
+                            onChange={(event) => updateDraftTag(tag.id, "itemUid", event.target.value)}
+                            placeholder="Select item UID"
+                            className="block w-full min-h-[38px] rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] px-4 py-2 text-[var(--text-sm)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
+                          />
+                          <datalist id={`grn-items-${tag.id}`}>
+                            {items.map((item) => (
+                              <option key={item.itemUid} value={item.itemUid}>{item.itemCode} - {item.name}</option>
                             ))}
                           </datalist>
                         </div>
-                      ) : (
-                        <div className="text-xs text-[var(--color-text-secondary)]">No stones added for this draft tag.</div>
-                      )}
+                        <Input label="Item Code" value={selectedItem?.itemCode || ""} readOnly />
+                        <Input label="Tag Number" required value={tag.tagNumber} onChange={(event) => updateDraftTag(tag.id, "tagNumber", event.target.value)} />
+                        <Input label="Gross Weight (g)" required type="number" min="0.001" step="0.001" value={tag.grossWt} onChange={(event) => updateDraftTag(tag.id, "grossWt", event.target.value)} />
+                        <Input label="Net Weight (g)" required type="number" min="0.001" step="0.001" value={tag.netWt} onChange={(event) => updateDraftTag(tag.id, "netWt", event.target.value)} />
+                        <Input label="Stone Weight (g)" type="number" min="0" step="0.001" value={tag.stoneWt} onChange={(event) => updateDraftTag(tag.id, "stoneWt", event.target.value)} />
+                        <div className="md:col-span-2"><Textarea label="Notes" rows={2} value={tag.notes} onChange={(event) => updateDraftTag(tag.id, "notes", event.target.value)} /></div>
+                      </div>
+
+                      <div className="space-y-3 rounded-md border border-[color:color-mix(in_srgb,var(--color-border)_80%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_24%,white)] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-semibold text-[var(--color-text-primary)]">Stone Details</div>
+                            <div className="text-[11px] text-[var(--color-text-secondary)]">Add stones only when the piece contains them.</div>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => addStoneToTag(tag.id)}>Add Stone</Button>
+                        </div>
+
+                        {tag.stoneDetails.length > 0 ? (
+                          <div className="space-y-3">
+                            {tag.stoneDetails.map((stoneLine, stoneIndex) => (
+                              <div key={stoneLine.id} className="rounded-md border border-[var(--color-border)] bg-white p-3">
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <div className="text-xs font-medium text-[var(--color-text-primary)]">Stone {stoneIndex + 1}</div>
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => removeStoneLine(tag.id, stoneLine.id)}>Remove</Button>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="space-y-1">
+                                    <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Stone UID</div>
+                                    <input
+                                      list={`grn-stones-${tag.id}`}
+                                      value={stoneLine.stoneUid}
+                                      onChange={(event) => updateStoneLine(tag.id, stoneLine.id, "stoneUid", event.target.value)}
+                                      placeholder="Select stone UID"
+                                      className="block w-full min-h-[38px] rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] px-4 py-2 text-[var(--text-sm)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]"
+                                    />
+                                  </div>
+                                  <Input label="Count" type="number" min="1" step="1" value={stoneLine.count} onChange={(event) => updateStoneLine(tag.id, stoneLine.id, "count", event.target.value)} />
+                                </div>
+                              </div>
+                            ))}
+                            <datalist id={`grn-stones-${tag.id}`}>
+                              {stones.map((stone) => (
+                                <option key={stone.stoneUid} value={stone.stoneUid}>{stone.stoneCode} - {stone.name}</option>
+                              ))}
+                            </datalist>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-[var(--color-text-secondary)]">No stones added for this draft tag.</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
               <Button type="button" variant="outline" onClick={resetForm}>Reset</Button>
@@ -406,6 +733,110 @@ export default function IndependentGrnPage() {
             </div>
           </form>
         </SectionCard>
+
+        <Dialog
+          open={isPoTagDialogOpen}
+          onClose={closePoTagDialog}
+          title={
+            getResolvedItemName(
+              activeLinkedPoLine?.itemUid || "",
+              items,
+              activeLinkedPoLine?.itemName,
+              activeLinkedPoLine?.itemCode,
+            ) || "PO Item Tags"
+          }
+          size="lg"
+        >
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+            {poDialogTags.map((tag, index) => (
+              <div key={tag.id} className="space-y-4 rounded-md border border-[var(--color-border)] p-4">
+                <div>
+                  <div className="text-sm font-medium text-[var(--color-text-primary)]">Tag {index + 1}</div>
+                  <div className="text-xs text-[var(--color-text-secondary)]">
+                    Item {getResolvedItemName(
+                      activeLinkedPoLine?.itemUid || tag.itemUid,
+                      items,
+                      activeLinkedPoLine?.itemName,
+                      activeLinkedPoLine?.itemCode,
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input label="Tag Number" required value={tag.tagNumber} onChange={(e) => updatePoDialogTag(tag.id, "tagNumber", e.target.value)} />
+                  <Input
+                    label="Item"
+                    value={getResolvedItemName(
+                      tag.itemUid,
+                      items,
+                      activeLinkedPoLine?.itemName,
+                      activeLinkedPoLine?.itemCode,
+                    )}
+                    readOnly
+                  />
+                  <Input label="Gross Weight (g)" required type="number" min="0.001" step="0.001" value={tag.grossWt} onChange={(e) => updatePoDialogTag(tag.id, "grossWt", e.target.value)} />
+                  <Input label="Net Weight (g)" required type="number" min="0.001" step="0.001" value={tag.netWt} onChange={(e) => updatePoDialogTag(tag.id, "netWt", e.target.value)} />
+                  <Input label="Stone Weight (g)" type="number" min="0" step="0.001" value={tag.stoneWt} onChange={(e) => updatePoDialogTag(tag.id, "stoneWt", e.target.value)} />
+                  <div className="md:col-span-2">
+                    <Textarea label="Notes" rows={2} value={tag.notes} onChange={(e) => updatePoDialogTag(tag.id, "notes", e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-md border border-[color:color-mix(in_srgb,var(--color-border)_80%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_24%,white)] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold text-[var(--color-text-primary)]">Stone Details</div>
+                      <div className="text-[11px] text-[var(--color-text-secondary)]">Add stones only when the piece contains them.</div>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addStoneToPoDialogTag(tag.id)}>
+                      Add Stone
+                    </Button>
+                  </div>
+
+                  {tag.stoneDetails.length > 0 ? (
+                    <div className="space-y-3">
+                      {tag.stoneDetails.map((stoneLine, stoneIndex) => (
+                        <div key={stoneLine.id} className="rounded-md border border-[var(--color-border)] bg-white p-3">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="text-xs font-medium text-[var(--color-text-primary)]">Stone {stoneIndex + 1}</div>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removePoDialogStoneLine(tag.id, stoneLine.id)}>
+                              Remove
+                            </Button>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1">
+                              <div className="text-[var(--form-label-size)] leading-[var(--form-label-line-height)] font-[var(--form-label-weight)] text-[var(--color-text-primary)]">Stone UID</div>
+                              <input
+                                list={`linked-po-stones-${tag.id}`}
+                                value={stoneLine.stoneUid}
+                                onChange={(e) => updatePoDialogStoneLine(tag.id, stoneLine.id, "stoneUid", e.target.value)}
+                                placeholder="Select stone UID"
+                                className="block w-full min-h-[38px] rounded-[var(--radius-control)] border border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] px-4 py-2 text-[var(--text-sm)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none"
+                              />
+                            </div>
+                            <Input label="Count" type="number" min="1" step="1" value={stoneLine.count} onChange={(e) => updatePoDialogStoneLine(tag.id, stoneLine.id, "count", e.target.value)} />
+                          </div>
+                          <datalist id={`linked-po-stones-${tag.id}`}>
+                            {stones.map((stone) => (
+                              <option key={stone.stoneUid} value={stone.stoneUid}>{stone.stoneCode} - {stone.name}</option>
+                            ))}
+                          </datalist>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-[var(--color-text-secondary)]">No stones added for this tag.</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closePoTagDialog}>Cancel</Button>
+            <Button type="button" onClick={savePoDialogTags}>Save Tag Details</Button>
+          </DialogFooter>
+        </Dialog>
 
         {createdGrn ? (
           <SectionCard title={`Created GRN: ${createdGrn.grnNumber}`} subtitle="Independent GRNs are not shown in the purchase-order workspace. This panel shows the GRN and draft tags returned by the composite create response.">
