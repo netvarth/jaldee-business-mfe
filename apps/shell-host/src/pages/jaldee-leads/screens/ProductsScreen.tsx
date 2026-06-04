@@ -4,8 +4,6 @@ import { Product, CrmLeadDto, CrmLeadPipelineDto, Channel, FormTemplate } from '
 import { cn } from '../lib/utils';
 import { ICONS } from '../constants';
 import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
-import ProductDetailScreen from './ProductDetailScreen';
-import CreateProductScreen from './CreateProductScreen';
 import { Button, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
 import { leadProductService } from '../services/productService';
 
@@ -44,24 +42,18 @@ export default function ProductsScreen({
   const location = useLocation();
   const showDashboardBack = cameFromDashboard(location);
 
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
-    if (initialSelectedId) {
-      return products.find(p => p.uid === initialSelectedId) || null;
-    }
-    return null;
-  });
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [mutatingProductUid, setMutatingProductUid] = useState<string | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Effect to update selected product if initialSelectedId changes
   React.useEffect(() => {
     if (initialSelectedId) {
       const found = products.find(p => p.uid === initialSelectedId);
-      if (found) setSelectedProduct(found);
+      if (found) {
+        navigate(`/jaldee-leads/products/${found.uid}/inventory`);
+      }
     }
-  }, [initialSelectedId, products]);
+  }, [initialSelectedId, products, navigate]);
 
   const handleDelete = async (uid: string) => {
     if (confirm('Deactivate this product line?')) {
@@ -70,9 +62,6 @@ export default function ProductsScreen({
       try {
         await leadProductService.updateStatus(uid, 'INACTIVE');
         setProducts(products.map(p => p.uid === uid ? { ...p, status: 'INACTIVE' } : p));
-        if (selectedProduct?.uid === uid) {
-          setSelectedProduct({ ...selectedProduct, status: 'INACTIVE' });
-        }
       } catch (error) {
         setProductsError(error instanceof Error ? error.message : 'Unable to update product status.');
       } finally {
@@ -81,20 +70,12 @@ export default function ProductsScreen({
     }
   };
 
-  const handleOpenProduct = async (product: Product) => {
-    setSelectedProduct(product);
+  const handleInspectProduct = (product: Product) => {
     fetchLeads?.();
     fetchPipelines?.();
     fetchChannels?.();
     setProductsError(null);
-
-    try {
-      const detail = await leadProductService.detail(product.uid);
-      setSelectedProduct(detail);
-      setProducts((current) => current.map((item) => item.uid === detail.uid ? detail : item));
-    } catch (error) {
-      setProductsError(error instanceof Error ? error.message : 'Unable to load product detail.');
-    }
+    navigate(`/jaldee-leads/products/${product.uid}/inventory`);
   };
 
   return (
@@ -158,7 +139,7 @@ export default function ProductsScreen({
               <SectionCard
                 key={product.uid}
                 data-testid={`jaldee-leads-product-${product.uid}-card`}
-                onClick={() => handleOpenProduct(product)}
+                onClick={() => handleInspectProduct(product)}
                 className="relative group overflow-hidden border-slate-200 bg-white shadow-sm transition-all hover:border-indigo-200 hover:shadow-md cursor-pointer min-h-[300px]"
               >
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
@@ -168,9 +149,9 @@ export default function ProductsScreen({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingProduct(product);
                       fetchChannels?.();
                       fetchTemplates?.();
+                      navigate(`/jaldee-leads/products/${product.uid}/edit`);
                     }}
                     size="sm"
                     variant="ghost"
@@ -255,8 +236,19 @@ export default function ProductsScreen({
                     <p className="m-0 line-clamp-2 text-sm leading-6 text-slate-500">{cardDescription}</p>
                   ) : null}
 
-                  <div className="mt-auto border-t border-slate-100 pt-4 text-sm font-semibold text-indigo-600">
-                    <span className="transition-all group-hover:translate-x-1 inline-block">Inspect Inventory</span>
+                  <div className="mt-auto border-t border-slate-100 pt-4">
+                    <button
+                      id={`jaldee-leads-product-${product.uid}-inspect-inventory-button`}
+                      data-testid={`jaldee-leads-product-${product.uid}-inspect-inventory-button`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleInspectProduct(product);
+                      }}
+                      className="inline-flex items-center p-0 text-sm font-semibold text-indigo-600 transition-all group-hover:translate-x-1"
+                    >
+                      Inspect Inventory
+                    </button>
                   </div>
                 </div>
               </SectionCard>
@@ -265,86 +257,6 @@ export default function ProductsScreen({
         </div>
       )}
 
-
-      {selectedProduct && (
-        <div className="absolute inset-0 z-50 bg-slate-50">
-          <ProductDetailScreen 
-            product={selectedProduct} 
-            leads={leads}
-            pipelines={pipelines}
-            channels={channels}
-            onBack={() => setSelectedProduct(null)} 
-            onNavigate={onNavigate}
-            onUpdateProduct={async (updatedProduct) => {
-              const savedProduct = await leadProductService.update(updatedProduct.uid, updatedProduct);
-              const productForCard = {
-                ...updatedProduct,
-                ...savedProduct,
-                uid: savedProduct.uid || updatedProduct.uid,
-                name: savedProduct.name || updatedProduct.name,
-                displayName: savedProduct.displayName || updatedProduct.displayName,
-                defaultPipelineName: savedProduct.defaultPipelineName || updatedProduct.defaultPipelineName,
-                leadTemplateUid: savedProduct.leadTemplateUid || updatedProduct.leadTemplateUid,
-                leadTemplateName: savedProduct.leadTemplateName || updatedProduct.leadTemplateName,
-                templateTitle: savedProduct.templateTitle || updatedProduct.templateTitle,
-                description: savedProduct.description || updatedProduct.description,
-                productType: savedProduct.productType || updatedProduct.productType,
-                productTypeEnum: savedProduct.productTypeEnum || updatedProduct.productTypeEnum,
-                productEnum: savedProduct.productEnum || updatedProduct.productEnum,
-                status: savedProduct.status || updatedProduct.status,
-              };
-              setProducts(products.map(p => p.uid === productForCard.uid ? productForCard : p));
-              setSelectedProduct(productForCard);
-            }}
-          />
-        </div>
-      )}
-
-      {editingProduct && (
-        <div className="absolute inset-0 z-50 bg-white">
-          <CreateProductScreen
-            channels={channels}
-            forms={forms}
-            pipelines={pipelines}
-            initialProduct={editingProduct}
-            onBack={() => setEditingProduct(null)}
-            onSave={async (product, selectedChannelUids) => {
-              setProductsError(null);
-              const savedProduct = await leadProductService.update(product.uid, product);
-              const productForCard = {
-                ...product,
-                ...savedProduct,
-                uid: savedProduct.uid || product.uid,
-                name: savedProduct.name || product.name,
-                displayName: savedProduct.displayName || product.displayName,
-                defaultPipelineName: savedProduct.defaultPipelineName || product.defaultPipelineName,
-                leadTemplateUid: savedProduct.leadTemplateUid || product.leadTemplateUid,
-                leadTemplateName: savedProduct.leadTemplateName || product.leadTemplateName,
-                templateTitle: savedProduct.templateTitle || product.templateTitle,
-                description: savedProduct.description || product.description,
-                productType: savedProduct.productType || product.productType,
-                productTypeEnum: savedProduct.productTypeEnum || product.productTypeEnum,
-                productEnum: savedProduct.productEnum || product.productEnum,
-                status: savedProduct.status || product.status,
-              };
-              setProducts((current) => current.map((item) => item.uid === productForCard.uid ? productForCard : item));
-              setChannels((current) =>
-                current.map((channel) => {
-                  if (selectedChannelUids.includes(channel.uid)) {
-                    return { ...channel, productUid: productForCard.uid, productName: productForCard.name };
-                  }
-                  if (channel.productUid === productForCard.uid) {
-                    const { productUid, productName, ...rest } = channel;
-                    return rest;
-                  }
-                  return channel;
-                }),
-              );
-              setEditingProduct(null);
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import LeadsScreen from './screens/LeadsScreen';
 import PipelinesScreen from './screens/PipelinesScreen';
 import ProductsScreen from './screens/ProductsScreen';
 import CreateProductScreen from './screens/CreateProductScreen';
+import ProductDetailScreen from './screens/ProductDetailScreen';
 import ChannelsScreen from './screens/ChannelsScreen';
 import ChannelDetailScreen from './screens/ChannelDetailScreen';
 import LeadDetailScreen from './screens/LeadDetailScreen';
@@ -268,6 +269,184 @@ function ChannelDetailRoute({
   );
 }
 
+function ProductDetailRoute({
+  products,
+  setProducts,
+  leads,
+  pipelines,
+  channels,
+  onNavigate,
+}: {
+  products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  leads: CrmLeadDto[];
+  pipelines: CrmLeadPipelineDto[];
+  channels: Channel[];
+  onNavigate: (route: string, selection?: { type: string; id: string }) => void;
+}) {
+  const navigate = useNavigate();
+  const { productUid } = useParams();
+  const productState = products.find((p) => p.uid === productUid) ?? null;
+  const [product, setProduct] = useState<Product | null>(productState);
+
+  useEffect(() => {
+    if (!productUid) return;
+    let active = true;
+    leadProductService.detail(productUid)
+      .then((detail) => {
+        if (!active) return;
+        setProduct(detail);
+        setProducts((prev) =>
+          prev.some((item) => item.uid === detail.uid)
+            ? prev.map((item) => (item.uid === detail.uid ? detail : item))
+            : [detail, ...prev]
+        );
+      })
+      .catch((err) => console.error('Failed to load product detail:', err));
+
+    return () => {
+      active = false;
+    };
+  }, [productUid, setProducts]);
+
+  if (!product) return <div className="shell-loading">Loading product...</div>;
+
+  return (
+    <ProductDetailScreen
+      product={product}
+      leads={leads}
+      pipelines={pipelines}
+      channels={channels}
+      onBack={() => navigate('/jaldee-leads/products')}
+      onNavigate={onNavigate}
+      onUpdateProduct={async (updatedProduct) => {
+        const savedProduct = await leadProductService.update(updatedProduct.uid, updatedProduct);
+        const productForCard = {
+          ...updatedProduct,
+          ...savedProduct,
+          uid: savedProduct.uid || updatedProduct.uid,
+          name: savedProduct.name || updatedProduct.name,
+          displayName: savedProduct.displayName || updatedProduct.displayName,
+          defaultPipelineName: savedProduct.defaultPipelineName || updatedProduct.defaultPipelineName,
+          leadTemplateUid: savedProduct.leadTemplateUid || updatedProduct.leadTemplateUid,
+          leadTemplateName: savedProduct.leadTemplateName || updatedProduct.leadTemplateName,
+          templateTitle: savedProduct.templateTitle || updatedProduct.templateTitle,
+          description: savedProduct.description || updatedProduct.description,
+          productType: savedProduct.productType || updatedProduct.productType,
+          productTypeEnum: savedProduct.productTypeEnum || updatedProduct.productTypeEnum,
+          productEnum: savedProduct.productEnum || updatedProduct.productEnum,
+          status: savedProduct.status || updatedProduct.status,
+        };
+        setProducts((prev) => prev.map((item) => (item.uid === productForCard.uid ? productForCard : item)));
+        setProduct(productForCard);
+      }}
+    />
+  );
+}
+
+function ProductEditRoute({
+  products,
+  setProducts,
+  channels,
+  setChannels,
+  forms,
+  pipelines,
+}: {
+  products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  channels: Channel[];
+  setChannels: React.Dispatch<React.SetStateAction<Channel[]>>;
+  forms: FormTemplate[];
+  pipelines: CrmLeadPipelineDto[];
+}) {
+  const navigate = useNavigate();
+  const { productUid } = useParams();
+  const productState = products.find((p) => p.uid === productUid) ?? null;
+  const [product, setProduct] = useState<Product | null>(productState);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(Boolean(productUid));
+
+  useEffect(() => {
+    if (!productUid) return;
+    let active = true;
+    setIsLoadingProduct(true);
+
+    leadProductService.detail(productUid)
+      .then((detail) => {
+        if (!active) return;
+        setProduct(detail);
+        setProducts((prev) =>
+          prev.some((item) => item.uid === detail.uid)
+            ? prev.map((item) => (item.uid === detail.uid ? detail : item))
+            : [detail, ...prev]
+        );
+      })
+      .catch((err) => {
+        console.error('Failed to load product for editing:', err);
+        if (active && productState) setProduct(productState);
+      })
+      .finally(() => {
+        if (active) setIsLoadingProduct(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [productUid, setProducts]);
+
+  if (isLoadingProduct) {
+    return <div className="shell-loading">Loading product...</div>;
+  }
+
+  if (!product) return null;
+
+  return (
+    <CreateProductScreen
+      channels={channels}
+      forms={forms}
+      pipelines={pipelines}
+      initialProduct={product}
+      onBack={() => navigate('/jaldee-leads/products')}
+      onSave={async (updatedProduct, selectedChannelUids) => {
+        const savedProduct = await leadProductService.update(updatedProduct.uid, updatedProduct);
+        const productForCard = {
+          ...updatedProduct,
+          ...savedProduct,
+          uid: savedProduct.uid || updatedProduct.uid,
+          name: savedProduct.name || updatedProduct.name,
+          displayName: savedProduct.displayName || updatedProduct.displayName,
+          defaultPipelineName: savedProduct.defaultPipelineName || updatedProduct.defaultPipelineName,
+          leadTemplateUid: savedProduct.leadTemplateUid || updatedProduct.leadTemplateUid,
+          leadTemplateName: savedProduct.leadTemplateName || updatedProduct.leadTemplateName,
+          templateTitle: savedProduct.templateTitle || updatedProduct.templateTitle,
+          description: savedProduct.description || updatedProduct.description,
+          productType: savedProduct.productType || updatedProduct.productType,
+          productTypeEnum: savedProduct.productTypeEnum || updatedProduct.productTypeEnum,
+          productEnum: savedProduct.productEnum || updatedProduct.productEnum,
+          status: savedProduct.status || updatedProduct.status,
+        };
+        setProducts((current) =>
+          current.some((item) => item.uid === productForCard.uid)
+            ? current.map((item) => (item.uid === productForCard.uid ? productForCard : item))
+            : [productForCard, ...current]
+        );
+        setChannels((current) =>
+          current.map((channel) => {
+            if (selectedChannelUids.includes(channel.uid)) {
+              return { ...channel, productUid: productForCard.uid, productName: productForCard.name };
+            }
+            if (channel.productUid === productForCard.uid) {
+              const { productUid: _productUid, productName: _productName, ...rest } = channel;
+              return rest;
+            }
+            return channel;
+          }),
+        );
+        navigate('/jaldee-leads/products');
+      }}
+    />
+  );
+}
+
 export default function JaldeeLeadsPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -364,11 +543,17 @@ export default function JaldeeLeadsPage() {
     } else if (path.includes('/pipelines')) {
       triggerFetchPipelines(active);
       triggerFetchLeads(active);
-    } else if (path.includes('/products/create')) {
+    } else if (path.includes('/products/create') || (path.includes('/products/') && path.includes('/edit'))) {
+      triggerFetchProducts(active);
       triggerFetchChannels(active);
       triggerFetchTemplates(active);
+      triggerFetchPipelines(active);
     } else if (path.includes('/products')) {
       triggerFetchProducts(active);
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchChannels(active);
+      triggerFetchTemplates(active);
     } else if (path.includes('/templates')) {
       triggerFetchTemplates(active);
     } else if (path.includes('/channels')) {
@@ -503,6 +688,36 @@ export default function JaldeeLeadsPage() {
               fetchPipelines={() => triggerFetchPipelines(true)}
               fetchChannels={() => triggerFetchChannels(true)}
               fetchTemplates={() => triggerFetchTemplates(true)}
+            />
+          }
+        />
+        <Route
+          path="/products/:productUid/inventory"
+          element={
+            <ProductDetailRoute
+              products={products}
+              setProducts={setProducts}
+              leads={leads}
+              pipelines={pipelines}
+              channels={channels}
+              onNavigate={handleNavigate}
+            />
+          }
+        />
+        <Route
+          path="/products/:productUid"
+          element={<Navigate to="inventory" replace />}
+        />
+        <Route
+          path="/products/:productUid/edit"
+          element={
+            <ProductEditRoute
+              products={products}
+              setProducts={setProducts}
+              channels={channels}
+              setChannels={setChannels}
+              forms={forms}
+              pipelines={pipelines}
             />
           }
         />

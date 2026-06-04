@@ -203,7 +203,7 @@ export default function ProductDetailScreen({
           }
         />
       </div>
-      <div className="max-w-7xl mx-auto w-full p-4 md:p-8 space-y-6 md:space-y-8">
+      <div className="w-full p-4 md:p-8 space-y-6 md:space-y-8">
         {/* 2. Hero Statistics Section */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
           <div className="md:col-span-2 bg-white rounded-[24px] md:rounded-[32px] p-5 md:p-8 border border-slate-200 software-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
