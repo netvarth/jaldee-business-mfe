@@ -8,7 +8,7 @@
     "dev": "vite --port 3000",
     "build": "vite build",
     "preview": "vite preview --port 3000 --strictPort",
-    "serve": "vite preview --port 3000 --strictPort"
+    "serve": "npm run build && vite preview --port 3000 --strictPort"
   },
   "dependencies": {
     "@jaldee/api-client": "*",

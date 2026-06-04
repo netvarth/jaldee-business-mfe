@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
-import { mockPipelines, mockForms } from '../mockData';
+import { mockForms } from '../mockData';
 import { Product, Channel, FormTemplate } from '../types';
 import { Button, Input, Select, Textarea } from '@jaldee/design-system';
 
@@ -10,14 +10,17 @@ interface CreateProductScreenProps {
   onSave: (product: Product, selectedChannelUids: string[]) => void | Promise<void>;
   channels: Channel[];
   forms: FormTemplate[];
+  pipelines: import('../types').CrmLeadPipelineDto[];
   initialProduct?: Product | null;
 }
 
-export default function CreateProductScreen({ onBack, onSave, channels, forms, initialProduct }: CreateProductScreenProps) {
+export default function CreateProductScreen({ onBack, onSave, channels, forms, pipelines, initialProduct }: CreateProductScreenProps) {
+  const initialPipelineUid = initialProduct?.defaultPipelineUid === 'p-standard' ? '' : initialProduct?.defaultPipelineUid || '';
   const [formData, setFormData] = useState({
     name: initialProduct?.name || '',
     displayName: initialProduct?.displayName || '',
     productType: initialProduct?.productTypeEnum || initialProduct?.productType || '',
+    defaultPipelineUid: initialPipelineUid,
     leadTemplateUid: initialProduct?.leadTemplateUid || forms[0]?.uid || mockForms[0]?.uid || '',
     templateTitle: initialProduct?.templateTitle || '',
     description: initialProduct?.description || '',
@@ -43,7 +46,8 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
       name: formData.name.trim(),
       displayName: formData.displayName.trim() || undefined,
       productEnum: formData.productType || formData.name.trim().toUpperCase().replace(/\s+/g, '_'),
-      defaultPipelineUid: mockPipelines[0]?.uid || 'p-standard',
+      defaultPipelineUid: formData.defaultPipelineUid,
+      defaultPipelineName: pipelines.find(p => p.uid === formData.defaultPipelineUid)?.name || (formData.defaultPipelineUid === initialProduct?.defaultPipelineUid ? initialProduct?.defaultPipelineName : undefined),
       leadTemplateUid: formData.leadTemplateUid,
       leadTemplateName: selectedTemplate?.name,
       templateTitle: formData.templateTitle.trim() || undefined,
@@ -63,12 +67,19 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
   };
 
   return (
-    <div className="h-full flex flex-col bg-white overflow-hidden font-sans text-slate-900">
+    <div data-testid={initialProduct ? `jaldee-leads-product-${initialProduct.uid}-edit-page` : "jaldee-leads-create-product-page"} className="h-full flex flex-col bg-white overflow-hidden font-sans text-slate-900">
       {/* Header */}
       <div className="border-b border-slate-100 px-4 sm:px-8 py-4 sm:py-6 flex items-center gap-4">
-        <button onClick={onBack} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
-          <ICONS.PREV className="w-5 h-5 text-slate-900" />
-        </button>
+        <Button
+          id="jaldee-leads-product-form-back-button"
+          data-testid="jaldee-leads-product-form-back-button"
+          onClick={onBack}
+          variant="ghost"
+          iconOnly
+          icon={<ICONS.PREV className="w-5 h-5 text-slate-900" />}
+          className="h-9 w-9 p-0"
+          aria-label="Back"
+        />
         <h1 className="text-xl font-bold text-slate-900">{initialProduct ? 'Edit Product' : 'Create Product'}</h1>
       </div>
 
@@ -86,6 +97,7 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
 
             {/* Product Name */}
             <Input
+              data-testid="jaldee-leads-product-form-name-input"
               type="text"
               id="productName"
               label="Product Name *"
@@ -96,6 +108,7 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
 
             {/* Display Accent Name */}
             <Input
+              data-testid="jaldee-leads-product-form-display-name-input"
               type="text"
               id="displayName"
               label="Display Accent Name"
@@ -106,6 +119,7 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
 
             {/* Product Category Type */}
             <Select
+              data-testid="jaldee-leads-product-form-type-select"
               id="productType"
               label="Product Category Type"
               value={formData.productType}
@@ -122,6 +136,7 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
 
             {/* Core Intake Lead Template */}
             <Select
+              data-testid="jaldee-leads-product-form-template-select"
               id="leadTemplateUid"
               label="Core Intake Lead Template"
               value={formData.leadTemplateUid}
@@ -129,9 +144,24 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
               options={forms.map(form => ({ value: form.uid, label: form.name }))}
             />
 
+            {/* Default Pipeline */}
+            <Select
+              data-testid="jaldee-leads-product-form-pipeline-select"
+              id="defaultPipelineUid"
+              label="Associated Pipeline / Workflow"
+              value={formData.defaultPipelineUid}
+              onChange={e => setFormData({ ...formData, defaultPipelineUid: e.target.value })}
+              options={[
+                { value: '', label: 'Select Pipeline' },
+                ...pipelines.map(pipeline => ({ value: pipeline.uid, label: pipeline.name })),
+                ...(initialPipelineUid && !pipelines.some(p => p.uid === initialPipelineUid) ? [{ value: initialPipelineUid, label: initialProduct?.defaultPipelineName || initialPipelineUid }] : [])
+              ]}
+            />
+
             {/* Intake Heading Subtitle */}
             <div className="col-span-1 md:col-span-2">
               <Input
+                data-testid="jaldee-leads-product-form-template-title-input"
                 type="text"
                 id="templateTitle"
                 label="Intake Heading Subtitle"
@@ -149,7 +179,10 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
                 {channels.map(chan => {
                   const isSelected = selectedChannelUids.includes(chan.uid);
                   return (
-                    <button
+                    <Button
+                      id={`jaldee-leads-product-form-channel-${chan.uid}-button`}
+                      data-testid={`jaldee-leads-product-form-channel-${chan.uid}-button`}
+                      data-active={isSelected}
                       key={chan.uid}
                       type="button"
                       onClick={() => {
@@ -159,17 +192,13 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
                           setSelectedChannelUids([...selectedChannelUids, chan.uid]);
                         }
                       }}
-                      className={cn(
-                        'px-4 py-2 rounded-full border text-xs font-semibold transition-all flex items-center gap-2 select-none cursor-pointer',
-                        isSelected
-                          ? 'bg-indigo-600 border-indigo-600 text-white'
-                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
-                      )}
+                      variant={isSelected ? "primary" : "outline"}
+                      className="px-4 py-2 rounded-full text-xs font-semibold"
                     >
                       <span className={cn('w-1.5 h-1.5 rounded-full', isSelected ? 'bg-white' : 'bg-slate-400')} />
                       {chan.name}
-                      <span className="text-xs font-mono opacity-60">({chan.type})</span>
-                    </button>
+                      <span className="text-xs font-mono opacity-60">({chan.channelType})</span>
+                    </Button>
                   );
                 })}
                 {channels.length === 0 && (
@@ -181,6 +210,7 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
             {/* Technical Spec/Description */}
             <div className="col-span-1 md:col-span-2">
               <Textarea
+                data-testid="jaldee-leads-product-form-description-textarea"
                 id="description"
                 label="Technical Spec/Description"
                 rows={6}
@@ -209,6 +239,8 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-6 md:pt-12">
             <Button
+              id="jaldee-leads-product-form-cancel-button"
+              data-testid="jaldee-leads-product-form-cancel-button"
               type="button"
               onClick={onBack}
               variant="outline"
@@ -218,6 +250,8 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, i
               Cancel
             </Button>
             <Button
+              id="jaldee-leads-product-form-save-button"
+              data-testid="jaldee-leads-product-form-save-button"
               type="button"
               onClick={handleSubmit}
               variant="primary"

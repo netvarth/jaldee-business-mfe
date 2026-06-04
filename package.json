@@ -11,13 +11,16 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "preview": "turbo run preview",
-    "serve": "turbo run serve"
+    "serve": "turbo run serve",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "overrides": {
     "@types/react": "18.2.79",
     "@types/react-dom": "18.2.25"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "turbo": "^2.8.20"
   }
 }

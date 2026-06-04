@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { mockProducts, mockChannels, mockPipelines } from '../mockData';
 import { cn } from '../lib/utils';
 import { ICONS } from '../constants';
-import { Button, Select } from '@jaldee/design-system';
+import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
+import { Button, FileUpload, PageHeader, Select } from '@jaldee/design-system';
 
 export default function BulkImportScreen() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const showDashboardBack = cameFromDashboard(location);
   const [step, setStep] = useState(1);
   const [productUid, setProductUid] = useState('');
   const [channelUid, setChannelUid] = useState('');
@@ -46,16 +51,19 @@ export default function BulkImportScreen() {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-4 md:p-6 no-scrollbar overflow-y-auto pb-20">
+    <div data-testid="jaldee-leads-bulk-import-page" data-state={isUploading ? "loading" : uploadSuccess ? "success" : `step-${step}`} className="h-full flex flex-col bg-slate-50 p-4 md:p-6 no-scrollbar overflow-y-auto pb-20">
       <div className="max-w-3xl mx-auto w-full">
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-slate-900">Batch Ingestion Step-by-Step</h2>
-          <p className="text-sm font-bold text-slate-400 mt-1">Simulate CSV/XLS data synchronization onto sales stages</p>
-        </div>
+        <PageHeader
+          back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+          onNavigate={() => navigateBackToDashboard(navigate)}
+          title="Batch Ingestion Step-by-Step"
+          subtitle="Simulate CSV/XLS data synchronization onto sales stages"
+          className="mb-8"
+        />
 
         <div className="flex gap-4 mb-8">
           {steps.map((s) => (
-            <div key={s.id} className="flex-1">
+            <div key={s.id} data-testid={`jaldee-leads-bulk-import-step-${s.id}`} data-active={step === s.id} className="flex-1">
               <div className={cn(
                 "h-1 rounded-full transition-all duration-500",
                 step >= s.id ? "bg-indigo-600 shadow-[0_0_8px_#4f46e550]" : "bg-slate-200"
@@ -77,7 +85,8 @@ export default function BulkImportScreen() {
                 <h3 className="text-xs font-semibold text-slate-400 mb-6 border-b border-slate-100 pb-4">Deployment Parameter Binding</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Select
-                    id="productSelect"
+                    id="jaldee-leads-bulk-import-product-select"
+                    data-testid="jaldee-leads-bulk-import-product-select"
                     label="Product / Service Offer"
                     value={productUid}
                     onChange={(e) => setProductUid(e.target.value)}
@@ -85,7 +94,8 @@ export default function BulkImportScreen() {
                     options={mockProducts.map(p => ({ value: p.uid, label: p.name.toUpperCase() }))}
                   />
                   <Select
-                    id="channelSelect"
+                    id="jaldee-leads-bulk-import-channel-select"
+                    data-testid="jaldee-leads-bulk-import-channel-select"
                     label="Source Channel Node"
                     value={channelUid}
                     onChange={(e) => setChannelUid(e.target.value)}
@@ -146,15 +156,27 @@ export default function BulkImportScreen() {
                     </div>
                     <p className="text-xs font-semibold text-slate-900">{file.name}</p>
                     <p className="text-xs font-bold text-slate-400 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
-                    <button onClick={() => setFile(null)} className="text-xs font-semibold text-red-500 mt-4">De-register file</button>
+                    <Button
+                      id="jaldee-leads-bulk-import-remove-file-button"
+                      data-testid="jaldee-leads-bulk-import-remove-file-button"
+                      onClick={() => setFile(null)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs font-semibold text-red-500 mt-4"
+                    >
+                      De-register file
+                    </Button>
                   </div>
                 ) : (
                   <div className="text-center">
                     <ICONS.IMPORT className="w-10 h-10 text-slate-350 mx-auto mb-4" />
-                    <label className="cursor-pointer text-sm font-semibold text-indigo-600 bg-indigo-50 px-6 py-2.5 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-all">
-                      Select Matrix File
-                      <input type="file" accept=".csv" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                    </label>
+                    <FileUpload
+                      data-testid="jaldee-leads-bulk-import-file-upload"
+                      label="Select Matrix File"
+                      accept=".csv"
+                      onUpload={(files) => setFile(files[0] || null)}
+                      className="w-full min-w-[260px]"
+                    />
                   </div>
                 )}
               </div>
@@ -198,6 +220,8 @@ export default function BulkImportScreen() {
           <div>
             {step > 1 && !uploadSuccess && (
               <Button 
+                id="jaldee-leads-bulk-import-back-button"
+                data-testid="jaldee-leads-bulk-import-back-button"
                 type="button"
                 onClick={() => setStep(step - 1)} 
                 disabled={isUploading} 
@@ -212,6 +236,8 @@ export default function BulkImportScreen() {
           <div className="flex gap-4">
             {step < 3 ? (
               <Button 
+                id="jaldee-leads-bulk-import-next-button"
+                data-testid="jaldee-leads-bulk-import-next-button"
                 type="button"
                 onClick={handleNext} 
                 disabled={(step === 1 && (!productUid || !channelUid)) || (step === 2 && !file)} 
@@ -222,6 +248,8 @@ export default function BulkImportScreen() {
               </Button>
             ) : !isUploading && !uploadSuccess ? (
               <Button 
+                id="jaldee-leads-bulk-import-ingest-button"
+                data-testid="jaldee-leads-bulk-import-ingest-button"
                 type="button"
                 onClick={handleImport} 
                 variant="primary"
@@ -231,6 +259,8 @@ export default function BulkImportScreen() {
               </Button>
             ) : uploadSuccess ? (
               <Button 
+                id="jaldee-leads-bulk-import-restart-button"
+                data-testid="jaldee-leads-bulk-import-restart-button"
                 type="button"
                 onClick={() => { setStep(1); setProductUid(''); setChannelUid(''); setFile(null); setUploadSuccess(false); }}
                 variant="secondary"

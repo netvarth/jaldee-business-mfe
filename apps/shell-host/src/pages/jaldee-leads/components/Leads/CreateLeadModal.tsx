@@ -37,7 +37,7 @@ export default function CreateLeadModal({ onClose, onSave }: CreateLeadModalProp
       leadDate: new Date().toISOString(),
       channelUid: formData.channelUid || '',
       channelName: chan?.name || 'Unknown',
-      channelType: chan?.type || 'ONLINE',
+      channelType: chan?.channelType || 'DIRECT',
       productUid: formData.productUid,
       productName: prod?.name || '',
       productEnum: prod?.productEnum || '',

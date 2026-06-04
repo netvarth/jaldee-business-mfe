@@ -40,7 +40,7 @@ function toChannel(raw: any): Channel {
   return {
     uid: String(raw?.uid ?? raw?.uuid ?? ""),
     name: String(raw?.name || raw?.channelName || ""),
-    type: (raw?.type || raw?.channelType || "ONLINE") as ChannelType,
+    channelType: (raw?.channelType || raw?.type || "DIRECT") as ChannelType,
     location: raw?.location || (Array.isArray(raw?.locations) && raw.locations.length > 0 ? (raw.locations[0]?.place || raw.locations[0]?.name || raw.locations[0]?.locationName) : undefined),
     productUid: raw?.productUid || (Array.isArray(raw?.productUids) ? raw.productUids[0] : undefined),
     productUids: Array.isArray(raw?.productUids) ? raw.productUids : raw?.productUid ? [raw.productUid] : [],
@@ -74,7 +74,7 @@ function toChannelPayload(data: Partial<Channel>) {
 
   return {
     name: data.name?.trim(),
-    type: data.type || "ONLINE",
+    channelType: data.channelType || "DIRECT",
     locations: matchedLocation ? [
       {
         id: Number((matchedLocation as any).locationId) || undefined,

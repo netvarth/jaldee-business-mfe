@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@jaldee/design-system';
 import { Channel, ChannelType } from '../../types';
 import { cn } from '../../lib/utils';
 import { ICONS } from '../../constants';
@@ -10,18 +11,22 @@ interface ChannelDetailDrawerProps {
 }
 
 const CHANNEL_TYPE_ICONS: Record<ChannelType, any> = {
-  ONLINE: ICONS.IMPORT,
-  PHONE: ICONS.PHONE,
-  CHATBOT: ICONS.MENU,
-  WALK_IN: ICONS.PROFILE,
-  REFERRAL: ICONS.CHANNELS,
+  DIRECT: ICONS.IMPORT,
+  QRCODE: ICONS.IMPORT,
+  WHATSAPP: ICONS.MENU,
+  TELEGRAM: ICONS.MENU,
+  IVR: ICONS.PHONE,
+  BRANDEDAPP: ICONS.PROFILE,
+  FACEBOOK: ICONS.CHANNELS,
+  INSTAGRAM: ICONS.CHANNELS,
+  SDK: ICONS.MENU,
 };
 
 export function ChannelDetailDrawer({ channel, onClose, onUpdate }: ChannelDetailDrawerProps) {
-  const Icon = CHANNEL_TYPE_ICONS[channel.type] || ICONS.IMPORT;
+  const Icon = CHANNEL_TYPE_ICONS[channel.channelType] || ICONS.IMPORT;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div data-testid={`jaldee-leads-channel-${channel.uid}-detail-drawer`} data-state="open" className="fixed inset-0 z-50 flex justify-end">
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" 
         onClick={onClose} 
@@ -46,16 +51,23 @@ export function ChannelDetailDrawer({ channel, onClose, onUpdate }: ChannelDetai
             </div>
             <div className="flex items-center gap-2 mt-4">
               <span className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                {channel.type}
+                {channel.channelType}
               </span>
               <span className="text-sm font-semibold font-mono text-slate-400">
                 UID: {channel.uid}
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-2xl transition-all active-scale">
-            <ICONS.CLOSE className="w-6 h-6" />
-          </button>
+          <Button
+            id={`jaldee-leads-channel-${channel.uid}-drawer-close-button`}
+            data-testid={`jaldee-leads-channel-${channel.uid}-drawer-close-button`}
+            onClick={onClose}
+            variant="ghost"
+            icon={<ICONS.CLOSE className="w-6 h-6" />}
+            iconOnly
+            aria-label="Close channel details"
+            className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-2xl"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-8 no-scrollbar">
@@ -95,9 +107,9 @@ export function ChannelDetailDrawer({ channel, onClose, onUpdate }: ChannelDetai
           <section className="p-8 rounded-[38px] border-2 border-red-100 bg-red-50/30">
              <h3 className="text-sm font-semibold text-red-400 mb-4 leading-none">Administrative Core</h3>
              <p className="text-xs text-red-800/60 font-medium mb-6">Deactivating this channel will immediately terminate all incoming lead streams from this source.</p>
-             <button className="w-full py-4 bg-red-500 text-white rounded-2xl font-semibold text-sm shadow-xl shadow-red-500/20 active-scale hover:bg-red-600 transition-all">
+             <Button id={`jaldee-leads-channel-${channel.uid}-decommission-button`} data-testid={`jaldee-leads-channel-${channel.uid}-decommission-button`} variant="danger" className="w-full py-4 rounded-2xl font-semibold text-sm shadow-xl shadow-red-500/20">
                Decommission Channel
-             </button>
+             </Button>
           </section>
         </div>
       </div>

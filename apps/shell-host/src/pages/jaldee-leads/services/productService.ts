@@ -36,7 +36,7 @@ function unwrap<T>(value: unknown): T {
 }
 
 function toProduct(raw: any): Product {
-  const uid = String(raw?.uid ?? raw?.uuid ?? raw?.id ?? "");
+  const uid = String(raw?.uid ?? raw?.uuid ?? raw?.id ?? raw?.productUid ?? raw?.productId ?? raw?.crmProductUid ?? raw?.crmProductId ?? "");
   const name = String(raw?.name ?? raw?.productName ?? raw?.displayName ?? "Untitled Product");
   const productEnum = String(raw?.productEnum ?? raw?.code ?? raw?.productCode ?? name.toUpperCase().replace(/\s+/g, "_"));
   const defaultPipelineUid = String(raw?.defaultPipelineUid ?? raw?.pipelineUid ?? raw?.defaultPipeline?.uid ?? "");
@@ -107,6 +107,7 @@ function isUuid(value: unknown): value is string {
 function toProductPayload(product: Partial<Product>, options: { includeUid?: boolean } = {}) {
   const productName = product.name?.trim();
   const leadTemplateUid = isUuid(product.leadTemplateUid) ? product.leadTemplateUid : undefined;
+  const defaultPipelineUid = product.defaultPipelineUid === "p-standard" ? undefined : product.defaultPipelineUid || undefined;
   const acceptedProductTypeEnums = new Set(["KARTI", "UNKNOWN", "HEALTHCARE", "MEMBERSHIP", "IVR"]);
   const candidateProductTypeEnum = product.productTypeEnum || product.productType;
   const productTypeEnum = candidateProductTypeEnum && acceptedProductTypeEnums.has(candidateProductTypeEnum)
@@ -128,6 +129,8 @@ function toProductPayload(product: Partial<Product>, options: { includeUid?: boo
     description: product.description?.trim() || undefined,
     productType: product.productType || undefined,
     status,
+    defaultPipelineUid,
+    defaultPipelineName: product.defaultPipelineName || undefined,
   };
 }
 

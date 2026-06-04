@@ -91,7 +91,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const [newStageProbability, setNewStageProbability] = useState(50);
   const [newStageRule, setNewStageRule] = useState<'Strict Block' | 'Warn Only' | 'Manager/Admin Override' | 'No Restriction'>('Strict Block');
 
-  const currentPipeline = pipelines.find(p => p.uid === lead.pipelineUid);
+  const currentPipeline = pipelines.find(p => p.uid === lead.pipelineUid) || pipelines[0];
   const stages = currentPipeline?.stages || [];
   const currentStage = stages.find(s => s.uid === lead.currentPipelineStageUid) || stages[0];
 
@@ -130,9 +130,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const isConversionRestricted = isStageBlocked && !canOverrideBlock;
 
   // Check if role allows assigned conversions only (Sales Rep can only convert assigned leads)
-  const productDisplayName = activeProduct
-    ? Array.from(new Set([activeProduct.name, activeProduct.displayName].filter(Boolean))).join(' - ')
-    : (lead.productName || 'Not assigned');
   const isOwnerRestricted = actingRole === 'SALES_REP' && lead.ownerName && lead.ownerName !== 'Unassigned custodian' && lead.ownerName !== 'Global Coordinator' && lead.ownerName !== 'Representative Node';
 
   // Ingest qualification and duplicate validations
@@ -388,11 +385,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
   // Add Dynamic Pipeline Stage
   const handleAddNewStage = () => {
-    if (!currentPipeline) {
-      alert('Pipeline details are still loading. Please try again.');
-      return;
-    }
-
     if (!newStageName.trim()) {
       alert('Stage name is required.');
       return;
@@ -459,14 +451,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const handleProcessMoveStage = async () => {
     const targetStage = stages.find(s => s.uid === targetStageUid);
     if (!targetStage) return;
-    const sortedStages = [...stages].sort((a, b) => {
-      const aOrder = a.sequenceOrder || a.stageOrder || 0;
-      const bOrder = b.sequenceOrder || b.stageOrder || 0;
-      return aOrder - bOrder;
-    });
-    const currentStageIdx = sortedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
-    const targetStageIdx = sortedStages.findIndex(s => s.uid === targetStageUid);
-    const isBackwardMove = targetStageIdx >= 0 && currentStageIdx >= 0 && targetStageIdx < currentStageIdx;
 
     const requiresOverride = !isRequiredComplete && (movementRule === 'Warn Only' || movementRule === 'Manager/Admin Override');
     if (requiresOverride && !overrideReason.trim()) {
@@ -498,8 +482,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       movedByName: 'Global Coordinator',
       movedAt: new Date().toISOString(),
       durationMinutes: 120,
-      isBackward: isBackwardMove,
-      isSkip: Math.abs(targetStageIdx - currentStageIdx) > 1,
+      isBackward: false,
+      isSkip: false,
       isTerminal: targetStage.isTerminal,
       reasonCode: requiresOverride ? 'OVERRIDE_AUTH' : 'COMPLIANCE_PASS',
       reasonNote: overrideReason || 'Task compliance rules satisfied.'
@@ -525,19 +509,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
     };
 
     try {
-      let response: CrmLeadDto | undefined;
-      if (isBackwardMove) {
-        response = await leadService.previousStage(lead.uid, {
-            targetStageUid: targetStage.uid,
-            targetStageName: targetStage.stageName,
-            reason: overrideReason || 'Moved to previous stage from lead detail.',
-          });
-      } else {
-        const stepsToComplete = Math.max(1, targetStageIdx - currentStageIdx);
-        for (let step = 0; step < stepsToComplete; step += 1) {
-          response = await leadService.completeStage(lead.uid);
-        }
-      }
+      const response = await leadService.update(lead.uid, updatedLead);
       onUpdate({
         ...updatedLead,
         ...response
@@ -632,7 +604,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
               {/* Horizontal Scrollable Row for Stages */}
               <div className="overflow-x-auto no-scrollbar scroll-smooth py-2">
-                 <div className="flex items-center gap-2 min-w-[900px] select-none">
+                 <div className="flex items-center gap-2 min-w-[700px] select-none">
                     {/* Compute custom sorted stages */}
                     {(() => {
                       const sortedStages = [...stages].sort((a, b) => a.stageOrder - b.stageOrder);
@@ -659,17 +631,13 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                             <div 
                               onClick={() => handleTimelineStageClick(stage.uid)}
                               className={cn(
-                                "relative flex min-h-[78px] min-w-[132px] max-w-[150px] flex-col items-center justify-center group cursor-pointer text-center px-3 py-3 rounded-2xl border transition-all duration-200 shadow-sm",
-                                isCurrent
-                                  ? "bg-slate-900 text-white shadow-xl shadow-slate-900/10 scale-105 border-slate-800"
-                                  : isPast
-                                    ? "bg-indigo-50/70 border-indigo-100 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50"
-                                    : "bg-white border-slate-200 text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40"
+                                "relative flex flex-col items-center group cursor-pointer text-center px-2 py-2 rounded-2xl transition-all duration-200 min-w-[125px] max-w-[140px]",
+                                isCurrent ? "bg-slate-905 bg-slate-900 text-white shadow-xl shadow-slate-900/10 scale-105 border border-slate-800" : "hover:bg-slate-55 hover:bg-slate-100/60 text-slate-700"
                               )}
                             >
                                {/* Indicator dot or circle */}
                                <div className={cn(
-                                 "w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-semibold text-xs transition-all relative z-10 shadow-sm bg-white",
+                                 "w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-semibold text-xs transition-all relative z-10 shadow-sm",
                                  isCurrent ? "bg-indigo-600 border-indigo-500 text-white animate-pulse" :
                                  isPast ? "bg-indigo-50 border-indigo-500 text-indigo-600" :
                                  "bg-white border-slate-200 text-slate-400 group-hover:border-slate-400 group-hover:text-slate-600"
@@ -686,7 +654,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                                {/* Text metrics */}
                                <p className={cn(
                                  "text-sm font-semibold truncate w-full mt-2.5 leading-tight",
-                                 isCurrent ? "text-white" : isPast ? "text-indigo-700" : "text-slate-800"
+                                 isCurrent ? "text-white" : "text-slate-850"
                                )}>
                                  {stage.stageName}
                                </p>
@@ -1139,7 +1107,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
                      <div className="border-b border-slate-50 pb-3">
                         <p className="text-xs text-slate-400">Target Product offered</p>
-                        <p className="text-slate-800 text-xs font-semibold mt-1.5">{productDisplayName}</p>
+                        <p className="text-slate-800 text-xs font-semibold mt-1.5">{lead.productName || 'Custom Offer'}</p>
                      </div>
 
                      <div>

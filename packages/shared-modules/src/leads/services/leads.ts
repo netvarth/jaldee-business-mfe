@@ -18,8 +18,8 @@ export async function getLeadChart(scopedApi: ScopedApi, filter: {} = {}) {
   return scopedApi.put("provider/crm/lead/graph/chart", filter);
 }
 
-export async function getLeads(scopedApi: ScopedApi, filter: {} = {}) {
-  return scopedApi.get("provider/crm/lead", { params: filter });
+export async function getLeads(scopedApi: ScopedApi, filter: any = {}) {
+  return scopedApi.get("provider/crm/lead", { params: { ...filter, status: "ACTIVE" } });
 }
 
 export async function getLeadsCount(scopedApi: ScopedApi, filter: {} = {}) {
@@ -46,12 +46,21 @@ export async function changeLeadStatus(scopedApi: ScopedApi, uid: string, status
   return scopedApi.put(`provider/crm/lead/${uid}/status/${status}`, data);
 }
 
-export async function getLeadLogs(scopedApi: ScopedApi, filter: {} = {}) {
+export async function getLeadLogs(scopedApi: ScopedApi, filter: any = {}) {
+  const { from, count, ...rest } = filter;
   if (isTokenAuthMode()) {
-    return scopedApi.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.auditLogs.search), { params: filter });
+    return scopedApi.get(buildBaseServiceUrl("/base-service/v1/api/tenant/audit-logs"), { 
+      params: { 
+        ...rest, 
+        ...(from !== undefined && count !== undefined ? { page: Math.floor(from / count) } : from !== undefined ? { page: from } : {}),
+        ...(count !== undefined && { size: count }),
+        auditlogContext: 'CRM_LEAD' 
+      } 
+    });
   }
 
-  return scopedApi.get("provider/crm/lead/log", { params: filter });
+  // Restore from/count for legacy provider
+  return scopedApi.get("provider/crm/lead/log", { params: { ...rest, from, count } });
 }
 
 export async function getLeadLogsCount(scopedApi: ScopedApi, filter: {} = {}) {

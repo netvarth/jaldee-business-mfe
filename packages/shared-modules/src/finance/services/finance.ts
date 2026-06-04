@@ -411,3 +411,5 @@ export function assembleFinanceDataset(
     totalCount,
   };
 }
+
+export const getFinanceDataset = assembleFinanceDataset;

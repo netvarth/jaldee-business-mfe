@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button, Select, Textarea } from '@jaldee/design-system';
 import { CrmLeadDto, CrmLeadPipelineDto, CrmLeadPipelineStageDto } from '../../types';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow, format } from '../../lib/dateUtils';
@@ -20,7 +21,7 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
   const currentStage = currentPipeline.stages.find(s => s.uid === lead.currentPipelineStageUid);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div data-testid={`jaldee-leads-lead-${lead.uid}-detail-drawer`} data-state="open" className="fixed inset-0 z-50 flex justify-end">
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" 
         onClick={onClose} 
@@ -45,18 +46,22 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
             </div>
             
             <div className="flex flex-wrap items-center gap-6 mt-6">
-              <div className="relative group cursor-pointer active-scale">
+              <div className="flex items-center gap-2">
                 <PriorityBadge priority={lead.priority} />
-                <select 
+                <Select
+                  id={`jaldee-leads-lead-${lead.uid}-priority-select`}
+                  data-testid={`jaldee-leads-lead-${lead.uid}-priority-select`}
                   value={lead.priority}
                   onChange={(e) => onUpdate({...lead, priority: e.target.value as any})}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                >
-                  <option value="URGENT">URGENT</option>
-                  <option value="HIGH">HIGH</option>
-                  <option value="NORMAL">NORMAL</option>
-                  <option value="LOW">LOW</option>
-                </select>
+                  options={[
+                    { value: 'URGENT', label: 'URGENT' },
+                    { value: 'HIGH', label: 'HIGH' },
+                    { value: 'NORMAL', label: 'NORMAL' },
+                    { value: 'LOW', label: 'LOW' },
+                  ]}
+                  fullWidth={false}
+                  className="w-32"
+                />
               </div>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-400">
                 <ICONS.DATE className="w-3 h-3" />
@@ -70,9 +75,16 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
               </div>
             )}
           </div>
-          <button onClick={onClose} className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-2xl transition-all active-scale">
-            <ICONS.CLOSE className="w-6 h-6" />
-          </button>
+          <Button
+            id={`jaldee-leads-lead-${lead.uid}-drawer-close-button`}
+            data-testid={`jaldee-leads-lead-${lead.uid}-drawer-close-button`}
+            onClick={onClose}
+            variant="ghost"
+            icon={<ICONS.CLOSE className="w-6 h-6" />}
+            iconOnly
+            aria-label="Close lead details"
+            className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-2xl"
+          />
         </div>
 
         {/* Pipeline Controller */}
@@ -86,12 +98,18 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                  <span className="text-sm font-semibold text-emerald-400">Live Infrastructure</span>
               </div>
-              <button 
+              <Button
+                id={`jaldee-leads-lead-${lead.uid}-shift-workflow-button`}
+                data-testid={`jaldee-leads-lead-${lead.uid}-shift-workflow-button`}
+                data-state={isMoveStageOpen ? "open" : "closed"}
                 onClick={() => setIsMoveStageOpen(!isMoveStageOpen)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold flex items-center gap-2 transition-all active-scale shadow-xl shadow-indigo-600/20"
+                variant="primary"
+                icon={<ICONS.ARROW_RIGHT className="w-3 h-3" />}
+                iconPosition="right"
+                className="px-5 py-2.5 rounded-2xl text-sm font-semibold shadow-xl shadow-indigo-600/20"
               >
-                Shift Workflow <ICONS.ARROW_RIGHT className="w-3 h-3" />
-              </button>
+                Shift Workflow
+              </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -109,16 +127,29 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
               <div className="bg-slate-800 border border-slate-700 rounded-[24px] p-6 mt-6 animate-in slide-in-from-top-4 duration-300">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-sm font-semibold text-slate-400">Select Target Vector</p>
-                  <button onClick={()=>setIsMoveStageOpen(false)} className="text-slate-500 hover:text-white"><ICONS.CLOSE className="w-4 h-4" /></button>
+                  <Button
+                    id={`jaldee-leads-lead-${lead.uid}-stage-selector-close-button`}
+                    data-testid={`jaldee-leads-lead-${lead.uid}-stage-selector-close-button`}
+                    onClick={() => setIsMoveStageOpen(false)}
+                    variant="ghost"
+                    icon={<ICONS.CLOSE className="w-4 h-4" />}
+                    iconOnly
+                    aria-label="Close stage selector"
+                    className="text-slate-500 hover:text-white"
+                  />
                 </div>
                 <div className="flex flex-wrap gap-2.5">
                   {currentPipeline.stages.map(stage => (
-                    <button
+                    <Button
+                      id={`jaldee-leads-lead-${lead.uid}-stage-${stage.uid}-button`}
+                      data-testid={`jaldee-leads-lead-${lead.uid}-stage-${stage.uid}-button`}
+                      data-active={lead.currentPipelineStageUid === stage.uid}
                       key={stage.uid}
                       onClick={() => {
                         onUpdate({...lead, currentPipelineStageUid: stage.uid, currentPipelineStageName: stage.stageName});
                         setIsMoveStageOpen(false);
                       }}
+                      variant={lead.currentPipelineStageUid === stage.uid ? "primary" : "outline"}
                       className={cn(
                         "px-4 py-2 text-sm font-semibold border-2 rounded-xl transition-all active-scale",
                         lead.currentPipelineStageUid === stage.uid 
@@ -127,7 +158,7 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
                       )}
                     >
                       {stage.stageName}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -138,9 +169,13 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
         {/* Tab Navigation */}
         <div className="flex bg-white px-10 gap-10 border-b border-slate-100 shrink-0">
           {['details', 'timeline', 'notes'].map(tab => (
-            <button
+            <Button
+              id={`jaldee-leads-lead-${lead.uid}-${tab}-tab`}
+              data-testid={`jaldee-leads-lead-${lead.uid}-${tab}-tab`}
+              data-active={activeTab === tab}
               key={tab}
               onClick={() => setActiveTab(tab as any)}
+              variant="ghost"
               className={cn(
                 "py-6 text-sm font-semibold transition-all relative",
                 activeTab === tab 
@@ -149,7 +184,7 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
               )}
             >
               {tab}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -216,7 +251,9 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
                       <p className="text-sm font-semibold text-slate-400">System Priority Handler</p>
                     </div>
                   </div>
-                  <button className="bg-slate-50 text-indigo-600 text-sm font-semibold border border-slate-200 px-6 py-3 rounded-2xl hover:bg-indigo-50 hover:border-indigo-100 transition-all active-scale">Reassign Link</button>
+                  <Button id={`jaldee-leads-lead-${lead.uid}-reassign-link-button`} data-testid={`jaldee-leads-lead-${lead.uid}-reassign-link-button`} variant="outline" className="text-indigo-600 text-sm font-semibold px-6 py-3 rounded-2xl">
+                    Reassign Link
+                  </Button>
                 </div>
               </section>
             </div>
@@ -246,9 +283,11 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm overflow-hidden flex flex-col">
                  <h3 className="text-sm font-semibold text-slate-400 mb-6 leading-none">Internal Annotations</h3>
-                <textarea placeholder="Append data to record..." className="w-full text-base font-medium text-slate-800 outline-none resize-none bg-slate-50 p-6 rounded-3xl border-2 border-transparent focus:border-indigo-600 focus:bg-white transition-all placeholder:text-slate-300" rows={4}></textarea>
+                <Textarea id={`jaldee-leads-lead-${lead.uid}-note-textarea`} data-testid={`jaldee-leads-lead-${lead.uid}-note-textarea`} placeholder="Append data to record..." className="w-full text-base font-medium text-slate-800 resize-none bg-slate-50 p-6 rounded-3xl border-2 border-transparent focus:border-indigo-600 focus:bg-white transition-all placeholder:text-slate-300" rows={4} />
                 <div className="flex justify-end mt-6">
-                  <button className="bg-indigo-600 text-white px-8 py-3.5 rounded-2xl text-sm font-semibold shadow-xl shadow-indigo-600/30 hover:bg-black transition-all active-scale">Commit Note</button>
+                  <Button id={`jaldee-leads-lead-${lead.uid}-commit-note-button`} data-testid={`jaldee-leads-lead-${lead.uid}-commit-note-button`} variant="primary" className="px-8 py-3.5 rounded-2xl text-sm font-semibold shadow-xl shadow-indigo-600/30">
+                    Commit Note
+                  </Button>
                 </div>
               </div>
               

@@ -35,46 +35,163 @@ function unwrap<T>(value: unknown): T {
   return (root?.data ?? root?.content ?? root?.records ?? root?.items ?? value) as T;
 }
 
+function firstString(...values: unknown[]) {
+  const value = values.find((item) => item != null && String(item).trim() !== "");
+  return value == null ? "" : String(value);
+}
+
+function optionalString(...values: unknown[]) {
+  const value = firstString(...values);
+  return value || undefined;
+}
+
+function fullName(...parts: unknown[]) {
+  return parts.map((part) => String(part ?? "").trim()).filter(Boolean).join(" ");
+}
+
 function toLead(raw: any): CrmLeadDto {
+  const consumer = raw?.consumer ?? raw?.customer ?? raw?.prospect ?? raw?.leadConsumer ?? {};
+  const channel = raw?.channel ?? raw?.leadChannel ?? {};
+  const product =
+    raw?.product ??
+    raw?.service ??
+    raw?.leadProduct ??
+    raw?.targetProduct ??
+    raw?.offeredProduct ??
+    raw?.productOffered ??
+    {};
+  const pipeline = raw?.pipeline ?? raw?.leadPipeline ?? {};
+  const currentStage = raw?.currentStage ?? raw?.currentPipelineStage ?? raw?.stage ?? {};
+  const owner =
+    raw?.owner ??
+    raw?.assignee ??
+    raw?.assignedTo ??
+    raw?.assignedUser ??
+    raw?.assignedProvider ??
+    raw?.leadOwner ??
+    raw?.salesOwner ??
+    raw?.salesPerson ??
+    raw?.salesRep ??
+    raw?.user ??
+    {};
+  const location = raw?.location ?? raw?.leadLocation ?? {};
+  const firstName = firstString(
+    raw?.consumerFirstName,
+    raw?.firstName,
+    raw?.customerFirstName,
+    consumer?.firstName,
+    consumer?.consumerFirstName,
+    consumer?.name?.firstName
+  );
+  const lastName = firstString(
+    raw?.consumerLastName,
+    raw?.lastName,
+    raw?.customerLastName,
+    consumer?.lastName,
+    consumer?.consumerLastName,
+    consumer?.name?.lastName
+  );
+  const displayName = fullName(firstName, lastName) || firstString(raw?.consumerName, raw?.customerName, raw?.leadName, consumer?.name, consumer?.fullName);
+  const [fallbackFirstName = "", ...fallbackLastName] = displayName.split(/\s+/).filter(Boolean);
+
   return {
-    uid: String(raw?.uid ?? raw?.uuid ?? ""),
-    referenceNo: String(raw?.referenceNo ?? ""),
-    leadDate: String(raw?.leadDate ?? raw?.createdAt ?? ""),
-    channelUid: String(raw?.channelUid ?? raw?.channel?.uid ?? ""),
-    channelName: String(raw?.channelName ?? raw?.channel?.name ?? ""),
-    channelType: (raw?.channelType ?? raw?.channel?.type ?? "ONLINE") as ChannelType,
-    productUid: String(raw?.productUid ?? raw?.product?.uid ?? ""),
-    productName: String(raw?.productName ?? raw?.product?.name ?? ""),
-    productEnum: String(raw?.productEnum ?? raw?.product?.productEnum ?? ""),
-    pipelineUid: String(raw?.pipelineUid ?? raw?.pipeline?.uid ?? ""),
-    pipelineName: String(raw?.pipelineName ?? raw?.pipeline?.name ?? ""),
-    currentPipelineStageUid: String(raw?.currentPipelineStageUid ?? raw?.currentStage?.uid ?? ""),
-    currentPipelineStageName: String(raw?.currentPipelineStageName ?? raw?.currentStage?.stageName ?? ""),
-    consumerFirstName: String(raw?.consumerFirstName ?? ""),
-    consumerLastName: String(raw?.consumerLastName ?? ""),
-    consumerPhone: String(raw?.consumerPhone ?? ""),
-    consumerEmail: raw?.consumerEmail ?? undefined,
-    consumerGender: raw?.consumerGender ?? undefined,
-    consumerDob: raw?.consumerDob ?? undefined,
-    consumerAddress: raw?.consumerAddress ?? undefined,
-    consumerCity: raw?.consumerCity ?? undefined,
-    consumerState: raw?.consumerState ?? undefined,
-    consumerCountry: raw?.consumerCountry ?? undefined,
-    consumerPin: raw?.consumerPin ?? undefined,
-    company: raw?.company ?? undefined,
+    uid: firstString(raw?.uid, raw?.uuid, raw?.id, raw?.leadUid),
+    referenceNo: firstString(raw?.referenceNo, raw?.leadNo, raw?.leadNumber, raw?.leadId, raw?.displayId),
+    leadDate: firstString(raw?.leadDate, raw?.createdDate, raw?.createdAt, raw?.date),
+    channelUid: firstString(raw?.channelUid, raw?.channelId, channel?.uid, channel?.id),
+    channelName: firstString(raw?.channelName, channel?.name, channel?.channelName, raw?.sourceName, raw?.source),
+    channelType: (raw?.channelType ?? channel?.type ?? channel?.channelType ?? "DIRECT") as ChannelType,
+    productUid: firstString(
+      raw?.productUid,
+      raw?.productId,
+      raw?.crmProductUid,
+      raw?.crmProductId,
+      raw?.leadProductUid,
+      raw?.leadProductId,
+      raw?.serviceUid,
+      raw?.serviceId,
+      raw?.solutionUid,
+      raw?.solutionId,
+      raw?.targetProductUid,
+      raw?.targetProductId,
+      raw?.offeredProductUid,
+      raw?.offeredProductId,
+      product?.uid,
+      product?.id,
+      product?.productUid,
+      product?.productId
+    ),
+    productName: firstString(
+      raw?.productName,
+      raw?.crmProductName,
+      raw?.leadProductName,
+      raw?.targetProductName,
+      raw?.offeredProductName,
+      raw?.productOfferedName,
+      raw?.serviceDisplayName,
+      raw?.solutionName,
+      product?.name,
+      product?.displayName,
+      product?.productName,
+      raw?.serviceName
+    ),
+    productEnum: firstString(raw?.productEnum, raw?.productCode, raw?.serviceCode, product?.productEnum, product?.typeEnum, product?.code),
+    pipelineUid: firstString(raw?.pipelineUid, raw?.pipelineId, pipeline?.uid, pipeline?.id),
+    pipelineName: firstString(raw?.pipelineName, pipeline?.name, pipeline?.pipelineName),
+    currentPipelineStageUid: firstString(raw?.currentPipelineStageUid, raw?.stageUid, raw?.currentStageUid, currentStage?.uid, currentStage?.id),
+    currentPipelineStageName: firstString(raw?.currentPipelineStageName, raw?.stageName, raw?.currentStageName, currentStage?.stageName, currentStage?.name),
+    consumerFirstName: firstName || fallbackFirstName,
+    consumerLastName: lastName || fallbackLastName.join(" "),
+    consumerPhone: firstString(raw?.consumerPhone, raw?.phone, raw?.phoneNumber, raw?.mobile, consumer?.phone, consumer?.mobile, consumer?.phoneNumber),
+    consumerEmail: optionalString(raw?.consumerEmail, raw?.email, consumer?.email),
+    consumerGender: optionalString(raw?.consumerGender, raw?.gender, consumer?.gender),
+    consumerDob: optionalString(raw?.consumerDob, raw?.dob, raw?.dateOfBirth, consumer?.dob, consumer?.dateOfBirth),
+    consumerAddress: optionalString(raw?.consumerAddress, raw?.address, consumer?.address, location?.address),
+    consumerCity: optionalString(raw?.consumerCity, raw?.city, consumer?.city, location?.city),
+    consumerState: optionalString(raw?.consumerState, raw?.state, consumer?.state, location?.state),
+    consumerCountry: optionalString(raw?.consumerCountry, raw?.country, consumer?.country, location?.country),
+    consumerPin: optionalString(raw?.consumerPin, raw?.pin, raw?.zip, raw?.postalCode, consumer?.pin, location?.pin, location?.postalCode),
+    company: optionalString(raw?.company, raw?.companyName, raw?.businessName, consumer?.company, consumer?.companyName),
     expectedValue: raw?.expectedValue != null ? String(raw.expectedValue) : undefined,
     winProbability: raw?.winProbability != null ? Number(raw.winProbability) : undefined,
-    ownerId: String(raw?.ownerId ?? ""),
-    ownerName: String(raw?.ownerName ?? ""),
+    ownerId: firstString(
+      raw?.ownerId,
+      raw?.assigneeId,
+      raw?.assignedToId,
+      raw?.assignedUserId,
+      raw?.assignedProviderId,
+      raw?.leadOwnerId,
+      raw?.salesOwnerId,
+      raw?.salesPersonId,
+      raw?.salesRepId,
+      owner?.uid,
+      owner?.id,
+      owner?.userId
+    ),
+    ownerName: firstString(
+      raw?.ownerName,
+      raw?.assigneeName,
+      raw?.assignedToName,
+      raw?.assignedUserName,
+      raw?.assignedProviderName,
+      raw?.leadOwnerName,
+      raw?.salesOwnerName,
+      raw?.salesPersonName,
+      raw?.salesRepName,
+      raw?.updatedByName,
+      owner?.name,
+      owner?.userName,
+      fullName(owner?.firstName, owner?.lastName)
+    ),
     assignees: Array.isArray(raw?.assignees) ? raw.assignees : [],
-    priority: (raw?.priority ?? "NORMAL") as Priority,
+    priority: (raw?.priority ?? raw?.leadPriority ?? "NORMAL") as Priority,
     tags: Array.isArray(raw?.tags) ? raw.tags : [],
-    internalStatus: (raw?.internalStatus ?? "ACTIVE") as InternalStatus,
+    internalStatus: (raw?.internalStatus ?? raw?.status ?? raw?.leadStatus ?? "ACTIVE") as InternalStatus,
     isRejected: Boolean(raw?.isRejected ?? raw?.rejected),
     isConverted: Boolean(raw?.isConverted ?? raw?.converted),
     isDuplicate: Boolean(raw?.isDuplicate ?? raw?.duplicate),
-    nextFollowupAt: raw?.nextFollowupAt ?? undefined,
-    lastActivityAt: String(raw?.lastActivityAt ?? raw?.updatedAt ?? ""),
+    nextFollowupAt: raw?.nextFollowupAt ?? raw?.nextFollowUpAt ?? raw?.followupAt ?? raw?.followUpDate ?? undefined,
+    lastActivityAt: firstString(raw?.lastActivityAt, raw?.updatedAt, raw?.updatedDate),
     generalNotes: Array.isArray(raw?.generalNotes) ? raw.generalNotes : [],
     stageHistory: Array.isArray(raw?.stageHistory) ? raw.stageHistory : [],
     attachments: Array.isArray(raw?.attachments) ? raw.attachments : [],
@@ -117,6 +234,7 @@ function toLeadPayload(lead: Partial<CrmLeadDto>) {
     company: lead.company?.trim() || undefined,
     channelUid: lead.channelUid || undefined,
     productUid: lead.productUid || undefined,
+    productName: lead.productName || undefined,
     pipelineUid: lead.pipelineUid || undefined,
     currentPipelineStageUid: lead.currentPipelineStageUid || undefined,
     priority: lead.priority || "NORMAL",
@@ -131,8 +249,8 @@ export const leadService = {
   async search(filters: Record<string, unknown> = {}, params: LeadSearchParams = { page: 0, size: 100 }) {
     const response = await apiClient.post(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search),
-      filters,
-      withoutLocationParam(params)
+      { ...filters, status: "ACTIVE", page: params.page, size: params.size },
+      withoutLocationParam()
     );
     return toLeadList(response);
   },
@@ -160,6 +278,26 @@ export const leadService = {
       withoutLocationParam()
     );
     return toLead(unwrap(response));
+  },
+
+  async completeStage(uid: string) {
+    const response = await apiClient.patch(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadStageProgress.completeStage(uid)),
+      undefined,
+      withoutLocationParam()
+    );
+    const unwrapped = unwrap(response);
+    return unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
+  },
+
+  async previousStage(uid: string, payload: Record<string, unknown> = {}) {
+    const response = await apiClient.patch(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadStageProgress.previousStage(uid)),
+      payload,
+      withoutLocationParam()
+    );
+    const unwrapped = unwrap(response);
+    return unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
   },
 
   async updateStatus(uid: string, status: string) {
@@ -198,6 +336,19 @@ export const leadService = {
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.unassign(uid)),
       undefined,
       withoutLocationParam()
+    );
+    return unwrap(response);
+  },
+  async getLogs(filter: Record<string, any> = {}) {
+    const { from, count, ...rest } = filter;
+    const response = await apiClient.get(
+      buildBaseServiceUrl("/base-service/v1/api/tenant/audit-logs"),
+      withoutLocationParam({
+        ...rest, 
+        ...(from !== undefined && count !== undefined ? { page: Math.floor(from / count) } : from !== undefined ? { page: from } : {}),
+        ...(count !== undefined && { size: count }),
+        auditlogContext: "CRM_LEAD" 
+      })
     );
     return unwrap(response);
   },

@@ -14,10 +14,10 @@ const pathValue = (value: string | number) => encodeURIComponent(String(value));
 
 export const BASE_SERVICE_ENDPOINTS = {
   auditLogs: {
-    search: "/base-service/v1/api/audit-logs",
-    detail: (id: string | number) => `/base-service/v1/api/audit-logs/${pathValue(id)}`,
-    count: "/base-service/v1/api/audit-logs/count",
-    byEvent: (eventUuid: string) => `/base-service/v1/api/audit-logs/event/${pathValue(eventUuid)}`,
+    search: "/base-service/v1/api/tenant/audit-logs",
+    detail: (id: string | number) => `/base-service/v1/api/tenant/audit-logs/${pathValue(id)}`,
+    count: "/base-service/v1/api/tenant/audit-logs/count",
+    byEvent: (eventUuid: string) => `/base-service/v1/api/tenant/audit-logs/event/${pathValue(eventUuid)}`,
   },
   consumerTasks: {
     list: "/base-service/v1/api/tasks/consumer",
@@ -70,18 +70,18 @@ export const BASE_SERVICE_ENDPOINTS = {
     customValidationMultiple: "/base-service/v1/api/health/custom-validation/multiple",
   },
   locations: {
-    search: "/base-service/v1/api/locations",
-    create: "/base-service/v1/api/locations",
-    detail: (uid: string) => `/base-service/v1/api/locations/${pathValue(uid)}`,
-    update: (uid: string) => `/base-service/v1/api/locations/${pathValue(uid)}`,
-    setAsBase: (locationUid: string) => `/base-service/v1/api/locations/${pathValue(locationUid)}/set-as-base`,
+    search: "/base-service/v1/api/tenant/locations",
+    create: "/base-service/v1/api/tenant/locations",
+    detail: (uid: string) => `/base-service/v1/api/tenant/locations/${pathValue(uid)}`,
+    update: (uid: string) => `/base-service/v1/api/tenant/locations/${pathValue(uid)}`,
+    setAsBase: (locationUid: string) => `/base-service/v1/api/tenant/locations/${pathValue(locationUid)}/set-as-base`,
     status: (uid: string, status: string | number) =>
-      `/base-service/v1/api/locations/${pathValue(uid)}/status/${pathValue(status)}`,
-    baseLocation: "/base-service/v1/api/locations/base-location",
-    count: "/base-service/v1/api/locations/count",
-    byId: (id: string | number) => `/base-service/v1/api/locations/id/${pathValue(id)}`,
+      `/base-service/v1/api/tenant/locations/${pathValue(uid)}/status/${pathValue(status)}`,
+    baseLocation: "/base-service/v1/api/tenant/locations/base-location",
+    count: "/base-service/v1/api/tenant/locations/count",
+    byId: (id: string | number) => `/base-service/v1/api/tenant/locations/id/${pathValue(id)}`,
     statusById: (id: string | number, status: string | number) =>
-      `/base-service/v1/api/locations/id/${pathValue(id)}/status/${pathValue(status)}`,
+      `/base-service/v1/api/tenant/locations/id/${pathValue(id)}/status/${pathValue(status)}`,
   },
   taskCategories: {
     list: "/base-service/v1/api/tasks/categories",
@@ -287,6 +287,7 @@ export const BASE_SERVICE_ENDPOINTS = {
       `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(pipelineUid)}/stages/reorder`,
     detail: (uid: string) => `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(uid)}`,
     update: (uid: string) => `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(uid)}`,
+    delete: (uid: string) => `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(uid)}`,
     activate: (uid: string) => `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(uid)}/activate`,
     clone: (uid: string) => `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(uid)}/clone`,
     deactivate: (uid: string) => `/base-service/v1/api/tenant/crm/leads/pipelines/${pathValue(uid)}/deactivate`,
@@ -339,6 +340,10 @@ export const BASE_SERVICE_ENDPOINTS = {
     reopen: (uid: string) => `/base-service/v1/api/tenant/crm/leads/${pathValue(uid)}/reopen`,
     history: (uid: string) => `/base-service/v1/api/tenant/crm/leads/${pathValue(uid)}/stage/history`,
     progress: (uid: string) => `/base-service/v1/api/tenant/crm/leads/${pathValue(uid)}/stage/progress`,
+    completeStage: (uid: string) =>
+      `/base-service/v1/api/tenant/crm/leads/stages/progress/${pathValue(uid)}/stage/complete`,
+    previousStage: (uid: string) =>
+      `/base-service/v1/api/tenant/crm/leads/stages/progress/${pathValue(uid)}/stage/previous`,
   },
   crmLeadTemplates: {
     list: "/base-service/v1/api/tenant/crm/leads/templates",

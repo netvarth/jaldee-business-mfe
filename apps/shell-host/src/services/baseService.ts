@@ -65,7 +65,7 @@ export const baseService = {
   async getLocations(): Promise<BranchLocation[]> {
     const response = await apiClient.get<unknown>(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.search),
-      { params: { size: 100 } },
+      { params: { page: 0, size: 100 } },
     );
     return normalizeBaseLocations(response.data);
   },

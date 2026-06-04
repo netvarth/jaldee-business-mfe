@@ -1,6 +1,6 @@
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW';
 export type InternalStatus = 'ACTIVE' | 'REJECTED' | 'COMPLETED' | 'NO_RESPONSE';
-export type ChannelType = 'WALK_IN' | 'ONLINE' | 'REFERRAL' | 'CHATBOT' | 'PHONE';
+export type ChannelType = 'DIRECT' | 'QRCODE' | 'WHATSAPP' | 'TELEGRAM' | 'IVR' | 'BRANDEDAPP' | 'FACEBOOK' | 'INSTAGRAM' | 'SDK';
 export type TerminalType = 'WON' | 'LOST' | 'JUNK';
 
 export interface Assignee {
@@ -179,7 +179,7 @@ export interface User {
 export interface Channel {
   uid: string;
   name: string;
-  type: ChannelType;
+  channelType: ChannelType;
   location?: string;
   productUid?: string;
   productUids?: string[];

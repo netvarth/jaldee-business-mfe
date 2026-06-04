@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { format } from '../lib/dateUtils';
-import { cn } from '../lib/utils';
-import { PageHeader, SectionCard, Button, Input, Dialog, DialogFooter } from "@jaldee/design-system";
+import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
+import { PageHeader, SectionCard, Button, Input, Dialog, DialogFooter, DataTable, EmptyState } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
+import { leadService } from '../services/leadService';
 
 interface AuditRecord {
   id: string;
@@ -95,19 +98,48 @@ const mockAuditLogs: AuditRecord[] = [
 ];
 
 export default function AuditLogScreen() {
-  const [logs, setLogs] = useState<AuditRecord[]>(mockAuditLogs);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const showDashboardBack = cameFromDashboard(location);
+  const [logs, setLogs] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
-  const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    leadService.getLogs({ page: 0, size: 100 })
+      .then((data: any) => {
+        if (active) {
+          // ensure data is an array
+          const arr = Array.isArray(data) ? data : data?.content || [];
+          setLogs(arr);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch audit logs", err);
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
-      log.actor.toLowerCase().includes(search.toLowerCase()) ||
-      log.action.toLowerCase().includes(search.toLowerCase()) ||
-      log.details.toLowerCase().includes(search.toLowerCase()) ||
-      log.id.toLowerCase().includes(search.toLowerCase());
+    const actor = String(log.actorUserName || log.actor || log.userName || log.user || 'System');
+    const action = String(log.action || log.event || log.actionName || 'Unknown');
+    const details = String(log.message || log.details || log.description || '');
+    const id = String(log.id || log.uid || '');
     
-    const matchesCategory = filterCategory === 'ALL' || log.category === filterCategory;
+    const matchesSearch = 
+      actor.toLowerCase().includes(search.toLowerCase()) ||
+      action.toLowerCase().includes(search.toLowerCase()) ||
+      details.toLowerCase().includes(search.toLowerCase()) ||
+      id.toLowerCase().includes(search.toLowerCase());
+    
+    const cat = log.category || 'INGEST';
+    const matchesCategory = filterCategory === 'ALL' || cat === filterCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -122,14 +154,100 @@ export default function AuditLogScreen() {
     downloadAnchor.remove();
   };
 
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        key: "subject",
+        header: "Subject",
+        width: 160,
+        render: (log) => <span className="font-semibold text-slate-900">{String(log.subject || '-')}</span>,
+      },
+      {
+        key: "message",
+        header: "Message",
+        width: 320,
+        render: (log) => (
+          <p className="text-sm text-slate-500 line-clamp-2 font-medium leading-relaxed">
+            {String(log.message || log.details || log.description || 'No additional details provided')}
+          </p>
+        ),
+      },
+      {
+        key: "action",
+        header: "Action",
+        width: 180,
+        render: (log) => (
+          <span className="px-2 py-0.5 border border-purple-150 bg-purple-50 text-[#5D40A8] text-xs font-semibold rounded-sm">
+            {String(log.action || log.event || log.actionName || 'Unknown')}
+          </span>
+        ),
+      },
+      {
+        key: "updatedBy",
+        header: "Updated By",
+        width: 180,
+        render: (log) => {
+          const updatedByName = String(log.updatedByName || log.actorUserName || log.actor || log.userName || 'System');
+          return (
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+                {updatedByName.substring(0, 2).toUpperCase()}
+              </div>
+              <span className="font-semibold text-slate-800">{updatedByName}</span>
+            </div>
+          );
+        },
+      },
+      {
+        key: "updatedAt",
+        header: "Updated At",
+        width: 190,
+        render: (log) => {
+          const updatedAt = log.updatedAt || log.createdAt || log.timestamp || new Date().toISOString();
+          return <span className="font-medium text-slate-500">{format(new Date(updatedAt), 'dd MMM yyyy HH:mm:ss')}</span>;
+        },
+      },
+      {
+        key: "inspect",
+        header: "Inspect",
+        align: "right",
+        width: 120,
+        render: (log) => (
+          log.metadata || log.afterState || log.beforeState || log.payload ? (
+            <Button
+              id={`jaldee-leads-audit-log-${String(log.id || log.uid)}-inspect-button`}
+              data-testid={`jaldee-leads-audit-log-${String(log.id || log.uid)}-inspect-button`}
+              size="sm"
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSelectedRecord(log);
+              }}
+              className="text-xs font-semibold"
+            >
+              Inspect
+            </Button>
+          ) : (
+            <span className="text-slate-300 text-xs font-medium italic">-</span>
+          )
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
-    <div className="h-full bg-slate-50 overflow-y-auto no-scrollbar font-sans text-slate-900 flex flex-col p-4 sm:p-6 md:p-8 space-y-8">
+    <div data-testid="jaldee-leads-audit-log-page" data-state={loading ? "loading" : filteredLogs.length === 0 ? "empty" : "ready"} className="h-full bg-slate-50 overflow-y-auto no-scrollbar font-sans text-slate-900 flex flex-col p-4 sm:p-6 md:p-8 space-y-8">
       {/* 1. Creative Title Area */}
       <PageHeader
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        onNavigate={() => navigateBackToDashboard(navigate)}
         title="Global Compliance & Activity Log"
         subtitle="Immutable cryptographic audit logs for stream ingestion operations"
         actions={
           <Button
+            id="jaldee-leads-audit-log-export-button"
+            data-testid="jaldee-leads-audit-log-export-button"
             onClick={downloadSimulatedJSON}
             variant="primary"
             icon={<ICONS.DOWNLOAD className="w-4 h-4 text-purple-200" />}
@@ -180,6 +298,8 @@ export default function AuditLogScreen() {
             {/* Search input to target logs */}
             <div className="relative flex-1 max-w-md">
               <Input
+                id="jaldee-leads-audit-log-search-input"
+                data-testid="jaldee-leads-audit-log-search-input"
                 type="text"
                 placeholder="Search audit trail actor, action or ref..."
                 value={search}
@@ -192,110 +312,37 @@ export default function AuditLogScreen() {
             {/* Filter buttons */}
             <div className="flex flex-wrap gap-2 text-xs font-semibold">
               {['ALL', 'CONFIG', 'INGEST', 'USER_AUTH', 'PIPELINE', 'DATA'].map((cat) => (
-                <button
+                <Button
+                  id={`jaldee-leads-audit-log-filter-${cat.toLowerCase().replace('_', '-')}-button`}
+                  data-testid={`jaldee-leads-audit-log-filter-${cat.toLowerCase().replace('_', '-')}-button`}
+                  data-active={filterCategory === cat}
                   key={cat}
                   onClick={() => setFilterCategory(cat)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl border transition-all cursor-pointer",
-                    filterCategory === cat 
-                      ? "bg-[#5D40A8] border-[#5D40A8] text-white shadow-md shadow-[#5D40A8]/10" 
-                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-500"
-                  )}
+                  variant={filterCategory === cat ? "primary" : "outline"}
+                  size="sm"
+                  className="text-xs font-semibold"
                 >
                   {cat === 'ALL' ? 'ALL OPERATIONS' : cat}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#FAF9FC] text-xs font-semibold text-slate-400 border-b border-slate-200 select-none">
-                <tr>
-                  <th className="px-6 py-4.5 text-left font-semibold">LOG ID & IP</th>
-                  <th className="px-6 py-4.5 text-left font-semibold">DATE & HOUR</th>
-                  <th className="px-6 py-4.5 text-left font-semibold">ACTURED BY</th>
-                  <th className="px-6 py-4.5 text-left font-semibold">EVENT ACTION</th>
-                  <th className="px-6 py-4.5 text-left font-semibold text-right">PAYLOAD SCHEMA</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {filteredLogs.map((log) => {
-                  let badgeColors = "bg-purple-50 text-[#5D40A8] border-purple-150";
-                  if (log.status === 'WARNING') badgeColors = "bg-amber-50 text-amber-600 border-amber-150";
-                  if (log.status === 'CRITICAL') badgeColors = "bg-rose-50 text-rose-600 border-rose-150";
-
-                  return (
-                    <tr key={log.id} className="hover:bg-[#FAF9FC] transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-mono font-semibold text-slate-900">
-                            {log.id}
-                          </span>
-                          <span className="text-xs font-mono text-slate-400 mt-1">
-                            IP: {log.ip}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-slate-500">
-                          {format(new Date(log.timestamp), 'dd MMM yyyy • HH:mm:ss')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                            {log.actor.substring(0,2).toUpperCase()}
-                          </div>
-                          <span className="font-semibold text-slate-800">
-                            {log.actor}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("px-2 py-0.5 border text-xs font-semibold rounded-sm", badgeColors)}>
-                              {log.category}
-                            </span>
-                            <span className="font-semibold text-slate-900">
-                              {log.action}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-500 max-w-md line-clamp-1 group-hover:line-clamp-none font-medium leading-relaxed">
-                            {log.details}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {log.payload ? (
-                          <button
-                            onClick={() => setSelectedRecord(log)}
-                            className="text-xs font-semibold text-[#5D40A8] bg-purple-50 border border-purple-150 hover:bg-[#5D40A8] hover:text-white px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                          >
-                            Inspection
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-440 font-bold italic">
-                            Empty
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {filteredLogs.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-24 text-center text-slate-400 text-xs font-bold italic leading-loose">
-                      No matching audit parameters logged in this database cycle.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div data-testid="jaldee-leads-audit-log-table" data-state={loading ? "loading" : filteredLogs.length === 0 ? "empty" : "ready"} className="p-6 pt-4">
+            <DataTable
+              data={filteredLogs}
+              columns={columns}
+              getRowId={(log) => String(log.id || log.uid || `${log.action || 'log'}-${log.updatedAt || log.createdAt || log.timestamp}`)}
+              loading={loading}
+              emptyState={
+                <EmptyState
+                  data-testid="jaldee-leads-audit-log-empty-state"
+                  title="No matching audit records"
+                  description="Adjust the current filters to review activity logs."
+                />
+              }
+            />
           </div>
-
           <div className="bg-slate-50 border-t border-slate-150 p-5 flex items-center justify-between text-xs font-bold text-slate-400 select-none">
             <span>Regulatory Engine Verified</span>
             <span className="text-emerald-500 font-semibold flex items-center gap-1.5">
@@ -308,6 +355,8 @@ export default function AuditLogScreen() {
 
       {/* JSON Inspection dialogue modal */}
       <Dialog
+        data-testid="jaldee-leads-audit-log-inspector-dialog"
+        data-state={selectedRecord ? "open" : "closed"}
         open={!!selectedRecord}
         onClose={() => setSelectedRecord(null)}
         title="Crypto Payload Node Inspector"
@@ -317,22 +366,43 @@ export default function AuditLogScreen() {
         {selectedRecord && (
           <div className="space-y-6">
             <div className="text-sm space-y-2">
-              <p className="text-slate-400 text-xs font-sans font-semibold">Log Event Details:</p>
-              <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-slate-300 font-sans font-bold leading-relaxed text-xs font-sans">
-                {selectedRecord.details}
+              <p className="text-slate-400 text-xs font-sans font-semibold">Log Event Message:</p>
+              <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-slate-300 font-sans font-bold leading-relaxed text-xs">
+                {selectedRecord.message || selectedRecord.details || 'No message provided'}
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className="text-slate-400 text-xs font-sans font-semibold">Metadata Payload:</p>
-              <pre className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-sm font-bold text-emerald-400 overflow-x-auto max-h-48 no-scrollbar">
-                {JSON.stringify(selectedRecord.payload, null, 2)}
+              <p className="text-slate-400 text-xs font-sans font-semibold">Metadata & Changes:</p>
+              <pre className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-xs font-medium text-emerald-400 overflow-x-auto max-h-48 no-scrollbar">
+                {JSON.stringify(selectedRecord.metadata || {}, null, 2)}
               </pre>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {selectedRecord.beforeState && (
+                <div className="space-y-2">
+                  <p className="text-slate-400 text-xs font-sans font-semibold">Before State:</p>
+                  <pre className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-xs font-medium text-amber-400/80 overflow-x-auto max-h-64 no-scrollbar">
+                    {JSON.stringify(selectedRecord.beforeState, null, 2)}
+                  </pre>
+                </div>
+              )}
+              {selectedRecord.afterState && (
+                <div className="space-y-2">
+                  <p className="text-slate-400 text-xs font-sans font-semibold">After State:</p>
+                  <pre className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-xs font-medium text-sky-400/80 overflow-x-auto max-h-64 no-scrollbar">
+                    {JSON.stringify(selectedRecord.afterState, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           </div>
         )}
         <DialogFooter className="bg-slate-950">
           <Button
+            id="jaldee-leads-audit-log-inspector-close-button"
+            data-testid="jaldee-leads-audit-log-inspector-close-button"
             onClick={() => setSelectedRecord(null)}
             variant="ghost"
             className="text-white hover:bg-slate-800"
@@ -344,3 +414,4 @@ export default function AuditLogScreen() {
     </div>
   );
 }
+

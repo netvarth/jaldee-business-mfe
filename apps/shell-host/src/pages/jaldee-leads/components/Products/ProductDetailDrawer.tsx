@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@jaldee/design-system';
 import { Product, CrmLeadPipelineDto } from '../../types';
 import { cn } from '../../lib/utils';
 import { ICONS } from '../../constants';
@@ -14,7 +15,7 @@ export function ProductDetailDrawer({ product, onClose, onUpdate }: ProductDetai
   const currentPipeline = mockPipelines.find(p => p.uid === product.defaultPipelineUid);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div data-testid={`jaldee-leads-product-${product.uid}-detail-drawer`} data-state="open" className="fixed inset-0 z-50 flex justify-end">
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" 
         onClick={onClose} 
@@ -43,9 +44,16 @@ export function ProductDetailDrawer({ product, onClose, onUpdate }: ProductDetai
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-2xl transition-all active-scale">
-            <ICONS.CLOSE className="w-6 h-6" />
-          </button>
+          <Button
+            id={`jaldee-leads-product-${product.uid}-drawer-close-button`}
+            data-testid={`jaldee-leads-product-${product.uid}-drawer-close-button`}
+            onClick={onClose}
+            variant="ghost"
+            icon={<ICONS.CLOSE className="w-6 h-6" />}
+            iconOnly
+            aria-label="Close product details"
+            className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-2xl"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-8 no-scrollbar">
@@ -73,7 +81,9 @@ export function ProductDetailDrawer({ product, onClose, onUpdate }: ProductDetai
                  <p className="font-semibold text-slate-900 text-lg">
                    {currentPipeline?.name || 'GENERIC_PIPELINE'}
                  </p>
-                 <button className="text-indigo-600 font-semibold text-sm hover:underline">Re-Map</button>
+                 <Button id={`jaldee-leads-product-${product.uid}-remap-button`} data-testid={`jaldee-leads-product-${product.uid}-remap-button`} variant="ghost" size="sm" className="text-indigo-600 font-semibold text-sm">
+                   Re-Map
+                 </Button>
                </div>
             </div>
           </section>

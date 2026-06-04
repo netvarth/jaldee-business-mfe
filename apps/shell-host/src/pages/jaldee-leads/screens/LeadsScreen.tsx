@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel, FormTemplate } from '../types';
-import CreateLeadScreen from './CreateLeadScreen';
-import LeadDetailScreen from './LeadDetailScreen';
 import { ICONS } from '../constants';
-import { cn } from '../lib/utils';
 import { format } from '../lib/dateUtils';
-import { Button, Badge, Input, Select, Tabs, PageHeader, SectionCard } from "@jaldee/design-system";
+import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
+import { Button, Badge, Select, Tabs, PageHeader, SectionCard, DataTable, DataTableToolbar, EmptyState } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 
 interface LeadsScreenProps {
   leads: CrmLeadDto[];
@@ -36,29 +36,14 @@ export default function LeadsScreen({
   fetchChannels,
   fetchTemplates
 }: LeadsScreenProps) {
-  const [isCreatingLead, setIsCreatingLead] = useState(!!initialForceCreate);
-  const [selectedLead, setSelectedLead] = useState<CrmLeadDto | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const showDashboardBack = cameFromDashboard(location);
   const [search, setSearch] = useState('');
   const [statusTab, setStatusTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'REJECTED' | 'OVERDUE' | 'UNASSIGNED'>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
-  React.useEffect(() => {
-    if (isCreatingLead) {
-      fetchPipelines?.();
-      fetchProducts?.();
-      fetchChannels?.();
-      fetchTemplates?.();
-    }
-  }, [isCreatingLead, fetchPipelines, fetchProducts, fetchChannels, fetchTemplates]);
-
-  React.useEffect(() => {
-    if (selectedLead) {
-      fetchPipelines?.();
-      fetchProducts?.();
-    }
-  }, [selectedLead, fetchPipelines, fetchProducts]);
-
-  const filteredLeads = leads.filter(lead => {
+  const filteredLeads = useMemo(() => leads.filter(lead => {
     // Search filter
     const matchesSearch = 
       (lead.consumerFirstName?.toLowerCase() || '').includes(search.toLowerCase()) || 
@@ -88,7 +73,7 @@ export default function LeadsScreen({
     }
 
     return matchesSearch && matchesPriority && matchesTab;
-  });
+  }), [leads, priorityFilter, search, statusTab]);
 
   const getStatusVariant = (status: string, isConverted?: boolean, isRejected?: boolean) => {
     if (isConverted) return 'success';
@@ -110,62 +95,178 @@ export default function LeadsScreen({
     }
   };
 
-  if (isCreatingLead) {
-    return (
-      <CreateLeadScreen 
-        pipelines={pipelines}
-        products={products}
-        channels={channels}
-        leads={leads}
-        forms={forms}
-        onBack={() => setIsCreatingLead(false)}
-        onSave={(newLead) => {
-          setLeads([newLead, ...leads]);
-          setIsCreatingLead(false);
-        }}
-      />
-    );
-  }
-
-  if (selectedLead) {
-    return (
-      <LeadDetailScreen 
-        lead={selectedLead}
-        pipelines={pipelines}
-        setPipelines={setPipelines}
-        products={products}
-        leads={leads}
-        onBack={() => setSelectedLead(null)}
-        onUpdate={(updatedLead) => {
-          setLeads(leads.map(l => l.uid === updatedLead.uid ? updatedLead : l));
-          setSelectedLead(updatedLead);
-        }}
-      />
-    );
-  }
+  const columns = useMemo<ColumnDef<CrmLeadDto>[]>(
+    () => [
+      {
+        key: "leadName",
+        header: "Lead Name",
+        width: 240,
+        render: (lead) => (
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-semibold text-sm shrink-0">
+              {lead.consumerFirstName?.[0] || 'L'}{lead.consumerLastName?.[0] || ''}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-900 text-sm truncate mb-1">
+                {lead.consumerFirstName} {lead.consumerLastName}
+              </p>
+              <span className="text-xs font-mono text-slate-400">{lead.referenceNo}</span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "internalStatus",
+        header: "Status",
+        width: 140,
+        render: (lead) => (
+          <Badge variant={getStatusVariant(lead.internalStatus, lead.isConverted, lead.isRejected)} dot>
+            {lead.isConverted ? 'CONVERTED' : lead.isRejected ? 'REJECTED' : lead.internalStatus}
+          </Badge>
+        ),
+      },
+      {
+        key: "pipelineName",
+        header: "Pipeline",
+        width: 160,
+        render: (lead) => <span className="font-semibold text-slate-600">{lead.pipelineName || 'STANDARD'}</span>,
+      },
+      {
+        key: "productName",
+        header: "Product/Service",
+        width: 180,
+        render: (lead) => <span className="font-semibold text-slate-700">{lead.productName || 'GENERAL'}</span>,
+      },
+      {
+        key: "channelName",
+        header: "Channel",
+        width: 150,
+        render: (lead) => <span className="font-medium text-slate-500">{lead.channelName || 'DIRECT'}</span>,
+      },
+      {
+        key: "currentPipelineStageName",
+        header: "Stage",
+        width: 170,
+        render: (lead) => (
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
+            <span className="font-semibold text-slate-900">{lead.currentPipelineStageName || 'ASSESSING'}</span>
+          </div>
+        ),
+      },
+      {
+        key: "nextFollowupAt",
+        header: "Next Follow-up",
+        width: 170,
+        render: (lead) => (
+          <span className="font-mono text-slate-500 font-semibold">
+            {lead.nextFollowupAt ? format(new Date(lead.nextFollowupAt), 'dd MMM yy HH:mm') : 'NOT SET'}
+          </span>
+        ),
+      },
+      {
+        key: "priority",
+        header: "Priority",
+        width: 120,
+        render: (lead) => (
+          <Badge variant={getPriorityVariant(lead.priority)}>
+            {lead.priority}
+          </Badge>
+        ),
+      },
+      {
+        key: "ownerName",
+        header: "Owner",
+        width: 170,
+        render: (lead) => (
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-600 shrink-0">
+              {lead.ownerName?.[0] || 'U'}
+            </div>
+            <span className="font-semibold text-slate-500 truncate">{lead.ownerName || 'UNASSIGNED'}</span>
+          </div>
+        ),
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        width: 120,
+        align: "right",
+        render: (lead) => (
+          <Button
+            id={`jaldee-leads-lead-${lead.uid}-workspace-button`}
+            data-testid={`jaldee-leads-lead-${lead.uid}-workspace-button`}
+            variant="ghost"
+            size="sm"
+            className="text-sm font-semibold"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(`/jaldee-leads/leads/${lead.uid}`);
+            }}
+          >
+            Workspace
+          </Button>
+        ),
+      },
+    ],
+    [navigate],
+  );
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative">
+    <div data-testid="jaldee-leads-list-page" className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       <PageHeader
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        onNavigate={() => navigateBackToDashboard(navigate)}
         title="Leads Manager"
         subtitle="Ingested Portfolio & Operational Executions"
         actions={
-          <div className="flex flex-wrap items-center gap-4">
-            <Tabs
-              value={statusTab}
-              onValueChange={val => setStatusTab(val as any)}
-              className="border-b-0"
-              items={[
-                { value: 'ALL', label: 'All' },
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'COMPLETED', label: 'Completed' },
-                { value: 'REJECTED', label: 'Rejected' },
-                { value: 'OVERDUE', label: 'Overdue' },
-                { value: 'UNASSIGNED', label: 'Unassigned' }
-              ]}
-            />
+          <Button 
+            id="jaldee-leads-add-lead-button"
+            data-testid="jaldee-leads-add-lead-button"
+            onClick={() => navigate('/jaldee-leads/leads/create')}
+            variant="primary"
+            icon={<ICONS.ADD className="w-4 h-4" />}
+            className="px-6 h-10 text-sm font-semibold active-scale"
+          >
+            Add Lead
+          </Button>
+        }
+      />
+
+      <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+        <div className="border-b border-slate-200 px-6 py-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0 flex-1">
+              <div data-testid="jaldee-leads-list-search-toolbar">
+                <DataTableToolbar
+                  query={search}
+                  onQueryChange={setSearch}
+                  searchPlaceholder="Search leads..."
+                  recordCount={filteredLeads.length}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+            <div data-testid="jaldee-leads-list-status-tabs">
+              <Tabs
+                value={statusTab}
+                onValueChange={val => setStatusTab(val as any)}
+                className="border-b-0"
+                items={[
+                  { value: 'ALL', label: 'All' },
+                  { value: 'ACTIVE', label: 'Active' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'REJECTED', label: 'Rejected' },
+                  { value: 'OVERDUE', label: 'Overdue' },
+                  { value: 'UNASSIGNED', label: 'Unassigned' }
+                ]}
+              />
+            </div>
             
             <Select 
+              id="jaldee-leads-list-priority-filter"
+              data-testid="jaldee-leads-list-priority-filter"
               value={priorityFilter}
               onChange={e => setPriorityFilter(e.target.value)}
               options={[
@@ -178,140 +279,25 @@ export default function LeadsScreen({
               fullWidth={false}
               className="w-44 text-sm font-semibold text-slate-500 bg-white border border-slate-200 rounded-xl"
             />
-
-            <Input 
-              type="text" 
-              placeholder="Search leads..." 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              icon={<ICONS.SEARCH className="w-4 h-4 text-slate-400" />}
-              fullWidth={false}
-              className="w-full md:w-64"
-            />
-            
-            <Button 
-              onClick={() => setIsCreatingLead(true)}
-              variant="primary"
-              icon={<ICONS.ADD className="w-4 h-4" />}
-              className="px-8 h-10 text-xs font-semibold active-scale"
-            >
-              Add Lead
-            </Button>
+            </div>
           </div>
-        }
-      />
+        </div>
 
-      <div className="flex-1 mt-6">
-        <SectionCard>
-          <div className="overflow-x-auto no-scrollbar">
-            <table className="w-full text-left min-w-[1100px]">
-              <thead className="bg-slate-50/50 border-b border-slate-200 text-sm font-semibold text-slate-400">
-                <tr>
-                  <th className="pl-6 pr-3 py-4">Lead Name</th>
-                  <th className="px-3 py-4">Status</th>
-                  <th className="px-3 py-4">Product/Service</th>
-                  <th className="px-3 py-4">Channel</th>
-                  <th className="px-3 py-4">Pipeline</th>
-                  <th className="px-3 py-4">Stage</th>
-                  <th className="px-3 py-4">Next Follow-up</th>
-                  <th className="px-3 py-4">Priority</th>
-                  <th className="px-3 py-4">Owner</th>
-                  <th className="pr-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredLeads.map((lead, i) => (
-                  <tr 
-                    key={lead.uid} 
-                    className="hover:bg-slate-50/40 transition-colors cursor-pointer group text-slate-800" 
-                    onClick={() => setSelectedLead(lead)}
-                  >
-                    {/* Lead Name */}
-                    <td className="pl-6 pr-3 py-4.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-semibold text-sm shrink-0">
-                          {lead.consumerFirstName?.[0] || 'L'}{lead.consumerLastName?.[0] || ''}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 text-xs truncate mb-0.5">{lead.consumerFirstName} {lead.consumerLastName}</p>
-                          <span className="text-xs text-slate-440 font-mono text-slate-400">{lead.referenceNo}</span>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-3 py-4.5">
-                      <Badge variant={getStatusVariant(lead.internalStatus, lead.isConverted, lead.isRejected)} dot>
-                        {lead.isConverted ? 'CONVERTED' : lead.isRejected ? 'REJECTED' : lead.internalStatus}
-                      </Badge>
-                    </td>
-
-                    {/* Product/Service */}
-                    <td className="px-3 py-4.5">
-                      <p className="text-xs font-bold text-slate-700 truncate max-w-[150px]">{lead.productName || 'GENERAL'}</p>
-                    </td>
-
-                    {/* Channel */}
-                    <td className="px-3 py-4.5">
-                      <span className="text-xs font-medium text-slate-500">{lead.channelName || 'DIRECT'}</span>
-                    </td>
-
-                    {/* Pipeline */}
-                    <td className="px-3 py-4.5">
-                      <span className="text-xs font-semibold text-slate-600">{lead.pipelineName || 'STANDARD'}</span>
-                    </td>
-
-                    {/* Stage */}
-                    <td className="px-3 py-4.5">
-                       <div className="flex items-center gap-2">
-                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
-                         <span className="text-xs font-semibold text-slate-900">{lead.currentPipelineStageName || 'ASSESSING'}</span>
-                       </div>
-                    </td>
-
-                    {/* Next Follow-up */}
-                    <td className="px-3 py-4.5">
-                      <span className="text-xs font-mono text-slate-500 font-bold">
-                        {lead.nextFollowupAt ? format(new Date(lead.nextFollowupAt), 'dd MMM yy HH:mm') : 'NOT SET'}
-                      </span>
-                    </td>
-
-                    {/* Priority */}
-                    <td className="px-3 py-4.5">
-                       <Badge variant={getPriorityVariant(lead.priority)}>
-                         {lead.priority}
-                       </Badge>
-                    </td>
-
-                    {/* Owner */}
-                    <td className="px-3 py-4.5">
-                      <div className="flex items-center gap-2">
-                         <div className="w-5 h-5 rounded bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-600">{lead.ownerName?.[0] || 'U'}</div>
-                         <span className="text-xs font-bold text-slate-500 truncate max-w-[100px]">{lead.ownerName || 'UNASSIGNED'}</span>
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="pr-6 py-4.5 text-right">
-                      <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 text-sm font-semibold">
-                        Workspace
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredLeads.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="py-16 text-center">
-                      <ICONS.SEARCH className="w-8 h-8 text-slate-200 mx-auto mb-4" />
-                      <p className="text-xs font-semibold text-slate-300">No matching leads found</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-      </div>
+        <div data-testid="jaldee-leads-list-table" className="p-6 pt-4">
+          <DataTable
+            data={filteredLeads}
+            columns={columns}
+            getRowId={(lead) => lead.uid}
+            onRowClick={(lead) => navigate(`/jaldee-leads/leads/${lead.uid}`)}
+            emptyState={
+              <EmptyState
+                title="No matching leads found"
+                description="Adjust the current filters or create a new lead."
+              />
+            }
+          />
+        </div>
+      </SectionCard>
     </div>
   );
 }

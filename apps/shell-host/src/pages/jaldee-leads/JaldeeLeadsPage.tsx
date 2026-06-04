@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import DashboardScreen from './screens/DashboardScreen';
 import LeadsScreen from './screens/LeadsScreen';
 import PipelinesScreen from './screens/PipelinesScreen';
 import ProductsScreen from './screens/ProductsScreen';
 import CreateProductScreen from './screens/CreateProductScreen';
 import ChannelsScreen from './screens/ChannelsScreen';
+import ChannelDetailScreen from './screens/ChannelDetailScreen';
+import LeadDetailScreen from './screens/LeadDetailScreen';
 import BulkImportScreen from './screens/BulkImportScreen';
 import AuditLogScreen from './screens/AuditLogScreen';
 import TemplateBuilderScreen from './screens/TemplateBuilderScreen';
@@ -17,6 +19,133 @@ import { leadTemplateService } from './services/templateService';
 import { leadPipelineService } from './services/pipelineService';
 import { leadChannelService } from './services/channelService';
 import { leadService } from './services/leadService';
+import PipelineDetailScreen from './screens/PipelineDetailScreen';
+import { PipelineBuilder } from './screens/PipelinesScreen';
+
+function PipelineDetailRoute({
+  pipelines,
+  leads,
+  setPipelines,
+  onNavigate,
+}: {
+  pipelines: CrmLeadPipelineDto[];
+  leads: CrmLeadDto[];
+  setPipelines: React.Dispatch<React.SetStateAction<CrmLeadPipelineDto[]>>;
+  onNavigate: (route: string, selection?: { type: string; id: string }) => void;
+}) {
+  const navigate = useNavigate();
+  const { pipelineUid } = useParams();
+  const pipelineState = pipelines.find((p) => p.uid === pipelineUid) ?? null;
+  const [pipeline, setPipeline] = useState<CrmLeadPipelineDto | null>(pipelineState);
+
+  useEffect(() => {
+    if (pipelineUid) {
+      leadPipelineService.detail(pipelineUid)
+        .then((detailed) => {
+          setPipeline(detailed);
+          setPipelines((prev) => prev.map((old) => (old.uid === pipelineUid ? detailed : old)));
+        })
+        .catch((err) => console.error('Failed to load pipeline detail:', err));
+    }
+  }, [pipelineUid, setPipelines]);
+
+  if (!pipeline) return null;
+
+  return (
+    <PipelineDetailScreen
+      pipeline={pipeline}
+      leads={leads}
+      onBack={() => navigate('/jaldee-leads/pipelines')}
+      onNavigate={onNavigate}
+      onEdit={() =>
+        navigate(`/jaldee-leads/pipelines/${pipeline.uid}`, {
+          state: { returnTo: `/jaldee-leads/pipelines/${pipeline.uid}/matrix` },
+        })
+      }
+    />
+  );
+}
+
+function PipelineEditRoute({
+  pipelines,
+  setPipelines,
+}: {
+  pipelines: CrmLeadPipelineDto[];
+  setPipelines: React.Dispatch<React.SetStateAction<CrmLeadPipelineDto[]>>;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { pipelineUid } = useParams();
+  const pipelineState = pipelines.find((p) => p.uid === pipelineUid) ?? null;
+  const [pipeline, setPipeline] = useState<CrmLeadPipelineDto | null>(pipelineState);
+  const [isLoadingPipeline, setIsLoadingPipeline] = useState(Boolean(pipelineUid));
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+  const returnPath = returnTo?.startsWith('/jaldee-leads/pipelines/')
+    ? returnTo
+    : '/jaldee-leads/pipelines';
+
+  useEffect(() => {
+    if (!pipelineUid) return;
+    let active = true;
+    setIsLoadingPipeline(true);
+    leadPipelineService.detail(pipelineUid)
+      .then((detailed) => {
+        if (!active) return;
+        const pipelineForEdit = {
+          ...pipelineState,
+          ...detailed,
+          stages: detailed.stages?.length ? detailed.stages : pipelineState?.stages ?? [],
+        };
+        setPipeline(pipelineForEdit);
+        setPipelines((prev) =>
+          prev.some((old) => old.uid === pipelineForEdit.uid)
+            ? prev.map((old) => (old.uid === pipelineForEdit.uid ? pipelineForEdit : old))
+            : [pipelineForEdit, ...prev]
+        );
+      })
+      .catch((err) => {
+        console.error('Failed to load pipeline for editing:', err);
+        if (active && pipelineState) setPipeline(pipelineState);
+      })
+      .finally(() => {
+        if (active) setIsLoadingPipeline(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [pipelineUid, setPipelines]);
+
+  if (isLoadingPipeline) {
+    return <div className="shell-loading">Loading pipeline...</div>;
+  }
+
+  if (!pipeline) return null;
+
+  return (
+    <PipelineBuilder
+      key={`${pipeline.uid}-${pipeline.stages?.length ?? 0}`}
+      pipeline={pipeline}
+      onClose={() => navigate(returnPath)}
+      onSave={async (p) => {
+        setPipelines((prev) =>
+          prev.some((old) => old.uid === p.uid)
+            ? prev.map((old) => (old.uid === p.uid ? p : old))
+            : [p, ...prev]
+        );
+        try {
+          const updatedPipelines = await leadPipelineService.search({}, { page: 0, size: 100 });
+          if (updatedPipelines && updatedPipelines.length > 0) {
+            setPipelines(updatedPipelines);
+          }
+        } catch (err) {
+          console.error('Failed to refetch pipelines after save:', err);
+        }
+        navigate(returnPath);
+      }}
+    />
+  );
+}
 
 function TemplateEditRoute({
   forms,
@@ -36,6 +165,105 @@ function TemplateEditRoute({
         setForms(prev => [updatedTemplate, ...prev.filter(item => item.uid !== updatedTemplate.uid)]);
         navigate('/jaldee-leads/templates');
       }}
+    />
+  );
+}
+
+function LeadDetailRoute({
+  leads,
+  pipelines,
+  products,
+  onNavigate,
+  setLeads,
+  setPipelines,
+}: {
+  leads: CrmLeadDto[];
+  pipelines: CrmLeadPipelineDto[];
+  products: Product[];
+  onNavigate: (route: string, selection?: any) => void;
+  setLeads: React.Dispatch<React.SetStateAction<CrmLeadDto[]>>;
+  setPipelines: React.Dispatch<React.SetStateAction<CrmLeadPipelineDto[]>>;
+}) {
+  const navigate = useNavigate();
+  const { leadUid } = useParams();
+  const lead = leads.find((l) => l.uid === leadUid) ?? null;
+
+  useEffect(() => {
+    if (!lead?.pipelineUid) return;
+
+    const pipelineState = pipelines.find((p) => p.uid === lead.pipelineUid);
+    if (pipelineState?.stages?.length) return;
+
+    let active = true;
+    leadPipelineService.detail(lead.pipelineUid)
+      .then((detailed) => {
+        if (!active) return;
+        setPipelines((prev) =>
+          prev.some((old) => old.uid === detailed.uid)
+            ? prev.map((old) => (old.uid === detailed.uid ? { ...old, ...detailed } : old))
+            : [detailed, ...prev]
+        );
+      })
+      .catch((err) => console.error('Failed to load lead pipeline stages:', err));
+
+    return () => {
+      active = false;
+    };
+  }, [lead?.pipelineUid, pipelines, setPipelines]);
+
+  if (!lead) return null;
+
+  return (
+    <LeadDetailScreen
+      lead={lead}
+      leads={leads}
+      pipelines={pipelines}
+      setPipelines={setPipelines}
+      products={products}
+      onBack={() => {
+        if (window.history.state && window.history.state.idx > 0) {
+          navigate(-1);
+        } else {
+          navigate('/jaldee-leads/leads');
+        }
+      }}
+      onUpdate={(updatedLead) => {
+        setLeads((prev) => prev.map((l) => l.uid === updatedLead.uid ? updatedLead : l));
+      }}
+    />
+  );
+}
+
+function ChannelDetailRoute({
+  channels,
+  leads,
+  pipelines,
+  products,
+  forms,
+  onNavigate,
+}: {
+  channels: Channel[];
+  leads: CrmLeadDto[];
+  pipelines: CrmLeadPipelineDto[];
+  products: Product[];
+  forms: FormTemplate[];
+  onNavigate: (route: string, selection?: { type: string; id: string }) => void;
+}) {
+  const navigate = useNavigate();
+  const { channelUid } = useParams();
+  const channel = channels.find((c) => c.uid === channelUid) ?? null;
+
+  if (!channel) return null;
+
+  return (
+    <ChannelDetailScreen
+      channel={channel}
+      leads={leads}
+      pipelines={pipelines}
+      products={products}
+      forms={forms}
+      onBack={() => navigate('/jaldee-leads/channels')}
+      onNavigate={onNavigate}
     />
   );
 }
@@ -129,6 +357,10 @@ export default function JaldeeLeadsPage() {
       triggerFetchChannels(active);
     } else if (path.includes('/leads')) {
       triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+      triggerFetchTemplates(active);
     } else if (path.includes('/pipelines')) {
       triggerFetchPipelines(active);
       triggerFetchLeads(active);
@@ -141,6 +373,10 @@ export default function JaldeeLeadsPage() {
       triggerFetchTemplates(active);
     } else if (path.includes('/channels')) {
       triggerFetchChannels(active);
+      triggerFetchLeads(active);
+      triggerFetchProducts(active);
+      triggerFetchPipelines(active);
+      triggerFetchTemplates(active);
     } else if (path.includes('/bulk-import')) {
       triggerFetchLeads(active);
       triggerFetchProducts(active);
@@ -202,6 +438,19 @@ export default function JaldeeLeadsPage() {
           }
         />
         <Route
+          path="/leads/:leadUid"
+          element={
+            <LeadDetailRoute
+              leads={leads}
+              pipelines={pipelines}
+              products={products}
+              onNavigate={handleNavigate}
+              setLeads={setLeads}
+              setPipelines={setPipelines}
+            />
+          }
+        />
+        <Route
           path="/pipelines"
           element={
             <PipelinesScreen
@@ -212,6 +461,30 @@ export default function JaldeeLeadsPage() {
               onNavigate={handleNavigate}
             />
           }
+        />
+        <Route
+          path="/pipelines/:pipelineUid"
+          element={
+            <PipelineEditRoute
+              pipelines={pipelines}
+              setPipelines={setPipelines}
+            />
+          }
+        />
+        <Route
+          path="/pipelines/:pipelineUid/matrix"
+          element={
+            <PipelineDetailRoute
+              pipelines={pipelines}
+              leads={leads}
+              setPipelines={setPipelines}
+              onNavigate={handleNavigate}
+            />
+          }
+        />
+        <Route
+          path="/pipelines/:pipelineUid/edit"
+          element={<Navigate to=".." replace />}
         />
         <Route
           path="/products"
@@ -310,6 +583,19 @@ export default function JaldeeLeadsPage() {
               fetchLeads={() => triggerFetchLeads(true)}
               fetchProducts={() => triggerFetchProducts(true)}
               fetchPipelines={() => triggerFetchPipelines(true)}
+            />
+          }
+        />
+        <Route
+          path="/channels/:channelUid"
+          element={
+            <ChannelDetailRoute
+              channels={channels}
+              leads={leads}
+              pipelines={pipelines}
+              products={products}
+              forms={forms}
+              onNavigate={handleNavigate}
             />
           }
         />

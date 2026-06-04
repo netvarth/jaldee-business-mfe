@@ -17,6 +17,7 @@ export function format(dateInput: Date | string | number, formatStr: string): st
 
   let result = formatStr;
   result = result.replace(/yyyy/g, String(yyyy));
+  result = result.replace(/yy/g, String(yyyy).slice(-2));
   result = result.replace(/MMMM/g, MMMM);
   result = result.replace(/MMM/g, MMM);
   result = result.replace(/MM/g, MM);

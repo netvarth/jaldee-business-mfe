@@ -12,6 +12,8 @@ export { BarChart }                       from "./components/BarChart/BarChart";
 export type { BarChartProps, BarChartDatum, BarChartLegendItem } from "./components/BarChart/BarChart";
 export { AreaChart }                      from "./components/AreaChart/AreaChart";
 export type { AreaChartProps, AreaChartDatum } from "./components/AreaChart/AreaChart";
+export { TrendAreaChart }                 from "./components/TrendAreaChart/TrendAreaChart";
+export type { TrendAreaChartProps, TrendAreaChartDatum } from "./components/TrendAreaChart/TrendAreaChart";
 export { MultiLineChart }                from "./components/MultiLineChart/MultiLineChart";
 export type { MultiLineChartProps, MultiLineChartDatum, MultiLineChartSeries } from "./components/MultiLineChart/MultiLineChart";
 export { ComparisonBarChart }             from "./components/ComparisonBarChart/ComparisonBarChart";

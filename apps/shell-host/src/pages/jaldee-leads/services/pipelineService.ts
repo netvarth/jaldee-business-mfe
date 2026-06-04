@@ -55,12 +55,34 @@ const noLocation = { _skipLocationParam: true } as any;
 // ---------------------------------------------------------------------------
 
 function toStage(raw: any): CrmLeadPipelineStageDto {
+  const taskTemplates = Array.isArray(raw?.taskTemplates)
+    ? raw.taskTemplates
+    : Array.isArray(raw?.stageTaskTemplates)
+      ? raw.stageTaskTemplates
+      : Array.isArray(raw?.tasks)
+        ? raw.tasks
+        : Array.isArray(raw?.taskList)
+          ? raw.taskList.map((task: any, index: number) => ({
+              uid: String(task?.uid ?? task?.taskUid ?? `task-${index + 1}`),
+              title: String(task?.title ?? task?.taskTitle ?? task?.taskName ?? ""),
+              type: task?.type ?? task?.taskType ?? "TASK",
+              required: Boolean(task?.required ?? task?.isRequired),
+              autoCreate: Boolean(task?.autoCreate ?? task?.autogenerate ?? true),
+              dueOffsetHours: Number(task?.dueOffsetHours ?? 0),
+              assigneeRule: String(task?.assigneeRule ?? ""),
+              priority: task?.priority ?? "NORMAL",
+              outcomeRequired: Boolean(task?.outcomeRequired),
+              active: task?.active !== false,
+              description: task?.description,
+            }))
+          : undefined;
+
   return {
-    uid: String(raw?.uid ?? raw?.stageUid ?? ""),
-    pipelineUid: String(raw?.pipelineUid ?? ""),
-    pipelineName: String(raw?.pipelineName ?? ""),
-    stageName: String(raw?.stageName ?? raw?.name ?? ""),
-    stageOrder: Number(raw?.stageOrder ?? raw?.order ?? 0),
+    uid: String(raw?.uid ?? raw?.stageUid ?? raw?.pipelineStageUid ?? raw?.id ?? ""),
+    pipelineUid: String(raw?.pipelineUid ?? raw?.pipelineId ?? ""),
+    pipelineName: String(raw?.pipelineName ?? raw?.pipeline?.name ?? ""),
+    stageName: String(raw?.stageName ?? raw?.name ?? raw?.label ?? ""),
+    stageOrder: Number(raw?.stageOrder ?? raw?.sequenceOrder ?? raw?.order ?? raw?.displayOrder ?? 0),
     color: String(raw?.color ?? "#6366f1"),
     probability: raw?.probability != null ? Number(raw.probability) : undefined,
     slaDays: raw?.slaDays != null ? Number(raw.slaDays) : undefined,
@@ -69,13 +91,13 @@ function toStage(raw: any): CrmLeadPipelineStageDto {
     taskCompletionMode: raw?.taskCompletionMode ?? "NONE",
     autogenerateTasks: Boolean(raw?.autogenerateTasks),
     taskList: Array.isArray(raw?.taskList) ? raw.taskList : [],
-    isActive: raw?.isActive !== false,
-    sequenceOrder: Number(raw?.sequenceOrder ?? raw?.stageOrder ?? 0),
+    isActive: raw?.isActive ?? raw?.active ?? true,
+    sequenceOrder: Number(raw?.sequenceOrder ?? raw?.stageOrder ?? raw?.order ?? raw?.displayOrder ?? 0),
     proceedStageUid: raw?.proceedStageUid,
     redirectStageUid: raw?.redirectStageUid,
     activeLeadCount: Number(raw?.activeLeadCount ?? 0),
     movementRule: raw?.movementRule,
-    taskTemplates: Array.isArray(raw?.taskTemplates) ? raw.taskTemplates : undefined,
+    taskTemplates,
     conversionSetting: raw?.conversionSetting,
   };
 }
@@ -83,15 +105,33 @@ function toStage(raw: any): CrmLeadPipelineStageDto {
 function toPipeline(raw: any): CrmLeadPipelineDto {
   const rawStages = Array.isArray(raw?.stages)
     ? raw.stages
-    : Array.isArray(raw?.stagesInSequentialOrder)
-      ? raw.stagesInSequentialOrder
-      : [];
+    : Array.isArray(raw?.pipelineStages)
+      ? raw.pipelineStages
+      : Array.isArray(raw?.pipelineStageList)
+        ? raw.pipelineStageList
+        : Array.isArray(raw?.stageList)
+          ? raw.stageList
+          : Array.isArray(raw?.crmLeadPipelineStages)
+            ? raw.crmLeadPipelineStages
+            : Array.isArray(raw?.crmLeadPipelineStageList)
+              ? raw.crmLeadPipelineStageList
+              : Array.isArray(raw?.leadPipelineStages)
+                ? raw.leadPipelineStages
+                : Array.isArray(raw?.stageDtos)
+                  ? raw.stageDtos
+                  : Array.isArray(raw?.stageDTOs)
+                    ? raw.stageDTOs
+                    : [];
 
   return {
     uid: String(raw?.uid ?? ""),
     name: String(raw?.name || raw?.pipelineName || "Untitled Pipeline"),
     description: String(raw?.description ?? ""),
-    productUids: Array.isArray(raw?.productUids) ? raw.productUids : [],
+    productUids: Array.isArray(raw?.productUids)
+      ? raw.productUids
+      : Array.isArray(raw?.products)
+        ? raw.products.map((product: any) => String(product?.uid ?? product?.id ?? product)).filter(Boolean)
+        : [],
     isDefault: Boolean(raw?.isDefault ?? raw?.default),
     isActive: raw?.isActive !== false,
     stagesInSequentialOrder: Boolean(raw?.stagesInSequentialOrder),
@@ -151,6 +191,7 @@ function toStagePayload(stage: Partial<CrmLeadPipelineStageDto>) {
     : [];
 
   return {
+    uid: stage.uid,
     stageName: stage.stageName,
     stageOrder: stage.stageOrder,
     sequenceOrder: stage.sequenceOrder ?? stage.stageOrder,
@@ -257,6 +298,14 @@ export const leadPipelineService = {
     await apiClient.patch(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.deactivate(uid)),
       undefined,
+      noLocation
+    );
+  },
+
+  // DELETE /v1/api/tenant/crm/leads/pipelines/{uid}
+  async delete(uid: string) {
+    await apiClient.delete(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.delete(uid)),
       noLocation
     );
   },

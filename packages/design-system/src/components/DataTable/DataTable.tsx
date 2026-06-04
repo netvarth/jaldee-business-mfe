@@ -147,14 +147,21 @@ export function DataTable<T extends object>({
     return sortDir === "asc" ? next : next.reverse();
   }, [data, sortKey, sortDir, sorting, visibleColumns]);
 
+  const totalPages = pagination
+    ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+    : 1;
+  const currentPage = pagination
+    ? Math.min(Math.max(1, pagination.page), totalPages)
+    : 1;
+
   const paginatedData = useMemo(() => {
     if (!pagination || pagination.mode === "server") return sortedData;
 
-    const start = (pagination.page - 1) * pagination.pageSize;
+    const start = (currentPage - 1) * pagination.pageSize;
     const end = start + pagination.pageSize;
 
     return sortedData.slice(start, end);
-  }, [sortedData, pagination]);
+  }, [currentPage, sortedData, pagination]);
 
   const selectedKeys = selection?.selectedRowKeys ?? [];
   const visibleRowKeys = paginatedData.map((row, index) =>
@@ -191,11 +198,6 @@ export function DataTable<T extends object>({
   }
 
   const state = loading ? "loading" : paginatedData.length === 0 ? "empty" : "ready";
-
-  const currentPage = pagination?.page ?? 1;
-  const totalPages = pagination
-    ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
-    : 1;
 
   return (
     <div

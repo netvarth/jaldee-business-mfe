@@ -186,7 +186,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="login-page">
+    <div data-testid="signup-page" data-state={step} className="login-page">
       <section className="auth-form-panel">
         <div className="auth-form-wrap">
           <div className="login-card auth-card-flat">
@@ -197,8 +197,10 @@ export default function SignupPage() {
                   <h1 className="login-title">Create your Jaldee account</h1>
                   <p className="login-subtitle">Start your trial and verify with email or phone OTP.</p>
                 </div>
-                <form className="login-form" onSubmit={handleIssueOtp}>
+                <form data-testid="signup-details-form" className="login-form" onSubmit={handleIssueOtp}>
                   <Input
+                    id="signup-login-id-input"
+                    data-testid="signup-login-id-input"
                     type="text"
                     label="Login ID"
                     value={form.loginId}
@@ -210,6 +212,8 @@ export default function SignupPage() {
                   />
                   <div className="auth-name-grid">
                     <Input
+                      id="signup-first-name-input"
+                      data-testid="signup-first-name-input"
                       type="text"
                       label="First Name"
                       value={form.firstName}
@@ -220,6 +224,8 @@ export default function SignupPage() {
                       error={fieldErrors.firstName}
                     />
                     <Input
+                      id="signup-last-name-input"
+                      data-testid="signup-last-name-input"
                       type="text"
                       label="Last Name"
                       value={form.lastName}
@@ -231,6 +237,8 @@ export default function SignupPage() {
                     />
                   </div>
                   <Input
+                    id="signup-email-input"
+                    data-testid="signup-email-input"
                     type="email"
                     label="Work Email"
                     value={form.email}
@@ -242,6 +250,8 @@ export default function SignupPage() {
                     error={fieldErrors.email}
                   />
                   <Input
+                    id="signup-password-input"
+                    data-testid="signup-password-input"
                     type={showPassword ? "text" : "password"}
                     label="Password"
                     value={form.password}
@@ -253,6 +263,8 @@ export default function SignupPage() {
                     error={fieldErrors.password}
                     suffix={
                       <button
+                        id="signup-password-toggle-button"
+                        data-testid="signup-password-toggle-button"
                         type="button"
                         className="login-password-toggle"
                         onClick={() => setShowPassword((value) => !value)}
@@ -263,6 +275,7 @@ export default function SignupPage() {
                     }
                   />
                   <PhoneInput
+                    data-testid="signup-mobile-input"
                     label="WhatsApp / Mobile Number"
                     value={form.mobile}
                     onChange={(value) => setForm((current) => ({ ...current, mobile: value }))}
@@ -273,6 +286,8 @@ export default function SignupPage() {
                     preferredCountries={["in"]}
                   />
                   <Checkbox
+                    data-testid="signup-terms-checkbox"
+                    data-active={agreedToTerms}
                     checked={agreedToTerms}
                     onChange={(event) => setAgreedToTerms(event.target.checked)}
                     containerClassName="auth-consent"
@@ -292,6 +307,8 @@ export default function SignupPage() {
                   {error ? <div className="login-error">{error}</div> : null}
 
                   <Button
+                    id="signup-create-account-button"
+                    data-testid="signup-create-account-button"
                     type="submit"
                     variant="primary"
                     size="lg"
@@ -304,7 +321,7 @@ export default function SignupPage() {
                   </Button>
                   <div className="auth-inline-footer">
                     <span className="auth-inline-copy">Already have an account?</span>
-                    <button type="button" className="auth-inline-link" onClick={() => navigate("/login")}>
+                    <button id="signup-sign-in-link" data-testid="signup-sign-in-link" type="button" className="auth-inline-link" onClick={() => navigate("/login")}>
                       Sign in
                     </button>
                   </div>
@@ -312,7 +329,7 @@ export default function SignupPage() {
               </>
             ) : (
               <div className="signup-otp-shell">
-                <button type="button" className="signup-otp-back-link" onClick={handleBack}>
+                <button id="signup-otp-back-button" data-testid="signup-otp-back-button" type="button" className="signup-otp-back-link" onClick={handleBack}>
                   <span aria-hidden="true" className="signup-otp-back-arrow">←</span>
                   <span>Back to Sign Up</span>
                 </button>
@@ -328,8 +345,10 @@ export default function SignupPage() {
                       : "We've sent a 6-digit code. Please enter it below to continue."}
                   </p>
 
-                  <form className="login-form signup-otp-form" onSubmit={handleVerifyOtp}>
+                  <form data-testid="signup-otp-form" className="login-form signup-otp-form" onSubmit={handleVerifyOtp}>
                     <OtpInput
+                      id="signup-otp-input"
+                      testId="signup-otp-input"
                       value={otp}
                       onChange={(value) => setOtp(value.slice(0, 6))}
                       length={6}
@@ -340,6 +359,8 @@ export default function SignupPage() {
                     {error ? <div className="login-error">{error}</div> : null}
 
                     <Button
+                      id="signup-verify-otp-button"
+                      data-testid="signup-verify-otp-button"
                       type="submit"
                       variant="primary"
                       size="lg"
@@ -368,6 +389,8 @@ export default function SignupPage() {
 
                     <div className="signup-otp-resend-block">
                       <Button
+                        id="signup-resend-otp-button"
+                        data-testid="signup-resend-otp-button"
                         type="button"
                         variant="ghost"
                         size="sm"

@@ -2,7 +2,7 @@ import React from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel } from '../types';
-import { AreaChart, PieChart, Button, StatCard, PageHeader, SectionCard } from "@jaldee/design-system";
+import { PieChart, Button, StatCard, PageHeader, SectionCard, TrendAreaChart } from "@jaldee/design-system";
 
 interface DashboardScreenProps {
   leads: CrmLeadDto[];
@@ -12,21 +12,12 @@ interface DashboardScreenProps {
   onNavigate: (route: string, selection?: any) => void;
 }
 
-const trendData = [
-  { name: 'Mon', leads: 40, velocity: 2.4 },
-  { name: 'Tue', leads: 30, velocity: 1.8 },
-  { name: 'Wed', leads: 20, velocity: 1.2 },
-  { name: 'Thu', leads: 27, velocity: 1.5 },
-  { name: 'Fri', leads: 18, velocity: 1.1 },
-  { name: 'Sat', leads: 23, velocity: 1.4 },
-  { name: 'Sun', leads: 45, velocity: 2.1 },
-];
-
 const COLORS = ['#818cf8', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#f43f5e', '#06b6d4'];
 
 export default function DashboardScreen({ leads, pipelines, products, channels, onNavigate }: DashboardScreenProps) {
   const activeLeadsCount = leads.filter(l => l.internalStatus === 'ACTIVE' && !l.isRejected && !l.isConverted).length;
   const wonLeads = leads.filter(l => l.isConverted).length;
+  const activeLeadTrendData = buildActiveLeadTrendData(leads);
   
   // Dynamic metrics helpers
   const newLeadsCount = leads.filter(l => {
@@ -61,16 +52,32 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
 
   const productAnalytics = Object.entries(leadsByProduct).map(([name, value]) => ({ name, value }));
 
-  // Pipeline Saturation using Real Stage Names from standard/default pipeline
+  // Pipeline Saturation using hydrated stage definitions from the active/default pipeline.
   const defaultPipeline = pipelines.find(p => p.isDefault) || pipelines[0];
-  const activeStages = defaultPipeline?.stages || [];
+  const activeStages = [...(defaultPipeline?.stages || [])].sort(
+    (a, b) => (a.sequenceOrder ?? a.stageOrder ?? 0) - (b.sequenceOrder ?? b.stageOrder ?? 0)
+  );
   const pipelineSaturationData = activeStages.map(stage => {
-    const count = leads.filter(l => l.currentPipelineStageUid === stage.uid).length;
+    const countFromLeads = leads.filter((lead) => {
+      const belongsToPipeline =
+        !defaultPipeline?.uid ||
+        !lead.pipelineUid ||
+        lead.pipelineUid === defaultPipeline.uid ||
+        normalizeStageName(lead.pipelineName) === normalizeStageName(defaultPipeline.name);
+
+      if (!belongsToPipeline) return false;
+
+      return (
+        (stage.uid && lead.currentPipelineStageUid === stage.uid) ||
+        normalizeStageName(lead.currentPipelineStageName) === normalizeStageName(stage.stageName)
+      );
+    }).length;
+    const count = Math.max(countFromLeads, stage.activeLeadCount || 0);
     return { name: stage.stageName, leads: count, color: stage.color || '#9ca3af' };
   });
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 space-y-8 pb-24 no-scrollbar">
+    <div data-testid="jaldee-leads-dashboard-page" className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 space-y-8 pb-24 no-scrollbar">
       {/* Header Area */}
       <PageHeader
         title="Jaldee Leads Workspace"
@@ -78,6 +85,8 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
         actions={
           <div className="flex items-center gap-4">
             <Button 
+              id="jaldee-leads-dashboard-all-leads-button"
+              data-testid="jaldee-leads-dashboard-all-leads-button"
               onClick={() => onNavigate('leads')}
               variant="outline"
               className="rounded-xl px-6 h-10 text-xs font-semibold active-scale"
@@ -85,7 +94,9 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
               All Leads
             </Button>
             <Button 
-              onClick={() => onNavigate('leads', { forceCreate: true })} 
+              id="jaldee-leads-dashboard-new-lead-button"
+              data-testid="jaldee-leads-dashboard-new-lead-button"
+              onClick={() => onNavigate('leads/create')} 
               variant="primary"
               icon={<ICONS.ADD className="w-4 h-4 text-purple-200" />}
               className="rounded-xl px-6 h-10 text-xs font-semibold active-scale"
@@ -152,29 +163,29 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
               badgeClass: 'bg-white/15 border-white/10 text-white' 
             }
           ].map((action) => (
-            <button
+            <Button
+              id={`jaldee-leads-dashboard-quick-action-${action.id.replace('_', '-')}-button`}
+              data-testid={`jaldee-leads-dashboard-quick-action-${action.id.replace('_', '-')}-button`}
               key={action.id}
               onClick={() => onNavigate(action.id)}
+              variant="ghost"
               className={cn(
-                "flex items-center gap-4 py-4 border rounded-2xl transition-all duration-300 group active-scale select-none cursor-pointer text-left w-full hover:-translate-y-1 hover:brightness-[1.03]",
+                "flex min-h-[68px] items-center gap-3 border rounded-2xl px-3.5 py-3 transition-all duration-300 group active-scale select-none cursor-pointer text-left w-full hover:-translate-y-1 hover:brightness-[1.03]",
                 action.btnClass
               )}
             >
               <div className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 group-hover:rotate-6 transition-transform ml-4",
+                "w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 group-hover:rotate-6 transition-transform",
                 action.badgeClass
               )}>
                 <action.icon className="w-4 h-4 shrink-0 font-bold" />
               </div>
-              <div className="min-w-0 flex-1 pr-4">
+              <div className="min-w-0 flex-1">
                 <p className="font-sans text-xs font-semibold truncate leading-none">
                   {action.name}
                 </p>
-                <span className="text-xs text-white/70 block mt-1 font-bold leading-none">
-                  Open Suite
-                </span>
               </div>
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -185,51 +196,35 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
           label="New Leads (7d)"
           value={newLeadsCount}
           accent="indigo"
-          icon={<ICONS.ADD className="w-6 h-6" />}
-          className="rounded-[24px] border border-slate-200 shadow-sm hover:shadow-md transition-all"
+          icon={<ICONS.ADD className="w-7 h-7" />}
+          className="min-h-[104px] rounded-[24px] border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all [&>div]:items-center [&>div]:gap-5 [&>div>div:first-child]:h-12 [&>div>div:first-child]:w-12"
         />
         <StatCard
           label="Pending Tasks"
           value={overdueTasksCount}
           accent="rose"
-          icon={<ICONS.SAVE className="w-6 h-6" />}
-          className="rounded-[24px] border border-slate-200 shadow-sm hover:shadow-md transition-all"
+          icon={<ICONS.SAVE className="w-7 h-7" />}
+          className="min-h-[104px] rounded-[24px] border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all [&>div]:items-center [&>div]:gap-5 [&>div>div:first-child]:h-12 [&>div>div:first-child]:w-12"
         />
         <StatCard
           label="Unassigned Leads"
           value={unassignedLeadsCount}
           accent="amber"
-          icon={<ICONS.USER className="w-6 h-6" />}
-          className="rounded-[24px] border border-slate-200 shadow-sm hover:shadow-md transition-all"
+          icon={<ICONS.USER className="w-7 h-7" />}
+          className="min-h-[104px] rounded-[24px] border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all [&>div]:items-center [&>div]:gap-5 [&>div>div:first-child]:h-12 [&>div>div:first-child]:w-12"
         />
       </div>
 
       {/* Primary Analytics Row */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <SectionCard className="lg:col-span-3 p-8 overflow-hidden relative group">
-          <div className="absolute top-0 right-0 p-8 opacity-5">
-            <ICONS.PIPELINES className="w-40 h-40 text-slate-900" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <p className="text-sm font-semibold text-slate-400 mb-2">Trend Analysis</p>
-                <h3 className="text-2xl font-semibold text-slate-900">Active Leads Volume</h3>
-              </div>
-              <div className="flex gap-2">
-                <span className="px-3 py-1 rounded-full bg-slate-50 text-slate-400 text-sm font-semibold border border-slate-100">STABLE</span>
-              </div>
-            </div>
-            
-            <div className="h-[280px] w-full">
-              <AreaChart 
-                data={trendData.map(item => ({ label: item.name, value: item.leads }))} 
-                chartHeight={260}
-                showToolbar={false}
-              />
-            </div>
-          </div>
-        </SectionCard>
+        <TrendAreaChart
+          eyebrow="Trend Analysis"
+          title="Active Leads Volume"
+          statusLabel="Stable"
+          data={activeLeadTrendData}
+          tooltipSeriesLabel="Leads"
+          className="lg:col-span-3"
+        />
 
         <SectionCard className="p-8 flex flex-col justify-between">
           <div className="space-y-6">
@@ -249,6 +244,8 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
             </div>
           </div>
           <Button 
+            id="jaldee-leads-dashboard-inspect-leads-button"
+            data-testid="jaldee-leads-dashboard-inspect-leads-button"
             onClick={() => onNavigate('leads')}
             variant="outline"
             className="w-full py-4 text-sm font-semibold text-slate-400 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all mt-6"
@@ -260,21 +257,21 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
 
       {/* Pipeline & Source Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <SectionCard className="lg:col-span-2 p-8">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xs font-semibold text-slate-900">Pipeline Saturation ({defaultPipeline?.name})</h3>
-            <span className="text-sm font-semibold text-indigo-600">Leads by State</span>
+        <SectionCard className="lg:col-span-2 p-4 sm:p-6 lg:p-8 overflow-hidden">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
+            <h3 className="text-sm font-semibold text-slate-900 break-words">Pipeline Saturation ({defaultPipeline?.name})</h3>
+            <span className="text-sm font-semibold text-indigo-600 shrink-0">Leads by State</span>
           </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-3 lg:grid-cols-6 sm:overflow-visible sm:pb-0">
              {pipelineSaturationData.map((stage, idx) => (
-                <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-600 transition-all group cursor-pointer text-center">
+                <div key={idx} className="min-w-[132px] sm:min-w-0 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-600 transition-all group cursor-pointer text-center">
                    <div 
                      className="w-7 h-7 rounded-full bg-white mx-auto mb-3 flex items-center justify-center text-slate-800 font-bold text-xs shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all border border-slate-200"
                    >
                      {stage.leads}
                    </div>
-                   <p className="text-xs font-semibold text-slate-900 truncate mb-1">{stage.name}</p>
+                   <p className="text-xs font-semibold text-slate-900 truncate mb-1" title={stage.name}>{stage.name}</p>
                    <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
                       <div 
                         className="h-full" 
@@ -289,7 +286,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
         <SectionCard className="p-8 flex flex-col items-center justify-center text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-indigo-400"></div>
           <p className="text-sm font-semibold text-slate-400 mb-4">Total Leads</p>
-          <div className="relative w-40 h-40 mx-auto flex items-center justify-center">
+          <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
              <PieChart
                 data={channelAnalytics.filter(c => c.value > 0).map((c, index) => ({
                   label: c.name,
@@ -297,7 +294,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
                   color: COLORS[index % COLORS.length]
                 }))}
                 variant="donut"
-                chartSize={120}
+                chartSize={152}
                 showTooltip={true}
                 showLabels={false}
                 className="border-none bg-transparent h-auto p-0"
@@ -354,4 +351,50 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
       </div>
     </div>
   );
+}
+
+function buildActiveLeadTrendData(leads: CrmLeadDto[]) {
+  const today = startOfDay(new Date());
+  const monday = new Date(today);
+  const dayOfWeek = monday.getDay();
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  monday.setDate(today.getDate() - daysSinceMonday);
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return date;
+  });
+
+  return days.map((day) => {
+    const value = leads.filter((lead) => {
+      if (lead.internalStatus !== 'ACTIVE' || lead.isRejected || lead.isConverted) return false;
+
+      const leadDate = new Date(lead.createdAt || lead.leadDate);
+      return Number.isFinite(leadDate.getTime()) && isSameDay(leadDate, day);
+    }).length;
+
+    return {
+      label: day.toLocaleDateString(undefined, { weekday: 'short' }),
+      value,
+    };
+  });
+}
+
+function startOfDay(date: Date) {
+  const nextDate = new Date(date);
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
+}
+
+function isSameDay(firstDate: Date, secondDate: Date) {
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
+  );
+}
+
+function normalizeStageName(value?: string) {
+  return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
 }

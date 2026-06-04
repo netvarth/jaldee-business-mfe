@@ -13,6 +13,7 @@ import { cn } from "../../utils";
 export interface DialogProps {
   open: boolean;
   onClose: () => void;
+  testId?: string;
   title?: ReactNode;
   description?: ReactNode;
   size?: "sm" | "md" | "lg" | "fullscreen";
@@ -38,6 +39,7 @@ const sizeMap = {
 export function Dialog({
   open,
   onClose,
+  testId = "dialog",
   title,
   description,
   size = "md",
@@ -58,11 +60,12 @@ export function Dialog({
     <Root open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <Portal>
         <Overlay
-          data-testid="dialog-overlay"
+          data-testid={`${testId}-overlay`}
           className={cn("fixed inset-0 bg-black/40 z-[200] animate-in fade-in-0", overlayClassName)}
         />
         <Content
-          data-testid="dialog"
+          data-testid={testId}
+          data-state={open ? "open" : "closed"}
           className={cn(
             "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
             "bg-white rounded-xl shadow-xl z-[201] w-full p-6",
@@ -75,13 +78,13 @@ export function Dialog({
             <div className={cn("mb-4 flex items-start justify-between", headerClassName)}>
               <div>
                 {title && (
-                  <Title data-testid="dialog-title" className="m-0 text-[length:var(--text-lg)] font-bold text-gray-900">
+                  <Title data-testid={`${testId}-title`} className="m-0 text-[length:var(--text-lg)] font-bold text-gray-900">
                     {title}
                   </Title>
                 )}
                 {description && (
                   <Description
-                    data-testid="dialog-description"
+                    data-testid={`${testId}-description`}
                     className="m-0 mt-1 text-[length:var(--text-sm)] text-gray-500"
                   >
                     {description}
@@ -90,7 +93,7 @@ export function Dialog({
               </div>
               {showCloseButton && (
                 <Close
-                  data-testid="dialog-close"
+                  data-testid={`${testId}-close`}
                   onClick={onClose}
                   aria-label={closeLabel}
                   className={cn(
@@ -103,7 +106,7 @@ export function Dialog({
               )}
             </div>
           )}
-          <div data-testid="dialog-content" className={bodyClassName}>
+          <div data-testid={`${testId}-content`} className={bodyClassName}>
             {children}
           </div>
         </Content>

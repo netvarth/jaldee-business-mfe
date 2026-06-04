@@ -3,7 +3,8 @@ import { Product, CrmLeadDto, CrmLeadPipelineDto, Channel, ConversionTargetType,
 import { ICONS } from "../constants";
 import { cn } from "../lib/utils";
 import { format } from '../lib/dateUtils';
-import { Button, Input, Select, Checkbox } from '@jaldee/design-system';
+import { Button, Input, Select, Checkbox, DataTable, EmptyState, PageHeader, Badge } from '@jaldee/design-system';
+import type { ColumnDef } from '@jaldee/design-system';
 
 interface ProductDetailScreenProps {
   product: Product;
@@ -121,39 +122,87 @@ export default function ProductDetailScreen({
     new Set(productLeads.map((l) => l.currentPipelineStageName).filter(Boolean))
   );
 
-  return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-y-auto no-scrollbar pb-20 font-sans text-slate-900">
-      {/* 1. Sticky Header */}
-      <div className="bg-white border-b border-slate-200 px-3 md:px-8 py-3 md:py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm gap-2">
-        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-          <button
-            onClick={onBack}
-            className="p-1.5 md:p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-900/80 shrink-0"
-          >
-            <ICONS.PREV className="w-5 h-5" />
-          </button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
-              <h1 className="text-xs sm:text-sm md:text-xl font-semibold text-slate-900 truncate max-w-[120px] sm:max-w-none">
-                {product.name}
-              </h1>
-              <span className="bg-indigo-50 text-indigo-600 text-xs md:text-xs px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-xl font-semibold border border-indigo-100 leading-none shrink-0">
-                ACTIVE
-              </span>
-            </div>
-            <p className="text-xs md:text-sm font-semibold text-slate-400 mt-0.5 truncate">
-              Inventory SKU • {product.uid.toUpperCase()}
-            </p>
+  const leadColumns = React.useMemo<ColumnDef<CrmLeadDto>[]>(
+    () => [
+      {
+        key: "referenceNo",
+        header: "Ref / ID",
+        width: 170,
+        render: (lead) => (
+          <div className="flex flex-col">
+            <span className="font-mono text-sm font-semibold text-slate-800">
+              {lead.referenceNo}
+            </span>
+            <span className="text-xs font-semibold text-slate-400 mt-0.5 leading-none">
+              {lead.uid.toUpperCase()}
+            </span>
           </div>
-        </div>
-        <button
-          onClick={onBack}
-          className="px-2.5 py-1.5 md:px-6 md:py-2 bg-slate-900 text-white rounded-xl text-xs md:text-sm font-semibold shadow-lg hover:bg-slate-800 transition-all active-scale shrink-0"
-        >
-          Close Detail
-        </button>
-      </div>
+        ),
+      },
+      {
+        key: "consumerFirstName",
+        header: "Lead Name",
+        width: 220,
+        render: (lead) => (
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-slate-900">
+              {lead.consumerFirstName} {lead.consumerLastName}
+            </span>
+            {lead.consumerEmail && (
+              <span className="text-xs font-mono text-slate-400">
+                {lead.consumerEmail}
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "currentPipelineStageName",
+        header: "Pipeline Stage",
+        width: 180,
+        render: (lead) => (
+          <span className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <span className="text-sm font-bold text-slate-600">
+              {lead.currentPipelineStageName}
+            </span>
+          </span>
+        ),
+      },
+      {
+        key: "createdAt",
+        header: "Ingested At",
+        align: "right",
+        width: 140,
+        render: (lead) => (
+          <span className="text-sm font-semibold text-slate-400 font-mono">
+            {format(new Date(lead.createdAt), "dd MMM yy")}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
+  return (
+    <div data-testid={`jaldee-leads-product-${product.uid}-detail-page`} className="h-full flex flex-col bg-slate-50 overflow-y-auto no-scrollbar pb-20 font-sans text-slate-900">
+      {/* 1. Sticky Header */}
+      <div className="bg-white border-b border-slate-200 px-3 md:px-8 py-3 md:py-4 sticky top-0 z-40 shadow-sm">
+        <PageHeader
+          title={product.name}
+          subtitle={`Inventory SKU - ${product.uid.toUpperCase()}`}
+          back={{ label: "Back", href: "#" }}
+          onNavigate={onBack}
+          actions={
+            <div className="flex items-center gap-3">
+              <Badge data-testid={`jaldee-leads-product-${product.uid}-status-badge`} variant="info">ACTIVE</Badge>
+              <Button id={`jaldee-leads-product-${product.uid}-close-detail-button`} data-testid={`jaldee-leads-product-${product.uid}-close-detail-button`} onClick={onBack} variant="primary" className="text-sm font-semibold active-scale">
+                Close Detail
+              </Button>
+            </div>
+          }
+        />
+      </div>
       <div className="max-w-7xl mx-auto w-full p-4 md:p-8 space-y-6 md:space-y-8">
         {/* 2. Hero Statistics Section */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
@@ -223,7 +272,7 @@ export default function ProductDetailScreen({
                     Pipeline Structure
                   </h3>
                   <p className="text-xs font-semibold text-slate-400 italic truncate max-w-[200px] sm:max-w-none">
-                    Connected workflow: {linkedPipeline?.name || "MAPPED_FLOW"}
+                    Connected workflow: {product.defaultPipelineName || linkedPipeline?.name || "MAPPED_FLOW"}
                   </p>
                 </div>
                 <span className="text-xs md:text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg border border-indigo-100">
@@ -239,7 +288,7 @@ export default function ProductDetailScreen({
                         Active Pipeline
                       </p>
                       <p className="text-sm md:text-xs font-semibold text-slate-900 mt-1 truncate">
-                        {linkedPipeline.name}
+                        {product.defaultPipelineName || linkedPipeline.name}
                       </p>
                     </div>
                     <div className="p-2.5 md:p-3 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-100 min-w-0">
@@ -337,6 +386,8 @@ export default function ProductDetailScreen({
                 </div>
                 {!isEditingMapping && (
                   <Button
+                    id={`jaldee-leads-product-${product.uid}-edit-mapping-button`}
+                    data-testid={`jaldee-leads-product-${product.uid}-edit-mapping-button`}
                     type="button"
                     onClick={() => setIsEditingMapping(true)}
                     variant="outline"
@@ -347,7 +398,7 @@ export default function ProductDetailScreen({
                 )}
               </div>
               {mappingError && (
-                <p role="alert" className="m-0 text-sm font-semibold text-rose-600">
+                <p data-testid={`jaldee-leads-product-${product.uid}-mapping-error`} data-state="error" role="alert" className="m-0 text-sm font-semibold text-rose-600">
                   {mappingError}
                 </p>
               )}
@@ -356,7 +407,8 @@ export default function ProductDetailScreen({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn text-xs text-slate-850">
                   <div className="space-y-4">
                     <Select
-                      id="targetType"
+                      id={`jaldee-leads-product-${product.uid}-target-type-select`}
+                      data-testid={`jaldee-leads-product-${product.uid}-target-type-select`}
                       label="Conversion Target Product/Object *"
                       value={mappingForm.targetType}
                       onChange={(e) => setMappingForm({ ...mappingForm, targetType: e.target.value as ConversionTargetType })}
@@ -373,7 +425,8 @@ export default function ProductDetailScreen({
 
                     <Input
                       type="text"
-                      id="targetModule"
+                      id={`jaldee-leads-product-${product.uid}-target-module-input`}
+                      data-testid={`jaldee-leads-product-${product.uid}-target-module-input`}
                       label="Target Operational Service/Module Name *"
                       value={mappingForm.targetModule}
                       onChange={(e) => setMappingForm({ ...mappingForm, targetModule: e.target.value })}
@@ -382,7 +435,8 @@ export default function ProductDetailScreen({
 
                     <Input
                       type="text"
-                      id="buttonLabel"
+                      id={`jaldee-leads-product-${product.uid}-button-label-input`}
+                      data-testid={`jaldee-leads-product-${product.uid}-button-label-input`}
                       label="Interactive Button Action Label"
                       value={mappingForm.buttonLabel}
                       onChange={(e) => setMappingForm({ ...mappingForm, buttonLabel: e.target.value })}
@@ -391,7 +445,8 @@ export default function ProductDetailScreen({
 
                     {linkedPipeline ? (
                       <Select
-                        id="allowedStageUid"
+                        id={`jaldee-leads-product-${product.uid}-allowed-stage-select`}
+                        data-testid={`jaldee-leads-product-${product.uid}-allowed-stage-select`}
                         label="Primary Eligibility Pipeline Stage (Threshold)"
                         value={mappingForm.allowedStageUid}
                         onChange={(e) => setMappingForm({ ...mappingForm, allowedStageUid: e.target.value })}
@@ -429,7 +484,9 @@ export default function ProductDetailScreen({
                           return (
                             <Checkbox
                               key={field.id}
-                              id={field.id}
+                              id={`jaldee-leads-product-${product.uid}-required-field-${field.id}-checkbox`}
+                              data-testid={`jaldee-leads-product-${product.uid}-required-field-${field.id}-checkbox`}
+                              data-active={isChecked}
                               checked={isChecked}
                               onChange={(e) => {
                                 if (e.target.checked) {
@@ -453,7 +510,8 @@ export default function ProductDetailScreen({
 
                     <div className="grid grid-cols-2 gap-4">
                       <Select
-                        id="duplicateRule"
+                        id={`jaldee-leads-product-${product.uid}-duplicate-rule-select`}
+                        data-testid={`jaldee-leads-product-${product.uid}-duplicate-rule-select`}
                         label="Client Duplicate Policy"
                         value={mappingForm.duplicateRule}
                         onChange={(e) => setMappingForm({ ...mappingForm, duplicateRule: e.target.value as any })}
@@ -465,7 +523,8 @@ export default function ProductDetailScreen({
                       />
 
                       <Select
-                        id="postConversionStatus"
+                        id={`jaldee-leads-product-${product.uid}-post-conversion-status-select`}
+                        data-testid={`jaldee-leads-product-${product.uid}-post-conversion-status-select`}
                         label="Post-Conversion Status"
                         value={mappingForm.postConversionStatus}
                         onChange={(e) => setMappingForm({ ...mappingForm, postConversionStatus: e.target.value })}
@@ -479,7 +538,9 @@ export default function ProductDetailScreen({
 
                     <div className="pt-2">
                       <Checkbox
-                        id="autoCloseLead"
+                        id={`jaldee-leads-product-${product.uid}-auto-close-lead-checkbox`}
+                        data-testid={`jaldee-leads-product-${product.uid}-auto-close-lead-checkbox`}
+                        data-active={mappingForm.autoCloseLead}
                         checked={mappingForm.autoCloseLead}
                         onChange={(e) => setMappingForm({ ...mappingForm, autoCloseLead: e.target.checked })}
                         label="Auto-close CRM Lead Upon Successful Ingestion"
@@ -489,6 +550,8 @@ export default function ProductDetailScreen({
 
                   <div className="col-span-full pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                     <Button
+                      id={`jaldee-leads-product-${product.uid}-mapping-cancel-button`}
+                      data-testid={`jaldee-leads-product-${product.uid}-mapping-cancel-button`}
                       type="button"
                       onClick={() => setIsEditingMapping(false)}
                       variant="outline"
@@ -498,6 +561,8 @@ export default function ProductDetailScreen({
                       Cancel
                     </Button>
                     <Button
+                      id={`jaldee-leads-product-${product.uid}-mapping-save-button`}
+                      data-testid={`jaldee-leads-product-${product.uid}-mapping-save-button`}
                       type="button"
                       onClick={handleSaveMapping}
                       variant="primary"
@@ -573,6 +638,8 @@ export default function ProductDetailScreen({
                     </p>
                   </div>
                   <Button
+                    id={`jaldee-leads-product-${product.uid}-setup-conversion-button`}
+                    data-testid={`jaldee-leads-product-${product.uid}-setup-conversion-button`}
                     type="button"
                     onClick={() => setIsEditingMapping(true)}
                     variant="primary"
@@ -597,107 +664,48 @@ export default function ProductDetailScreen({
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Search box */}
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="Filter product leads..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 focus:bg-white focus:border-indigo-600 focus:ring-0 rounded-xl text-sm font-semibold text-slate-850 outline-none w-48 transition-all shadow-sm"
-                    />
-                  </div>
+                  <Input
+                    id={`jaldee-leads-product-${product.uid}-leads-search-input`}
+                    data-testid={`jaldee-leads-product-${product.uid}-leads-search-input`}
+                    type="text"
+                    placeholder="Filter product leads..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    icon={<ICONS.SEARCH className="w-3.5 h-3.5 text-slate-400" />}
+                    fullWidth={false}
+                    className="w-48"
+                  />
 
-                  {/* Stage filter dropdown */}
                   {uniqueStages.length > 0 && (
-                    <select
+                    <Select
+                      id={`jaldee-leads-product-${product.uid}-stage-filter-select`}
+                      data-testid={`jaldee-leads-product-${product.uid}-stage-filter-select`}
                       value={stageFilter}
                       onChange={(e) => setStageFilter(e.target.value)}
-                      className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none cursor-pointer focus:border-indigo-600 shadow-sm"
-                    >
-                      <option value="ALL">All Stages</option>
-                      {uniqueStages.map((stg) => (
-                        <option key={stg} value={stg}>
-                          {stg}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "ALL", label: "All Stages" },
+                        ...uniqueStages.map((stg) => ({ value: String(stg), label: String(stg) })),
+                      ]}
+                      fullWidth={false}
+                      className="w-44"
+                    />
                   )}
                 </div>
               </div>
               
-              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden software-shadow">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left min-w-[500px]">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-400">
-                        <th className="px-4 md:px-6 py-4">Ref / ID</th>
-                        <th className="px-4 md:px-6 py-4">Lead Name</th>
-                        <th className="px-4 md:px-6 py-4">Pipeline Stage</th>
-                        <th className="px-4 md:px-6 py-4 text-right animate-pulse">
-                          Ingested At
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-800">
-                      {filteredLeads.map((lead) => (
-                        <tr
-                          key={lead.uid}
-                          className="hover:bg-indigo-50/10 transition-colors group cursor-pointer"
-                        >
-                          <td className="px-4 md:px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="font-mono text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                                {lead.referenceNo}
-                              </span>
-                              <span className="text-xs font-semibold text-slate-400 mt-0.5 leading-none">
-                                {lead.uid.toUpperCase()}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 md:px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-semibold text-slate-900">
-                                {lead.consumerFirstName} {lead.consumerLastName}
-                              </span>
-                              {lead.consumerEmail && (
-                                <span className="text-xs font-mono text-slate-400">
-                                  {lead.consumerEmail}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 md:px-6 py-4">
-                            <span className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                              <span className="text-sm font-bold text-slate-600">
-                                {lead.currentPipelineStageName}
-                              </span>
-                            </span>
-                          </td>
-                          <td className="px-4 md:px-6 py-4 text-right text-sm font-semibold text-slate-400 font-mono">
-                            {format(new Date(lead.createdAt), "dd MMM yy")}
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredLeads.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="px-6 py-12 text-center text-slate-400 text-xs font-bold italic"
-                          >
-                            No matching leads found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              <div data-testid={`jaldee-leads-product-${product.uid}-leads-table`}>
+              <DataTable
+                data={filteredLeads}
+                columns={leadColumns}
+                getRowId={(lead) => lead.uid}
+                emptyState={
+                  <EmptyState
+                    data-testid={`jaldee-leads-product-${product.uid}-leads-empty-state`}
+                    title="No matching leads found"
+                    description="Adjust the product lead filters."
+                  />
+                }
+              />
               </div>
             </div>
 
@@ -715,6 +723,7 @@ export default function ProductDetailScreen({
                 {associatedChannels.map((channel) => (
                   <div
                     key={channel.uid}
+                    data-testid={`jaldee-leads-product-${product.uid}-channel-${channel.uid}-row`}
                     className="bg-white p-4 md:p-5 rounded-[20px] md:rounded-[24px] border border-slate-200 flex items-center justify-between group gap-4"
                   >
                     <div className="flex items-center gap-3 md:gap-4 min-w-0">
@@ -758,3 +767,4 @@ export default function ProductDetailScreen({
     </div>
   );
 }
+

@@ -232,8 +232,8 @@ export async function getCrmProviderLeadsMigrationTemplate(api: ScopedApi) {
   return api.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.migrationTemplate));
 }
 
-export async function searchCrmProviderLeads(api: ScopedApi, data: unknown) {
-  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search), data);
+export async function searchCrmProviderLeads(api: ScopedApi, data: any) {
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search), { ...data, status: "ACTIVE" });
 }
 
 // CRM Lead Stage Controller

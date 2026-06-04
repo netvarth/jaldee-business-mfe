@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Product, CrmLeadDto, CrmLeadPipelineDto, Channel, FormTemplate } from '../types';
 import { cn } from '../lib/utils';
 import { ICONS } from '../constants';
+import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
 import ProductDetailScreen from './ProductDetailScreen';
 import CreateProductScreen from './CreateProductScreen';
 import { Button, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
@@ -40,6 +41,8 @@ export default function ProductsScreen({
   fetchTemplates
 }: ProductsScreenProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const showDashboardBack = cameFromDashboard(location);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => {
     if (initialSelectedId) {
@@ -95,12 +98,16 @@ export default function ProductsScreen({
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
+    <div data-testid="jaldee-leads-products-page" className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       <PageHeader
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        onNavigate={() => navigateBackToDashboard(navigate)}
         title="Product Inventory"
         subtitle="Portfolio Offerings & Workflow Deployments"
         actions={
           <Button
+            id="jaldee-leads-new-product-button"
+            data-testid="jaldee-leads-new-product-button"
             onClick={() => {
               fetchChannels?.();
               fetchTemplates?.();
@@ -150,11 +157,14 @@ export default function ProductsScreen({
             return (
               <SectionCard
                 key={product.uid}
+                data-testid={`jaldee-leads-product-${product.uid}-card`}
                 onClick={() => handleOpenProduct(product)}
                 className="relative group overflow-hidden border-slate-200 bg-white shadow-sm transition-all hover:border-indigo-200 hover:shadow-md cursor-pointer min-h-[300px]"
               >
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
                   <Button
+                    id={`jaldee-leads-product-${product.uid}-edit-button`}
+                    data-testid={`jaldee-leads-product-${product.uid}-edit-button`}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -171,6 +181,8 @@ export default function ProductsScreen({
                     title="Edit product"
                   />
                   <Button
+                    id={`jaldee-leads-product-${product.uid}-delete-button`}
+                    data-testid={`jaldee-leads-product-${product.uid}-delete-button`}
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleDelete(product.uid); }}
                     disabled={mutatingProductUid === product.uid}
@@ -293,6 +305,7 @@ export default function ProductsScreen({
           <CreateProductScreen
             channels={channels}
             forms={forms}
+            pipelines={pipelines}
             initialProduct={editingProduct}
             onBack={() => setEditingProduct(null)}
             onSave={async (product, selectedChannelUids) => {

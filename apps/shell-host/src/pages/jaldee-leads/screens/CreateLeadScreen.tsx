@@ -3,8 +3,9 @@ import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { CrmLeadDto, Product, Channel, FormTemplate, User, CrmLeadPipelineDto } from '../types';
 import { mockUsers } from '../mockData';
-import { Button, Input, Select, Checkbox, Badge } from '@jaldee/design-system';
+import { Button, Input, Select, Checkbox, PageHeader, PhoneInput } from '@jaldee/design-system';
 import { leadService } from '../services/leadService';
+import { leadPipelineService } from '../services/pipelineService';
 
 interface CreateLeadScreenProps {
   onBack: () => void;
@@ -16,7 +17,22 @@ interface CreateLeadScreenProps {
   forms: FormTemplate[];
 }
 
+const hasStages = (pipeline?: CrmLeadPipelineDto | null) => Boolean(pipeline?.stages?.length);
+
+const findPipelineForProduct = (product: Product | undefined, pipelines: CrmLeadPipelineDto[]) => {
+  if (!product) return pipelines.find(p => p.isDefault) || pipelines[0] || null;
+
+  return (
+    pipelines.find(p => p.uid === product.defaultPipelineUid) ||
+    pipelines.find(p => product.defaultPipelineName && p.name === product.defaultPipelineName) ||
+    pipelines.find(p => p.isDefault) ||
+    pipelines[0] ||
+    null
+  );
+};
+
 export default function CreateLeadScreen({ onBack, onSave, pipelines, products, channels, leads, forms }: CreateLeadScreenProps) {
+  const defaultOwner = mockUsers[0];
   const [formData, setFormData] = useState<Partial<CrmLeadDto>>({
     consumerFirstName: '',
     consumerLastName: '',
@@ -24,8 +40,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
     consumerPhone: '',
     company: '',
     internalStatus: 'ACTIVE',
-    ownerId: mockUsers[0].uid,
-    ownerName: mockUsers[0].name,
+    ownerId: defaultOwner?.uid || '',
+    ownerName: defaultOwner?.name || '',
     channelUid: channels[0]?.uid || '',
     channelName: channels[0]?.name || '',
     productUid: '',
@@ -49,19 +65,36 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
 
   // Auto-derive pipeline & form template when solution interest changes
   useEffect(() => {
+    let active = true;
+
+    const applyPipeline = async (pipeline: CrmLeadPipelineDto | null) => {
+      if (!pipeline) {
+        if (active) {
+          setDerivedPipeline(null);
+          setSelectedStageUid('');
+        }
+        return;
+      }
+
+      let resolvedPipeline = pipeline;
+      if (!hasStages(resolvedPipeline)) {
+        try {
+          resolvedPipeline = await leadPipelineService.detail(pipeline.uid);
+        } catch {
+          resolvedPipeline = pipeline;
+        }
+      }
+
+      if (!active) return;
+      setDerivedPipeline(resolvedPipeline);
+      setSelectedStageUid(resolvedPipeline.stages?.[0]?.uid || '');
+    };
+
     if (formData.productUid) {
       const product = products.find(p => p.uid === formData.productUid);
       setSelectedProduct(product || null);
-      if (product) {
-        const pipeline = pipelines.find(p => p.uid === product.defaultPipelineUid) || pipelines[0];
-        setDerivedPipeline(pipeline || null);
-        if (pipeline && pipeline.stages && pipeline.stages.length > 0) {
-          setSelectedStageUid(pipeline.stages[0].uid);
-        }
-      } else {
-        setDerivedPipeline(null);
-        setSelectedStageUid('');
-      }
+      applyPipeline(findPipelineForProduct(product, pipelines));
+
       if (product?.leadTemplateUid) {
         const template = forms.find(f => f.uid === product.leadTemplateUid);
         setCurrentTemplate(template || null);
@@ -70,15 +103,13 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
       }
     } else {
       setSelectedProduct(null);
-      const defaultPipeline = pipelines.find(p => p.isDefault) || pipelines[0];
-      setDerivedPipeline(defaultPipeline || null);
-      if (defaultPipeline && defaultPipeline.stages && defaultPipeline.stages.length > 0) {
-        setSelectedStageUid(defaultPipeline.stages[0].uid);
-      } else {
-        setSelectedStageUid('');
-      }
+      applyPipeline(findPipelineForProduct(undefined, pipelines));
       setCurrentTemplate(null);
     }
+
+    return () => {
+      active = false;
+    };
   }, [formData.productUid, products, pipelines, forms]);
 
   // Real-time duplicate check based on email or phone
@@ -166,6 +197,9 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
         uid: savedLead.uid || `L-${Math.random().toString(36).substr(2, 7).toUpperCase()}`,
         referenceNo: savedLead.referenceNo || `REF-${Math.floor(1000 + Math.random() * 90000)}`,
         leadDate: savedLead.leadDate || new Date().toISOString(),
+        productUid: savedLead.productUid || formData.productUid || '',
+        productName: savedLead.productName || formData.productName || selectedProduct?.name || '',
+        productEnum: savedLead.productEnum || selectedProduct?.productEnum || '',
         pipelineUid: savedLead.pipelineUid || pipeline.uid,
         pipelineName: savedLead.pipelineName || pipeline.name,
         currentPipelineStageUid: savedLead.currentPipelineStageUid || initialStage.uid,
@@ -240,38 +274,26 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      
-      {/* Header */}
-      <div className="flex-none px-8 py-6 border-b border-slate-200 bg-white">
-         <div className="max-w-5xl mx-auto flex items-center justify-between">
-            <div>
-               <Button 
-                 onClick={onBack} 
-                 variant="ghost" 
-                 size="inline"
-                 icon={<ICONS.PREV className="w-3.5 h-3.5" />}
-                 className="text-xs font-semibold text-slate-400 hover:text-indigo-600 mb-3 transition-all"
-               >
-                 Back to List
-               </Button>
-               <h1 className="text-3xl font-semibold text-slate-900">New Business Opportunity</h1>
-               <p className="text-xs font-bold text-slate-400 mt-1">Initialize a new lead record into the sales matrix</p>
+    <div data-testid="jaldee-leads-create-lead-page" className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
+      <PageHeader
+        back={{ label: 'Back to List', href: '/jaldee-leads/leads' }}
+        onNavigate={onBack}
+        title="New Business Opportunity"
+        subtitle="Initialize a new lead record into the sales matrix"
+        actions={
+          <div className="hidden md:flex items-center gap-3 rounded-xl border border-indigo-100 bg-white px-4 py-2">
+            <div className="text-right">
+              <p className="text-xs font-semibold text-slate-400 leading-none">Form Mode</p>
+              <p className="text-xs font-semibold text-indigo-600 mt-1">Interactive Ingestion</p>
             </div>
-            <div className="hidden md:flex items-center gap-3">
-               <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-400">Form Mode</p>
-                  <p className="text-sm font-semibold text-indigo-600">Interactive Ingestion</p>
-               </div>
-               <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                  <ICONS.AI className="w-5 h-5 animate-pulse" />
-               </div>
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+              <ICONS.AI className="w-4 h-4 animate-pulse" />
             </div>
-         </div>
-      </div>
+          </div>
+        }
+      />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar">
-        <div className="max-w-5xl px-8 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8 mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           <div className="lg:col-span-2 space-y-8">
             {/* Live Duplicate Warning */}
@@ -286,6 +308,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                     A record with matching contact details already exists: <b>{duplicateLead.consumerFirstName} {duplicateLead.consumerLastName}</b> (Ref: {duplicateLead.referenceNo}).
                   </p>
                   <Button 
+                    id={`jaldee-leads-duplicate-${duplicateLead.uid}-view-button`}
+                    data-testid={`jaldee-leads-duplicate-${duplicateLead.uid}-view-button`}
                     onClick={() => onBack()}
                     variant="danger"
                     size="sm"
@@ -308,6 +332,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input 
+                  data-testid="jaldee-leads-create-lead-first-name-input"
                   type="text"
                   id="firstName"
                   name="consumerFirstName"
@@ -318,6 +343,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                 />
 
                 <Input 
+                  data-testid="jaldee-leads-create-lead-last-name-input"
                   type="text"
                   id="lastName"
                   name="consumerLastName"
@@ -328,6 +354,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                 />
 
                 <Input 
+                  data-testid="jaldee-leads-create-lead-email-input"
                   type="email"
                   id="email"
                   name="consumerEmail"
@@ -337,17 +364,26 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                   placeholder="robert@example.com"
                 />
 
-                <Input 
-                  type="tel"
+                <PhoneInput 
+                  data-testid="jaldee-leads-create-lead-phone-input"
                   id="phone"
-                  name="consumerPhone"
                   label="Mobile Bridge"
-                  value={formData.consumerPhone}
-                  onChange={handleChange}
-                  placeholder="+1 (555) 000-0000"
+                  value={{
+                    countryCode: '+1',
+                    number: '',
+                    e164Number: formData.consumerPhone || '',
+                  }}
+                  onChange={(val) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      consumerPhone: val.e164Number || (val.countryCode + val.number)
+                    }));
+                  }}
+                  numberPlaceholder="+1 (555) 000-0000"
                 />
 
                 <Input 
+                  data-testid="jaldee-leads-create-lead-company-input"
                   type="text"
                   id="company"
                   name="company"
@@ -369,42 +405,56 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                 <h3 className="text-lg font-semibold text-slate-900">Workflow Engagement</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <Select 
-                   id="channelSelect"
-                   name="channelUid"
-                   label="Source Ingestion Channel"
-                   value={formData.channelUid}
-                   onChange={handleChange}
-                   options={channels.map(c => ({ value: c.uid, label: c.name }))}
-                 />
+              <div className="space-y-6">
+                 {/* Product Selection First */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <Select 
+                     data-testid="jaldee-leads-create-lead-product-select"
+                     id="productSelect"
+                     name="productUid"
+                     label="Solution Interest (Product)"
+                     value={formData.productUid}
+                     onChange={handleChange}
+                     options={[
+                       { value: "", label: "No Product Selected" },
+                       ...products.map(p => ({ value: p.uid, label: p.name }))
+                     ]}
+                   />
+                 </div>
 
-                 <Select 
-                   id="productSelect"
-                   name="productUid"
-                   label="Solution Interest (Product)"
-                   value={formData.productUid}
-                   onChange={handleChange}
-                   options={[
-                     { value: "", label: "No Product Selected" },
-                     ...products.map(p => ({ value: p.uid, label: p.name }))
-                   ]}
-                 />
-              </div>
-
-              {/* Dynamic Derivation Card */}
-              {derivedPipeline && (
-                <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center justify-between">
-                   <div>
-                      <p className="text-xs font-semibold text-indigo-500 leading-none">Derived sales workflow</p>
-                      <h4 className="text-base font-semibold text-slate-900 mt-1.5">{derivedPipeline.name}</h4>
-                      <p className="text-sm text-slate-500 font-medium mt-1">First Stage: <span className="font-bold text-indigo-600">{derivedPipeline.stages?.[0]?.stageName}</span></p>
+                 {/* Dynamic Derivation Card (Workflow derived from Product) */}
+                 {derivedPipeline && (
+                   <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center justify-between">
+                      <div>
+                         <p className="text-xs font-semibold text-indigo-500 leading-none">Derived sales workflow (Pipeline)</p>
+                         <h4 className="text-base font-semibold text-slate-900 mt-1.5">{derivedPipeline.name}</h4>
+                         <p className="text-sm text-slate-500 font-medium mt-1">First Stage: <span className="font-bold text-indigo-600">{derivedPipeline.stages?.[0]?.stageName}</span></p>
+                      </div>
+                      <span className="text-sm font-semibold bg-white border border-indigo-100 px-3 py-1.5 rounded-xl text-indigo-600">
+                        {derivedPipeline.stages?.length} stages
+                      </span>
                    </div>
-                   <span className="text-sm font-semibold bg-white border border-indigo-100 px-3 py-1.5 rounded-xl text-indigo-600">
-                     {derivedPipeline.stages?.length} stages
-                   </span>
-                </div>
-              )}
+                 )}
+
+                 {/* Channel Selection (Filtered by Product) */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <Select 
+                     data-testid="jaldee-leads-create-lead-channel-select"
+                     id="channelSelect"
+                     name="channelUid"
+                     label="Source Ingestion Channel"
+                     value={formData.channelUid}
+                     onChange={handleChange}
+                     disabled={!formData.productUid}
+                     options={[
+                       { value: "", label: "Select Channel" },
+                       ...channels
+                         .filter(c => c.productUids?.includes(formData.productUid) || c.productUid === formData.productUid)
+                         .map(c => ({ value: c.uid, label: c.name }))
+                     ]}
+                   />
+                 </div>
+              </div>
 
               {/* Dynamic Template Fields */}
               {currentTemplate && (
@@ -423,6 +473,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                         if (field.type === 'select') {
                           return (
                             <Select
+                              data-testid={`jaldee-leads-create-lead-template-field-${field.id}`}
                               key={field.id}
                               id={`field-${field.id}`}
                               label={fieldLabel}
@@ -440,6 +491,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                               <span className="ds-form-label">{fieldLabel}</span>
                               <div className="flex items-center gap-3 h-[38px] px-3 bg-slate-50 border border-slate-200 rounded-[var(--radius-control)]">
                                 <Checkbox
+                                  data-testid={`jaldee-leads-create-lead-template-field-${field.id}`}
                                   id={`field-${field.id}`}
                                   onChange={(e) => handleCustomFieldChange(field.id, e.target.checked)}
                                   label="Confirm / Yes"
@@ -450,6 +502,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                         }
                         return (
                           <Input
+                            data-testid={`jaldee-leads-create-lead-template-field-${field.id}`}
                             key={field.id}
                             type={field.type}
                             id={`field-${field.id}`}
@@ -480,16 +533,20 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                   Select the onboarding stage for this new lead registration:
                 </p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {(derivedPipeline || pipelines.find(p => p.isDefault) || pipelines[0])?.stages?.map((stage) => {
                     const isSelected = selectedStageUid === stage.uid;
                     return (
-                      <button
+                      <Button
+                        id={`jaldee-leads-create-lead-stage-${stage.uid}-button`}
+                        data-testid={`jaldee-leads-create-lead-stage-${stage.uid}-button`}
+                        data-active={isSelected}
                         key={stage.uid}
                         type="button"
                         onClick={() => setSelectedStageUid(stage.uid)}
+                        variant="outline"
                         className={cn(
-                          "p-4 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between h-20 relative overflow-hidden group",
+                          "p-4 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between min-h-28 relative overflow-hidden group",
                           isSelected 
                             ? "bg-indigo-50/40 border-indigo-600 shadow-md shadow-indigo-500/5 col-span-1" 
                             : "bg-slate-50 border-slate-100 hover:border-slate-300 hover:bg-white"
@@ -504,11 +561,11 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                             <span className="text-xs font-semibold text-indigo-600 bg-white border border-indigo-100 px-1 py-0.5 rounded">START</span>
                           )}
                         </div>
-                        <div className="relative z-10 mt-1">
-                          <h4 className="text-sm font-semibold text-slate-900 truncate w-full">{stage.stageName}</h4>
-                          <p className="text-xs font-bold text-slate-400 mt-0.5">Rule: {stage.movementRule || 'None'}</p>
+                        <div className="relative z-10 mt-3 min-w-0">
+                          <h4 className="text-sm font-semibold text-slate-900 leading-snug break-words">{stage.stageName}</h4>
+                          <p className="text-xs font-bold text-slate-400 mt-1 leading-snug">Rule: {stage.movementRule || 'None'}</p>
                         </div>
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -526,6 +583,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
 
                 <div className="space-y-4">
                    <Select 
+                      data-testid="jaldee-leads-create-lead-owner-select"
                       id="ownerSelect"
                       name="ownerId"
                       label="Internal Lead Owner"
@@ -539,7 +597,9 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                       <div className="grid grid-cols-2 gap-2 mt-2">
                          {['LOW', 'NORMAL', 'HIGH', 'URGENT'].map(p => (
                            <Button 
-                              id={`priority-${p}`}
+                              id={`jaldee-leads-create-lead-priority-${p.toLowerCase()}-button`}
+                              data-testid={`jaldee-leads-create-lead-priority-${p.toLowerCase()}-button`}
+                              data-active={formData.priority === p}
                               key={p}
                               type="button"
                               onClick={() => setFormData(f => ({ ...f, priority: p as any }))}
@@ -564,6 +624,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                    
                    <div className="space-y-4">
                       <Input 
+                         data-testid="jaldee-leads-create-lead-expected-value-input"
                          type="number"
                          id="expectedValue"
                          name="expectedValue"
@@ -587,12 +648,12 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                 <p className="text-sm font-bold leading-relaxed text-slate-500">Saving this record will initiate the sales pipeline and alert the assigned owner immediately.</p>
              </div>
           </div>
-        </div>
       </div>
 
-      <div className="flex-none p-6 border-t border-slate-200 bg-white flex items-center justify-end gap-3 z-10 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
+      <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8 py-4 border-t border-slate-200 bg-white flex items-center justify-end gap-3 z-10 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
          <Button 
-            id="cancelButton" 
+            id="jaldee-leads-create-lead-cancel-button"
+            data-testid="jaldee-leads-create-lead-cancel-button" 
             onClick={onBack} 
             variant="outline"
             className="px-6 h-11 rounded-2xl text-xs font-semibold active-scale"
@@ -600,7 +661,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
             Cancel
          </Button>
          <Button 
-            id="saveButton"
+            id="jaldee-leads-create-lead-save-button"
+            data-testid="jaldee-leads-create-lead-save-button"
             onClick={handleSave} 
             variant="primary"
             className="px-10 h-11 rounded-2xl text-xs font-semibold active-scale"

@@ -10,9 +10,10 @@ import { unwrapCount, unwrapList } from "../utils";
 type AuditRow = {
   uid: string;
   action: string;
-  currentStatus: string;
-  description: string;
-  user: string;
+  subject: string;
+  message: string;
+  updatedByName: string;
+  updatedAt: string;
 };
 
 function capitalize(value: unknown) {
@@ -28,10 +29,11 @@ function capitalize(value: unknown) {
 function toRows(data: unknown): AuditRow[] {
   return unwrapList(data).map((item: any, index: number) => ({
     uid: String(item.uid ?? item.id ?? index),
-    action: capitalize(item.auditContext),
-    currentStatus: String(item.currentStatus ?? "-"),
-    description: String(item.description ?? "-"),
-    user: String(item.userId ?? "-"),
+    action: capitalize(item.action ?? item.auditContext),
+    subject: String(item.subject ?? "-"),
+    message: String(item.message ?? item.description ?? "-"),
+    updatedByName: String(item.updatedByName ?? item.actorUserName ?? item.actor ?? item.userId ?? "-"),
+    updatedAt: String(item.updatedAt ?? item.createdAt ?? item.timestamp ?? "-"),
   }));
 }
 
@@ -75,14 +77,15 @@ export function AuditLogList() {
 
   const columns = useMemo<ColumnDef<AuditRow>[]>(
     () => [
-      { key: "action", header: "Action", render: (row) => <span className="font-semibold text-slate-900">{row.action}</span> },
-      { key: "currentStatus", header: "Current Status" },
+      { key: "subject", header: "Subject", render: (row) => <span className="font-semibold text-slate-900 whitespace-nowrap">{row.subject}</span> },
       {
-        key: "description",
-        header: "Description",
-        render: (row) => <span className="text-slate-800">{row.description}</span>,
+        key: "message",
+        header: "Message",
+        render: (row) => <span className="text-slate-800 break-words">{row.message}</span>,
       },
-      { key: "user", header: "User" },
+      { key: "action", header: "Action", render: (row) => <span className="px-2 py-0.5 border text-xs font-semibold rounded-sm bg-purple-50 text-[#5D40A8] border-purple-150 whitespace-nowrap">{row.action}</span> },
+      { key: "updatedByName", header: "Updated By", render: (row) => <span className="font-medium text-slate-700 whitespace-nowrap">{row.updatedByName}</span> },
+      { key: "updatedAt", header: "Updated At", render: (row) => <span className="text-slate-500 whitespace-nowrap">{row.updatedAt !== "-" ? new Date(row.updatedAt).toLocaleString() : "-"}</span> },
     ],
     []
   );

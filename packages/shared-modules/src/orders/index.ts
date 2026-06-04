@@ -83,7 +83,7 @@ export {
   useUpdateOrdersItem,
   useOrdersOrders,
   useOrdersRequests,
-  useOrdersCatalogs,
+  useOrdersCatalogsPage as useOrdersCatalogs,
   useOrdersInventory,
 } from "./queries/orders";
 export {

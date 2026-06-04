@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, Input, PageHeader, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import { Badge, Button, Checkbox, Input, PageHeader, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import { ArrowDown, ArrowUp, Copy, Plus, Save, Trash2, X } from "lucide-react";
 import type { FormField, FormTemplate } from "../types";
 import { ICONS } from "../constants";
@@ -311,27 +311,34 @@ function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
 function FieldEditor({
   field,
   onChange,
+  testIdPrefix,
 }: {
   field: TemplateField;
   onChange: (patch: Partial<TemplateField>) => void;
+  testIdPrefix: string;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      <Input label="JSON key" value={field.key} onChange={(event) => onChange({ key: event.target.value })} />
-      <Input label="Title" value={field.title} onChange={(event) => onChange({ title: event.target.value })} />
-      <Input label="Description" value={field.description} onChange={(event) => onChange({ description: event.target.value })} />
-      <Select label="Type" value={field.type} onChange={(event) => onChange({ type: event.target.value as JsonSchemaType })} options={fieldTypeOptions} />
-      <Select label="Item type" value={field.itemType} onChange={(event) => onChange({ itemType: event.target.value })} options={itemTypeOptions} />
-      <Select label="Input type" value={field.inputType} onChange={(event) => onChange({ inputType: event.target.value })} options={inputTypeOptions} />
-      <Select label="Option source" value={field.optionType} onChange={(event) => onChange({ optionType: event.target.value })} options={optionTypeOptions} />
-      <Input label="Default" value={field.defaultValue} onChange={(event) => onChange({ defaultValue: event.target.value })} />
-      <label className="mt-7 flex h-9 items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" checked={field.required} onChange={(event) => onChange({ required: event.target.checked })} />
-        Required
-      </label>
-      <Input label="Minimum" value={field.minimum} onChange={(event) => onChange({ minimum: event.target.value })} />
-      <Input label="Maximum" value={field.maximum} onChange={(event) => onChange({ maximum: event.target.value })} />
-      <Textarea label="Options" value={field.optionsText} onChange={(event) => onChange({ optionsText: event.target.value })} placeholder={"male:Male\nfemale:Female"} rows={3} />
+      <Input id={`${testIdPrefix}-json-key-input`} data-testid={`${testIdPrefix}-json-key-input`} label="JSON key" value={field.key} onChange={(event) => onChange({ key: event.target.value })} />
+      <Input id={`${testIdPrefix}-title-input`} data-testid={`${testIdPrefix}-title-input`} label="Title" value={field.title} onChange={(event) => onChange({ title: event.target.value })} />
+      <Input id={`${testIdPrefix}-description-input`} data-testid={`${testIdPrefix}-description-input`} label="Description" value={field.description} onChange={(event) => onChange({ description: event.target.value })} />
+      <Select id={`${testIdPrefix}-type-select`} data-testid={`${testIdPrefix}-type-select`} label="Type" value={field.type} onChange={(event) => onChange({ type: event.target.value as JsonSchemaType })} options={fieldTypeOptions} />
+      <Select id={`${testIdPrefix}-item-type-select`} data-testid={`${testIdPrefix}-item-type-select`} label="Item type" value={field.itemType} onChange={(event) => onChange({ itemType: event.target.value })} options={itemTypeOptions} />
+      <Select id={`${testIdPrefix}-input-type-select`} data-testid={`${testIdPrefix}-input-type-select`} label="Input type" value={field.inputType} onChange={(event) => onChange({ inputType: event.target.value })} options={inputTypeOptions} />
+      <Select id={`${testIdPrefix}-option-source-select`} data-testid={`${testIdPrefix}-option-source-select`} label="Option source" value={field.optionType} onChange={(event) => onChange({ optionType: event.target.value })} options={optionTypeOptions} />
+      <Input id={`${testIdPrefix}-default-input`} data-testid={`${testIdPrefix}-default-input`} label="Default" value={field.defaultValue} onChange={(event) => onChange({ defaultValue: event.target.value })} />
+      <div className="mt-7 flex h-9 items-center">
+        <Checkbox
+          data-testid={`${testIdPrefix}-required-checkbox`}
+          data-active={field.required}
+          checked={field.required}
+          onChange={(event) => onChange({ required: event.target.checked })}
+          label="Required"
+        />
+      </div>
+      <Input id={`${testIdPrefix}-minimum-input`} data-testid={`${testIdPrefix}-minimum-input`} label="Minimum" value={field.minimum} onChange={(event) => onChange({ minimum: event.target.value })} />
+      <Input id={`${testIdPrefix}-maximum-input`} data-testid={`${testIdPrefix}-maximum-input`} label="Maximum" value={field.maximum} onChange={(event) => onChange({ maximum: event.target.value })} />
+      <Textarea id={`${testIdPrefix}-options-textarea`} data-testid={`${testIdPrefix}-options-textarea`} label="Options" value={field.optionsText} onChange={(event) => onChange({ optionsText: event.target.value })} placeholder={"male:Male\nfemale:Female"} rows={3} />
     </div>
   );
 }
@@ -363,34 +370,39 @@ function AddItemModal({
         : "Add Object Field";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
+    <div data-testid="jaldee-leads-template-builder-add-item-dialog-overlay" data-state="open" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+      <div data-testid="jaldee-leads-template-builder-add-item-dialog" data-state="open" className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h3 className="m-0 text-sm font-semibold text-slate-900">{title}</h3>
-          <Button size="sm" variant="ghost" icon={<X size={16} />} onClick={onClose} aria-label="Close modal" />
+          <Button id="jaldee-leads-template-builder-add-item-close-button" data-testid="jaldee-leads-template-builder-add-item-close-button" size="sm" variant="ghost" icon={<X size={16} />} onClick={onClose} aria-label="Close modal" />
         </div>
 
         <div className="p-4">
           {state.kind === "object" ? (
             <div className="grid gap-3 md:grid-cols-3">
-              <Input label="JSON key" value={objectDraft.key} onChange={(event) => onObjectChange({ key: event.target.value })} />
-              <Input label="Title" value={objectDraft.title} onChange={(event) => onObjectChange({ title: event.target.value })} />
-              <Input label="Description" value={objectDraft.description} onChange={(event) => onObjectChange({ description: event.target.value })} />
-              <label className="mt-7 flex h-9 items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" checked={objectDraft.required} onChange={(event) => onObjectChange({ required: event.target.checked })} />
-                Required
-              </label>
+              <Input id="jaldee-leads-template-builder-add-object-json-key-input" data-testid="jaldee-leads-template-builder-add-object-json-key-input" label="JSON key" value={objectDraft.key} onChange={(event) => onObjectChange({ key: event.target.value })} />
+              <Input id="jaldee-leads-template-builder-add-object-title-input" data-testid="jaldee-leads-template-builder-add-object-title-input" label="Title" value={objectDraft.title} onChange={(event) => onObjectChange({ title: event.target.value })} />
+              <Input id="jaldee-leads-template-builder-add-object-description-input" data-testid="jaldee-leads-template-builder-add-object-description-input" label="Description" value={objectDraft.description} onChange={(event) => onObjectChange({ description: event.target.value })} />
+              <div className="mt-7 flex h-9 items-center">
+                <Checkbox
+                  data-testid="jaldee-leads-template-builder-add-object-required-checkbox"
+                  data-active={objectDraft.required}
+                  checked={objectDraft.required}
+                  onChange={(event) => onObjectChange({ required: event.target.checked })}
+                  label="Required"
+                />
+              </div>
             </div>
           ) : (
-            <FieldEditor field={fieldDraft} onChange={onFieldChange} />
+            <FieldEditor field={fieldDraft} onChange={onFieldChange} testIdPrefix="jaldee-leads-template-builder-add-field" />
           )}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <Button variant="outline" onClick={onClose}>
+          <Button id="jaldee-leads-template-builder-add-item-cancel-button" data-testid="jaldee-leads-template-builder-add-item-cancel-button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button icon={<Plus size={16} />} onClick={onConfirm}>
+          <Button id="jaldee-leads-template-builder-add-item-confirm-button" data-testid="jaldee-leads-template-builder-add-item-confirm-button" icon={<Plus size={16} />} onClick={onConfirm}>
             Add
           </Button>
         </div>
@@ -550,16 +562,16 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 pb-24">
+    <div data-testid="jaldee-leads-template-builder-page" data-state={isSaving ? "loading" : status ? "status" : "idle"} className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 pb-24">
       <PageHeader
         title={isEditMode ? "Edit Lead Template" : "Lead Template Builder"}
         subtitle="Build lead intake template JSON in the exact order required."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" icon={<ICONS.PREV className="h-4 w-4" />} onClick={() => navigate("/jaldee-leads/templates")}>
+            <Button id="jaldee-leads-template-builder-back-button" data-testid="jaldee-leads-template-builder-back-button" variant="outline" icon={<ICONS.PREV className="h-4 w-4" />} onClick={() => navigate("/jaldee-leads/templates")}>
               Templates
             </Button>
-            <Button icon={<Save size={16} />} loading={isSaving} onClick={handleSaveTemplate}>
+            <Button id="jaldee-leads-template-builder-save-button" data-testid="jaldee-leads-template-builder-save-button" icon={<Save size={16} />} loading={isSaving} onClick={handleSaveTemplate}>
               {isEditMode ? "Update template" : "Create template"}
             </Button>
           </div>
@@ -570,8 +582,8 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
         <div className="flex flex-col gap-4">
           <SectionCard title="Template">
             <div className="grid gap-3 md:grid-cols-2">
-              <Input label="Template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} />
-              <Input label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+              <Input id="jaldee-leads-template-builder-name-input" data-testid="jaldee-leads-template-builder-name-input" label="Template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} />
+              <Input id="jaldee-leads-template-builder-description-input" data-testid="jaldee-leads-template-builder-description-input" label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
             </div>
           </SectionCard>
 
@@ -579,10 +591,10 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
             title="Current Template Items"
             actions={
               <>
-                <Button size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "field" })}>
+                <Button id="jaldee-leads-template-builder-add-field-button" data-testid="jaldee-leads-template-builder-add-field-button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "field" })}>
                   Field
                 </Button>
-                <Button size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "object" })}>
+                <Button id="jaldee-leads-template-builder-add-object-button" data-testid="jaldee-leads-template-builder-add-object-button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "object" })}>
                   Object
                 </Button>
               </>
@@ -590,7 +602,7 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
           >
             <div className="flex flex-col gap-3">
               {items.map((item, index) => (
-                <div key={item.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                <div key={item.id} data-testid={`jaldee-leads-template-builder-item-${item.id}-row`} className="rounded-lg border border-gray-200 bg-white p-3">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-gray-800">
@@ -603,40 +615,45 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" icon={<ArrowUp size={14} />} disabled={index === 0} onClick={() => setItems((current) => moveItem(current, index, -1))} aria-label="Move up" />
-                      <Button size="sm" variant="ghost" icon={<ArrowDown size={14} />} disabled={index === items.length - 1} onClick={() => setItems((current) => moveItem(current, index, 1))} aria-label="Move down" />
-                      <Button size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} aria-label="Delete item" />
+                      <Button id={`jaldee-leads-template-builder-item-${item.id}-move-up-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-move-up-button`} size="sm" variant="ghost" icon={<ArrowUp size={14} />} disabled={index === 0} onClick={() => setItems((current) => moveItem(current, index, -1))} aria-label="Move up" />
+                      <Button id={`jaldee-leads-template-builder-item-${item.id}-move-down-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-move-down-button`} size="sm" variant="ghost" icon={<ArrowDown size={14} />} disabled={index === items.length - 1} onClick={() => setItems((current) => moveItem(current, index, 1))} aria-label="Move down" />
+                      <Button id={`jaldee-leads-template-builder-item-${item.id}-delete-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-delete-button`} size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} aria-label="Delete item" />
                     </div>
                   </div>
 
                   {item.kind === "field" ? (
-                    <FieldEditor field={item.field} onChange={(patch) => updateItemField(item.id, patch)} />
+                    <FieldEditor field={item.field} onChange={(patch) => updateItemField(item.id, patch)} testIdPrefix={`jaldee-leads-template-builder-item-${item.id}`} />
                   ) : (
                     <div className="flex flex-col gap-3">
                       <div className="grid gap-3 md:grid-cols-3">
-                        <Input label="JSON key" value={item.object.key} onChange={(event) => updateObject(item.id, { key: event.target.value })} />
-                        <Input label="Title" value={item.object.title} onChange={(event) => updateObject(item.id, { title: event.target.value })} />
-                        <Input label="Description" value={item.object.description} onChange={(event) => updateObject(item.id, { description: event.target.value })} />
-                        <label className="mt-7 flex h-9 items-center gap-2 text-sm text-gray-700">
-                          <input type="checkbox" checked={item.object.required} onChange={(event) => updateObject(item.id, { required: event.target.checked })} />
-                          Required
-                        </label>
+                        <Input id={`jaldee-leads-template-builder-object-${item.object.id}-json-key-input`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-json-key-input`} label="JSON key" value={item.object.key} onChange={(event) => updateObject(item.id, { key: event.target.value })} />
+                        <Input id={`jaldee-leads-template-builder-object-${item.object.id}-title-input`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-title-input`} label="Title" value={item.object.title} onChange={(event) => updateObject(item.id, { title: event.target.value })} />
+                        <Input id={`jaldee-leads-template-builder-object-${item.object.id}-description-input`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-description-input`} label="Description" value={item.object.description} onChange={(event) => updateObject(item.id, { description: event.target.value })} />
+                        <div className="mt-7 flex h-9 items-center">
+                          <Checkbox
+                            data-testid={`jaldee-leads-template-builder-object-${item.object.id}-required-checkbox`}
+                            data-active={item.object.required}
+                            checked={item.object.required}
+                            onChange={(event) => updateObject(item.id, { required: event.target.checked })}
+                            label="Required"
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between border-t border-gray-100 pt-3">
                         <h4 className="m-0 text-sm font-semibold text-gray-700">Object fields</h4>
-                        <Button size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "objectField", objectId: item.object.id })}>
+                        <Button id={`jaldee-leads-template-builder-object-${item.object.id}-add-field-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-add-field-button`} size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "objectField", objectId: item.object.id })}>
                           Field
                         </Button>
                       </div>
 
                       {item.object.fields.map((field) => (
-                        <div key={field.id} className="rounded-md border border-gray-100 p-3">
+                        <div key={field.id} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-row`} className="rounded-md border border-gray-100 p-3">
                           <div className="mb-3 flex items-center justify-between">
                             <div className="text-sm font-semibold text-gray-800">{field.title || field.key}</div>
-                            <Button size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => removeObjectField(item.object.id, field.id)} aria-label="Delete object field" />
+                            <Button id={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-delete-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-delete-button`} size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => removeObjectField(item.object.id, field.id)} aria-label="Delete object field" />
                           </div>
-                          <FieldEditor field={field} onChange={(patch) => updateObjectField(item.object.id, field.id, patch)} />
+                          <FieldEditor field={field} onChange={(patch) => updateObjectField(item.object.id, field.id, patch)} testIdPrefix={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}`} />
                         </div>
                       ))}
                     </div>
@@ -645,7 +662,7 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
               ))}
 
               {items.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                <div data-testid="jaldee-leads-template-builder-items-empty-state" data-state="empty" className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
                   Add a field or object to start the template.
                 </div>
               ) : null}
@@ -653,10 +670,10 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
           </SectionCard>
         </div>
 
-        <SectionCard title="Generated JSON" actions={<Button size="sm" variant="outline" icon={<Copy size={14} />} onClick={handleCopyJson}>Copy</Button>}>
-          <pre className="max-h-[720px] overflow-auto rounded-md bg-gray-950 p-4 text-xs leading-5 text-gray-50">{jsonPreview}</pre>
-          <Textarea className="mt-3 font-mono text-xs" label="Create payload" value={JSON.stringify(payload, null, 2)} readOnly rows={10} />
-          {status ? <p className="mt-3 text-sm text-gray-600">{status}</p> : null}
+        <SectionCard title="Generated JSON" actions={<Button id="jaldee-leads-template-builder-copy-json-button" data-testid="jaldee-leads-template-builder-copy-json-button" size="sm" variant="outline" icon={<Copy size={14} />} onClick={handleCopyJson}>Copy</Button>}>
+          <pre data-testid="jaldee-leads-template-builder-json-preview" className="max-h-[720px] overflow-auto rounded-md bg-gray-950 p-4 text-xs leading-5 text-gray-50">{jsonPreview}</pre>
+          <Textarea id="jaldee-leads-template-builder-create-payload-textarea" data-testid="jaldee-leads-template-builder-create-payload-textarea" className="mt-3 font-mono text-xs" label="Create payload" value={JSON.stringify(payload, null, 2)} readOnly rows={10} />
+          {status ? <p data-testid="jaldee-leads-template-builder-status" data-state={isSaving ? "loading" : "status"} className="mt-3 text-sm text-gray-600">{status}</p> : null}
         </SectionCard>
       </div>
 

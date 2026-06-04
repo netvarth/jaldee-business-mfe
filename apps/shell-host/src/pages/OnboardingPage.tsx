@@ -514,7 +514,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="onboarding-page">
+    <div data-testid="onboarding-page" data-state={`step-${step + 1}`} className="onboarding-page">
       <div className={`onboarding-card${step === 2 ? " onboarding-card--location" : ""}`}>
         <div className="onboarding-progress">
           {[0, 1, 2, 3].map((index) => (
@@ -538,8 +538,10 @@ export default function OnboardingPage() {
               <h1 className="onboarding-title">Tell us about your business</h1>
               <p className="onboarding-subtitle">We&apos;ll use this to set up your defaults. You can change anything later in Settings.</p>
 
-              <div className="onboarding-form">
+              <div data-testid="onboarding-business-form" className="onboarding-form">
                 <Input
+                  id="onboarding-company-name-input"
+                  data-testid="onboarding-company-name-input"
                   label="Company Name"
                   value={companyName}
                   onChange={(event) => setCompanyName(event.target.value)}
@@ -549,6 +551,8 @@ export default function OnboardingPage() {
                 />
                 <div className="onboarding-grid onboarding-grid--compact">
                   <Select
+                    id="onboarding-country-select"
+                    data-testid="onboarding-country-select"
                     label="Country"
                     value={country}
                     onChange={(event) => setCountry(event.target.value)}
@@ -557,6 +561,8 @@ export default function OnboardingPage() {
                     disabled={loading}
                   />
                   <Input
+                    id="onboarding-gstin-input"
+                    data-testid="onboarding-gstin-input"
                     label="GSTIN"
                     value={gstin}
                     onChange={(event) => setGstin(event.target.value.toUpperCase())}
@@ -567,6 +573,7 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <PhoneInput
+                  data-testid="onboarding-business-phone-input"
                   label="Business Phone"
                   value={businessPhone}
                   onChange={setBusinessPhone}
@@ -589,6 +596,8 @@ export default function OnboardingPage() {
                   const selected = selectedBusinessTypes.includes(item.id);
                   return (
                     <button
+                      data-testid={`onboarding-solution-${item.id}-button`}
+                      data-active={selected}
                       key={item.id}
                       type="button"
                       className={`onboarding-solution-card${selected ? " is-selected" : ""}`}
@@ -630,6 +639,8 @@ export default function OnboardingPage() {
 
               <div className="onboarding-location-toolbar">
                 <Input
+                  id="onboarding-location-search-input"
+                  data-testid="onboarding-location-search-input"
                   ref={searchInputRef}
                   value={searchLocation}
                   onChange={(event) => setSearchLocation(event.target.value)}
@@ -639,6 +650,8 @@ export default function OnboardingPage() {
                   disabled={loading}
                 />
                 <Button
+                  id="onboarding-location-search-button"
+                  data-testid="onboarding-location-search-button"
                   type="button"
                   variant="secondary"
                   size="md"
@@ -647,12 +660,12 @@ export default function OnboardingPage() {
                 >
                   Search
                 </Button>
-                <Button type="button" variant="secondary" size="md" onClick={handleAutoDetectLocation} disabled={loading}>
+                <Button id="onboarding-location-auto-detect-button" data-testid="onboarding-location-auto-detect-button" type="button" variant="secondary" size="md" onClick={handleAutoDetectLocation} disabled={loading}>
                   Auto-detect
                 </Button>
               </div>
 
-              <div className="onboarding-map-placeholder">
+              <div data-testid="onboarding-map" data-state={mapStatus} className="onboarding-map-placeholder">
                 <div ref={mapContainerRef} className="onboarding-google-map" />
                 {mapStatus === "loading" ? <p className="onboarding-map-message">Loading map...</p> : null}
                 {mapStatus === "error" ? (
@@ -662,6 +675,8 @@ export default function OnboardingPage() {
 
               <div className="onboarding-grid">
                 <Input
+                  id="onboarding-location-name-input"
+                  data-testid="onboarding-location-name-input"
                   label="Location Name"
                   value={locationName}
                   onChange={(event) => setLocationName(event.target.value)}
@@ -669,6 +684,8 @@ export default function OnboardingPage() {
                   disabled={loading}
                 />
                 <Input
+                  id="onboarding-pincode-input"
+                  data-testid="onboarding-pincode-input"
                   label="PinCode"
                   value={pincode}
                   onChange={(event) => setPincode(event.target.value)}
@@ -678,6 +695,8 @@ export default function OnboardingPage() {
               </div>
               <div className="onboarding-grid">
                 <Textarea
+                  id="onboarding-full-address-textarea"
+                  data-testid="onboarding-full-address-textarea"
                   label="Full Address"
                   value={fullAddress}
                   onChange={(event) => setFullAddress(event.target.value)}
@@ -687,6 +706,8 @@ export default function OnboardingPage() {
                 />
                 <div className="onboarding-stack">
                   <Input
+                    id="onboarding-google-map-url-input"
+                    data-testid="onboarding-google-map-url-input"
                     label="Google Map URL"
                     value={googleMapUrl}
                     onChange={(event) => setGoogleMapUrl(event.target.value)}
@@ -694,6 +715,8 @@ export default function OnboardingPage() {
                     disabled={loading}
                   />
                   <Select
+                    id="onboarding-parking-select"
+                    data-testid="onboarding-parking-select"
                     label="Parking"
                     value={parking}
                     onChange={(event) => setParking(event.target.value)}
@@ -702,6 +725,8 @@ export default function OnboardingPage() {
                     disabled={loading}
                   />
                   <Checkbox
+                    data-testid="onboarding-always-open-checkbox"
+                    data-active={alwaysOpen}
                     checked={alwaysOpen}
                     onChange={(event) => setAlwaysOpen(event.target.checked)}
                     label="24 hours open"
@@ -710,8 +735,8 @@ export default function OnboardingPage() {
                 </div>
               </div>
               <div className="onboarding-grid onboarding-grid--compact">
-                <Input label="Latitude" value={latitude} onChange={(event) => setLatitude(event.target.value)} fullWidth disabled={loading} />
-                <Input label="Longitude" value={longitude} onChange={(event) => setLongitude(event.target.value)} fullWidth disabled={loading} />
+                <Input id="onboarding-latitude-input" data-testid="onboarding-latitude-input" label="Latitude" value={latitude} onChange={(event) => setLatitude(event.target.value)} fullWidth disabled={loading} />
+                <Input id="onboarding-longitude-input" data-testid="onboarding-longitude-input" label="Longitude" value={longitude} onChange={(event) => setLongitude(event.target.value)} fullWidth disabled={loading} />
               </div>
             </>
           ) : null}
@@ -746,6 +771,8 @@ export default function OnboardingPage() {
           {step < 3 ? (
             <>
               <button
+                id={step === 0 ? "onboarding-skip-button" : "onboarding-back-button"}
+                data-testid={step === 0 ? "onboarding-skip-button" : "onboarding-back-button"}
                 type="button"
                 className="onboarding-link-button"
                 onClick={step === 0 ? handleSkipForNow : goBack}
@@ -754,6 +781,8 @@ export default function OnboardingPage() {
                 {step === 0 ? "Skip for now" : "Back"}
               </button>
               <Button
+                id="onboarding-continue-button"
+                data-testid="onboarding-continue-button"
                 type="button"
                 variant="primary"
                 size="lg"
@@ -774,6 +803,8 @@ export default function OnboardingPage() {
             <>
               <div className="onboarding-footer-copy">Takes about 3 minutes total</div>
               <Button
+                id="onboarding-go-to-dashboard-button"
+                data-testid="onboarding-go-to-dashboard-button"
                 type="button"
                 variant="primary"
                 size="lg"
