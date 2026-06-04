@@ -94,6 +94,14 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const currentPipeline = pipelines.find(p => p.uid === lead.pipelineUid);
   const stages = currentPipeline?.stages || [];
   const currentStage = stages.find(s => s.uid === lead.currentPipelineStageUid) || stages[0];
+  const orderedStages = [...stages].sort((a, b) => {
+    const aOrder = a.sequenceOrder || a.stageOrder || 0;
+    const bOrder = b.sequenceOrder || b.stageOrder || 0;
+    return aOrder - bOrder;
+  });
+  const activeStageIndex = orderedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+  const completedStageCount = activeStageIndex >= 0 ? activeStageIndex + 1 : 0;
+  const totalStageCount = orderedStages.length;
 
   const activeProduct = products.find(p => p.uid === lead.productUid);
   const conversionMapping = activeProduct?.conversionMapping;
@@ -611,7 +619,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
-         <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+         <div className="w-full p-4 md:p-6 space-y-6">
 
             {/* Visual Steps/Stages Timeline Section */}
             <SectionCard className="p-6">
@@ -631,8 +639,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
               </div>
 
               {/* Horizontal Scrollable Row for Stages */}
-              <div className="overflow-x-auto no-scrollbar scroll-smooth py-2">
-                 <div className="flex items-center gap-2 min-w-[900px] select-none">
+              <div className="overflow-x-auto scroll-smooth py-2 pb-3">
+                 <div className="flex w-max min-w-full items-center gap-2 select-none">
                     {/* Compute custom sorted stages */}
                     {(() => {
                       const sortedStages = [...stages].sort((a, b) => a.stageOrder - b.stageOrder);
@@ -647,7 +655,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                           <React.Fragment key={stage.uid}>
                             {/* Connector line (if not first stage) */}
                             {idx > 0 && (
-                              <div className="flex-grow h-[2px] min-w-[24px] transition-all duration-300 relative">
+                              <div className="h-[2px] w-7 sm:w-9 shrink-0 transition-all duration-300 relative">
                                 <div className={cn(
                                   "absolute inset-0 rounded-full",
                                   isPast ? "bg-indigo-600" : isCurrent ? "bg-gradient-to-r from-indigo-600 to-slate-200" : "bg-slate-205 bg-slate-200"
@@ -659,7 +667,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                             <div 
                               onClick={() => handleTimelineStageClick(stage.uid)}
                               className={cn(
-                                "relative flex min-h-[78px] min-w-[132px] max-w-[150px] flex-col items-center justify-center group cursor-pointer text-center px-3 py-3 rounded-2xl border transition-all duration-200 shadow-sm",
+                                "relative flex min-h-[72px] w-[104px] sm:w-[120px] md:w-[132px] shrink-0 flex-col items-center justify-center group cursor-pointer text-center px-2 sm:px-3 py-3 rounded-2xl border transition-all duration-200 shadow-sm",
                                 isCurrent
                                   ? "bg-slate-900 text-white shadow-xl shadow-slate-900/10 scale-105 border-slate-800"
                                   : isPast
@@ -669,12 +677,12 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                             >
                                {/* Indicator dot or circle */}
                                <div className={cn(
-                                 "w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-semibold text-xs transition-all relative z-10 shadow-sm bg-white",
-                                 isCurrent ? "bg-indigo-600 border-indigo-500 text-white animate-pulse" :
+                                 "w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-semibold text-xs transition-all relative z-10 shadow-sm",
+                                 isCurrent ? "bg-white border-indigo-500 text-indigo-600" :
                                  isPast ? "bg-indigo-50 border-indigo-500 text-indigo-600" :
                                  "bg-white border-slate-200 text-slate-400 group-hover:border-slate-400 group-hover:text-slate-600"
                                )}>
-                                 {isPast ? (
+                                 {isPast || isCurrent ? (
                                    <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                    </svg>
@@ -685,7 +693,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
                                {/* Text metrics */}
                                <p className={cn(
-                                 "text-sm font-semibold truncate w-full mt-2.5 leading-tight",
+                                 "w-full mt-2.5 text-[11px] font-semibold leading-tight whitespace-normal break-words",
                                  isCurrent ? "text-white" : isPast ? "text-indigo-700" : "text-slate-800"
                                )}>
                                  {stage.stageName}
@@ -706,7 +714,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                     })()}
 
                     {/* Dotted Connection to Action Node */}
-                    <div className="flex-grow border-t-2 border-dashed border-slate-200 mx-2 min-w-[20px]" />
+                    <div className="border-t-2 border-dashed border-slate-200 mx-2 w-7 sm:w-9 shrink-0" />
 
                     {/* Interactive add stage circle node */}
                     <button 
@@ -724,35 +732,29 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
             </SectionCard>
             
             {/* Stage Execution Progress Stats Panel */}
-            <SectionCard className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5">
-               <div>
-                 <span className="block text-xs font-semibold text-slate-400">Active Pipeline</span>
-                 <p className="text-xs font-semibold text-indigo-600 mt-0.5">{currentPipeline?.name || 'Standard sales'}</p>
-               </div>
-               <div>
-                 <span className="block text-xs font-semibold text-slate-400">Required Compliance</span>
-                 <div className="flex items-center gap-2 mt-0.5">
-                   <div className="w-16 bg-slate-150 h-1.5 rounded-full overflow-hidden">
-                     <div 
-                       className="bg-indigo-600 h-full transition-all" 
-                       style={{ width: `${requiredTasksTotal.length > 0 ? (requiredTasksCompleted.length / requiredTasksTotal.length) * 100 : 100}%` }}
-                     />
-                   </div>
-                   <span className="text-sm font-mono font-semibold text-slate-700">
-                     {requiredTasksCompleted.length}/{requiredTasksTotal.length}
+            <SectionCard className="rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-sm">
+               <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 sm:items-center">
+                 <div>
+                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Active Pipeline</span>
+                   <p className="mt-1 text-sm font-bold uppercase leading-tight text-indigo-600">{currentPipeline?.name || 'Standard Sales'}</p>
+                 </div>
+                 <div className="sm:text-center">
+                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Required Compliance</span>
+                   <p className="mt-1 text-sm font-mono font-bold leading-tight text-slate-800">
+                     {totalStageCount}/{completedStageCount}
+                   </p>
+                 </div>
+                 <div className="sm:text-left">
+                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Stage Movement Rule</span>
+                   <span className={cn(
+                      "mt-1 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase leading-none",
+                      movementRule === 'Strict Block' ? "bg-red-50 text-red-600 border-red-200" :
+                      movementRule === 'Warn Only' ? "bg-amber-50 text-amber-600 border-amber-200" :
+                      "bg-slate-50 text-slate-500 border-slate-200"
+                   )}>
+                     {movementRule}
                    </span>
                  </div>
-               </div>
-               <div>
-                 <span className="block text-xs font-semibold text-slate-400">Stage Movement Rule</span>
-                 <span className={cn(
-                    "text-xs font-semibold px-1.5 py-0.5 rounded mt-1 inline-block border",
-                    movementRule === 'Strict Block' ? "bg-red-50 text-red-600 border-red-150" :
-                    movementRule === 'Warn Only' ? "bg-amber-50 text-amber-600 border-amber-100" :
-                    "bg-slate-50 text-slate-500 border-slate-150"
-                 )}>
-                   {movementRule}
-                 </span>
                </div>
             </SectionCard>
 
@@ -1118,7 +1120,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                {/* Right Side Info Area */}
                <div className="space-y-6">
                   <SectionCard className="bg-slate-900 text-white p-6 space-y-4 shadow-lg shadow-slate-900/10">
-                     <p className="text-sm font-semibold text-indigo-400">Owner Assignment</p>
+                     <p className="mb-3 text-sm font-semibold text-indigo-400">Owner Assignment</p>
                      
                      <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-indigo-650 text-white flex items-center justify-center font-semibold">
