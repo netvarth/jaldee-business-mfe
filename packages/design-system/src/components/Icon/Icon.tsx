@@ -14,8 +14,10 @@ export type IconName =
   | "list"
   | "moreVertical"
   | "packagePlus"
+  | "pencil"
   | "refresh"
   | "tag"
+  | "trash"
   | "trend"
   | "warehouse"
   | "x"
@@ -45,6 +47,10 @@ export function Icon({ name, className, ...props }: IconProps) {
       return <svg {...sharedProps}><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" /><path d="M12 12l8-4.5" /><path d="M12 12L4 7.5" /><path d="M12 12v9" /></svg>;
     case "packagePlus":
       return <svg {...sharedProps}><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" /><path d="M12 8v6" /><path d="M9 11h6" /></svg>;
+    case "pencil":
+      return <svg {...sharedProps}><path d="M16.8 3.8l3.4 3.4" strokeLinecap="round" /><path d="M4 20l3.9-.8L19.1 8a2.1 2.1 0 0 0 0-3l-.1-.1a2.1 2.1 0 0 0-3 0L4.8 16.1 4 20z" strokeLinejoin="round" /></svg>;
+    case "trash":
+      return <svg {...sharedProps}><path d="M4 7h16" strokeLinecap="round" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><path d="M6.5 7l.8 12a2 2 0 0 0 2 1.9h5.4a2 2 0 0 0 2-1.9l.8-12" /><path d="M10 11v6M14 11v6" strokeLinecap="round" /></svg>;
     case "database":
       return <svg {...sharedProps}><ellipse cx="12" cy="5" rx="7" ry="3" /><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5" /><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>;
     case "list":

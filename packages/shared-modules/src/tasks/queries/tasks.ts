@@ -227,6 +227,44 @@ export function useUpdateTenantTask(uid: string) {
   });
 }
 
+export function useUpdateTenantTaskRecord() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uid, data }: { uid: string; data: unknown }) => services.updateTenantTask(api, uid, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "tenant-detail", variables.uid] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "tenant"] });
+    },
+  });
+}
+
+export function useSaveTenantTaskAttachments() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uid, data }: { uid: string; data: unknown }) => services.saveTenantTaskAttachments(api, uid, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "tenant-detail", variables.uid] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "tenant"] });
+    },
+  });
+}
+
+export function useRequestTaskFileUploadUrls() {
+  const api = useApiScope();
+  return useMutation({
+    mutationFn: (items: unknown) => services.requestTaskFileUploadUrls(api, items),
+  });
+}
+
+export function useMarkTaskFileUploadComplete() {
+  const api = useApiScope();
+  return useMutation({
+    mutationFn: (driveId: string | number) => services.markTaskFileUploadComplete(api, driveId),
+  });
+}
+
 export function useDeleteTenantTask() {
   const api = useApiScope();
   const queryClient = useQueryClient();
@@ -344,6 +382,15 @@ export function useTenantTasksCount(filters?: unknown) {
   });
 }
 
+export function useCrmLeadStageTasks(stageUid: string, leadUid: string) {
+  const api = useApiScope();
+  return useQuery({
+    queryKey: [TASKS_KEY, "crm-lead-stage", stageUid, leadUid],
+    queryFn: () => services.getCrmLeadStageTasks(api, stageUid, leadUid),
+    enabled: Boolean(stageUid && leadUid),
+  });
+}
+
 // === Task Categories ===
 
 export function useTaskCategories(filters?: unknown) {
@@ -381,6 +428,18 @@ export function useUpdateTaskCategory(id: string | number) {
     mutationFn: (data: unknown) => services.updateTaskCategory(api, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "category-detail", id] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "categories"] });
+    },
+  });
+}
+
+export function useUpdateTaskCategoryRecord() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: unknown }) => services.updateTaskCategory(api, id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "category-detail", variables.id] });
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "categories"] });
     },
   });
@@ -447,6 +506,18 @@ export function useUpdateTaskPriority(id: string | number) {
   });
 }
 
+export function useUpdateTaskPriorityRecord() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: unknown }) => services.updateTaskPriority(api, id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "priority-detail", variables.id] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "priorities"] });
+    },
+  });
+}
+
 export function useDeleteTaskPriority() {
   const api = useApiScope();
   const queryClient = useQueryClient();
@@ -508,6 +579,18 @@ export function useUpdateTaskStatus(id: string | number) {
   });
 }
 
+export function useUpdateTaskStatusRecord() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: unknown }) => services.updateTaskStatus(api, id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "status-detail", variables.id] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "statuses"] });
+    },
+  });
+}
+
 export function useDeleteTaskStatus() {
   const api = useApiScope();
   const queryClient = useQueryClient();
@@ -564,6 +647,18 @@ export function useUpdateTaskTemplate(id: string | number) {
     mutationFn: (data: unknown) => services.updateTaskTemplate(api, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "template-detail", id] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "templates"] });
+    },
+  });
+}
+
+export function useUpdateTaskTemplateRecord() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: unknown }) => services.updateTaskTemplate(api, id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "template-detail", variables.id] });
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "templates"] });
     },
   });
@@ -633,6 +728,18 @@ export function useUpdateTaskType(id: string | number) {
     mutationFn: (data: unknown) => services.updateTaskType(api, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "type-detail", id] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "types"] });
+    },
+  });
+}
+
+export function useUpdateTaskTypeRecord() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: unknown }) => services.updateTaskType(api, id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "type-detail", variables.id] });
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "types"] });
     },
   });

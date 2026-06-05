@@ -11,6 +11,7 @@ import {
   MembershipsModule,
   ReportsModule,
   SharedModulesProvider,
+  TasksModule,
   UsersModule,
 } from "@jaldee/shared-modules";
 import { useShellStore } from "../store/shellStore";
@@ -256,6 +257,69 @@ export function ShellDrivePage() {
           }}
         >
           <DriveModule />
+        </SharedModulesProvider>
+      </div>
+    </QueryClientProvider>
+  );
+}
+
+export function ShellTasksPage() {
+  const user = useShellStore((s) => s.user);
+  const account = useShellStore((s) => s.account);
+  const locationContext = useShellStore((s) => s.activeLocation);
+  const product = usePreferredProduct();
+  const queryClient = useSharedQueryClient();
+  const navigateWithinModule = useModuleNavigate("/tasks");
+  const { routeSegments, tab } = useRouteSegments("tasks");
+
+  const routeState = useMemo(() => {
+    const view = routeSegments[0] ?? "list";
+
+    if (view === "crm-stage") {
+      return {
+        view,
+        subview: routeSegments[1] ?? null,
+        recordId: routeSegments[2] ?? null,
+        tab,
+      };
+    }
+
+    return {
+      view,
+      subview: routeSegments[1] ?? null,
+      recordId: routeSegments[2] ?? null,
+      tab,
+    };
+  }, [routeSegments, tab]);
+
+  if (!user || !account) {
+    return <ShellContextEmptyState title="Tasks" />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <div className="mfe-wrapper">
+        <SharedModulesProvider
+          value={{
+            moduleName: "tasks",
+            product,
+            apiScope: "location",
+            basePath: "/tasks",
+            navigate: navigateWithinModule,
+            user,
+            account: normalizeAccountContext(account),
+            location: locationContext,
+            api: apiClient,
+            routeParams: {
+              locationId: locationContext?.id ?? null,
+              view: routeState.view,
+              subview: routeState.subview,
+              recordId: routeState.recordId,
+              tab: routeState.tab,
+            },
+          }}
+        >
+          <TasksModule />
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>

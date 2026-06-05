@@ -134,6 +134,7 @@ export const BASE_SERVICE_ENDPOINTS = {
     detail: (uid: string) => `/base-service/v1/api/tasks/tenant/${pathValue(uid)}`,
     update: (uid: string) => `/base-service/v1/api/tasks/tenant/${pathValue(uid)}`,
     delete: (uid: string) => `/base-service/v1/api/tasks/tenant/${pathValue(uid)}`,
+    attachments: (uid: string) => `/base-service/v1/api/tasks/tenant/${pathValue(uid)}/taskattachment`,
     assignee: (uid: string, assigneeId: string | number) =>
       `/base-service/v1/api/tasks/tenant/${pathValue(uid)}/assignee/${pathValue(assigneeId)}`,
     removeAssignee: (uid: string) => `/base-service/v1/api/tasks/tenant/${pathValue(uid)}/assignee/remove`,

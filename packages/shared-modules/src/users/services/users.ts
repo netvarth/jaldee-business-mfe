@@ -71,15 +71,15 @@ function normalizeLocations(value: unknown): UserLocation[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((entry) => {
+    .map((entry, index) => {
       const raw = typeof entry === "object" && entry !== null ? (entry as RawRecord) : {};
       return {
-        id: String(raw.id ?? raw.locationId ?? raw.branchId ?? ""),
-        name: asString(raw.name) || asString(raw.locationName) || asString(raw.place) || asString(raw.branchName),
+        id: String(raw.uid ?? raw.locationUid ?? raw.id ?? raw.locationId ?? raw.branchId ?? raw.encId ?? ""),
+        name: asString(raw.place) || asString(raw.name) || asString(raw.locationName) || asString(raw.branchName) || asString(raw.displayName) || `Location ${index + 1}`,
         status: asString(raw.status) || undefined,
       };
     })
-    .filter((entry) => entry.id || entry.name);
+    .filter((entry) => entry.id);
 }
 
 function normalizeLocationIds(value: unknown): string[] {
@@ -93,7 +93,7 @@ function normalizeLocationIds(value: unknown): string[] {
 
       if (typeof entry === "object" && entry !== null) {
         const raw = entry as RawRecord;
-        return String(raw.id ?? raw.locationId ?? raw.branchId ?? "");
+        return String(raw.uid ?? raw.locationUid ?? raw.id ?? raw.locationId ?? raw.branchId ?? raw.encId ?? "");
       }
 
       return "";
@@ -177,7 +177,7 @@ function normalizeUser(raw: RawRecord): UserSummary {
   const status = asString(raw.status, "UNKNOWN");
 
   return {
-    id: String(raw.id ?? raw.userId ?? raw.providerId ?? raw.encId ?? ""),
+    id: String(raw.uid ?? raw.id ?? raw.userId ?? raw.providerId ?? raw.encId ?? ""),
     name: readName(raw),
     firstName: asString(raw.firstName) || undefined,
     lastName: asString(raw.lastName) || undefined,
@@ -544,16 +544,25 @@ export async function listUserDepartments(api: ScopedApi): Promise<UserDepartmen
 
 export async function listUserLocations(api: ScopedApi): Promise<UserLocation[]> {
   try {
-    const response = await api.get<RawRecord[]>(buildProviderUrl(PROVIDER_ENDPOINTS.locations));
-    if (!Array.isArray(response.data)) return [];
+    const url = buildProviderUrl(PROVIDER_ENDPOINTS.locations);
+    const config = isTokenAuthMode() ? { params: { page: 0, size: 100 } } : undefined;
+    const response = await api.get<any>(url, config);
+    const data = response.data;
+    const rows = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.content)
+        ? data.content
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
 
-    return response.data
-      .map((entry) => ({
-        id: String(entry.id ?? entry.locationId ?? entry.encId ?? ""),
-        name: asString(entry.place) || asString(entry.locationName) || asString(entry.name),
+    return rows
+      .map((entry: any, index: number) => ({
+        id: String(entry.uid ?? entry.locationUid ?? entry.id ?? entry.locationId ?? entry.encId ?? ""),
+        name: asString(entry.place) || asString(entry.name) || asString(entry.locationName) || asString(entry.branchName) || asString(entry.displayName) || `Location ${index + 1}`,
         status: asString(entry.status) || undefined,
       }))
-      .filter((entry) => entry.id && entry.name);
+      .filter((entry: any) => entry.id);
   } catch {
     return [];
   }
