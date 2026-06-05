@@ -3,9 +3,8 @@ import { CrmLeadDto, CrmLeadPipelineDto, LeadStageTask, StageHistory, GeneralNot
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { format } from '../lib/dateUtils';
-import { mockUsers } from '../mockData';
 import { PageHeader, SectionCard, Button, Input, Select, Textarea, Checkbox, Dialog, DialogFooter } from "@jaldee/design-system";
-import { leadService } from '../services/leadService';
+import { leadService, type TaskLookupOption } from '../services/leadService';
 import { useShellStore } from '../../../store/shellStore';
 
 interface LeadDetailScreenProps {
@@ -16,6 +15,23 @@ interface LeadDetailScreenProps {
   leads: CrmLeadDto[];
   onBack: () => void;
   onUpdate: (lead: CrmLeadDto) => void;
+}
+
+function normalizePriorityLabel(value?: string): Priority {
+  const normalized = String(value || '').toUpperCase();
+  if (normalized.includes('URGENT') || normalized.includes('CRITICAL')) return 'URGENT';
+  if (normalized.includes('HIGH')) return 'HIGH';
+  if (normalized.includes('LOW')) return 'LOW';
+  return 'NORMAL';
+}
+
+function normalizeTaskTypeLabel(value?: string): LeadStageTask['type'] {
+  const normalized = String(value || '').toUpperCase();
+  if (normalized.includes('CALL')) return 'CALL';
+  if (normalized.includes('EMAIL')) return 'EMAIL';
+  if (normalized.includes('MEETING')) return 'MEETING';
+  if (normalized.includes('DOCUMENT')) return 'DOCUMENT';
+  return 'TASK';
 }
 
 export default function LeadDetailScreen({ lead, pipelines, setPipelines, products, leads, onBack, onUpdate }: LeadDetailScreenProps) {
@@ -68,21 +84,22 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const [showAddManualTaskModal, setShowAddManualTaskModal] = useState(false);
   const [manualTaskTitle, setManualTaskTitle] = useState('');
   const [manualTaskRequired, setManualTaskRequired] = useState(false);
-  const [manualTaskType, setManualTaskType] = useState<'CALL' | 'EMAIL' | 'MEETING' | 'DOCUMENT' | 'TASK'>('TASK');
-  const [manualTaskPriority, setManualTaskPriority] = useState<Priority>('LOW');
+  const [manualTaskType, setManualTaskType] = useState('');
+  const [manualTaskPriority, setManualTaskPriority] = useState('');
   const [manualTaskDescription, setManualTaskDescription] = useState('');
   const availableLocations = useShellStore((state) => state.availableLocations);
-  const [manualTaskLocation, setManualTaskLocation] = useState('Kanattukara');
-
-  React.useEffect(() => {
-    if (availableLocations.length && (manualTaskLocation === 'Kanattukara' || !manualTaskLocation)) {
-      setManualTaskLocation(availableLocations[0].name);
-    }
-  }, [availableLocations, manualTaskLocation]);
+  const shellUser = useShellStore((state) => state.user);
+  const [manualTaskLocation, setManualTaskLocation] = useState('');
   const [manualTaskAssignee, setManualTaskAssignee] = useState('');
-  const [manualTaskDate, setManualTaskDate] = useState('2026-05-22');
+  const [manualTaskDate, setManualTaskDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [manualTaskCategory, setManualTaskCategory] = useState('');
-  const [manualTaskStatus, setManualTaskStatus] = useState('New');
+  const [manualTaskStatus, setManualTaskStatus] = useState('');
+  const [taskPriorities, setTaskPriorities] = useState<TaskLookupOption[]>([]);
+  const [taskTypes, setTaskTypes] = useState<TaskLookupOption[]>([]);
+  const [taskCategories, setTaskCategories] = useState<TaskLookupOption[]>([]);
+  const [taskStatuses, setTaskStatuses] = useState<TaskLookupOption[]>([]);
+  const [taskLookupsLoading, setTaskLookupsLoading] = useState(false);
+  const [taskCreateLoading, setTaskCreateLoading] = useState(false);
 
   // Add Pipeline Stage Modal state
   const [showAddStageModal, setShowAddStageModal] = useState(false);
@@ -136,6 +153,22 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const isStageBlocked = currentStage?.conversionSetting === 'BLOCKED';
   const canOverrideBlock = actingRole === 'ADMIN' || actingRole === 'MANAGER';
   const isConversionRestricted = isStageBlocked && !canOverrideBlock;
+  const effectiveTaskLocations = availableLocations.map((location: any) => ({
+    id: location.locationId ?? location.id ?? location.name,
+    name: location.name ?? location.place ?? String(location.id ?? location.uid ?? ''),
+  })).filter((location) => location.id && location.name);
+  const taskUsers = React.useMemo(() => {
+    const rows = [
+      shellUser ? { id: shellUser.id, name: shellUser.name || shellUser.email || String(shellUser.id) } : null,
+      lead.ownerId ? { id: lead.ownerId, name: lead.ownerName || lead.ownerId } : null,
+      ...(lead.assignees || []).map((assignee) => ({
+        id: assignee.userId,
+        name: assignee.userName || assignee.userId,
+      })),
+    ].filter((item): item is { id: string; name: string } => Boolean(item?.id && item?.name));
+
+    return Array.from(new Map(rows.map((item) => [String(item.id), item])).values());
+  }, [lead.assignees, lead.ownerId, lead.ownerName, shellUser]);
 
   // Check if role allows assigned conversions only (Sales Rep can only convert assigned leads)
   const productDisplayName = activeProduct
@@ -156,6 +189,47 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const isBlockedByDuplicate = !!(duplicateLead && conversionMapping?.duplicateRule === 'Block' && actingRole === 'SALES_REP');
   const isFormIncomplete = hasPhoneReq || hasEmailReq || hasCompanyReq || hasDobReq || hasAddressReq;
   const isConversionDisabled = isBlockedByDuplicate || isFormIncomplete;
+
+  React.useEffect(() => {
+    if (!showAddManualTaskModal) return;
+
+    let ignore = false;
+
+    async function loadTaskLookups() {
+      setTaskLookupsLoading(true);
+      try {
+        const [priorities, types, categories, statuses] = await Promise.all([
+          leadService.getTaskPriorities(),
+          leadService.getTaskTypes(),
+          leadService.getTaskCategories(),
+          leadService.getTaskStatuses(),
+        ]);
+
+        if (ignore) return;
+
+        setTaskPriorities(priorities);
+        setTaskTypes(types);
+        setTaskCategories(categories);
+        setTaskStatuses(statuses);
+        setManualTaskPriority((value) => value || String(priorities[0]?.id ?? ''));
+        setManualTaskType((value) => value || String(types[0]?.id ?? ''));
+        setManualTaskCategory((value) => value || String(categories[0]?.id ?? ''));
+        setManualTaskStatus((value) => value || String(statuses[0]?.id ?? ''));
+        setManualTaskAssignee((value) => value || String(taskUsers[0]?.id ?? ''));
+        setManualTaskLocation((value) => value || String(effectiveTaskLocations[0]?.id ?? ''));
+      } catch (err) {
+        console.error("Failed to load task form lookups:", err);
+      } finally {
+        if (!ignore) setTaskLookupsLoading(false);
+      }
+    }
+
+    loadTaskLookups();
+
+    return () => {
+      ignore = true;
+    };
+  }, [showAddManualTaskModal]);
 
   // Lazy initialize stageTasks if missing
   const tasks = lead.stageTasks || [];
@@ -187,6 +261,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const requiredTasksCompleted = requiredTasksTotal.filter(t => t.completed);
   const optionalTasksTotal = predefinedTasks.filter(t => !t.required);
   const optionalTasksCompleted = optionalTasksTotal.filter(t => t.completed);
+  const optionalAndManualTasksTotal = [...optionalTasksTotal, ...manualTasks];
+  const optionalAndManualTasksCompleted = optionalAndManualTasksTotal.filter(t => t.completed);
 
   const isRequiredComplete = requiredTasksTotal.length === requiredTasksCompleted.length;
 
@@ -247,28 +323,71 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       alert('Task title is required.');
       return;
     }
+    if (!manualTaskDate) {
+      alert('Task date is required.');
+      return;
+    }
+    const taskDefaultLookupId = "1";
+    const taskPriorityId = manualTaskPriority || taskDefaultLookupId;
+    const taskTypeId = manualTaskType || taskDefaultLookupId;
+    const taskCategoryId = manualTaskCategory || taskDefaultLookupId;
+    const taskStatusId = manualTaskStatus || taskDefaultLookupId;
+    const taskLocationId = manualTaskLocation || taskDefaultLookupId;
+    const taskLocationPayloadId = Number.isNaN(Number(taskLocationId)) ? taskLocationId : Number(taskLocationId);
+
+    const selectedPriority = taskPriorities.find((item) => String(item.id) === String(taskPriorityId));
+    const selectedType = taskTypes.find((item) => String(item.id) === String(taskTypeId));
+    const selectedCategory = taskCategories.find((item) => String(item.id) === String(taskCategoryId));
+    const selectedStatus = taskStatuses.find((item) => String(item.id) === String(taskStatusId));
+    const selectedLocation = effectiveTaskLocations.find((item) => String(item.id) === String(taskLocationId));
+    const selectedAssignee = taskUsers.find((item) => String(item.id) === String(manualTaskAssignee));
+
+    setTaskCreateLoading(true);
+
+    try {
+      await leadService.createTenantTask({
+        title: manualTaskTitle.trim(),
+        description: manualTaskDescription.trim(),
+        dueDate: manualTaskDate,
+        priorityId: taskPriorityId,
+        typeId: taskTypeId,
+        categoryId: taskCategoryId,
+        statusId: taskStatusId,
+        locationId: taskLocationPayloadId,
+        assigneeUid: manualTaskAssignee || undefined,
+        originFrom: "LEAD",
+        originUid: lead.uid,
+        crmLeadStageUid: lead.currentPipelineStageUid,
+      });
+    } catch (err) {
+      console.error("Failed to create task from lead details:", err);
+      alert('Unable to create task. Please try again.');
+      setTaskCreateLoading(false);
+      return;
+    }
 
     const newTask: LeadStageTask = {
       uid: 'man_' + Math.random().toString(),
       title: manualTaskTitle.trim(),
-      type: manualTaskType,
+      type: normalizeTaskTypeLabel(selectedType?.name),
       required: manualTaskRequired,
-      completed: manualTaskStatus === 'Completed',
+      completed: /complete/i.test(selectedStatus?.name || ''),
       isManual: true,
       createdAt: new Date().toISOString(),
-      priority: manualTaskPriority,
+      priority: normalizePriorityLabel(selectedPriority?.name),
       description: manualTaskDescription,
-      location: manualTaskLocation,
-      assigneeName: manualTaskAssignee || undefined,
+      location: selectedLocation?.name,
+      assigneeId: manualTaskAssignee || undefined,
+      assigneeName: selectedAssignee?.name,
       dueDate: manualTaskDate || undefined,
-      category: manualTaskCategory || undefined,
-      status: manualTaskStatus
+      category: selectedCategory?.name,
+      status: selectedStatus?.name
     };
 
     const newNotes = [...(lead.generalNotes || [])];
     newNotes.push({
       id: Math.random().toString(),
-      notes: `Manual task "${manualTaskTitle.trim()}" appended to lead flow registry. Priority: ${manualTaskPriority}, Location: ${manualTaskLocation}, Date: ${manualTaskDate}, Status: ${manualTaskStatus}`,
+      notes: `Manual task "${manualTaskTitle.trim()}" created. Priority: ${selectedPriority?.name || '-'}, Location: ${selectedLocation?.name || '-'}, Date: ${manualTaskDate}, Status: ${selectedStatus?.name || '-'}`,
       createdDate: new Date().toISOString()
     });
 
@@ -280,28 +399,20 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       updatedAt: new Date().toISOString()
     };
 
-    try {
-      const response = await leadService.update(lead.uid, updatedLead);
-      onUpdate({
-        ...updatedLead,
-        ...response
-      });
-    } catch (err) {
-      console.error("Failed to append manual task on backend:", err);
-      onUpdate(updatedLead);
-    }
+    onUpdate(updatedLead);
 
     // Reset states
     setManualTaskTitle('');
     setManualTaskRequired(false);
-    setManualTaskType('TASK');
-    setManualTaskPriority('LOW');
+    setManualTaskType('');
+    setManualTaskPriority('');
     setManualTaskDescription('');
-    setManualTaskLocation('Kanattukara');
+    setManualTaskLocation('');
     setManualTaskAssignee('');
-    setManualTaskDate('2026-05-22');
+    setManualTaskDate(new Date().toISOString().slice(0, 10));
     setManualTaskCategory('');
-    setManualTaskStatus('New');
+    setManualTaskStatus('');
+    setTaskCreateLoading(false);
     setShowAddManualTaskModal(false);
   };
 
@@ -855,7 +966,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                      <div className="flex items-center justify-between">
                        <h4 className="text-sm font-semibold text-slate-400">Optional & Manual Lead Tasks</h4>
                        <span className="text-sm font-mono text-slate-700 font-semibold">
-                         {optionalTasksCompleted.length}/{optionalTasksTotal.length} OPTIONAL
+                         {optionalAndManualTasksCompleted.length}/{optionalAndManualTasksTotal.length} OPTIONAL
                        </span>
                      </div>
                      <div className="space-y-2">
@@ -1317,7 +1428,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
            </div>
            <div>
               <span className="block text-slate-400 text-xs">Optional Completed</span>
-              <span className="text-slate-900 font-mono text-xs block mt-1">{optionalTasksCompleted.length}/{optionalTasksTotal.length}</span>
+              <span className="text-slate-900 font-mono text-xs block mt-1">{optionalAndManualTasksCompleted.length}/{optionalAndManualTasksTotal.length}</span>
            </div>
         </div>
 
@@ -1389,7 +1500,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         size="lg"
         bodyClassName="space-y-4 text-slate-900"
       >
-         {/* Row 1: Task Name * & Priority * */}
+         {/* Row 1: Task Name * & Priority */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input 
               label="Task Name *" 
@@ -1398,14 +1509,12 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
               placeholder="Enter Task Name"
             />
             <Select 
-              label="Priority *"
+              label="Priority"
               value={manualTaskPriority}
-              onChange={e => setManualTaskPriority(e.target.value as Priority)}
+              onChange={e => setManualTaskPriority(e.target.value)}
               options={[
-                { value: "LOW", label: "Low" },
-                { value: "NORMAL", label: "Medium" },
-                { value: "HIGH", label: "High" },
-                { value: "URGENT", label: "Urgent" }
+                { value: "", label: taskLookupsLoading ? "Loading priorities..." : "Select Priority" },
+                ...taskPriorities.map(priority => ({ value: String(priority.id), label: priority.name }))
               ]}
             />
          </div>
@@ -1419,13 +1528,16 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
            rows={3}
          />
 
-         {/* Row 3: Location * & Assignees */}
+         {/* Row 3: Location & Assignees */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select 
-              label="Location *"
+              label="Location"
               value={manualTaskLocation}
               onChange={e => setManualTaskLocation(e.target.value)}
-              options={availableLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+              options={[
+                { value: "", label: taskLookupsLoading ? "Loading locations..." : "Select Location" },
+                ...effectiveTaskLocations.map(location => ({ value: String(location.id), label: location.name }))
+              ]}
             />
             <Select 
               label="Assignees"
@@ -1433,45 +1545,48 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
               onChange={e => setManualTaskAssignee(e.target.value)}
               options={[
                 { value: "", label: "Select Assignee" },
-                ...mockUsers.map(user => ({ value: user.name, label: user.name }))
+                ...taskUsers.map(user => ({ value: String(user.id), label: user.name }))
               ]}
             />
          </div>
 
-         {/* Row 4: Task Date * & Category */}
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         {/* Row 4: Task Date *, Type & Category */}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input 
               label="Task Date *"
               type="date" 
               value={manualTaskDate}
               onChange={e => setManualTaskDate(e.target.value)}
             />
+            <Select
+              label="Type"
+              value={manualTaskType}
+              onChange={e => setManualTaskType(e.target.value)}
+              options={[
+                { value: "", label: taskLookupsLoading ? "Loading types..." : "Select Type" },
+                ...taskTypes.map(type => ({ value: String(type.id), label: type.name }))
+              ]}
+            />
             <Select 
               label="Category"
               value={manualTaskCategory}
               onChange={e => setManualTaskCategory(e.target.value)}
               options={[
-                { value: "", label: "Select Category" },
-                { value: "General", label: "General" },
-                { value: "On-site Visit", label: "On-site Visit" },
-                { value: "Online Meeting", label: "Online Meeting" },
-                { value: "Regulatory Check", label: "Regulatory Check" },
-                { value: "Customer Inquest", label: "Customer Inquest" },
-                { value: "Final Review", label: "Final Review" }
+                { value: "", label: taskLookupsLoading ? "Loading categories..." : "Select Category" },
+                ...taskCategories.map(category => ({ value: String(category.id), label: category.name }))
               ]}
             />
          </div>
 
-         {/* Row 5: Status * & Stage-requirement toggle */}
+         {/* Row 5: Status & Stage-requirement toggle */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select 
-              label="Status *"
+              label="Status"
               value={manualTaskStatus}
               onChange={e => setManualTaskStatus(e.target.value)}
               options={[
-                { value: "New", label: "New" },
-                { value: "In Progress", label: "In Progress" },
-                { value: "Completed", label: "Completed" }
+                { value: "", label: taskLookupsLoading ? "Loading statuses..." : "Select Status" },
+                ...taskStatuses.map(status => ({ value: String(status.id), label: status.name }))
               ]}
             />
             <div className="pt-6">
@@ -1494,6 +1609,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
             <Button 
               onClick={handleSaveManualTask}
               variant="primary"
+              loading={taskCreateLoading}
+              disabled={taskLookupsLoading || taskCreateLoading}
               className="text-xs font-semibold"
             >
               Create

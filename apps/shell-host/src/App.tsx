@@ -12,6 +12,7 @@ import {
   ShellDrivePage,
   ShellMembershipPage,
   ShellReportsPage,
+  ShellTasksPage,
   ShellUsersPage,
 } from "./pages/BaseCrmPages";
 import ProtectedRoute from "./auth/ProtectedRoute";
@@ -92,7 +93,7 @@ export default function App() {
                 <Route path="/users/*" element={<ShellUsersPage />} />
                 <Route path="/reports/*" element={<ShellReportsPage />} />
                 <Route path="/drive/*" element={<ShellDrivePage />} />
-                <Route path="/tasks/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/tasks/*" element={<ShellTasksPage />} />
                 <Route path="/membership/*" element={<ShellMembershipPage />} />
                 <Route path="/leads/*" element={<LeadsPage />} />
                 <Route path="/jaldee-leads/*" element={<JaldeeLeadsPage />} />

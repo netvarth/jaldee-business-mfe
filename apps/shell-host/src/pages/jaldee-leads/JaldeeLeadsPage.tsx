@@ -190,6 +190,46 @@ function LeadDetailRoute({
   const lead = leads.find((l) => l.uid === leadUid) ?? null;
 
   useEffect(() => {
+    if (!leadUid) return;
+
+    let active = true;
+
+    async function loadLeadDetails() {
+      try {
+        const [leadDetail, tenantTasks] = await Promise.all([
+          leadService.detail(leadUid),
+          leadService.getLeadTenantTasks(leadUid),
+        ]);
+
+        if (!active) return;
+
+        const existingTasks = leadDetail.stageTasks ?? [];
+        const existingTaskIds = new Set(existingTasks.map((task) => task.uid));
+        const mergedTasks = [
+          ...existingTasks,
+          ...tenantTasks.filter((task) => !existingTaskIds.has(task.uid)),
+        ];
+        const hydratedLead = { ...leadDetail, stageTasks: mergedTasks };
+
+        setLeads((prev) => {
+          const exists = prev.some((item) => item.uid === hydratedLead.uid);
+          return exists
+            ? prev.map((item) => item.uid === hydratedLead.uid ? hydratedLead : item)
+            : [...prev, hydratedLead];
+        });
+      } catch (err) {
+        console.error("Failed to load lead detail tasks:", err);
+      }
+    }
+
+    loadLeadDetails();
+
+    return () => {
+      active = false;
+    };
+  }, [leadUid, setLeads]);
+
+  useEffect(() => {
     if (!lead?.pipelineUid) return;
 
     const pipelineState = pipelines.find((p) => p.uid === lead.pipelineUid);

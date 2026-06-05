@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useSharedModulesContext } from "../../context";
 import { useChangeLeadStatus, useLeadByUid, useLeadStages, useProviderUsers } from "../queries/leads";
 import { formatDate, fullName, mapLeadStatusLabel, unwrapList, unwrapPayload } from "../utils";
+import { LeadStageTaskDialog } from "./LeadStageTaskDialog";
 import { ModulePlaceholder, StatusBadge } from "./shared";
 
 function readTemplateFields(templateValue: any, prefix = ""): Array<{ title: string; value: string }> {
@@ -56,7 +57,7 @@ function getStatusActions(status: string) {
 }
 
 export function LeadDetails({ leadUid }: { leadUid: string }) {
-  const { basePath } = useSharedModulesContext();
+  const { basePath, location } = useSharedModulesContext();
   const [pendingStatusAction, setPendingStatusAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const leadQuery = useLeadByUid(leadUid);
@@ -66,6 +67,10 @@ export function LeadDetails({ leadUid }: { leadUid: string }) {
   const lead = useMemo(() => unwrapPayload(leadQuery.data), [leadQuery.data]);
   const stages = useMemo(() => unwrapList(leadStagesQuery.data), [leadStagesQuery.data]);
   const users = useMemo(() => unwrapList(usersQuery.data), [usersQuery.data]);
+
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [activeStageUid, setActiveStageUid] = useState<string | null>(null);
+  const defaultLocationId = location?.id ? String(location.id) : "";
 
   const assigneeNames = useMemo(() => {
     const assignees = Array.isArray(lead?.assignees) ? lead.assignees : [];
@@ -291,15 +296,43 @@ export function LeadDetails({ leadUid }: { leadUid: string }) {
                     <div className="text-lg font-semibold text-slate-800">No Stages Created</div>
                   ) : (
                     <div className="space-y-4">
-                      {stages.map((stage: any, index: number) => (
-                        <div key={stage.id ?? stage.uid ?? index} className="rounded-md border border-slate-200 p-4">
-                          <div className="text-base font-semibold text-slate-900">{stage.stage ?? stage.stageName ?? `Stage ${index + 1}`}</div>
-                          {stage.assigneeDto?.userName ? (
-                            <div className="mt-2 text-sm text-slate-600">Assignee : {stage.assigneeDto.userName}</div>
-                          ) : null}
-                          {stage.notes ? <div className="mt-2 text-sm text-slate-600">Remarks : {stage.notes}</div> : null}
-                        </div>
-                      ))}
+                      {stages.map((stage: any, index: number) => {
+                        const stageUid = stage.uid ?? stage.id ?? "";
+                        return (
+                          <div key={stageUid || index} className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-slate-200 p-4">
+                            <div className="space-y-1">
+                              <div className="text-base font-semibold text-slate-900">{stage.stage ?? stage.stageName ?? `Stage ${index + 1}`}</div>
+                              {stage.assigneeDto?.userName ? (
+                                <div className="text-sm text-slate-600">Assignee : {stage.assigneeDto.userName}</div>
+                              ) : null}
+                              {stage.notes ? <div className="text-sm text-slate-600">Remarks : {stage.notes}</div> : null}
+                            </div>
+                            {stageUid ? (
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => {
+                                    setActiveStageUid(stageUid);
+                                    setIsTaskDialogOpen(true);
+                                  }}
+                                  id={`btnAddTask_${stageUid}`}
+                                >
+                                  + Add Task
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => window.location.assign(`/tasks/crm-stage/${stageUid}/${leadUid}`)}
+                                  id={`btnViewStageTasks_${stageUid}`}
+                                >
+                                  View Tasks
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -337,6 +370,19 @@ export function LeadDetails({ leadUid }: { leadUid: string }) {
           </div>
         </DialogFooter>
       </Dialog>
+
+      <LeadStageTaskDialog
+        open={isTaskDialogOpen}
+        leadUid={leadUid}
+        stageUid={activeStageUid}
+        consumerUid={lead?.consumerUid}
+        users={users}
+        defaultLocationId={defaultLocationId}
+        onClose={() => {
+          setIsTaskDialogOpen(false);
+          setActiveStageUid(null);
+        }}
+      />
     </div>
   );
 }

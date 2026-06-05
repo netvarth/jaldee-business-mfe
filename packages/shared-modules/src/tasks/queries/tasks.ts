@@ -417,7 +417,7 @@ export function useTaskCategoryById(id: string | number) {
   return useQuery({
     queryKey: [TASKS_KEY, "category-detail", id],
     queryFn: () => services.getTaskCategoryById(api, id),
-    enabled: id !== undefined && id !== null,
+    enabled: id !== undefined && id !== null && String(id).trim().length > 0,
   });
 }
 

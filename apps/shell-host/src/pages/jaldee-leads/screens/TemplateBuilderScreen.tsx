@@ -371,13 +371,13 @@ function AddItemModal({
 
   return (
     <div data-testid="jaldee-leads-template-builder-add-item-dialog-overlay" data-state="open" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <div data-testid="jaldee-leads-template-builder-add-item-dialog" data-state="open" className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <div data-testid="jaldee-leads-template-builder-add-item-dialog" data-state="open" className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
           <h3 className="m-0 text-sm font-semibold text-slate-900">{title}</h3>
           <Button id="jaldee-leads-template-builder-add-item-close-button" data-testid="jaldee-leads-template-builder-add-item-close-button" size="sm" variant="ghost" icon={<X size={16} />} onClick={onClose} aria-label="Close modal" />
         </div>
 
-        <div className="p-4">
+        <div className="overflow-y-auto p-4">
           {state.kind === "object" ? (
             <div className="grid gap-3 md:grid-cols-3">
               <Input id="jaldee-leads-template-builder-add-object-json-key-input" data-testid="jaldee-leads-template-builder-add-object-json-key-input" label="JSON key" value={objectDraft.key} onChange={(event) => onObjectChange({ key: event.target.value })} />
@@ -398,7 +398,7 @@ function AddItemModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-4 py-3">
           <Button id="jaldee-leads-template-builder-add-item-cancel-button" data-testid="jaldee-leads-template-builder-add-item-cancel-button" variant="outline" onClick={onClose}>
             Cancel
           </Button>

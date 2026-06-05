@@ -58,6 +58,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
+        type={props.type ?? "button"}
         className={cn(buttonVariants({ variant, size }), fullWidth && "w-full", className)}
         disabled={disabled || loading}
         {...props}

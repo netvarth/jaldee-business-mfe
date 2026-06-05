@@ -23,6 +23,7 @@ export interface TaskLookup {
 
 export interface TaskUser {
   id: string | number;
+  uid?: string;
   name: string;
   firstName?: string;
   lastName?: string;
@@ -32,6 +33,7 @@ export interface TaskUser {
 
 export interface TaskLocation {
   id: string | number;
+  uid?: string;
   name?: string;
   place?: string;
 }
@@ -80,6 +82,7 @@ export interface TaskRow {
 
 export interface TaskTemplateRow {
   id: string | number;
+  account?: string | number;
   uid?: string;
   tenantUid?: string;
   name: string;
@@ -91,9 +94,17 @@ export interface TaskTemplateRow {
   priority?: TaskLookup;
   category?: TaskLookup;
   type?: TaskLookup;
+  status?: TaskLookup;
+  location?: TaskLocation;
+  assignee?: TaskUser;
+  manager?: TaskUser;
   categoryId?: string | number;
   typeId?: string | number;
   priorityId?: string | number;
+  statusId?: string | number;
+  locationId?: string | number;
+  assigneeId?: string | number;
+  managerId?: string | number;
   dueInDays?: number;
   sourceService?: string;
   feature?: string;
@@ -104,8 +115,14 @@ export interface TaskTemplateRow {
   isSubTask?: boolean;
   imageUrl?: string;
   estimatedDuration?: string;
+  estDuration?: { days?: number; hours?: number; minutes?: number };
+  locationArea?: string;
   targetResult?: string;
   targetPotential?: number;
+  dueDate?: string;
+  actualDuration?: { days?: number; hours?: number; minutes?: number };
+  actualResult?: string;
+  actualPotential?: number;
   notes?: string[];
   attachments?: string[];
   subtaskCount?: number;
@@ -158,22 +175,16 @@ export interface TaskLookupFormValues {
 
 export interface TaskTemplateFormValues extends TaskFormValues {
   name: string;
-  dueInDays: string;
-  sourceService: string;
-  feature: string;
-  subFeature: string;
-  featureModule: string;
   originFrom: string;
-  originId: string;
   isSubTask: boolean;
-  imageUrl: string;
-  estimatedDuration: string;
-  targetResult: string;
-  targetPotential: string;
-  notes: string;
-  attachments: string;
-  subtaskCount: string;
   isSequential: boolean;
-  sequenceOrder: string;
   isAvailable: boolean;
+  fieldFlags: Record<string, TaskTemplateFieldFlags>;
+  fieldValues: Record<string, string>;
+}
+
+export interface TaskTemplateFieldFlags {
+  iseditable: boolean;
+  isvisible: boolean;
+  ismandatory: boolean;
 }

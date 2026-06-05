@@ -3,7 +3,7 @@ import {
   BASE_SERVICE_ENDPOINTS,
   buildBaseServiceUrl,
 } from "@jaldee/shared-modules";
-import type { CrmLeadDto, ChannelType, Priority, InternalStatus } from "../types";
+import type { CrmLeadDto, ChannelType, Priority, InternalStatus, LeadStageTask } from "../types";
 
 type LeadSearchParams = {
   page?: number;
@@ -22,6 +22,33 @@ type ApiEnvelope<T> = {
   records?: T;
   items?: T;
 };
+
+export type TaskLookupOption = {
+  id: string | number;
+  name: string;
+};
+
+export type CreateTenantTaskInput = {
+  title: string;
+  description?: string;
+  dueDate: string;
+  priorityId?: string | number;
+  categoryId?: string | number;
+  typeId?: string | number;
+  statusId?: string | number;
+  assigneeUid?: string | number;
+  locationId?: string | number;
+  originFrom?: string;
+  originUid?: string;
+  crmLeadStageUid?: string;
+};
+
+function normalizeTaskTypeLabel(value?: string): LeadStageTask["type"] {
+  const normalized = String(value || "").trim().toUpperCase();
+  return ["CALL", "EMAIL", "MEETING", "DOCUMENT", "TASK"].includes(normalized)
+    ? (normalized as LeadStageTask["type"])
+    : "TASK";
+}
 
 function unwrap<T>(value: unknown): T {
   const root = value as ApiEnvelope<T>;
@@ -43,6 +70,53 @@ function firstString(...values: unknown[]) {
 function optionalString(...values: unknown[]) {
   const value = firstString(...values);
   return value || undefined;
+}
+
+function unwrapList(raw: unknown): any[] {
+  const unwrapped = unwrap<any>(raw);
+
+  if (Array.isArray(unwrapped)) return unwrapped;
+  if (Array.isArray(unwrapped?.content)) return unwrapped.content;
+  if (Array.isArray(unwrapped?.records)) return unwrapped.records;
+  if (Array.isArray(unwrapped?.items)) return unwrapped.items;
+  if (Array.isArray(unwrapped?.data)) return unwrapped.data;
+
+  return [];
+}
+
+function toLookupOption(raw: any): TaskLookupOption | null {
+  const id = raw?.id ?? raw?.uid;
+  const name = firstString(raw?.name, raw?.displayName, raw?.title, raw?.label);
+
+  if (id === undefined || id === null || !name) return null;
+  return { id, name };
+}
+
+function toTenantLeadTask(raw: any): LeadStageTask {
+  const priorityName = firstString(raw?.priorityName, raw?.priority?.name);
+  const categoryName = firstString(raw?.categoryName, raw?.category?.name);
+  const statusName = firstString(raw?.statusName, raw?.status?.name);
+  const typeName = firstString(raw?.typeName, raw?.type?.name);
+  const locationName = firstString(raw?.locationName, raw?.location?.name, raw?.location?.place);
+  const assigneeName = firstString(raw?.assigneeName, raw?.assignee?.name, raw?.assignee?.fullName);
+
+  return {
+    uid: String(raw?.taskUid ?? raw?.uid ?? raw?.id ?? ""),
+    title: firstString(raw?.title, raw?.taskName, raw?.taskTitle) || "Untitled task",
+    type: normalizeTaskTypeLabel(typeName),
+    required: Boolean(raw?.required ?? raw?.isRequired),
+    completed: Boolean(raw?.completed ?? raw?.isDone ?? /complete/i.test(statusName)),
+    isManual: true,
+    createdAt: String(raw?.createdAt ?? raw?.createdDate ?? ""),
+    priority: priorityName ? (priorityName.toUpperCase() as LeadStageTask["priority"]) : undefined,
+    description: optionalString(raw?.description),
+    location: optionalString(locationName),
+    assigneeId: optionalString(raw?.assigneeUid, raw?.assigneeId, raw?.assignee?.id),
+    assigneeName: optionalString(assigneeName),
+    dueDate: optionalString(raw?.dueDate),
+    category: optionalString(categoryName),
+    status: optionalString(statusName),
+  };
 }
 
 function fullName(...parts: unknown[]) {
@@ -246,6 +320,67 @@ function toLeadPayload(lead: Partial<CrmLeadDto>) {
 }
 
 export const leadService = {
+  async getTaskPriorities() {
+    const response = await apiClient.get(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskPriorities.list),
+      withoutLocationParam()
+    );
+    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+  },
+
+  async getTaskTypes() {
+    const response = await apiClient.get(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskTypes.list),
+      withoutLocationParam()
+    );
+    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+  },
+
+  async getTaskCategories() {
+    const response = await apiClient.get(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskCategories.list),
+      withoutLocationParam()
+    );
+    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+  },
+
+  async getTaskStatuses() {
+    const response = await apiClient.get(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskStatuses.list),
+      withoutLocationParam()
+    );
+    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+  },
+
+  async createTenantTask(input: CreateTenantTaskInput) {
+    const response = await apiClient.post(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.create),
+      input,
+      {
+        skipLocationScope: true,
+        _skipLocationParam: true,
+      } as any
+    );
+    return unwrap(response);
+  },
+
+  async getLeadTenantTasks(leadUid: string) {
+    const response = await apiClient.get(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.list),
+      {
+        skipLocationScope: true,
+        _skipLocationParam: true,
+        params: {
+          from: 0,
+          count: 100,
+          "originFrom-eq": "LEAD",
+          "originUid-eq": leadUid,
+        },
+      } as any
+    );
+    return unwrapList(response).map(toTenantLeadTask).filter((task) => task.uid);
+  },
+
   async search(filters: Record<string, unknown> = {}, params: LeadSearchParams = { page: 0, size: 100 }) {
     const response = await apiClient.post(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search),

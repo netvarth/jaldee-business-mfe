@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   ConfirmDialog,
   DataTable,
   Dialog,
@@ -42,6 +43,7 @@ import {
   useTaskCategories,
   useTaskPriorities,
   useTaskStatuses,
+  useTaskTemplateById,
   useTaskTemplates,
   useTaskTypes,
   useTenantSubtasks,
@@ -71,6 +73,7 @@ import type {
   TaskRow,
   TaskScope,
   TaskStatusVariant,
+  TaskTemplateFieldFlags,
   TaskTemplateFormValues,
   TaskTemplateRow,
   TaskUser,
@@ -82,6 +85,32 @@ const TASK_BOARD_PAGE_SIZE = 9;
 const CALENDAR_PAGE_SIZE = 250;
 const TASK_BUCKET_COLORS = ["#FFB6C1", "#FFD700", "#90EE90", "#87CEFA", "#FFA07A", "#DDA0DD", "#20B2AA", "#FF69B4"];
 const TASK_UPLOAD_ACCEPT = ".jpg,.jpeg,.png,.bmp,.jfif,.pdf,.mp4,.mpeg,.mp3,.ogg,.xls,.xlsx,.doc,.docx";
+const TASK_TEMPLATE_FIELD_DEFS = [
+  { key: "title", label: "Title", fieldtype: "TextInput", datatype: "String", valueInput: "text" },
+  { key: "description", label: "Description", fieldtype: "TextInput", datatype: "String", valueInput: "text" },
+  { key: "category", label: "Category", fieldtype: "DropDown", datatype: "Object", dropdownapi: "drop", valueInput: "category" },
+  { key: "type", label: "Type", fieldtype: "DropDown", datatype: "Object", dropdownapi: "drop", valueInput: "type" },
+  { key: "priority", label: "Priority", fieldtype: "DropDown", datatype: "Object", dropdownapi: "drop", valueInput: "priority" },
+  { key: "targetResult", label: "Target Result", fieldtype: "TextInput", datatype: "String", valueInput: "text" },
+  { key: "targetPotential", label: "Target Potential", fieldtype: "TextInput", datatype: "Double", valueInput: "number" },
+  { key: "estDuration", label: "Estimated Duration", fieldtype: "TextInput", datatype: "Object", valueInput: "duration" },
+  { key: "location", label: "Location", fieldtype: "DropDown", datatype: "Object", valueInput: "location" },
+  { key: "locationArea", label: "Location Area", fieldtype: "TextInput", datatype: "String", valueInput: "text" },
+  { key: "assignee", label: "Assignee", fieldtype: "DropDown", datatype: "Object", valueInput: "user" },
+  { key: "manager", label: "Manager", fieldtype: "DropDown", datatype: "Object", valueInput: "user" },
+  { key: "dueDate", label: "Due Date", fieldtype: "TextInput", datatype: "Date", valueInput: "date" },
+  { key: "status", label: "Status", fieldtype: "DropDown", datatype: "Object", valueInput: "status" },
+  { key: "actualDuration", label: "Actual Duration", fieldtype: "TextInput", datatype: "Object", valueInput: "duration" },
+  { key: "actualResult", label: "Actual Result", fieldtype: "TextInput", datatype: "String", valueInput: "text" },
+  { key: "actualPotential", label: "Actual Potential", fieldtype: "TextInput", datatype: "Double", valueInput: "number" },
+] as const;
+const TASK_TEMPLATE_FIELD_GROUPS = [
+  { title: "Core", fields: ["title", "description"] },
+  { title: "Classification", fields: ["category", "type", "priority", "status"] },
+  { title: "Assignment", fields: ["location", "locationArea", "assignee", "manager"] },
+  { title: "Dates & Duration", fields: ["dueDate", "estDuration", "actualDuration"] },
+  { title: "Results", fields: ["targetResult", "targetPotential", "actualResult", "actualPotential"] },
+] as const;
 
 const EMPTY_FORM: TaskFormValues = {
   title: "",
@@ -1490,6 +1519,7 @@ function CrmLeadStageTasksView() {
 }
 
 function TaskTemplatesView() {
+  const { routeParams, navigate } = useSharedModulesContext();
   const [templateDialog, setTemplateDialog] = useState<TaskTemplateRow | "new" | null>(null);
   const lookups = useTaskLookups();
   const templatesQuery = useTaskTemplates({ from: 0, count: 100 });
@@ -1497,11 +1527,20 @@ function TaskTemplatesView() {
   const updateTemplate = useUpdateTaskTemplateRecord();
   const deleteTemplate = useDeleteTaskTemplate();
   const templates = normalizeArray<TaskTemplateRow>(templatesQuery.data);
+  const isRouteCreate = routeParams?.subview === "create";
+  const isRouteEdit = routeParams?.subview === "edit";
+  const routeTemplateId = routeParams?.recordId ?? "";
+  const routeTemplateQuery = useTaskTemplateById(routeTemplateId);
+  const routeTemplate = routeTemplateId
+    ? (normalizeData<TaskTemplateRow>(routeTemplateQuery.data) ?? templates.find((template) => String(template.id) === String(routeTemplateId)))
+    : undefined;
+  const editorTemplate = isRouteEdit ? routeTemplate : templateDialog && templateDialog !== "new" ? templateDialog : undefined;
+  const editorOpen = isRouteCreate || isRouteEdit || Boolean(templateDialog);
   const columns: ColumnDef<TaskTemplateRow>[] = [
-    { key: "name", header: "Template", render: (row) => <div className="font-semibold text-slate-900">{row.templateName || row.name || row.title || row.taskName}</div> },
-    { key: "feature", header: "Feature", width: 140, render: (row) => row.feature || "-" },
-    { key: "category", header: "Category", render: (row) => row.category?.name || row.categoryId || "-" },
-    { key: "priority", header: "Priority", render: (row) => <Badge variant={getPriorityVariant(row.priority?.name)}>{row.priority?.name || row.priorityId || "Normal"}</Badge> },
+    { key: "name", header: "Template", render: (row) => <div className="font-semibold text-slate-900">{templateText(row, "templateName") || templateText(row, "name") || templateText(row, "title") || templateText(row, "taskName")}</div> },
+    { key: "originFrom", header: "Origin", width: 140, render: (row) => row.originFrom || "-" },
+    { key: "category", header: "Category", render: (row) => templateLookupName(row, "category") || row.categoryId || "-" },
+    { key: "priority", header: "Priority", render: (row) => <Badge variant={getPriorityVariant(templateLookupName(row, "priority"))}>{templateLookupName(row, "priority") || row.priorityId || "Normal"}</Badge> },
     { key: "isAvailable", header: "Available", width: 110, render: (row) => (row.isAvailable === false ? "No" : "Yes") },
     {
       key: "actions",
@@ -1509,7 +1548,7 @@ function TaskTemplatesView() {
       align: "right",
       render: (row) => (
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setTemplateDialog(row)} id={`btnEditTemplate_${row.id}`}>
+          <Button type="button" variant="outline" size="sm" onClick={() => (navigate ? navigate(`templates/edit/${row.id}`) : setTemplateDialog(row))} id={`btnEditTemplate_${row.id}`}>
             Edit
           </Button>
           <Button type="button" variant="danger" size="sm" onClick={() => deleteLookup(row.id, deleteTemplate.mutateAsync, "Delete this template?")} id={`btnDeleteTemplate_${row.id}`}>
@@ -1521,13 +1560,29 @@ function TaskTemplatesView() {
   ];
 
   async function submitTemplate(values: TaskTemplateFormValues, template?: TaskTemplateRow) {
-    const payload = buildTemplatePayload(values, template);
+    const payload = buildTemplatePayload(values, lookups);
     if (template?.id) {
       await updateTemplate.mutateAsync({ id: template.id, data: payload });
     } else {
       await createTemplate.mutateAsync(payload);
     }
     setTemplateDialog(null);
+    if (navigate) {
+      navigate("templates");
+    }
+  }
+
+  if (editorOpen) {
+    return (
+      <TemplateDialog
+        template={editorTemplate}
+        open={editorOpen}
+        onClose={() => (navigate ? navigate("templates") : setTemplateDialog(null))}
+        onSubmit={submitTemplate}
+        loading={createTemplate.isPending || updateTemplate.isPending || routeTemplateQuery.isLoading}
+        lookups={lookups}
+      />
+    );
   }
 
   return (
@@ -1536,7 +1591,7 @@ function TaskTemplatesView() {
         title="Task Templates"
         className="border-slate-200 shadow-sm"
         actions={
-          <Button type="button" variant="primary" onClick={() => setTemplateDialog("new")} id="btnCreateTemplate_SM_Tasks">
+          <Button type="button" variant="primary" onClick={() => (navigate ? navigate("templates/create") : setTemplateDialog("new"))} id="btnCreateTemplate_SM_Tasks">
             Create Template
           </Button>
         }
@@ -1551,14 +1606,6 @@ function TaskTemplatesView() {
           emptyState={<EmptyState title="No templates found" description="Create reusable templates for repeated task workflows." />}
         />
       </SectionCard>
-      <TemplateDialog
-        template={templateDialog && templateDialog !== "new" ? templateDialog : undefined}
-        open={Boolean(templateDialog)}
-        onClose={() => setTemplateDialog(null)}
-        onSubmit={submitTemplate}
-        loading={createTemplate.isPending || updateTemplate.isPending}
-        lookups={lookups}
-      />
     </>
   );
 }
@@ -1759,54 +1806,145 @@ function buildLookupPayload(kind: "category" | "priority" | "status" | "type", v
   };
 }
 
-function buildTemplatePayload(values: TaskTemplateFormValues, template?: TaskTemplateRow) {
+function buildTemplatePayload(values: TaskTemplateFormValues, lookups: TaskLookupData) {
   return {
-    ...(template?.id ? { id: template.id } : {}),
-    ...(template?.uid ? { uid: template.uid } : {}),
-    sourceService: values.sourceService || "API_GATEWAY",
-    feature: values.feature || "BASE_CRM",
-    subFeature: values.subFeature || "BASE_CRM",
-    featureModule: values.featureModule || "BASE_CRM_CORE",
-    originFrom: values.originFrom || "NONE",
-    originId: values.originId ? Number(values.originId) : 0,
+    originFrom: values.originFrom || "Order",
     isSubTask: values.isSubTask,
-    imageUrl: values.imageUrl.trim(),
     templateName: values.name.trim(),
-    title: values.title.trim(),
-    titleStyle: "",
-    description: values.description.trim(),
-    descriptionStyle: "",
-    categoryId: values.categoryId ? Number(values.categoryId) : 1,
-    categoryStyle: "",
-    typeId: values.typeId ? Number(values.typeId) : 1,
-    typeStyle: "",
-    priorityId: values.priorityId ? Number(values.priorityId) : 0,
-    priorityStyle: "",
-    estimatedDuration: values.estimatedDuration.trim(),
-    estDurationStyle: "",
-    targetResult: values.targetResult.trim(),
-    targetResultStyle: "",
-    targetPotential: values.targetPotential ? Number(values.targetPotential) : 0,
-    targetPotentialStyle: "",
-    locationStyle: "",
-    locationAreaStyle: "",
-    assigneeStyle: "",
-    managerStyle: "",
-    dueDateStyle: "",
-    statusStyle: "",
-    actualDurationStyle: "",
-    actualResultStyle: "",
-    actualPotentialStyle: "",
-    notes: splitLines(values.notes),
-    attachments: splitLines(values.attachments),
-    subtaskCount: values.subtaskCount ? Number(values.subtaskCount) : 0,
+    ...Object.fromEntries(
+      TASK_TEMPLATE_FIELD_DEFS.map((field) => [
+        field.key,
+        templateField(field.fieldtype, field.datatype, values.fieldFlags[field.key], "dropdownapi" in field ? field.dropdownapi : "", templateFieldValue(field, values, lookups)),
+      ])
+    ),
     isSequential: values.isSequential,
-    sequenceOrder: values.sequenceOrder ? Number(values.sequenceOrder) : 0,
-isAvailable: values.isAvailable,
+    available: values.isAvailable,
   };
 }
 
-function TaskFormDialog({
+function templateField(fieldtype: "TextInput" | "DropDown", datatype: "String" | "Double" | "Object" | "Date", flags?: TaskTemplateFieldFlags, dropdownapi = "", value?: unknown) {
+  return {
+    fieldtype,
+    datatype,
+    ...(value !== undefined && value !== "" ? { value } : {}),
+    dropdownapi,
+    iseditable: flags?.iseditable ?? true,
+    isvisible: flags?.isvisible ?? true,
+    ismandatory: flags?.ismandatory ?? false,
+  };
+}
+
+function templateFieldValue(field: (typeof TASK_TEMPLATE_FIELD_DEFS)[number], values: TaskTemplateFormValues, lookups: TaskLookupData) {
+  const value = values.fieldValues[field.key];
+  if (!value) return undefined;
+
+  if (field.valueInput === "number") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+
+  if (field.valueInput === "duration") {
+    return parseTemplateDuration(value);
+  }
+
+  const lookupItems = templateLookupItems(field.valueInput, lookups);
+  if (lookupItems) {
+    return templateLookupValue(value, lookupItems);
+  }
+
+  return value.trim();
+}
+
+function templateLookupItems(valueInput: string, lookups: TaskLookupData) {
+  if (valueInput === "category") return lookups.categories;
+  if (valueInput === "type") return lookups.types;
+  if (valueInput === "priority") return lookups.priorities;
+  if (valueInput === "status") return lookups.statuses;
+  if (valueInput === "location") return lookups.locations;
+  if (valueInput === "user") return lookups.users;
+  return null;
+}
+
+function templateLookupValue(value: string, items: Array<TaskLookup | TaskLocation | TaskUser>) {
+  const item = items.find((entry) => String(entry.id) === value || String((entry as any).uid ?? "") === value);
+  const name = item ? ("name" in item && item.name ? item.name : "place" in item && item.place ? item.place : getUserName(item as TaskUser)) : value;
+  return {
+    id: Number.isNaN(Number(value)) ? value : Number(value),
+    name,
+  };
+}
+
+function templateValueOptions(valueInput: string, items: Array<TaskLookup | TaskLocation | TaskUser>) {
+  if (valueInput === "user") {
+    return (items as TaskUser[]).map((item) => ({ value: String(item.id), label: getUserName(item) || item.name || String(item.id) }));
+  }
+
+  if (valueInput === "location") {
+    return (items as TaskLocation[]).map((item) => ({ value: String(item.id), label: item.name || item.place || String(item.id) }));
+  }
+
+  return toOptions(items as TaskLookup[]);
+}
+
+function parseTemplateDuration(value: string) {
+  const [days = "0", hours = "0", minutes = "0"] = value.split("|");
+  return {
+    days: Number(days) || 0,
+    hours: Number(hours) || 0,
+    minutes: Number(minutes) || 0,
+  };
+}
+
+function templateText(row: TaskTemplateRow, key: string) {
+  const value = (row as any)?.[key];
+  if (value === undefined || value === null) return "";
+  if (typeof value === "object") return String(value.value ?? value.name ?? "");
+  return String(value);
+}
+
+function templateLookupName(row: TaskTemplateRow, key: string) {
+  const value = (row as any)?.[key];
+  if (!value) return "";
+  if (value.value && typeof value.value === "object") return String(value.value.name ?? "");
+  if (typeof value === "object") return String(value.name ?? "");
+  return String(value);
+}
+
+function templateToFormValues(template?: TaskTemplateRow): TaskTemplateFormValues {
+  return {
+    ...EMPTY_FORM,
+    name: templateText(template ?? ({} as TaskTemplateRow), "templateName") || templateText(template ?? ({} as TaskTemplateRow), "name") || templateText(template ?? ({} as TaskTemplateRow), "title") || templateText(template ?? ({} as TaskTemplateRow), "taskName"),
+    originFrom: template?.originFrom || "Order",
+    isSubTask: Boolean(template?.isSubTask),
+    isSequential: Boolean(template?.isSequential),
+    isAvailable: (template as any)?.available ?? template?.isAvailable ?? true,
+    fieldFlags: Object.fromEntries(TASK_TEMPLATE_FIELD_DEFS.map((field) => [field.key, templateFieldFlags(template, field.key)])),
+    fieldValues: Object.fromEntries(TASK_TEMPLATE_FIELD_DEFS.map((field) => [field.key, templateFieldValueFromTemplate(template, field.key)])),
+  };
+}
+
+function templateFieldFlags(template: TaskTemplateRow | undefined, key: string): TaskTemplateFieldFlags {
+  const field = (template as any)?.[key];
+  return {
+    iseditable: field?.iseditable ?? true,
+    isvisible: field?.isvisible ?? true,
+    ismandatory: field?.ismandatory ?? false,
+  };
+}
+
+function templateFieldValueFromTemplate(template: TaskTemplateRow | undefined, key: string) {
+  const fieldValue = (template as any)?.[key]?.value;
+  if (fieldValue === undefined || fieldValue === null) return "";
+  if (typeof fieldValue === "object") {
+    if ("days" in fieldValue || "hours" in fieldValue || "minutes" in fieldValue) {
+      return `${fieldValue.days ?? 0}|${fieldValue.hours ?? 0}|${fieldValue.minutes ?? 0}`;
+    }
+    return fieldValue.id !== undefined && fieldValue.id !== null ? String(fieldValue.id) : "";
+  }
+  return String(fieldValue);
+}
+
+export function TaskFormDialog({
   mode,
   task,
   open,
@@ -1846,6 +1984,7 @@ function TaskFormDialog({
         className="grid gap-4 md:grid-cols-2"
         onSubmit={async (event) => {
           event.preventDefault();
+          event.stopPropagation();
           if (submitDisabled) return;
           setError(null);
           try {
@@ -2003,66 +2142,14 @@ function TemplateDialog({
   loading: boolean;
   lookups: TaskLookupData;
 }) {
-  const [values, setValues] = useState<TaskTemplateFormValues>(() => ({
-    ...EMPTY_FORM,
-    name: template?.templateName || template?.name || template?.title || template?.taskName || "",
-    title: template?.title || template?.taskName || "",
-    description: template?.description || "",
-    dueInDays: template?.dueInDays !== undefined ? String(template.dueInDays) : "",
-    priorityId: template?.priorityId ? String(template.priorityId) : template?.priority?.id ? String(template.priority.id) : "",
-    categoryId: template?.categoryId ? String(template.categoryId) : template?.category?.id ? String(template.category.id) : "",
-    typeId: template?.typeId ? String(template.typeId) : template?.type?.id ? String(template.type.id) : "",
-    sourceService: template?.sourceService || "API_GATEWAY",
-    feature: template?.feature || "BASE_CRM",
-    subFeature: template?.subFeature || "BASE_CRM",
-    featureModule: template?.featureModule || "BASE_CRM_CORE",
-    originFrom: template?.originFrom || "NONE",
-    originId: template?.originId !== undefined ? String(template.originId) : "0",
-    isSubTask: Boolean(template?.isSubTask),
-    imageUrl: template?.imageUrl || "",
-    estimatedDuration: template?.estimatedDuration || "",
-    targetResult: template?.targetResult || "",
-    targetPotential: template?.targetPotential !== undefined ? String(template.targetPotential) : "",
-    notes: template?.notes?.join("\n") || "",
-    attachments: template?.attachments?.join("\n") || "",
-    subtaskCount: template?.subtaskCount !== undefined ? String(template.subtaskCount) : "0",
-    isSequential: Boolean(template?.isSequential),
-    sequenceOrder: template?.sequenceOrder !== undefined ? String(template.sequenceOrder) : "0",
-    isAvailable: template?.isAvailable !== false,
-  }));
+  const [values, setValues] = useState<TaskTemplateFormValues>(() => templateToFormValues(template));
   const [error, setError] = useState<string | null>(null);
   const submitDisabled = loading || !values.name.trim();
 
   useEffect(() => {
     if (open) {
       setError(null);
-      setValues({
-        ...EMPTY_FORM,
-        name: template?.templateName || template?.name || template?.title || template?.taskName || "",
-        title: template?.title || template?.taskName || "",
-        description: template?.description || "",
-        dueInDays: template?.dueInDays !== undefined ? String(template.dueInDays) : "",
-        priorityId: template?.priorityId ? String(template.priorityId) : template?.priority?.id ? String(template.priority.id) : "",
-        categoryId: template?.categoryId ? String(template.categoryId) : template?.category?.id ? String(template.category.id) : "",
-        typeId: template?.typeId ? String(template.typeId) : template?.type?.id ? String(template.type.id) : "",
-        sourceService: template?.sourceService || "API_GATEWAY",
-        feature: template?.feature || "BASE_CRM",
-        subFeature: template?.subFeature || "BASE_CRM",
-        featureModule: template?.featureModule || "BASE_CRM_CORE",
-        originFrom: template?.originFrom || "NONE",
-        originId: template?.originId !== undefined ? String(template.originId) : "0",
-        isSubTask: Boolean(template?.isSubTask),
-        imageUrl: template?.imageUrl || "",
-        estimatedDuration: template?.estimatedDuration || "",
-        targetResult: template?.targetResult || "",
-        targetPotential: template?.targetPotential !== undefined ? String(template.targetPotential) : "",
-        notes: template?.notes?.join("\n") || "",
-        attachments: template?.attachments?.join("\n") || "",
-        subtaskCount: template?.subtaskCount !== undefined ? String(template.subtaskCount) : "0",
-        isSequential: Boolean(template?.isSequential),
-        sequenceOrder: template?.sequenceOrder !== undefined ? String(template.sequenceOrder) : "0",
-        isAvailable: template?.isAvailable !== false,
-      });
+      setValues(templateToFormValues(template));
     }
   }, [open, template]);
 
@@ -2070,10 +2157,43 @@ function TemplateDialog({
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
+  function setFieldFlag(fieldKey: string, flagKey: keyof TaskTemplateFieldFlags, checked: boolean) {
+    setValues((prev) => ({
+      ...prev,
+      fieldFlags: {
+        ...prev.fieldFlags,
+        [fieldKey]: {
+          ...(prev.fieldFlags[fieldKey] ?? templateFieldFlags(undefined, fieldKey)),
+          [flagKey]: checked,
+        },
+      },
+    }));
+  }
+
+  function setFieldValue(fieldKey: string, value: string) {
+    setValues((prev) => ({
+      ...prev,
+      fieldValues: {
+        ...prev.fieldValues,
+        [fieldKey]: value,
+      },
+    }));
+  }
+
+  const templateTitle = template ? "Edit Template" : "Create Template";
+
   return (
-    <Dialog open={open} onClose={onClose} title={template ? "Edit Template" : "Create Template"} size="lg" testId="template-dialog">
+    <div className="space-y-4" data-testid="template-editor-page">
+      <PageHeader
+        title={templateTitle}
+        actions={
+          <Button type="button" variant="outline" onClick={onClose} id="btnBackTemplates_SM_Tasks">
+            Back
+          </Button>
+        }
+      />
       <form
-        className="grid gap-4 md:grid-cols-2"
+        className="space-y-4"
         onSubmit={async (event) => {
           event.preventDefault();
           if (submitDisabled) return;
@@ -2085,55 +2205,118 @@ function TemplateDialog({
           }
         }}
       >
-        {error && (
-          <div className="md:col-span-2">
-            <Alert variant="danger">{error}</Alert>
+        {error ? <Alert variant="danger">{error}</Alert> : null}
+        <SectionCard title="Template Setup" className="border-slate-200 shadow-sm">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Template Name" id="txtTemplateName_SM_Tasks" required value={values.name} onChange={(event) => setValue("name", event.target.value)} />
+            <Input label="Origin From" id="txtTemplateOriginFrom_SM_Tasks" value={values.originFrom} onChange={(event) => setValue("originFrom", event.target.value)} />
+            <div className="flex flex-wrap gap-4 md:col-span-2">
+              <Checkbox label="Subtask template" id="chkTemplateSubtask_SM_Tasks" checked={values.isSubTask} onChange={(event) => setValue("isSubTask", event.target.checked)} />
+              <Checkbox label="Sequential" id="chkTemplateSequential_SM_Tasks" checked={values.isSequential} onChange={(event) => setValue("isSequential", event.target.checked)} />
+              <Checkbox label="Available" id="chkTemplateAvailable_SM_Tasks" checked={values.isAvailable} onChange={(event) => setValue("isAvailable", event.target.checked)} />
+            </div>
           </div>
-        )}
-        <Input label="Template Name" id="txtTemplateName_SM_Tasks" required value={values.name} onChange={(event) => setValue("name", event.target.value)} />
-        <Input label="Task Title" id="txtTemplateTitle_SM_Tasks" value={values.title} onChange={(event) => setValue("title", event.target.value)} />
-        <Input label="Source Service" id="txtTemplateSourceService_SM_Tasks" value={values.sourceService} onChange={(event) => setValue("sourceService", event.target.value)} />
-        <Input label="Feature" id="txtTemplateFeature_SM_Tasks" value={values.feature} onChange={(event) => setValue("feature", event.target.value)} />
-        <Input label="Sub Feature" id="txtTemplateSubFeature_SM_Tasks" value={values.subFeature} onChange={(event) => setValue("subFeature", event.target.value)} />
-        <Input label="Feature Module" id="txtTemplateFeatureModule_SM_Tasks" value={values.featureModule} onChange={(event) => setValue("featureModule", event.target.value)} />
-        <Input label="Origin From" id="txtTemplateOriginFrom_SM_Tasks" value={values.originFrom} onChange={(event) => setValue("originFrom", event.target.value)} />
-        <Input label="Origin ID" id="txtTemplateOriginId_SM_Tasks" type="number" value={values.originId} onChange={(event) => setValue("originId", event.target.value)} />
-        <Select label="Priority" testId="selectTemplatePriority_SM_Tasks" value={values.priorityId} onChange={(event) => setValue("priorityId", event.target.value)} options={[{ value: "", label: "Select priority" }, ...toOptions(lookups.priorities)]} />
-        <Select label="Category" testId="selectTemplateCategory_SM_Tasks" value={values.categoryId} onChange={(event) => setValue("categoryId", event.target.value)} options={[{ value: "", label: "Select category" }, ...toOptions(lookups.categories)]} />
-        <Select label="Type" testId="selectTemplateType_SM_Tasks" value={values.typeId} onChange={(event) => setValue("typeId", event.target.value)} options={[{ value: "", label: "Select type" }, ...toOptions(lookups.types)]} />
-        <Input label="Estimated Duration" id="txtTemplateEstimatedDuration_SM_Tasks" value={values.estimatedDuration} onChange={(event) => setValue("estimatedDuration", event.target.value)} />
-        <Input label="Target Result" id="txtTemplateTargetResult_SM_Tasks" value={values.targetResult} onChange={(event) => setValue("targetResult", event.target.value)} />
-        <Input label="Target Potential" id="txtTemplateTargetPotential_SM_Tasks" type="number" step="0.1" value={values.targetPotential} onChange={(event) => setValue("targetPotential", event.target.value)} />
-        <Input label="Image URL" id="txtTemplateImageUrl_SM_Tasks" value={values.imageUrl} onChange={(event) => setValue("imageUrl", event.target.value)} />
-        <Input label="Subtask Count" id="txtTemplateSubtaskCount_SM_Tasks" type="number" value={values.subtaskCount} onChange={(event) => setValue("subtaskCount", event.target.value)} />
-        <Input label="Sequence Order" id="txtTemplateSequenceOrder_SM_Tasks" type="number" value={values.sequenceOrder} onChange={(event) => setValue("sequenceOrder", event.target.value)} />
-        <Input containerClassName="md:col-span-2" label="Description" id="txtTemplateDescription_SM_Tasks" value={values.description} onChange={(event) => setValue("description", event.target.value)} />
-        <Input containerClassName="md:col-span-2" label="Notes (one per line)" id="txtTemplateNotes_SM_Tasks" value={values.notes} onChange={(event) => setValue("notes", event.target.value)} />
-        <Input containerClassName="md:col-span-2" label="Attachments (one per line)" id="txtTemplateAttachments_SM_Tasks" value={values.attachments} onChange={(event) => setValue("attachments", event.target.value)} />
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" checked={values.isSubTask} onChange={(event) => setValue("isSubTask", event.target.checked)} />
-          Subtask template
-        </label>
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" checked={values.isSequential} onChange={(event) => setValue("isSequential", event.target.checked)} />
-          Sequential
-        </label>
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" checked={values.isAvailable} onChange={(event) => setValue("isAvailable", event.target.checked)} />
-          Available
-        </label>
-        <DialogFooter>
+        </SectionCard>
+
+        {TASK_TEMPLATE_FIELD_GROUPS.map((group) => (
+          <SectionCard key={group.title} title={group.title} className="border-slate-200 shadow-sm" padding={false}>
+            <div className="divide-y divide-slate-200">
+              {group.fields.map((fieldKey) => {
+                const field = TASK_TEMPLATE_FIELD_DEFS.find((item) => item.key === fieldKey);
+                if (!field) return null;
+                const flags = values.fieldFlags[field.key] ?? templateFieldFlags(undefined, field.key);
+                return (
+                  <div key={field.key} className="grid gap-3 p-4 lg:grid-cols-[180px_minmax(260px,1fr)_310px] lg:items-center">
+                    <div>
+                      <div className="font-semibold text-slate-900">{field.label}</div>
+                      <div className="text-xs text-slate-500">{field.datatype}</div>
+                    </div>
+                    <TemplateFieldValueInput
+                      field={field}
+                      value={values.fieldValues[field.key] || ""}
+                      lookups={lookups}
+                      onChange={(value) => setFieldValue(field.key, value)}
+                    />
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <Checkbox label="Editable" id={`chkTemplate${field.key}Editable_SM_Tasks`} checked={flags.iseditable} onChange={(event) => setFieldFlag(field.key, "iseditable", event.target.checked)} />
+                      <Checkbox label="Visible" id={`chkTemplate${field.key}Visible_SM_Tasks`} checked={flags.isvisible} onChange={(event) => setFieldFlag(field.key, "isvisible", event.target.checked)} />
+                      <Checkbox label="Mandatory" id={`chkTemplate${field.key}Mandatory_SM_Tasks`} checked={flags.ismandatory} onChange={(event) => setFieldFlag(field.key, "ismandatory", event.target.checked)} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </SectionCard>
+        ))}
+
+        <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-slate-200 bg-white/95 py-3 backdrop-blur">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={submitDisabled} loading={loading} id="btnSaveTemplate_SM_Tasks">
             Save
           </Button>
-        </DialogFooter>
+        </div>
       </form>
-    </Dialog>
+    </div>
   );
 }
+
+function TemplateFieldValueInput({
+  field,
+  value,
+  lookups,
+  onChange,
+}: {
+  field: (typeof TASK_TEMPLATE_FIELD_DEFS)[number];
+  value: string;
+  lookups: TaskLookupData;
+  onChange: (value: string) => void;
+}) {
+  if (field.valueInput === "text") {
+    return <Input label="" id={`txtTemplate${field.key}Value_SM_Tasks`} value={value} onChange={(event) => onChange(event.target.value)} />;
+  }
+
+  if (field.valueInput === "number") {
+    return <Input label="" id={`txtTemplate${field.key}Value_SM_Tasks`} type="number" step="0.1" value={value} onChange={(event) => onChange(event.target.value)} />;
+  }
+
+  if (field.valueInput === "date") {
+    return <Input label="" id={`dateTemplate${field.key}Value_SM_Tasks`} type="date" value={value} onChange={(event) => onChange(event.target.value)} />;
+  }
+
+  if (field.valueInput === "duration") {
+    const duration = parseTemplateDuration(value);
+    const setPart = (index: number, nextValue: string) => {
+      const parts = [String(duration.days), String(duration.hours), String(duration.minutes)];
+      parts[index] = nextValue;
+      onChange(parts.join("|"));
+    };
+    return (
+      <div className="grid grid-cols-3 gap-1">
+        <Input label="" id={`txtTemplate${field.key}Days_SM_Tasks`} type="number" min={0} placeholder="Days" value={String(duration.days)} onChange={(event) => setPart(0, event.target.value)} />
+        <Input label="" id={`txtTemplate${field.key}Hours_SM_Tasks`} type="number" min={0} placeholder="Hours" value={String(duration.hours)} onChange={(event) => setPart(1, event.target.value)} />
+        <Input label="" id={`txtTemplate${field.key}Minutes_SM_Tasks`} type="number" min={0} placeholder="Mins" value={String(duration.minutes)} onChange={(event) => setPart(2, event.target.value)} />
+      </div>
+    );
+  }
+
+  const lookupItems = templateLookupItems(field.valueInput, lookups);
+  if (lookupItems) {
+    return (
+      <Select
+        label=""
+        testId={`selectTemplate${field.key}Value_SM_Tasks`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        options={[{ value: "", label: "No default" }, ...templateValueOptions(field.valueInput, lookupItems)]}
+      />
+    );
+  }
+
+  return null;
+}
+
 function LookupDialog({
   kind,
   title,
@@ -2249,7 +2432,7 @@ function LookupDialog({
   );
 }
 
-function useTaskLookups(): TaskLookupData {
+export function useTaskLookups(): TaskLookupData {
   const statusQuery = useTaskStatuses();
   const priorityQuery = useTaskPriorities();
   const categoryQuery = useTaskCategories();
@@ -2267,7 +2450,7 @@ function useTaskLookups(): TaskLookupData {
   };
 }
 
-type TaskLookupData = {
+export type TaskLookupData = {
   statuses: TaskLookup[];
   priorities: TaskLookup[];
   categories: TaskLookup[];
@@ -2320,7 +2503,7 @@ function buildTaskFilters(input: TaskFilters & { userId?: string; locationId?: s
   return filters;
 }
 
-function buildTaskPayload(values: TaskFormValues, fallbackLocationId?: string | number | null) {
+export function buildTaskPayload(values: TaskFormValues, fallbackLocationId?: string | number | null) {
   return {
     title: values.title.trim(),
     description: values.description.trim(),
