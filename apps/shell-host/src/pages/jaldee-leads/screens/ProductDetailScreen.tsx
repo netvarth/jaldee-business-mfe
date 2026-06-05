@@ -37,6 +37,9 @@ export default function ProductDetailScreen({
     pipelines.find((p) => p.uid === product.defaultPipelineUid) ||
     linkedPipelines[0] ||
     pipelines[0];
+  const linkedStages = [...(linkedPipeline?.stages ?? [])].sort(
+    (a, b) => (a.sequenceOrder ?? a.stageOrder ?? 0) - (b.sequenceOrder ?? b.stageOrder ?? 0),
+  );
 
   const [isEditingMapping, setIsEditingMapping] = React.useState(false);
   
@@ -334,40 +337,48 @@ export default function ProductDetailScreen({
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-6 relative">
-                    {/* Desktop horizontal connection line */}
-                    <div className="absolute top-11 left-0 right-0 h-px bg-slate-100 hidden md:block" />
-
-                    {/* Mobile vertical connection line */}
-                    <div className="absolute left-7 top-6 bottom-6 w-px bg-slate-100 md:hidden" />
-
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-4 relative">
-                      {linkedPipeline.stages.slice(0, 5).map((stage, idx) => (
-                        <div
-                          key={stage.uid}
-                          className="relative z-10 flex flex-row md:flex-col items-center md:items-center gap-4 md:gap-3 group w-full"
-                        >
+                  <div className="flex items-start w-full">
+                    {linkedStages.map((stage, idx) => (
+                      <React.Fragment key={stage.uid}>
+                        {/* Connector line between stages */}
+                        {idx > 0 && (
+                          <div className="flex-1 flex items-center mt-5 min-w-[12px]">
+                            <div className={cn(
+                              "h-px w-full",
+                              idx <= linkedStages.findIndex(s => s.isTerminal && s.terminalType === 'WON')
+                                ? "bg-indigo-200"
+                                : "bg-slate-200 border-dashed"
+                            )} />
+                          </div>
+                        )}
+                        {/* Stage Node */}
+                        <div className="flex flex-col items-center gap-2 group cursor-default min-w-[72px] max-w-[120px]">
                           <div
                             className={cn(
-                              "w-10 h-10 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-xs md:text-xs font-semibold font-mono transition-all group-hover:scale-110 border shrink-0",
-                              stage.isTerminal
-                                ? "bg-emerald-50 text-emerald-600 border-emerald-150"
-                                : "bg-indigo-50 text-indigo-600 border-indigo-150",
+                              "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-semibold font-mono transition-all duration-200 group-hover:scale-110 border-2 shadow-sm",
+                              stage.isTerminal && stage.terminalType === 'WON'
+                                ? "bg-emerald-50 text-emerald-600 border-emerald-200 group-hover:bg-emerald-100"
+                                : stage.isTerminal
+                                  ? "bg-rose-50 text-rose-500 border-rose-200 group-hover:bg-rose-100"
+                                  : "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-100",
                             )}
                           >
                             {idx + 1}
                           </div>
-                          <div className="text-left md:text-center min-w-0">
-                            <p className="text-sm md:text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                          <div className="text-center w-full px-1">
+                            <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-tight">
                               {stage.stageName}
                             </p>
-                            <p className="text-xs font-semibold text-slate-400 truncate">
-                              Rule: {stage.movementRule || "Strict"}
+                            <p className={cn(
+                              "text-[10px] font-semibold mt-0.5",
+                              stage.movementRule === 'Strict Block' ? "text-rose-400" : "text-slate-400"
+                            )}>
+                              {stage.movementRule || "Strict"}
                             </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </React.Fragment>
+                    ))}
                   </div>
                 )}
               </div>

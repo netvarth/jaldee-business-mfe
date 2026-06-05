@@ -274,6 +274,7 @@ function ProductDetailRoute({
   setProducts,
   leads,
   pipelines,
+  setPipelines,
   channels,
   onNavigate,
 }: {
@@ -281,6 +282,7 @@ function ProductDetailRoute({
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   leads: CrmLeadDto[];
   pipelines: CrmLeadPipelineDto[];
+  setPipelines: React.Dispatch<React.SetStateAction<CrmLeadPipelineDto[]>>;
   channels: Channel[];
   onNavigate: (route: string, selection?: { type: string; id: string }) => void;
 }) {
@@ -308,6 +310,38 @@ function ProductDetailRoute({
       active = false;
     };
   }, [productUid, setProducts]);
+
+  useEffect(() => {
+    if (!product) return;
+
+    const pipelineState =
+      pipelines.find((item) => item.uid === product.defaultPipelineUid) ||
+      pipelines.find((item) => item.productUids?.includes(product.uid)) ||
+      pipelines.find((item) => item.name === product.defaultPipelineName);
+
+    if (!pipelineState?.uid || pipelineState.stages?.length) return;
+
+    let active = true;
+    leadPipelineService.detail(pipelineState.uid)
+      .then((detail) => {
+        if (!active) return;
+        const pipelineForInventory = {
+          ...pipelineState,
+          ...detail,
+          stages: detail.stages?.length ? detail.stages : pipelineState.stages ?? [],
+        };
+        setPipelines((prev) =>
+          prev.some((item) => item.uid === pipelineForInventory.uid)
+            ? prev.map((item) => (item.uid === pipelineForInventory.uid ? pipelineForInventory : item))
+            : [pipelineForInventory, ...prev]
+        );
+      })
+      .catch((err) => console.error('Failed to load product pipeline stages:', err));
+
+    return () => {
+      active = false;
+    };
+  }, [product, pipelines, setPipelines]);
 
   if (!product) return <div className="shell-loading">Loading product...</div>;
 
@@ -699,6 +733,7 @@ export default function JaldeeLeadsPage() {
               setProducts={setProducts}
               leads={leads}
               pipelines={pipelines}
+              setPipelines={setPipelines}
               channels={channels}
               onNavigate={handleNavigate}
             />

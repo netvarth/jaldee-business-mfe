@@ -215,41 +215,57 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                        const reqs = stage.taskTemplates?.filter(t => t.required) || [];
                        const opts = stage.taskTemplates?.filter(t => !t.required) || [];
                        return (
-                          <div
-                            key={stage.uid || `${stage.stageName}-${idx}`}
-                            data-testid={`jaldee-leads-pipeline-${pipeline.uid}-stage-${stage.uid || idx}-row`}
-                            data-active={stage.isActive !== false}
-                            className="p-[var(--space-4)] flex items-center gap-[var(--space-4)] hover:bg-[var(--color-surface-hover)] transition-colors group"
-                          >
-                             <div className={cn(
-                               "w-8 h-8 rounded-[var(--radius-lg)] shrink-0 flex items-center justify-center font-[var(--font-weight-semibold)] text-[length:var(--text-xs)] border",
-                               stage.isTerminal ? "bg-[var(--color-success-light)] text-[var(--color-success)] border-[var(--color-success-light)]" : "bg-[var(--color-surface)] text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)] group-hover:text-white transition-all"
-                             )}>
-                               {idx + 1}
-                             </div>
-                             <div className="flex-1">
-                                <div className="flex items-center justify-between">
-                                   <h4 className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)] truncate">{stage.stageName}</h4>
-                                   <div className="flex gap-[var(--space-2)]">
-                                     {stage.isTerminal && (
-                                        <span className={cn(
-                                          "text-[length:var(--text-xs)] font-[var(--font-weight-semibold)] px-[var(--space-2)] py-[var(--space-1)] rounded",
-                                          stage.terminalType === 'WON' ? "bg-[var(--color-success-light)] text-[var(--color-success)] border border-[var(--color-success)]" : "bg-[var(--color-error-light)] text-[var(--color-error)] border-[var(--color-error-light)]"
-                                        )}>
-                                          {stage.terminalType}
-                                        </span>
-                                     )}
-                                   </div>
-                                </div>
-                                <div className="mt-[var(--space-1)] flex flex-wrap items-center gap-[var(--space-2)] text-[length:var(--text-xs)] font-[var(--font-weight-bold)] text-[var(--color-text-secondary)] leading-[var(--line-height-relaxed)]">
-                                   <span className="text-[var(--color-text-primary)]">{stage.activeLeadCount || 0} Leads</span>
-                                   <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
-                                   <span className="text-[var(--color-error)] font-[var(--font-weight-semibold)]">{stage.movementRule || 'No Restriction'}</span>
-                                   <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
-                                   <span className="text-[var(--color-primary)] font-[var(--font-weight-semibold)]">{reqs.length} Required / {opts.length} Optional Tasks</span>
-                                </div>
-                             </div>
-                          </div>
+                           <div
+                             key={stage.uid || `${stage.stageName}-${idx}`}
+                             data-testid={`jaldee-leads-pipeline-${pipeline.uid}-stage-${stage.uid || idx}-row`}
+                             data-active={stage.isActive !== false}
+                             className="p-[var(--space-4)] flex items-center gap-[var(--space-4)] hover:bg-[var(--color-surface-hover)] transition-colors group"
+                           >
+                              <div className={cn(
+                                "w-8 h-8 rounded-[var(--radius-lg)] shrink-0 flex items-center justify-center font-[var(--font-weight-semibold)] text-[length:var(--text-xs)] border",
+                                stage.isTerminal ? "bg-[var(--color-success-light)] text-[var(--color-success)] border-[var(--color-success-light)]" : "bg-[var(--color-surface)] text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)] group-hover:text-white transition-all"
+                              )}>
+                                {idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                 <div className="flex items-center justify-between">
+                                    <h4 className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)] truncate">{stage.stageName}</h4>
+                                    <div className="flex items-center gap-[var(--space-1)]">
+                                      {stage.isTerminal && (
+                                         <span className={cn(
+                                           "text-[length:var(--text-xs)] font-[var(--font-weight-semibold)] px-[var(--space-2)] py-[var(--space-1)] rounded mr-2",
+                                           stage.terminalType === 'WON' ? "bg-[var(--color-success-light)] text-[var(--color-success)] border border-[var(--color-success)]" : "bg-[var(--color-error-light)] text-[var(--color-error)] border-[var(--color-error-light)]"
+                                         )}>
+                                           {stage.terminalType}
+                                         </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                                        title="Edit stage"
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
+                                      >
+                                        <ICONS.EDIT className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); }}
+                                        title="Remove stage"
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600"
+                                      >
+                                        <ICONS.DELETE className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                 </div>
+                                 <div className="mt-[var(--space-1)] flex flex-wrap items-center gap-[var(--space-2)] text-[length:var(--text-xs)] font-[var(--font-weight-bold)] text-[var(--color-text-secondary)] leading-[var(--line-height-relaxed)]">
+                                    <span className="text-[var(--color-text-primary)]">{stage.activeLeadCount || 0} Leads</span>
+                                    <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
+                                    <span className="text-[var(--color-error)] font-[var(--font-weight-semibold)]">{stage.movementRule || 'No Restriction'}</span>
+                                    <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
+                                    <span className="text-[var(--color-primary)] font-[var(--font-weight-semibold)]">{reqs.length} Required / {opts.length} Optional Tasks</span>
+                                 </div>
+                              </div>
+                           </div>
                        );
                      })}
                   </div>
