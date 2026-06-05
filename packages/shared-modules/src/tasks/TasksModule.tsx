@@ -227,7 +227,7 @@ function TasksViewActions({ view, onViewChange }: { view: TasksViewKey; onViewCh
 }
 
 function TasksBoardDashboardView() {
-  const { user } = useSharedModulesContext();
+  const { user, navigate } = useSharedModulesContext();
   const [dashboardView, setDashboardView] = useState<TaskDashboardView>("status");
   const [selectedBucket, setSelectedBucket] = useState<TaskLookup | null>(null);
   const [taskDialog, setTaskDialog] = useState<{ mode: "create"; defaults?: Partial<TaskFormValues> } | null>(null);
@@ -1926,8 +1926,8 @@ function templateToFormValues(template?: TaskTemplateRow): TaskTemplateFormValue
 function templateFieldFlags(template: TaskTemplateRow | undefined, key: string): TaskTemplateFieldFlags {
   const field = (template as any)?.[key];
   return {
-    iseditable: field?.iseditable ?? true,
-    isvisible: field?.isvisible ?? true,
+    iseditable: field?.iseditable ?? false,
+    isvisible: field?.isvisible ?? false,
     ismandatory: field?.ismandatory ?? false,
   };
 }
@@ -1981,7 +1981,7 @@ export function TaskFormDialog({
   return (
     <Dialog open={open} onClose={onClose} title={mode === "edit" ? "Edit Task" : "Create Task"} size="lg" testId="task-form-dialog">
       <form
-        className="grid gap-4 md:grid-cols-2"
+        className="grid gap-4"
         onSubmit={async (event) => {
           event.preventDefault();
           event.stopPropagation();
