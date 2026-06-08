@@ -16,6 +16,12 @@ export interface SidebarSection {
   children?: SidebarItem[];
 }
 
+export interface SettingsMenuGroup {
+  id: string;
+  label: string;
+  items: { id: string; label: string; path: string; badge?: string }[];
+}
+
 export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
   { id: "basecrm-customers", label: "Customers", icon: "\u{1F464}", path: "/customers" },
   { id: "basecrm-users", label: "Users", icon: "\u{1F465}", path: "/users" },
@@ -281,6 +287,37 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "ai-insights", label: "Insights", icon: "\u{1F4A1}", path: "/ai/insights" },
   ],
 };
+
+export const SETTINGS_MENU_GROUPS: SettingsMenuGroup[] = [
+  {
+    id: "settings-group-general",
+    label: "GENERAL",
+    items: [
+      { id: "settings-company", label: "Company", path: "/settings/company" },
+      { id: "settings-branding", label: "Branding", path: "/settings/branding" },
+      { id: "settings-branches", label: "Branches & Locations", path: "/settings/branches-locations" },
+      { id: "settings-subscription", label: "Subscription & Products", path: "/settings/subscription-products" },
+    ],
+  },
+  {
+    id: "settings-group-business",
+    label: "BUSINESS",
+    items: [
+      { id: "settings-billing", label: "Billing & Tax", path: "/settings/billing-tax" },
+      { id: "settings-communications", label: "Communications", path: "/settings/communications" },
+      { id: "settings-team", label: "Team & Access", path: "/settings/team-access" },
+      { id: "settings-integrations", label: "Integrations", path: "/settings/integrations" },
+    ],
+  },
+  {
+    id: "settings-group-advanced",
+    label: "ADVANCED",
+    items: [
+      { id: "settings-data", label: "Data & Privacy", path: "/settings/data-privacy" },
+      { id: "settings-developer", label: "Developer", path: "/settings/developer", badge: "PRO" },
+    ],
+  },
+];
 
 export const PRODUCT_ACCENTS: Partial<Record<ProductKey, string>> = {
   health: "#0D9488",

@@ -258,14 +258,6 @@ export default function SettingsPage() {
 
   return (
     <div className="settings-page">
-      <aside className="settings-page__nav">
-        <div className="settings-page__nav-inner">
-          <SettingsNavGroup title="GENERAL" items={grouped.GENERAL} activeKey={activeItem.key} onNavigate={goTo} />
-          <SettingsNavGroup title="BUSINESS" items={grouped.BUSINESS} activeKey={activeItem.key} onNavigate={goTo} />
-          <SettingsNavGroup title="ADVANCED" items={grouped.ADVANCED} activeKey={activeItem.key} onNavigate={goTo} />
-        </div>
-      </aside>
-
       <div className="settings-page__content">
         <PageHeader
           title={activeItem.label}

@@ -3,6 +3,7 @@ import type { ReactNode, SVGProps } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import type { ProductKey } from "../store/shellStore";
+import { SETTINGS_MENU_GROUPS } from "./sidebarConfig";
 
 const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: ReactNode }> = {
   health: { label: "Health", icon: <ShieldMedicalIcon /> },
@@ -113,11 +114,12 @@ export default function IconRail() {
   const licensedProducts = PRODUCT_ORDER.filter((key) => account.licensedProducts.includes(key));
 
   return (
-    <div
-      data-testid="icon-rail"
-      className="icon-rail"
-      data-product={activeProduct ?? "default"}
-    >
+    <div className="icon-rail-wrapper" data-product={activeProduct ?? "default"}>
+      <div
+        data-testid="icon-rail"
+        className="icon-rail"
+        data-product={activeProduct ?? "default"}
+      >
       <div
         data-testid="icon-rail-logo"
         className="icon-rail-logo"
@@ -163,7 +165,19 @@ export default function IconRail() {
         onClick={handleSettings}
       />
     </div>
-  );
+    {location.pathname.startsWith("/settings") && (
+      <SettingsPanel
+        accountName={account?.name ?? "Settings"}
+        currentPath={location.pathname}
+        groups={SETTINGS_MENU_GROUPS}
+        onNavigate={(path) => {
+          navigate(path);
+          closeMobileMenu();
+        }}
+      />
+    )}
+  </div>
+);
 }
 
 interface RailItemProps {
@@ -247,4 +261,116 @@ function SettingsIcon() {
 
 function BaseCrmIcon() {
   return <RailSvg><path d="M5 6h14" /><path d="M5 12h14" /><path d="M5 18h14" /><circle cx="3.5" cy="6" r="1.1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="12" r="1.1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="18" r="1.1" fill="currentColor" stroke="none" /></RailSvg>;
+}
+
+function SettingsPanel({
+  accountName,
+  currentPath,
+  groups,
+  onNavigate,
+}: {
+  accountName: string;
+  currentPath: string;
+  groups: { id: string; label: string; items: { id: string; label: string; path: string; badge?: string }[] }[];
+  onNavigate: (path: string) => void;
+}) {
+  return (
+    <div className="icon-rail-settings-panel" data-testid="icon-rail-settings-panel">
+      <div className="settings-details-card">
+        <div className="settings-card-avatar">{getAvatarLetters(accountName)}</div>
+        <div className="settings-card-meta">
+          <div className="settings-card-name">{accountName}</div>
+          <div className="settings-card-subtitle">Business settings</div>
+        </div>
+      </div>
+
+      {groups.map((group) => (
+        <div key={group.id} className="settings-group">
+          <div className="settings-group-title">{group.label}</div>
+          <div className="settings-group-items">
+            {group.items.map((item) => {
+              const active = currentPath === item.path || currentPath.startsWith(`${item.path}/`);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`settings-item ${active ? "settings-item-active" : ""}`}
+                  onClick={() => onNavigate(item.path)}
+                >
+                  <span className="settings-item-icon">{getSettingsItemIcon(item.id)}</span>
+                  <span className="settings-item-label">{item.label}</span>
+                  {item.badge && <span className="settings-item-badge">{item.badge}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function getAvatarLetters(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function getSettingsItemIcon(id: string) {
+  const icons: Record<string, ReactNode> = {
+    "settings-company": <BuildingIcon />,
+    "settings-branding": <PaletteIcon />,
+    "settings-branches": <MapPinIcon />,
+    "settings-subscription": <BoxIcon />,
+    "settings-billing": <ReceiptIcon />,
+    "settings-communications": <MessageIcon />,
+    "settings-team": <UsersIcon />,
+    "settings-integrations": <PlugIcon />,
+    "settings-data": <ShieldIcon />,
+    "settings-developer": <CodeIcon />,
+  };
+
+  return icons[id] ?? <DotIcon />;
+}
+
+function BuildingIcon() {
+  return <RailSvg><rect x="5" y="7" width="14" height="12" rx="2" /><path d="M10 7v-2h4v2" /><path d="M8 12h2" /><path d="M14 12h2" /></RailSvg>;
+}
+
+function PaletteIcon() {
+  return <RailSvg><path d="M7 9.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0Zm8.5-2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm-7.5 7.5h8a2 2 0 0 1 2 2 2 2 0 0 1-2 2H9a5 5 0 1 1 0-10h4" /></RailSvg>;
+}
+
+function MapPinIcon() {
+  return <RailSvg><path d="M12 21s7-4.1 7-10.5S14.9 3 12 3 5 6.4 5 10.5 12 21 12 21Z" /><circle cx="12" cy="10.5" r="2.5" /></RailSvg>;
+}
+
+function BoxIcon() {
+  return <RailSvg><path d="M4 8.5 12 4l8 4.5v9.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8.5Z" /><path d="M12 4v17" /><path d="M4 8.5l8 4.5 8-4.5" /></RailSvg>;
+}
+
+function ReceiptIcon() {
+  return <RailSvg><path d="M6 4h12v16l-3-2-3 2-3-2-3 2V4Z" /><path d="M9 8h6" /><path d="M9 12h6" /></RailSvg>;
+}
+
+function MessageIcon() {
+  return <RailSvg><rect x="4" y="5" width="16" height="12" rx="2" /><path d="M4 7l8 6 8-6" /></RailSvg>;
+}
+
+function PlugIcon() {
+  return <RailSvg><path d="M9 3v6" /><path d="M15 3v6" /><path d="M7 9h10v6a3 3 0 0 1-3 3H10a3 3 0 0 1-3-3V9Z" /></RailSvg>;
+}
+
+function ShieldIcon() {
+  return <RailSvg><path d="M12 3 5 6v5a7 7 0 0 0 4 6.3l3 1.5 3-1.5A7 7 0 0 0 19 11V6l-7-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></RailSvg>;
+}
+
+function CodeIcon() {
+  return <RailSvg><path d="M9 8 5 12l4 4" /><path d="M15 8l4 4-4 4" /><path d="M12 4v16" /></RailSvg>;
+}
+
+function DotIcon() {
+  return <RailSvg><circle cx="12" cy="12" r="3" fill="currentColor" /></RailSvg>;
 }
