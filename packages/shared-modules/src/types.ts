@@ -47,6 +47,7 @@ export interface SharedModuleProps {
   user: UserContext;
   account: AccountContext;
   location: BranchLocation | null;
+  availableLocations?: BranchLocation[];
   api: MFEHttpBridge;
   routeParams?: SharedModuleRouteParams;
 }

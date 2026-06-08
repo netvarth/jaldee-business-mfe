@@ -188,6 +188,7 @@ function LeadDetailRoute({
   const navigate = useNavigate();
   const { leadUid } = useParams();
   const lead = leads.find((l) => l.uid === leadUid) ?? null;
+  const [isLoadingLead, setIsLoadingLead] = useState(Boolean(leadUid && !lead));
 
   useEffect(() => {
     if (!leadUid) return;
@@ -195,6 +196,7 @@ function LeadDetailRoute({
     let active = true;
 
     async function loadLeadDetails() {
+      setIsLoadingLead(true);
       try {
         const [leadDetail, tenantTasks] = await Promise.all([
           leadService.detail(leadUid),
@@ -219,6 +221,8 @@ function LeadDetailRoute({
         });
       } catch (err) {
         console.error("Failed to load lead detail tasks:", err);
+      } finally {
+        if (active) setIsLoadingLead(false);
       }
     }
 
@@ -252,7 +256,13 @@ function LeadDetailRoute({
     };
   }, [lead?.pipelineUid, pipelines, setPipelines]);
 
-  if (!lead) return null;
+  if (!lead) {
+    return (
+      <div className="h-full overflow-y-auto bg-slate-50 p-6 text-sm text-slate-600">
+        {isLoadingLead ? "Loading lead..." : "Lead not found."}
+      </div>
+    );
+  }
 
   return (
     <LeadDetailScreen

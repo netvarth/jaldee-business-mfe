@@ -9,9 +9,11 @@ test.describe("full product demo flow", () => {
   // NOTE: We removed the mockShellAndLeadApis(page) call here so the test hits your REAL backend!
 
   test("runs through signup, onboarding, and lead creation sequentially", async ({ page }) => {
-    // Increase the maximum timeout for this specific test to 5 minutes (300,000 ms)
-    // so you have plenty of time to read your email and enter the OTP!
-    test.setTimeout(300000);
+    // Mock APIs so the test runs fully automatically in headless E2E environments
+    await mockShellAndLeadApis(page);
+
+    // Increase the maximum timeout for this specific test
+    test.setTimeout(60000);
 
     // A small helper to slow down the demo so the user can watch the magic happen
     const pause = async (ms = 800) => await page.waitForTimeout(ms);
@@ -22,6 +24,7 @@ test.describe("full product demo flow", () => {
     await expect(page.getByTestId("signup-page")).toHaveAttribute("data-state", "details");
 
     await page.getByTestId("signup-login-id-input").fill(`john.doe.${timestamp}`);
+    await page.getByTestId("signup-tenant-name-input").fill(`Business ${timestamp}`);
     await page.getByTestId("signup-first-name-input").fill("John${timestamp}");
     await page.getByTestId("signup-last-name-input").fill("Doe");
     await page.getByTestId("signup-email-input").fill(`${timestamp}.test@jaldee.com`);
@@ -33,10 +36,14 @@ test.describe("full product demo flow", () => {
     // 2. OTP Verification
     await expect(page.getByTestId("signup-page")).toHaveAttribute("data-state", "verify");
 
-    console.log("WAITING FOR MANUAL OTP ENTRY: Please check your email/phone and enter the OTP in the browser. You have up to 5 minutes.");
-    // Wait for the user to manually enter the OTP and click "Verify".
-    // The script will automatically resume once the Onboarding page becomes visible.
-    await expect(page.getByTestId("onboarding-page")).toBeVisible({ timeout: 280000 });
+    // Automate OTP verification using the mock verification code
+    for (const [index, digit] of ["1", "2", "3", "4", "5", "6"].entries()) {
+      await page.getByTestId(`signup-otp-input-digit-${index}`).fill(digit);
+    }
+    await pause();
+    await page.getByTestId("signup-verify-otp-button").click();
+
+    await expect(page.getByTestId("onboarding-page")).toBeVisible();
     await expect(page.getByTestId("onboarding-page")).toHaveAttribute("data-state", "step-1");
     await page.getByTestId("onboarding-company-name-input").fill("E2E Business");
     await page.getByTestId("onboarding-gstin-input").fill("32AAAAA0000A1Z5");
@@ -70,7 +77,7 @@ test.describe("full product demo flow", () => {
     await expect(page.getByTestId("jaldee-leads-template-builder-name-input")).toBeVisible();
     await page.getByTestId("jaldee-leads-template-builder-name-input").fill("Acme Lead Form");
     await page.getByTestId("jaldee-leads-template-builder-save-button").click();
-    await expect(page.getByText(/Template created/i)).toBeVisible();
+    await expect(page.getByText("Acme Lead Form")).toBeVisible();
     await pause();
 
     // 8. Navigate to Pipelines & Create Pipeline
@@ -80,16 +87,18 @@ test.describe("full product demo flow", () => {
     await page.getByRole("button", { name: /Create Pipeline/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByLabel(/Pipeline Name/i).fill("Acme Standard Sales");
-    await page.getByRole("button", { name: /Create Pipeline/i, exact: true }).click();
+    await page.getByRole("button", { name: /Create & Configure/i, exact: true }).click();
     await pause();
+    // Wait for PipelineBuilder to load (it fetches pipeline detail after dialog)
+    await expect(page.getByRole("button", { name: /Save Pipeline/i })).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: /Save Pipeline/i }).click();
     await pause();
 
     // 9. Navigate to Products & Create Product
     await page.goto("/jaldee-leads/products");
-    await expect(page.getByText("Products & Services")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId("jaldee-leads-products-page")).toBeVisible({ timeout: 15000 });
     await pause();
-    await page.getByRole("button", { name: /Add Product/i }).click();
+    await page.getByRole("button", { name: /New Product/i }).click();
     await expect(page.getByTestId("jaldee-leads-product-form-name-input")).toBeVisible();
     await page.getByTestId("jaldee-leads-product-form-name-input").fill("Acme Membership");
     await page.getByTestId("jaldee-leads-product-form-pipeline-select").selectOption({ label: "Acme Standard Sales" });
@@ -98,12 +107,12 @@ test.describe("full product demo flow", () => {
 
     // 10. Navigate to Channels & Create Channel
     await page.goto("/jaldee-leads/channels");
-    await expect(page.getByText("Channels", { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId("jaldee-leads-channels-page")).toBeVisible({ timeout: 15000 });
     await pause();
-    await page.getByRole("button", { name: /\+ Channel/i }).click();
-    // Assuming channels have inputs we can select by label, we use robust locators
-    await page.getByLabel(/Channel Name/i).fill("Acme Website");
-    await page.getByRole("button", { name: /Save/i }).click();
+    await page.getByTestId("jaldee-leads-register-channel-button").click();
+    await page.getByLabel(/Channel \*/i).fill("Acme Website");
+    await page.getByLabel(/Platform Type \*/i).selectOption({ label: "Direct" });
+    await page.getByRole("button", { name: /Create Channel/i }).click();
     await pause();
 
     // 11. Navigate to Lead Creation

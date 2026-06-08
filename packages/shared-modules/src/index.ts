@@ -143,6 +143,7 @@ export {
 
 export type { LeadListFilters, LeadSummary, LeadEntityFormMode } from "./leads";
 export {
+  JaldeeLeadsPage,
   LeadsModule,
   LeadsDashboard,
   LeadsList,

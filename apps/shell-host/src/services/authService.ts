@@ -76,6 +76,7 @@ interface StoredTokenSession extends TokenLoginResponse {
 
 export interface TenantSignupOtpRequest {
   loginId: string;
+  tenantName?: string;
   mobile?: string;
   email?: string;
   firstName: string;
@@ -855,6 +856,7 @@ export const authService = {
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSignup.issueOtp),
       {
         loginId: payload.loginId.trim(),
+        tenantName: payload.tenantName?.trim() || undefined,
         mobile: payload.mobile?.trim() || undefined,
         email: payload.email?.trim() || undefined,
         firstName: payload.firstName.trim(),

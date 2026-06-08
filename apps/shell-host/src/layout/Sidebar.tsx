@@ -1,39 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
 import type { ProductKey } from "../store/shellStore";
 
-function useIsSmallScreen() {
-  const [isSmall, setIsSmall] = useState(() => window.innerWidth <= 1024);
-  useEffect(() => {
-    function handleResize() {
-      setIsSmall(window.innerWidth <= 1024);
-    }
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return isSmall;
-}
-
 export default function Sidebar() {
   const activeProduct = useShellStore((s) => s.activeProduct);
-  const sidebarVisible = useShellStore((s) => s.sidebarVisible);
-  const toggleSidebar = useShellStore((s) => s.toggleSidebar);
   const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
   const navigate = useNavigate();
   const location = useLocation();
-  const isSmallScreen = useIsSmallScreen();
-
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  // Collapse sidebar by default on small screens
-  useEffect(() => {
-    if (isSmallScreen && sidebarVisible) {
-      setSidebarVisible(false);
-    }
-  }, [isSmallScreen]);
+  const isBaseCrm = !activeProduct;
 
   const sections: SidebarSection[] = activeProduct
     ? SIDEBAR_CONFIG[activeProduct] ?? []
@@ -44,50 +22,56 @@ export default function Sidebar() {
   }
 
   function isActive(path: string) {
-    return location.pathname === path
-      || (path !== `/${activeProduct}` && location.pathname.startsWith(path));
+    return location.pathname === path || (path !== `/${activeProduct}` && location.pathname.startsWith(path));
   }
 
-  // Custom navigation that collapses sidebar on small screens
   function handleNavigate(path: string) {
     navigate(path);
-    if (isSmallScreen) {
+    if (window.innerWidth <= 1024) {
       setSidebarVisible(false);
     }
   }
 
   return (
-    <div className="sidebar-frame">
-      {sidebarVisible && (
-        <div data-testid="sidebar" data-product={activeProduct ?? "default"} className="sidebar">
-          <LocationSwitcher />
+    <div
+      data-testid="sidebar"
+      data-product={activeProduct ?? "default"}
+      data-kind={isBaseCrm ? "base-crm" : "product"}
+      className="sidebar"
+    >
+      {!isBaseCrm ? <LocationSwitcher /> : null}
 
-          <div className="sidebar-spacer">
-            {sections.map((section) => (
-              <SidebarItemRow
-                key={section.id}
-                product={activeProduct}
-                section={section}
-                isActive={isActive}
-                expanded={expanded}
-                onToggle={toggleExpand}
-                onNavigate={handleNavigate}
-              />
-            ))}
-          </div>
+      {isBaseCrm ? (
+        <div className="sidebar-spacer">
+          {sections.map((section) => (
+            <SidebarItemRow
+              key={section.id}
+              product={activeProduct}
+              section={section}
+              isActive={isActive}
+              expanded={expanded}
+              onToggle={toggleExpand}
+              onNavigate={handleNavigate}
+              currentPath={location.pathname}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="sidebar-spacer">
+          {sections.map((section) => (
+            <SidebarItemRow
+              key={section.id}
+              product={activeProduct}
+              section={section}
+              isActive={isActive}
+              expanded={expanded}
+              onToggle={toggleExpand}
+              onNavigate={handleNavigate}
+              currentPath={location.pathname}
+            />
+          ))}
         </div>
       )}
-
-      <div
-        data-testid="sidebar-toggle"
-        className={`sidebar-toggle ${sidebarVisible ? "sidebar-toggle--open" : "sidebar-toggle--closed"}`}
-        onClick={toggleSidebar}
-        title={sidebarVisible ? "Collapse sidebar" : "Expand sidebar"}
-      >
-        <div className="sidebar-toggle-button">
-          {sidebarVisible ? "‹" : "›"}
-        </div>
-      </div>
     </div>
   );
 }
@@ -99,6 +83,7 @@ interface RowProps {
   expanded: Record<string, boolean>;
   onToggle: (id: string) => void;
   onNavigate: (path: string) => void;
+  currentPath: string;
 }
 
 function SidebarItemRow({
@@ -108,13 +93,14 @@ function SidebarItemRow({
   expanded,
   onToggle,
   onNavigate,
+  currentPath,
 }: RowProps) {
   const hasChildren = Boolean(section.children?.length);
   const isOpen = expanded[section.id] ?? isActive(section.path);
   const active = isActive(section.path);
 
   function isChildActive(childPath: string) {
-    if (location.pathname === childPath) {
+    if (currentPath === childPath) {
       return true;
     }
 
@@ -122,7 +108,7 @@ function SidebarItemRow({
       return false;
     }
 
-    return location.pathname.startsWith(`${childPath}/`);
+    return currentPath.startsWith(`${childPath}/`);
   }
 
   return (
@@ -146,16 +132,13 @@ function SidebarItemRow({
         </span>
         {hasChildren && (
           <span className="sidebar-item-chevron" data-open={isOpen}>
-            ▾
+            v
           </span>
         )}
       </div>
 
       {hasChildren && isOpen && (
-        <div
-          data-testid={`sidebar-children-${section.id}`}
-          className="sidebar-children"
-        >
+        <div data-testid={`sidebar-children-${section.id}`} className="sidebar-children">
           {section.children!.map((child) => {
             const childActive = isChildActive(child.path);
 

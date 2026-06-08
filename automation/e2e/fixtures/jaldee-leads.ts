@@ -189,13 +189,18 @@ export async function seedAuthenticatedShell(page: Page) {
 }
 
 export async function mockShellAndLeadApis(page: Page) {
+  let currentPipeline = testPipeline;
+  let currentProducts = [testProduct];
+  let currentChannels = [testChannel];
+
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const pathname = url.pathname;
     const isApiRequest = pathname.includes("/api/");
+    console.log("MOCK INTERCEPTED:", pathname, "METHOD:", request.method());
 
-    if (isApiRequest && (pathname.includes("/auth/") || pathname.includes("/users/me"))) {
+    if (pathname.includes("/auth/me") || pathname.includes("/users/me")) {
       await route.fulfill({ json: { user: testUser, account: testAccount, locations: [testLocation], token: "e2e-token" } });
       return;
     }
@@ -215,7 +220,7 @@ export async function mockShellAndLeadApis(page: Page) {
       return;
     }
 
-    if (pathname.endsWith("/base-service/v1/api/tenants/e2e-tenant")) {
+    if (pathname.endsWith("/base-service/v1/api/tenant/e2e-tenant")) {
       await route.fulfill({ json: { uid: "e2e-tenant", tenantName: "E2E Business", tenantProfile: { businessName: "E2E Business" } } });
       return;
     }
@@ -256,17 +261,17 @@ export async function mockShellAndLeadApis(page: Page) {
     }
 
     if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/pipelines/search")) {
-      await route.fulfill({ json: { content: [testPipeline], totalElements: 1 } });
+      await route.fulfill({ json: { content: [currentPipeline], totalElements: 1 } });
       return;
     }
 
     if (pathname.endsWith(`/base-service/v1/api/tenant/crm/leads/pipelines/${testPipeline.uid}`)) {
-      await route.fulfill({ json: testPipeline });
+      await route.fulfill({ json: currentPipeline });
       return;
     }
 
     if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/products/search")) {
-      await route.fulfill({ json: { content: [testProduct], totalElements: 1 } });
+      await route.fulfill({ json: { content: currentProducts, totalElements: currentProducts.length } });
       return;
     }
 
@@ -274,12 +279,106 @@ export async function mockShellAndLeadApis(page: Page) {
       pathname.endsWith("/base-service/v1/api/tenant/crm/leads/channels/search") ||
       pathname.endsWith("/base-service/v1/api/tenant/crm/leads/channel/search")
     ) {
-      await route.fulfill({ json: { content: [testChannel], totalElements: 1 } });
+      await route.fulfill({ json: { content: currentChannels, totalElements: currentChannels.length } });
       return;
     }
 
     if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/templates/search")) {
       await route.fulfill({ json: { content: [], totalElements: 0 } });
+      return;
+    }
+
+    if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/templates") && request.method() === "POST") {
+      await route.fulfill({ json: { uid: "template-e2e-123", name: "Acme Lead Form", status: "ACTIVE" } });
+      return;
+    }
+
+    if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/pipelines") && request.method() === "POST") {
+      const payload = request.postDataJSON();
+      currentPipeline = {
+        ...testPipeline,
+        uid: "pipe-e2e-standard",
+        name: payload?.name || payload?.pipelineName || "Acme Standard Sales",
+        pipelineName: payload?.pipelineName || payload?.name || "Acme Standard Sales",
+      };
+      await route.fulfill({ json: currentPipeline });
+      return;
+    }
+
+    // GET detail for newly created demo-flow pipeline
+    if (pathname.includes("/base-service/v1/api/tenant/crm/leads/pipelines/pipe-e2e-standard") && request.method() === "GET") {
+      await route.fulfill({ json: currentPipeline });
+      return;
+    }
+
+    if (pathname.includes("/base-service/v1/api/tenant/crm/leads/pipelines/") && request.method() === "PUT") {
+      const payload = request.postDataJSON();
+      currentPipeline = {
+        ...currentPipeline,
+        name: payload?.name || payload?.pipelineName || currentPipeline.name,
+        pipelineName: payload?.pipelineName || payload?.name || currentPipeline.pipelineName,
+      };
+      await route.fulfill({ json: currentPipeline });
+      return;
+    }
+
+    if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/products") && request.method() === "POST") {
+      const payload = request.postDataJSON();
+      const createdProduct = {
+        ...testProduct,
+        ...payload,
+        uid: "product-e2e-acme-membership",
+        name: payload?.name || "Acme Membership",
+        status: "Enabled",
+      };
+      currentProducts = [createdProduct, ...currentProducts.filter((product) => product.uid !== createdProduct.uid)];
+      await route.fulfill({ json: createdProduct });
+      return;
+    }
+
+    if (
+      (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/channels") ||
+        pathname.endsWith("/base-service/v1/api/tenant/crm/leads/channel")) &&
+      request.method() === "POST"
+    ) {
+      const payload = request.postDataJSON();
+      const createdChannel = {
+        ...testChannel,
+        uid: "channel-e2e-acme-web",
+        name: payload?.name || "Acme Website",
+        channelType: payload?.channelType || "DIRECT",
+        status: "ACTIVE",
+        productUid: payload?.productUids?.[0] || currentProducts[0]?.uid,
+        productName: currentProducts[0]?.name,
+        productUids: payload?.productUids?.length ? payload.productUids : [currentProducts[0]?.uid].filter(Boolean),
+      };
+      currentChannels = [createdChannel, ...currentChannels.filter((channel) => channel.uid !== createdChannel.uid)];
+      await route.fulfill({ json: createdChannel });
+      return;
+    }
+
+    if (pathname.includes("/base-service/v1/api/tasks/priorities")) {
+      await route.fulfill({ json: [{ id: "NORMAL", name: "NORMAL" }] });
+      return;
+    }
+
+    if (pathname.includes("/base-service/v1/api/tasks/types")) {
+      await route.fulfill({ json: [{ id: "TASK", name: "TASK" }, { id: "CALL", name: "CALL" }] });
+      return;
+    }
+
+    if (pathname.includes("/base-service/v1/api/tasks/categories")) {
+      await route.fulfill({ json: [] });
+      return;
+    }
+
+    if (pathname.includes("/base-service/v1/api/tasks/statuses")) {
+      await route.fulfill({ json: [{ id: "NEW", name: "New" }, { id: "COMPLETED", name: "Completed" }] });
+      return;
+    }
+
+    if (pathname.endsWith("/base-service/v1/api/tasks/tenant") || pathname.endsWith("/base-service/v1/api/tasks/tenant/search")) {
+      await route.fulfill({ json: [] });
       return;
     }
 

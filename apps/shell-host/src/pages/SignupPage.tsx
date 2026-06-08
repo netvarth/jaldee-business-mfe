@@ -10,6 +10,7 @@ import "./LoginPage.css";
 
 type SignupFormState = {
   loginId: string;
+  tenantName: string;
   firstName: string;
   lastName: string;
   mobile: PhoneInputValue;
@@ -26,6 +27,7 @@ type ParsedAuthError = {
 
 const EMPTY_SIGNUP_FORM: SignupFormState = {
   loginId: "",
+  tenantName: "",
   firstName: "",
   lastName: "",
   mobile: {
@@ -62,6 +64,7 @@ export default function SignupPage() {
   const canSubmitDetails = useMemo(() => {
     return (
       form.loginId.trim().length > 0 &&
+      form.tenantName.trim().length > 0 &&
       form.firstName.trim().length > 0 &&
       form.password.length > 0 &&
       (form.mobile.number.trim().length > 0 || form.email.trim().length > 0) &&
@@ -95,6 +98,7 @@ export default function SignupPage() {
     try {
       const response = await issueTenantSignupOtp({
         loginId: form.loginId,
+        tenantName: form.tenantName,
         mobile: form.mobile.e164Number || undefined,
         email: form.email || undefined,
         firstName: form.firstName,
@@ -155,6 +159,7 @@ export default function SignupPage() {
     try {
       const response = await issueTenantSignupOtp({
         loginId: form.loginId,
+        tenantName: form.tenantName,
         mobile: form.mobile.e164Number || undefined,
         email: form.email || undefined,
         firstName: form.firstName,
@@ -209,6 +214,18 @@ export default function SignupPage() {
                     containerClassName="login-field"
                     placeholder="Choose a login ID"
                     error={fieldErrors.loginId}
+                  />
+                  <Input
+                    id="signup-tenant-name-input"
+                    data-testid="signup-tenant-name-input"
+                    type="text"
+                    label="Business Name"
+                    value={form.tenantName}
+                    onChange={(event) => setForm((current) => ({ ...current, tenantName: event.target.value }))}
+                    fullWidth
+                    containerClassName="login-field"
+                    placeholder="Enter your business name"
+                    error={fieldErrors.tenantName}
                   />
                   <div className="auth-name-grid">
                     <Input

@@ -5,7 +5,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import SignupPage from "./pages/SignupPage";
 import SettingsPage from "./pages/SettingsPage";
 import LeadsPage from "./pages/LeadsPage";
-import JaldeeLeadsPage from "./pages/jaldee-leads/JaldeeLeadsPage";
+import JaldeeLeadsPage from "./pages/JaldeeLeadsPage";
 import {
   ShellAuditLogPage,
   ShellCustomersPage,

@@ -13,6 +13,43 @@ const TASK_SETTINGS_REQUEST_CONFIG = {
   _skipLocationParam: true,
 };
 
+function buildTenantTaskSearchRequest(filters?: unknown) {
+  const body =
+    filters && typeof filters === "object" && !Array.isArray(filters)
+      ? { ...(filters as Record<string, unknown>) }
+      : {};
+  const rawPage = Number(body.page);
+  const rawSize = Number(body.size);
+  const rawFrom = Number(body.from);
+  const rawCount = Number(body.count);
+  const size = Number.isFinite(rawSize) && rawSize > 0
+    ? rawSize
+    : Number.isFinite(rawCount) && rawCount > 0
+      ? rawCount
+      : 20;
+  const page = Number.isFinite(rawPage) && rawPage >= 0
+    ? rawPage
+    : Number.isFinite(rawFrom) && rawFrom >= 0
+      ? Math.floor(rawFrom / size)
+      : 0;
+  const sort = typeof body.sort === "string" ? body.sort : undefined;
+
+  delete body.from;
+  delete body.count;
+  delete body.page;
+  delete body.size;
+  delete body.sort;
+
+  return {
+    body,
+    params: {
+      page,
+      size,
+      ...(sort ? { sort } : {}),
+    },
+  };
+}
+
 // === Consumer Tasks ===
 
 export async function getConsumerTasks(api: ScopedApi, filters?: unknown) {
@@ -82,7 +119,8 @@ export async function getConsumerTasksCount(api: ScopedApi, filters?: unknown) {
 // === Tenant Tasks ===
 
 export async function getTenantTasks(api: ScopedApi, filters?: unknown) {
-  return api.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.list), { params: filters });
+  const { body, params } = buildTenantTaskSearchRequest(filters);
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.search), body, { params });
 }
 
 export async function createTenantTask(api: ScopedApi, data: unknown) {

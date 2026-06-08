@@ -3,6 +3,8 @@ import { mockShellAndLeadApis, seedAuthenticatedShell, testLead } from "../fixtu
 
 test.describe("jaldee leads", () => {
   test.beforeEach(async ({ page }) => {
+    page.on("console", msg => console.log("LEADS CONSOLE:", msg.text()));
+    page.on("pageerror", err => console.log("LEADS ERROR:", err.message));
     await seedAuthenticatedShell(page);
     await mockShellAndLeadApis(page);
   });

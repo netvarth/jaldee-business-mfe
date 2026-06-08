@@ -4,7 +4,17 @@ import { Button, Drawer } from "@jaldee/design-system";
 import { useAuth } from "../auth/useAuth";
 import { useShellStore } from "../store/shellStore";
 
-export default function TopBar() {
+interface TopBarProps {
+  showMenuToggle?: boolean;
+  menuOpen?: boolean;
+  onMenuToggle?: () => void;
+}
+
+export default function TopBar({
+  showMenuToggle = false,
+  menuOpen = false,
+  onMenuToggle,
+}: TopBarProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const user = useShellStore((s) => s.user);
@@ -34,6 +44,21 @@ export default function TopBar() {
   return (
     <>
       <div data-testid="topbar" className="topbar">
+        {showMenuToggle ? (
+          <button
+            type="button"
+            data-testid="topbar-menu-toggle"
+            className="topbar-menu-toggle"
+            onClick={onMenuToggle}
+            title={menuOpen ? "Close menu" : "Open menu"}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
+        ) : null}
+
         <span data-testid="topbar-account-name" className="topbar-account-name">
           {account.name}
         </span>

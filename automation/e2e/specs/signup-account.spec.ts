@@ -12,9 +12,10 @@ test.describe("signup and account setup", () => {
     await expect(page.getByTestId("signup-page")).toHaveAttribute("data-state", "details");
 
     await page.getByTestId("signup-login-id-input").fill("e2e-owner");
+    await page.getByTestId("signup-tenant-name-input").fill("E2E Business");
     await page.getByTestId("signup-first-name-input").fill("E2E");
     await page.getByTestId("signup-last-name-input").fill("Owner");
-    await page.getByTestId("signup-email-input").fill("e2e.owner@example.com");
+    await page.getByTestId("signup-email-input").fill("e2e.owner.test@jaldee.com");
     await page.getByTestId("signup-password-input").fill("Test@12345");
     await page.getByTestId("signup-terms-checkbox").click();
     await page.getByTestId("signup-create-account-button").click();

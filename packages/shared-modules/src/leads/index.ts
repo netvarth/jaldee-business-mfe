@@ -1,5 +1,6 @@
 export type { LeadListFilters, LeadSummary, LeadEntityFormMode } from "./types";
 export { LeadsModule } from "./LeadsModule";
+export { default as JaldeeLeadsPage } from "./jaldee-leads/JaldeeLeadsPage";
 export { LeadsDashboard } from "./components/LeadsDashboard";
 export { LeadsList } from "./components/LeadsList";
 export { LeadDetails } from "./components/LeadDetails";

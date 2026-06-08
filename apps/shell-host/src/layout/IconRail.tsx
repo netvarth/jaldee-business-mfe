@@ -49,6 +49,7 @@ export default function IconRail() {
   const account = useShellStore((s) => s.account);
   const activeProduct = useShellStore((s) => s.activeProduct);
   const setActiveProduct = useShellStore((s) => s.setActiveProduct);
+  const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
 
   if (!account) return null;
 
@@ -79,16 +80,30 @@ export default function IconRail() {
   function handleNavigate(key: ProductKey) {
     setActiveProduct(key);
     navigate(PRODUCT_HOME_PATHS[key] ?? `/${key}`);
+    closeMobileMenu();
   }
 
   function handleBase() {
     setActiveProduct(null);
     navigate("/home");
+    closeMobileMenu();
   }
 
   function handleBaseCrm() {
     setActiveProduct(null);
     navigate("/customers");
+    closeMobileMenu();
+  }
+
+  function handleSettings() {
+    navigate("/settings");
+    closeMobileMenu();
+  }
+
+  function closeMobileMenu() {
+    if (window.innerWidth <= 1024) {
+      setSidebarVisible(false);
+    }
   }
 
   const isActive = (key: string) => location.pathname.startsWith(`/${key}`);
@@ -145,7 +160,7 @@ export default function IconRail() {
         icon={<SettingsIcon />}
         label="Settings"
         active={location.pathname.startsWith("/settings")}
-        onClick={() => navigate("/settings")}
+        onClick={handleSettings}
       />
     </div>
   );

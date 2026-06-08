@@ -693,7 +693,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans text-slate-900 border-l border-slate-200">
+    <div className="h-full flex flex-col bg-slate-50 overflow-y-auto font-sans text-slate-900">
       
       {/* 1. Dynamic Header Workspace */}
       <div className="px-4 py-3 md:px-6 md:py-4 shrink-0">
