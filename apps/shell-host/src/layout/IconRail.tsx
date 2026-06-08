@@ -143,8 +143,6 @@ export default function IconRail() {
         );
       })}
 
-      <div className="icon-rail-spacer" />
-
       <RailItem
         id="icon-rail-item-basecrm"
         product="default"
@@ -153,6 +151,8 @@ export default function IconRail() {
         active={isBaseCrmActive}
         onClick={handleBaseCrm}
       />
+
+      <div className="icon-rail-spacer" />
 
       <RailItem
         id="icon-rail-item-settings"

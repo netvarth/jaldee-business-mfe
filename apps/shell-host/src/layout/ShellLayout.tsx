@@ -20,12 +20,8 @@ export default function ShellLayout({ children }: Props) {
   const navigationOpen = !isSmallScreen || sidebarVisible;
 
   useEffect(() => {
-    if (isSmallScreen && sidebarVisible) {
-      setSidebarVisible(false);
-    } else if (!isSmallScreen && !sidebarVisible) {
-      setSidebarVisible(true);
-    }
-  }, [isSmallScreen, sidebarVisible, setSidebarVisible]);
+    setSidebarVisible(!isSmallScreen);
+  }, [isSmallScreen, setSidebarVisible]);
 
   return (
     <div
