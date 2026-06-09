@@ -125,7 +125,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
       ) : (
         <>
           <PageHeader
-            back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+            back={showDashboardBack ? { label: 'Back to Dashboard', href: '/leads/dashboard' } : undefined}
             onNavigate={() => navigateBackToDashboard(navigate)}
             title="Sales Pipelines"
             subtitle="Workflow Architecture & Stage Execution Templates"
@@ -271,7 +271,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/jaldee-leads/pipelines/${p.uid}`);
+                            navigate(`/leads/pipelines/${p.uid}`);
                           }}
                           disabled={loadingPipelineUid === p.uid}
                           variant="ghost"
@@ -301,7 +301,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
           onCreate={(created) => {
             setShowCreateDialog(false);
             setPipelines(prev => [...prev, created]);
-            navigate(`/jaldee-leads/pipelines/${created.uid}`);
+            navigate(`/leads/pipelines/${created.uid}`);
           }}
         />
       )}

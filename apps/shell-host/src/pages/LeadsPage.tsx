@@ -1,5 +1,4 @@
-import { useMemo, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { normalizeAccountContext, type ProductKey } from "@jaldee/auth-context";
 import { apiClient } from "@jaldee/api-client";
@@ -8,64 +7,27 @@ import { LeadsModule, SharedModulesProvider } from "@jaldee/shared-modules";
 import { useShellStore } from "../store/shellStore";
 
 export default function LeadsPage() {
-  const user = useShellStore((s) => s.user);
-  const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const user = useShellStore((state) => state.user);
+  const account = useShellStore((state) => state.account);
+  const location = useShellStore((state) => state.activeLocation);
+  const availableLocations = useShellStore((state) => state.availableLocations);
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            retry: false,
+            staleTime: 30_000,
             refetchOnWindowFocus: false,
-            refetchOnReconnect: false,
           },
         },
-      }),
-  );
-
-  const routeState = useMemo(() => {
-    const pathSegments = location.pathname.split("/").filter(Boolean);
-    const leadsIndex = pathSegments.indexOf("leads");
-    const routeSegments = leadsIndex >= 0 ? pathSegments.slice(leadsIndex + 1) : [];
-
-    return {
-      view: routeSegments[0] ?? null,
-      subview: routeSegments[1] ?? null,
-      recordId: routeSegments[2] ?? null,
-      tab: searchParams.get("tab"),
-    };
-  }, [location.pathname, searchParams]);
-
-  const navigateWithinModule = useMemo(
-    () => (to: string) => {
-      const normalized = to.startsWith("/") ? to : `/${to}`;
-      if (normalized === "/" || normalized === "") {
-        navigate("/leads");
-        return;
-      }
-      if (normalized.startsWith("/leads")) {
-        navigate(normalized);
-        return;
-      }
-      navigate(`/leads${normalized}`);
-    },
-    [navigate],
+      })
   );
 
   if (!user || !account) {
     return (
-      <div className="mfe-wrapper">
-        <SectionCard>
-          <EmptyState
-            title="Leads requires shell context"
-            description="Sign in through the shell so the shared Leads module receives user, account, and API context."
-          />
-        </SectionCard>
-      </div>
+      <SectionCard className="border-slate-200 shadow-sm">
+        <EmptyState title="Leads unavailable" description="Sign in and select an account to open Leads." />
+      </SectionCard>
     );
   }
 
@@ -73,32 +35,23 @@ export default function LeadsPage() {
     ? "health"
     : (account.licensedProducts[0] ?? "karty");
 
-  const sharedModuleProps = {
-    moduleName: "leads" as const,
-    product: preferredProduct,
-    apiScope: "global" as const,
-    basePath: "/leads",
-    navigate: navigateWithinModule,
-    user,
-    account: normalizeAccountContext(account),
-    location: locationContext,
-    api: apiClient,
-    routeParams: {
-      locationId: locationContext?.id ?? null,
-      view: routeState.view,
-      subview: routeState.subview,
-      recordId: routeState.recordId,
-      tab: routeState.tab,
-    },
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="mfe-wrapper">
-        <SharedModulesProvider value={sharedModuleProps}>
-          <LeadsModule />
-        </SharedModulesProvider>
-      </div>
+      <SharedModulesProvider
+        value={{
+          moduleName: "leads",
+          product: preferredProduct,
+          apiScope: "global",
+          basePath: "/leads",
+          user,
+          account: normalizeAccountContext(account),
+          location,
+          availableLocations,
+          api: apiClient,
+        }}
+      >
+        <LeadsModule />
+      </SharedModulesProvider>
     </QueryClientProvider>
   );
 }

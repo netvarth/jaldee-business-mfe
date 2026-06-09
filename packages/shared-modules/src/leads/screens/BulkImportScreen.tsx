@@ -53,7 +53,7 @@ export default function BulkImportScreen() {
   return (
     <div data-testid="jaldee-leads-bulk-import-page" data-state={isUploading ? "loading" : uploadSuccess ? "success" : `step-${step}`} className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       <PageHeader
-        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/leads/dashboard' } : undefined}
         onNavigate={() => navigateBackToDashboard(navigate)}
         title="Batch Ingestion Step-by-Step"
         subtitle="Simulate CSV/XLS data synchronization onto sales stages"

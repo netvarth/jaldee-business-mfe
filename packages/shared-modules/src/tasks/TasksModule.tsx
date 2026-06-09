@@ -127,17 +127,45 @@ export function TasksModule() {
 }
 
 function TasksWorkspace() {
-  const { routeParams, navigate } = useSharedModulesContext();
+  const { routeParams, navigate, location } = useSharedModulesContext();
   const requestedView = normalizeView(routeParams?.view);
   const [fallbackView, setFallbackView] = useState<TasksViewKey>(requestedView);
   const view = navigate ? requestedView : fallbackView;
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const lookups = useTaskLookups();
+  const createTask = useCreateTenantTask();
+
+  // Sub-tab within Overview (Tasks | Calendar)
+  const requestedSubTab = routeParams?.subview ?? null;
+  const [fallbackSubTab, setFallbackSubTab] = useState<"list" | "calendar">(
+    requestedSubTab === "calendar" ? "calendar" : "list"
+  );
+  const overviewTab: "list" | "calendar" =
+    navigate
+      ? requestedSubTab === "calendar"
+        ? "calendar"
+        : "list"
+      : fallbackSubTab;
 
   function changeView(nextView: TasksViewKey) {
     if (navigate) {
-      navigate(nextView === "list" ? "/" : `/${nextView}`);
+      navigate(`/${nextView}`);
       return;
     }
     setFallbackView(nextView);
+  }
+
+  function changeOverviewTab(tab: "list" | "calendar") {
+    if (navigate) {
+      navigate(`/overview/${tab}`);
+      return;
+    }
+    setFallbackSubTab(tab);
+  }
+
+  async function submitCreatedTask(values: TaskFormValues) {
+    await createTask.mutateAsync(buildTaskPayload(values, location?.id));
+    setCreateTaskOpen(false);
   }
 
   return (
@@ -145,38 +173,51 @@ function TasksWorkspace() {
       <PageHeader
         title="Tasks"
         subtitle="Track assigned, automated, and product-linked work across locations."
-        actions={<TasksViewActions view={view} onViewChange={changeView} />}
+        actions={
+          view === "overview" ? (
+            <Button type="button" variant="primary" onClick={() => setCreateTaskOpen(true)} id="btnCreateTask_SM_Tasks">
+              Create Task
+            </Button>
+          ) : undefined
+        }
       />
 
-      {view === "list" && <TasksListView />}
-      {view === "calendar" && <TasksCalendarView />}
+      {/* Overview — contains Tasks list + Calendar sub-tabs */}
+      {view === "overview" && (
+        <>
+          <Tabs
+            value={overviewTab}
+            onValueChange={(v) => changeOverviewTab(v as "list" | "calendar")}
+            className="border-b-0"
+            items={[
+              { value: "list", label: "Tasks" },
+              { value: "calendar", label: "Calendar" },
+            ]}
+          />
+          {overviewTab === "list" && <TasksListView />}
+          {overviewTab === "calendar" && <TasksCalendarView />}
+        </>
+      )}
+
       {view === "templates" && <TaskTemplatesView />}
       {view === "settings" && <TaskSettingsView />}
       {view === "crm-stage" && <CrmLeadStageTasksView />}
       {view === "detail" && <TaskDetailPage />}
+
+      <TaskFormDialog
+        mode="create"
+        open={createTaskOpen}
+        onClose={() => setCreateTaskOpen(false)}
+        onSubmit={submitCreatedTask}
+        loading={createTask.isPending}
+        lookups={lookups}
+        defaultLocationId={location?.id ? String(location.id) : ""}
+      />
     </div>
   );
 }
 
-function TasksViewActions({ view, onViewChange }: { view: TasksViewKey; onViewChange: (view: TasksViewKey) => void }) {
-  if (view === "crm-stage" || view === "detail") {
-    return null;
-  }
 
-  return (
-    <Tabs
-      value={view}
-      onValueChange={(value) => onViewChange(value as TasksViewKey)}
-      className="border-b-0"
-      items={[
-        { value: "list", label: "Tasks" },
-        { value: "calendar", label: "Calendar" },
-        { value: "templates", label: "Templates" },
-        { value: "settings", label: "Settings" },
-      ]}
-    />
-  );
-}
 
 function TaskDetailPage() {
   const { routeParams, navigate, location } = useSharedModulesContext();

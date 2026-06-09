@@ -568,7 +568,7 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
         subtitle="Build lead intake template JSON in the exact order required."
         actions={
           <div className="flex items-center gap-2">
-            <Button id="jaldee-leads-template-builder-back-button" data-testid="jaldee-leads-template-builder-back-button" variant="outline" icon={<ICONS.PREV className="h-4 w-4" />} onClick={() => navigate("/jaldee-leads/templates")}>
+            <Button id="jaldee-leads-template-builder-back-button" data-testid="jaldee-leads-template-builder-back-button" variant="outline" icon={<ICONS.PREV className="h-4 w-4" />} onClick={() => navigate("/leads/templates")}>
               Templates
             </Button>
             <Button id="jaldee-leads-template-builder-save-button" data-testid="jaldee-leads-template-builder-save-button" icon={<Save size={16} />} loading={isSaving} onClick={handleSaveTemplate}>

@@ -3,7 +3,7 @@ import type { BranchLocation } from "@jaldee/auth-context";
 import {
   BASE_SERVICE_ENDPOINTS,
   buildBaseServiceUrl,
-} from "@jaldee/shared-modules";
+} from "../../serviceUrls";
 import type { Channel, ChannelType } from "../types";
 
 type ChannelSearchParams = {

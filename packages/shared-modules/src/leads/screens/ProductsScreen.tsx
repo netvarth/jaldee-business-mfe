@@ -50,7 +50,7 @@ export default function ProductsScreen({
     if (initialSelectedId) {
       const found = products.find(p => p.uid === initialSelectedId);
       if (found) {
-        navigate(`/jaldee-leads/products/${found.uid}/inventory`);
+        navigate(`/leads/products/${found.uid}/inventory`);
       }
     }
   }, [initialSelectedId, products, navigate]);
@@ -75,13 +75,13 @@ export default function ProductsScreen({
     fetchPipelines?.();
     fetchChannels?.();
     setProductsError(null);
-    navigate(`/jaldee-leads/products/${product.uid}/inventory`);
+    navigate(`/leads/products/${product.uid}/inventory`);
   };
 
   return (
     <div data-testid="jaldee-leads-products-page" className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       <PageHeader
-        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/leads/dashboard' } : undefined}
         onNavigate={() => navigateBackToDashboard(navigate)}
         title="Product Inventory"
         subtitle="Portfolio Offerings & Workflow Deployments"
@@ -92,7 +92,7 @@ export default function ProductsScreen({
             onClick={() => {
               fetchChannels?.();
               fetchTemplates?.();
-              navigate('/jaldee-leads/products/create');
+              navigate('/leads/products/create');
             }}
             variant="primary"
             icon={<ICONS.ADD className="w-4 h-4" />}
@@ -151,7 +151,7 @@ export default function ProductsScreen({
                       e.stopPropagation();
                       fetchChannels?.();
                       fetchTemplates?.();
-                      navigate(`/jaldee-leads/products/${product.uid}/edit`);
+                      navigate(`/leads/products/${product.uid}/edit`);
                     }}
                     size="sm"
                     variant="ghost"

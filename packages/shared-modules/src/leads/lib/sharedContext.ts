@@ -1,5 +1,5 @@
 import type { BranchLocation } from "@jaldee/auth-context";
-import { useSharedModulesContext } from "../../../context";
+import { useSharedModulesContext } from "../../context";
 
 export function useJaldeeLeadsContext() {
   const context = useSharedModulesContext();

@@ -125,7 +125,7 @@ export default function ChannelsScreen({
             data-testid={`jaldee-leads-channel-${row.uid}-view-button`}
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/jaldee-leads/channels/${row.uid}`)}
+            onClick={() => navigate(`/leads/channels/${row.uid}`)}
           >
             View
           </Button>
@@ -154,7 +154,7 @@ export default function ChannelsScreen({
                 type="button"
                 onClick={() => {
                   setOpenMenuUid(null);
-                  navigate(`/jaldee-leads/channels/${row.uid}/edit`);
+                  navigate(`/leads/channels/${row.uid}/edit`);
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
@@ -184,7 +184,7 @@ export default function ChannelsScreen({
   return (
     <div data-testid="jaldee-leads-channels-page" className="h-full flex flex-col bg-[var(--color-surface-secondary)] p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       <PageHeader
-        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/leads/dashboard' } : undefined}
         onNavigate={() => navigateBackToDashboard(navigate)}
         title="Channels"
         subtitle="Manage and monitor lead capture channels"
@@ -192,7 +192,7 @@ export default function ChannelsScreen({
           <Button
             id="jaldee-leads-register-channel-button"
             data-testid="jaldee-leads-register-channel-button"
-            onClick={() => navigate('/jaldee-leads/channels/create')}
+            onClick={() => navigate('/leads/channels/create')}
             variant="primary"
           >
             + Channel
@@ -204,7 +204,7 @@ export default function ChannelsScreen({
         data={channels}
         columns={columns}
         loading={false}
-        onRowClick={(channel) => navigate(`/jaldee-leads/channels/${channel.uid}`)}
+        onRowClick={(channel) => navigate(`/leads/channels/${channel.uid}`)}
         emptyState={
           <EmptyState
             title="No ingestion channels found"

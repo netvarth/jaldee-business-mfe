@@ -2,7 +2,7 @@ import { apiClient } from "@jaldee/api-client";
 import {
   BASE_SERVICE_ENDPOINTS,
   buildBaseServiceUrl,
-} from "@jaldee/shared-modules";
+} from "../../serviceUrls";
 import type {
   CrmLeadPipelineDto,
   CrmLeadPipelineStageDto,

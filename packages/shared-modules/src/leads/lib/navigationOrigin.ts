@@ -1,6 +1,6 @@
 import type { Location, NavigateFunction } from 'react-router-dom';
 
-export const DASHBOARD_PATH = '/jaldee-leads/dashboard';
+export const DASHBOARD_PATH = '/leads/dashboard';
 
 export function cameFromDashboard(location: Location): boolean {
   return Boolean((location.state as { fromDashboard?: boolean } | null)?.fromDashboard);

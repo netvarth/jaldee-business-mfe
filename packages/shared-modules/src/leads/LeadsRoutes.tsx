@@ -46,11 +46,11 @@ export function PipelineDetailRoute({
     <PipelineDetailScreen
       pipeline={pipeline}
       leads={leads}
-      onBack={() => navigate("/jaldee-leads/pipelines")}
+      onBack={() => navigate("/leads/pipelines")}
       onNavigate={onNavigate}
       onEdit={() =>
-        navigate(`/jaldee-leads/pipelines/${pipeline.uid}`, {
-          state: { returnTo: `/jaldee-leads/pipelines/${pipeline.uid}/matrix` },
+        navigate(`/leads/pipelines/${pipeline.uid}`, {
+          state: { returnTo: `/leads/pipelines/${pipeline.uid}/matrix` },
         })
       }
     />
@@ -71,7 +71,7 @@ export function PipelineEditRoute({
   const [pipeline, setPipeline] = useState<CrmLeadPipelineDto | null>(pipelineState);
   const [isLoadingPipeline, setIsLoadingPipeline] = useState(Boolean(pipelineUid));
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
-  const returnPath = returnTo?.startsWith("/jaldee-leads/pipelines/") ? returnTo : "/jaldee-leads/pipelines";
+  const returnPath = returnTo?.startsWith("/leads/pipelines/") ? returnTo : "/leads/pipelines";
 
   useEffect(() => {
     if (!pipelineUid) return;
@@ -147,7 +147,7 @@ export function TemplateEditRoute({
       initialTemplate={template}
       onSave={(updatedTemplate) => {
         setForms((prev) => [updatedTemplate, ...prev.filter((item) => item.uid !== updatedTemplate.uid)]);
-        navigate("/jaldee-leads/templates");
+        navigate("/leads/templates");
       }}
     />
   );
@@ -248,7 +248,7 @@ export function LeadDetailRoute({
         if (window.history.state && window.history.state.idx > 0) {
           navigate(-1);
         } else {
-          navigate("/jaldee-leads/leads");
+          navigate("/leads/leads");
         }
       }}
       onUpdate={(updatedLead) => {
@@ -286,7 +286,7 @@ export function ChannelDetailRoute({
       pipelines={pipelines}
       products={products}
       forms={forms}
-      onBack={() => navigate("/jaldee-leads/channels")}
+      onBack={() => navigate("/leads/channels")}
       onNavigate={onNavigate}
     />
   );
@@ -372,7 +372,7 @@ export function ProductDetailRoute({
       leads={leads}
       pipelines={pipelines}
       channels={channels}
-      onBack={() => navigate("/jaldee-leads/products")}
+      onBack={() => navigate("/leads/products")}
       onNavigate={onNavigate}
       onUpdateProduct={async (updatedProduct) => {
         const savedProduct = await leadProductService.update(updatedProduct.uid, updatedProduct);
@@ -457,7 +457,7 @@ export function ProductEditRoute({
       forms={forms}
       pipelines={pipelines}
       initialProduct={product}
-      onBack={() => navigate("/jaldee-leads/products")}
+      onBack={() => navigate("/leads/products")}
       onSave={async (updatedProduct, selectedChannelUids) => {
         const savedProduct = await leadProductService.update(updatedProduct.uid, updatedProduct);
         const productForCard = {
@@ -491,7 +491,7 @@ export function ProductEditRoute({
             return channel;
           })
         );
-        navigate("/jaldee-leads/products");
+        navigate("/leads/products");
       }}
     />
   );

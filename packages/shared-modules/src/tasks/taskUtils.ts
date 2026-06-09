@@ -70,9 +70,12 @@ export function taskToFormValues(task?: TaskRow, defaultLocationId = ""): TaskFo
 
 export function normalizeView(value?: string | null): TasksViewKey {
   if (value === "crm-stage") return "crm-stage";
-  if (value === "calendar" || value === "templates" || value === "settings" || value === "detail") return value;
-  return "list";
+  if (value === "list") return "overview";      // legacy /list → overview
+  if (value === "calendar") return "overview";  // legacy /calendar → overview
+  if (value === "overview" || value === "templates" || value === "settings" || value === "detail") return value;
+  return "overview";
 }
+
 
 export function normalizeTenantTask(raw: unknown): TaskRow {
   const task = raw as any;

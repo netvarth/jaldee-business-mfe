@@ -240,7 +240,7 @@ export default function AuditLogScreen() {
     <div data-testid="jaldee-leads-audit-log-page" data-state={loading ? "loading" : filteredLogs.length === 0 ? "empty" : "ready"} className="h-full bg-slate-50 overflow-y-auto no-scrollbar font-sans text-slate-900 flex flex-col p-4 sm:p-6 md:p-8 space-y-8">
       {/* 1. Creative Title Area */}
       <PageHeader
-        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/leads/dashboard' } : undefined}
         onNavigate={() => navigateBackToDashboard(navigate)}
         title="Global Compliance & Activity Log"
         subtitle="Immutable cryptographic audit logs for stream ingestion operations"

@@ -217,7 +217,7 @@ export default function LeadsScreen({
             className="px-2 text-xs font-semibold"
             onClick={(event) => {
               event.stopPropagation();
-              navigate(`/jaldee-leads/leads/${lead.uid}`);
+              navigate(`/leads/leads/${lead.uid}`);
             }}
           >
             Open
@@ -231,7 +231,7 @@ export default function LeadsScreen({
   return (
     <div data-testid="jaldee-leads-list-page" className="h-full flex flex-col bg-slate-50 p-3 sm:p-4 md:p-5 no-scrollbar overflow-y-auto pb-24 relative space-y-4">
       <PageHeader
-        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/leads/dashboard' } : undefined}
         onNavigate={() => navigateBackToDashboard(navigate)}
         title="Leads Manager"
         subtitle="Ingested Portfolio & Operational Executions"
@@ -239,7 +239,7 @@ export default function LeadsScreen({
           <Button 
             id="jaldee-leads-add-lead-button"
             data-testid="jaldee-leads-add-lead-button"
-            onClick={() => navigate('/jaldee-leads/leads/create')}
+            onClick={() => navigate('/leads/leads/create')}
             variant="primary"
             icon={<ICONS.ADD className="w-4 h-4" />}
             className="px-6 h-10 text-sm font-semibold active-scale"
@@ -304,7 +304,7 @@ export default function LeadsScreen({
             data={filteredLeads}
             columns={columns}
             getRowId={(lead) => lead.uid}
-            onRowClick={(lead) => navigate(`/jaldee-leads/leads/${lead.uid}`)}
+            onRowClick={(lead) => navigate(`/leads/leads/${lead.uid}`)}
             className="border-0 shadow-none"
             emptyState={
               <EmptyState

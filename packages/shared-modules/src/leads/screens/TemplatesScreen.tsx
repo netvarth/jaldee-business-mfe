@@ -34,7 +34,7 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
         subtitle="Create and manage intake templates for Jaldee Leads."
         actions={
           <Button
-            onClick={() => navigate("/jaldee-leads/templates/create")}
+            onClick={() => navigate("/leads/templates/create")}
             variant="primary"
             icon={<ICONS.ADD className="h-4 w-4" />}
             className="px-6 py-3 text-xs font-semibold active-scale"
@@ -73,7 +73,7 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
                           size="sm"
                           variant="ghost"
                           icon={<Pencil size={14} />}
-                          onClick={() => navigate(`/jaldee-leads/templates/${template.uid}/edit`)}
+                          onClick={() => navigate(`/leads/templates/${template.uid}/edit`)}
                           aria-label={`Edit ${template.name}`}
                         />
                       </div>

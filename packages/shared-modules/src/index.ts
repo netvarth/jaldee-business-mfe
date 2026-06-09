@@ -141,48 +141,7 @@ export {
   useDeleteMembership,
 } from "./memberships";
 
-export type { LeadListFilters, LeadSummary, LeadEntityFormMode } from "./leads";
-export {
-  JaldeeLeadsPage,
-  LeadsModule,
-  LeadsDashboard,
-  LeadsList,
-  LeadDetails,
-  ProductTypeList,
-  ProductTypeForm,
-  ChannelsList,
-  ChannelForm,
-  LeadCustomersList,
-  LeadCustomerForm,
-  AuditLogList,
-  useLeadStats,
-  useLeads,
-  useLeadsCount,
-  useLeadByUid,
-  useLeadLogs,
-  useLeadLogsCount,
-  useProductTypes,
-  useProductTypeCount,
-  useProductTypeByUid,
-  useCreateProductType,
-  useUpdateProductType,
-  useChangeProductTypeStatus,
-  useLeadTemplates,
-  useChannels,
-  useChannelsCount,
-  useChannelByUid,
-  useCreateChannel,
-  useUpdateChannel,
-  useChangeChannelStatus,
-  useChannelTemplates,
-  useLeadCustomers,
-  useLeadCustomersCount,
-  useLeadCustomerByUid,
-  useCreateLeadCustomer,
-  useUpdateLeadCustomer,
-  useProviderLocations,
-  useProviderUsers,
-} from "./leads";
+export { LeadsModule } from "./leads";
 
 export type {
   QuestionnaireAnswerLine,
@@ -344,7 +303,5 @@ export {
 
 export * from "./tasks";
 export * from "./tenant";
-export * from "./leads/services/crmLeads";
-export * from "./leads/queries/crmLeads";
 export * from "./serviceUrls";
 

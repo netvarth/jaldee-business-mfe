@@ -1,5 +1,5 @@
 export type TaskScope = "all" | "my" | "automation";
-export type TasksViewKey = "list" | "calendar" | "templates" | "settings" | "crm-stage" | "detail";
+export type TasksViewKey = "overview" | "list" | "calendar" | "templates" | "settings" | "crm-stage" | "detail";
 export type TaskDashboardView = "status" | "category";
 export type TaskCalendarDateField = "dueDate" | "createdDate";
 

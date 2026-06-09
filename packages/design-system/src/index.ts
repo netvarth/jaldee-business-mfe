@@ -144,3 +144,6 @@ export type { LiveQueueProps, LiveQueueItem } from "./components/LiveQueue/LiveQ
 
 export { VitalsChart }                    from "./components/VitalsChart/VitalsChart";
 export type { VitalsChartProps, VitalPoint } from "./components/VitalsChart/VitalsChart";
+
+export { Calendar }                       from "./components/Calendar/Calendar";
+export type { CalendarProps, CalendarEvent } from "./components/Calendar/Calendar";

@@ -3,7 +3,6 @@ import { Badge, Button, DataTable, Drawer, EmptyState, Input, SectionCard, Selec
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../context";
 import {
-  useCreateTenantTask,
   useTenantTasks,
   useTenantTasksCount,
   useUpdateTenantTaskProgress,
@@ -48,7 +47,7 @@ export function TasksListView() {
   const [toCreatedDate, setToCreatedDate] = useState("");
   const [originReferenceNo, setOriginReferenceNo] = useState("");
   const [originCustomerName, setOriginCustomerName] = useState("");
-  const [taskDialog, setTaskDialog] = useState<{ mode: "create" | "edit"; task?: TaskRow } | null>(null);
+  const [taskDialog, setTaskDialog] = useState<{ mode: "edit"; task: TaskRow } | null>(null);
 
   const lookups = useTaskLookups();
   const filters = useMemo(
@@ -95,7 +94,6 @@ export function TasksListView() {
   const tasks = normalizeArray<unknown>(taskQuery.data).map(normalizeTenantTask);
   const total = normalizeCount(countQuery.data, tasks.length);
 
-  const createTask = useCreateTenantTask();
   const updateTask = useUpdateTenantTaskRecord();
   const updateStatus = useUpdateTenantTaskStatus();
   const updateProgress = useUpdateTenantTaskProgress();
@@ -208,11 +206,8 @@ export function TasksListView() {
 
   async function submitTask(values: TaskFormValues, task?: TaskRow) {
     const payload = buildTaskPayload(values, location?.id);
-    if (task?.taskUid) {
-      await updateTask.mutateAsync({ uid: task.taskUid, data: payload });
-    } else {
-      await createTask.mutateAsync(payload);
-    }
+    if (!task?.taskUid) return;
+    await updateTask.mutateAsync({ uid: task.taskUid, data: payload });
     setTaskDialog(null);
   }
 
@@ -221,11 +216,6 @@ export function TasksListView() {
       <SectionCard
         padding={false}
         className="border-slate-200 shadow-sm"
-        actions={
-          <Button type="button" variant="primary" onClick={() => setTaskDialog({ mode: "create" })} id="btnCreateTask_SM_Tasks">
-            Create Task
-          </Button>
-        }
       >
         <Tabs
           value={scope}
@@ -321,12 +311,12 @@ export function TasksListView() {
       </SectionCard>
 
       <TaskFormDialog
-        mode={taskDialog?.mode ?? "create"}
+        mode="edit"
         task={taskDialog?.task}
         open={Boolean(taskDialog)}
         onClose={() => setTaskDialog(null)}
         onSubmit={submitTask}
-        loading={createTask.isPending || updateTask.isPending}
+        loading={updateTask.isPending}
         lookups={lookups}
         defaultLocationId={location?.id ? String(location.id) : ""}
       />

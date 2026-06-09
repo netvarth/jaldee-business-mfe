@@ -1,5 +1,5 @@
 import { apiClient } from "@jaldee/api-client";
-import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "@jaldee/shared-modules";
+import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../../serviceUrls";
 import type { FormField, FormTemplate } from "../types";
 
 type LeadTemplatePayload = {

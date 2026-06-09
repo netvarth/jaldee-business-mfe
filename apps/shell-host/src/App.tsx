@@ -5,7 +5,6 @@ import OnboardingPage from "./pages/OnboardingPage";
 import SignupPage from "./pages/SignupPage";
 import SettingsPage from "./pages/SettingsPage";
 import LeadsPage from "./pages/LeadsPage";
-import JaldeeLeadsPage from "./pages/JaldeeLeadsPage";
 import {
   ShellAuditLogPage,
   ShellCustomersPage,
@@ -96,7 +95,6 @@ export default function App() {
                 <Route path="/tasks/*" element={<ShellTasksPage />} />
                 <Route path="/membership/*" element={<ShellMembershipPage />} />
                 <Route path="/leads/*" element={<LeadsPage />} />
-                <Route path="/jaldee-leads/*" element={<JaldeeLeadsPage />} />
                 <Route path="/audit-log/*" element={<ShellAuditLogPage />} />
                 <Route path="/settings/*" element={<SettingsPage />} />
                 <Route path="/ivr" element={<IvrPage />} />
