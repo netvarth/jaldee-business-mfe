@@ -206,13 +206,13 @@ export function DataTable<T extends object>({
       data-has-selection={selection ? "true" : "false"}
       data-has-pagination={pagination ? "true" : "false"}
       className={cn(
-        "w-full overflow-hidden rounded-2xl border",
+        "min-w-0 w-full overflow-hidden rounded-lg border",
         "bg-[var(--color-surface)] border-[color:color-mix(in_srgb,var(--color-border)_78%,white)]",
-        "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.04)]",
+        "shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
         className
       )}
     >
-      <div className="overflow-x-auto">
+      <div className="min-w-0 max-w-full overflow-x-auto">
         <table
           role="table"
           data-testid={`${testId}-table`}
@@ -221,7 +221,7 @@ export function DataTable<T extends object>({
           <thead>
             <tr className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
               {selection && (
-                <th scope="col" className="w-12 px-3 py-2.5 text-left md:px-5">
+                <th scope="col" className="w-9 px-2 py-2 text-left md:px-3">
                   <input
                     type="checkbox"
                     data-testid={`${testId}-select-all`}
@@ -258,7 +258,7 @@ export function DataTable<T extends object>({
                     style={{ width: col.width }}
                     onClick={() => col.sortable && handleSort(String(col.key))}
                     className={cn(
-                      "px-3 py-2.5 text-[length:var(--text-xs)] font-medium whitespace-normal break-words md:px-5",
+                      "px-2 py-2 text-[length:var(--text-xs)] font-medium whitespace-normal break-words md:px-3",
                       "text-[var(--color-text-secondary)]",
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
@@ -300,13 +300,13 @@ export function DataTable<T extends object>({
                   className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)]"
                 >
                   {selection && (
-                    <td className="px-3 py-3 md:px-5">
+                    <td className="px-2 py-2.5 md:px-3">
                       <Skeleton height={12} width="16px" />
                     </td>
                   )}
 
                   {visibleColumns.map((col) => (
-                    <td key={String(col.key)} className="px-3 py-3 md:px-5">
+                    <td key={String(col.key)} className="px-2 py-2.5 md:px-3">
                       <Skeleton height={12} width="80%" />
                     </td>
                   ))}
@@ -345,7 +345,7 @@ export function DataTable<T extends object>({
                   >
                     {selection && (
                       <td
-                        className="px-3 py-3 md:px-5"
+                        className="px-2 py-2.5 md:px-3"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
@@ -367,7 +367,7 @@ export function DataTable<T extends object>({
                         key={String(col.key)}
                         data-testid={`${testId}-cell-${rowId}-${String(col.key)}`}
                         className={cn(
-                          "px-3 py-3 align-top text-[var(--color-text-primary)] whitespace-normal break-words md:px-5",
+                          "px-2 py-2.5 align-top text-[var(--color-text-primary)] whitespace-normal break-words md:px-3",
                           col.align === "center" && "text-center",
                           col.align === "right" && "text-right",
                           col.sticky === "left" && "sticky left-0 z-10 bg-inherit",
@@ -389,9 +389,9 @@ export function DataTable<T extends object>({
           {visibleColumns.some((col) => col.footer) && (
             <tfoot>
               <tr className="border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_30%,white)] font-semibold">
-                {selection && <td className="px-3 py-3 md:px-5" />}
+                {selection && <td className="px-2 py-2.5 md:px-3" />}
                 {visibleColumns.map((col) => (
-                  <td key={String(col.key)} className="px-3 py-3 md:px-5">
+                  <td key={String(col.key)} className="px-2 py-2.5 md:px-3">
                     {col.footer?.()}
                   </td>
                 ))}

@@ -139,10 +139,10 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
       />
 
       <div className="w-full space-y-[var(--space-8)]">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-[var(--space-6)]">
+        <div className="grid grid-cols-1 gap-[var(--space-6)] xl:grid-cols-12">
             
             {/* Sidebar Stats */}
-            <div className="md:col-span-4 space-y-[var(--space-6)]">
+            <div className="space-y-[var(--space-6)] xl:col-span-4">
                <SectionCard>
                   <p className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-secondary)] mb-[var(--space-4)]">Strategic Mapping</p>
 
@@ -192,7 +192,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
             </div>
 
             {/* Sequence List */}
-            <div className="md:col-span-8">
+            <div className="xl:col-span-8">
                <SectionCard>
                   <div className="px-[var(--space-6)] py-[var(--space-4)] border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface-alt)]">
                     <h2 className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)]">Stage Sequence</h2>

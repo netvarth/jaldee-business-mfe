@@ -40,6 +40,10 @@
 }
 
 /* Jaldee Leads CRM Styles */
+.mfe-wrapper.jaldee-leads-page {
+  padding: 0;
+}
+
 .jaldee-leads-page {
   font-size: 15px;
 }

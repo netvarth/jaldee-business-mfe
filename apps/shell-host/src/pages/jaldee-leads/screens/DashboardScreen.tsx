@@ -118,7 +118,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-4">
           {[
             { 
               name: 'Leads', 
@@ -191,7 +191,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
       </div>
 
       {/* Operational Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-6">
         <StatCard
           label="New Leads (7d)"
           value={newLeadsCount}
@@ -216,14 +216,14 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
       </div>
 
       {/* Primary Analytics Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
         <TrendAreaChart
           eyebrow="Trend Analysis"
           title="Active Leads Volume"
           statusLabel="Stable"
           data={activeLeadTrendData}
           tooltipSeriesLabel="Leads"
-          className="lg:col-span-3"
+          className="xl:col-span-3"
         />
 
         <SectionCard className="p-8 flex flex-col justify-between">
@@ -256,14 +256,14 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
       </div>
 
       {/* Pipeline & Source Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <SectionCard className="lg:col-span-2 p-4 sm:p-6 lg:p-8 overflow-hidden">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
+        <SectionCard className="p-4 sm:p-6 lg:p-8 overflow-hidden xl:col-span-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
             <h3 className="text-sm font-semibold text-slate-900 break-words">Pipeline Saturation ({defaultPipeline?.name})</h3>
             <span className="text-sm font-semibold text-indigo-600 shrink-0">Leads by State</span>
           </div>
           
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-3 lg:grid-cols-6 sm:overflow-visible sm:pb-0">
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-[repeat(auto-fit,minmax(min(100%,7.5rem),1fr))] sm:overflow-visible sm:pb-0">
              {pipelineSaturationData.map((stage, idx) => (
                 <div key={idx} className="min-w-[132px] sm:min-w-0 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-600 transition-all group cursor-pointer text-center">
                    <div 

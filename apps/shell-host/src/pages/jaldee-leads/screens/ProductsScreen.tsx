@@ -123,7 +123,7 @@ export default function ProductsScreen({
           />
         </SectionCard>
       ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,19rem),1fr))] gap-6">
           {products.map((product) => {
             const selectedTemplate = forms.find(form => form.uid === product.leadTemplateUid);
             const leadTemplateLabel = product.leadTemplateName || selectedTemplate?.name || (product.leadTemplateUid ? 'DYNAMIC FORM' : 'NOT SELECTED');

@@ -109,6 +109,7 @@ export const BASE_SERVICE_ENDPOINTS = {
   },
   taskTemplates: {
     list: "/base-service/v1/api/tasks/templates",
+    search: "/base-service/v1/api/tasks/templates/search",
     create: "/base-service/v1/api/tasks/templates",
     detail: (id: string | number) => `/base-service/v1/api/tasks/templates/${pathValue(id)}`,
     update: (id: string | number) => `/base-service/v1/api/tasks/templates/${pathValue(id)}`,

@@ -293,9 +293,9 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           
-          <div className="lg:col-span-2 space-y-8">
+          <div className="space-y-8 xl:col-span-2">
             {/* Live Duplicate Warning */}
             {duplicateLead && (
               <div className="bg-rose-50 border-2 border-rose-200 rounded-3xl p-6 text-rose-800 flex items-start gap-4 shadow-sm animate-pulse">

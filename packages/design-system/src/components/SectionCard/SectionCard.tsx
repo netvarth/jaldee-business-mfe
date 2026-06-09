@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn }             from "../../utils";
 
-export interface SectionCardProps {
+export interface SectionCardProps extends HTMLAttributes<HTMLDivElement> {
   title?:     string;
   actions?:   ReactNode;
   children:   ReactNode;
@@ -10,29 +10,32 @@ export interface SectionCardProps {
 }
 
 export function SectionCard({
-  title, actions, children, className, padding = true
+  title, actions, children, className, padding = true, ...rest
 }: SectionCardProps) {
+  const testId = (rest as { "data-testid"?: string })["data-testid"] ?? "section-card";
+
   return (
     <div
-      data-testid="section-card"
+      {...rest}
+      data-testid={testId}
       className={cn(
-        "bg-white rounded-lg border border-gray-200 overflow-hidden",
+        "min-w-0 bg-white rounded-lg border border-gray-200 overflow-hidden",
         className
       )}
     >
       {(title || actions) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200">
           {title && (
-            <h3 className="text-sm font-semibold text-gray-800 m-0">{title}</h3>
+            <h3 className="min-w-0 text-sm font-semibold text-gray-800 m-0">{title}</h3>
           )}
           {actions && (
-            <div data-testid="section-card-actions" className="flex items-center gap-2">
+            <div data-testid="section-card-actions" className="flex min-w-0 flex-wrap items-center gap-2">
               {actions}
             </div>
           )}
         </div>
       )}
-      <div className={padding ? "p-4" : ""}>{children}</div>
+      <div className={padding ? "min-w-0 p-4" : "min-w-0"}>{children}</div>
     </div>
   );
 }

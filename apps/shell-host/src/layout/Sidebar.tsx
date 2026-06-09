@@ -5,7 +5,12 @@ import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
 import type { ProductKey } from "../store/shellStore";
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapseOnSelect: boolean;
+  onSubmenuSelection: () => void;
+}
+
+export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: SidebarProps) {
   const activeProduct = useShellStore((s) => s.activeProduct);
   const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
   const navigate = useNavigate();
@@ -27,9 +32,10 @@ export default function Sidebar() {
 
   function handleNavigate(path: string) {
     navigate(path);
-    if (window.innerWidth <= 1024) {
+    if (window.innerWidth <= 1024 || collapseOnSelect) {
       setSidebarVisible(false);
     }
+    onSubmenuSelection();
   }
 
   return (
@@ -96,8 +102,8 @@ function SidebarItemRow({
   currentPath,
 }: RowProps) {
   const hasChildren = Boolean(section.children?.length);
-  const isOpen = expanded[section.id] ?? isActive(section.path);
-  const active = isActive(section.path);
+  const isOpen = expanded[section.id] ?? (hasChildren && isActive(section.path));
+  const active = !hasChildren && isActive(section.path);
 
   function isChildActive(childPath: string) {
     if (currentPath === childPath) {
@@ -113,11 +119,15 @@ function SidebarItemRow({
 
   return (
     <div data-testid={`sidebar-section-${section.id}`}>
-      <div
+      <button
+        type="button"
         data-testid={`sidebar-item-${section.id}`}
         data-product={product}
         data-active={active}
+        data-open={isOpen}
         className="sidebar-item"
+        aria-expanded={hasChildren ? isOpen : undefined}
+        aria-current={active ? "page" : undefined}
         onClick={() => {
           if (hasChildren) {
             onToggle(section.id);
@@ -135,7 +145,7 @@ function SidebarItemRow({
             v
           </span>
         )}
-      </div>
+      </button>
 
       {hasChildren && isOpen && (
         <div data-testid={`sidebar-children-${section.id}`} className="sidebar-children">
@@ -143,19 +153,21 @@ function SidebarItemRow({
             const childActive = isChildActive(child.path);
 
             return (
-              <div
+              <button
+                type="button"
                 key={child.id}
                 data-testid={`sidebar-item-${child.id}`}
                 data-product={product}
                 data-active={childActive}
                 className="sidebar-child"
+                aria-current={childActive ? "page" : undefined}
                 onClick={() => onNavigate(child.path)}
               >
                 <span className="sidebar-child-dot" data-active={childActive} />
                 <span className="sidebar-child-label" data-active={childActive}>
                   {child.label}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>

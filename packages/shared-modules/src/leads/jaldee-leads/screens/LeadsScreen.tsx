@@ -100,17 +100,17 @@ export default function LeadsScreen({
       {
         key: "leadName",
         header: "Lead Name",
-        width: 240,
+        width: "16%",
         render: (lead) => (
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-semibold text-sm shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center font-semibold text-xs shrink-0">
               {lead.consumerFirstName?.[0] || 'L'}{lead.consumerLastName?.[0] || ''}
             </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-900 text-sm truncate mb-1">
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 overflow-hidden break-words text-sm font-semibold leading-4 text-slate-900 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                 {lead.consumerFirstName} {lead.consumerLastName}
               </p>
-              <span className="text-xs font-mono text-slate-400">{lead.referenceNo}</span>
+              <span className="block truncate text-xs font-mono text-slate-400">{lead.referenceNo}</span>
             </div>
           </div>
         ),
@@ -118,9 +118,9 @@ export default function LeadsScreen({
       {
         key: "internalStatus",
         header: "Status",
-        width: 140,
+        width: "7%",
         render: (lead) => (
-          <Badge variant={getStatusVariant(lead.internalStatus, lead.isConverted, lead.isRejected)} dot>
+          <Badge className="max-w-full truncate" variant={getStatusVariant(lead.internalStatus, lead.isConverted, lead.isRejected)} dot>
             {lead.isConverted ? 'CONVERTED' : lead.isRejected ? 'REJECTED' : lead.internalStatus}
           </Badge>
         ),
@@ -128,38 +128,52 @@ export default function LeadsScreen({
       {
         key: "pipelineName",
         header: "Pipeline",
-        width: 160,
-        render: (lead) => <span className="font-semibold text-slate-600">{lead.pipelineName || 'STANDARD'}</span>,
+        width: "11%",
+        render: (lead) => (
+          <span className="block truncate font-semibold text-slate-600" title={lead.pipelineName || 'STANDARD'}>
+            {lead.pipelineName || 'STANDARD'}
+          </span>
+        ),
       },
       {
         key: "productName",
         header: "Product/Service",
-        width: 180,
-        render: (lead) => <span className="font-semibold text-slate-700">{lead.productName || 'GENERAL'}</span>,
+        width: "13%",
+        render: (lead) => (
+          <span className="block truncate font-semibold text-slate-700" title={lead.productName || 'GENERAL'}>
+            {lead.productName || 'GENERAL'}
+          </span>
+        ),
       },
       {
         key: "channelName",
         header: "Channel",
-        width: 150,
-        render: (lead) => <span className="font-medium text-slate-500">{lead.channelName || 'DIRECT'}</span>,
+        width: "9%",
+        render: (lead) => (
+          <span className="block truncate font-medium text-slate-500" title={lead.channelName || 'DIRECT'}>
+            {lead.channelName || 'DIRECT'}
+          </span>
+        ),
       },
       {
         key: "currentPipelineStageName",
         header: "Stage",
-        width: 170,
+        width: "12%",
         render: (lead) => (
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
-            <span className="font-semibold text-slate-900">{lead.currentPipelineStageName || 'ASSESSING'}</span>
+            <span className="truncate font-semibold text-slate-900" title={lead.currentPipelineStageName || 'ASSESSING'}>
+              {lead.currentPipelineStageName || 'ASSESSING'}
+            </span>
           </div>
         ),
       },
       {
         key: "nextFollowupAt",
         header: "Next Follow-up",
-        width: 170,
+        width: "11%",
         render: (lead) => (
-          <span className="font-mono text-slate-500 font-semibold">
+          <span className="block truncate font-mono text-slate-500 font-semibold">
             {lead.nextFollowupAt ? format(new Date(lead.nextFollowupAt), 'dd MMM yy HH:mm') : 'NOT SET'}
           </span>
         ),
@@ -167,9 +181,9 @@ export default function LeadsScreen({
       {
         key: "priority",
         header: "Priority",
-        width: 120,
+        width: "6%",
         render: (lead) => (
-          <Badge variant={getPriorityVariant(lead.priority)}>
+          <Badge className="max-w-full truncate" variant={getPriorityVariant(lead.priority)}>
             {lead.priority}
           </Badge>
         ),
@@ -177,20 +191,22 @@ export default function LeadsScreen({
       {
         key: "ownerName",
         header: "Owner",
-        width: 170,
+        width: "9%",
         render: (lead) => (
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-600 shrink-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center text-xs font-semibold text-indigo-600 shrink-0">
               {lead.ownerName?.[0] || 'U'}
             </div>
-            <span className="font-semibold text-slate-500 truncate">{lead.ownerName || 'UNASSIGNED'}</span>
+            <span className="truncate font-semibold text-slate-500" title={lead.ownerName || 'UNASSIGNED'}>
+              {lead.ownerName || 'UNASSIGNED'}
+            </span>
           </div>
         ),
       },
       {
         key: "actions",
         header: "Actions",
-        width: 120,
+        width: "6%",
         align: "right",
         render: (lead) => (
           <Button
@@ -198,13 +214,13 @@ export default function LeadsScreen({
             data-testid={`jaldee-leads-lead-${lead.uid}-workspace-button`}
             variant="ghost"
             size="sm"
-            className="text-sm font-semibold"
+            className="px-2 text-xs font-semibold"
             onClick={(event) => {
               event.stopPropagation();
               navigate(`/jaldee-leads/leads/${lead.uid}`);
             }}
           >
-            Workspace
+            Open
           </Button>
         ),
       },
@@ -213,7 +229,7 @@ export default function LeadsScreen({
   );
 
   return (
-    <div data-testid="jaldee-leads-list-page" className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
+    <div data-testid="jaldee-leads-list-page" className="h-full flex flex-col bg-slate-50 p-3 sm:p-4 md:p-5 no-scrollbar overflow-y-auto pb-24 relative space-y-4">
       <PageHeader
         back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
         onNavigate={() => navigateBackToDashboard(navigate)}
@@ -234,7 +250,7 @@ export default function LeadsScreen({
       />
 
       <SectionCard className="border-slate-200 shadow-sm" padding={false}>
-        <div className="border-b border-slate-200 px-6 py-4">
+        <div className="border-b border-slate-200 px-4 py-3">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0 flex-1">
               <div data-testid="jaldee-leads-list-search-toolbar">
@@ -283,12 +299,13 @@ export default function LeadsScreen({
           </div>
         </div>
 
-        <div data-testid="jaldee-leads-list-table" className="p-6 pt-4">
+        <div data-testid="jaldee-leads-list-table" className="p-3 pt-3 sm:p-4">
           <DataTable
             data={filteredLeads}
             columns={columns}
             getRowId={(lead) => lead.uid}
             onRowClick={(lead) => navigate(`/jaldee-leads/leads/${lead.uid}`)}
+            className="border-0 shadow-none"
             emptyState={
               <EmptyState
                 title="No matching leads found"

@@ -53,7 +53,7 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
           />
         </SectionCard>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
           {sortedForms.map((template) => {
             const fieldCount = template.fields.length || countSchemaItems(template.templateSchema);
             const requiredCount = schemaRequired(template.templateSchema) || template.fields.filter((field) => field.required).length;

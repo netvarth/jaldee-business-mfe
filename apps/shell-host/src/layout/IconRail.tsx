@@ -44,7 +44,19 @@ const BASE_CRM_PATH_PREFIXES = [
   "/ivr",
 ];
 
-export default function IconRail() {
+interface IconRailProps {
+  submenuVisible: boolean;
+  collapseOnSelect: boolean;
+  onRailNavigate: () => void;
+  onSubmenuSelection: () => void;
+}
+
+export default function IconRail({
+  submenuVisible,
+  collapseOnSelect,
+  onRailNavigate,
+  onSubmenuSelection,
+}: IconRailProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const account = useShellStore((s) => s.account);
@@ -55,6 +67,11 @@ export default function IconRail() {
   if (!account) return null;
 
   useEffect(() => {
+    if (location.pathname === "/settings" || location.pathname.startsWith("/settings/")) {
+      setActiveProduct(null);
+      return;
+    }
+
     const isBaseCrmRoute = BASE_CRM_PATH_PREFIXES.some((path) =>
       location.pathname === path || location.pathname.startsWith(`${path}/`)
     );
@@ -79,32 +96,39 @@ export default function IconRail() {
   }, [account.licensedProducts, location.pathname, setActiveProduct]);
 
   function handleNavigate(key: ProductKey) {
+    onRailNavigate();
     setActiveProduct(key);
+    setSidebarVisible(true);
     navigate(PRODUCT_HOME_PATHS[key] ?? `/${key}`);
-    closeMobileMenu();
   }
 
   function handleBase() {
+    onRailNavigate();
     setActiveProduct(null);
+    setSidebarVisible(true);
     navigate("/home");
-    closeMobileMenu();
   }
 
   function handleBaseCrm() {
+    onRailNavigate();
     setActiveProduct(null);
+    setSidebarVisible(true);
     navigate("/customers");
-    closeMobileMenu();
   }
 
   function handleSettings() {
+    onRailNavigate();
+    setActiveProduct(null);
+    setSidebarVisible(true);
     navigate("/settings");
-    closeMobileMenu();
   }
 
-  function closeMobileMenu() {
-    if (window.innerWidth <= 1024) {
+  function handleSubmenuNavigate(path: string) {
+    navigate(path);
+    if (window.innerWidth <= 1024 || collapseOnSelect) {
       setSidebarVisible(false);
     }
+    onSubmenuSelection();
   }
 
   const isActive = (key: string) => location.pathname.startsWith(`/${key}`);
@@ -165,15 +189,12 @@ export default function IconRail() {
         onClick={handleSettings}
       />
     </div>
-    {location.pathname.startsWith("/settings") && (
+    {location.pathname.startsWith("/settings") && submenuVisible && (
       <SettingsPanel
         accountName={account?.name ?? "Settings"}
         currentPath={location.pathname}
         groups={SETTINGS_MENU_GROUPS}
-        onNavigate={(path) => {
-          navigate(path);
-          closeMobileMenu();
-        }}
+        onNavigate={handleSubmenuNavigate}
       />
     )}
   </div>

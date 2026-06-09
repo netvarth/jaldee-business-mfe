@@ -50,8 +50,8 @@ export default function TopBar({
             data-testid="topbar-menu-toggle"
             className="topbar-menu-toggle"
             onClick={onMenuToggle}
-            title={menuOpen ? "Close menu" : "Open menu"}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            title={menuOpen ? "Hide submenu" : "Show submenu"}
+            aria-label={menuOpen ? "Hide submenu" : "Show submenu"}
           >
             <span aria-hidden="true" />
             <span aria-hidden="true" />

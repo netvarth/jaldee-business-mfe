@@ -253,7 +253,7 @@ export default function ChannelDetailScreen({
             Each linked product has its own registration link. You can copy the link, scan the QR code, or view its custom form preview.
           </p>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--space-6)]">
+          <div className="grid grid-cols-1 gap-[var(--space-6)] xl:grid-cols-2">
             {linkedProducts.map((prod, index) => {
               const link = `https://capture.leados.com/optin?ch=${channel.uid}&p=${prod.uid}`;
               const prodPipeline = pipelines.find(pl => pl.uid === prod.defaultPipelineUid) || pipelines[0];

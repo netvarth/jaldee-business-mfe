@@ -141,7 +141,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
             }
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-6">
             {visiblePipelines.map(p => {
               const pipelineLeadCount = leads.filter(l => l.pipelineUid === p.uid).length;
               const templateCount = p.stages.reduce((sum, s) => sum + (s.taskTemplates?.length || 0), 0);
@@ -321,4 +321,3 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
     </div>
   );
 }
-

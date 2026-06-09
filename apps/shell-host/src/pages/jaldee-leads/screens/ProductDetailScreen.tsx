@@ -208,8 +208,8 @@ export default function ProductDetailScreen({
       </div>
       <div className="w-full p-4 md:p-8 space-y-6 md:space-y-8">
         {/* 2. Hero Statistics Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
-          <div className="md:col-span-2 bg-white rounded-[24px] md:rounded-[32px] p-5 md:p-8 border border-slate-200 software-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-4">
+          <div className="bg-white rounded-[24px] md:rounded-[32px] p-5 md:p-8 border border-slate-200 software-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4 xl:col-span-2">
             <div className="space-y-1.5 min-w-0">
               <span className="text-sm font-semibold text-indigo-600">
                 Product Portfolio Asset
@@ -265,9 +265,9 @@ export default function ProductDetailScreen({
         </div>
 
         {/* 3. Main Content: Pipeline & Leads */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-12">
           {/* Section: Linked Pipeline Visualization */}
-          <div className="lg:col-span-12 space-y-6">
+          <div className="space-y-6 xl:col-span-12">
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <div className="space-y-0.5">
@@ -285,7 +285,7 @@ export default function ProductDetailScreen({
 
               <div className="bg-white rounded-[20px] md:rounded-[28px] border border-slate-200 p-4 md:p-6 shadow-sm">
                 {linkedPipeline ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-center">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] gap-3 text-center md:gap-4">
                     <div className="p-2.5 md:p-3 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-100 min-w-0">
                       <p className="text-xs md:text-xs font-semibold text-slate-400">
                         Active Pipeline
@@ -585,7 +585,7 @@ export default function ProductDetailScreen({
                   </div>
                 </div>
               ) : product.conversionMapping ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fadeIn text-sm font-semibold text-slate-400">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-4 animate-fadeIn text-sm font-semibold text-slate-400">
                   <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl">
                     <span className="block text-xs text-slate-400 mb-1">Downstream Target</span>
                     <span className="text-slate-900 text-xs font-semibold truncate block">

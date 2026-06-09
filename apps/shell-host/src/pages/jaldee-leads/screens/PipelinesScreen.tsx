@@ -156,7 +156,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
             }
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-6">
             {visiblePipelines.map(p => {
               const pipelineLeadCount = leads.filter(l => l.pipelineUid === p.uid).length;
               const templateCount = p.stages.reduce((sum, s) => sum + (s.taskTemplates?.length || 0), 0);
@@ -651,8 +651,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                           className="w-10 h-10 rounded-xl border border-slate-200 shadow-sm p-0 cursor-pointer shrink-0"
                         />
                         
-                        <div className="flex-1 grid grid-cols-12 gap-4 items-end">
-                          <div className="col-span-8">
+                        <div className="flex-1 grid grid-cols-1 gap-4 items-end md:grid-cols-12">
+                          <div className="md:col-span-8">
                             <Input 
                               label="Stage Name" 
                               value={stage.stageName} 
@@ -660,7 +660,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                             />
                           </div>
 
-                          <div className="col-span-4 flex flex-col justify-end">
+                          <div className="flex flex-col justify-end md:col-span-4">
                              <Checkbox 
                                label="Terminal State" 
                                checked={stage.isTerminal} 

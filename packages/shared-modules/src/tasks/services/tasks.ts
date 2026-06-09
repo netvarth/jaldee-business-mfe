@@ -50,6 +50,82 @@ function buildTenantTaskSearchRequest(filters?: unknown) {
   };
 }
 
+function buildTaskTemplateSearchRequest(filters?: unknown) {
+  const input =
+    filters && typeof filters === "object" && !Array.isArray(filters)
+      ? { ...(filters as Record<string, unknown>) }
+      : {};
+  const body: Record<string, unknown> = {};
+  const rawPage = Number(input.page);
+  const rawSize = Number(input.size);
+  const rawFrom = Number(input.from);
+  const rawCount = Number(input.count);
+  const size = Number.isFinite(rawSize) && rawSize > 0
+    ? rawSize
+    : Number.isFinite(rawCount) && rawCount > 0
+      ? rawCount
+      : 20;
+  const page = Number.isFinite(rawPage) && rawPage >= 0
+    ? rawPage
+    : Number.isFinite(rawFrom) && rawFrom >= 0
+      ? Math.floor(rawFrom / size)
+      : 0;
+  const sort = typeof input.sort === "string" ? input.sort : undefined;
+  const directKeys = [
+    "title",
+    "source",
+    "sourceService",
+    "feature",
+    "featureModule",
+    "templateName",
+    "isAvailable",
+    "isSubTask",
+    "isSequential",
+    "categoryId",
+    "typeId",
+    "priorityId",
+    "originFrom",
+    "originId",
+  ];
+
+  directKeys.forEach((key) => {
+    if (input[key] !== undefined && input[key] !== null && input[key] !== "") {
+      body[key] = input[key];
+    }
+  });
+
+  if (body.templateName === undefined && input.name) {
+    body.templateName = input.name;
+  }
+  if (body.templateName === undefined && input["templateName-like"]) {
+    body.templateName = input["templateName-like"];
+  }
+  if (body.title === undefined && input["title-like"]) {
+    body.title = input["title-like"];
+  }
+  if (body.isAvailable === undefined && input.available !== undefined) {
+    body.isAvailable = input.available;
+  }
+  if (body.categoryId === undefined && input["category-eq"]) {
+    body.categoryId = input["category-eq"];
+  }
+  if (body.typeId === undefined && input["type-eq"]) {
+    body.typeId = input["type-eq"];
+  }
+  if (body.priorityId === undefined && input["priority-eq"]) {
+    body.priorityId = input["priority-eq"];
+  }
+
+  return {
+    body,
+    params: {
+      page,
+      size,
+      ...(sort ? { sort } : {}),
+    },
+  };
+}
+
 // === Consumer Tasks ===
 
 export async function getConsumerTasks(api: ScopedApi, filters?: unknown) {
@@ -274,7 +350,8 @@ export async function getTaskStatusesCount(api: ScopedApi, filters?: unknown) {
 // === Task Templates ===
 
 export async function getTaskTemplates(api: ScopedApi, filters?: unknown) {
-  return api.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskTemplates.list), { params: filters });
+  const { body, params } = buildTaskTemplateSearchRequest(filters);
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskTemplates.search), body, { params });
 }
 
 export async function createTaskTemplate(api: ScopedApi, data: unknown) {

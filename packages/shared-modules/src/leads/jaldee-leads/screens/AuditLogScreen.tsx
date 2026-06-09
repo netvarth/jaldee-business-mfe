@@ -260,7 +260,7 @@ export default function AuditLogScreen() {
 
       <div className="space-y-8 w-full flex-1">
         {/* 2. Top Metric Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-6">
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5D40A8] flex items-center justify-center shrink-0">
               <ICONS.SHIELD className="w-5 h-5" />

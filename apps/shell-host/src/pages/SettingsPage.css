@@ -6,7 +6,8 @@
 
 .settings-page__content {
   padding: 34px 30px 48px;
-  max-width: 1040px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .settings-page__header {

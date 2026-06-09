@@ -4,7 +4,7 @@ import { mockProducts, mockChannels, mockPipelines } from '../mockData';
 import { cn } from '../lib/utils';
 import { ICONS } from '../constants';
 import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
-import { Button, FileUpload, PageHeader, Select } from '@jaldee/design-system';
+import { Button, FileUpload, PageHeader, SectionCard, Select } from '@jaldee/design-system';
 
 export default function BulkImportScreen() {
   const navigate = useNavigate();
@@ -51,34 +51,35 @@ export default function BulkImportScreen() {
   ];
 
   return (
-    <div data-testid="jaldee-leads-bulk-import-page" data-state={isUploading ? "loading" : uploadSuccess ? "success" : `step-${step}`} className="h-full flex flex-col bg-slate-50 p-4 md:p-6 no-scrollbar overflow-y-auto pb-20">
-      <div className="max-w-3xl mx-auto w-full">
-        <PageHeader
-          back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
-          onNavigate={() => navigateBackToDashboard(navigate)}
-          title="Batch Ingestion Step-by-Step"
-          subtitle="Simulate CSV/XLS data synchronization onto sales stages"
-          className="mb-8"
-        />
+    <div data-testid="jaldee-leads-bulk-import-page" data-state={isUploading ? "loading" : uploadSuccess ? "success" : `step-${step}`} className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
+      <PageHeader
+        back={showDashboardBack ? { label: 'Back to Dashboard', href: '/jaldee-leads/dashboard' } : undefined}
+        onNavigate={() => navigateBackToDashboard(navigate)}
+        title="Batch Ingestion Step-by-Step"
+        subtitle="Simulate CSV/XLS data synchronization onto sales stages"
+      />
 
-        <div className="flex gap-4 mb-8">
-          {steps.map((s) => (
-            <div key={s.id} data-testid={`jaldee-leads-bulk-import-step-${s.id}`} data-active={step === s.id} className="flex-1">
-              <div className={cn(
-                "h-1 rounded-full transition-all duration-500",
-                step >= s.id ? "bg-indigo-600 shadow-[0_0_8px_#4f46e550]" : "bg-slate-200"
-              )} />
-              <p className={cn(
-                "text-xs font-semibold mt-3 truncate",
-                step >= s.id ? "text-slate-900" : "text-slate-400"
-              )}>
-                {s.label}
-              </p>
-            </div>
-          ))}
+      <SectionCard className="border-slate-200 shadow-sm overflow-hidden bg-white" padding={false}>
+        <div className="border-b border-slate-200 px-6 py-4">
+          <div className="flex gap-4">
+            {steps.map((s) => (
+              <div key={s.id} data-testid={`jaldee-leads-bulk-import-step-${s.id}`} data-active={step === s.id} className="flex-1">
+                <div className={cn(
+                  "h-1 rounded-full transition-all duration-500",
+                  step >= s.id ? "bg-indigo-600 shadow-[0_0_8px_#4f46e550]" : "bg-slate-200"
+                )} />
+                <p className={cn(
+                  "text-xs font-semibold mt-3 truncate",
+                  step >= s.id ? "text-slate-900" : "text-slate-400"
+                )}>
+                  {s.label}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-8 min-h-[350px] software-shadow relative overflow-hidden">
+        <div className="p-6 md:p-8 min-h-[420px] relative overflow-hidden">
           {step === 1 && (
             <div className="space-y-6">
               <div>
@@ -215,61 +216,61 @@ export default function BulkImportScreen() {
             </div>
           )}
         </div>
+      </SectionCard>
 
-        <div className="mt-6 flex items-center justify-between">
-          <div>
-            {step > 1 && !uploadSuccess && (
-              <Button 
-                id="jaldee-leads-bulk-import-back-button"
-                data-testid="jaldee-leads-bulk-import-back-button"
-                type="button"
-                onClick={() => setStep(step - 1)} 
-                disabled={isUploading} 
-                variant="ghost"
-                className="text-sm font-semibold text-slate-400 px-4 py-2 hover:text-slate-900 transition-colors"
-              >
-                Regress
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex gap-4">
-            {step < 3 ? (
-              <Button 
-                id="jaldee-leads-bulk-import-next-button"
-                data-testid="jaldee-leads-bulk-import-next-button"
-                type="button"
-                onClick={handleNext} 
-                disabled={(step === 1 && (!productUid || !channelUid)) || (step === 2 && !file)} 
-                variant="primary"
-                className="text-sm font-semibold px-8 py-2.5"
-              >
-                Proceed Setup
-              </Button>
-            ) : !isUploading && !uploadSuccess ? (
-              <Button 
-                id="jaldee-leads-bulk-import-ingest-button"
-                data-testid="jaldee-leads-bulk-import-ingest-button"
-                type="button"
-                onClick={handleImport} 
-                variant="primary"
-                className="text-sm font-semibold px-10 py-2.5"
-              >
-                Ingest Dataset
-              </Button>
-            ) : uploadSuccess ? (
-              <Button 
-                id="jaldee-leads-bulk-import-restart-button"
-                data-testid="jaldee-leads-bulk-import-restart-button"
-                type="button"
-                onClick={() => { setStep(1); setProductUid(''); setChannelUid(''); setFile(null); setUploadSuccess(false); }}
-                variant="secondary"
-                className="text-sm font-semibold px-8 py-2.5"
-              >
-                Restart Stepper
-              </Button>
-            ) : null}
-          </div>
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <div>
+          {step > 1 && !uploadSuccess && (
+            <Button
+              id="jaldee-leads-bulk-import-back-button"
+              data-testid="jaldee-leads-bulk-import-back-button"
+              type="button"
+              onClick={() => setStep(step - 1)}
+              disabled={isUploading}
+              variant="ghost"
+              className="text-sm font-semibold text-slate-400 px-4 py-2 hover:text-slate-900 transition-colors"
+            >
+              Regress
+            </Button>
+          )}
+        </div>
+
+        <div className="flex gap-4">
+          {step < 3 ? (
+            <Button
+              id="jaldee-leads-bulk-import-next-button"
+              data-testid="jaldee-leads-bulk-import-next-button"
+              type="button"
+              onClick={handleNext}
+              disabled={(step === 1 && (!productUid || !channelUid)) || (step === 2 && !file)}
+              variant="primary"
+              className="text-sm font-semibold px-8 py-2.5"
+            >
+              Proceed Setup
+            </Button>
+          ) : !isUploading && !uploadSuccess ? (
+            <Button
+              id="jaldee-leads-bulk-import-ingest-button"
+              data-testid="jaldee-leads-bulk-import-ingest-button"
+              type="button"
+              onClick={handleImport}
+              variant="primary"
+              className="text-sm font-semibold px-10 py-2.5"
+            >
+              Ingest Dataset
+            </Button>
+          ) : uploadSuccess ? (
+            <Button
+              id="jaldee-leads-bulk-import-restart-button"
+              data-testid="jaldee-leads-bulk-import-restart-button"
+              type="button"
+              onClick={() => { setStep(1); setProductUid(''); setChannelUid(''); setFile(null); setUploadSuccess(false); }}
+              variant="secondary"
+              className="text-sm font-semibold px-8 py-2.5"
+            >
+              Restart Stepper
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>

@@ -387,7 +387,7 @@ function TemplateDialog({
                 if (!field) return null;
                 const flags = values.fieldFlags[field.key] ?? templateFieldFlags(undefined, field.key);
                 return (
-                  <div key={field.key} className="grid gap-3 p-4 lg:grid-cols-[180px_minmax(260px,1fr)_310px] lg:items-center">
+                  <div key={field.key} className="grid min-w-0 gap-3 p-4 xl:grid-cols-[minmax(140px,180px)_minmax(220px,1fr)_minmax(240px,310px)] xl:items-center">
                     <div>
                       <div className="font-semibold text-slate-900">{field.label}</div>
                       <div className="text-xs text-slate-500">{field.datatype}</div>
@@ -398,7 +398,7 @@ function TemplateDialog({
                       lookups={lookups}
                       onChange={(value) => setFieldValue(field.key, value)}
                     />
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid min-w-0 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(min(100%,6.5rem),1fr))]">
                       <Checkbox label="Editable" id={`chkTemplate${field.key}Editable_SM_Tasks`} checked={flags.iseditable} onChange={(event) => setFieldFlag(field.key, "iseditable", event.target.checked)} />
                       <Checkbox label="Visible" id={`chkTemplate${field.key}Visible_SM_Tasks`} checked={flags.isvisible} onChange={(event) => setFieldFlag(field.key, "isvisible", event.target.checked)} />
                       <Checkbox label="Mandatory" id={`chkTemplate${field.key}Mandatory_SM_Tasks`} checked={flags.ismandatory} onChange={(event) => setFieldFlag(field.key, "ismandatory", event.target.checked)} />
