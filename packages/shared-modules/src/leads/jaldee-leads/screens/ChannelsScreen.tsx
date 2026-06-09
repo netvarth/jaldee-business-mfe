@@ -62,7 +62,7 @@ export default function ChannelsScreen({
                 <Icon className="w-5 h-5" />
              </div>
              <div>
-                <div className="font-semibold text-sm text-[var(--color-text-primary)] leading-none mb-1">{row.name}</div>
+                <div className="font-semibold text-sm text-indigo-600 hover:text-indigo-800 leading-none mb-1 transition-colors">{row.name}</div>
                 <div className="text-xs text-[var(--color-text-secondary)] font-mono font-medium tracking-wide">ID: {row.uid.slice(-4).toUpperCase()}</div>
              </div>
           </div>
@@ -204,6 +204,7 @@ export default function ChannelsScreen({
         data={channels}
         columns={columns}
         loading={false}
+        onRowClick={(channel) => navigate(`/jaldee-leads/channels/${channel.uid}`)}
         emptyState={
           <EmptyState
             title="No ingestion channels found"

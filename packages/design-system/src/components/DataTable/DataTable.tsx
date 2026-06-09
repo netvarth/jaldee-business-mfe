@@ -367,7 +367,7 @@ export function DataTable<T extends object>({
                         key={String(col.key)}
                         data-testid={`${testId}-cell-${rowId}-${String(col.key)}`}
                         className={cn(
-                          "px-2 py-2.5 align-top text-[var(--color-text-primary)] whitespace-normal break-words md:px-3",
+                          "px-2 py-2.5 align-middle text-[var(--color-text-primary)] whitespace-normal break-words md:px-3",
                           col.align === "center" && "text-center",
                           col.align === "right" && "text-right",
                           col.sticky === "left" && "sticky left-0 z-10 bg-inherit",

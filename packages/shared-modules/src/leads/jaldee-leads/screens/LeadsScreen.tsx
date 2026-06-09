@@ -107,7 +107,7 @@ export default function LeadsScreen({
               {lead.consumerFirstName?.[0] || 'L'}{lead.consumerLastName?.[0] || ''}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="mb-1 overflow-hidden break-words text-sm font-semibold leading-4 text-slate-900 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+              <p className="mb-1 overflow-hidden break-words text-sm font-semibold leading-4 text-indigo-600 hover:text-indigo-800 transition-colors [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                 {lead.consumerFirstName} {lead.consumerLastName}
               </p>
               <span className="block truncate text-xs font-mono text-slate-400">{lead.referenceNo}</span>

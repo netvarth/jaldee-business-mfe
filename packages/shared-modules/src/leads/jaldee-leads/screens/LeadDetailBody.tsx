@@ -105,15 +105,6 @@ export function LeadDetailBody({
               >
                 Advance Stage
               </Button>
-              {isEditing ? (
-                <Button onClick={handleSaveContactDetails} variant="primary" className="text-sm font-semibold">
-                  Save
-                </Button>
-              ) : (
-                <Button onClick={() => setIsEditing(true)} variant="outline" className="text-sm font-semibold">
-                  Edit File
-                </Button>
-              )}
             </div>
           }
         />
@@ -506,10 +497,49 @@ export function LeadDetailBody({
                   
                   {/* Lead Master Details Panel */}
                   <SectionCard className="p-6 md:p-8 space-y-6 text-slate-900">
-                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                        <h3 className="text-sm font-semibold text-slate-900">Contact dossier</h3>
-                        <ICONS.USER_CHECK className="w-4 h-4 text-indigo-600" />
-                     </div>
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                         <div className="flex items-center gap-2">
+                            <ICONS.USER_CHECK className="w-4 h-4 text-indigo-600" />
+                            <h3 className="text-sm font-semibold text-slate-900">Contact dossier</h3>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           {isEditing ? (
+                             <>
+                               <Button 
+                                 onClick={handleSaveContactDetails} 
+                                 variant="primary" 
+                                 className="text-xs font-semibold px-3 py-1 flex items-center gap-1 active-scale"
+                                 icon={<ICONS.SAVE className="w-3.5 h-3.5" />}
+                               >
+                                 Save
+                               </Button>
+                               <Button 
+                                 onClick={() => {
+                                   setEditedLead({ ...lead });
+                                   setIsEditing(false);
+                                 }} 
+                                 variant="outline" 
+                                 className="text-xs font-semibold px-3 py-1 flex items-center gap-1 active-scale"
+                                 icon={<ICONS.CLOSE className="w-3.5 h-3.5" />}
+                               >
+                                 Cancel
+                               </Button>
+                             </>
+                           ) : (
+                             <Button 
+                               onClick={() => {
+                                 setEditedLead({ ...lead });
+                                 setIsEditing(true);
+                               }}
+                               variant="outline" 
+                               className="text-xs font-semibold px-3 py-1 flex items-center gap-1 active-scale"
+                               icon={<ICONS.EDIT className="w-3.5 h-3.5" />}
+                             >
+                               Edit
+                             </Button>
+                           )}
+                         </div>
+                      </div>
 
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-semibold">
                         <div>
