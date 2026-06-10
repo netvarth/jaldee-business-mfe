@@ -1,5 +1,6 @@
 .mfe-wrapper {
         padding: 12px 8px;
+        background: var(--color-surface);
 }
 
 @media (min-width: 768px) {

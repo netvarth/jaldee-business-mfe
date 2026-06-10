@@ -52,7 +52,7 @@ export const mockAccount: AccountContext = {
   plan:   "growth",
   domain: "healthcare",
   labels: {
-    customer:    "Patient",
+    customer:    "Customer",
     staff:       "Doctor",
     service:     "Treatment",
     appointment: "Appointment",

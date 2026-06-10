@@ -171,10 +171,9 @@ function TasksWorkspace() {
 
   return (
     <div data-testid="tasks-module" data-active-view={view} className="space-y-4">
-      {view !== "detail" ? (
+      {view !== "detail" && view !== "templates" && view !== "settings" ? (
         <PageHeader
           title="Tasks"
-          subtitle="Track assigned, automated, and product-linked work across locations."
           actions={
             view === "overview" ? (
               <Button type="button" variant="primary" onClick={() => setCreateTaskOpen(true)} id="btnCreateTask_SM_Tasks">

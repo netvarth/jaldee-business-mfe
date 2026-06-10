@@ -245,7 +245,7 @@ export function UserDetailView({
     <UsersPageShell title={pageTitle} subtitle={pageSubtitle} onBack={() => navigate(basePath)}>
       {detailQuery.isLoading && <SkeletonCard />}
       {detailQuery.isError && (
-        <SectionCard className="border-slate-200 shadow-sm">
+        <SectionCard className="border-slate-200 shadow-none">
           <EmptyState
             title="User details could not load"
             description="The live user detail API returned an error."
@@ -257,7 +257,7 @@ export function UserDetailView({
       {!detailQuery.isLoading && !detailQuery.isError && detail && (
         <div className={`grid gap-6 ${showSidebar ? "xl:grid-cols-[320px_minmax(0,1fr)]" : ""}`}>
           {showSidebar ? (
-            <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
+            <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
               <div className="flex flex-col items-center border-b border-slate-200 px-6 py-8 text-center">
                 <UserAvatar name={detail.name} subtitle={detail.roleName || detail.userType} />
                 <div className="mt-3 text-sm font-semibold text-slate-900">{detail.name}</div>
@@ -283,7 +283,7 @@ export function UserDetailView({
           ) : null}
 
           {activeSection === "personal-details" ? (
-            <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
+            <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
               <div className={`space-y-8 ${standalone ? "p-5 md:p-6" : "p-5"}`}>
                 {!standalone ? (
                   <>
@@ -408,7 +408,7 @@ export function UserDetailView({
                           className="h-9 w-12 cursor-pointer rounded border border-slate-200 bg-white p-1"
                         />
                         <span
-                          className="inline-flex rounded-md px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                          className="inline-flex rounded-md px-3 py-2 text-xs font-semibold text-white shadow-none"
                           style={bookingColorPreviewStyle}
                         >
                           Preview

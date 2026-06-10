@@ -34,6 +34,11 @@ interface ConsumerSearchResponse {
   count?: number;
 }
 
+interface CustomerListResult {
+  customers: Customer[];
+  total: number;
+}
+
 function buildConsumerSearchParams(filters: CustomerFilters) {
   const params: Record<string, number> = {};
 
@@ -387,14 +392,16 @@ function toAttachment(raw: Record<string, unknown>, index: number): CustomerAtta
   };
 }
 
-export async function listCustomers(api: ScopedApi, filters: CustomerFilters): Promise<Customer[]> {
+export async function listCustomers(api: ScopedApi, filters: CustomerFilters): Promise<CustomerListResult> {
   const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
     buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
     buildConsumerSearchBody(filters),
     { params: buildConsumerSearchParams(filters) }
   );
 
-  return normalizeConsumerList(response.data).map(toCustomer);
+  const consumers = normalizeConsumerList(response.data).map(toCustomer);
+  const total = normalizeConsumerTotal(response.data, consumers.length);
+  return { customers: consumers, total };
 }
 
 export async function getCustomerCount(api: ScopedApi, filters: CustomerFilters): Promise<number> {

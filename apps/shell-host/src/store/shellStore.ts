@@ -35,7 +35,7 @@ const DEFAULT_ACCOUNT: AccountContext = {
   plan: "growth",
   domain: "healthcare",
   labels: {
-    customer: "Patient",
+    customer: "Customer",
     staff: "Doctor",
     service: "Service",
     appointment: "Appointment",

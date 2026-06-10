@@ -75,10 +75,10 @@ function DataSection<T extends object>({
   };
 }) {
   return (
-    <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
+    <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
       <CardHeader title={title} description={description} actionLabel={actionLabel} />
       <div className="p-5">
-        <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-none">
           <DataTable
             data={rows}
             columns={columns}
@@ -132,7 +132,7 @@ export function UserAccountPanel({ userId }: { userId: string }) {
   ];
 
   return (
-    <SectionCard className="border-slate-200 bg-white shadow-sm" padding={false}>
+    <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
       <CardHeader
         title="My Account"
         description="A design-system version of the legacy business profile area, focused on public profile settings and account discoverability."

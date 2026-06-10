@@ -61,12 +61,13 @@ export function useCustomersList(filters: CustomerFilters) {
   });
 }
 
-export function useCustomersCount(filters: CustomerFilters) {
+export function useCustomersCount(filters: CustomerFilters, options?: { enabled?: boolean }) {
   const scopedApi = useApiScope();
 
   return useQuery({
     queryKey: buildScopedDetailQueryKey("customers", scopedApi.apiScope, scopedApi.locationId, "count", filters),
     queryFn: () => getCustomerCount(scopedApi, filters),
+    enabled: options?.enabled ?? true,
   });
 }
 

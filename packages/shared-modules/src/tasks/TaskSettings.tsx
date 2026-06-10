@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, DataTable, Dialog, DialogFooter, EmptyState, Icon, Input, SectionCard, Select } from "@jaldee/design-system";
+import { Alert, Button, DataTable, Dialog, DialogFooter, EmptyState, Icon, Input, PageHeader, SectionCard, Select } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import {
   useCreateTaskCategory,
@@ -39,11 +39,17 @@ type LookupKind = "category" | "priority" | "status" | "type";
 
 export function TaskSettingsView() {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <LookupManager kind="category" title="Categories" />
-      <LookupManager kind="priority" title="Priorities" />
-      <LookupManager kind="status" title="Statuses" />
-      <LookupManager kind="type" title="Types" />
+    <div className="space-y-5">
+      <PageHeader
+        title="Task Settings"
+        subtitle="Configure task categories, priorities, statuses, and types to align task workflows with your business processes."
+      />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <LookupManager kind="category" title="Categories" />
+        <LookupManager kind="priority" title="Priorities" />
+        <LookupManager kind="status" title="Statuses" />
+        <LookupManager kind="type" title="Types" />
+      </div>
     </div>
   );
 }

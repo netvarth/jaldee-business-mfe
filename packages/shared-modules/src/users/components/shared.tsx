@@ -85,7 +85,7 @@ export function UsersStatCard({
   tone: "violet" | "amber" | "orange";
 }) {
   return (
-    <div className="flex min-w-[180px] items-center gap-4 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+    <div className="flex min-w-[180px] items-center gap-4 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-none">
       <div
         className={cn(
           "flex h-11 w-11 items-center justify-center rounded-lg",

@@ -218,6 +218,7 @@ export default function PatientList() {
           <Button
             data-testid="patient-list-new-btn"
             variant="primary"
+            size="md"
             icon="+"
             onClick={() => navigate("/health/patients/new")}
           >

@@ -8,7 +8,6 @@ import {
   Input,
   Popover,
   PopoverSection,
-  SectionCard,
   Select,
   StatCard,
   Tabs,
@@ -256,7 +255,7 @@ export function UsersList() {
             align="end"
             contentClassName="min-w-[220px] p-2"
             trigger={
-              <Button type="button" variant="primary" size="lg" icon={<PlusGlyph />} className="min-w-[134px] rounded-md">
+              <Button type="button" variant="primary" size="md" icon={<PlusGlyph />}>
                 Create
               </Button>
             }
@@ -268,16 +267,13 @@ export function UsersList() {
           </Popover>
         }
       >
-        <SectionCard className="border-slate-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-          <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
             <StatCard label="Total Users" value={totalUsers} accent="indigo" icon={<Icon name="list" />} />
             <StatCard label="Total Teams" value={totalTeams} accent="amber" icon={<Icon name="layers" />} />
             <StatCard label="Active Users" value={activeUsers} accent="emerald" icon={<Icon name="list" />} />
           </div>
-        </SectionCard>
 
-        <SectionCard className="border-slate-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]" padding={false}>
-          <div className="space-y-8 p-5">
+        <div className="space-y-8 py-5 px-0">
             <div className="flex items-center justify-between gap-4">
               <Tabs
                 value="users"
@@ -361,7 +357,7 @@ export function UsersList() {
               </Button>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-none">
               <DataTable
                 data={rows}
                 columns={columns}
@@ -385,7 +381,6 @@ export function UsersList() {
               />
             </div>
           </div>
-        </SectionCard>
       </UsersPageShell>
 
       <Drawer

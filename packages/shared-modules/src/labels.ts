@@ -11,11 +11,30 @@ export function resolveEntityLabel(
   entity: LabelEntity,
   product: ProductKey
 ): string {
+  const label = labels[entity]?.trim();
+
   if (entity === "customer" && isHrProduct(product)) {
     return "Employee";
   }
 
-  return labels[entity];
+  if (label) {
+    return label;
+  }
+
+  switch (entity) {
+    case "customer":
+      return "Customer";
+    case "staff":
+      return "Staff";
+    case "service":
+      return "Service";
+    case "appointment":
+      return "Appointment";
+    case "order":
+      return "Order";
+    case "lead":
+      return "Lead";
+  }
 }
 
 export function resolveCustomerLabel(labels: AccountLabels, product: ProductKey): string {

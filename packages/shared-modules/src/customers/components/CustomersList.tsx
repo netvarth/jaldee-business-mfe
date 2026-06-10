@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
-import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialog, DialogFooter, EmptyState, Input, Popover, PopoverSection, Select, Switch, Tabs, cn } from "@jaldee/design-system";
+import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialog, DialogFooter, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Switch, Tabs, cn } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { resolveCustomerLabel } from "../../labels";
@@ -113,12 +113,21 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   );
 
   const customersQuery = useCustomersList(filters);
-  const countQuery = useCustomersCount(filters);
-  const activeCountQuery = useCustomersCount(activeCountFilters);
-  const inactiveCountQuery = useCustomersCount(inactiveCountFilters);
 
-  const rows = activeTab === "groups" ? [] : (customersQuery.data ?? []);
-  const total = activeTab === "groups" ? 0 : (countQuery.data ?? rows.length);
+  const shouldFetchActiveCount = !(activeTab === "customers" && !search.trim() && customersQuery.data?.total !== undefined);
+  const shouldFetchInactiveCount = !(activeTab === "inactive" && !search.trim() && customersQuery.data?.total !== undefined);
+
+  const activeCountQuery = useCustomersCount(activeCountFilters, {
+    enabled: shouldFetchActiveCount,
+  });
+  const inactiveCountQuery = useCustomersCount(inactiveCountFilters, {
+    enabled: shouldFetchInactiveCount,
+  });
+
+  const rows = activeTab === "groups" ? [] : (customersQuery.data?.customers ?? []);
+  const total = activeTab === "groups" ? 0 : (customersQuery.data?.total ?? rows.length);
+  const activeCount = activeCountQuery.data ?? (activeTab === "customers" && !search.trim() ? customersQuery.data?.total : undefined);
+  const inactiveCount = inactiveCountQuery.data ?? (activeTab === "inactive" && !search.trim() ? customersQuery.data?.total : undefined);
   const groupRows = groupsQuery.data ?? [];
   const groupMembers = groupMembersQuery.data ?? [];
 
@@ -198,8 +207,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
         key: "customer",
         header: `${customerLabel} Name & ID`,
         width: "38%",
-        headerClassName: "px-6 py-4 text-[length:var(--text-xs)] font-semibold uppercase tracking-[0.04em]",
-        className: "px-6 py-6",
         render: (customer) => {
           const name = formatCustomerName(customer);
           const identifier = customer.jaldeeId || customer.id;
@@ -230,32 +237,25 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
         key: "phoneNo",
         header: "Phone",
         width: "22%",
-        headerClassName: "px-6 py-4 text-[length:var(--text-xs)] font-semibold uppercase tracking-[0.04em]",
-        className: "px-6 py-6",
         render: (customer) => customer.phoneNo ? `${customer.countryCode ?? ""} ${customer.phoneNo}`.trim() : "-",
       },
       {
         key: "labels",
         header: "Labels",
         width: "12%",
-        headerClassName: "px-6 py-4 text-[length:var(--text-xs)] font-semibold uppercase tracking-[0.04em]",
-        className: "px-6 py-6 text-[var(--color-text-secondary)]",
+        className: "text-[var(--color-text-secondary)]",
         render: () => "-",
       },
       {
         key: "visitCount",
         header: "Visits",
         width: "10%",
-        headerClassName: "px-6 py-4 text-[length:var(--text-xs)] font-semibold uppercase tracking-[0.04em]",
-        className: "px-6 py-6",
         render: (customer) => String(customer.visitCount ?? 0),
       },
       {
         key: "actions",
         header: "Actions",
         width: "18%",
-        headerClassName: "px-6 py-4 text-[length:var(--text-xs)] font-semibold uppercase tracking-[0.04em]",
-        className: "px-6 py-6",
         render: (customer) => {
           const name = formatCustomerName(customer);
           const isInactive = customer.status === "INACTIVE";
@@ -589,27 +589,16 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
 
   return (
     <>
-      <div className="space-y-6 px-2 pb-4 xl:px-4" data-testid="customers-list-page">
-        <header className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] pb-4">
-          <h1 className="text-[length:var(--text-2xl)] font-semibold tracking-[-0.02em] text-[var(--color-text-primary)]">
-            {customerLabel}s
-          </h1>
-        </header>
-
-        <section className="overflow-hidden rounded-[22px] border border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[var(--color-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-          <div className="flex flex-col gap-4 border-b border-[color:color-mix(in_srgb,var(--color-border)_76%,white)] px-8 py-6 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="text-[length:var(--text-lg)] font-semibold text-[var(--color-text-primary)]">{customerLabel} List</h2>
-              <p className="mt-1 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">
-                Add / View your {customerLabel.toLowerCase()}s and groups
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 self-start">
+      <div className="w-full space-y-6" data-testid="customers-list-page">
+        <PageHeader
+          title={`${customerLabel} List`}
+          subtitle={`Add / View your ${customerLabel.toLowerCase()}s and groups`}
+          actions={
+            <>
               <Button
                 data-testid="customers-export-trigger"
                 variant="outline"
-                size="sm"
+                size="md"
                 onClick={() => setExportDialogOpen(true)}
                 disabled={activeTab === "groups"}
                 icon={<ExportIcon />}
@@ -617,29 +606,34 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                 Export
               </Button>
               {activeTab === "groups" ? (
-                <Button data-testid="customers-add-group" size="sm" onClick={openCreateGroupDialog} icon={<PlusIcon />}>
+                <Button data-testid="customers-add-group" size="md" onClick={openCreateGroupDialog} icon={<PlusIcon />}>
                   Add Group
                 </Button>
               ) : (
-                <Button data-testid="customers-add-new" size="sm" onClick={() => setOpenCreate(true)} icon={<PlusIcon />}>
+                <Button data-testid="customers-add-new" size="md" onClick={() => setOpenCreate(true)} icon={<PlusIcon />}>
                   Add New
                 </Button>
               )}
-            </div>
-          </div>
+            </>
+          }
+        />
 
-          <Tabs
+        <SectionCard className="border-slate-100 bg-white shadow-none" padding={false}>
+          <div className="space-y-8 py-5 px-0">
+            <div className="flex items-center justify-between gap-4">
+              <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as ListTab)}
             items={[
-              { value: "customers", label: `${customerLabel}s`, count: activeCountQuery.data },
-              { value: "inactive", label: "Inactive", count: inactiveCountQuery.data },
+              { value: "customers", label: `${customerLabel}s`, count: activeCount },
+              { value: "inactive", label: "Inactive", count: inactiveCount },
               { value: "groups", label: "Groups", count: groupsQuery.data?.length },
             ]}
-            className="px-8 pt-3"
-          />
+                className="border-b-0"
+              />
+            </div>
 
-          <div className="flex flex-col gap-4 px-8 py-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex w-full flex-col gap-3 lg:max-w-[580px] lg:flex-row">
               {activeTab !== "groups" ? (
                 <Select
@@ -683,7 +677,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
           </div>
 
           {activeTab === "groups" ? (
-            <div className="space-y-6 px-6 pb-6">
+            <div className="space-y-6">
               {(createGroup.error || updateGroup.error || changeGroupStatus.error || groupsQuery.error) && (
                 <Alert variant="danger">
                   Unable to load or update groups right now.
@@ -691,7 +685,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
               )}
 
               {selectedGroup ? (
-                <div className="space-y-4 rounded-[18px] border border-[color:color-mix(in_srgb,var(--color-border)_76%,white)] p-5">
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-none">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <button
@@ -738,8 +732,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                         description="Add customers to this group from the customer detail page."
                       />
                     }
-                    className="overflow-hidden rounded-[18px] border-[color:color-mix(in_srgb,var(--color-border)_76%,white)] shadow-none"
-                    tableClassName="min-w-[980px]"
                   />
                 </div>
               ) : (
@@ -756,45 +748,39 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                       description="Create your first group to start managing group memberships."
                     />
                   }
-                  className="overflow-hidden rounded-[18px] border-[color:color-mix(in_srgb,var(--color-border)_76%,white)] shadow-none"
-                  tableClassName="min-w-[980px]"
                 />
               )}
             </div>
           ) : (
-            <div className="px-6 pb-6">
-              <DataTable
-                data-testid="customers-list-table"
-                data={rows}
-                columns={columns}
-                getRowId={(customer) => customer.id}
-                loading={customersQuery.isLoading}
-                onRowClick={onSelectCustomer}
-                rowClassName={() => "min-h-[84px]"}
-                selection={{
-                  selectedRowKeys,
-                  onChange: setSelectedRowKeys,
-                }}
-                pagination={{
-                  page,
-                  pageSize,
-                  total,
-                  mode: "server",
-                  onChange: setPage,
-                  onPageSizeChange: setPageSize,
-                }}
-                emptyState={
-                  <EmptyState
-                    title={`No ${customerLabel.toLowerCase()}s found`}
-                    description="Try changing the filters or create a new record."
-                  />
-                }
-                className="overflow-hidden rounded-[18px] border-[color:color-mix(in_srgb,var(--color-border)_76%,white)] shadow-none"
-                tableClassName="min-w-[1080px]"
-              />
-            </div>
+            <DataTable
+              data-testid="customers-list-table"
+              data={rows}
+              columns={columns}
+              getRowId={(customer) => customer.id}
+              loading={customersQuery.isLoading}
+              onRowClick={onSelectCustomer}
+              selection={{
+                selectedRowKeys,
+                onChange: setSelectedRowKeys,
+              }}
+              pagination={{
+                page,
+                pageSize,
+                total,
+                mode: "server",
+                onChange: setPage,
+                onPageSizeChange: setPageSize,
+              }}
+              emptyState={
+                <EmptyState
+                  title={`No ${customerLabel.toLowerCase()}s found`}
+                  description="Try changing the filters or create a new record."
+                />
+              }
+            />
           )}
-        </section>
+          </div>
+        </SectionCard>
       </div>
 
       <CustomerFormDialog

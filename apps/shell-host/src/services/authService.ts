@@ -753,7 +753,7 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
         ? rawAccount.domain
         : "healthcare",
     labels: {
-      customer: String((rawAccount.labels as Record<string, unknown> | undefined)?.customer ?? "Patient"),
+      customer: String((rawAccount.labels as Record<string, unknown> | undefined)?.customer ?? "Customer"),
       staff: String((rawAccount.labels as Record<string, unknown> | undefined)?.staff ?? "Doctor"),
       service: String((rawAccount.labels as Record<string, unknown> | undefined)?.service ?? "Service"),
       appointment: String((rawAccount.labels as Record<string, unknown> | undefined)?.appointment ?? "Appointment"),

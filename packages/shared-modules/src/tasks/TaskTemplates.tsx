@@ -128,25 +128,27 @@ export function TaskTemplatesView() {
   }
 
   return (
-    <SectionCard
-      title="Task Templates"
-      className="border-slate-200 shadow-sm"
-      actions={
-        <Button type="button" variant="primary" onClick={() => (navigate ? navigate("templates/create") : setTemplateDialog("new"))} id="btnCreateTemplate_SM_Tasks">
-          Create Template
-        </Button>
-      }
-      padding={false}
-    >
-      <DataTable
-        data={templates}
-        columns={columns}
-        getRowId={(row) => String(row.id)}
-        loading={templatesQuery.isLoading}
-        data-testid="task-templates-table"
-        emptyState={<EmptyState title="No templates found" description="Create reusable templates for repeated task workflows." />}
+    <div className="space-y-5">
+      <PageHeader
+        title="Task Templates"
+        actions={
+          <Button type="button" variant="primary" onClick={() => (navigate ? navigate("templates/create") : setTemplateDialog("new"))} id="btnCreateTemplate_SM_Tasks">
+            Create Template
+          </Button>
+        }
       />
-    </SectionCard>
+
+      <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+        <DataTable
+          data={templates}
+          columns={columns}
+          getRowId={(row) => String(row.id)}
+          loading={templatesQuery.isLoading}
+          data-testid="task-templates-table"
+          emptyState={<EmptyState title="No templates found" description="Create reusable templates for repeated task workflows." />}
+        />
+      </SectionCard>
+    </div>
   );
 }
 

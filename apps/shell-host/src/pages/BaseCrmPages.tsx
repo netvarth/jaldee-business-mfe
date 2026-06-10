@@ -100,6 +100,7 @@ function useRouteSegments(anchor: string) {
 export function ShellCustomersPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
+  const accessToken = useShellStore((s) => s.accessToken);
   const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
@@ -121,7 +122,48 @@ export function ShellCustomersPage() {
             user,
             account: normalizeAccountContext(account),
             location: locationContext,
-            api: apiClient,
+            api: {
+              get: (url: string, config?: unknown) =>
+                apiClient.get(url, {
+                  ...(config as any),
+                  headers: {
+                    ...((config as any)?.headers ?? {}),
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                  },
+                }),
+              post: (url: string, data?: unknown, config?: unknown) =>
+                apiClient.post(url, data, {
+                  ...(config as any),
+                  headers: {
+                    ...((config as any)?.headers ?? {}),
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                  },
+                }),
+              put: (url: string, data?: unknown, config?: unknown) =>
+                apiClient.put(url, data, {
+                  ...(config as any),
+                  headers: {
+                    ...((config as any)?.headers ?? {}),
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                  },
+                }),
+              patch: (url: string, data?: unknown, config?: unknown) =>
+                apiClient.patch(url, data, {
+                  ...(config as any),
+                  headers: {
+                    ...((config as any)?.headers ?? {}),
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                  },
+                }),
+              delete: (url: string, config?: unknown) =>
+                apiClient.delete(url, {
+                  ...(config as any),
+                  headers: {
+                    ...((config as any)?.headers ?? {}),
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                  },
+                }),
+            },
             routeParams: {
               locationId: locationContext?.id ?? null,
               recordId: routeSegments[0] ?? null,

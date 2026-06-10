@@ -16,7 +16,7 @@ export function UsersModule() {
 
   if (!access.allowed) {
     return (
-      <SectionCard className="border-slate-200 shadow-sm">
+      <SectionCard className="border-slate-200 shadow-none">
         <EmptyState
           title="Users unavailable"
           description={
