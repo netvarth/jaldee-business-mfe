@@ -66,7 +66,7 @@ export function CreateUserDialog({
     >
       <div className="space-y-4">
         {createMutation.error ? (
-          <Alert variant="error" title="User creation failed">
+          <Alert variant="danger" title="User creation failed">
             {String(createMutation.error)}
           </Alert>
         ) : null}
@@ -154,7 +154,7 @@ export function CreateTeamDialog({
     >
       <div className="space-y-4">
         {createMutation.error ? (
-          <Alert variant="error" title="Team creation failed">
+          <Alert variant="danger" title="Team creation failed">
             {String(createMutation.error)}
           </Alert>
         ) : null}
@@ -228,7 +228,7 @@ export function AssignLocationsDialog({
     >
       <div className="space-y-4">
         {assignMutation.error ? (
-          <Alert variant="error" title="Location assignment failed">
+          <Alert variant="danger" title="Location assignment failed">
             {String(assignMutation.error)}
           </Alert>
         ) : null}
@@ -307,7 +307,7 @@ export function ChangeLoginIdDialog({
     >
       <div className="space-y-4">
         {changeMutation.error ? (
-          <Alert variant="error" title="Login ID update failed">
+          <Alert variant="danger" title="Login ID update failed">
             {String(changeMutation.error)}
           </Alert>
         ) : null}

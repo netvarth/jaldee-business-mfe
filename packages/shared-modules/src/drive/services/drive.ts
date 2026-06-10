@@ -9,6 +9,7 @@ import type {
   DriveStorage,
   DriveUploadInput,
 } from "../types";
+import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../../serviceUrls";
 
 interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
@@ -282,9 +283,9 @@ export async function shareDriveFile(api: ScopedApi, input: DriveShareInput): Pr
 function toShareRecipient(raw: Record<string, unknown>): DriveShareRecipient {
   const firstName = asString(raw.firstName);
   const lastName = asString(raw.lastName);
-  const phone = asString(raw.phoneNo ?? raw.primaryMobileNo);
+  const phone = asString(raw.phoneNo ?? raw.phoneE164 ?? raw.primaryMobileNo);
   const email = asString(raw.email);
-  const jaldeeId = asString(raw.jaldeeId);
+  const jaldeeId = asString(raw.jaldeeId ?? raw.consumerNo ?? raw.internalConsumerNo);
   const name = [firstName, lastName].filter(Boolean).join(" ").trim();
   const nestedProviderConsumer =
     raw.providerConsumer && typeof raw.providerConsumer === "object"
@@ -311,32 +312,61 @@ function toShareRecipient(raw: Record<string, unknown>): DriveShareRecipient {
   };
 }
 
-function buildShareRecipientSearchParams(searchText: string) {
+function buildShareRecipientSearchBody(searchText: string) {
   const term = searchText.trim();
   const compactPhone = term.replace(/[\s\-()+]/g, "");
 
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)) {
-    return { "email-eq": term };
+    return { email: term };
   }
 
   if (/^\d{6,15}$/.test(compactPhone)) {
-    return { "phoneNo-eq": compactPhone };
+    return { phoneE164: compactPhone };
   }
 
-  return {
-    or: [`jaldeeId-eq=${term}`, `firstName-eq=${term}`].join(","),
+  return { displayName: term };
+}
+
+function normalizeConsumerList(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) {
+    return data.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+  }
+
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  const raw = data as {
+    content?: Record<string, unknown>[];
+    data?: Record<string, unknown>[] | { content?: Record<string, unknown>[] };
+    records?: Record<string, unknown>[];
+    items?: Record<string, unknown>[];
   };
+  const nestedData = raw.data;
+  const candidates = [
+    raw.content,
+    Array.isArray(nestedData) ? nestedData : undefined,
+    nestedData && !Array.isArray(nestedData) ? nestedData.content : undefined,
+    raw.records,
+    raw.items,
+  ];
+
+  return (candidates.find(Array.isArray) ?? []).filter((item): item is Record<string, unknown> =>
+    Boolean(item && typeof item === "object")
+  );
 }
 
 export async function searchDriveShareRecipients(api: ScopedApi, searchText: string): Promise<DriveShareRecipient[]> {
   const term = searchText.trim();
   if (!term) return [];
 
-  const response = await api.get<Record<string, unknown>[]>("provider/customers", {
-    params: buildShareRecipientSearchParams(term),
-  });
+  const response = await api.post<unknown>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
+    buildShareRecipientSearchBody(term),
+    { params: { page: 0, size: 20 } }
+  );
 
-  return response.data.map(toShareRecipient).filter((recipient) => recipient.id);
+  return normalizeConsumerList(response.data).map(toShareRecipient).filter((recipient) => recipient.id);
 }
 
 export async function uploadDriveFiles(api: ScopedApi, userId: string, input: DriveUploadInput): Promise<void> {

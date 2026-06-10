@@ -236,7 +236,7 @@ export function UserDetailView({
   const showSidebar = !standalone;
   const pageTitle = standalone ? "User Details" : "Users";
   const pageSubtitle = standalone
-    ? undefined
+    ? ""
     : detail?.name
       ? `Manage ${detail.name}`
       : "Manage user details and feature access";
@@ -268,10 +268,10 @@ export function UserDetailView({
                     key={item.key}
                     type="button"
                     onClick={() => openSection(item.key)}
-                    className={`w-full px-5 py-4 text-left transition ${
+                    className={`w-full px-5 py-4 text-left transition border-r-[3px] border-solid ${
                       activeSection === item.key
-                        ? "bg-[color:color-mix(in_srgb,var(--color-primary)_10%,white)] font-medium text-[var(--color-primary)]"
-                        : "bg-white text-slate-600 hover:bg-slate-50"
+                        ? "bg-[var(--color-primary-subtle)] font-semibold text-[var(--color-primary)] border-r-[var(--color-primary)]"
+                        : "bg-white text-slate-600 hover:bg-slate-50 border-r-transparent"
                     }`}
                   >
                     <div className="text-sm font-medium">{item.label}</div>

@@ -25,7 +25,7 @@ export function useTaskLookups(): TaskLookupData {
     priorities: normalizeArray<TaskLookup>(priorityQuery.data),
     categories: normalizeArray<TaskLookup>(categoryQuery.data),
     types: normalizeArray<TaskLookup>(typeQuery.data),
-    users: normalizeArray<TaskUser>(usersQuery.data),
+    users: normalizeArray<TaskUser>(usersQuery.data?.users),
     locations: normalizeArray<TaskLocation>(locationsQuery.data),
   };
 }

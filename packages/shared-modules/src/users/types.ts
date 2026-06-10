@@ -148,8 +148,18 @@ export type UsersFilters = {
   pageSize: number;
   status?: string;
   userType?: string;
-  departmentId?: string;
+  departmentId?: string | number;
   searchText?: string;
+  keyword?: string;
+  locationId?: string | number;
+  firstName?: string;
+  lastName?: string;
+  userDisplayName?: string;
+  primaryPhoneNumber?: string;
+  email?: string;
+  gender?: string;
+  employeeId?: string;
+  availableStatus?: string;
 };
 
 export type UsersSummary = {

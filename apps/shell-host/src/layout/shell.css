@@ -693,6 +693,9 @@
 
 .icon-rail-item[data-active="true"] {
   background: var(--rail-accent-subtle);
+  border-right: 3px solid var(--rail-accent);
+  border-radius: 0;
+  width: 100%;
 }
 
 .icon-rail-item-icon {

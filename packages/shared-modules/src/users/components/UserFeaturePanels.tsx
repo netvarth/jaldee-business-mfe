@@ -47,7 +47,7 @@ function CardHeader({
   );
 }
 
-function DataSection<T>({
+function DataSection<T extends object>({
   title,
   description,
   actionLabel,

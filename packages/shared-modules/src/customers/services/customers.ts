@@ -15,6 +15,7 @@ import type {
   CustomerNoteValues,
   CustomerVisit,
 } from "../types";
+import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../../serviceUrls";
 
 interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
@@ -23,19 +24,37 @@ interface ScopedApi {
   delete: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
 }
 
-function buildCustomerQuery(filters: CustomerFilters) {
-  const query: Record<string, string | number> = {};
+interface ConsumerSearchResponse {
+  content?: Record<string, unknown>[];
+  data?: Record<string, unknown>[] | { content?: Record<string, unknown>[]; totalElements?: number };
+  records?: Record<string, unknown>[];
+  items?: Record<string, unknown>[];
+  totalElements?: number;
+  total?: number;
+  count?: number;
+}
 
-  if (filters.search?.trim()) {
-    query.or = [
-      `jaldeeId-eq=${filters.search.trim()}`,
-      `firstName-eq=${filters.search.trim()}`,
-      `phoneNo-eq=${filters.search.trim()}`,
-    ].join(",");
+function buildConsumerSearchParams(filters: CustomerFilters) {
+  const params: Record<string, number> = {};
+
+  if (filters.page && filters.pageSize) {
+    params.page = filters.page - 1;
+    params.size = filters.pageSize;
+  }
+
+  return params;
+}
+
+function buildConsumerSearchBody(filters: CustomerFilters) {
+  const body: Record<string, unknown> = {};
+  const search = filters.search?.trim();
+
+  if (search) {
+    body.displayName = search;
   }
 
   if (filters.status) {
-    query["status-eq"] = filters.status;
+    body.statusEnum = toConsumerStatus(filters.status);
   }
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -51,30 +70,143 @@ function buildCustomerQuery(filters: CustomerFilters) {
       return;
     }
 
-    query[key] = value as string | number;
+    body[key] = value;
   });
 
-  if (filters.page && filters.pageSize) {
-    query.from = (filters.page - 1) * filters.pageSize;
-    query.count = filters.pageSize;
+  return body;
+}
+
+function toConsumerStatus(status: string) {
+  if (status === "ACTIVE") return "Enabled";
+  if (status === "INACTIVE") return "Disabled";
+  return status;
+}
+
+function fromConsumerStatus(status: unknown) {
+  const value = typeof status === "string" ? status : "";
+  if (/disabled|inactive/i.test(value)) return "INACTIVE";
+  if (/enabled|active/i.test(value)) return "ACTIVE";
+  return value || undefined;
+}
+
+function fromConsumerLabelStatus(status: unknown) {
+  const value = typeof status === "string" ? status : "";
+  if (/disabled|inactive/i.test(value)) return "DISABLED";
+  if (/enabled|active/i.test(value)) return "ENABLED";
+  return value || undefined;
+}
+
+function fromConsumerGroupStatus(status: unknown) {
+  const value = typeof status === "string" ? status : "";
+  if (/disabled|inactive|disable/i.test(value)) return "DISABLE";
+  if (/enabled|active|enable/i.test(value)) return "ENABLE";
+  return value || undefined;
+}
+
+function normalizeConsumerList(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) {
+    return data.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
   }
 
-  return query;
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  const raw = data as ConsumerSearchResponse;
+  const nestedData = raw.data;
+  const candidates = [
+    raw.content,
+    Array.isArray(nestedData) ? nestedData : undefined,
+    nestedData && !Array.isArray(nestedData) ? nestedData.content : undefined,
+    raw.records,
+    raw.items,
+  ];
+
+  return (candidates.find(Array.isArray) ?? []).filter((item): item is Record<string, unknown> =>
+    Boolean(item && typeof item === "object")
+  );
+}
+
+function normalizeConsumerTotal(data: unknown, fallback: number) {
+  if (!data || typeof data !== "object") {
+    return typeof data === "number" ? data : fallback;
+  }
+
+  const raw = data as ConsumerSearchResponse;
+  const nestedData = raw.data;
+  const nestedTotal = nestedData && !Array.isArray(nestedData) ? nestedData.totalElements : undefined;
+  const value = raw.totalElements ?? raw.total ?? raw.count ?? nestedTotal;
+  return typeof value === "number" ? value : fallback;
+}
+
+function buildConsumerPayload(values: CustomerFormValues) {
+  const displayName = [values.firstName, values.lastName].filter(Boolean).join(" ").trim();
+  const phone = values.phoneNo ? `${values.countryCode || "+91"}${values.phoneNo}`.replace(/\s+/g, "") : undefined;
+
+  return {
+    uid: values.id || undefined,
+    consumerNo: values.jaldeeId || undefined,
+    firstName: values.firstName,
+    lastName: values.lastName || undefined,
+    displayName: displayName || values.firstName,
+    phoneE164: phone,
+    email: values.email || undefined,
+    gender: values.gender ? values.gender.toUpperCase() : undefined,
+    dob: values.dob || undefined,
+    address: values.address || undefined,
+  };
+}
+
+function buildMassConsumerPayload(customerIds: string[], values: Record<string, unknown>) {
+  return {
+    consumerUids: customerIds,
+    consumers: customerIds,
+    consumerIds: customerIds,
+    ...values,
+  };
+}
+
+async function resolveGroupUid(api: ScopedApi, groupNameOrUid: string) {
+  const groups = await getCustomerGroups(api);
+  return groups.find((group) => group.id === groupNameOrUid || group.groupName === groupNameOrUid)?.id ?? groupNameOrUid;
 }
 
 function toCustomer(raw: Record<string, unknown>): Customer {
+  const phoneE164 = typeof raw.phoneE164 === "string" ? raw.phoneE164 : undefined;
+  const labels = Array.isArray(raw.labels)
+    ? raw.labels.reduce<Record<string, true>>((acc, item) => {
+        if (typeof item === "string") {
+          acc[item] = true;
+        } else if (item && typeof item === "object") {
+          const label = item as Record<string, unknown>;
+          const key = String(label.label ?? label.displayName ?? label.uid ?? label.id ?? "");
+          if (key) acc[key] = true;
+        }
+        return acc;
+      }, {})
+    : raw.label && typeof raw.label === "object"
+      ? (raw.label as Record<string, boolean | string>)
+      : undefined;
+
   return {
     id: String(raw.id ?? raw.uid ?? raw.consumerId ?? ""),
-    jaldeeId: typeof raw.jaldeeId === "string" ? raw.jaldeeId : undefined,
+    jaldeeId:
+      typeof raw.jaldeeId === "string"
+        ? raw.jaldeeId
+        : typeof raw.consumerNo === "string"
+          ? raw.consumerNo
+          : typeof raw.internalConsumerNo === "string"
+            ? raw.internalConsumerNo
+            : undefined,
     firstName: String(raw.firstName ?? ""),
     lastName: typeof raw.lastName === "string" ? raw.lastName : undefined,
-    phoneNo: typeof raw.phoneNo === "string" ? raw.phoneNo : undefined,
+    phoneNo: typeof raw.phoneNo === "string" ? raw.phoneNo : phoneE164,
     countryCode: typeof raw.countryCode === "string" ? raw.countryCode : undefined,
     email: typeof raw.email === "string" ? raw.email : undefined,
     gender: typeof raw.gender === "string" ? raw.gender : undefined,
     dob: typeof raw.dob === "string" ? raw.dob : undefined,
     address: typeof raw.address === "string" ? raw.address : undefined,
-    status: typeof raw.status === "string" ? raw.status : undefined,
+    status: fromConsumerLabelStatus(raw.statusEnum ?? raw.status),
     parent: typeof raw.parent === "boolean" ? raw.parent : undefined,
     whatsappNumber:
       typeof raw.whatsappNumber === "string"
@@ -91,14 +223,14 @@ function toCustomer(raw: Record<string, unknown>): Customer {
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : undefined,
     lastVisit: typeof raw.lastVisit === "string" ? raw.lastVisit : undefined,
     visitCount: typeof raw.visitCount === "number" ? raw.visitCount : undefined,
-    labels: raw.label && typeof raw.label === "object" ? (raw.label as Record<string, boolean | string>) : undefined,
+    labels,
     questionnaires: Array.isArray(raw.questionnaires)
       ? raw.questionnaires
           .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
           .map(toQuestionnaireSummary)
       : undefined,
-    consumerPhoto: Array.isArray(raw.consumerPhoto)
-      ? raw.consumerPhoto
+    consumerPhoto: Array.isArray(raw.consumerPhoto) || Array.isArray(raw.photos)
+      ? (Array.isArray(raw.consumerPhoto) ? raw.consumerPhoto : raw.photos)
           .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
           .map((item, index) => toAttachment(item, index))
       : undefined,
@@ -169,25 +301,27 @@ function toNote(raw: Record<string, unknown>): CustomerNote {
 }
 
 function toLabel(raw: Record<string, unknown>): CustomerLabel {
+  const label = String(raw.label ?? raw.labelName ?? raw.name ?? "");
   return {
-    id: String(raw.id ?? raw.uid ?? raw.label ?? ""),
-    label: typeof raw.label === "string" ? raw.label : "",
+    id: String(raw.id ?? raw.uid ?? raw.labelUid ?? raw.label ?? raw.labelName ?? ""),
+    label,
     displayName:
       typeof raw.displayName === "string"
         ? raw.displayName
-        : typeof raw.label === "string"
-          ? raw.label.replace(/_/g, " ")
+        : label
+          ? label.replace(/_/g, " ")
           : "",
-    status: typeof raw.status === "string" ? raw.status : undefined,
+    status: fromConsumerGroupStatus(raw.statusEnum ?? raw.status),
   };
 }
 
 function toGroup(raw: Record<string, unknown>): CustomerGroup {
+  const groupName = String(raw.groupName ?? raw.name ?? raw.displayName ?? "");
   return {
-    id: String(raw.id ?? raw.uid ?? raw.groupName ?? ""),
-    groupName: typeof raw.groupName === "string" ? raw.groupName : "",
+    id: String(raw.id ?? raw.uid ?? raw.groupUid ?? raw.groupName ?? ""),
+    groupName,
     description: typeof raw.description === "string" ? raw.description : undefined,
-    status: typeof raw.status === "string" ? raw.status : undefined,
+    status: fromConsumerStatus(raw.statusEnum ?? raw.status),
     consumerCount: typeof raw.consumerCount === "number" ? raw.consumerCount : undefined,
     generateGrpMemId: typeof raw.generateGrpMemId === "boolean" ? raw.generateGrpMemId : undefined,
   };
@@ -254,11 +388,13 @@ function toAttachment(raw: Record<string, unknown>, index: number): CustomerAtta
 }
 
 export async function listCustomers(api: ScopedApi, filters: CustomerFilters): Promise<Customer[]> {
-  const response = await api.get<Record<string, unknown>[]>("provider/customers", {
-    params: buildCustomerQuery(filters),
-  });
+  const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
+    buildConsumerSearchBody(filters),
+    { params: buildConsumerSearchParams(filters) }
+  );
 
-  return response.data.map(toCustomer);
+  return normalizeConsumerList(response.data).map(toCustomer);
 }
 
 export async function getCustomerCount(api: ScopedApi, filters: CustomerFilters): Promise<number> {
@@ -266,52 +402,43 @@ export async function getCustomerCount(api: ScopedApi, filters: CustomerFilters)
   delete countFilters.page;
   delete countFilters.pageSize;
 
-  const response = await api.get<number>("provider/customers/count", {
-    params: buildCustomerQuery(countFilters),
-  });
+  const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
+    buildConsumerSearchBody(countFilters),
+    { params: { page: 0, size: 1 } }
+  );
 
-  return response.data;
+  return normalizeConsumerTotal(response.data, normalizeConsumerList(response.data).length);
 }
 
 export async function getCustomerById(api: ScopedApi, customerId: string): Promise<Customer | null> {
-  const response = await api.get<Record<string, unknown>[]>("provider/customers", {
-    params: { "id-eq": customerId },
-  });
+  const response = await api.get<Record<string, unknown>>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.detail(customerId))
+  );
 
-  return response.data[0] ? toCustomer(response.data[0]) : null;
+  return response.data ? toCustomer(response.data) : null;
 }
 
 export async function createCustomer(api: ScopedApi, values: CustomerFormValues): Promise<unknown> {
-  return api.post("provider/customers", {
-    firstName: values.firstName,
-    lastName: values.lastName || undefined,
-    phoneNo: values.phoneNo || undefined,
-    countryCode: values.phoneNo ? values.countryCode || "+91" : undefined,
-    email: values.email || undefined,
-    gender: values.gender || undefined,
-    dob: values.dob || undefined,
-    address: values.address || undefined,
-    jaldeeId: values.jaldeeId || undefined,
-  });
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.create), buildConsumerPayload(values));
 }
 
 export async function updateCustomer(api: ScopedApi, values: CustomerFormValues): Promise<unknown> {
-  return api.put("provider/customers", {
-    id: values.id,
-    firstName: values.firstName,
-    lastName: values.lastName || undefined,
-    phoneNo: values.phoneNo || undefined,
-    countryCode: values.phoneNo ? values.countryCode || "+91" : undefined,
-    email: values.email || undefined,
-    gender: values.gender || undefined,
-    dob: values.dob || undefined,
-    address: values.address || undefined,
-    jaldeeId: values.jaldeeId || undefined,
-  });
+  if (!values.id) {
+    throw new Error("Customer UID is required to update consumer.");
+  }
+
+  return api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.update(values.id)), buildConsumerPayload(values));
 }
 
 export async function changeCustomerStatus(api: ScopedApi, customerId: string, status: "ACTIVE" | "INACTIVE"): Promise<unknown> {
-  return api.put(`provider/customers/${customerId}/changeStatus/${status}`);
+  return api.put(
+    buildBaseServiceUrl(
+      status === "ACTIVE"
+        ? BASE_SERVICE_ENDPOINTS.consumers.activate(customerId)
+        : BASE_SERVICE_ENDPOINTS.consumers.deactivate(customerId)
+    )
+  );
 }
 
 export async function getCustomerNotes(api: ScopedApi, customerId: string): Promise<CustomerNote[]> {
@@ -339,73 +466,95 @@ export async function deleteCustomerNote(api: ScopedApi, noteId: string): Promis
 }
 
 export async function getCustomerLabels(api: ScopedApi): Promise<CustomerLabel[]> {
-  const response = await api.get<Record<string, unknown>[]>("provider/waitlist/label");
-  return response.data.map(toLabel);
+  const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumerLabels.search),
+    {}
+  );
+  return normalizeConsumerList(response.data).map(toLabel);
 }
 
 export async function addLabelsToCustomer(api: ScopedApi, customerId: string, labels: string[]): Promise<unknown> {
-  const labelMap = labels.reduce<Record<string, true>>((acc, key) => {
-    acc[key] = true;
-    return acc;
-  }, {});
-
-  return api.post("provider/customers/label", {
-    labels: labelMap,
-    proConIds: [customerId],
-  });
+  return api.put(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.applyLabel),
+    buildMassConsumerPayload([customerId], { labels, labelUids: labels })
+  );
 }
 
 export async function removeLabelsFromCustomer(api: ScopedApi, customerId: string, labels: string[]): Promise<unknown> {
-  return api.delete("provider/customers/masslabel", {
-    data: {
-      labelNames: labels,
-      proConIds: [customerId],
-    },
-  });
+  return api.put(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.removeLabel),
+    buildMassConsumerPayload([customerId], { labels, labelUids: labels, labelNames: labels })
+  );
 }
 
 export async function getCustomerGroups(api: ScopedApi): Promise<CustomerGroup[]> {
-  const response = await api.get<Record<string, unknown>[]>("provider/customers/group");
-  return response.data.map(toGroup);
+  const response = await api.get<ConsumerSearchResponse | Record<string, unknown>[]>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumerGroups.list)
+  );
+  return normalizeConsumerList(response.data).map(toGroup);
 }
 
 export async function createCustomerGroup(api: ScopedApi, values: CustomerGroupValues): Promise<unknown> {
-  return api.post("provider/customers/group", values);
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumerGroups.create), values);
 }
 
 export async function updateCustomerGroup(api: ScopedApi, values: CustomerGroupValues): Promise<unknown> {
-  return api.put("provider/customers/group", values);
+  return api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumerGroups.update), values);
 }
 
 export async function changeCustomerGroupStatus(api: ScopedApi, groupId: string, status: "ENABLE" | "DISABLE"): Promise<unknown> {
-  return api.put(`provider/customers/group/${groupId}/${status}`);
+  return api.put(
+    buildBaseServiceUrl(
+      status === "ENABLE"
+        ? BASE_SERVICE_ENDPOINTS.consumerGroups.enable(groupId)
+        : BASE_SERVICE_ENDPOINTS.consumerGroups.disable(groupId)
+    )
+  );
 }
 
 export async function getCustomerGroupMembers(api: ScopedApi, groupId: string): Promise<Customer[]> {
-  const response = await api.get<Record<string, unknown>[]>("provider/customers", {
-    params: { "groups-eq": groupId },
-  });
+  const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
+    { groups: [groupId] }
+  );
 
-  return response.data.map(toCustomer);
+  return normalizeConsumerList(response.data).map(toCustomer);
 }
 
 export async function addCustomerToGroup(api: ScopedApi, groupName: string, customerId: string): Promise<unknown> {
-  return api.post("provider/customers/group/addGroup", {
-    groupName,
-    providerConsumerIds: [customerId],
-  });
+  const groupUid = await resolveGroupUid(api, groupName);
+  return api.post(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.addGroupMembersByUid(groupUid)),
+    buildMassConsumerPayload([customerId], {})
+  );
 }
 
 export async function removeCustomerFromGroup(api: ScopedApi, groupName: string, customerId: string): Promise<unknown> {
-  return api.delete(`provider/customers/group/${groupName}`, {
-    data: [customerId],
+  const groupUid = await resolveGroupUid(api, groupName);
+  return api.delete(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.removeGroupMembersByUid(groupUid)), {
+    data: buildMassConsumerPayload([customerId], {}),
   });
 }
 
 export async function getCustomerGroupMemberId(api: ScopedApi, groupName: string, customerId: string): Promise<string | null> {
   try {
-    const response = await api.get<string>(`provider/customers/groupMemId/${groupName}/${customerId}`);
-    return typeof response.data === "string" ? response.data : null;
+    const response = await api.get<unknown>(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.groupMemberId(customerId))
+    );
+    if (typeof response.data === "string") return response.data;
+
+    const groupUid = await resolveGroupUid(api, groupName);
+    const items = Array.isArray(response.data)
+      ? response.data
+      : response.data && typeof response.data === "object"
+        ? [response.data]
+        : [];
+    const match = items
+      .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+      .find((item) => item.groupUid === groupUid || item.groupName === groupName || item.group === groupUid);
+    const item = match ?? items.find((value): value is Record<string, unknown> => Boolean(value && typeof value === "object"));
+    const memberId = item?.memberId ?? item?.groupMemberId ?? item?.memberNo;
+    return typeof memberId === "string" ? memberId : null;
   } catch {
     return null;
   }
@@ -417,7 +566,13 @@ export async function createCustomerGroupMemberId(
   customerId: string,
   memberId: string
 ): Promise<unknown> {
-  return api.post(`provider/customers/groupMemId/${groupName}/${customerId}/${memberId}`);
+  const groupUid = await resolveGroupUid(api, groupName);
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.addGroupMemberId), {
+    groupUid,
+    consumerUid: customerId,
+    memberId,
+    groupMemberId: memberId,
+  });
 }
 
 export async function updateCustomerGroupMemberId(
@@ -426,7 +581,13 @@ export async function updateCustomerGroupMemberId(
   customerId: string,
   memberId: string
 ): Promise<unknown> {
-  return api.put(`provider/customers/groupMemId/${groupName}/${customerId}/${memberId}`);
+  const groupUid = await resolveGroupUid(api, groupName);
+  return api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.updateGroupMemberId), {
+    groupUid,
+    consumerUid: customerId,
+    memberId,
+    groupMemberId: memberId,
+  });
 }
 
 export async function getCustomerFamilyMembers(api: ScopedApi, customerId: string): Promise<CustomerFamilyMember[]> {
@@ -510,7 +671,7 @@ export async function removeCustomerPhoto(api: ScopedApi, customerId: string, at
 }
 
 export async function exportCustomers(api: ScopedApi, email: string): Promise<unknown> {
-  return api.post("provider/customers/exportdata", { email });
+  return api.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.export), { email });
 }
 
 export async function getCustomerQuestionnaire(api: ScopedApi): Promise<QuestionnaireDefinition | null> {

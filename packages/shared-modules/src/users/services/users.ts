@@ -176,6 +176,8 @@ function normalizeUser(raw: RawRecord): UserSummary {
   const userType = asString(raw.userType) || asString(raw.userSubType) || "USER";
   const status = asString(raw.status, "UNKNOWN");
 
+  const primaryPhoneObj = raw.primaryPhoneNumber && typeof raw.primaryPhoneNumber === "object" ? (raw.primaryPhoneNumber as RawRecord) : null;
+
   return {
     id: String(raw.uid ?? raw.id ?? raw.userId ?? raw.providerId ?? raw.encId ?? ""),
     name: readName(raw),
@@ -183,6 +185,7 @@ function normalizeUser(raw: RawRecord): UserSummary {
     lastName: asString(raw.lastName) || undefined,
     email: asString(raw.email) || asString(raw.primaryEmail) || undefined,
     mobile:
+      asString(primaryPhoneObj?.number) ||
       asString(raw.primaryMobileNo) ||
       asString(raw.mobileNo) ||
       asString(raw.phoneNumber) ||
@@ -251,17 +254,21 @@ function normalizeDetail(raw: RawRecord, digitalSignatureUrl?: string): UserDeta
         .filter(Boolean)
     : [];
 
+  const primaryPhoneObj = raw.primaryPhoneNumber && typeof raw.primaryPhoneNumber === "object" ? (raw.primaryPhoneNumber as RawRecord) : null;
+  const whatsappPhoneObj = raw.whatsappNumber && typeof raw.whatsappNumber === "object" ? (raw.whatsappNumber as RawRecord) : null;
+  const telegramPhoneObj = raw.telegramNumber && typeof raw.telegramNumber === "object" ? (raw.telegramNumber as RawRecord) : null;
+
   return {
     ...base,
     gender: asString(raw.gender) || undefined,
     dob: normalizeDate(raw.dob ?? raw.dateOfBirth),
     joinedOn: normalizeDate(raw.createdDate ?? raw.joiningDate ?? raw.dateJoined),
     businessName: asString(raw.businessName) || undefined,
-    whatsappNumber: asString(raw.whatsappNumber ?? raw.whatsAppNum ?? raw.whatsappNo) || undefined,
-    telegramNumber: asString(raw.telegramNumber ?? raw.telegramNo) || undefined,
-    phoneCountryCode: asString(raw.countryCode ?? raw.phoneCountryCode) || "+91",
-    whatsappCountryCode: asString(raw.whatsappCountryCode ?? raw.whatsAppCountryCode) || "+91",
-    telegramCountryCode: asString(raw.telegramCountryCode) || "+91",
+    whatsappNumber: asString(whatsappPhoneObj?.number) || asString(raw.whatsappNumber ?? raw.whatsAppNum ?? raw.whatsappNo) || undefined,
+    telegramNumber: asString(telegramPhoneObj?.number) || asString(raw.telegramNumber ?? raw.telegramNo) || undefined,
+    phoneCountryCode: asString(primaryPhoneObj?.countryCode) || asString(raw.countryCode ?? raw.phoneCountryCode) || "+91",
+    whatsappCountryCode: asString(whatsappPhoneObj?.countryCode) || asString(raw.whatsappCountryCode ?? raw.whatsAppCountryCode) || "+91",
+    telegramCountryCode: asString(telegramPhoneObj?.countryCode) || asString(raw.telegramCountryCode) || "+91",
     pinCode: asString(raw.pinCode ?? raw.postalCode) || undefined,
     departmentId: String(raw.departmentId ?? raw.deptId ?? ""),
     businessLocations: normalizeLocations(raw.businessLocations ?? raw.locations ?? raw.locationDtos ?? raw.branches),
@@ -370,41 +377,51 @@ function normalizeNonWorkingDay(raw: RawRecord): UserNonWorkingDay {
   };
 }
 
-function buildUsersQuery(filters: UsersFilters): Record<string, string | number> {
+function buildUsersQuery(filters: Partial<UsersFilters> & Record<string, unknown>): Record<string, string | number> {
   const params: Record<string, string | number> = {
-    from: Math.max(0, (filters.page - 1) * filters.pageSize),
-    count: filters.pageSize,
+    page: Math.max(0, (filters.page ?? 1) - 1),
+    size: filters.pageSize ?? 20,
   };
 
-  if (filters.status && filters.status !== "all") {
-    params["status-eq"] = filters.status;
+  const input = { ...filters } as any;
+
+  if (input.status && input.status !== "all") {
+    input.userStatus = input.status;
+  }
+  if (input.searchText) {
+    input.keyword = input.searchText;
+  }
+  if (input.departmentId && input.departmentId !== "all") {
+    const parsedDeptId = Number(input.departmentId);
+    input.departmentId = Number.isNaN(parsedDeptId) ? input.departmentId : parsedDeptId;
+    input.deptId = input.departmentId;
   }
 
-  if (filters.userType && filters.userType !== "all") {
-    params["userType-eq"] = filters.userType;
-  }
+  const directKeys = [
+    "keyword",
+    "tenantUid",
+    "locationId",
+    "departmentId",
+    "deptId",
+    "firstName",
+    "lastName",
+    "userDisplayName",
+    "primaryPhoneNumber",
+    "email",
+    "gender",
+    "city",
+    "state",
+    "employeeId",
+    "availableStatus",
+    "userStatus",
+    "userType"
+  ];
 
-  if (filters.departmentId && filters.departmentId !== "all") {
-    params["deptId-eq"] = filters.departmentId;
-  }
-
-  return params;
-}
-
-function buildUsersCountQuery(filters: Omit<UsersFilters, "page" | "pageSize" | "searchText">) {
-  const params: Record<string, string> = {};
-
-  if (filters.status && filters.status !== "all") {
-    params["status-eq"] = filters.status;
-  }
-
-  if (filters.userType && filters.userType !== "all") {
-    params["userType-eq"] = filters.userType;
-  }
-
-  if (filters.departmentId && filters.departmentId !== "all") {
-    params["deptId-eq"] = filters.departmentId;
-  }
+  directKeys.forEach((key) => {
+    if (input[key] !== undefined && input[key] !== null && input[key] !== "" && input[key] !== "all") {
+      params[key] = input[key] as string | number;
+    }
+  });
 
   return params;
 }
@@ -440,27 +457,44 @@ function buildDatasetSummaries(users: UserSummary[], totalUsers: number, teams: 
   ];
 }
 
-export async function listUsers(api: ScopedApi, filters: UsersFilters): Promise<UserSummary[]> {
-  const url = isTokenAuthMode()
-    ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.list)
-    : buildProviderUrl("provider/user");
+export async function listUsers(
+  api: ScopedApi,
+  filters: UsersFilters
+): Promise<{ users: UserSummary[]; total: number }> {
+  const url = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.list);
 
-  const usersResponse = await api.get<RawRecord[] | { content?: RawRecord[]; data?: RawRecord[] }>(
+  const usersResponse = await api.get<any>(
     url,
     {
       params: buildUsersQuery(filters),
     }
   );
 
-  const rows = Array.isArray(usersResponse.data)
-    ? usersResponse.data
-    : Array.isArray(usersResponse.data?.content)
-      ? usersResponse.data.content
-      : Array.isArray(usersResponse.data?.data)
-        ? usersResponse.data.data
+  const responseData = usersResponse.data;
+  const rows = Array.isArray(responseData)
+    ? responseData
+    : Array.isArray(responseData?.content)
+      ? responseData.content
+      : Array.isArray(responseData?.data)
+        ? responseData.data
         : [];
   const users = rows.map(normalizeUser);
-  return searchUsersLocally(users, filters.searchText);
+  const filteredUsers = searchUsersLocally(users, filters.searchText);
+
+  const total = Array.isArray(responseData)
+    ? responseData.length
+    : typeof responseData?.totalElements === "number"
+      ? responseData.totalElements
+      : typeof responseData?.total === "number"
+        ? responseData.total
+        : typeof responseData?.count === "number"
+          ? responseData.count
+          : rows.length;
+
+  return {
+    users: filteredUsers,
+    total,
+  };
 }
 
 export async function getUsersCount(
@@ -468,19 +502,39 @@ export async function getUsersCount(
   filters: Omit<UsersFilters, "page" | "pageSize" | "searchText">
 ): Promise<number> {
   try {
-    const url = isTokenAuthMode()
-      ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.searchCount)
-      : buildProviderUrl("provider/user/count");
+    const url = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.list);
 
-    const response = await api.get<number | { count?: number; data?: number }>(
+    const response = await api.get<any>(
       url,
       {
-        params: buildUsersCountQuery(filters),
+        params: buildUsersQuery({
+          page: 1,
+          pageSize: 1,
+          status: filters.status,
+          userType: filters.userType,
+          departmentId: filters.departmentId,
+        }),
       }
     );
-    if (typeof response.data === "number") return response.data;
-    if (typeof response.data?.count === "number") return response.data.count;
-    if (typeof response.data?.data === "number") return response.data.data;
+
+    const data = response.data;
+    if (data && typeof data === "object") {
+      const total = typeof data.totalElements === "number"
+        ? data.totalElements
+        : typeof data.total === "number"
+          ? data.total
+          : typeof data.count === "number"
+            ? data.count
+            : Array.isArray(data.content)
+              ? data.content.length
+              : Array.isArray(data.data)
+                ? data.data.length
+                : 0;
+      return total;
+    }
+    if (Array.isArray(data)) {
+      return data.length;
+    }
     return 0;
   } catch {
     return 0;
@@ -488,9 +542,7 @@ export async function getUsersCount(
 }
 
 export async function getUserDetail(api: ScopedApi, userId: string): Promise<UserDetail> {
-  const detailUrl = isTokenAuthMode()
-    ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId))
-    : buildProviderUrl(`provider/user/${userId}`);
+  const detailUrl = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId));
 
   const [detailResponse, signatureResponse] = await Promise.allSettled([
     api.get<RawRecord>(detailUrl),
@@ -523,7 +575,7 @@ export async function listUserTeams(api: ScopedApi, status = "ACTIVE"): Promise<
 
 export async function listUserDepartments(api: ScopedApi): Promise<UserDepartment[]> {
   try {
-    const response = await api.get<RawRecord[] | RawRecord>(buildProviderUrl(PROVIDER_ENDPOINTS.departments));
+    const response = await api.get<RawRecord[] | RawRecord>(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.departments.list));
     const departmentRows = Array.isArray(response.data)
       ? response.data
       : Array.isArray((response.data as RawRecord)?.departments)
@@ -544,8 +596,8 @@ export async function listUserDepartments(api: ScopedApi): Promise<UserDepartmen
 
 export async function listUserLocations(api: ScopedApi): Promise<UserLocation[]> {
   try {
-    const url = buildProviderUrl(PROVIDER_ENDPOINTS.locations);
-    const config = isTokenAuthMode() ? { params: { page: 0, size: 100 } } : undefined;
+    const url = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.search);
+    const config = { params: { page: 0, size: 100 } };
     const response = await api.get<any>(url, config);
     const data = response.data;
     const rows = Array.isArray(data)
@@ -642,24 +694,32 @@ export async function createUser(api: ScopedApi, input: CreateUserInput): Promis
     email: input.email.trim() || "",
     employeeId: input.employeeId.trim() || null,
     userType: input.userType,
-    countryCode: input.phoneNumber ? input.phoneCountryCode || "+91" : "",
-    mobileNo: input.phoneNumber.trim() || "",
+    primaryPhoneNumber: input.phoneNumber.trim()
+      ? {
+          countryCode: input.phoneCountryCode || "+91",
+          number: input.phoneNumber.trim(),
+        }
+      : null,
   };
 
-  if (input.userType === "PROVIDER" && input.departmentId) {
-    payload.deptId = input.departmentId;
-    payload.bProfilePermitted = true;
+  if (input.departmentId) {
+    const parsedDeptId = Number(input.departmentId);
+    payload.departmentId = Number.isNaN(parsedDeptId) ? input.departmentId : parsedDeptId;
   }
 
-  const url = isTokenAuthMode()
-    ? buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.create)
-    : buildProviderUrl("provider/user");
+  const url = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.create);
 
-  const response = await api.post<string | number>(
+  const response = await api.post<unknown>(
     url,
     payload
   );
-  return String(response.data ?? "");
+
+  const data = response.data;
+  if (data && typeof data === "object") {
+    const rawObj = data as Record<string, unknown>;
+    return String(rawObj.uid ?? rawObj.id ?? rawObj.userId ?? rawObj.encId ?? "");
+  }
+  return String(data ?? "");
 }
 
 export async function createUserTeam(api: ScopedApi, input: CreateTeamInput): Promise<string> {
@@ -695,7 +755,7 @@ export async function changeUserLoginId(api: ScopedApi, input: ChangeLoginIdInpu
 }
 
 export async function getUsersDataset(api: ScopedApi): Promise<UsersDataset> {
-  const [users, totalUsers, teams] = await Promise.all([
+  const [usersData, totalUsers, teams] = await Promise.all([
     listUsers(api, { page: 1, pageSize: 25 }),
     getUsersCount(api, {}),
     listUserTeams(api),
@@ -704,8 +764,8 @@ export async function getUsersDataset(api: ScopedApi): Promise<UsersDataset> {
   return {
     title: "Team Members",
     subtitle: "Browse providers, assistants, admins, and their assigned teams.",
-    summaries: buildDatasetSummaries(users, totalUsers || users.length, teams),
-    users,
+    summaries: buildDatasetSummaries(usersData.users, totalUsers || usersData.total, teams),
+    users: usersData.users,
     teams,
   };
 }
