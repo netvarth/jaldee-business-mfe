@@ -1,28 +1,22 @@
-import { useMemo, useState } from "react";
-import { Badge, Button, DataTable, Drawer, EmptyState, Input, SectionCard, Select, Tabs } from "@jaldee/design-system";
-import type { ColumnDef } from "@jaldee/design-system";
+import { useEffect, useMemo, useState } from "react";
+import { Badge, Button, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, Select } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../context";
 import {
+  useRemoveTenantTaskAssignee,
   useTenantTasks,
-  useTenantTasksCount,
-  useUpdateTenantTaskProgress,
-  useUpdateTenantTaskRecord,
+  useUpdateTenantTaskAssignee,
   useUpdateTenantTaskStatus,
 } from "./queries/tasks";
-import type { TaskFormValues, TaskLookup, TaskRow, TaskScope, TaskUser } from "./types";
-import { TaskFormDialog } from "./TaskDialogs";
+import type { TaskLookup, TaskRow, TaskUser } from "./types";
 import { useTaskLookups } from "./taskLookups";
+import { TaskPaginationFooter } from "./TaskPaginationFooter";
 import {
   buildTaskFilters,
-  buildTaskPayload,
-  clampProgress,
-  completeTask,
   formatDate,
   getPriorityVariant,
   getTaskStatusVariant,
   getUserId,
   getUserName,
-  isCompleteStatus,
   normalizeArray,
   normalizeCount,
   normalizeTenantTask,
@@ -31,328 +25,7 @@ import {
 } from "./taskUtils";
 
 const PAGE_SIZE = 10;
-
-export function TasksListView() {
-  const { user, location, navigate } = useSharedModulesContext();
-  const [scope, setScope] = useState<TaskScope>("all");
-  const [page, setPage] = useState(1);
-  const [query, setQuery] = useState("");
-  const [statusId, setStatusId] = useState("");
-  const [priorityId, setPriorityId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [assigneeId, setAssigneeId] = useState("");
-  const [fromDueDate, setFromDueDate] = useState("");
-  const [toDueDate, setToDueDate] = useState("");
-  const [fromCreatedDate, setFromCreatedDate] = useState("");
-  const [toCreatedDate, setToCreatedDate] = useState("");
-  const [originReferenceNo, setOriginReferenceNo] = useState("");
-  const [originCustomerName, setOriginCustomerName] = useState("");
-  const [taskDialog, setTaskDialog] = useState<{ mode: "edit"; task: TaskRow } | null>(null);
-
-  const lookups = useTaskLookups();
-  const filters = useMemo(
-    () =>
-      buildTaskFilters({
-        page,
-        scope,
-        pageSize: PAGE_SIZE,
-        searchText: query,
-        statusId,
-        priorityId,
-        categoryId,
-        assigneeId,
-        fromDueDate,
-        toDueDate,
-        fromCreatedDate,
-        toCreatedDate,
-        originReferenceNo,
-        originCustomerName,
-        userId: getUserId(user),
-        locationId: location?.id,
-      }),
-    [
-      assigneeId,
-      categoryId,
-      fromCreatedDate,
-      fromDueDate,
-      location?.id,
-      originCustomerName,
-      originReferenceNo,
-      page,
-      priorityId,
-      query,
-      scope,
-      statusId,
-      toCreatedDate,
-      toDueDate,
-      user,
-    ]
-  );
-
-  const taskQuery = useTenantTasks(filters);
-  const countQuery = useTenantTasksCount(filters);
-  const tasks = normalizeArray<unknown>(taskQuery.data).map(normalizeTenantTask);
-  const total = normalizeCount(countQuery.data, tasks.length);
-
-  const updateTask = useUpdateTenantTaskRecord();
-  const updateStatus = useUpdateTenantTaskStatus();
-  const updateProgress = useUpdateTenantTaskProgress();
-
-  function openTask(taskUid: string) {
-    if (navigate) {
-      navigate(`/detail/${taskUid}`);
-      return;
-    }
-    window.location.assign(`/tasks/detail/${encodeURIComponent(taskUid)}`);
-  }
-
-  const columns = useMemo<ColumnDef<TaskRow>[]>(
-    () => [
-      {
-        key: "title",
-        header: "Task",
-        sortable: true,
-        width: "28%",
-        render: (row) => (
-          <div className="min-w-0">
-            <button
-              type="button"
-              className="border-0 bg-transparent p-0 text-left font-semibold text-slate-900 hover:text-indigo-700"
-              onClick={() => openTask(row.taskUid)}
-              id={`btnTaskDetails_${row.taskUid}`}
-            >
-              {row.title || "Untitled task"}
-            </button>
-            {row.description ? <div className="mt-1 line-clamp-2 text-xs text-slate-500">{row.description}</div> : null}
-            {row.originData?.customerName ? <div className="mt-1 text-xs text-slate-500">{row.originData.customerName}</div> : null}
-          </div>
-        ),
-      },
-      {
-        key: "status",
-        header: "Status",
-        width: 130,
-        render: (row) => <Badge variant={getTaskStatusVariant(row.status?.name)}>{row.status?.name || "Open"}</Badge>,
-      },
-      {
-        key: "priority",
-        header: "Priority",
-        width: 120,
-        render: (row) => <Badge dot variant={getPriorityVariant(row.priority?.name)}>{row.priority?.name || "Normal"}</Badge>,
-      },
-      {
-        key: "assignee",
-        header: "Assignee",
-        width: 180,
-        render: (row) => getUserName(row.assignee) || <span className="text-slate-400">Unassigned</span>,
-      },
-      {
-        key: "dueDate",
-        header: "Due Date",
-        sortable: true,
-        width: 130,
-        render: (row) => formatDate(row.dueDate),
-      },
-      {
-        key: "progress",
-        header: "Progress",
-        width: 110,
-        render: (row) => <ProgressPill value={row.progress} />,
-      },
-      {
-        key: "actions",
-        header: "",
-        align: "right",
-        width: 230,
-        render: (row) => (
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => openTask(row.taskUid)} id={`btnViewTask_${row.taskUid}`}>
-              View
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setTaskDialog({ mode: "edit", task: row })} id={`btnEditTask_${row.taskUid}`}>
-              Edit
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isCompleteStatus(row.status?.name)}
-              onClick={() => completeTask(row, lookups.statuses, updateStatus, updateProgress)}
-              id={`btnCompleteTask_${row.taskUid}`}
-            >
-              Complete
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    [lookups.statuses, updateProgress, updateStatus]
-  );
-
-  function resetFilters() {
-    setQuery("");
-    setStatusId("");
-    setPriorityId("");
-    setCategoryId("");
-    setAssigneeId("");
-    setFromDueDate("");
-    setToDueDate("");
-    setFromCreatedDate("");
-    setToCreatedDate("");
-    setOriginReferenceNo("");
-    setOriginCustomerName("");
-    setPage(1);
-  }
-
-  async function submitTask(values: TaskFormValues, task?: TaskRow) {
-    const payload = buildTaskPayload(values, location?.id);
-    if (!task?.taskUid) return;
-    await updateTask.mutateAsync({ uid: task.taskUid, data: payload });
-    setTaskDialog(null);
-  }
-
-  return (
-    <>
-      <SectionCard
-        padding={false}
-        className="border-slate-200 shadow-sm"
-      >
-        <Tabs
-          value={scope}
-          onValueChange={(value) => {
-            setScope(value as TaskScope);
-            setPage(1);
-          }}
-          items={[
-            { value: "all", label: "All Tasks", count: scope === "all" ? total : undefined },
-            { value: "my", label: "My Tasks", count: scope === "my" ? total : undefined },
-            { value: "automation", label: "Automation Tasks", count: scope === "automation" ? total : undefined },
-          ]}
-        />
-
-        <TaskFiltersBar
-          query={query}
-          statusId={statusId}
-          priorityId={priorityId}
-          categoryId={categoryId}
-          assigneeId={assigneeId}
-          fromDueDate={fromDueDate}
-          toDueDate={toDueDate}
-          fromCreatedDate={fromCreatedDate}
-          toCreatedDate={toCreatedDate}
-          originReferenceNo={originReferenceNo}
-          originCustomerName={originCustomerName}
-          statuses={lookups.statuses}
-          priorities={lookups.priorities}
-          categories={lookups.categories}
-          users={lookups.users}
-          onQueryChange={(value) => {
-            setQuery(value);
-            setPage(1);
-          }}
-          onStatusChange={(value) => {
-            setStatusId(value);
-            setPage(1);
-          }}
-          onPriorityChange={(value) => {
-            setPriorityId(value);
-            setPage(1);
-          }}
-          onCategoryChange={(value) => {
-            setCategoryId(value);
-            setPage(1);
-          }}
-          onAssigneeChange={(value) => {
-            setAssigneeId(value);
-            setPage(1);
-          }}
-          onFromDueDateChange={(value) => {
-            setFromDueDate(value);
-            setPage(1);
-          }}
-          onToDueDateChange={(value) => {
-            setToDueDate(value);
-            setPage(1);
-          }}
-          onFromCreatedDateChange={(value) => {
-            setFromCreatedDate(value);
-            setPage(1);
-          }}
-          onToCreatedDateChange={(value) => {
-            setToCreatedDate(value);
-            setPage(1);
-          }}
-          onOriginReferenceNoChange={(value) => {
-            setOriginReferenceNo(value);
-            setPage(1);
-          }}
-          onOriginCustomerNameChange={(value) => {
-            setOriginCustomerName(value);
-            setPage(1);
-          }}
-          onReset={resetFilters}
-        />
-
-        <DataTable
-          data={tasks}
-          columns={columns}
-          getRowId={(row) => row.taskUid}
-          loading={taskQuery.isLoading || countQuery.isLoading}
-          data-testid="tasks-table"
-          emptyState={<EmptyState title="No tasks found" description="Adjust filters or create a task to start tracking work." />}
-          pagination={{
-            page,
-            pageSize: PAGE_SIZE,
-            total,
-            mode: "server",
-            onChange: setPage,
-          }}
-        />
-      </SectionCard>
-
-      <TaskFormDialog
-        mode="edit"
-        task={taskDialog?.task}
-        open={Boolean(taskDialog)}
-        onClose={() => setTaskDialog(null)}
-        onSubmit={submitTask}
-        loading={updateTask.isPending}
-        lookups={lookups}
-        defaultLocationId={location?.id ? String(location.id) : ""}
-      />
-    </>
-  );
-}
-
-function TaskFiltersBar({
-  query,
-  statusId,
-  priorityId,
-  categoryId,
-  assigneeId,
-  fromDueDate,
-  toDueDate,
-  fromCreatedDate,
-  toCreatedDate,
-  originReferenceNo,
-  originCustomerName,
-  statuses,
-  priorities,
-  categories,
-  users,
-  onQueryChange,
-  onStatusChange,
-  onPriorityChange,
-  onCategoryChange,
-  onAssigneeChange,
-  onFromDueDateChange,
-  onToDueDateChange,
-  onFromCreatedDateChange,
-  onToCreatedDateChange,
-  onOriginReferenceNoChange,
-  onOriginCustomerNameChange,
-  onReset,
-}: {
+type TaskListFilterValues = {
   query: string;
   statusId: string;
   priorityId: string;
@@ -364,68 +37,228 @@ function TaskFiltersBar({
   toCreatedDate: string;
   originReferenceNo: string;
   originCustomerName: string;
+};
+type TaskCardActionType = "changeAssignee" | "changeStatus";
+type TaskCardActionState = { type: TaskCardActionType; task: TaskRow };
+type TaskCardActionValues = { assigneeId: string; statusId: string };
+
+const EMPTY_TASK_LIST_FILTERS: TaskListFilterValues = {
+  query: "",
+  statusId: "",
+  priorityId: "",
+  categoryId: "",
+  assigneeId: "",
+  fromDueDate: "",
+  toDueDate: "",
+  fromCreatedDate: "",
+  toCreatedDate: "",
+  originReferenceNo: "",
+  originCustomerName: "",
+};
+
+export function TasksListView() {
+  const { user, location, navigate } = useSharedModulesContext();
+  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<TaskListFilterValues>(EMPTY_TASK_LIST_FILTERS);
+  const [actionDialog, setActionDialog] = useState<TaskCardActionState | null>(null);
+
+  const lookups = useTaskLookups();
+  const apiFilters = useMemo(
+    () =>
+      buildTaskFilters({
+        page,
+        scope: "all",
+        pageSize: PAGE_SIZE,
+        searchText: filters.query,
+        statusId: filters.statusId,
+        priorityId: filters.priorityId,
+        categoryId: filters.categoryId,
+        assigneeId: filters.assigneeId,
+        fromDueDate: filters.fromDueDate,
+        toDueDate: filters.toDueDate,
+        fromCreatedDate: filters.fromCreatedDate,
+        toCreatedDate: filters.toCreatedDate,
+        originReferenceNo: filters.originReferenceNo,
+        originCustomerName: filters.originCustomerName,
+        userId: getUserId(user),
+        locationId: location?.id,
+      }),
+    [
+      filters,
+      location?.id,
+      page,
+      user,
+    ]
+  );
+
+  const taskQuery = useTenantTasks(apiFilters);
+  const tasks = normalizeArray<unknown>(taskQuery.data).map(normalizeTenantTask);
+  const total = normalizeCount(taskQuery.data, tasks.length);
+
+  const updateAssignee = useUpdateTenantTaskAssignee();
+  const removeAssignee = useRemoveTenantTaskAssignee();
+  const updateStatus = useUpdateTenantTaskStatus();
+
+  function openTask(taskUid: string) {
+    if (navigate) {
+      navigate(`/detail/${taskUid}`);
+      return;
+    }
+    window.location.assign(`/tasks/detail/${encodeURIComponent(taskUid)}`);
+  }
+
+  function resetFilters() {
+    setFilters(EMPTY_TASK_LIST_FILTERS);
+    setPage(1);
+  }
+
+  function applyFilters(nextFilters: TaskListFilterValues) {
+    setFilters(nextFilters);
+    setPage(1);
+  }
+
+  async function submitCardAction(values: TaskCardActionValues) {
+    const task = actionDialog?.task;
+    if (!task) return;
+
+    if (actionDialog.type === "changeAssignee") {
+      await updateAssignee.mutateAsync({ uid: task.taskUid, assigneeId: values.assigneeId });
+    } else if (actionDialog.type === "changeStatus") {
+      await updateStatus.mutateAsync({ uid: task.taskUid, statusId: values.statusId });
+    }
+
+    setActionDialog(null);
+  }
+
+  async function removeTaskAssignee(task: TaskRow) {
+    if (!task.assignee?.id || !window.confirm("Remove assignee from this task?")) return;
+    await removeAssignee.mutateAsync(task.taskUid);
+  }
+
+  return (
+    <>
+      <SectionCard
+        padding={false}
+        className="overflow-visible border-slate-200 shadow-sm"
+      >
+        <TaskFiltersBar
+          filters={filters}
+          statuses={lookups.statuses}
+          priorities={lookups.priorities}
+          categories={lookups.categories}
+          users={lookups.users}
+          onApply={applyFilters}
+          onReset={resetFilters}
+        />
+
+        <div data-testid="tasks-card-list" className="p-4">
+          {taskQuery.isLoading ? (
+            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="min-h-[180px] rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="h-4 w-3/4 rounded bg-slate-100" />
+                  <div className="mt-4 h-3 w-full rounded bg-slate-100" />
+                  <div className="mt-2 h-3 w-2/3 rounded bg-slate-100" />
+                </div>
+              ))}
+            </div>
+          ) : tasks.length === 0 ? (
+            <EmptyState title="No tasks found" description="Adjust filters or create a task to start tracking work." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {tasks.map((task) => (
+                <TaskCard
+                  key={task.taskUid}
+                  task={task}
+                  onOpen={() => openTask(task.taskUid)}
+                  onChangeAssignee={() => setActionDialog({ type: "changeAssignee", task })}
+                  onRemoveAssignee={() => removeTaskAssignee(task)}
+                  onChangeStatus={() => setActionDialog({ type: "changeStatus", task })}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <TaskPaginationFooter
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onChange={setPage}
+          testId="tasks-card-list-pagination"
+        />
+      </SectionCard>
+
+      <TaskCardActionDialog
+        state={actionDialog}
+        lookups={lookups}
+        loading={updateAssignee.isPending || updateStatus.isPending}
+        onClose={() => setActionDialog(null)}
+        onSubmit={submitCardAction}
+      />
+    </>
+  );
+}
+
+function TaskFiltersBar({
+  filters,
+  statuses,
+  priorities,
+  categories,
+  users,
+  onApply,
+  onReset,
+}: {
+  filters: TaskListFilterValues;
   statuses: TaskLookup[];
   priorities: TaskLookup[];
   categories: TaskLookup[];
   users: TaskUser[];
-  onQueryChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
-  onPriorityChange: (value: string) => void;
-  onCategoryChange: (value: string) => void;
-  onAssigneeChange: (value: string) => void;
-  onFromDueDateChange: (value: string) => void;
-  onToDueDateChange: (value: string) => void;
-  onFromCreatedDateChange: (value: string) => void;
-  onToCreatedDateChange: (value: string) => void;
-  onOriginReferenceNoChange: (value: string) => void;
-  onOriginCustomerNameChange: (value: string) => void;
+  onApply: (filters: TaskListFilterValues) => void;
   onReset: () => void;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<TaskListFilterValues>(filters);
 
-  const activeAdvancedFiltersCount = [
-    priorityId,
-    assigneeId,
-    fromDueDate,
-    toDueDate,
-    fromCreatedDate,
-    toCreatedDate,
-    originReferenceNo,
-    originCustomerName,
+  useEffect(() => {
+    setDraftFilters(filters);
+  }, [filters]);
+
+  function setDraftValue(key: keyof TaskListFilterValues, value: string) {
+    setDraftFilters((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function applyDraft() {
+    onApply(draftFilters);
+  }
+
+  function applyTopFilter(key: "statusId" | "categoryId", value: string) {
+    const nextFilters = { ...filters, [key]: value };
+    setDraftFilters(nextFilters);
+    onApply(nextFilters);
+  }
+
+  function resetDraft() {
+    setDraftFilters(EMPTY_TASK_LIST_FILTERS);
+    onReset();
+  }
+
+  const appliedAdvancedFilterCount = [
+    filters.query,
+    filters.priorityId,
+    filters.assigneeId,
+    filters.fromDueDate,
   ].filter(Boolean).length;
-
-  const hasAnyFilterActive = Boolean(
-    query ||
-      statusId ||
-      priorityId ||
-      categoryId ||
-      assigneeId ||
-      fromDueDate ||
-      toDueDate ||
-      fromCreatedDate ||
-      toCreatedDate ||
-      originReferenceNo ||
-      originCustomerName
-  );
 
   return (
     <>
-      <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 p-4 bg-slate-50/50">
-        <div className="min-w-[240px] flex-1">
-          <Input
-            id="txtTaskSearch_SM_Tasks"
-            label="Search"
-            placeholder="Task name, reference, customer"
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-          />
-        </div>
+      <div className="flex flex-wrap items-end gap-3 border-b border-slate-200 bg-slate-50/50 p-4">
         <div className="w-48">
           <Select
             label="Status"
             testId="selectTaskStatus_SM_Tasks"
-            value={statusId}
-            onChange={(event) => onStatusChange(event.target.value)}
+            value={filters.statusId}
+            onChange={(event) => applyTopFilter("statusId", event.target.value)}
             options={[{ value: "", label: "All statuses" }, ...toOptions(statuses)]}
           />
         </div>
@@ -433,87 +266,60 @@ function TaskFiltersBar({
           <Select
             label="Category"
             testId="selectTaskCategory_SM_Tasks"
-            value={categoryId}
-            onChange={(event) => onCategoryChange(event.target.value)}
+            value={filters.categoryId}
+            onChange={(event) => applyTopFilter("categoryId", event.target.value)}
             options={[{ value: "", label: "All categories" }, ...toOptions(categories)]}
           />
         </div>
         <Button
           type="button"
-          variant={activeAdvancedFiltersCount > 0 ? "primary" : "outline"}
-          className="flex items-center gap-2"
+          variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
+          className="ml-auto flex items-center gap-2"
           onClick={() => setDrawerOpen(true)}
           id="btnTaskDrawerFilters_SM_Tasks"
         >
           <span>More Filters</span>
-          {activeAdvancedFiltersCount > 0 && (
+          {appliedAdvancedFilterCount > 0 && (
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
-              {activeAdvancedFiltersCount}
+              {appliedAdvancedFilterCount}
             </span>
           )}
         </Button>
-        {hasAnyFilterActive && (
-          <Button
-            type="button"
-            variant="outline"
-            className="text-slate-600 hover:text-slate-900 border-dashed border-slate-300 hover:border-slate-400"
-            onClick={onReset}
-            id="btnResetTaskFilters_SM_Tasks"
-          >
-            Reset
-          </Button>
-        )}
       </div>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Advanced Filters" size="sm">
         <div className="flex h-full flex-col justify-between">
           <div className="space-y-5 flex-1">
+            <Input
+              id="txtTaskName_SM_Tasks"
+              label="Task Name"
+              placeholder="Task name"
+              value={draftFilters.query}
+              onChange={(event) => setDraftValue("query", event.target.value)}
+            />
             <Select
               label="Priority"
               testId="selectTaskPriority_SM_Tasks"
-              value={priorityId}
-              onChange={(event) => onPriorityChange(event.target.value)}
+              value={draftFilters.priorityId}
+              onChange={(event) => setDraftValue("priorityId", event.target.value)}
               options={[{ value: "", label: "All priorities" }, ...toOptions(priorities)]}
             />
             <Select
               label="Assignee"
               testId="selectTaskAssignee_SM_Tasks"
-              value={assigneeId}
-              onChange={(event) => onAssigneeChange(event.target.value)}
+              value={draftFilters.assigneeId}
+              onChange={(event) => setDraftValue("assigneeId", event.target.value)}
               options={[{ value: "", label: "All assignees" }, ...userOptions(users)]}
             />
 
             <div className="border-t border-slate-100 pt-4">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">Due Date Range</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <Input id="txtTaskDueFrom_SM_Tasks" label="From" type="date" value={fromDueDate} onChange={(event) => onFromDueDateChange(event.target.value)} />
-                <Input id="txtTaskDueTo_SM_Tasks" label="To" type="date" value={toDueDate} onChange={(event) => onToDueDateChange(event.target.value)} />
-              </div>
-            </div>
-
-            <div className="border-t border-slate-100 pt-4">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">Created Date Range</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <Input id="txtTaskCreatedFrom_SM_Tasks" label="From" type="date" value={fromCreatedDate} onChange={(event) => onFromCreatedDateChange(event.target.value)} />
-                <Input id="txtTaskCreatedTo_SM_Tasks" label="To" type="date" value={toCreatedDate} onChange={(event) => onToCreatedDateChange(event.target.value)} />
-              </div>
-            </div>
-
-            <div className="border-t border-slate-100 pt-4 space-y-4">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">Task Details</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">Task Date</h4>
               <Input
-                id="txtTaskReference_SM_Tasks"
-                label="Reference No."
-                placeholder="Reference number"
-                value={originReferenceNo}
-                onChange={(event) => onOriginReferenceNoChange(event.target.value)}
-              />
-              <Input
-                id="txtTaskCustomer_SM_Tasks"
-                label="Customer"
-                placeholder="Customer name"
-                value={originCustomerName}
-                onChange={(event) => onOriginCustomerNameChange(event.target.value)}
+                id="txtTaskDueDate_SM_Tasks"
+                label="Due Date"
+                type="date"
+                value={draftFilters.fromDueDate}
+                onChange={(event) => setDraftValue("fromDueDate", event.target.value)}
               />
             </div>
           </div>
@@ -523,14 +329,22 @@ function TaskFiltersBar({
               type="button"
               variant="outline"
               onClick={() => {
-                onReset();
+                resetDraft();
                 setDrawerOpen(false);
               }}
               id="btnResetAdvancedFilters_Drawer"
             >
               Reset All
             </Button>
-            <Button type="button" variant="primary" onClick={() => setDrawerOpen(false)} id="btnApplyAdvancedFilters_Drawer">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                applyDraft();
+                setDrawerOpen(false);
+              }}
+              id="btnApplyAdvancedFilters_Drawer"
+            >
               Apply Filters
             </Button>
           </div>
@@ -540,14 +354,229 @@ function TaskFiltersBar({
   );
 }
 
-function ProgressPill({ value }: { value?: string | number }) {
-  const progress = clampProgress(value);
+function TaskCard({
+  task,
+  onOpen,
+  onChangeAssignee,
+  onRemoveAssignee,
+  onChangeStatus,
+}: {
+  task: TaskRow;
+  onOpen: () => void;
+  onChangeAssignee: () => void;
+  onRemoveAssignee: () => void;
+  onChangeStatus: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const assigneeName = getUserName(task.assignee) || "Unassigned";
+  const locationName = task.location?.name || task.location?.place || "No location";
+  const categoryName = task.category?.name || "N/A";
+  const attachmentCount = task.taskAttachments?.length ?? 0;
+
   return (
-    <div className="min-w-[82px]">
-      <div className="h-1.5 rounded-full bg-slate-100">
-        <div className="h-1.5 rounded-full bg-indigo-600" style={{ width: `${progress}%` }} />
+    <article
+      data-testid={`task-card-${task.taskUid}`}
+      className="group relative flex min-h-[240px] min-w-0 flex-col overflow-visible rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-lg"
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-sky-400 to-emerald-400" />
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
+          <Badge className="max-w-[10rem] truncate px-2.5 py-1 text-xs" dot variant={getPriorityVariant(task.priority?.name)}>
+            {task.priority?.name || "Normal"}
+          </Badge>
+          <div className="flex min-w-0 items-center gap-1.5 text-sm text-slate-700">
+            <TaskCardIcon kind="location" />
+            <span className="truncate" title={locationName}>{locationName}</span>
+          </div>
+        </div>
+
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            aria-label="Task actions"
+            aria-expanded={menuOpen}
+            className="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-xl font-bold leading-none text-slate-700 transition-colors hover:bg-slate-100"
+            onClick={() => setMenuOpen((value) => !value)}
+          >
+            ...
+          </button>
+
+          {menuOpen ? (
+            <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-2 text-sm shadow-xl">
+              <TaskMenuButton label="View Details" onClick={() => { setMenuOpen(false); onOpen(); }} />
+              <TaskMenuButton label="Change Assignee" onClick={() => { setMenuOpen(false); onChangeAssignee(); }} />
+              <TaskMenuButton label="Remove Assignee" disabled={!task.assignee?.id} onClick={() => { setMenuOpen(false); onRemoveAssignee(); }} />
+              <TaskMenuButton label="Change Status" onClick={() => { setMenuOpen(false); onChangeStatus(); }} />
+            </div>
+          ) : null}
+        </div>
       </div>
-      <div className="mt-1 text-xs text-slate-500">{progress}%</div>
-    </div>
+
+      <button
+        type="button"
+        className="mt-4 block max-w-full border-0 bg-transparent p-0 text-left text-xl font-bold leading-6 text-slate-950 transition-colors hover:text-indigo-700"
+        onClick={onOpen}
+        title={task.title || "Untitled task"}
+        id={`btnTaskDetails_${task.taskUid}`}
+      >
+        <span className="line-clamp-2">{task.title || "Untitled task"}</span>
+      </button>
+
+      {task.description ? (
+        <p className="mt-3 line-clamp-2 text-base leading-6 text-slate-700">
+          {task.description}
+        </p>
+      ) : (
+        <p className="mt-3 text-base leading-6 text-slate-400">No description added.</p>
+      )}
+
+      <div className="mt-4 flex min-w-0 items-center gap-2 text-base">
+        <span className="font-bold text-slate-950">Category:</span>
+        <span className="truncate text-slate-900" title={categoryName}>{categoryName}</span>
+      </div>
+
+      <div className="mt-auto flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 pt-5 text-sm text-slate-600">
+        <TaskCardMetric icon="calendar" value={formatDate(task.dueDate)} />
+        <TaskCardMetric icon="attachment" value={String(attachmentCount)} />
+        <TaskCardMetric icon="user" value={assigneeName} muted={assigneeName === "Unassigned"} />
+        <Badge className="ml-auto max-w-[9rem] truncate" variant={getTaskStatusVariant(task.status?.name)}>
+          {task.status?.name || "Open"}
+        </Badge>
+      </div>
+    </article>
+  );
+}
+
+function TaskMenuButton({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className="block w-full border-0 bg-white px-5 py-3 text-left text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function TaskCardMetric({ icon, value, muted = false }: { icon: "calendar" | "attachment" | "user"; value: string; muted?: boolean }) {
+  return (
+    <span className={`flex min-w-0 items-center gap-1.5 ${muted ? "text-slate-400" : "text-slate-600"}`}>
+      <TaskCardIcon kind={icon} />
+      <span className="truncate" title={value}>{value}</span>
+    </span>
+  );
+}
+
+function TaskCardIcon({ kind }: { kind: "location" | "calendar" | "attachment" | "user" }) {
+  const shared = "h-4 w-4 shrink-0 text-slate-500";
+
+  if (kind === "location") {
+    return (
+      <svg className={shared} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M12 21s7-5.2 7-12A7 7 0 0 0 5 9c0 6.8 7 12 7 12z" />
+        <circle cx="12" cy="9" r="2.4" />
+      </svg>
+    );
+  }
+
+  if (kind === "calendar") {
+    return (
+      <svg className={shared} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path d="M8 3v4M16 3v4M4 10h16" />
+      </svg>
+    );
+  }
+
+  if (kind === "attachment") {
+    return (
+      <svg className={shared} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M20 12.5 12.8 19.7a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.7 8.7a2 2 0 0 1-2.8-2.8l7.5-7.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={shared} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
+function TaskCardActionDialog({
+  state,
+  lookups,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  state: TaskCardActionState | null;
+  lookups: ReturnType<typeof useTaskLookups>;
+  loading: boolean;
+  onClose: () => void;
+  onSubmit: (values: TaskCardActionValues) => Promise<void>;
+}) {
+  const [values, setValues] = useState<TaskCardActionValues>({ assigneeId: "", statusId: "" });
+
+  useEffect(() => {
+    setValues({
+      assigneeId: state?.task.assignee?.id ? String(state.task.assignee.id) : "",
+      statusId: state?.task.status?.id ? String(state.task.status.id) : "",
+    });
+  }, [state?.task.assignee?.id, state?.task.status?.id, state?.task.taskUid, state?.type]);
+
+  if (!state) return null;
+
+  const isAssignee = state.type === "changeAssignee";
+  const valid = isAssignee ? Boolean(values.assigneeId) : Boolean(values.statusId);
+
+  return (
+    <Dialog
+      open={Boolean(state)}
+      onClose={onClose}
+      title={isAssignee ? "Change Assignee" : "Change Status"}
+      size="md"
+      testId="task-card-action-dialog"
+    >
+      <div className="space-y-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="font-semibold text-slate-900">{state.task.title || "Untitled task"}</div>
+          {state.task.originData?.customerName ? (
+            <div className="mt-1 text-sm text-slate-600">{state.task.originData.customerName}</div>
+          ) : null}
+        </div>
+
+        {isAssignee ? (
+          <Select
+            label="Assignee"
+            testId="selectTaskCardAssignee_SM_Tasks"
+            value={values.assigneeId}
+            onChange={(event) => setValues((prev) => ({ ...prev, assigneeId: event.target.value }))}
+            options={[{ value: "", label: "Select assignee" }, ...userOptions(lookups.users)]}
+          />
+        ) : (
+          <Select
+            label="Status"
+            testId="selectTaskCardStatus_SM_Tasks"
+            value={values.statusId}
+            onChange={(event) => setValues((prev) => ({ ...prev, statusId: event.target.value }))}
+            options={[{ value: "", label: "Select status" }, ...toOptions(lookups.statuses)]}
+          />
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" variant="primary" disabled={!valid} loading={loading} onClick={() => onSubmit(values)}>
+            Save
+          </Button>
+        </DialogFooter>
+      </div>
+    </Dialog>
   );
 }

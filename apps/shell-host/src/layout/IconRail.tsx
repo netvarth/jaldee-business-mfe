@@ -191,7 +191,7 @@ export default function IconRail({
     </div>
     {location.pathname.startsWith("/settings") && submenuVisible && (
       <SettingsPanel
-        accountName={account?.name ?? "Settings"}
+        accountName={account?.name ?? "Jaldee Business"}
         currentPath={location.pathname}
         groups={SETTINGS_MENU_GROUPS}
         onNavigate={handleSubmenuNavigate}
@@ -301,7 +301,6 @@ function SettingsPanel({
         <div className="settings-card-avatar">{getAvatarLetters(accountName)}</div>
         <div className="settings-card-meta">
           <div className="settings-card-name">{accountName}</div>
-          <div className="settings-card-subtitle">Business settings</div>
         </div>
       </div>
 

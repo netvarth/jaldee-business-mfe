@@ -49,13 +49,6 @@
   left: 72px;
 }
 
-.topbar-account-name {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-}
-
 .topbar-menu-toggle {
   width: 34px;
   height: 34px;
@@ -92,6 +85,22 @@
   flex-shrink: 0;
 }
 
+.topbar-search-toggle {
+  display: none;
+  background: none;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 17px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  padding: 0;
+}
+
 .topbar-search-icon {
   position: absolute;
   left: 10px;
@@ -112,6 +121,24 @@
   background: #f9fafb;
   box-sizing: border-box;
   color: #374151;
+}
+
+.topbar-search-close {
+  display: none;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
 }
 
 .shell-divider {
@@ -273,13 +300,6 @@
   font-size: 15px;
   line-height: 1.4;
   font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.account-drawer-caption {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
   color: var(--color-text-secondary);
 }
 
@@ -861,6 +881,57 @@
 
 .sidebar-backdrop {
   display: none;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .topbar-search-toggle {
+    display: inline-flex;
+  }
+
+  .topbar-search-wrapper {
+    display: none;
+    position: absolute;
+    top: 8px;
+    left: 54px;
+    right: 10px;
+    z-index: 4;
+    width: auto;
+  }
+
+  .topbar-search-wrapper[data-open="true"] {
+    display: block;
+  }
+
+  .topbar-search-wrapper[data-open="true"] .topbar-search {
+    height: 40px;
+    padding-right: 36px;
+    background: var(--color-surface);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+  }
+
+  .topbar-search-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .topbar-user-menu {
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+    padding: 3px;
+    border-radius: 999px;
+  }
+
+  .topbar-user-meta,
+  .topbar-chevron {
+    display: none;
+  }
 }
 
 @media (max-width: 1024px) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Drawer } from "@jaldee/design-system";
 import { useAuth } from "../auth/useAuth";
@@ -22,11 +22,14 @@ export default function TopBar({
   const activeLocation = useShellStore((s) => s.activeLocation);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const productSummary = useMemo(() => {
-    if (!account?.licensedProducts?.length) return "No products enabled";
-    return account.licensedProducts.join(" / ");
-  }, [account?.licensedProducts]);
+  useEffect(() => {
+    if (isSearchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [isSearchOpen]);
 
   if (!user || !account) return null;
 
@@ -59,19 +62,44 @@ export default function TopBar({
           </button>
         ) : null}
 
-        <span data-testid="topbar-account-name" className="topbar-account-name">
-          {account.name}
-        </span>
-
         <div className="topbar-spacer" />
 
-        <div data-testid="topbar-search-wrapper" className="topbar-search-wrapper">
+        <button
+          type="button"
+          data-testid="topbar-search-toggle"
+          className="topbar-search-toggle"
+          aria-label="Open search"
+          aria-expanded={isSearchOpen}
+          onClick={() => setIsSearchOpen(true)}
+        >
+          {"\u{1F50D}"}
+        </button>
+
+        <div
+          data-testid="topbar-search-wrapper"
+          className="topbar-search-wrapper"
+          data-open={isSearchOpen}
+        >
           <span className="topbar-search-icon">{"\u{1F50D}"}</span>
           <input
+            ref={searchInputRef}
             data-testid="topbar-search"
             placeholder="Search anything..."
             className="topbar-search"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setIsSearchOpen(false);
+              }
+            }}
           />
+          <button
+            type="button"
+            className="topbar-search-close"
+            aria-label="Close search"
+            onClick={() => setIsSearchOpen(false)}
+          >
+            x
+          </button>
         </div>
 
         <div className="shell-divider" />
@@ -142,7 +170,6 @@ export default function TopBar({
             </div>
             <h2 className="account-drawer-title">{account.name}</h2>
             <p className="account-drawer-subtitle">{user.name}</p>
-            <p className="account-drawer-caption">{productSummary}</p>
             {activeLocation && (
               <div className="account-drawer-chip">{activeLocation.name}</div>
             )}

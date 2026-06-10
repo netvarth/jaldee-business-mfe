@@ -14,14 +14,15 @@ const TASK_SETTINGS_REQUEST_CONFIG = {
 };
 
 function buildTenantTaskSearchRequest(filters?: unknown) {
-  const body =
+  const input =
     filters && typeof filters === "object" && !Array.isArray(filters)
       ? { ...(filters as Record<string, unknown>) }
       : {};
-  const rawPage = Number(body.page);
-  const rawSize = Number(body.size);
-  const rawFrom = Number(body.from);
-  const rawCount = Number(body.count);
+  const body: Record<string, unknown> = {};
+  const rawPage = Number(input.page);
+  const rawSize = Number(input.size);
+  const rawFrom = Number(input.from);
+  const rawCount = Number(input.count);
   const size = Number.isFinite(rawSize) && rawSize > 0
     ? rawSize
     : Number.isFinite(rawCount) && rawCount > 0
@@ -32,13 +33,72 @@ function buildTenantTaskSearchRequest(filters?: unknown) {
     : Number.isFinite(rawFrom) && rawFrom >= 0
       ? Math.floor(rawFrom / size)
       : 0;
-  const sort = typeof body.sort === "string" ? body.sort : undefined;
+  const sort = typeof input.sort === "string" ? input.sort : undefined;
+  const directKeys = [
+    "title",
+    "source",
+    "sourceService",
+    "feature",
+    "featureModule",
+    "statusId",
+    "assigneeUid",
+    "assigneeId",
+    "assigneeName",
+    "assigneeCode",
+    "managerUid",
+    "managerName",
+    "managerCode",
+    "generatedByUid",
+    "generatedByName",
+    "categoryId",
+    "typeId",
+    "priorityId",
+    "locationId",
+    "dueDate",
+    "originFrom",
+    "originUid",
+    "originId",
+  ];
 
-  delete body.from;
-  delete body.count;
-  delete body.page;
-  delete body.size;
-  delete body.sort;
+  directKeys.forEach((key) => {
+    if (input[key] !== undefined && input[key] !== null && input[key] !== "") {
+      body[key] = input[key];
+    }
+  });
+
+  if (body.title === undefined && input["title-like"]) {
+    body.title = input["title-like"];
+  }
+  if (body.statusId === undefined && input["status-eq"]) {
+    body.statusId = input["status-eq"];
+  }
+  if (body.priorityId === undefined && input["priority-eq"]) {
+    body.priorityId = input["priority-eq"];
+  }
+  if (body.categoryId === undefined && input["category-eq"]) {
+    body.categoryId = input["category-eq"];
+  }
+  if (body.typeId === undefined && input["type-eq"]) {
+    body.typeId = input["type-eq"];
+  }
+  if (body.assigneeUid === undefined && input["assignee-eq"]) {
+    body.assigneeUid = input["assignee-eq"];
+  }
+  if (body.originFrom === undefined && input["origin-eq"]) {
+    body.originFrom = input["origin-eq"];
+  }
+  if (body.dueDate === undefined && input["dueDate-eq"]) {
+    body.dueDate = input["dueDate-eq"];
+  }
+  if (body.dueDate === undefined && input["dueDate-gte"] && input["dueDate-gte"] === input["dueDate-lte"]) {
+    body.dueDate = input["dueDate-gte"];
+  }
+  if (body.dueDate === undefined && input["dueDate-gte"] && input["dueDate-lte"] === undefined) {
+    body.dueDate = input["dueDate-gte"];
+  }
+  if (body.dueDate === undefined && input["dueDate-lte"] && input["dueDate-gte"] === undefined) {
+    body.dueDate = input["dueDate-lte"];
+  }
 
   return {
     body,

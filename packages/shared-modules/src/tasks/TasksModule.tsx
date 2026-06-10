@@ -25,7 +25,6 @@ import {
   useSaveTenantTaskAttachments,
   useTenantTaskByUid,
   useTenantTasks,
-  useTenantTasksCount,
   useUpdateTenantTaskAssignee,
   useUpdateTenantTaskPriority,
   useUpdateTenantTaskProgress,
@@ -46,6 +45,7 @@ import { TaskTemplatesView } from "./TaskTemplates";
 import { TaskSettingsView } from "./TaskSettings";
 import { TaskDetailContent, TaskDetailDialog, TaskFormDialog } from "./TaskDialogs";
 import { TasksListView } from "./TaskListView";
+import { TaskPaginationFooter } from "./TaskPaginationFooter";
 import { CrmLeadStageTasksView, TasksCalendarView } from "./TaskCalendarViews";
 import { useTaskLookups } from "./taskLookups";
 import type { TaskLookupData } from "./taskLookups";
@@ -89,6 +89,7 @@ const EMPTY_FORM: TaskFormValues = {
 };
 
 type TaskAdvancedFilters = {
+  query?: string;
   fromDueDate?: string;
   toDueDate?: string;
   fromCreatedDate?: string;
@@ -170,17 +171,19 @@ function TasksWorkspace() {
 
   return (
     <div data-testid="tasks-module" data-active-view={view} className="space-y-4">
-      <PageHeader
-        title="Tasks"
-        subtitle="Track assigned, automated, and product-linked work across locations."
-        actions={
-          view === "overview" ? (
-            <Button type="button" variant="primary" onClick={() => setCreateTaskOpen(true)} id="btnCreateTask_SM_Tasks">
-              Create Task
-            </Button>
-          ) : undefined
-        }
-      />
+      {view !== "detail" ? (
+        <PageHeader
+          title="Tasks"
+          subtitle="Track assigned, automated, and product-linked work across locations."
+          actions={
+            view === "overview" ? (
+              <Button type="button" variant="primary" onClick={() => setCreateTaskOpen(true)} id="btnCreateTask_SM_Tasks">
+                Create Task
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : null}
 
       {/* Overview — contains Tasks list + Calendar sub-tabs */}
       {view === "overview" && (
@@ -282,11 +285,22 @@ function TaskDetailPage() {
         subtitle={task.originData?.referenceNumber ? `Reference #${task.originData.referenceNumber}` : "Task details and activity"}
         back={{ label: "Back to Tasks", href: "/tasks" }}
         onNavigate={goBack}
+        actions={
+          <>
+            <Button type="button" variant="outline" onClick={() => setTaskDialog({ mode: "edit", task })} id="btnEditTask_SM_Detail">
+              Edit
+            </Button>
+            <Button type="button" variant="danger" disabled={deleteTask.isPending} onClick={() => removeTask(task)} id="btnDeleteTask_SM_Detail">
+              Delete
+            </Button>
+          </>
+        }
       />
       <SectionCard className="border-slate-200 shadow-sm">
         <TaskDetailContent
           task={task}
           lookups={lookups}
+          hideInlineActions
           updating={
             updateAssignee.isPending ||
             removeAssignee.isPending ||
@@ -453,6 +467,7 @@ function TaskBoardBucketList({
         page,
         scope: "all",
         pageSize: TASK_BOARD_PAGE_SIZE,
+        searchText: filters.query,
         userId: getUserId(user),
         locationId: location?.id,
         statusId: dashboardView === "status" ? String(bucket.id) : filters.statusId,
@@ -470,14 +485,13 @@ function TaskBoardBucketList({
   );
 
   const tasksQuery = useTenantTasks(apiFilters);
-  const countQuery = useTenantTasksCount(apiFilters);
   const detailQuery = useTenantTaskByUid(selectedTaskUid || "");
   const updateTask = useUpdateTenantTaskRecord();
   const removeAssignee = useRemoveTenantTaskAssignee();
   const updateAssignee = useUpdateTenantTaskAssignee();
   const updateStatus = useUpdateTenantTaskStatus();
   const tasks = normalizeArray<unknown>(tasksQuery.data).map(normalizeTenantTask);
-  const total = normalizeCount(countQuery.data, tasks.length);
+  const total = normalizeCount(tasksQuery.data, tasks.length);
   const rawDetail = normalizeData<unknown>(detailQuery.data);
   const selectedTask = selectedTaskUid
     ? (rawDetail ? normalizeTenantTask(rawDetail) : null) ?? tasks.find((task) => task.taskUid === selectedTaskUid) ?? null
@@ -556,31 +570,20 @@ function TaskBoardBucketList({
             />
           ))}
         </div>
-      ) : tasksQuery.isLoading || countQuery.isLoading ? (
+      ) : tasksQuery.isLoading ? (
         <div className="p-4 text-sm text-slate-500">Loading tasks...</div>
       ) : (
         <EmptyState title="No Tasks Found" description="Adjust filters or add a task in this group." />
       )}
 
-      {total > TASK_BOARD_PAGE_SIZE ? (
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4">
-          <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-            Previous
-          </Button>
-          <span className="text-sm text-slate-600">
-            Page {page} of {Math.max(1, Math.ceil(total / TASK_BOARD_PAGE_SIZE))}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={page >= Math.ceil(total / TASK_BOARD_PAGE_SIZE)}
-            onClick={() => setPage((value) => value + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      ) : null}
+      <TaskPaginationFooter
+        page={page}
+        pageSize={TASK_BOARD_PAGE_SIZE}
+        total={total}
+        onChange={setPage}
+        className="px-4 md:px-4"
+        testId="tasks-board-card-pagination"
+      />
 
       <TaskDetailDialog task={selectedTask} onClose={() => setSelectedTaskUid(null)} lookups={lookups} readOnly />
       <TaskActionDialog
@@ -681,13 +684,19 @@ function TaskAdvancedFiltersPanel({
   onChange: (filters: TaskAdvancedFilters) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const [draftFilters, setDraftFilters] = useState<TaskAdvancedFilters>(filters);
+  const activeFilterCount = Object.values(draftFilters).filter(Boolean).length;
+
+  useEffect(() => {
+    setDraftFilters(filters);
+  }, [filters]);
 
   function setValue(key: keyof TaskAdvancedFilters, value: string) {
-    onChange({ ...filters, [key]: value });
+    setDraftFilters((prev) => ({ ...prev, [key]: value }));
   }
 
   function resetFilters() {
+    setDraftFilters({});
     onChange({});
   }
 
@@ -700,24 +709,28 @@ function TaskAdvancedFiltersPanel({
       </div>
       {open ? (
         <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 md:grid-cols-3">
-          <Input label="Task Date From" id="txtTaskDueFrom_TB_Filter" type="date" value={filters.fromDueDate || ""} onChange={(event) => setValue("fromDueDate", event.target.value)} />
-          <Input label="Task Date To" id="txtTaskDueTo_TB_Filter" type="date" value={filters.toDueDate || ""} onChange={(event) => setValue("toDueDate", event.target.value)} />
-          <Select label="Priority" testId="selectTaskPriority_TB_Filter" value={filters.priorityId || ""} onChange={(event) => setValue("priorityId", event.target.value)} options={[{ value: "", label: "All priorities" }, ...toOptions(lookups.priorities)]} />
-          <Input label="Created From" id="txtTaskCreatedFrom_TB_Filter" type="date" value={filters.fromCreatedDate || ""} onChange={(event) => setValue("fromCreatedDate", event.target.value)} />
-          <Input label="Created To" id="txtTaskCreatedTo_TB_Filter" type="date" value={filters.toCreatedDate || ""} onChange={(event) => setValue("toCreatedDate", event.target.value)} />
-          <Select label="Assignee" testId="selectTaskAssignee_TB_Filter" value={filters.assigneeId || ""} onChange={(event) => setValue("assigneeId", event.target.value)} options={[{ value: "", label: "All assignees" }, ...userOptions(lookups.users)]} />
-          <Input label="Reference Number" id="txtTaskReference_TB_Filter" value={filters.originReferenceNo || ""} onChange={(event) => setValue("originReferenceNo", event.target.value)} />
-          <Input label="Clinic Name" id="txtTaskClinic_TB_Filter" value={filters.originCustomerName || ""} onChange={(event) => setValue("originCustomerName", event.target.value)} />
+          <Input label="Task Name" id="txtTaskName_TB_Filter" value={draftFilters.query || ""} onChange={(event) => setValue("query", event.target.value)} />
+          <Input label="Due Date" id="txtTaskDueFrom_TB_Filter" type="date" value={draftFilters.fromDueDate || ""} onChange={(event) => setValue("fromDueDate", event.target.value)} />
+          <Select label="Priority" testId="selectTaskPriority_TB_Filter" value={draftFilters.priorityId || ""} onChange={(event) => setValue("priorityId", event.target.value)} options={[{ value: "", label: "All priorities" }, ...toOptions(lookups.priorities)]} />
+          <Select label="Assignee" testId="selectTaskAssignee_TB_Filter" value={draftFilters.assigneeId || ""} onChange={(event) => setValue("assigneeId", event.target.value)} options={[{ value: "", label: "All assignees" }, ...userOptions(lookups.users)]} />
           {dashboardView === "category" ? (
-            <Select label="Status" testId="selectTaskStatus_TB_Filter" value={filters.statusId || ""} onChange={(event) => setValue("statusId", event.target.value)} options={[{ value: "", label: "All statuses" }, ...toOptions(lookups.statuses)]} />
+            <Select label="Status" testId="selectTaskStatus_TB_Filter" value={draftFilters.statusId || ""} onChange={(event) => setValue("statusId", event.target.value)} options={[{ value: "", label: "All statuses" }, ...toOptions(lookups.statuses)]} />
           ) : (
-            <Select label="Category" testId="selectTaskCategory_TB_Filter" value={filters.categoryId || ""} onChange={(event) => setValue("categoryId", event.target.value)} options={[{ value: "", label: "All categories" }, ...toOptions(lookups.categories)]} />
+            <Select label="Category" testId="selectTaskCategory_TB_Filter" value={draftFilters.categoryId || ""} onChange={(event) => setValue("categoryId", event.target.value)} options={[{ value: "", label: "All categories" }, ...toOptions(lookups.categories)]} />
           )}
           <div className="flex items-end justify-end gap-2 md:col-span-3">
             <Button type="button" variant="outline" onClick={resetFilters} id="btnResetAdvancedTaskFilters_TB_Filter">
               Reset
             </Button>
-            <Button type="button" variant="primary" onClick={() => setOpen(false)} id="btnApplyAdvancedTaskFilters_TB_Filter">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                onChange(draftFilters);
+                setOpen(false);
+              }}
+              id="btnApplyAdvancedTaskFilters_TB_Filter"
+            >
               Apply
             </Button>
           </div>

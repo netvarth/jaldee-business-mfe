@@ -11,6 +11,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: SidebarProps) {
+  const account = useShellStore((s) => s.account);
   const activeProduct = useShellStore((s) => s.activeProduct);
   const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
   const sections: SidebarSection[] = activeProduct
     ? SIDEBAR_CONFIG[activeProduct] ?? []
     : BASE_CRM_SIDEBAR_SECTIONS;
+  const submenuTitle = account?.name ?? "Jaldee Business";
 
   function toggleExpand(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -45,6 +47,7 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
       data-kind={isBaseCrm ? "base-crm" : "product"}
       className="sidebar"
     >
+      <SubmenuHeader title={submenuTitle} />
       {!isBaseCrm ? <LocationSwitcher /> : null}
 
       {isBaseCrm ? (
@@ -80,6 +83,25 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
       )}
     </div>
   );
+}
+
+function SubmenuHeader({ title }: { title: string }) {
+  return (
+    <div className="settings-details-card sidebar-details-card">
+      <div className="settings-card-avatar">{getHeaderLetters(title)}</div>
+      <div className="settings-card-meta">
+        <div className="settings-card-name">{title}</div>
+      </div>
+    </div>
+  );
+}
+
+function getHeaderLetters(value: string) {
+  return value
+    .split(" ")
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }
 
 interface RowProps {

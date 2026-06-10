@@ -31,13 +31,11 @@ const calendarModeOptions: Array<{ label: string; value: TaskCalendarMode }> = [
 ];
 
 export function TasksCalendarView() {
-  const { user, location } = useSharedModulesContext();
-  const [selectedTaskUid, setSelectedTaskUid] = useState<string | null>(null);
+  const { user, location, navigate } = useSharedModulesContext();
   const [dateFilterType, setDateFilterType] = useState<TaskCalendarDateFilter>("taskDate");
   const [calendarMode, setCalendarMode] = useState<TaskCalendarMode>("list");
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [hasAlignedToTasks, setHasAlignedToTasks] = useState(false);
-  const lookups = useTaskLookups();
 
   const filters = useMemo(
     () =>
@@ -53,7 +51,6 @@ export function TasksCalendarView() {
 
   const tasksQuery = useTenantTasks(filters);
   const tasks = normalizeArray<unknown>(tasksQuery.data).map(normalizeTenantTask);
-  const selectedTask = selectedTaskUid ? tasks.find((task) => task.taskUid === selectedTaskUid) ?? null : null;
 
   const datedTasks = useMemo(() => {
     return tasks
@@ -105,6 +102,14 @@ export function TasksCalendarView() {
   function goToday() {
     setHasAlignedToTasks(true);
     setCurrentDate(new Date());
+  }
+
+  function openTask(taskUid: string) {
+    if (navigate) {
+      navigate(`/detail/${taskUid}`);
+      return;
+    }
+    window.location.assign(`/tasks/detail/${encodeURIComponent(taskUid)}`);
   }
 
   const calendarTitle = formatCalendarTitle(currentDate, calendarMode);
@@ -202,7 +207,7 @@ export function TasksCalendarView() {
                     setCurrentDate(date);
                     setHasAlignedToTasks(true);
                   }}
-                  onEventClick={(event) => setSelectedTaskUid(event.task.taskUid)}
+                  onEventClick={(event) => openTask(event.task.taskUid)}
                   className="border-0 shadow-none"
                   hideToolbar
                 />
@@ -223,7 +228,7 @@ export function TasksCalendarView() {
                         key={task.taskUid}
                         type="button"
                         className="grid w-full grid-cols-[4.5rem_0.75rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 last:border-b-0 hover:bg-slate-50"
-                        onClick={() => setSelectedTaskUid(task.taskUid)}
+                        onClick={() => openTask(task.taskUid)}
                       >
                         <span className="text-slate-900">all-day</span>
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-500" aria-hidden="true" />
@@ -237,7 +242,6 @@ export function TasksCalendarView() {
           </div>
         </div>
       </SectionCard>
-      <TaskDetailDialog task={selectedTask} onClose={() => setSelectedTaskUid(null)} lookups={lookups} readOnly />
     </>
   );
 }

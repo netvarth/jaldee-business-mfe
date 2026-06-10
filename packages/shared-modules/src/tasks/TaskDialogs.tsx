@@ -143,6 +143,7 @@ export function TaskDetailContent({
   lookups,
   updating = false,
   readOnly = false,
+  hideInlineActions = false,
   onEdit,
   onDelete,
   onAssigneeChange,
@@ -154,6 +155,7 @@ export function TaskDetailContent({
   lookups: TaskLookupData;
   updating?: boolean;
   readOnly?: boolean;
+  hideInlineActions?: boolean;
   onEdit?: (task: TaskRow) => void;
   onDelete?: (task: TaskRow) => void;
   onAssigneeChange?: (task: TaskRow, assigneeId: string) => Promise<unknown>;
@@ -218,7 +220,7 @@ export function TaskDetailContent({
             Save
           </Button>
         </div>
-        {!readOnly && (
+        {!readOnly && !hideInlineActions && (
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onEdit?.(task)} id="btnEditTask_SM_Detail">
               Edit

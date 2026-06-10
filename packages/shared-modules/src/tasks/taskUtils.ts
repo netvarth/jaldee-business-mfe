@@ -23,19 +23,15 @@ export function buildTaskFilters(input: TaskFilters & { userId?: string; locatio
     count: input.pageSize,
   };
 
-  if (input.searchText?.trim()) filters["title-like"] = input.searchText.trim();
-  if (input.statusId) filters["status-eq"] = input.statusId;
-  if (input.priorityId) filters["priority-eq"] = input.priorityId;
-  if (input.categoryId) filters["category-eq"] = input.categoryId;
-  if (input.assigneeId) filters["assignee-eq"] = input.assigneeId;
-  if (input.scope === "my" && input.userId) filters["assignee-eq"] = input.userId;
-  if (input.scope === "automation") filters["origin-eq"] = "AUTOMATION";
-  if (input.fromDueDate) filters["dueDate-gte"] = input.fromDueDate;
-  if (input.toDueDate) filters["dueDate-lte"] = input.toDueDate;
-  if (input.fromCreatedDate) filters["createdDate-gte"] = input.fromCreatedDate;
-  if (input.toCreatedDate) filters["createdDate-lte"] = input.toCreatedDate;
-  if (input.originReferenceNo?.trim()) filters["originReferenceNo-like"] = input.originReferenceNo.trim();
-  if (input.originCustomerName?.trim()) filters["originCustomerName-like"] = input.originCustomerName.trim();
+  if (input.searchText?.trim()) filters.title = input.searchText.trim();
+  if (input.statusId) filters.statusId = input.statusId;
+  if (input.priorityId) filters.priorityId = input.priorityId;
+  if (input.categoryId) filters.categoryId = input.categoryId;
+  if (input.assigneeId) filters.assigneeUid = input.assigneeId;
+  if (input.scope === "my" && input.userId) filters.assigneeUid = input.userId;
+  if (input.scope === "automation") filters.originFrom = "AUTOMATION";
+  if (input.fromDueDate && (!input.toDueDate || input.fromDueDate === input.toDueDate)) filters.dueDate = input.fromDueDate;
+  if (!input.fromDueDate && input.toDueDate) filters.dueDate = input.toDueDate;
 
   return filters;
 }
@@ -221,6 +217,8 @@ export function normalizeCount(response: unknown, fallback: number) {
   if (typeof payload?.count === "number") return payload.count;
   if (typeof payload?.total === "number") return payload.total;
   if (typeof payload?.totalElements === "number") return payload.totalElements;
+  if (typeof payload?.page?.totalElements === "number") return payload.page.totalElements;
+  if (typeof payload?.page?.total === "number") return payload.page.total;
   return fallback;
 }
 
