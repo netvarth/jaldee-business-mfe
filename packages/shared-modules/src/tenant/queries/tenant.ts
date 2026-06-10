@@ -698,14 +698,6 @@ export function useUpdateDepartmentStatus() {
   });
 }
 
-export function useDepartmentsCount(filters?: unknown) {
-  const api = useApiScope();
-  return useQuery({
-    queryKey: [TENANT_KEY, "departments-count", filters],
-    queryFn: () => services.getDepartmentsCount(api, filters),
-  });
-}
-
 export function useDefaultDepartment() {
   const api = useApiScope();
   return useQuery({

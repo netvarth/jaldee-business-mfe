@@ -653,15 +653,13 @@ async function normalizeLoginResponse(raw: unknown): Promise<SessionResponse> {
   const normalized = normalizeSessionResponse(raw);
   const [accountSettings, tenantSettings] = await Promise.all([
     fetchAccountSettings(),
-    authMode === "token" ? fetchTenantSettings() : Promise.resolve(null),
+    fetchTenantSettings(),
   ]);
   const licensedProducts =
-    authMode === "token"
-      ? deriveLicensedProductsFromTenantSettings(
-        normalized.account.licensedProducts,
-        tenantSettings
-      )
-      : normalized.account.licensedProducts;
+    deriveLicensedProductsFromTenantSettings(
+      normalized.account.licensedProducts,
+      tenantSettings
+    );
 
   return {
     ...normalized,

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Button, DataTable, EmptyState, Icon, Popover, PopoverSection, Select, StatCard, Tabs, type ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
-import { useUserTeams, useUsersCount } from "../queries/users";
+import { useUserTeams } from "../queries/users";
 import type { UserTeam } from "../types";
 import { FunnelGlyph, PlusGlyph, UserStatusBadge, UsersPageShell } from "./shared";
 import { CreateTeamDialog, CreateUserDialog } from "./UserCreateDialogs";
@@ -16,18 +16,21 @@ export function UserTeamsList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const teamsQuery = useUserTeams(status);
   const allTeamsQuery = useUserTeams("all");
-  const activeUsersQuery = useUsersCount({
-    status: "ACTIVE",
-    userType: "all",
-    departmentId: "all",
-  });
-  const totalUsersQuery = useUsersCount({
-    status: "all",
-    userType: "all",
-    departmentId: "all",
-  });
   const rows = teamsQuery.data ?? [];
   const totalTeams = allTeamsQuery.data?.length ?? rows.length;
+  const allTeamMembers = useMemo(() => {
+    const memberMap = new Map<string, { status?: string }>();
+    (allTeamsQuery.data ?? []).forEach((team) => {
+      team.members.forEach((member) => {
+        if (member.id) {
+          memberMap.set(member.id, { status: member.status });
+        }
+      });
+    });
+    return Array.from(memberMap.values());
+  }, [allTeamsQuery.data]);
+  const totalUsers = allTeamMembers.length;
+  const activeUsers = allTeamMembers.filter((member) => member.status === "ACTIVE").length;
 
   const columns = useMemo<ColumnDef<UserTeam>[]>(
     () => [
@@ -99,7 +102,7 @@ export function UserTeamsList() {
       <div className="grid gap-4 md:grid-cols-3">
           <StatCard
             label="Total Users"
-            value={totalUsersQuery.data ?? "-"}
+            value={totalUsers}
             accent="indigo"
             icon={<Icon name="list" />}
           />
@@ -111,7 +114,7 @@ export function UserTeamsList() {
           />
           <StatCard
             label="Active Users"
-            value={activeUsersQuery.data ?? "-"}
+            value={activeUsers}
             accent="emerald"
             icon={<Icon name="list" />}
           />

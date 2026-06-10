@@ -39,6 +39,15 @@ interface CustomerListResult {
   total: number;
 }
 
+const CONSUMER_SEARCH_FIELDS = new Set([
+  "phoneE164",
+  "email",
+  "group",
+  "preferredLanguage",
+  "labelKey",
+  "labelValue",
+]);
+
 function buildConsumerSearchParams(filters: CustomerFilters) {
   const params: Record<string, number> = {};
 
@@ -55,11 +64,11 @@ function buildConsumerSearchBody(filters: CustomerFilters) {
   const search = filters.search?.trim();
 
   if (search) {
-    body.displayName = search;
+    body.q = search;
   }
 
   if (filters.status) {
-    body.statusEnum = toConsumerStatus(filters.status);
+    body.status = toConsumerStatus(filters.status);
   }
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -75,7 +84,9 @@ function buildConsumerSearchBody(filters: CustomerFilters) {
       return;
     }
 
-    body[key] = value;
+    if (CONSUMER_SEARCH_FIELDS.has(key)) {
+      body[key] = value;
+    }
   });
 
   return body;
@@ -475,7 +486,11 @@ export async function deleteCustomerNote(api: ScopedApi, noteId: string): Promis
 export async function getCustomerLabels(api: ScopedApi): Promise<CustomerLabel[]> {
   const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
     buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumerLabels.search),
-    {}
+    {},
+    {
+      skipLocationScope: true,
+      _skipLocationParam: true,
+    }
   );
   return normalizeConsumerList(response.data).map(toLabel);
 }

@@ -13,6 +13,7 @@ import {
   SectionCard,
   Select,
   Tabs,
+  cn,
 } from "@jaldee/design-system";
 import { useModuleAccess } from "../useModuleAccess";
 import { useSharedModulesContext } from "../context";
@@ -702,8 +703,24 @@ function TaskAdvancedFiltersPanel({
   return (
     <div className="mt-3">
       <div className="flex justify-end">
-        <Button type="button" variant={activeFilterCount ? "primary" : "outline"} size="sm" onClick={() => setOpen((value) => !value)} id="btnTaskFilters_TB_TL">
-          Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+        <Button
+          type="button"
+          variant={activeFilterCount ? "primary" : "outline"}
+          size="sm"
+          className={cn(
+            "flex items-center gap-2 rounded-md border-slate-300 px-4 py-2 font-semibold",
+            activeFilterCount ? "" : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+          )}
+          onClick={() => setOpen((value) => !value)}
+          id="btnTaskFilters_TB_TL"
+        >
+          <FilterIcon />
+          <span>Filter</span>
+          {activeFilterCount ? (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+              {activeFilterCount}
+            </span>
+          ) : null}
         </Button>
       </div>
       {open ? (
@@ -736,6 +753,22 @@ function TaskAdvancedFiltersPanel({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+    </svg>
   );
 }
 

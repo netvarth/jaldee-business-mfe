@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
-import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialog, DialogFooter, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Switch, Tabs, cn } from "@jaldee/design-system";
+import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Switch, Tabs, cn } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { resolveCustomerLabel } from "../../labels";
@@ -30,6 +30,14 @@ interface CustomersListProps {
 
 type ListTab = "customers" | "inactive" | "groups";
 type SearchField = "all" | "name" | "phone" | "id";
+type CustomerAdvancedFilters = {
+  phoneE164: string;
+  email: string;
+  group: string;
+  preferredLanguage: string;
+  labelKey: string;
+  labelValue: string;
+};
 
 const SEARCH_FIELD_OPTIONS = [
   { label: "All", value: "all" },
@@ -38,6 +46,15 @@ const SEARCH_FIELD_OPTIONS = [
   { label: "ID", value: "id" },
 ];
 
+const EMPTY_ADVANCED_FILTERS: CustomerAdvancedFilters = {
+  phoneE164: "",
+  email: "",
+  group: "",
+  preferredLanguage: "",
+  labelKey: "",
+  labelValue: "",
+};
+
 export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const { account, product, apiScope, user, basePath } = useSharedModulesContext();
   const navigate = useSharedNavigate();
@@ -45,10 +62,23 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const [activeTab, setActiveTab] = useState<ListTab>("customers");
   const [searchField, setSearchField] = useState<SearchField>("all");
   const [search, setSearch] = useState("");
+  const [advancedFilters, setAdvancedFilters] = useState<CustomerAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<CustomerAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { page, setPage, pageSize, setPageSize } = useUrlPagination({
     namespace: "customersList",
-    resetDeps: [activeTab, search],
+    resetDeps: [
+      activeTab,
+      search,
+      advancedFilters.phoneE164,
+      advancedFilters.email,
+      advancedFilters.group,
+      advancedFilters.preferredLanguage,
+      advancedFilters.labelKey,
+      advancedFilters.labelValue,
+    ],
   });
+  const [hasChangedPageSize, setHasChangedPageSize] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -82,7 +112,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
     }
 
     if (activeTab === "customers") {
-      return apiScope === "global" ? undefined : "ACTIVE";
+      return undefined;
     }
 
     return "__GROUPS__";
@@ -94,8 +124,9 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
       status: status === "__GROUPS__" ? undefined : status,
       page,
       pageSize,
+      ...advancedFilters,
     }),
-    [page, pageSize, search, status]
+    [advancedFilters, page, pageSize, search, status]
   );
 
   const activeCountFilters = useMemo<CustomerFilters>(
@@ -114,8 +145,10 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
 
   const customersQuery = useCustomersList(filters);
 
-  const shouldFetchActiveCount = !(activeTab === "customers" && !search.trim() && customersQuery.data?.total !== undefined);
-  const shouldFetchInactiveCount = !(activeTab === "inactive" && !search.trim() && customersQuery.data?.total !== undefined);
+  const shouldFetchActiveCount =
+    hasChangedPageSize && !(activeTab === "customers" && !search.trim() && customersQuery.data?.total !== undefined);
+  const shouldFetchInactiveCount =
+    hasChangedPageSize && !(activeTab === "inactive" && !search.trim() && customersQuery.data?.total !== undefined);
 
   const activeCountQuery = useCustomersCount(activeCountFilters, {
     enabled: shouldFetchActiveCount,
@@ -130,6 +163,10 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const inactiveCount = inactiveCountQuery.data ?? (activeTab === "inactive" && !search.trim() ? customersQuery.data?.total : undefined);
   const groupRows = groupsQuery.data ?? [];
   const groupMembers = groupMembersQuery.data ?? [];
+  const appliedAdvancedFilterCount = useMemo(
+    () => Object.values(advancedFilters).filter((value) => Boolean(value.trim())).length,
+    [advancedFilters]
+  );
 
   useEffect(() => {
     setSelectedRowKeys([]);
@@ -540,6 +577,11 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
     setSearch(event.target.value);
   }
 
+  function handlePageSizeChange(nextPageSize: number) {
+    setHasChangedPageSize(true);
+    setPageSize(nextPageSize);
+  }
+
   async function handleExport() {
     const trimmedEmail = exportEmail.trim();
     if (!trimmedEmail) {
@@ -663,17 +705,29 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
               />
             </div>
 
-            <button
+            <Button
               type="button"
-              aria-label="Additional filters"
               data-testid="customers-filter-trigger"
+              variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
               className={cn(
-                "inline-flex h-9 w-9 items-center justify-center rounded-md border border-transparent",
-                "text-[var(--color-primary)] transition-colors hover:bg-[color:color-mix(in_srgb,var(--color-primary)_8%,white)]",
+                "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
+                appliedAdvancedFilterCount > 0
+                  ? ""
+                  : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
               )}
+              onClick={() => {
+                setDraftFilters(advancedFilters);
+                setDrawerOpen(true);
+              }}
             >
               <FilterIcon />
-            </button>
+              <span>Filter</span>
+              {appliedAdvancedFilterCount > 0 ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                  {appliedAdvancedFilterCount}
+                </span>
+              ) : null}
+            </Button>
           </div>
 
           {activeTab === "groups" ? (
@@ -769,7 +823,7 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                 total,
                 mode: "server",
                 onChange: setPage,
-                onPageSizeChange: setPageSize,
+                onPageSizeChange: handlePageSizeChange,
               }}
               emptyState={
                 <EmptyState
@@ -782,6 +836,89 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
           </div>
         </SectionCard>
       </div>
+
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Advanced Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <Input
+              data-testid="customers-filter-phone"
+              label="Phone"
+              placeholder="Enter phone number"
+              value={draftFilters.phoneE164}
+              onChange={(event) => setDraftFilters((current) => ({ ...current, phoneE164: event.target.value }))}
+            />
+            <Input
+              data-testid="customers-filter-email"
+              label="Email"
+              placeholder="email@example.com"
+              value={draftFilters.email}
+              onChange={(event) => setDraftFilters((current) => ({ ...current, email: event.target.value }))}
+            />
+            <Input
+              data-testid="customers-filter-group"
+              label="Group"
+              placeholder="Enter group"
+              value={draftFilters.group}
+              onChange={(event) => setDraftFilters((current) => ({ ...current, group: event.target.value }))}
+            />
+            <Input
+              data-testid="customers-filter-language"
+              label="Preferred Language"
+              placeholder="Enter language"
+              value={draftFilters.preferredLanguage}
+              onChange={(event) => setDraftFilters((current) => ({ ...current, preferredLanguage: event.target.value }))}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                data-testid="customers-filter-label-key"
+                label="Label Key"
+                placeholder="Label key"
+                value={draftFilters.labelKey}
+                onChange={(event) => setDraftFilters((current) => ({ ...current, labelKey: event.target.value }))}
+              />
+              <Input
+                data-testid="customers-filter-label-value"
+                label="Label Value"
+                placeholder="Label value"
+                value={draftFilters.labelValue}
+                onChange={(event) => setDraftFilters((current) => ({ ...current, labelValue: event.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDraftFilters(EMPTY_ADVANCED_FILTERS);
+                setAdvancedFilters(EMPTY_ADVANCED_FILTERS);
+                setPage(1);
+                setDrawerOpen(false);
+              }}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                setAdvancedFilters(draftFilters);
+                setPage(1);
+                setDrawerOpen(false);
+              }}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
 
       <CustomerFormDialog
         open={openCreate}
@@ -1116,8 +1253,16 @@ function SearchIcon() {
 
 function FilterIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-      <path d="M3 4.75C3 4.336 3.336 4 3.75 4h12.5a.75.75 0 0 1 .58 1.225L12 11.125V15.5a.75.75 0 0 1-.4.663l-2 1A.75.75 0 0 1 8.5 16.5v-5.375L3.17 5.225A.75.75 0 0 1 3 4.75Z" />
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
     </svg>
   );
 }

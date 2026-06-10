@@ -53,14 +53,14 @@ export const BASE_SERVICE_ENDPOINTS = {
     byName: (name: string) => `/base-service/v1/api/currencies/name/${pathValue(name)}`,
   },
   departments: {
-    list: "/base-service/v1/api/departments",
-    create: "/base-service/v1/api/departments",
-    detail: (uid: string) => `/base-service/v1/api/departments/${pathValue(uid)}`,
-    update: (uid: string) => `/base-service/v1/api/departments/${pathValue(uid)}`,
+    list: "/base-service/v1/api/tenant/departments",
+    create: "/base-service/v1/api/tenant/departments",
+    detail: (uid: string) => `/base-service/v1/api/tenant/departments/${pathValue(uid)}`,
+    update: (uid: string) => `/base-service/v1/api/tenant/departments/${pathValue(uid)}`,
     status: (uid: string, status: string | number) =>
-      `/base-service/v1/api/departments/${pathValue(uid)}/status/${pathValue(status)}`,
-    count: "/base-service/v1/api/departments/count",
-    default: "/base-service/v1/api/departments/default",
+      `/base-service/v1/api/tenant/departments/${pathValue(uid)}/status/${pathValue(status)}`,
+    count: "/base-service/v1/api/tenant/departments/count",
+    default: "/base-service/v1/api/tenant/departments/default",
   },
   health: {
     status: "/base-service/v1/api/health",

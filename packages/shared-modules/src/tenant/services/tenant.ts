@@ -300,10 +300,6 @@ export async function updateDepartmentStatus(api: ScopedApi, uid: string, status
   return api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.departments.status(uid, status)));
 }
 
-export async function getDepartmentsCount(api: ScopedApi, filters?: unknown) {
-  return api.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.departments.count), { params: filters });
-}
-
 export async function getDefaultDepartment(api: ScopedApi) {
   return api.get(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.departments.default));
 }

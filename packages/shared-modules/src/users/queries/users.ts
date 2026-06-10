@@ -9,7 +9,6 @@ import {
   getUserAccountProfile,
   getUserDetail,
   getUserNonWorkingDaysCount,
-  getUsersCount,
   getUsersDataset,
   listUserDepartments,
   listUserLocations,
@@ -42,16 +41,6 @@ export function useUsersList(filters: UsersFilters) {
   return useQuery({
     queryKey: [USERS_KEY, "list", filters],
     queryFn: () => listUsers(api, filters),
-    placeholderData: (prev) => prev,
-  });
-}
-
-export function useUsersCount(filters: Omit<UsersFilters, "page" | "pageSize" | "searchText">) {
-  const { api } = useSharedModulesContext();
-
-  return useQuery({
-    queryKey: [USERS_KEY, "count", filters],
-    queryFn: () => getUsersCount(api, filters),
     placeholderData: (prev) => prev,
   });
 }

@@ -18,7 +18,6 @@ export { UserDetailView } from "./components/UserDetail";
 export {
   useUsersDataset,
   useUsersList,
-  useUsersCount,
   useUserDetail,
   useUserTeams,
   useUserDepartments,
@@ -30,7 +29,6 @@ export {
 export {
   getUsersDataset,
   listUsers,
-  getUsersCount,
   getUserDetail,
   listUserTeams,
   listUserDepartments,

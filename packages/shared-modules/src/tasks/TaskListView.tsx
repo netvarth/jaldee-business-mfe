@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, Select } from "@jaldee/design-system";
+import { Badge, Button, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, Select, cn } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../context";
 import {
   useRemoveTenantTaskAssignee,
@@ -274,11 +274,17 @@ function TaskFiltersBar({
         <Button
           type="button"
           variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
-          className="ml-auto flex items-center gap-2"
+          className={cn(
+            "ml-auto flex items-center gap-2 rounded-md border-slate-300 px-4 py-2 font-semibold",
+            appliedAdvancedFilterCount > 0
+              ? ""
+              : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+          )}
           onClick={() => setDrawerOpen(true)}
           id="btnTaskDrawerFilters_SM_Tasks"
         >
-          <span>More Filters</span>
+          <FilterIcon />
+          <span>Filter</span>
           {appliedAdvancedFilterCount > 0 && (
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
               {appliedAdvancedFilterCount}
@@ -351,6 +357,22 @@ function TaskFiltersBar({
         </div>
       </Drawer>
     </>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+    </svg>
   );
 }
 

@@ -305,8 +305,8 @@ export const SETTINGS_MENU_GROUPS: SettingsMenuGroup[] = [
     items: [
       { id: "settings-company", label: "Company", path: "/settings/company" },
       { id: "settings-branding", label: "Branding", path: "/settings/branding" },
-      { id: "settings-branches", label: "Branches & Locations", path: "/settings/branches-locations" },
-      { id: "settings-subscription", label: "Subscription & Products", path: "/settings/subscription-products" },
+      { id: "settings-branches", label: "Branches & Locations", path: "/settings/locations" },
+      { id: "settings-subscription", label: "Subscription & Products", path: "/settings/subscriptions" },
     ],
   },
   {

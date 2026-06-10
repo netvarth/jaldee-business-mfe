@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Checkbox, Input, PageHeader, SectionCard, Select, Switch } from "@jaldee/design-system";
+import { apiClient } from "@jaldee/api-client";
 import { useLocation, useNavigate } from "react-router-dom";
+import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../services/serviceUrls";
+import { useShellStore } from "../store/shellStore";
 import "./SettingsPage.css";
 
 type SettingsNavItem = {
@@ -13,8 +16,8 @@ type SettingsNavItem = {
 const NAV_ITEMS: SettingsNavItem[] = [
   { key: "company", label: "Company", icon: "building", group: "GENERAL" },
   { key: "branding", label: "Branding", icon: "palette", group: "GENERAL" },
-  { key: "branches-locations", label: "Branches & Locations", icon: "mapPin", group: "GENERAL" },
-  { key: "subscription-products", label: "Subscription & Products", icon: "box", group: "GENERAL" },
+  { key: "locations", label: "Branches & Locations", icon: "mapPin", group: "GENERAL" },
+  { key: "subscriptions", label: "Subscription & Products", icon: "box", group: "GENERAL" },
   { key: "billing-tax", label: "Billing & Tax", icon: "creditCard", group: "BUSINESS" },
   { key: "communications", label: "Communications", icon: "messageSquare", group: "BUSINESS" },
   { key: "team-access", label: "Team & Access", icon: "users", group: "BUSINESS" },
@@ -42,6 +45,18 @@ type UsageItem = {
   value: string;
   total: string;
   progress: number;
+};
+
+type TenantSettingsRecord = Record<string, unknown>;
+
+type LocationRow = {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  status: string;
+  timezone: string;
+  isBase: boolean;
 };
 
 const CORE_PRODUCTS: ProductCardItem[] = [
@@ -188,16 +203,160 @@ const USAGE_ITEMS: UsageItem[] = [
   { id: "storage", label: "Storage", value: "2.1", total: "10GB", progress: 21 },
 ];
 
+const SETTINGS_ROUTE_ALIASES: Record<string, string> = {
+  "branches-locations": "locations",
+  "subscription-products": "subscriptions",
+};
+
+function toRecord(value: unknown): TenantSettingsRecord {
+  return typeof value === "object" && value !== null ? (value as TenantSettingsRecord) : {};
+}
+
+function readString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function readBoolean(value: unknown, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "enabled", "active", "yes"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "disabled", "inactive", "no"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
+function readProductFlag(settings: TenantSettingsRecord, id: string, fallback: boolean) {
+  const keyMap: Record<string, string[]> = {
+    booking: ["booking", "bookingEnabled", "bookingStatus"],
+    health: ["health", "healthCrm", "healthCrmEnabled", "healthCrmStatus"],
+    karty: ["karty", "eCommerce", "ecommerce", "kartyEnabled", "kartyStatus"],
+    lending: ["lending", "lendingCrm", "lendingCrmEnabled", "lendingCrmStatus"],
+    membership: ["membership", "membershipEnabled", "membershipStatus"],
+    leads: ["leads", "crm", "crmEnabled", "leadSuite"],
+    tasks: ["tasks", "taskManager", "tasksEnabled"],
+    donations: ["donations", "donationsEnabled"],
+  };
+
+  const keys = keyMap[id] ?? [id];
+  for (const key of keys) {
+    if (key in settings) {
+      return readBoolean(settings[key], fallback);
+    }
+  }
+
+  return fallback;
+}
+
+function applyProductSetting(item: ProductCardItem, settings: TenantSettingsRecord): ProductCardItem {
+  const enabled = readProductFlag(settings, item.id, item.enabled);
+  return {
+    ...item,
+    enabled,
+    statusLabel: enabled ? "Active" : "Available",
+    statusMeta: enabled ? (item.locked ? "Included in plan" : "Enabled for this workspace") : "Click to enable",
+    actionLabel: enabled ? item.actionLabel ?? "Configure" : undefined,
+  };
+}
+
+function extractCollection(input: unknown): unknown[] {
+  if (Array.isArray(input)) {
+    return input;
+  }
+
+  const record = toRecord(input);
+  if (Array.isArray(record.content)) {
+    return record.content;
+  }
+  if (Array.isArray(record.data)) {
+    return record.data;
+  }
+  if (Array.isArray(record.items)) {
+    return record.items;
+  }
+  if (Array.isArray(record.locations)) {
+    return record.locations;
+  }
+
+  const embedded = toRecord(record._embedded);
+  const embeddedList = Object.values(embedded).find(Array.isArray);
+  return Array.isArray(embeddedList) ? embeddedList : [];
+}
+
+function normalizeLocations(input: unknown): LocationRow[] {
+  return extractCollection(input).map((value, index) => {
+    if (typeof value === "string") {
+      return {
+        id: value,
+        name: value,
+        code: value,
+        address: "",
+        status: "Enabled",
+        timezone: "",
+        isBase: index === 0,
+      };
+    }
+
+    const record = toRecord(value);
+    const id = readString(record.uid, record.locationUid, record.id, record.locationId) || `loc-${index + 1}`;
+    return {
+      id,
+      name: readString(record.place, record.name, record.locationName, record.branchName, record.displayName) || `Location ${index + 1}`,
+      code: readString(record.code, record.locationCode, record.branchCode, record.shortName) || `LOC${index + 1}`,
+      address: readString(record.address, record.displayAddress, record.formattedAddress),
+      status: readString(record.status, record.locationStatus) || "Enabled",
+      timezone: readString(record.timezone, record.defaultTimezone),
+      isBase: readBoolean(record.baseLocation, false) || readBoolean(record.isBase, false),
+    };
+  });
+}
+
+function formatPlanName(value: string) {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
 export default function SettingsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [companyName, setCompanyName] = useState("Acme Healthcare Pvt Ltd");
-  const [displayName, setDisplayName] = useState("Acme Health");
-  const [industry, setIndustry] = useState("healthcare");
-  const [legalEntityName, setLegalEntityName] = useState("Acme Healthcare Private Limited");
-  const [gstin, setGstin] = useState("27AAAAA0000A1Z5");
-  const [pan, setPan] = useState("AAAAA0000A");
-  const [registeredAddress, setRegisteredAddress] = useState("123 Health Street, Jubilee Hills, Hyderabad, Telangana - 500033");
+  const account = useShellStore((state) => state.account);
+  const setAvailableLocations = useShellStore((state) => state.setAvailableLocations);
+  const setActiveLocation = useShellStore((state) => state.setLocation);
+  const [tenantSettings, setTenantSettings] = useState<TenantSettingsRecord | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [locations, setLocations] = useState<LocationRow[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState(account?.name ?? "Jaldee Business");
+  const [displayName, setDisplayName] = useState(account?.name ?? "Jaldee Business");
+  const [industry, setIndustry] = useState(account?.domain ?? "healthcare");
+  const [legalEntityName, setLegalEntityName] = useState("");
+  const [gstin, setGstin] = useState("");
+  const [pan, setPan] = useState("");
+  const [registeredAddress, setRegisteredAddress] = useState("");
   const [currency, setCurrency] = useState("INR");
   const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
@@ -208,7 +367,8 @@ export default function SettingsPage() {
 
   const activeKey = useMemo(() => {
     const parts = location.pathname.split("/").filter(Boolean);
-    return parts[1] ?? "company";
+    const routeKey = parts[1] ?? "company";
+    return SETTINGS_ROUTE_ALIASES[routeKey] ?? routeKey;
   }, [location.pathname]);
 
   const activeItem = NAV_ITEMS.find((item) => item.key === activeKey) ?? NAV_ITEMS[0];
@@ -220,8 +380,155 @@ export default function SettingsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let alive = true;
+
+    async function loadTenantSettings() {
+      setSettingsLoading(true);
+      setSettingsError(null);
+
+      try {
+        const response = await apiClient.get<TenantSettingsRecord>(
+          buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.get),
+        );
+        if (!alive) {
+          return;
+        }
+
+        const data = toRecord(response.data);
+        const profile = toRecord(data.tenantProfile);
+        setTenantSettings(data);
+        setCompanyName(readString(data.tenantName, data.businessName, profile.businessName, account?.name) || "Jaldee Business");
+        setDisplayName(readString(data.brandName, data.displayName, data.tenantName, account?.name) || "Jaldee Business");
+        setIndustry(readString(data.industry, data.domain, account?.domain) || "healthcare");
+        setLegalEntityName(readString(data.legalEntityName, profile.legalEntityName, profile.licenseName) || "");
+        setGstin(readString(data.gstin, data.gstIn, profile.gstin, profile.licenseName) || "");
+        setPan(readString(data.pan, profile.pan) || "");
+        setRegisteredAddress(readString(data.registeredAddress, data.address, profile.address) || "");
+        setCurrency(readString(data.currency, data.defaultCurrency, data.locationCurrency) || "INR");
+        setTimezone(readString(data.timezone, data.defaultTimezone) || "Asia/Kolkata");
+        setDateFormat(readString(data.dateFormat) || "DD/MM/YYYY");
+        setFiscalYearStart(readString(data.fiscalYearStart) || "April");
+        setAutoLockTransactions(readBoolean(data.autoLockTransactions, false));
+        setCoreProducts((current) =>
+          current.map((item) => applyProductSetting(item, data)),
+        );
+        setAddOnModules((current) =>
+          current.map((item) => applyProductSetting(item, data)),
+        );
+      } catch {
+        if (alive) {
+          setSettingsError("Unable to load tenant settings.");
+        }
+      } finally {
+        if (alive) {
+          setSettingsLoading(false);
+        }
+      }
+    }
+
+    void loadTenantSettings();
+
+    return () => {
+      alive = false;
+    };
+  }, [account?.domain, account?.name]);
+
+  useEffect(() => {
+    if (activeKey !== "locations") {
+      return;
+    }
+
+    void loadLocations();
+  }, [activeKey]);
+
   function goTo(key: string) {
     navigate(`/settings/${key}`);
+  }
+
+  async function loadLocations() {
+    setLocationsLoading(true);
+    setLocationsError(null);
+
+    try {
+      const response = await apiClient.get<unknown>(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.search),
+        { params: { page: 0, size: 100 } },
+      );
+      const nextLocations = normalizeLocations(response.data);
+      setLocations(nextLocations);
+      setAvailableLocations(
+        nextLocations.map((item) => ({
+          id: item.id,
+          uid: item.id,
+          name: item.name,
+          code: item.code,
+        })),
+      );
+      const baseLocation = nextLocations.find((item) => item.isBase) ?? nextLocations[0];
+      if (baseLocation) {
+        setActiveLocation({
+          id: baseLocation.id,
+          uid: baseLocation.id,
+          name: baseLocation.name,
+          code: baseLocation.code,
+        });
+      }
+    } catch {
+      setLocationsError("Unable to load locations.");
+    } finally {
+      setLocationsLoading(false);
+    }
+  }
+
+  async function handleSaveSettings() {
+    if (activeItem.key === "locations") {
+      await loadLocations();
+      return;
+    }
+
+    setSettingsSaving(true);
+    setSettingsError(null);
+
+    const selectedCoreProducts = Object.fromEntries(coreProducts.map((item) => [item.id, item.enabled]));
+    const selectedAddOns = Object.fromEntries(addOnModules.map((item) => [item.id, item.enabled]));
+    const payload = {
+      ...(tenantSettings ?? {}),
+      tenantName: companyName.trim(),
+      brandName: displayName.trim(),
+      industry,
+      domain: industry,
+      currency,
+      timezone,
+      dateFormat,
+      fiscalYearStart,
+      autoLockTransactions,
+      legalEntityName: legalEntityName.trim(),
+      gstin: gstin.trim(),
+      pan: pan.trim(),
+      registeredAddress: registeredAddress.trim(),
+      finance: true,
+      booking: Boolean(selectedCoreProducts.booking),
+      health: Boolean(selectedCoreProducts.health),
+      eCommerce: Boolean(selectedCoreProducts.karty),
+      lending: Boolean(selectedCoreProducts.lending),
+      membership: Boolean(selectedAddOns.membership),
+      leads: Boolean(selectedAddOns.leads),
+      tasks: Boolean(selectedAddOns.tasks),
+      donations: Boolean(selectedAddOns.donations),
+    };
+
+    try {
+      const response = await apiClient.put<TenantSettingsRecord>(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update),
+        payload,
+      );
+      setTenantSettings(toRecord(response.data) || payload);
+    } catch {
+      setSettingsError("Unable to save tenant settings.");
+    } finally {
+      setSettingsSaving(false);
+    }
   }
 
   function toggleCoreProduct(id: string, enabled: boolean) {
@@ -261,10 +568,21 @@ export default function SettingsPage() {
       <div className="settings-page__content">
         <PageHeader
           title={activeItem.label}
-          subtitle={activeItem.key === "subscription-products" ? "Manage your plan and the products, modules, and services enabled for Acme Healthcare" : "Your business profile and operating defaults"}
-          actions={<Button variant="primary" className="settings-save-button"><ActionGlyph kind="save" />Save Changes</Button>}
+          subtitle={activeItem.key === "subscriptions" ? `Manage your plan and the products, modules, and services enabled for ${displayName}` : activeItem.key === "locations" ? "Manage branch locations and operating defaults" : "Your business profile and operating defaults"}
+          actions={
+            <Button variant="primary" className="settings-save-button" onClick={handleSaveSettings} disabled={settingsSaving || settingsLoading || locationsLoading}>
+              <ActionGlyph kind={activeItem.key === "locations" ? "refresh" : "save"} />
+              {activeItem.key === "locations" ? "Refresh" : settingsSaving ? "Saving" : "Save Changes"}
+            </Button>
+          }
           className="settings-page__header"
         />
+
+        {settingsError || locationsError ? (
+          <SectionCard className="settings-card settings-alert-card">
+            <p className="settings-alert-card__copy">{settingsError ?? locationsError}</p>
+          </SectionCard>
+        ) : null}
 
         {activeItem.key === "company" ? (
           <div className="settings-page__cards">
@@ -358,15 +676,55 @@ export default function SettingsPage() {
 
             <div className="settings-danger-grid">
               <DangerTile icon="download" title="Export Business Data" description="Download a full archive of your tenant data (JSON/CSV)." />
-              <DangerTile icon="trash2" title="Delete Tenant Account" description="Permanently erase all data for Acme Healthcare." />
+              <DangerTile icon="trash2" title="Delete Tenant Account" description={`Permanently erase all data for ${displayName}.`} />
             </div>
           </div>
-        ) : activeItem.key === "subscription-products" ? (
+        ) : activeItem.key === "locations" ? (
+          <div className="settings-page__cards">
+            <SectionCard className="settings-card">
+              <CardHeading icon="mapPin" title="Locations" subtitle="Tenant locations from the base service" />
+              {locationsLoading ? (
+                <div className="settings-placeholder">
+                  <p className="settings-placeholder__title">Loading locations</p>
+                  <p className="settings-placeholder__copy">Fetching tenant location records.</p>
+                </div>
+              ) : locations.length > 0 ? (
+                <div className="settings-location-grid">
+                  {locations.map((item) => (
+                    <div key={item.id} className="settings-location-card">
+                      <div className="settings-location-card__top">
+                        <div>
+                          <h3>{item.name}</h3>
+                          <p>{item.code}</p>
+                        </div>
+                        <div className="settings-location-card__badges">
+                          {item.isBase ? <Badge variant="info">BASE</Badge> : null}
+                          <Badge variant={item.status.toLowerCase() === "enabled" || item.status.toLowerCase() === "active" ? "success" : "neutral"}>
+                            {item.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="settings-location-card__meta">
+                        <span>{item.address || "No address available"}</span>
+                        <span>{item.timezone || timezone}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="settings-placeholder">
+                  <p className="settings-placeholder__title">No locations found</p>
+                  <p className="settings-placeholder__copy">The tenant locations API returned an empty list.</p>
+                </div>
+              )}
+            </SectionCard>
+          </div>
+        ) : activeItem.key === "subscriptions" ? (
           <div className="settings-page__cards">
             <SectionCard className="settings-card">
               <div className="settings-plan-card">
                 <div>
-                  <h3 className="settings-plan-card__title">Growth Plan</h3>
+                  <h3 className="settings-plan-card__title">{formatPlanName(readString(tenantSettings?.plan, account?.plan) || "growth")} Plan</h3>
                   <p className="settings-plan-card__price">Rs. 4,999 per month, billed annually</p>
                   <div className="settings-plan-card__meta">
                     <NavIcon name="calendar" className="settings-plan-card__meta-icon" />
@@ -651,7 +1009,7 @@ function NavIcon({ name, className }: { name: string; className?: string }) {
   }
 }
 
-function ActionGlyph({ kind, className }: { kind: "save" | "upload"; className?: string }) {
+function ActionGlyph({ kind, className }: { kind: "save" | "upload" | "refresh"; className?: string }) {
   const shared = {
     viewBox: "0 0 24 24",
     fill: "none",
@@ -666,6 +1024,17 @@ function ActionGlyph({ kind, className }: { kind: "save" | "upload"; className?:
         <path d="M5 4h11l3 3v13H5z" />
         <path d="M8 4v6h8V4" />
         <path d="M9 18h6" />
+      </svg>
+    );
+  }
+
+  if (kind === "refresh") {
+    return (
+      <svg {...shared}>
+        <path d="M4 12a8 8 0 0 1 13.7-5.7" />
+        <path d="M18 3v5h-5" />
+        <path d="M20 12a8 8 0 0 1-13.7 5.7" />
+        <path d="M6 21v-5h5" />
       </svg>
     );
   }

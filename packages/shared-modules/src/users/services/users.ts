@@ -497,50 +497,6 @@ export async function listUsers(
   };
 }
 
-export async function getUsersCount(
-  api: ScopedApi,
-  filters: Omit<UsersFilters, "page" | "pageSize" | "searchText">
-): Promise<number> {
-  try {
-    const url = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.list);
-
-    const response = await api.get<any>(
-      url,
-      {
-        params: buildUsersQuery({
-          page: 1,
-          pageSize: 1,
-          status: filters.status,
-          userType: filters.userType,
-          departmentId: filters.departmentId,
-        }),
-      }
-    );
-
-    const data = response.data;
-    if (data && typeof data === "object") {
-      const total = typeof data.totalElements === "number"
-        ? data.totalElements
-        : typeof data.total === "number"
-          ? data.total
-          : typeof data.count === "number"
-            ? data.count
-            : Array.isArray(data.content)
-              ? data.content.length
-              : Array.isArray(data.data)
-                ? data.data.length
-                : 0;
-      return total;
-    }
-    if (Array.isArray(data)) {
-      return data.length;
-    }
-    return 0;
-  } catch {
-    return 0;
-  }
-}
-
 export async function getUserDetail(api: ScopedApi, userId: string): Promise<UserDetail> {
   const detailUrl = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId));
 
@@ -755,16 +711,15 @@ export async function changeUserLoginId(api: ScopedApi, input: ChangeLoginIdInpu
 }
 
 export async function getUsersDataset(api: ScopedApi): Promise<UsersDataset> {
-  const [usersData, totalUsers, teams] = await Promise.all([
+  const [usersData, teams] = await Promise.all([
     listUsers(api, { page: 1, pageSize: 25 }),
-    getUsersCount(api, {}),
     listUserTeams(api),
   ]);
 
   return {
     title: "Team Members",
     subtitle: "Browse providers, assistants, admins, and their assigned teams.",
-    summaries: buildDatasetSummaries(usersData.users, totalUsers || usersData.total, teams),
+    summaries: buildDatasetSummaries(usersData.users, usersData.total, teams),
     users: usersData.users,
     teams,
   };

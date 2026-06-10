@@ -17,7 +17,7 @@ import {
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
-import { useUserDepartments, useUserTeams, useUsersCount, useUsersList, useUserLocations } from "../queries/users";
+import { useUserDepartments, useUserTeams, useUsersList, useUserLocations } from "../queries/users";
 import type { UserSummary } from "../types";
 import { FunnelGlyph, MoreGlyph, PlusGlyph, UserAvatar, UsersPageShell } from "./shared";
 import { AssignLocationsDialog, ChangeLoginIdDialog, CreateTeamDialog, CreateUserDialog } from "./UserCreateDialogs";
@@ -109,17 +109,12 @@ export function UsersList() {
   );
 
   const listQuery = useUsersList(filters);
-  const countQuery = useUsersCount({
-    status: "all",
-    userType: "all",
-    departmentId: "all",
-  });
   const teamsQuery = useUserTeams("all");
   const departmentsQuery = useUserDepartments();
   const locationsQuery = useUserLocations();
 
   const rows = listQuery.data?.users ?? [];
-  const totalUsers = countQuery.data || rows.length;
+  const totalUsers = listQuery.data?.total ?? rows.length;
   const activeUsers = listQuery.data?.total ?? rows.length;
   const totalTeams = teamsQuery.data?.length ?? 0;
   const departmentNameMap = useMemo(
