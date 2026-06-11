@@ -79,6 +79,7 @@ interface ShellStore {
 
   // Actions
   setAuth:          (user: UserContext, account: AccountContext, token: string) => void;
+  setAccount:       (account: AccountContext) => void;
   clearAuth:        () => void;
   setOnboardingStatus: (status: "complete" | "pending") => void;
   setAuthResolved:   (value: boolean) => void;
@@ -112,6 +113,11 @@ export const useShellStore = create<ShellStore>()(
           account: normalizeAccountContext(account),
           accessToken: token,
           isAuthenticated: true,
+        }),
+
+      setAccount: (account) =>
+        set({
+          account: normalizeAccountContext(account),
         }),
 
       setOnboardingStatus: (status) =>

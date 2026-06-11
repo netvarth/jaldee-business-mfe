@@ -11,6 +11,26 @@ type LeadSearchParams = {
   sort?: string;
 };
 
+const LEAD_SEARCH_BODY_KEYS = new Set([
+  "tenantUid",
+  "status",
+  "productTypeEnum",
+  "channelType",
+  "channelUid",
+  "productUid",
+  "ownerId",
+  "locationUid",
+  "assigneeUserId",
+  "fromDate",
+  "toDate",
+  "q",
+  "pipelineUid",
+  "pipelineStageUid",
+  "priority",
+  "noPipeline",
+  "isDuplicate",
+]);
+
 const withoutLocationParam = (params?: LeadSearchParams) => ({
   _skipLocationParam: true,
   ...(params ? { params } : {}),
@@ -319,6 +339,21 @@ function toLeadPayload(lead: Partial<CrmLeadDto>) {
   };
 }
 
+function toLeadSearchBody(filters: Record<string, unknown>) {
+  return Object.entries(filters).reduce<Record<string, unknown>>((body, [key, value]) => {
+    if (!LEAD_SEARCH_BODY_KEYS.has(key)) return body;
+    if (value === undefined || value === null || value === "") return body;
+    if (typeof value === "string" && value.trim() === "") return body;
+    body[key] = typeof value === "string" ? value.trim() : value;
+    return body;
+  }, {});
+}
+
+const leadDetailRequests = new Map<string, Promise<CrmLeadDto>>();
+const leadTenantTaskRequests = new Map<string, Promise<LeadStageTask[]>>();
+const leadDetailCache = new Map<string, CrmLeadDto>();
+const leadTenantTaskCache = new Map<string, LeadStageTask[]>();
+
 export const leadService = {
   async getTaskPriorities() {
     const response = await apiClient.get(
@@ -361,33 +396,53 @@ export const leadService = {
         _skipLocationParam: true,
       } as any
     );
+    if (input.originUid) {
+      leadTenantTaskCache.delete(String(input.originUid));
+      leadTenantTaskRequests.delete(String(input.originUid));
+    }
     return unwrap(response);
   },
 
   async getLeadTenantTasks(leadUid: string) {
-    const response = await apiClient.post(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.search),
-      {
-        "originFrom-eq": "LEAD",
-        "originUid-eq": leadUid,
-      },
-      {
-        skipLocationScope: true,
-        _skipLocationParam: true,
-        params: {
-          page: 0,
-          size: 100,
+    const cachedTasks = leadTenantTaskCache.get(leadUid);
+    if (cachedTasks) return cachedTasks;
+
+    const existingRequest = leadTenantTaskRequests.get(leadUid);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.post(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.search),
+        {
+          "originFrom-eq": "LEAD",
+          "originUid-eq": leadUid,
         },
-      } as any
-    );
-    return unwrapList(response).map(toTenantLeadTask).filter((task) => task.uid);
+        {
+          skipLocationScope: true,
+          _skipLocationParam: true,
+          params: {
+            page: 0,
+            size: 100,
+          },
+        } as any
+      )
+      .then((response) => {
+        const tasks = unwrapList(response).map(toTenantLeadTask).filter((task) => task.uid);
+        leadTenantTaskCache.set(leadUid, tasks);
+        return tasks;
+      })
+      .finally(() => {
+        leadTenantTaskRequests.delete(leadUid);
+      });
+
+    leadTenantTaskRequests.set(leadUid, request);
+    return request;
   },
 
   async search(filters: Record<string, unknown> = {}, params: LeadSearchParams = { page: 0, size: 100 }) {
     const response = await apiClient.post(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search),
-      { ...filters, status: "ACTIVE", page: params.page, size: params.size },
-      withoutLocationParam()
+      toLeadSearchBody(filters),
+      withoutLocationParam(params)
     );
     return toLeadList(response);
   },
@@ -402,10 +457,26 @@ export const leadService = {
   },
 
   async detail(uid: string) {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.detail(uid))
-    );
-    return toLead(unwrap(response));
+    const cachedLead = leadDetailCache.get(uid);
+    if (cachedLead) return cachedLead;
+
+    const existingRequest = leadDetailRequests.get(uid);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.get(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.detail(uid))
+      )
+      .then((response) => {
+        const lead = toLead(unwrap(response));
+        leadDetailCache.set(uid, lead);
+        return lead;
+      })
+      .finally(() => {
+        leadDetailRequests.delete(uid);
+      });
+
+    leadDetailRequests.set(uid, request);
+    return request;
   },
 
   async update(uid: string, lead: Partial<CrmLeadDto>) {
@@ -414,7 +485,10 @@ export const leadService = {
       toLeadPayload(lead),
       withoutLocationParam()
     );
-    return toLead(unwrap(response));
+    const updatedLead = toLead(unwrap(response));
+    leadDetailCache.set(uid, updatedLead);
+    leadTenantTaskCache.delete(uid);
+    return updatedLead;
   },
 
   async completeStage(uid: string) {
@@ -424,7 +498,10 @@ export const leadService = {
       withoutLocationParam()
     );
     const unwrapped = unwrap(response);
-    return unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
+    const updatedLead = unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
+    if (updatedLead) leadDetailCache.set(uid, updatedLead);
+    leadTenantTaskCache.delete(uid);
+    return updatedLead;
   },
 
   async previousStage(uid: string, payload: Record<string, unknown> = {}) {
@@ -434,7 +511,10 @@ export const leadService = {
       withoutLocationParam()
     );
     const unwrapped = unwrap(response);
-    return unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
+    const updatedLead = unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
+    if (updatedLead) leadDetailCache.set(uid, updatedLead);
+    leadTenantTaskCache.delete(uid);
+    return updatedLead;
   },
 
   async updateStatus(uid: string, status: string) {
@@ -457,6 +537,7 @@ export const leadService = {
       undefined,
       withoutLocationParam()
     );
+    leadDetailCache.delete(uid);
   },
 
   async assign(uid: string, assignee: { userId: string; userName: string }) {

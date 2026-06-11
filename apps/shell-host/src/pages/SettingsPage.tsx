@@ -3,6 +3,7 @@ import { Badge, Button, Checkbox, Input, PageHeader, SectionCard, Select, Switch
 import { apiClient } from "@jaldee/api-client";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../services/serviceUrls";
+import { getTenantSettingsForShell, updateTenantSettingsForShell } from "../services/authService";
 import { useShellStore } from "../store/shellStore";
 import "./SettingsPage.css";
 
@@ -337,10 +338,51 @@ function formatPlanName(value: string) {
     .join(" ");
 }
 
+function buildLicensedProductsFromSelection(selectedCoreProducts: Record<string, boolean>) {
+  const products: Array<"health" | "bookings" | "karty" | "finance" | "lending"> = [];
+
+  if (selectedCoreProducts.health) {
+    products.push("health");
+  }
+  if (selectedCoreProducts.booking) {
+    products.push("bookings");
+  }
+  products.push("finance");
+  if (selectedCoreProducts.karty) {
+    products.push("karty");
+  }
+  if (selectedCoreProducts.lending) {
+    products.push("lending");
+  }
+
+  return products;
+}
+
+function buildEnabledModulesFromSelection(currentModules: string[] | undefined, selectedAddOns: Record<string, boolean>) {
+  const modules = new Set(currentModules ?? []);
+  modules.add("customers");
+  modules.add("drive");
+  modules.add("users");
+  modules.add("reports");
+  modules.add("settings");
+  modules.add("finance");
+
+  for (const moduleKey of ["membership", "leads", "tasks"] as const) {
+    if (selectedAddOns[moduleKey]) {
+      modules.add(moduleKey);
+    } else {
+      modules.delete(moduleKey);
+    }
+  }
+
+  return Array.from(modules);
+}
+
 export default function SettingsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const account = useShellStore((state) => state.account);
+  const setAccount = useShellStore((state) => state.setAccount);
   const setAvailableLocations = useShellStore((state) => state.setAvailableLocations);
   const setActiveLocation = useShellStore((state) => state.setLocation);
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsRecord | null>(null);
@@ -381,6 +423,12 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
+    if (location.pathname === "/settings" || location.pathname === "/settings/") {
+      navigate("/settings/company", { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  useEffect(() => {
     let alive = true;
 
     async function loadTenantSettings() {
@@ -388,14 +436,12 @@ export default function SettingsPage() {
       setSettingsError(null);
 
       try {
-        const response = await apiClient.get<TenantSettingsRecord>(
-          buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.get),
-        );
+        const response = await getTenantSettingsForShell();
         if (!alive) {
           return;
         }
 
-        const data = toRecord(response.data);
+        const data = toRecord(response);
         const profile = toRecord(data.tenantProfile);
         setTenantSettings(data);
         setCompanyName(readString(data.tenantName, data.businessName, profile.businessName, account?.name) || "Jaldee Business");
@@ -519,11 +565,15 @@ export default function SettingsPage() {
     };
 
     try {
-      const response = await apiClient.put<TenantSettingsRecord>(
-        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update),
-        payload,
-      );
-      setTenantSettings(toRecord(response.data) || payload);
+      const response = await updateTenantSettingsForShell(payload);
+      setTenantSettings(toRecord(response) || payload);
+      if (account) {
+        setAccount({
+          ...account,
+          licensedProducts: buildLicensedProductsFromSelection(selectedCoreProducts),
+          enabledModules: buildEnabledModulesFromSelection(account.enabledModules, selectedAddOns),
+        });
+      }
     } catch {
       setSettingsError("Unable to save tenant settings.");
     } finally {

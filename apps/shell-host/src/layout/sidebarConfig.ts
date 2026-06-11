@@ -46,7 +46,7 @@ export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
     path: "/leads",
     children: [
       { id: "basecrm-leads-dashboard", label: "Dashboard", icon: "", path: "/leads/dashboard" },
-      { id: "basecrm-leads-list", label: "Leads List", icon: "", path: "/leads/leads" },
+      { id: "basecrm-leads-list", label: "Leads List", icon: "", path: "/leads/list" },
       { id: "basecrm-leads-pipelines", label: "Pipelines", icon: "", path: "/leads/pipelines" },
       { id: "basecrm-leads-products", label: "Products", icon: "", path: "/leads/products" },
       { id: "basecrm-leads-templates", label: "Templates", icon: "", path: "/leads/templates" },

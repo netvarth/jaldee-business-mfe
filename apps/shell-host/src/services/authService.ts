@@ -62,6 +62,10 @@ interface TenantSettingsResponse {
   eCommerce?: boolean | null;
 }
 
+let tenantSettingsCache: unknown | null = null;
+let tenantSettingsRequest: Promise<unknown | null> | null = null;
+let tenantSettingsLoaded = false;
+
 interface TokenLoginResponse {
   accessToken: string;
   refreshToken: string;
@@ -250,6 +254,9 @@ function setStoredTokenSession(tokens: TokenLoginResponse) {
 
 function clearStoredTokenSession() {
   getStorage()?.removeItem(TOKEN_SESSION_KEY);
+  tenantSettingsCache = null;
+  tenantSettingsRequest = null;
+  tenantSettingsLoaded = false;
 }
 
 async function establishTokenSession(tokens: TokenLoginResponse): Promise<SessionResponse> {
@@ -550,7 +557,7 @@ function normalizeTenantSettings(raw: unknown): TenantSettingsResponse {
   };
 }
 
-async function fetchTenantSettings(): Promise<TenantSettingsResponse | null> {
+export async function getTenantSettingsForShell(): Promise<unknown | null> {
   if (isMock) {
     return {
       health: true,
@@ -561,13 +568,44 @@ async function fetchTenantSettings(): Promise<TenantSettingsResponse | null> {
     };
   }
 
-  try {
-    const response = await apiClient.get<unknown>(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.get));
-    return normalizeTenantSettings(response.data);
-  } catch (error) {
-    console.warn("[authService] failed to fetch tenant settings", error);
-    return null;
+  if (tenantSettingsLoaded) {
+    return tenantSettingsCache;
   }
+
+  if (!tenantSettingsRequest) {
+    tenantSettingsRequest = apiClient
+      .get<unknown>(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.get))
+      .then((response) => {
+        tenantSettingsCache = response.data;
+        tenantSettingsLoaded = true;
+        return response.data;
+      })
+      .catch((error) => {
+        console.warn("[authService] failed to fetch tenant settings", error);
+        tenantSettingsLoaded = true;
+        return null;
+      })
+      .finally(() => {
+        tenantSettingsRequest = null;
+      });
+  }
+
+  return tenantSettingsRequest;
+}
+
+export async function updateTenantSettingsForShell(data: unknown): Promise<unknown> {
+  const response = await apiClient.put<unknown>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update),
+    data,
+  );
+  tenantSettingsCache = response.data;
+  tenantSettingsLoaded = true;
+  return response.data;
+}
+
+async function fetchTenantSettings(): Promise<TenantSettingsResponse | null> {
+  const settings = await getTenantSettingsForShell();
+  return settings ? normalizeTenantSettings(settings) : null;
 }
 
 function deriveEnabledModules(

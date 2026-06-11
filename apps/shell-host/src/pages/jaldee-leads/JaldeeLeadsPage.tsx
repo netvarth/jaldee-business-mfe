@@ -23,6 +23,11 @@ import { leadService } from './services/leadService';
 import PipelineDetailScreen from './screens/PipelineDetailScreen';
 import { PipelineBuilder } from './screens/PipelinesScreen';
 
+function LegacyJaldeeLeadDetailRedirect() {
+  const { leadUid } = useParams();
+  return <Navigate to={`/jaldee-leads/list/${leadUid ?? ""}`} replace />;
+}
+
 function PipelineDetailRoute({
   pipelines,
   leads,
@@ -275,7 +280,7 @@ function LeadDetailRoute({
         if (window.history.state && window.history.state.idx > 0) {
           navigate(-1);
         } else {
-          navigate('/jaldee-leads/leads');
+          navigate('/jaldee-leads/list');
         }
       }}
       onUpdate={(updatedLead) => {
@@ -548,14 +553,33 @@ export default function JaldeeLeadsPage() {
     channels: false,
     forms: false
   });
+  const fetchRequestsRef = useRef<{
+    leads: Promise<CrmLeadDto[]> | null;
+    pipelines: Promise<CrmLeadPipelineDto[]> | null;
+    products: Promise<Product[]> | null;
+    channels: Promise<Channel[]> | null;
+    forms: Promise<FormTemplate[]> | null;
+  }>({
+    leads: null,
+    pipelines: null,
+    products: null,
+    channels: null,
+    forms: null
+  });
 
   const triggerFetchTemplates = (active = true) => {
     if (fetchedRef.current.forms) return;
-    leadTemplateService.list()
+    if (!fetchRequestsRef.current.forms) {
+      fetchRequestsRef.current.forms = leadTemplateService.list()
+        .finally(() => {
+          fetchRequestsRef.current.forms = null;
+        });
+    }
+    fetchRequestsRef.current.forms
       .then((templates) => {
-        if (active && templates.length) {
+        fetchedRef.current.forms = true;
+        if (active) {
           setForms(templates);
-          fetchedRef.current.forms = true;
         }
       })
       .catch(() => {});
@@ -563,11 +587,17 @@ export default function JaldeeLeadsPage() {
 
   const triggerFetchPipelines = (active = true) => {
     if (fetchedRef.current.pipelines) return;
-    leadPipelineService.search({}, { page: 0, size: 100 })
+    if (!fetchRequestsRef.current.pipelines) {
+      fetchRequestsRef.current.pipelines = leadPipelineService.search({}, { page: 0, size: 100 })
+        .finally(() => {
+          fetchRequestsRef.current.pipelines = null;
+        });
+    }
+    fetchRequestsRef.current.pipelines
       .then((data) => {
-        if (active && data.length) {
+        fetchedRef.current.pipelines = true;
+        if (active) {
           setPipelines(data);
-          fetchedRef.current.pipelines = true;
         }
       })
       .catch(() => {});
@@ -575,11 +605,17 @@ export default function JaldeeLeadsPage() {
 
   const triggerFetchChannels = (active = true) => {
     if (fetchedRef.current.channels) return;
-    leadChannelService.search({}, { page: 0, size: 100 })
+    if (!fetchRequestsRef.current.channels) {
+      fetchRequestsRef.current.channels = leadChannelService.search({}, { page: 0, size: 100 })
+        .finally(() => {
+          fetchRequestsRef.current.channels = null;
+        });
+    }
+    fetchRequestsRef.current.channels
       .then((data) => {
-        if (active && data.length) {
+        fetchedRef.current.channels = true;
+        if (active) {
           setChannels(data);
-          fetchedRef.current.channels = true;
         }
       })
       .catch(() => {});
@@ -587,23 +623,40 @@ export default function JaldeeLeadsPage() {
 
   const triggerFetchProducts = (active = true) => {
     if (fetchedRef.current.products) return;
-    leadProductService.search({}, { page: 0, size: 100 })
+    if (!fetchRequestsRef.current.products) {
+      fetchRequestsRef.current.products = leadProductService.search({}, { page: 0, size: 100 })
+        .finally(() => {
+          fetchRequestsRef.current.products = null;
+        });
+    }
+    fetchRequestsRef.current.products
       .then((data) => {
-        if (active && data.length) {
+        fetchedRef.current.products = true;
+        if (active) {
           setProducts(data);
-          fetchedRef.current.products = true;
         }
       })
       .catch(() => {});
   };
 
-  const triggerFetchLeads = (active = true) => {
-    if (fetchedRef.current.leads) return;
-    leadService.search({}, { page: 0, size: 100 })
+  const triggerFetchLeads = (active = true, filters: Record<string, unknown> = {}, options: { force?: boolean } = {}) => {
+    const hasFilters = Object.keys(filters).length > 0;
+    if (fetchedRef.current.leads && !hasFilters && !options.force) return;
+    const request =
+      hasFilters || options.force
+        ? leadService.search(filters, { page: 0, size: 100 })
+        : fetchRequestsRef.current.leads ??
+          (fetchRequestsRef.current.leads = leadService.search(filters, { page: 0, size: 100 })
+            .finally(() => {
+              fetchRequestsRef.current.leads = null;
+            }));
+    request
       .then((data) => {
-        if (active && data.length) {
-          setLeads(data);
+        if (!hasFilters) {
           fetchedRef.current.leads = true;
+        }
+        if (active) {
+          setLeads(data);
         }
       })
       .catch(() => {});
@@ -612,18 +665,25 @@ export default function JaldeeLeadsPage() {
   useEffect(() => {
     let active = true;
     const path = location.pathname;
+    const isListPage = path.endsWith('/list') || path.endsWith('/list/');
+    const isCreateLeadPage = path.includes('/list/create');
+    const isLeadDetailPage = path.includes('/list/') && !isCreateLeadPage;
 
     if (path.includes('/dashboard')) {
       triggerFetchLeads(active);
       triggerFetchPipelines(active);
       triggerFetchProducts(active);
       triggerFetchChannels(active);
-    } else if (path.includes('/leads')) {
+    } else if (isListPage || isCreateLeadPage) {
       triggerFetchLeads(active);
       triggerFetchPipelines(active);
       triggerFetchProducts(active);
       triggerFetchChannels(active);
       triggerFetchTemplates(active);
+    } else if (isLeadDetailPage) {
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchProducts(active);
     } else if (path.includes('/pipelines')) {
       triggerFetchPipelines(active);
       triggerFetchLeads(active);
@@ -689,7 +749,7 @@ export default function JaldeeLeadsPage() {
           }
         />
         <Route
-          path="/leads"
+          path="/list"
           element={
             <LeadsScreen
               leads={leads}
@@ -699,6 +759,7 @@ export default function JaldeeLeadsPage() {
               products={products}
               channels={channels}
               forms={forms}
+              fetchLeads={(filters, options) => triggerFetchLeads(true, filters, options)}
               fetchPipelines={() => triggerFetchPipelines(true)}
               fetchProducts={() => triggerFetchProducts(true)}
               fetchChannels={() => triggerFetchChannels(true)}
@@ -707,7 +768,7 @@ export default function JaldeeLeadsPage() {
           }
         />
         <Route
-          path="/leads/:leadUid"
+          path="/list/:leadUid"
           element={
             <LeadDetailRoute
               leads={leads}
@@ -719,6 +780,8 @@ export default function JaldeeLeadsPage() {
             />
           }
         />
+        <Route path="/leads" element={<Navigate to="/jaldee-leads/list" replace />} />
+        <Route path="/leads/:leadUid" element={<LegacyJaldeeLeadDetailRedirect />} />
         <Route
           path="/pipelines"
           element={

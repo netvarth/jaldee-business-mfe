@@ -276,7 +276,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
   return (
     <div data-testid="jaldee-leads-create-lead-page" className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       <PageHeader
-        back={{ label: 'Back to List', href: '/leads/leads' }}
+        back={{ label: 'Back to List', href: '/leads/list' }}
         onNavigate={onBack}
         title="New Business Opportunity"
         subtitle="Initialize a new lead record into the sales matrix"

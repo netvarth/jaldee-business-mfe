@@ -248,7 +248,7 @@ export function LeadDetailRoute({
         if (window.history.state && window.history.state.idx > 0) {
           navigate(-1);
         } else {
-          navigate("/leads/leads");
+          navigate("/leads/list");
         }
       }}
       onUpdate={(updatedLead) => {

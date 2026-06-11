@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import DashboardScreen from './screens/DashboardScreen';
 import LeadsScreen from './screens/LeadsScreen';
 import CreateLeadScreen from './screens/CreateLeadScreen';
@@ -28,6 +28,11 @@ import {
   TemplateEditRoute,
 } from './LeadsRoutes';
 
+function LegacyLeadDetailRedirect() {
+  const { leadUid } = useParams();
+  return <Navigate to={`/leads/list/${leadUid ?? ""}`} replace />;
+}
+
 export function LeadsModule() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,14 +50,33 @@ export function LeadsModule() {
     channels: false,
     forms: false
   });
+  const fetchRequestsRef = useRef<{
+    leads: Promise<CrmLeadDto[]> | null;
+    pipelines: Promise<CrmLeadPipelineDto[]> | null;
+    products: Promise<Product[]> | null;
+    channels: Promise<Channel[]> | null;
+    forms: Promise<FormTemplate[]> | null;
+  }>({
+    leads: null,
+    pipelines: null,
+    products: null,
+    channels: null,
+    forms: null
+  });
 
   const triggerFetchTemplates = (active = true) => {
     if (fetchedRef.current.forms) return;
-    leadTemplateService.list()
+    if (!fetchRequestsRef.current.forms) {
+      fetchRequestsRef.current.forms = leadTemplateService.list()
+        .finally(() => {
+          fetchRequestsRef.current.forms = null;
+        });
+    }
+    fetchRequestsRef.current.forms
       .then((templates) => {
-        if (active && templates.length) {
+        fetchedRef.current.forms = true;
+        if (active) {
           setForms(templates);
-          fetchedRef.current.forms = true;
         }
       })
       .catch(() => {});
@@ -60,11 +84,17 @@ export function LeadsModule() {
 
   const triggerFetchPipelines = (active = true) => {
     if (fetchedRef.current.pipelines) return;
-    leadPipelineService.search({}, { page: 0, size: 100 })
+    if (!fetchRequestsRef.current.pipelines) {
+      fetchRequestsRef.current.pipelines = leadPipelineService.search({}, { page: 0, size: 100 })
+        .finally(() => {
+          fetchRequestsRef.current.pipelines = null;
+        });
+    }
+    fetchRequestsRef.current.pipelines
       .then((data) => {
-        if (active && data.length) {
+        fetchedRef.current.pipelines = true;
+        if (active) {
           setPipelines(data);
-          fetchedRef.current.pipelines = true;
         }
       })
       .catch(() => {});
@@ -72,11 +102,17 @@ export function LeadsModule() {
 
   const triggerFetchChannels = (active = true) => {
     if (fetchedRef.current.channels) return;
-    leadChannelService.search({}, { page: 0, size: 100 })
+    if (!fetchRequestsRef.current.channels) {
+      fetchRequestsRef.current.channels = leadChannelService.search({}, { page: 0, size: 100 })
+        .finally(() => {
+          fetchRequestsRef.current.channels = null;
+        });
+    }
+    fetchRequestsRef.current.channels
       .then((data) => {
-        if (active && data.length) {
+        fetchedRef.current.channels = true;
+        if (active) {
           setChannels(data);
-          fetchedRef.current.channels = true;
         }
       })
       .catch(() => {});
@@ -84,23 +120,40 @@ export function LeadsModule() {
 
   const triggerFetchProducts = (active = true) => {
     if (fetchedRef.current.products) return;
-    leadProductService.search({}, { page: 0, size: 100 })
+    if (!fetchRequestsRef.current.products) {
+      fetchRequestsRef.current.products = leadProductService.search({}, { page: 0, size: 100 })
+        .finally(() => {
+          fetchRequestsRef.current.products = null;
+        });
+    }
+    fetchRequestsRef.current.products
       .then((data) => {
-        if (active && data.length) {
+        fetchedRef.current.products = true;
+        if (active) {
           setProducts(data);
-          fetchedRef.current.products = true;
         }
       })
       .catch(() => {});
   };
 
-  const triggerFetchLeads = (active = true) => {
-    if (fetchedRef.current.leads) return;
-    leadService.search({}, { page: 0, size: 100 })
+  const triggerFetchLeads = (active = true, filters: Record<string, unknown> = {}, options: { force?: boolean } = {}) => {
+    const hasFilters = Object.keys(filters).length > 0;
+    if (fetchedRef.current.leads && !hasFilters && !options.force) return;
+    const request =
+      hasFilters || options.force
+        ? leadService.search(filters, { page: 0, size: 100 })
+        : fetchRequestsRef.current.leads ??
+          (fetchRequestsRef.current.leads = leadService.search(filters, { page: 0, size: 100 })
+            .finally(() => {
+              fetchRequestsRef.current.leads = null;
+            }));
+    request
       .then((data) => {
-        if (active && data.length) {
-          setLeads(data);
+        if (!hasFilters) {
           fetchedRef.current.leads = true;
+        }
+        if (active) {
+          setLeads(data);
         }
       })
       .catch(() => {});
@@ -109,18 +162,25 @@ export function LeadsModule() {
   useEffect(() => {
     let active = true;
     const path = location.pathname;
+    const isListPage = path.endsWith('/list') || path.endsWith('/list/');
+    const isCreateLeadPage = path.includes('/list/create');
+    const isLeadDetailPage = path.includes('/list/') && !isCreateLeadPage;
 
     if (path.includes('/dashboard')) {
       triggerFetchLeads(active);
       triggerFetchPipelines(active);
       triggerFetchProducts(active);
       triggerFetchChannels(active);
-    } else if (path.includes('/leads')) {
+    } else if (isListPage || isCreateLeadPage) {
       triggerFetchLeads(active);
       triggerFetchPipelines(active);
       triggerFetchProducts(active);
       triggerFetchChannels(active);
       triggerFetchTemplates(active);
+    } else if (isLeadDetailPage) {
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchProducts(active);
     } else if (path.includes('/pipelines')) {
       triggerFetchPipelines(active);
       triggerFetchLeads(active);
@@ -186,7 +246,7 @@ export function LeadsModule() {
           }
         />
         <Route
-          path="/leads"
+          path="/list"
           element={
             <LeadsScreen
               leads={leads}
@@ -196,6 +256,7 @@ export function LeadsModule() {
               products={products}
               channels={channels}
               forms={forms}
+              fetchLeads={(filters, options) => triggerFetchLeads(true, filters, options)}
               fetchPipelines={() => triggerFetchPipelines(true)}
               fetchProducts={() => triggerFetchProducts(true)}
               fetchChannels={() => triggerFetchChannels(true)}
@@ -204,7 +265,7 @@ export function LeadsModule() {
           }
         />
         <Route
-          path="/leads/create"
+          path="/list/create"
           element={
             <CreateLeadScreen
               pipelines={pipelines}
@@ -212,16 +273,16 @@ export function LeadsModule() {
               channels={channels}
               leads={leads}
               forms={forms}
-              onBack={() => navigate('/leads/leads')}
+              onBack={() => navigate('/leads/list')}
               onSave={(newLead) => {
                 setLeads((prev) => [newLead, ...prev]);
-                navigate('/leads/leads');
+                navigate('/leads/list');
               }}
             />
           }
         />
         <Route
-          path="/leads/:leadUid"
+          path="/list/:leadUid"
           element={
             <LeadDetailRoute
               leads={leads}
@@ -233,6 +294,9 @@ export function LeadsModule() {
             />
           }
         />
+        <Route path="/leads" element={<Navigate to="/leads/list" replace />} />
+        <Route path="/leads/create" element={<Navigate to="/leads/list/create" replace />} />
+        <Route path="/leads/:leadUid" element={<LegacyLeadDetailRedirect />} />
         <Route
           path="/pipelines"
           element={

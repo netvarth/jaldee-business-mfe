@@ -49,6 +49,8 @@ function unwrapList<T>(value: unknown): T[] {
 }
 
 const noLocation = { _skipLocationParam: true } as any;
+const pipelineDetailRequests = new Map<string, Promise<CrmLeadPipelineDto>>();
+const pipelineDetailCache = new Map<string, CrmLeadPipelineDto>();
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -224,14 +226,17 @@ export const leadPipelineService = {
       noLocation
     );
     const unwrapped = unwrap<any>(response);
-    if (typeof unwrapped === "string") {
-      return toPipeline({ uid: unwrapped });
+    const pipeline = typeof unwrapped === "string" ? toPipeline({ uid: unwrapped }) : toPipeline(unwrapped);
+    if (pipeline.uid) {
+      pipelineDetailCache.set(pipeline.uid, pipeline);
     }
-    return toPipeline(unwrapped);
+    return pipeline;
   },
 
   // POST /v1/api/tenant/crm/leads/pipelines/{pipelineUid}/stages
   async addStage(pipelineUid: string, data: Partial<CrmLeadPipelineStageDto>) {
+    pipelineDetailCache.delete(pipelineUid);
+    pipelineDetailRequests.delete(pipelineUid);
     const response = await apiClient.post(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.addStage(pipelineUid)),
       toStagePayload(data),
@@ -248,6 +253,8 @@ export const leadPipelineService = {
 
   // PUT /v1/api/tenant/crm/leads/pipelines/{pipelineUid}/stages/reorder
   async reorderStages(pipelineUid: string, stageUids: string[]) {
+    pipelineDetailCache.delete(pipelineUid);
+    pipelineDetailRequests.delete(pipelineUid);
     const response = await apiClient.put(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.reorderStages(pipelineUid)),
       { stageUids },
@@ -258,10 +265,26 @@ export const leadPipelineService = {
 
   // GET /v1/api/tenant/crm/leads/pipelines/{uid}
   async detail(uid: string) {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.detail(uid))
-    );
-    return toPipeline(unwrap(response));
+    const cachedPipeline = pipelineDetailCache.get(uid);
+    if (cachedPipeline) return cachedPipeline;
+
+    const existingRequest = pipelineDetailRequests.get(uid);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.get(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.detail(uid))
+      )
+      .then((response) => {
+        const pipeline = toPipeline(unwrap(response));
+        pipelineDetailCache.set(uid, pipeline);
+        return pipeline;
+      })
+      .finally(() => {
+        pipelineDetailRequests.delete(uid);
+      });
+
+    pipelineDetailRequests.set(uid, request);
+    return request;
   },
 
   // PUT /v1/api/tenant/crm/leads/pipelines/{uid}
@@ -271,7 +294,10 @@ export const leadPipelineService = {
       toPipelinePayload(data),
       noLocation
     );
-    return toPipeline(unwrap(response));
+    const pipeline = toPipeline(unwrap(response));
+    pipelineDetailCache.set(uid, pipeline);
+    pipelineDetailRequests.delete(uid);
+    return pipeline;
   },
 
   // PATCH /v1/api/tenant/crm/leads/pipelines/{uid}/activate
@@ -281,6 +307,8 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
+    pipelineDetailCache.delete(uid);
+    pipelineDetailRequests.delete(uid);
   },
 
   // POST /v1/api/tenant/crm/leads/pipelines/{uid}/clone
@@ -290,7 +318,11 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
-    return toPipeline(unwrap(response));
+    const pipeline = toPipeline(unwrap(response));
+    if (pipeline.uid) {
+      pipelineDetailCache.set(pipeline.uid, pipeline);
+    }
+    return pipeline;
   },
 
   // PATCH /v1/api/tenant/crm/leads/pipelines/{uid}/deactivate
@@ -300,6 +332,8 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
+    pipelineDetailCache.delete(uid);
+    pipelineDetailRequests.delete(uid);
   },
 
   // DELETE /v1/api/tenant/crm/leads/pipelines/{uid}
@@ -308,6 +342,8 @@ export const leadPipelineService = {
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.delete(uid)),
       noLocation
     );
+    pipelineDetailCache.delete(uid);
+    pipelineDetailRequests.delete(uid);
   },
 
   // PATCH /v1/api/tenant/crm/leads/pipelines/{uid}/default
@@ -317,6 +353,8 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
+    pipelineDetailCache.delete(uid);
+    pipelineDetailRequests.delete(uid);
   },
 
   // GET /v1/api/tenant/crm/leads/pipelines/active
@@ -355,6 +393,10 @@ export const leadPipelineService = {
       toStagePayload(data),
       noLocation
     );
+    if (data.pipelineUid) {
+      pipelineDetailCache.delete(data.pipelineUid);
+      pipelineDetailRequests.delete(data.pipelineUid);
+    }
     return toStage(unwrap(response));
   },
 
