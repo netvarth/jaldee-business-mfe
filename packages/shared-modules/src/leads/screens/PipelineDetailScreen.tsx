@@ -116,7 +116,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
   );
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-surface-secondary)] overflow-y-auto no-scrollbar text-[var(--color-text-primary)] p-4 sm:p-6 md:p-8 pb-24 space-y-6">
+    <div className="h-full min-h-0 flex flex-col bg-slate-50 p-3 sm:p-4 md:p-5 overflow-y-auto text-[var(--color-text-primary)] space-y-3">
 
       <PageHeader
         title={`Pipeline: ${pipeline.name}`}
@@ -138,12 +138,12 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
         }
       />
 
-      <div className="w-full space-y-[var(--space-8)]">
-        <div className="grid grid-cols-1 gap-[var(--space-6)] xl:grid-cols-12">
+      <div className="w-full space-y-3">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
             
             {/* Sidebar Stats */}
-            <div className="space-y-[var(--space-6)] xl:col-span-4">
-               <SectionCard>
+            <div className="space-y-3 xl:col-span-4">
+               <SectionCard className="border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-secondary)] mb-[var(--space-4)]">Strategic Mapping</p>
 
                   <div className="space-y-[var(--space-2)] text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-secondary)]">
@@ -176,7 +176,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                   )}
                </SectionCard>
 
-               <div className="bg-slate-900 rounded-lg p-[var(--space-6)] text-white overflow-hidden shadow-xl">
+               <div className="overflow-hidden rounded-lg bg-slate-900 p-5 text-white shadow-sm">
                 <p className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-indigo-400 mb-[var(--space-4)]">Live Performance</p>
                 <div className="grid grid-cols-2 gap-[var(--space-4)]">
                    <div>
@@ -193,8 +193,8 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
 
             {/* Sequence List */}
             <div className="xl:col-span-8">
-               <SectionCard>
-                  <div className="px-[var(--space-6)] py-[var(--space-4)] border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface-alt)]">
+               <SectionCard className="overflow-hidden border-slate-200 bg-white shadow-sm" padding={false}>
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
                     <h2 className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)]">Stage Sequence</h2>
                     <span className="text-[length:var(--text-xs)] font-[var(--font-weight-semibold)] text-[var(--color-primary)]">Active State</span>
                   </div>
@@ -219,7 +219,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                              key={stage.uid || `${stage.stageName}-${idx}`}
                              data-testid={`jaldee-leads-pipeline-${pipeline.uid}-stage-${stage.uid || idx}-row`}
                              data-active={stage.isActive !== false}
-                             className="p-[var(--space-4)] flex items-center gap-[var(--space-4)] hover:bg-[var(--color-surface-hover)] transition-colors group"
+                             className="group flex items-center gap-4 p-4 transition-colors hover:bg-slate-50"
                            >
                               <div className={cn(
                                 "w-8 h-8 rounded-[var(--radius-lg)] shrink-0 flex items-center justify-center font-[var(--font-weight-semibold)] text-[length:var(--text-xs)] border",
@@ -274,8 +274,8 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
           </div>
 
           {/* Associated Leads Panel */}
-          <SectionCard>
-             <div className="px-[var(--space-6)] py-[var(--space-5)] border-b border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-[var(--space-4)] bg-[var(--color-surface-alt)]">
+          <SectionCard className="overflow-hidden border-slate-200 bg-white shadow-sm" padding={false}>
+             <div className="flex flex-col justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center">
                <div>
                  <h2 className="text-[length:var(--text-sm)] font-[var(--font-weight-semibold)] text-[var(--color-text-primary)] leading-tight">Leads Moving Through This Pipeline</h2>
                  <p className="text-[length:var(--text-xs)] font-[var(--font-weight-bold)] text-[var(--color-text-secondary)] mt-[var(--space-1)]">Associated active & terminal records ({pipelineLeads.length})</p>
@@ -306,12 +306,12 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                </div>
              </div>
 
-             <div className="p-[var(--space-6)] pt-[var(--space-4)]">
+             <div className="p-3">
                <DataTable
                  data={filteredLeads}
                  columns={leadColumns}
                  getRowId={(lead) => lead.uid}
-                 onRowClick={(lead) => onNavigate(`leads/${lead.uid}`)}
+                 onRowClick={(lead) => onNavigate(`list/${lead.uid}`)}
                  emptyState={
                    <EmptyState
                      title="No associated leads"

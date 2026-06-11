@@ -64,7 +64,7 @@ function PipelineDetailRoute({
       onBack={() => navigate('/jaldee-leads/pipelines')}
       onNavigate={onNavigate}
       onEdit={() =>
-        navigate(`/jaldee-leads/pipelines/${pipeline.uid}`, {
+        navigate(`/jaldee-leads/pipelines/${pipeline.uid}/edit`, {
           state: { returnTo: `/jaldee-leads/pipelines/${pipeline.uid}/matrix` },
         })
       }

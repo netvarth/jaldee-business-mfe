@@ -49,7 +49,7 @@ export function PipelineDetailRoute({
       onBack={() => navigate("/leads/pipelines")}
       onNavigate={onNavigate}
       onEdit={() =>
-        navigate(`/leads/pipelines/${pipeline.uid}`, {
+        navigate(`/leads/pipelines/${pipeline.uid}/edit`, {
           state: { returnTo: `/leads/pipelines/${pipeline.uid}/matrix` },
         })
       }

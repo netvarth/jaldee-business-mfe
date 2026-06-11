@@ -144,24 +144,26 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-slate-50 relative overflow-y-auto no-scrollbar">
+    <div className="h-full min-h-0 flex flex-col bg-slate-50 p-3 sm:p-4 md:p-5 overflow-y-auto relative space-y-3">
       <PageHeader
         title={`Configure Pipeline: ${draft.name}`}
         subtitle="Design stage transitions, task templates, and movement rules"
+        back={{ label: 'Back to Pipeline', href: '#' }}
+        onNavigate={onClose}
         actions={
           <div className="flex flex-col items-end gap-1">
             {saveError && <p className="text-xs font-semibold text-rose-600">{saveError}</p>}
-            <div className="flex gap-4">
-              <Button onClick={onClose} variant="outline" disabled={isSaving} className="px-6 py-3 text-xs font-semibold active-scale">Cancel</Button>
-              <Button onClick={handleSave} variant="primary" loading={isSaving} className="px-8 py-3 text-xs font-semibold active-scale">Save Pipeline</Button>
+            <div className="flex gap-3">
+              <Button onClick={onClose} variant="outline" disabled={isSaving} className="h-9 px-5 text-xs font-semibold active-scale">Cancel</Button>
+              <Button onClick={handleSave} variant="primary" loading={isSaving} className="h-9 px-6 text-xs font-semibold active-scale">Save Pipeline</Button>
             </div>
           </div>
         }
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-visible mt-6 pb-24">
-        <SectionCard className="w-full lg:w-[340px] p-8 shrink-0 h-fit space-y-6">
-          <h3 className="text-sm font-semibold text-slate-400 border-b border-slate-100 pb-4 leading-none animate-fadeIn">Basic Configuration</h3>
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 overflow-visible pb-5">
+        <SectionCard className="w-full shrink-0 space-y-5 border-slate-200 bg-white p-5 shadow-sm lg:w-[340px]">
+          <h3 className="border-b border-slate-100 pb-3 text-sm font-semibold leading-none text-slate-400 animate-fadeIn">Basic Configuration</h3>
           
           <div className="space-y-4 animate-fadeIn">
             <Input 
@@ -179,8 +181,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
             />
           </div>
 
-          <div className="space-y-3 pt-6 border-t border-slate-100 animate-fadeIn">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+          <div className="space-y-3 border-t border-slate-100 pt-5 animate-fadeIn">
+            <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 p-3">
               <span className="text-sm font-semibold text-slate-600 leading-none">Force Sequential</span>
               <Switch
                 checked={!!draft.stagesInSequentialOrder}
@@ -190,8 +192,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
           </div>
         </SectionCard>
 
-        <SectionCard className="flex-1 p-8 flex flex-col overflow-visible relative">
-          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-5 shrink-0">
+        <SectionCard className="relative flex flex-1 flex-col overflow-visible border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex shrink-0 items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-400 leading-none">Pipeline Ingestion Stages</h3>
               <p className="text-xs text-slate-500 mt-2 font-medium">Design structural thresholds, movement rules & compliance task lists.</p>
@@ -200,13 +202,13 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
               onClick={() => setShowAddStageDialog(true)} 
               variant="ghost"
               icon={<ICONS.ADD className="w-4 h-4"/>}
-              className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-4 py-2.5 rounded-xl hover:bg-indigo-100"
+              className="rounded-lg bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-100"
             >
               Add Stage
             </Button>
           </div>
           
-          <div className="space-y-4 pr-2 pb-10">
+          <div className="space-y-3 pb-3">
             {draft.stages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-400 mb-4">
@@ -220,7 +222,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
               const isEditing = !!editingStageUids[stage.uid];
               return (
                 <div key={stage.uid} className={cn(
-                  "border-2 rounded-[28px] p-5 flex flex-col gap-4 bg-slate-50 border-slate-100 hover:border-indigo-200 hover:bg-white transition-all group relative animate-fadeIn",
+                  "group relative flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 transition-all hover:border-indigo-200 hover:bg-white animate-fadeIn",
                   stage.isTerminal && stage.terminalType === 'WON' && "bg-emerald-50/20 border-emerald-100 hover:border-emerald-200",
                   stage.isTerminal && (stage.terminalType === 'LOST' || stage.terminalType === 'JUNK') && "bg-rose-50/20 border-rose-100 hover:border-rose-200",
                 )}>
