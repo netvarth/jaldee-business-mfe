@@ -134,16 +134,35 @@ function toProductPayload(product: Partial<Product>, options: { includeUid?: boo
   };
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`).join(",")}}`;
+}
+
+const productSearchRequests = new Map<string, Promise<Product[]>>();
+const productDetailRequests = new Map<string, Promise<Product>>();
+
 export const leadProductService = {
   endpoints: BASE_SERVICE_ENDPOINTS.crmLeadProducts,
 
   async search(filters: Record<string, unknown> = {}, params: ProductSearchParams = { page: 0, size: 20 }) {
-    const response = await apiClient.post(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadProducts.search),
-      filters,
-      withoutLocationParam(params)
-    );
-    return toProductList(response);
+    const requestKey = stableStringify({ filters, params });
+    const existingRequest = productSearchRequests.get(requestKey);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.post(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadProducts.search),
+        filters,
+        withoutLocationParam(params)
+      )
+      .then(toProductList)
+      .finally(() => {
+        productSearchRequests.delete(requestKey);
+      });
+
+    productSearchRequests.set(requestKey, request);
+    return request;
   },
 
   async create(product: Partial<Product>) {
@@ -152,14 +171,24 @@ export const leadProductService = {
       toProductPayload(product, { includeUid: false }),
       withoutLocationParam()
     );
-    return toProduct(unwrap(response));
+    const createdProduct = toProduct(unwrap(response));
+    return createdProduct;
   },
 
   async detail(uid: string) {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadProducts.detail(uid))
-    );
-    return toProduct(unwrap(response));
+    const existingRequest = productDetailRequests.get(uid);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.get(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadProducts.detail(uid))
+      )
+      .then((response) => toProduct(unwrap(response)))
+      .finally(() => {
+        productDetailRequests.delete(uid);
+      });
+
+    productDetailRequests.set(uid, request);
+    return request;
   },
 
   async update(uid: string, product: Partial<Product>) {
@@ -168,7 +197,9 @@ export const leadProductService = {
       toProductPayload(product, { includeUid: true }),
       withoutLocationParam()
     );
-    return toProduct(unwrap(response));
+    const updatedProduct = toProduct(unwrap(response));
+    productDetailRequests.delete(uid);
+    return updatedProduct;
   },
 
   async updateStatus(uid: string, status: string) {
@@ -177,6 +208,7 @@ export const leadProductService = {
       undefined,
       withoutLocationParam()
     );
+    productDetailRequests.delete(uid);
   },
 
   urlForDebug(path: string) {

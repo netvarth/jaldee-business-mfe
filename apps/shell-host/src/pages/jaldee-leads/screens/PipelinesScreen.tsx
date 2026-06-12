@@ -5,7 +5,7 @@ import { CrmLeadPipelineDto, CrmLeadPipelineStageDto, StageTaskTemplate, CrmLead
 import { cn } from '../lib/utils';
 import { ICONS } from '../constants';
 
-import { PageHeader, SectionCard, Button, Input, Select, Textarea, Checkbox, Dialog, DialogFooter, Switch, Popover, PopoverSection } from "@jaldee/design-system";
+import { PageHeader, SectionCard, Button, Input, Select, Textarea, Checkbox, Dialog, DialogFooter, Switch, Popover, PopoverSection, EmptyState } from "@jaldee/design-system";
 import { leadPipelineService } from '../services/pipelineService';
 import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
 
@@ -106,7 +106,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
   const visiblePipelines = pipelines;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
+    <div data-testid="jaldee-leads-pipelines-page" data-state={visiblePipelines.length === 0 ? "empty" : "ready"} className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       {editingPipeline ? (
         <PipelineBuilder 
           pipeline={editingPipeline} 
@@ -146,6 +146,8 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
             subtitle="Workflow Architecture & Stage Execution Templates"
             actions={
               <Button 
+                id="jaldee-leads-pipelines-create-button"
+                data-testid="jaldee-leads-pipelines-create-button"
                 onClick={() => setShowCreateDialog(true)}
                 variant="primary"
                 icon={<ICONS.ADD className="w-4 h-4" />}
@@ -156,7 +158,28 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
             }
           />
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-6">
+          {visiblePipelines.length === 0 ? (
+            <SectionCard className="border-slate-200 bg-white p-8 shadow-sm">
+              <div data-testid="jaldee-leads-pipelines-empty-state" data-state="empty">
+                <EmptyState
+                  title="No pipelines found"
+                  description="Create a pipeline to define stages, movement rules, and task templates for leads."
+                  action={
+                    <Button
+                      id="jaldee-leads-pipelines-empty-create-button"
+                      data-testid="jaldee-leads-pipelines-empty-create-button"
+                      variant="primary"
+                      icon={<ICONS.ADD className="h-4 w-4" />}
+                      onClick={() => setShowCreateDialog(true)}
+                    >
+                      Create Pipeline
+                    </Button>
+                  }
+                />
+              </div>
+            </SectionCard>
+          ) : (
+          <div data-testid="jaldee-leads-pipelines-grid" className="grid grid-cols-[repeat(auto-fit,minmax(17.5rem,22rem))] justify-start gap-6">
             {visiblePipelines.map(p => {
               const pipelineLeadCount = leads.filter(l => l.pipelineUid === p.uid).length;
               const templateCount = p.stages.reduce((sum, s) => sum + (s.taskTemplates?.length || 0), 0);
@@ -167,13 +190,14 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
               return (
                 <div 
                   key={p.uid} 
+                  data-testid={`jaldee-leads-pipeline-card-${p.uid}`}
                   onClick={() => {
                     if (loadingPipelineUid !== p.uid) {
                       handleSelectPipeline(p);
                     }
                   }}
                   className={cn(
-                    "bg-white rounded-3xl border border-slate-200 p-6 relative group transition-all cursor-pointer min-h-[240px] flex flex-col justify-between",
+                    "w-full bg-white rounded-2xl border border-slate-200 p-6 relative group transition-all cursor-pointer min-h-[240px] flex flex-col justify-between",
                     isInactive
                       ? "opacity-75 grayscale hover:border-slate-300"
                       : "hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-600/5",
@@ -276,7 +300,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                          <span className="w-1 h-1 rounded-full bg-slate-300"></span> 
                          <span className="text-slate-600">{pipelineLeadCount} Active Leads</span>
                       </div>
-                      <div className="text-xs font-bold text-indigo-500 mt-1.5">
+                      <div className="mt-1.5 text-xs font-semibold text-indigo-600">
                          {templateCount} Stage Task Templates Mapped
                       </div>
                    </div>
@@ -307,6 +331,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
               );
             })}
           </div>
+          )}
         </>
       )}
 
@@ -418,15 +443,24 @@ function PipelineActionDialog({
 }
 
 // PIPELINE BUILDER COMPONENT
+function sortStagesBySequenceOrder(stages: CrmLeadPipelineStageDto[] = []) {
+  return [...stages].sort((a, b) => {
+    const aOrder = a.sequenceOrder ?? a.stageOrder ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.sequenceOrder ?? b.stageOrder ?? Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return String(a.uid ?? '').localeCompare(String(b.uid ?? ''));
+  });
+}
+
 export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLeadPipelineDto, onClose: () => void, onSave: (p: CrmLeadPipelineDto) => void }) {
-  const [draft, setDraft] = useState<CrmLeadPipelineDto>(pipeline);
+  const [draft, setDraft] = useState<CrmLeadPipelineDto>({ ...pipeline, stages: sortStagesBySequenceOrder(pipeline.stages) });
   const [configuringTasksStageIdx, setConfiguringTasksStageIdx] = useState<number | null>(null);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   React.useEffect(() => {
-    setDraft(pipeline);
+    setDraft({ ...pipeline, stages: sortStagesBySequenceOrder(pipeline.stages) });
   }, [pipeline.uid, pipeline.stages]);
 
   const handleSave = async () => {
@@ -449,7 +483,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         ...updated,
         name: updated.name && updated.name !== 'Untitled Pipeline' ? updated.name : draft.name.trim(),
         description: updated.description || draft.description,
-        stages: draft.stages,
+        stages: sortStagesBySequenceOrder(draft.stages),
       });
     } catch (err) {
       setSaveError(getErrorMessage(err, 'Failed to save pipeline.'));
@@ -473,17 +507,25 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
     setEditingStageIdx(index);
   };
 
+  const refreshPipelineDraft = async () => {
+    const refreshed = await leadPipelineService.detail(draft.uid);
+    setDraft(prev => ({
+      ...prev,
+      ...refreshed,
+      name: refreshed.name || prev.name,
+      description: refreshed.description ?? prev.description,
+      stages: sortStagesBySequenceOrder(refreshed.stages?.length ? refreshed.stages : prev.stages),
+    }));
+    return refreshed;
+  };
+
   const handleUpdateStage = async (index: number, stageData: Partial<CrmLeadPipelineStageDto>) => {
     const stage = draft.stages[index];
     if (!stage) return;
 
     const stageForUpdate = { ...stage, ...stageData };
-    const updatedStage = await leadPipelineService.updateStage(stage.uid, stageForUpdate);
-    setDraft(prev => {
-      const newStages = [...prev.stages];
-      newStages[index] = updatedStage;
-      return { ...prev, stages: newStages };
-    });
+    await leadPipelineService.updateStage(stage.uid, stageForUpdate);
+    await refreshPipelineDraft();
     setEditingStageIdx(null);
   };
 
@@ -509,12 +551,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
     setSavingStageIdx(index);
     setSaveError(null);
     try {
-      const updatedStage = await leadPipelineService.updateStage(stage.uid, stage);
-      setDraft(prev => {
-        const newStages = [...prev.stages];
-        newStages[index] = updatedStage;
-        return { ...prev, stages: newStages };
-      });
+      await leadPipelineService.updateStage(stage.uid, stage);
+      await refreshPipelineDraft();
       setEditingStageUids(prev => ({ ...prev, [stage.uid]: false }));
     } catch (err) {
       setSaveError(getErrorMessage(err, 'Failed to save stage.'));
@@ -527,7 +565,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
 
   const handleAddStage = async (stageData: Partial<CrmLeadPipelineStageDto>) => {
     const newStage = await leadPipelineService.addStage(draft.uid, stageData);
-    setDraft(prev => ({ ...prev, stages: [...prev.stages, newStage] }));
+    setDraft(prev => ({ ...prev, stages: sortStagesBySequenceOrder([...prev.stages, newStage]) }));
     setShowAddStageDialog(false);
   };
 
@@ -560,18 +598,18 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         title={`Configure Pipeline: ${draft.name}`}
         subtitle="Design stage transitions, task templates, and movement rules"
         actions={
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
             {saveError && <p className="text-xs font-semibold text-rose-600">{saveError}</p>}
-            <div className="flex gap-4">
-              <Button onClick={onClose} variant="outline" disabled={isSaving} className="px-6 py-3 text-xs font-semibold active-scale">Cancel</Button>
-              <Button onClick={handleSave} variant="primary" loading={isSaving} className="px-8 py-3 text-xs font-semibold active-scale">Save Pipeline</Button>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+              <Button onClick={onClose} variant="outline" disabled={isSaving} className="h-9 w-full whitespace-nowrap px-4 text-xs font-semibold active-scale sm:w-auto sm:px-5">Cancel</Button>
+              <Button onClick={handleSave} variant="primary" loading={isSaving} className="h-9 w-full whitespace-nowrap px-4 text-xs font-semibold active-scale sm:w-auto sm:px-6">Save Pipeline</Button>
             </div>
           </div>
         }
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-visible mt-6 pb-24">
-        <SectionCard className="w-full lg:w-[340px] p-8 shrink-0 h-fit space-y-6">
+      <div className="flex-1 flex flex-col gap-8 overflow-visible mt-6 pb-24 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <SectionCard className="w-full p-8 h-fit space-y-6">
           <h3 className="text-sm font-semibold text-slate-400 border-b border-slate-100 pb-4 leading-none animate-fadeIn">Basic Configuration</h3>
           
           <div className="space-y-4 animate-fadeIn">
@@ -585,7 +623,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
               label="Objectives" 
               value={draft.description} 
               onChange={e => setDraft({...draft, description: e.target.value})} 
-              rows={3} 
+              rows={5} 
               placeholder="Describe the purpose of this pipeline..." 
             />
           </div>
@@ -602,8 +640,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         </SectionCard>
 
         <SectionCard className="flex-1 p-8 flex flex-col overflow-visible relative">
-          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-5 shrink-0">
-            <div>
+          <div className="mb-6 flex shrink-0 flex-col gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h3 className="text-sm font-semibold text-slate-400 leading-none">Pipeline Ingestion Stages</h3>
               <p className="text-xs text-slate-500 mt-2 font-medium">Design structural thresholds, movement rules & compliance task lists.</p>
             </div>
@@ -611,7 +649,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
               onClick={() => setShowAddStageDialog(true)} 
               variant="ghost"
               icon={<ICONS.ADD className="w-4 h-4"/>}
-              className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-4 py-2.5 rounded-xl hover:bg-indigo-100"
+              className="w-fit shrink-0 whitespace-nowrap text-xs text-indigo-600 font-semibold bg-indigo-50 px-4 py-2.5 rounded-xl hover:bg-indigo-100"
             >
               Add Stage
             </Button>
@@ -754,13 +792,13 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <div className="text-xs font-semibold text-rose-500 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-lg">
+                          <div className="text-xs font-semibold text-rose-500">
                             {stage.taskTemplates?.length || 0} Task templates defined
                           </div>
                           <Button 
                             variant="ghost"
                             onClick={() => setConfiguringTasksStageIdx(i)}
-                            className="px-4 py-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-lg text-xs font-semibold"
+                            className="h-auto px-0 py-0 text-xs font-semibold text-indigo-600 hover:bg-transparent hover:text-indigo-700"
                           >
                             Configure Tasks
                           </Button>
@@ -847,13 +885,13 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <div className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">
+                          <div className="text-xs font-semibold text-indigo-600">
                             {stage.taskTemplates?.length || 0} Task templates defined
                           </div>
                           <Button 
                             variant="ghost"
                             onClick={() => setConfiguringTasksStageIdx(i)}
-                            className="px-4 py-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-lg text-xs font-semibold"
+                            className="h-auto px-0 py-0 text-xs font-semibold text-indigo-600 hover:bg-transparent hover:text-indigo-700"
                           >
                             Configure Tasks
                           </Button>
@@ -892,6 +930,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
           onClose={() => setShowAddStageDialog(false)}
           onAdd={handleAddStage}
           stageOrder={draft.stages.length + 1}
+          pipelineUid={draft.uid}
+          pipelineName={draft.name}
         />
       )}
     </div>
@@ -1470,15 +1510,20 @@ function AddStageDialog({
   onClose,
   onAdd,
   stageOrder,
+  pipelineUid,
+  pipelineName,
 }: {
   onClose: () => void;
   onAdd: (stageData: Partial<CrmLeadPipelineStageDto>) => Promise<void>;
   stageOrder: number;
+  pipelineUid: string;
+  pipelineName: string;
 }) {
   const [stageName, setStageName] = useState('');
   const [color, setColor] = useState('#6366f1');
   const [probability, setProbability] = useState(50);
   const [slaDays, setSlaDays] = useState(3);
+  const [isActive, setIsActive] = useState(true);
   const [isTerminal, setIsTerminal] = useState(false);
   const [terminalType, setTerminalType] = useState<'WON' | 'LOST' | 'JUNK'>('WON');
   const [movementRule, setMovementRule] = useState('No Restriction');
@@ -1495,6 +1540,8 @@ function AddStageDialog({
     setError(null);
     try {
       await onAdd({
+        pipelineUid,
+        pipelineName,
         stageName: stageName.trim(),
         stageOrder,
         sequenceOrder: stageOrder,
@@ -1505,7 +1552,7 @@ function AddStageDialog({
         terminalType: isTerminal ? terminalType : undefined,
         taskCompletionMode: 'NONE',
         autogenerateTasks: false,
-        isActive: true,
+        isActive,
         taskList: [],
         movementRule,
         conversionSetting: conversionSetting as any,
@@ -1522,7 +1569,9 @@ function AddStageDialog({
       open={true}
       onClose={onClose}
       title="Add New Stage"
-      size="md"
+      description="Define how this stage behaves, when tasks are generated, and how leads can move from it."
+      size="lg"
+      contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto"
     >
       <div className="space-y-5">
         {error && (
@@ -1539,6 +1588,7 @@ function AddStageDialog({
                 value={stageName}
                 onChange={e => { setStageName(e.target.value); setError(null); }}
                 placeholder="e.g. Contacted / Qualified"
+                hint="Use a clear status name that the team will see on lead records."
               />
             </div>
             <div className="flex flex-col items-center">
@@ -1558,6 +1608,7 @@ function AddStageDialog({
             value={String(probability)}
             onChange={e => setProbability(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
             placeholder="e.g. 50"
+            hint="Estimated chance that a lead in this stage will convert."
           />
 
           <Input
@@ -1566,12 +1617,14 @@ function AddStageDialog({
             value={String(slaDays)}
             onChange={e => setSlaDays(Math.max(0, parseInt(e.target.value) || 0))}
             placeholder="e.g. 3"
+            hint="Expected number of days to act before this stage is overdue."
           />
 
           <Select
             label="Movement Rule"
             value={movementRule}
             onChange={e => setMovementRule(e.target.value)}
+            hint="Defines how strictly users can move leads out of this stage."
             options={[
               { value: 'No Restriction', label: 'No Restriction' },
               { value: 'Strict Block', label: 'Strict Block' },
@@ -1584,6 +1637,7 @@ function AddStageDialog({
             label="Convert Rule"
             value={conversionSetting}
             onChange={e => setConversionSetting(e.target.value)}
+            hint="Controls whether conversion is allowed, suggested, or blocked from this stage."
             options={[
               { value: 'ALLOWED', label: 'Allowed' },
               { value: 'RECOMMENDED', label: 'Recommended' },
@@ -1592,6 +1646,14 @@ function AddStageDialog({
           />
 
           <div className="col-span-1 md:col-span-2 pt-2 border-t border-slate-100 space-y-3">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <div>
+                <span className="text-sm font-semibold text-slate-700 leading-none block">Active Stage</span>
+                <span className="text-xs font-medium text-slate-400 mt-0.5 block">Make this stage available in the pipeline</span>
+              </div>
+              <Switch checked={isActive} onChange={setIsActive} data-testid="jaldee-leads-pipeline-add-stage-active-switch" />
+            </div>
+
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
               <div>
                 <span className="text-sm font-semibold text-slate-700 leading-none block">Terminal State</span>
@@ -1618,7 +1680,7 @@ function AddStageDialog({
 
       <DialogFooter>
         <Button variant="outline" onClick={onClose} disabled={isSaving} className="text-sm font-semibold">Cancel</Button>
-        <Button variant="primary" onClick={handleSubmit} loading={isSaving} className="text-sm font-semibold">Add Stage</Button>
+        <Button variant="primary" onClick={handleSubmit} loading={isSaving} className="shrink-0 whitespace-nowrap text-sm font-semibold">Add Stage</Button>
       </DialogFooter>
     </Dialog>
   );

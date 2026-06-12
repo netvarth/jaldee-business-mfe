@@ -349,42 +349,68 @@ function toLeadSearchBody(filters: Record<string, unknown>) {
   }, {});
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`).join(",")}}`;
+}
+
+function toPreviousStagePayload(payload: Record<string, unknown>) {
+  const reason = firstString(
+    payload.reason,
+    payload.reasonNote,
+    payload.reasonText,
+    payload.notes,
+    payload.note,
+    "Moved to previous stage from lead detail."
+  );
+
+  return {
+    ...payload,
+    reason,
+    reasonNote: reason,
+    reasonText: reason,
+    notes: reason,
+  };
+}
+
 const leadDetailRequests = new Map<string, Promise<CrmLeadDto>>();
 const leadTenantTaskRequests = new Map<string, Promise<LeadStageTask[]>>();
-const leadDetailCache = new Map<string, CrmLeadDto>();
-const leadTenantTaskCache = new Map<string, LeadStageTask[]>();
+const leadSearchRequests = new Map<string, Promise<CrmLeadDto[]>>();
+const taskLookupRequests = new Map<string, Promise<TaskLookupOption[]>>();
+
+function getTaskLookup(key: string, endpoint: string) {
+  const existingRequest = taskLookupRequests.get(key);
+  if (existingRequest) return existingRequest;
+
+  const request = apiClient.get(
+      buildBaseServiceUrl(endpoint),
+      withoutLocationParam()
+    )
+    .then((response) => unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item)))
+    .finally(() => {
+      taskLookupRequests.delete(key);
+    });
+
+  taskLookupRequests.set(key, request);
+  return request;
+}
 
 export const leadService = {
   async getTaskPriorities() {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskPriorities.list),
-      withoutLocationParam()
-    );
-    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+    return getTaskLookup("priorities", BASE_SERVICE_ENDPOINTS.taskPriorities.list);
   },
 
   async getTaskTypes() {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskTypes.list),
-      withoutLocationParam()
-    );
-    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+    return getTaskLookup("types", BASE_SERVICE_ENDPOINTS.taskTypes.list);
   },
 
   async getTaskCategories() {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskCategories.list),
-      withoutLocationParam()
-    );
-    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+    return getTaskLookup("categories", BASE_SERVICE_ENDPOINTS.taskCategories.list);
   },
 
   async getTaskStatuses() {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.taskStatuses.list),
-      withoutLocationParam()
-    );
-    return unwrapList(response).map(toLookupOption).filter((item): item is TaskLookupOption => Boolean(item));
+    return getTaskLookup("statuses", BASE_SERVICE_ENDPOINTS.taskStatuses.list);
   },
 
   async createTenantTask(input: CreateTenantTaskInput) {
@@ -397,16 +423,13 @@ export const leadService = {
       } as any
     );
     if (input.originUid) {
-      leadTenantTaskCache.delete(String(input.originUid));
       leadTenantTaskRequests.delete(String(input.originUid));
     }
     return unwrap(response);
   },
 
-  async getLeadTenantTasks(leadUid: string) {
-    const cachedTasks = leadTenantTaskCache.get(leadUid);
-    if (cachedTasks) return cachedTasks;
-
+  async getLeadTenantTasks(leadUid: string, options: { force?: boolean } = {}) {
+    void options;
     const existingRequest = leadTenantTaskRequests.get(leadUid);
     if (existingRequest) return existingRequest;
 
@@ -427,7 +450,6 @@ export const leadService = {
       )
       .then((response) => {
         const tasks = unwrapList(response).map(toTenantLeadTask).filter((task) => task.uid);
-        leadTenantTaskCache.set(leadUid, tasks);
         return tasks;
       })
       .finally(() => {
@@ -439,12 +461,23 @@ export const leadService = {
   },
 
   async search(filters: Record<string, unknown> = {}, params: LeadSearchParams = { page: 0, size: 100 }) {
-    const response = await apiClient.post(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search),
-      toLeadSearchBody(filters),
-      withoutLocationParam(params)
-    );
-    return toLeadList(response);
+    const body = toLeadSearchBody(filters);
+    const requestKey = stableStringify({ body, params });
+    const existingRequest = leadSearchRequests.get(requestKey);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.post(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.search),
+        body,
+        withoutLocationParam(params)
+      )
+      .then(toLeadList)
+      .finally(() => {
+        leadSearchRequests.delete(requestKey);
+      });
+
+    leadSearchRequests.set(requestKey, request);
+    return request;
   },
 
   async create(lead: Partial<CrmLeadDto>) {
@@ -453,24 +486,20 @@ export const leadService = {
       toLeadPayload(lead),
       withoutLocationParam()
     );
-    return toLead(unwrap(response));
+    const createdLead = toLead(unwrap(response));
+    leadSearchRequests.clear();
+    return createdLead;
   },
 
-  async detail(uid: string) {
-    const cachedLead = leadDetailCache.get(uid);
-    if (cachedLead) return cachedLead;
-
+  async detail(uid: string, options: { force?: boolean } = {}) {
+    void options;
     const existingRequest = leadDetailRequests.get(uid);
     if (existingRequest) return existingRequest;
 
     const request = apiClient.get(
         buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmProviderLeads.detail(uid))
       )
-      .then((response) => {
-        const lead = toLead(unwrap(response));
-        leadDetailCache.set(uid, lead);
-        return lead;
-      })
+      .then((response) => toLead(unwrap(response)))
       .finally(() => {
         leadDetailRequests.delete(uid);
       });
@@ -486,8 +515,7 @@ export const leadService = {
       withoutLocationParam()
     );
     const updatedLead = toLead(unwrap(response));
-    leadDetailCache.set(uid, updatedLead);
-    leadTenantTaskCache.delete(uid);
+    leadTenantTaskRequests.delete(uid);
     return updatedLead;
   },
 
@@ -499,21 +527,19 @@ export const leadService = {
     );
     const unwrapped = unwrap(response);
     const updatedLead = unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
-    if (updatedLead) leadDetailCache.set(uid, updatedLead);
-    leadTenantTaskCache.delete(uid);
+    leadTenantTaskRequests.delete(uid);
     return updatedLead;
   },
 
   async previousStage(uid: string, payload: Record<string, unknown> = {}) {
     const response = await apiClient.patch(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadStageProgress.previousStage(uid)),
-      payload,
+      toPreviousStagePayload(payload),
       withoutLocationParam()
     );
     const unwrapped = unwrap(response);
     const updatedLead = unwrapped && typeof unwrapped === "object" ? toLead(unwrapped) : undefined;
-    if (updatedLead) leadDetailCache.set(uid, updatedLead);
-    leadTenantTaskCache.delete(uid);
+    leadTenantTaskRequests.delete(uid);
     return updatedLead;
   },
 
@@ -537,7 +563,7 @@ export const leadService = {
       undefined,
       withoutLocationParam()
     );
-    leadDetailCache.delete(uid);
+    leadDetailRequests.delete(uid);
   },
 
   async assign(uid: string, assignee: { userId: string; userName: string }) {

@@ -3,6 +3,8 @@ import { useTaskCategories, useTaskPriorities, useTaskStatuses, useTaskTypes } f
 import type { TaskLocation, TaskLookup, TaskUser } from "./types";
 import { normalizeArray } from "./taskUtils";
 
+const TASK_LOOKUP_FILTERS = { from: 0, count: 100 };
+
 export type TaskLookupData = {
   statuses: TaskLookup[];
   priorities: TaskLookup[];
@@ -13,10 +15,10 @@ export type TaskLookupData = {
 };
 
 export function useTaskLookups(): TaskLookupData {
-  const statusQuery = useTaskStatuses();
-  const priorityQuery = useTaskPriorities();
-  const categoryQuery = useTaskCategories();
-  const typeQuery = useTaskTypes();
+  const statusQuery = useTaskStatuses(TASK_LOOKUP_FILTERS);
+  const priorityQuery = useTaskPriorities(TASK_LOOKUP_FILTERS);
+  const categoryQuery = useTaskCategories(TASK_LOOKUP_FILTERS);
+  const typeQuery = useTaskTypes(TASK_LOOKUP_FILTERS);
   const usersQuery = useUsersList({ page: 1, pageSize: 100, status: "ACTIVE" });
   const locationsQuery = useUserLocations();
 

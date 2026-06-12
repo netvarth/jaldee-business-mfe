@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, Checkbox, Input, PageHeader, SectionCard, Select, Textarea } from "@jaldee/design-system";
-import { ArrowDown, ArrowUp, Copy, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import type { FormField, FormTemplate } from "../types";
-import { ICONS } from "../constants";
 import { leadTemplateService } from "../services/templateService";
 import { useJaldeeLeadsContext } from "../lib/sharedContext";
 
@@ -40,12 +39,15 @@ type TemplateItem =
 
 type AddModalState =
   | { kind: "field" }
+  | { kind: "editField"; itemId: string }
   | { kind: "object" }
+  | { kind: "editObject"; itemId: string }
   | { kind: "objectField"; objectId: string }
+  | { kind: "editObjectField"; objectId: string; fieldId: string }
   | null;
 
 interface TemplateBuilderScreenProps {
-  onSave: (template: FormTemplate) => void;
+  onSave: (template: FormTemplate) => void | Promise<void>;
   initialTemplate?: FormTemplate | null;
 }
 
@@ -137,20 +139,7 @@ function makeObjectItem(object: TemplateObject): TemplateItem {
   return { id: object.id, kind: "object", object };
 }
 
-const initialItems: TemplateItem[] = [
-  makeFieldItem(makeField("name", "Name", "Enter name", "string", "textBox", "text", { required: true })),
-  makeObjectItem(
-    makeObject("address", "Address", "Enter address details", [
-      makeField("AddressLine", "Address Line", "Enter address line", "string", "textBox", "text"),
-      makeField("city", "City", "Enter city", "string", "textBox", "text"),
-      makeField("pinCode", "Pincode", "Enter pincode", "number", "textBox", "number", {
-        minimum: "100000",
-        maximum: "999999",
-      }),
-    ]),
-  ),
-  makeFieldItem(makeField("age", "Age", "Enter age", "number", "textBox", "number")),
-];
+const initialItems: TemplateItem[] = [];
 
 function optionsToText(options: any[] | undefined) {
   if (!Array.isArray(options)) return "";
@@ -308,6 +297,35 @@ function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
   return next;
 }
 
+function optionLabel(options: { value: string; label: string }[], value: string) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function FieldSummary({
+  field,
+  testIdPrefix,
+}: {
+  field: TemplateField;
+  testIdPrefix: string;
+}) {
+  return (
+    <div data-testid={`${testIdPrefix}-summary`} className="grid w-full min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr),160px,120px] sm:items-center">
+      <div className="min-w-0">
+        <div data-testid={`${testIdPrefix}-summary-name`} className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
+          {field.title || field.key || "Untitled input"}
+        </div>
+        <div className="mt-0.5 truncate font-mono text-xs text-[var(--color-text-secondary)]">{field.key || "no-key"}</div>
+      </div>
+      <div data-testid={`${testIdPrefix}-summary-input-type`} className="text-sm text-[var(--color-text-secondary)]">
+        {optionLabel(inputTypeOptions, field.inputType)}
+      </div>
+      <div data-testid={`${testIdPrefix}-summary-required`} className="flex justify-start sm:justify-end">
+        <Badge variant={field.required ? "warning" : "neutral"}>{field.required ? "Required" : "Optional"}</Badge>
+      </div>
+    </div>
+  );
+}
+
 function FieldEditor({
   field,
   onChange,
@@ -319,11 +337,11 @@ function FieldEditor({
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      <Input id={`${testIdPrefix}-json-key-input`} data-testid={`${testIdPrefix}-json-key-input`} label="JSON key" value={field.key} onChange={(event) => onChange({ key: event.target.value })} />
-      <Input id={`${testIdPrefix}-title-input`} data-testid={`${testIdPrefix}-title-input`} label="Title" value={field.title} onChange={(event) => onChange({ title: event.target.value })} />
-      <Input id={`${testIdPrefix}-description-input`} data-testid={`${testIdPrefix}-description-input`} label="Description" value={field.description} onChange={(event) => onChange({ description: event.target.value })} />
-      <Select id={`${testIdPrefix}-type-select`} data-testid={`${testIdPrefix}-type-select`} label="Type" value={field.type} onChange={(event) => onChange({ type: event.target.value as JsonSchemaType })} options={fieldTypeOptions} />
-      <Select id={`${testIdPrefix}-item-type-select`} data-testid={`${testIdPrefix}-item-type-select`} label="Item type" value={field.itemType} onChange={(event) => onChange({ itemType: event.target.value })} options={itemTypeOptions} />
+      <Input id={`${testIdPrefix}-json-key-input`} data-testid={`${testIdPrefix}-json-key-input`} label="Data key" value={field.key} onChange={(event) => onChange({ key: event.target.value })} placeholder="customerName" />
+      <Input id={`${testIdPrefix}-title-input`} data-testid={`${testIdPrefix}-title-input`} label="Input label" value={field.title} onChange={(event) => onChange({ title: event.target.value })} placeholder="Customer name" />
+      <Input id={`${testIdPrefix}-description-input`} data-testid={`${testIdPrefix}-description-input`} label="Help text" value={field.description} onChange={(event) => onChange({ description: event.target.value })} placeholder="Shown below the input" />
+      <Select id={`${testIdPrefix}-type-select`} data-testid={`${testIdPrefix}-type-select`} label="Data type" value={field.type} onChange={(event) => onChange({ type: event.target.value as JsonSchemaType })} options={fieldTypeOptions} />
+      <Select id={`${testIdPrefix}-item-type-select`} data-testid={`${testIdPrefix}-item-type-select`} label="Display style" value={field.itemType} onChange={(event) => onChange({ itemType: event.target.value })} options={itemTypeOptions} />
       <Select id={`${testIdPrefix}-input-type-select`} data-testid={`${testIdPrefix}-input-type-select`} label="Input type" value={field.inputType} onChange={(event) => onChange({ inputType: event.target.value })} options={inputTypeOptions} />
       <Select id={`${testIdPrefix}-option-source-select`} data-testid={`${testIdPrefix}-option-source-select`} label="Option source" value={field.optionType} onChange={(event) => onChange({ optionType: event.target.value })} options={optionTypeOptions} />
       <Input id={`${testIdPrefix}-default-input`} data-testid={`${testIdPrefix}-default-input`} label="Default" value={field.defaultValue} onChange={(event) => onChange({ defaultValue: event.target.value })} />
@@ -338,7 +356,7 @@ function FieldEditor({
       </div>
       <Input id={`${testIdPrefix}-minimum-input`} data-testid={`${testIdPrefix}-minimum-input`} label="Minimum" value={field.minimum} onChange={(event) => onChange({ minimum: event.target.value })} />
       <Input id={`${testIdPrefix}-maximum-input`} data-testid={`${testIdPrefix}-maximum-input`} label="Maximum" value={field.maximum} onChange={(event) => onChange({ maximum: event.target.value })} />
-      <Textarea id={`${testIdPrefix}-options-textarea`} data-testid={`${testIdPrefix}-options-textarea`} label="Options" value={field.optionsText} onChange={(event) => onChange({ optionsText: event.target.value })} placeholder={"male:Male\nfemale:Female"} rows={3} />
+      <Textarea id={`${testIdPrefix}-options-textarea`} data-testid={`${testIdPrefix}-options-textarea`} label="Options" value={field.optionsText} onChange={(event) => onChange({ optionsText: event.target.value })} placeholder={"new:New\nqualified:Qualified"} rows={3} />
     </div>
   );
 }
@@ -364,25 +382,33 @@ function AddItemModal({
 
   const title =
     state.kind === "field"
-      ? "Add Field"
-      : state.kind === "object"
-        ? "Add Object"
-        : "Add Object Field";
+      ? "Add Input"
+      : state.kind === "editField"
+        ? "Edit Input"
+        : state.kind === "object"
+        ? "Add Section"
+        : state.kind === "editObject"
+          ? "Edit Section"
+          : state.kind === "objectField"
+            ? "Add Section Input"
+            : "Edit Section Input";
+  const isEdit = state.kind === "editField" || state.kind === "editObject" || state.kind === "editObjectField";
+  const isObjectEditor = state.kind === "object" || state.kind === "editObject";
 
   return (
-    <div data-testid="jaldee-leads-template-builder-add-item-dialog-overlay" data-state="open" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <div data-testid="jaldee-leads-template-builder-add-item-dialog" data-state="open" className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+    <div data-testid="jaldee-leads-template-builder-add-item-dialog-overlay" data-state="open" className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-950/40 p-3 sm:items-center sm:p-4">
+      <div data-testid="jaldee-leads-template-builder-add-item-dialog" data-state="open" className="my-3 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:my-6 sm:max-h-[calc(100dvh-3rem)] sm:max-w-4xl">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
           <h3 className="m-0 text-sm font-semibold text-slate-900">{title}</h3>
           <Button id="jaldee-leads-template-builder-add-item-close-button" data-testid="jaldee-leads-template-builder-add-item-close-button" size="sm" variant="ghost" icon={<X size={16} />} onClick={onClose} aria-label="Close modal" />
         </div>
 
         <div className="overflow-y-auto p-4">
-          {state.kind === "object" ? (
+          {isObjectEditor ? (
             <div className="grid gap-3 md:grid-cols-3">
-              <Input id="jaldee-leads-template-builder-add-object-json-key-input" data-testid="jaldee-leads-template-builder-add-object-json-key-input" label="JSON key" value={objectDraft.key} onChange={(event) => onObjectChange({ key: event.target.value })} />
-              <Input id="jaldee-leads-template-builder-add-object-title-input" data-testid="jaldee-leads-template-builder-add-object-title-input" label="Title" value={objectDraft.title} onChange={(event) => onObjectChange({ title: event.target.value })} />
-              <Input id="jaldee-leads-template-builder-add-object-description-input" data-testid="jaldee-leads-template-builder-add-object-description-input" label="Description" value={objectDraft.description} onChange={(event) => onObjectChange({ description: event.target.value })} />
+              <Input id="jaldee-leads-template-builder-add-object-json-key-input" data-testid="jaldee-leads-template-builder-add-object-json-key-input" label="Data key" value={objectDraft.key} onChange={(event) => onObjectChange({ key: event.target.value })} placeholder="contactDetails" />
+              <Input id="jaldee-leads-template-builder-add-object-title-input" data-testid="jaldee-leads-template-builder-add-object-title-input" label="Section label" value={objectDraft.title} onChange={(event) => onObjectChange({ title: event.target.value })} placeholder="Contact details" />
+              <Input id="jaldee-leads-template-builder-add-object-description-input" data-testid="jaldee-leads-template-builder-add-object-description-input" label="Section note" value={objectDraft.description} onChange={(event) => onObjectChange({ description: event.target.value })} placeholder="Groups related inputs" />
               <div className="mt-7 flex h-9 items-center">
                 <Checkbox
                   data-testid="jaldee-leads-template-builder-add-object-required-checkbox"
@@ -402,8 +428,8 @@ function AddItemModal({
           <Button id="jaldee-leads-template-builder-add-item-cancel-button" data-testid="jaldee-leads-template-builder-add-item-cancel-button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button id="jaldee-leads-template-builder-add-item-confirm-button" data-testid="jaldee-leads-template-builder-add-item-confirm-button" icon={<Plus size={16} />} onClick={onConfirm}>
-            Add
+          <Button id="jaldee-leads-template-builder-add-item-confirm-button" data-testid="jaldee-leads-template-builder-add-item-confirm-button" icon={isEdit ? <Save size={16} /> : <Plus size={16} />} onClick={onConfirm}>
+            {isEdit ? "Save" : "Add"}
           </Button>
         </div>
       </div>
@@ -415,12 +441,12 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
   const navigate = useNavigate();
   const { account } = useJaldeeLeadsContext();
   const isEditMode = Boolean(initialTemplate?.uid);
-  const [templateName, setTemplateName] = useState(initialTemplate?.name ?? "Lead Intake Template");
-  const [description, setDescription] = useState("Lead intake details template");
+  const [templateName, setTemplateName] = useState(initialTemplate?.name ?? "");
+  const [description, setDescription] = useState("");
   const [items, setItems] = useState<TemplateItem[]>(() => initialTemplate?.templateSchema ? schemaToItems(initialTemplate.templateSchema) : initialItems);
   const [addModal, setAddModal] = useState<AddModalState>(null);
-  const [fieldDraft, setFieldDraft] = useState<TemplateField>(() => makeField("newField", "New Field", "", "string", "textBox", "text"));
-  const [objectDraft, setObjectDraft] = useState<TemplateObject>(() => makeObject("newObject", "New Object", ""));
+  const [fieldDraft, setFieldDraft] = useState<TemplateField>(() => makeField("", "", "", "string", "textBox", "text"));
+  const [objectDraft, setObjectDraft] = useState<TemplateObject>(() => makeObject("", "", ""));
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -439,19 +465,50 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
   function openAddModal(state: AddModalState) {
     setAddModal(state);
     if (state?.kind === "object") {
-      setObjectDraft(makeObject("newObject", "New Object", ""));
-    } else if (state) {
-      setFieldDraft(makeField("newField", "New Field", "", "string", "textBox", "text"));
+      setObjectDraft(makeObject("", "", ""));
+    } else if (state?.kind === "field" || state?.kind === "objectField") {
+      setFieldDraft(makeField("", "", "", "string", "textBox", "text"));
     }
+  }
+
+  function openEditField(itemId: string, field: TemplateField) {
+    setFieldDraft({ ...field });
+    setAddModal({ kind: "editField", itemId });
+  }
+
+  function openEditObject(itemId: string, object: TemplateObject) {
+    setObjectDraft({ ...object, fields: [...object.fields] });
+    setAddModal({ kind: "editObject", itemId });
+  }
+
+  function openEditObjectField(objectId: string, field: TemplateField) {
+    setFieldDraft({ ...field });
+    setAddModal({ kind: "editObjectField", objectId, fieldId: field.id });
   }
 
   function confirmAddModal() {
     if (!addModal) return;
     if (addModal.kind === "field") {
       setItems((current) => [...current, makeFieldItem({ ...fieldDraft, id: makeId("field") })]);
+    } else if (addModal.kind === "editField") {
+      setItems((current) =>
+        current.map((item) =>
+          item.kind === "field" && item.id === addModal.itemId
+            ? { ...item, field: { ...fieldDraft, id: item.field.id } }
+            : item,
+        ),
+      );
     } else if (addModal.kind === "object") {
       setItems((current) => [...current, makeObjectItem({ ...objectDraft, id: makeId("object"), fields: [] })]);
-    } else {
+    } else if (addModal.kind === "editObject") {
+      setItems((current) =>
+        current.map((item) =>
+          item.kind === "object" && item.id === addModal.itemId
+            ? { ...item, object: { ...objectDraft, id: item.object.id, fields: item.object.fields } }
+            : item,
+        ),
+      );
+    } else if (addModal.kind === "objectField") {
       setItems((current) =>
         current.map((item) =>
           item.kind === "object" && item.object.id === addModal.objectId
@@ -459,36 +516,24 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
             : item,
         ),
       );
+    } else {
+      setItems((current) =>
+        current.map((item) =>
+          item.kind === "object" && item.object.id === addModal.objectId
+            ? {
+                ...item,
+                object: {
+                  ...item.object,
+                  fields: item.object.fields.map((field) =>
+                    field.id === addModal.fieldId ? { ...fieldDraft, id: field.id } : field,
+                  ),
+                },
+              }
+            : item,
+        ),
+      );
     }
     setAddModal(null);
-  }
-
-  function updateItemField(itemId: string, patch: Partial<TemplateField>) {
-    setItems((current) =>
-      current.map((item) => (item.kind === "field" && item.id === itemId ? { ...item, field: { ...item.field, ...patch } } : item)),
-    );
-  }
-
-  function updateObject(itemId: string, patch: Partial<TemplateObject>) {
-    setItems((current) =>
-      current.map((item) => (item.kind === "object" && item.id === itemId ? { ...item, object: { ...item.object, ...patch } } : item)),
-    );
-  }
-
-  function updateObjectField(objectId: string, fieldId: string, patch: Partial<TemplateField>) {
-    setItems((current) =>
-      current.map((item) =>
-        item.kind === "object" && item.object.id === objectId
-          ? {
-              ...item,
-              object: {
-                ...item.object,
-                fields: item.object.fields.map((field) => (field.id === fieldId ? { ...field, ...patch } : field)),
-              },
-            }
-          : item,
-      ),
-    );
   }
 
   function removeObjectField(objectId: string, fieldId: string) {
@@ -508,7 +553,7 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
       return;
     }
     if (!items.length) {
-      setStatus("Add at least one field or object.");
+      setStatus("Add at least one input or section.");
       return;
     }
 
@@ -547,7 +592,7 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
           )
         : await leadTemplateService.create(requestPayload, fields, templateSchema);
 
-      onSave(createdTemplate);
+      await onSave(createdTemplate);
       setStatus(isEditMode ? "Template updated." : "Template created. You can select it while creating a product.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to create template.");
@@ -566,10 +611,12 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
       <PageHeader
         title={isEditMode ? "Edit Lead Template" : "Lead Template Builder"}
         subtitle="Build lead intake template JSON in the exact order required."
+        back={{ label: "Templates", href: "/leads/templates" }}
+        onNavigate={navigate}
         actions={
           <div className="flex items-center gap-2">
-            <Button id="jaldee-leads-template-builder-back-button" data-testid="jaldee-leads-template-builder-back-button" variant="outline" icon={<ICONS.PREV className="h-4 w-4" />} onClick={() => navigate("/leads/templates")}>
-              Templates
+            <Button id="jaldee-leads-template-builder-cancel-button" data-testid="jaldee-leads-template-builder-cancel-button" variant="outline" onClick={() => navigate("/leads/templates")}>
+              Cancel
             </Button>
             <Button id="jaldee-leads-template-builder-save-button" data-testid="jaldee-leads-template-builder-save-button" icon={<Save size={16} />} loading={isSaving} onClick={handleSaveTemplate}>
               {isEditMode ? "Update template" : "Create template"}
@@ -582,8 +629,8 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
         <div className="flex flex-col gap-4">
           <SectionCard title="Template">
             <div className="grid gap-3 md:grid-cols-2">
-              <Input id="jaldee-leads-template-builder-name-input" data-testid="jaldee-leads-template-builder-name-input" label="Template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} />
-              <Input id="jaldee-leads-template-builder-description-input" data-testid="jaldee-leads-template-builder-description-input" label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+              <Input id="jaldee-leads-template-builder-name-input" data-testid="jaldee-leads-template-builder-name-input" label="Template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Customer enquiry form" />
+              <Input id="jaldee-leads-template-builder-description-input" data-testid="jaldee-leads-template-builder-description-input" label="Description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Used for website and walk-in leads" />
             </div>
           </SectionCard>
 
@@ -592,78 +639,79 @@ export default function TemplateBuilderScreen({ onSave, initialTemplate }: Templ
             actions={
               <>
                 <Button id="jaldee-leads-template-builder-add-field-button" data-testid="jaldee-leads-template-builder-add-field-button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "field" })}>
-                  Field
+                  Input
                 </Button>
                 <Button id="jaldee-leads-template-builder-add-object-button" data-testid="jaldee-leads-template-builder-add-object-button" size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "object" })}>
-                  Object
+                  Section
                 </Button>
               </>
             }
           >
             <div className="flex flex-col gap-3">
-              {items.map((item, index) => (
-                <div key={item.id} data-testid={`jaldee-leads-template-builder-item-${item.id}-row`} className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-gray-800">
-                        {item.kind === "field" ? item.field.title || item.field.key : item.object.title || item.object.key}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <Badge variant={item.kind === "field" ? "info" : "neutral"}>{item.kind === "field" ? "Field" : "Object"}</Badge>
-                        {item.kind === "field" && item.field.required ? <Badge variant="warning">Required</Badge> : null}
-                        {item.kind === "object" && item.object.required ? <Badge variant="warning">Required</Badge> : null}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button id={`jaldee-leads-template-builder-item-${item.id}-move-up-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-move-up-button`} size="sm" variant="ghost" icon={<ArrowUp size={14} />} disabled={index === 0} onClick={() => setItems((current) => moveItem(current, index, -1))} aria-label="Move up" />
-                      <Button id={`jaldee-leads-template-builder-item-${item.id}-move-down-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-move-down-button`} size="sm" variant="ghost" icon={<ArrowDown size={14} />} disabled={index === items.length - 1} onClick={() => setItems((current) => moveItem(current, index, 1))} aria-label="Move down" />
-                      <Button id={`jaldee-leads-template-builder-item-${item.id}-delete-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-delete-button`} size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} aria-label="Delete item" />
-                    </div>
+              {items.map((item, index) => {
+                const itemActions = (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button id={`jaldee-leads-template-builder-item-${item.id}-move-up-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-move-up-button`} size="sm" variant="ghost" icon={<ArrowUp size={14} />} disabled={index === 0} onClick={() => setItems((current) => moveItem(current, index, -1))} aria-label="Move up" />
+                    <Button id={`jaldee-leads-template-builder-item-${item.id}-move-down-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-move-down-button`} size="sm" variant="ghost" icon={<ArrowDown size={14} />} disabled={index === items.length - 1} onClick={() => setItems((current) => moveItem(current, index, 1))} aria-label="Move down" />
+                    {item.kind === "field" ? (
+                      <Button id={`jaldee-leads-template-builder-item-${item.id}-edit-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-edit-button`} size="sm" variant="ghost" icon={<Pencil size={14} />} onClick={() => openEditField(item.id, item.field)} aria-label="Edit input" />
+                    ) : (
+                      <Button id={`jaldee-leads-template-builder-item-${item.id}-edit-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-edit-button`} size="sm" variant="ghost" icon={<Pencil size={14} />} onClick={() => openEditObject(item.id, item.object)} aria-label="Edit section" />
+                    )}
+                    <Button id={`jaldee-leads-template-builder-item-${item.id}-delete-button`} data-testid={`jaldee-leads-template-builder-item-${item.id}-delete-button`} size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} aria-label="Delete item" />
                   </div>
+                );
 
-                  {item.kind === "field" ? (
-                    <FieldEditor field={item.field} onChange={(patch) => updateItemField(item.id, patch)} testIdPrefix={`jaldee-leads-template-builder-item-${item.id}`} />
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <Input id={`jaldee-leads-template-builder-object-${item.object.id}-json-key-input`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-json-key-input`} label="JSON key" value={item.object.key} onChange={(event) => updateObject(item.id, { key: event.target.value })} />
-                        <Input id={`jaldee-leads-template-builder-object-${item.object.id}-title-input`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-title-input`} label="Title" value={item.object.title} onChange={(event) => updateObject(item.id, { title: event.target.value })} />
-                        <Input id={`jaldee-leads-template-builder-object-${item.object.id}-description-input`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-description-input`} label="Description" value={item.object.description} onChange={(event) => updateObject(item.id, { description: event.target.value })} />
-                        <div className="mt-7 flex h-9 items-center">
-                          <Checkbox
-                            data-testid={`jaldee-leads-template-builder-object-${item.object.id}-required-checkbox`}
-                            data-active={item.object.required}
-                            checked={item.object.required}
-                            onChange={(event) => updateObject(item.id, { required: event.target.checked })}
-                            label="Required"
-                          />
-                        </div>
+                return (
+                  <div key={item.id} data-testid={`jaldee-leads-template-builder-item-${item.id}-row`} className="rounded-lg border border-gray-200 bg-white p-3">
+                    {item.kind === "field" ? (
+                      <div className="flex items-start justify-between gap-3">
+                        <FieldSummary field={item.field} testIdPrefix={`jaldee-leads-template-builder-item-${item.id}`} />
+                        {itemActions}
                       </div>
-
-                      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                        <h4 className="m-0 text-sm font-semibold text-gray-700">Object fields</h4>
-                        <Button id={`jaldee-leads-template-builder-object-${item.object.id}-add-field-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-add-field-button`} size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "objectField", objectId: item.object.id })}>
-                          Field
-                        </Button>
-                      </div>
-
-                      {item.object.fields.map((field) => (
-                        <div key={field.id} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-row`} className="rounded-md border border-gray-100 p-3">
-                          <div className="mb-3 flex items-center justify-between">
-                            <div className="text-sm font-semibold text-gray-800">{field.title || field.key}</div>
-                            <Button id={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-delete-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-delete-button`} size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => removeObjectField(item.object.id, field.id)} aria-label="Delete object field" />
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div data-testid={`jaldee-leads-template-builder-object-${item.object.id}-summary`} className="grid w-full min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr),160px,120px] sm:items-center">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{item.object.title || item.object.key || "Untitled section"}</div>
+                              <div className="mt-0.5 truncate font-mono text-xs text-[var(--color-text-secondary)]">{item.object.key || "no-key"}</div>
+                            </div>
+                            <div className="text-sm text-[var(--color-text-secondary)]">{item.object.fields.length} inputs</div>
+                            <div className="flex justify-start sm:justify-end">
+                              <Badge variant={item.object.required ? "warning" : "neutral"}>{item.object.required ? "Required" : "Optional"}</Badge>
+                            </div>
                           </div>
-                          <FieldEditor field={field} onChange={(patch) => updateObjectField(item.object.id, field.id, patch)} testIdPrefix={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}`} />
+                          {itemActions}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+
+                        <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+                          <h4 className="m-0 text-sm font-semibold text-gray-700">Section inputs</h4>
+                          <Button id={`jaldee-leads-template-builder-object-${item.object.id}-add-field-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-add-field-button`} size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => openAddModal({ kind: "objectField", objectId: item.object.id })}>
+                            Input
+                          </Button>
+                        </div>
+
+                        {item.object.fields.map((field) => (
+                          <div key={field.id} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-row`} className="rounded-md border border-gray-100 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <FieldSummary field={field} testIdPrefix={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}`} />
+                              <div className="flex shrink-0 items-center gap-1">
+                                <Button id={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-edit-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-edit-button`} size="sm" variant="ghost" icon={<Pencil size={14} />} onClick={() => openEditObjectField(item.object.id, field)} aria-label="Edit section input" />
+                                <Button id={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-delete-button`} data-testid={`jaldee-leads-template-builder-object-${item.object.id}-field-${field.id}-delete-button`} size="sm" variant="ghost" icon={<Trash2 size={14} />} onClick={() => removeObjectField(item.object.id, field.id)} aria-label="Delete section input" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {items.length === 0 ? (
                 <div data-testid="jaldee-leads-template-builder-items-empty-state" data-state="empty" className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
-                  Add a field or object to start the template.
+                  Add an input or section to start the template.
                 </div>
               ) : null}
             </div>

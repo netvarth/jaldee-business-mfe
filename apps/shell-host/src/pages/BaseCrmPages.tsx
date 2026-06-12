@@ -101,7 +101,6 @@ export function ShellCustomersPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
   const accessToken = useShellStore((s) => s.accessToken);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const { routeSegments } = useRouteSegments("customers");
@@ -117,11 +116,11 @@ export function ShellCustomersPage() {
           value={{
             moduleName: "customers",
             product,
-            apiScope: "location",
+            apiScope: "global",
             basePath: "/customers",
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: {
               get: (url: string, config?: unknown) =>
                 apiClient.get(url, {
@@ -165,7 +164,7 @@ export function ShellCustomersPage() {
                 }),
             },
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               recordId: routeSegments[0] ?? null,
             },
           }}
@@ -180,7 +179,6 @@ export function ShellCustomersPage() {
 export function ShellUsersPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const navigateWithinModule = useModuleNavigate("/users");
@@ -242,15 +240,15 @@ export function ShellUsersPage() {
           value={{
             moduleName: "users",
             product,
-            apiScope: "location",
+            apiScope: "global",
             basePath: "/users",
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: apiClient,
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               recordId: routeState.recordId,
               view: routeState.view,
               subview: routeState.subview,
@@ -268,7 +266,6 @@ export function ShellUsersPage() {
 export function ShellDrivePage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const { routeSegments } = useRouteSegments("drive");
@@ -284,14 +281,14 @@ export function ShellDrivePage() {
           value={{
             moduleName: "drive",
             product,
-            apiScope: "location",
+            apiScope: "global",
             basePath: "/drive",
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: apiClient,
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               view: routeSegments[0] ?? null,
               subview: routeSegments[1] ?? null,
               recordId: routeSegments[2] ?? null,
@@ -308,7 +305,6 @@ export function ShellDrivePage() {
 export function ShellTasksPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const navigateWithinModule = useModuleNavigate("/tasks");
@@ -345,15 +341,15 @@ export function ShellTasksPage() {
           value={{
             moduleName: "tasks",
             product,
-            apiScope: "location",
+            apiScope: "global",
             basePath: "/tasks",
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: apiClient,
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               view: routeState.view,
               subview: routeState.subview,
               recordId: routeState.recordId,
@@ -371,7 +367,6 @@ export function ShellTasksPage() {
 export function ShellMembershipPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const { routeSegments, tab } = useRouteSegments("membership");
@@ -391,10 +386,10 @@ export function ShellMembershipPage() {
             basePath: "/membership",
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: apiClient,
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               view: routeSegments[0] ?? null,
               subview: routeSegments[1] ?? null,
               recordId: routeSegments[2] ?? null,
@@ -412,7 +407,6 @@ export function ShellMembershipPage() {
 export function ShellReportsPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const { routeSegments } = useRouteSegments("reports");
@@ -428,14 +422,14 @@ export function ShellReportsPage() {
           value={{
             moduleName: "reports",
             product,
-            apiScope: "location",
+            apiScope: "global",
             basePath: "/reports",
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: apiClient,
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               view: routeSegments[0] ?? null,
               subview: routeSegments[1] ?? null,
               recordId: routeSegments[2] ?? null,
@@ -452,7 +446,6 @@ export function ShellReportsPage() {
 export function ShellAuditLogPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
-  const locationContext = useShellStore((s) => s.activeLocation);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const navigateWithinModule = useModuleNavigate("/audit-log");
@@ -473,10 +466,10 @@ export function ShellAuditLogPage() {
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
-            location: locationContext,
+            location: null,
             api: apiClient,
             routeParams: {
-              locationId: locationContext?.id ?? null,
+              locationId: null,
               view: "auditlog",
               subview: null,
               recordId: null,

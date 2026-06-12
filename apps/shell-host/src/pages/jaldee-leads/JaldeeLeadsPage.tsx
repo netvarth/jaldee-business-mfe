@@ -13,7 +13,7 @@ import BulkImportScreen from './screens/BulkImportScreen';
 import AuditLogScreen from './screens/AuditLogScreen';
 import TemplateBuilderScreen from './screens/TemplateBuilderScreen';
 import TemplatesScreen from './screens/TemplatesScreen';
-import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel, FormTemplate } from './types';
+import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel, FormTemplate, LeadStageTask, CrmLeadPipelineStageDto } from './types';
 import { mockLeads, mockPipelines, mockProducts, mockChannels, mockForms } from './mockData';
 import { leadProductService } from './services/productService';
 import { leadTemplateService } from './services/templateService';
@@ -156,9 +156,11 @@ function PipelineEditRoute({
 function TemplateEditRoute({
   forms,
   setForms,
+  refreshTemplates,
 }: {
   forms: FormTemplate[];
   setForms: React.Dispatch<React.SetStateAction<FormTemplate[]>>;
+  refreshTemplates: () => Promise<FormTemplate[] | void> | void;
 }) {
   const navigate = useNavigate();
   const { templateUid } = useParams();
@@ -167,12 +169,37 @@ function TemplateEditRoute({
   return (
     <TemplateBuilderScreen
       initialTemplate={template}
-      onSave={(updatedTemplate) => {
+      onSave={async (updatedTemplate) => {
         setForms(prev => [updatedTemplate, ...prev.filter(item => item.uid !== updatedTemplate.uid)]);
+        await refreshTemplates();
         navigate('/jaldee-leads/templates');
       }}
     />
   );
+}
+
+function mergeLeadStageTasks(...taskGroups: LeadStageTask[][]): LeadStageTask[] {
+  const byUid = new Map<string, LeadStageTask>();
+  taskGroups.flat().forEach((task) => {
+    if (!task.uid) return;
+    const existing = byUid.get(task.uid);
+    byUid.set(task.uid, existing ? { ...existing, ...task } : task);
+  });
+  return Array.from(byUid.values());
+}
+
+function stageDetailTasks(stage: CrmLeadPipelineStageDto | null): LeadStageTask[] {
+  return (stage?.taskTemplates ?? []).map((task, index) => ({
+    uid: String(task.uid || `stage-task-${index + 1}`),
+    title: task.title || `Task ${index + 1}`,
+    type: task.type || "TASK",
+    required: task.required ?? true,
+    completed: false,
+    isManual: false,
+    createdAt: "",
+    priority: task.priority,
+    description: task.description,
+  }));
 }
 
 function LeadDetailRoute({
@@ -203,19 +230,25 @@ function LeadDetailRoute({
     async function loadLeadDetails() {
       setIsLoadingLead(true);
       try {
-        const [leadDetail, tenantTasks] = await Promise.all([
-          leadService.detail(leadUid),
-          leadService.getLeadTenantTasks(leadUid),
+        const leadDetail = await leadService.detail(leadUid, { force: true });
+        const stageUid = leadDetail.currentPipelineStageUid || lead?.currentPipelineStageUid;
+        const [stageDetail, tenantTasks] = await Promise.all([
+          stageUid ? leadPipelineService.stageDetail(stageUid) : Promise.resolve(null),
+          leadService.getLeadTenantTasks(leadUid, { force: true }),
         ]);
 
         if (!active) return;
 
         const existingTasks = leadDetail.stageTasks ?? [];
-        const existingTaskIds = new Set(existingTasks.map((task) => task.uid));
-        const mergedTasks = [
-          ...existingTasks,
-          ...tenantTasks.filter((task) => !existingTaskIds.has(task.uid)),
-        ];
+        const existingTaskById = new Map(existingTasks.map((task) => [task.uid, task]));
+        const currentStageTasks = stageDetailTasks(stageDetail).map((task) => ({
+          ...task,
+          isManual: false,
+          completed: existingTaskById.get(task.uid)?.completed ?? task.completed,
+        }));
+        const existingManualTasks = existingTasks.filter((task) => task.isManual);
+        const stageDrivenTasks = currentStageTasks.length ? currentStageTasks : existingTasks.filter((task) => !task.isManual);
+        const mergedTasks = mergeLeadStageTasks(stageDrivenTasks, existingManualTasks, tenantTasks);
         const hydratedLead = { ...leadDetail, stageTasks: mergedTasks };
 
         setLeads((prev) => {
@@ -236,7 +269,7 @@ function LeadDetailRoute({
     return () => {
       active = false;
     };
-  }, [leadUid, setLeads]);
+  }, [leadUid, lead?.currentPipelineStageUid, setLeads]);
 
   useEffect(() => {
     if (!lead?.pipelineUid) return;
@@ -567,22 +600,27 @@ export default function JaldeeLeadsPage() {
     forms: null
   });
 
-  const triggerFetchTemplates = (active = true) => {
-    if (fetchedRef.current.forms) return;
+  const triggerFetchTemplates = (active = true, options: { force?: boolean } = {}) => {
+    if (options.force) {
+      fetchedRef.current.forms = false;
+      fetchRequestsRef.current.forms = null;
+    }
+    if (fetchedRef.current.forms && !options.force) return Promise.resolve(forms);
     if (!fetchRequestsRef.current.forms) {
       fetchRequestsRef.current.forms = leadTemplateService.list()
         .finally(() => {
           fetchRequestsRef.current.forms = null;
         });
     }
-    fetchRequestsRef.current.forms
+    return fetchRequestsRef.current.forms
       .then((templates) => {
         fetchedRef.current.forms = true;
         if (active) {
           setForms(templates);
         }
+        return templates;
       })
-      .catch(() => {});
+      .catch(() => undefined);
   };
 
   const triggerFetchPipelines = (active = true) => {
@@ -768,6 +806,24 @@ export default function JaldeeLeadsPage() {
           }
         />
         <Route
+          path="/list/create"
+          element={
+            <CreateLeadScreen
+              pipelines={pipelines}
+              products={products}
+              channels={channels}
+              leads={leads}
+              forms={forms}
+              onBack={() => navigate('/jaldee-leads/list')}
+              onSave={(newLead) => {
+                setLeads((prev) => [newLead, ...prev]);
+                triggerFetchLeads(true, {}, { force: true });
+                navigate('/jaldee-leads/list');
+              }}
+            />
+          }
+        />
+        <Route
           path="/list/:leadUid"
           element={
             <LeadDetailRoute
@@ -919,8 +975,9 @@ export default function JaldeeLeadsPage() {
           path="/templates/create"
           element={
             <TemplateBuilderScreen
-              onSave={(template) => {
+              onSave={async (template) => {
                 setForms(prev => [template, ...prev.filter(item => item.uid !== template.uid)]);
+                await triggerFetchTemplates(true, { force: true });
                 navigate('/jaldee-leads/templates');
               }}
             />
@@ -929,7 +986,11 @@ export default function JaldeeLeadsPage() {
         <Route
           path="/templates/:templateUid/edit"
           element={
-            <TemplateEditRoute forms={forms} setForms={setForms} />
+            <TemplateEditRoute
+              forms={forms}
+              setForms={setForms}
+              refreshTemplates={() => triggerFetchTemplates(true, { force: true })}
+            />
           }
         />
         <Route

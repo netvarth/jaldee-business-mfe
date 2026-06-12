@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Checkbox, Input, PageHeader, SectionCard, Select, Switch } from "@jaldee/design-system";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
+import { Badge, Button, Checkbox, Dialog, DialogFooter, EmptyState, Input, PageHeader, SectionCard, Select, Switch, Textarea } from "@jaldee/design-system";
 import { apiClient } from "@jaldee/api-client";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../services/serviceUrls";
@@ -59,6 +60,84 @@ type LocationRow = {
   timezone: string;
   isBase: boolean;
 };
+
+type LocationFormState = {
+  locationName: string;
+  address: string;
+  pincode: string;
+  longitude: string;
+  latitude: string;
+  parking: string;
+  alwaysOpen: boolean;
+  googleMapUrl: string;
+};
+
+const EMPTY_LOCATION_FORM: LocationFormState = {
+  locationName: "",
+  address: "",
+  pincode: "",
+  longitude: "76.2183557",
+  latitude: "10.4414775",
+  parking: "none",
+  alwaysOpen: true,
+  googleMapUrl: "https://www.google.com/maps?q=10.4414775,76.2183557",
+};
+
+const INDIA_COUNTRY = {
+  countryCode: "IN",
+  name: "India",
+  status: "Enabled",
+  currency: {
+    code: "INR",
+    name: "Indian Rupee",
+    symbol: "INR",
+    status: "Enabled",
+  },
+} as const;
+
+const PARKING_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "street", label: "Street Parking" },
+  { value: "private", label: "Private Parking" },
+  { value: "valet", label: "Valet" },
+];
+
+const GOOGLE_MAPS_SCRIPT_ID = "jaldee-google-maps-script";
+
+type GoogleMapsWindow = Window & {
+  google?: any;
+  __jaldeeGoogleMapsPromise?: Promise<void>;
+};
+
+function loadGoogleMapsScript(apiKey: string) {
+  const mapsWindow = window as GoogleMapsWindow;
+  if (mapsWindow.google?.maps) {
+    return Promise.resolve();
+  }
+  if (mapsWindow.__jaldeeGoogleMapsPromise) {
+    return mapsWindow.__jaldeeGoogleMapsPromise;
+  }
+
+  mapsWindow.__jaldeeGoogleMapsPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Google Maps failed to load")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = GOOGLE_MAPS_SCRIPT_ID;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener("error", () => reject(new Error("Google Maps failed to load")), { once: true });
+    document.head.appendChild(script);
+  });
+
+  return mapsWindow.__jaldeeGoogleMapsPromise;
+}
 
 const CORE_PRODUCTS: ProductCardItem[] = [
   {
@@ -251,10 +330,10 @@ function readProductFlag(settings: TenantSettingsRecord, id: string, fallback: b
     health: ["health", "healthCrm", "healthCrmEnabled", "healthCrmStatus"],
     karty: ["karty", "eCommerce", "ecommerce", "kartyEnabled", "kartyStatus"],
     lending: ["lending", "lendingCrm", "lendingCrmEnabled", "lendingCrmStatus"],
-    membership: ["membership", "membershipEnabled", "membershipStatus"],
-    leads: ["leads", "crm", "crmEnabled", "leadSuite"],
-    tasks: ["tasks", "taskManager", "tasksEnabled"],
-    donations: ["donations", "donationsEnabled"],
+    membership: ["membership"],
+    leads: ["lead"],
+    tasks: ["task"],
+    donations: ["donation"],
   };
 
   const keys = keyMap[id] ?? [id];
@@ -265,6 +344,51 @@ function readProductFlag(settings: TenantSettingsRecord, id: string, fallback: b
   }
 
   return fallback;
+}
+
+function normalizeParkingType(value: string) {
+  switch (value) {
+    case "street":
+      return "STREET";
+    case "private":
+      return "PRIVATE";
+    case "valet":
+      return "VALET";
+    default:
+      return "NONE";
+  }
+}
+
+function readGoogleAddressComponent(place: any, ...types: string[]) {
+  const component = place?.address_components?.find((item: any) =>
+    types.some((type) => item.types?.includes(type)),
+  );
+  return typeof component?.long_name === "string" ? component.long_name : "";
+}
+
+function deriveLocationName(place: any) {
+  if (typeof place?.name === "string" && place.name.trim()) {
+    return place.name.trim();
+  }
+
+  const componentName = readGoogleAddressComponent(
+    place,
+    "premise",
+    "establishment",
+    "point_of_interest",
+    "route",
+    "sublocality",
+    "locality",
+  );
+  if (componentName) {
+    return componentName;
+  }
+
+  if (typeof place?.formatted_address === "string") {
+    return place.formatted_address.split(",")[0]?.trim() ?? "";
+  }
+
+  return "";
 }
 
 function applyProductSetting(item: ProductCardItem, settings: TenantSettingsRecord): ProductCardItem {
@@ -385,6 +509,13 @@ export default function SettingsPage() {
   const setAccount = useShellStore((state) => state.setAccount);
   const setAvailableLocations = useShellStore((state) => state.setAvailableLocations);
   const setActiveLocation = useShellStore((state) => state.setLocation);
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? "";
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const geocoderRef = useRef<any>(null);
+  const autocompleteRef = useRef<any>(null);
   const [tenantSettings, setTenantSettings] = useState<TenantSettingsRecord | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -392,6 +523,12 @@ export default function SettingsPage() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [createLocationOpen, setCreateLocationOpen] = useState(false);
+  const [locationForm, setLocationForm] = useState<LocationFormState>(EMPTY_LOCATION_FORM);
+  const [searchLocation, setSearchLocation] = useState("");
+  const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [locationDetecting, setLocationDetecting] = useState(false);
   const [companyName, setCompanyName] = useState(account?.name ?? "Jaldee Business");
   const [displayName, setDisplayName] = useState(account?.name ?? "Jaldee Business");
   const [industry, setIndustry] = useState(account?.domain ?? "healthcare");
@@ -488,8 +625,254 @@ export default function SettingsPage() {
     void loadLocations();
   }, [activeKey]);
 
+  const setMapLocation = useCallback((latValue: number, lngValue: number) => {
+    const latText = latValue.toFixed(7);
+    const lngText = lngValue.toFixed(7);
+    const position = { lat: latValue, lng: lngValue };
+
+    setLocationForm((current) => ({
+      ...current,
+      latitude: latText,
+      longitude: lngText,
+      googleMapUrl: `https://www.google.com/maps?q=${latText},${lngText}`,
+    }));
+
+    markerRef.current?.setPosition(position);
+    mapRef.current?.setCenter(position);
+    mapRef.current?.setZoom(16);
+  }, []);
+
+  const applyGooglePlace = useCallback((place: any) => {
+    const position = place?.geometry?.location;
+    if (!position) {
+      setLocationsError("Could not find that location.");
+      return;
+    }
+
+    const latValue = typeof position.lat === "function" ? position.lat() : Number(position.lat);
+    const lngValue = typeof position.lng === "function" ? position.lng() : Number(position.lng);
+    if (!Number.isFinite(latValue) || !Number.isFinite(lngValue)) {
+      setLocationsError("Could not read that location's map coordinates.");
+      return;
+    }
+
+    setMapLocation(latValue, lngValue);
+
+    setLocationForm((current) => {
+      const postalCode = place.address_components?.find((component: any) =>
+        component.types?.includes("postal_code"),
+      )?.long_name;
+      const nextLocationName = deriveLocationName(place);
+
+      return {
+        ...current,
+        locationName: nextLocationName || current.locationName,
+        address: place.formatted_address || current.address,
+        pincode: postalCode || current.pincode,
+        googleMapUrl: place.url || `https://www.google.com/maps?q=${latValue.toFixed(7)},${lngValue.toFixed(7)}`,
+        latitude: latValue.toFixed(7),
+        longitude: lngValue.toFixed(7),
+      };
+    });
+
+    if (place.formatted_address) {
+      setSearchLocation(place.formatted_address);
+    }
+
+    setLocationsError(null);
+  }, [setMapLocation]);
+
+  const selectMapPosition = useCallback((latValue: number, lngValue: number) => {
+    setMapLocation(latValue, lngValue);
+
+    const geocoder = geocoderRef.current;
+    if (!geocoder) {
+      return;
+    }
+
+    geocoder.geocode({ location: { lat: latValue, lng: lngValue } }, (results: any[] | null, status: string) => {
+      if (status === "OK" && results?.[0]) {
+        applyGooglePlace(results[0]);
+      }
+    });
+  }, [applyGooglePlace, setMapLocation]);
+
+  useEffect(() => {
+    if (!createLocationOpen) {
+      return;
+    }
+    if (!googleMapsApiKey) {
+      setMapStatus("error");
+      return;
+    }
+
+    let active = true;
+    setMapStatus("loading");
+
+    loadGoogleMapsScript(googleMapsApiKey)
+      .then(() => {
+        if (!active || !mapContainerRef.current) {
+          return;
+        }
+
+        const mapsWindow = window as GoogleMapsWindow;
+        const googleMaps = mapsWindow.google?.maps;
+        if (!googleMaps) {
+          throw new Error("Google Maps is unavailable");
+        }
+
+        const initialPosition = {
+          lat: Number(locationForm.latitude) || 10.4414775,
+          lng: Number(locationForm.longitude) || 76.2183557,
+        };
+
+        const map = new googleMaps.Map(mapContainerRef.current, {
+          center: initialPosition,
+          zoom: 16,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+
+        const marker = new googleMaps.Marker({
+          position: initialPosition,
+          map,
+          draggable: true,
+        });
+
+        map.addListener("click", (event: any) => {
+          if (!event.latLng) {
+            return;
+          }
+          selectMapPosition(event.latLng.lat(), event.latLng.lng());
+        });
+
+        marker.addListener("dragend", (event: any) => {
+          if (!event.latLng) {
+            return;
+          }
+          selectMapPosition(event.latLng.lat(), event.latLng.lng());
+        });
+
+        mapRef.current = map;
+        markerRef.current = marker;
+        geocoderRef.current = new googleMaps.Geocoder();
+        window.requestAnimationFrame(() => {
+          googleMaps.event.trigger(map, "resize");
+          map.setCenter(initialPosition);
+        });
+        if (searchInputRef.current && googleMaps.places && !autocompleteRef.current) {
+          const autocomplete = new googleMaps.places.Autocomplete(searchInputRef.current, {
+            fields: ["address_components", "formatted_address", "geometry", "name", "url"],
+          });
+          autocomplete.addListener("place_changed", () => {
+            applyGooglePlace(autocomplete.getPlace());
+          });
+          autocompleteRef.current = autocomplete;
+        }
+        setMapStatus("ready");
+      })
+      .catch(() => {
+        if (active) {
+          setMapStatus("error");
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [applyGooglePlace, createLocationOpen, googleMapsApiKey, selectMapPosition, setMapLocation]);
+
   function goTo(key: string) {
     navigate(`/settings/${key}`);
+  }
+
+  function openCreateLocationDialog() {
+    setLocationsError(null);
+    setLocationForm(EMPTY_LOCATION_FORM);
+    setSearchLocation("");
+    setMapStatus("idle");
+    mapRef.current = null;
+    markerRef.current = null;
+    geocoderRef.current = null;
+    autocompleteRef.current = null;
+    setCreateLocationOpen(true);
+  }
+
+  function closeCreateLocationDialog() {
+    if (locationSaving) {
+      return;
+    }
+    setCreateLocationOpen(false);
+  }
+
+  function updateLocationForm<K extends keyof LocationFormState>(key: K, value: LocationFormState[K]) {
+    setLocationForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleLocationSearch() {
+    const query = searchLocation.trim();
+    if (!query) {
+      return;
+    }
+
+    try {
+      if (!googleMapsApiKey) {
+        setLocationsError("Google Maps API key is not configured.");
+        return;
+      }
+
+      await loadGoogleMapsScript(googleMapsApiKey);
+      const mapsWindow = window as GoogleMapsWindow;
+      const googleMaps = mapsWindow.google?.maps;
+      if (!googleMaps) {
+        throw new Error("Google Maps is unavailable");
+      }
+
+      const geocoder = geocoderRef.current ?? new googleMaps.Geocoder();
+      geocoderRef.current = geocoder;
+      const place = await new Promise<any>((resolve, reject) => {
+        geocoder.geocode({ address: query }, (results: any[] | null, status: string) => {
+          if (status === "OK" && results?.[0]) {
+            resolve(results[0]);
+            return;
+          }
+          reject(new Error(status || "ZERO_RESULTS"));
+        });
+      });
+      applyGooglePlace(place);
+    } catch {
+      setLocationsError("Could not search location.");
+    }
+  }
+
+  function handleLocationSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    void handleLocationSearch();
+  }
+
+  function handleAutoDetectLocation() {
+    if (!navigator.geolocation) {
+      setLocationsError("Location access is not available in this browser.");
+      return;
+    }
+
+    setLocationDetecting(true);
+    setLocationsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setMapLocation(position.coords.latitude, position.coords.longitude);
+        setLocationDetecting(false);
+      },
+      () => {
+        setLocationsError("Could not detect your location.");
+        setLocationDetecting(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
   }
 
   async function loadLocations() {
@@ -527,41 +910,69 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleSaveSettings() {
-    if (activeItem.key === "locations") {
-      await loadLocations();
+  async function handleCreateLocation() {
+    const tenantUid = account?.tenantUid ?? account?.id;
+    const locationName = locationForm.locationName.trim();
+    const address = locationForm.address.trim();
+    const pincode = locationForm.pincode.trim();
+
+    if (!tenantUid) {
+      setLocationsError("Unable to create location because tenant details are missing.");
       return;
     }
 
+    if (!locationName || !address || !pincode) {
+      setLocationsError("Location name, address, and pincode are required.");
+      return;
+    }
+
+    setLocationSaving(true);
+    setLocationsError(null);
+
+    try {
+      await apiClient.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.create), {
+        tenantUid,
+        place: locationName,
+        address,
+        pincode,
+        longitude: locationForm.longitude.trim(),
+        latitude: locationForm.latitude.trim(),
+        status: "Enabled",
+        parkingType: normalizeParkingType(locationForm.parking),
+        open24Hours: locationForm.alwaysOpen,
+        googleMapUrl: locationForm.googleMapUrl.trim(),
+        locationType: "GOOGLE_MAP",
+        locationCurrency: currency,
+        timezone,
+        baseLocation: locations.length === 0,
+        country: INDIA_COUNTRY,
+      });
+      setCreateLocationOpen(false);
+      setLocationForm(EMPTY_LOCATION_FORM);
+      await loadLocations();
+    } catch {
+      setLocationsError("Unable to create location.");
+    } finally {
+      setLocationSaving(false);
+    }
+  }
+
+  async function handleSaveSettings() {
     setSettingsSaving(true);
     setSettingsError(null);
 
     const selectedCoreProducts = Object.fromEntries(coreProducts.map((item) => [item.id, item.enabled]));
     const selectedAddOns = Object.fromEntries(addOnModules.map((item) => [item.id, item.enabled]));
     const payload = {
-      ...(tenantSettings ?? {}),
-      tenantName: companyName.trim(),
-      brandName: displayName.trim(),
-      industry,
-      domain: industry,
-      currency,
-      timezone,
-      dateFormat,
-      fiscalYearStart,
-      autoLockTransactions,
-      legalEntityName: legalEntityName.trim(),
-      gstin: gstin.trim(),
-      pan: pan.trim(),
-      registeredAddress: registeredAddress.trim(),
       finance: true,
       booking: Boolean(selectedCoreProducts.booking),
       health: Boolean(selectedCoreProducts.health),
       eCommerce: Boolean(selectedCoreProducts.karty),
       lending: Boolean(selectedCoreProducts.lending),
       membership: Boolean(selectedAddOns.membership),
-      leads: Boolean(selectedAddOns.leads),
-      tasks: Boolean(selectedAddOns.tasks),
-      donations: Boolean(selectedAddOns.donations),
+      lead: Boolean(selectedAddOns.leads),
+      task: Boolean(selectedAddOns.tasks),
+      donation: Boolean(selectedAddOns.donations),
     };
 
     try {
@@ -620,9 +1031,16 @@ export default function SettingsPage() {
           title={activeItem.label}
           subtitle={activeItem.key === "subscriptions" ? `Manage your plan and the products, modules, and services enabled for ${displayName}` : activeItem.key === "locations" ? "Manage branch locations and operating defaults" : "Your business profile and operating defaults"}
           actions={
-            <Button variant="primary" className="settings-save-button" onClick={handleSaveSettings} disabled={settingsSaving || settingsLoading || locationsLoading}>
-              <ActionGlyph kind={activeItem.key === "locations" ? "refresh" : "save"} />
-              {activeItem.key === "locations" ? "Refresh" : settingsSaving ? "Saving" : "Save Changes"}
+            <Button
+              id={activeItem.key === "locations" ? "settings-locations-create-button" : "settings-save-button"}
+              data-testid={activeItem.key === "locations" ? "settings-locations-create-button" : "settings-save-button"}
+              variant="primary"
+              className="settings-save-button"
+              onClick={activeItem.key === "locations" ? openCreateLocationDialog : handleSaveSettings}
+              disabled={settingsSaving || settingsLoading || locationsLoading || locationSaving}
+            >
+              <ActionGlyph kind={activeItem.key === "locations" ? "add" : "save"} />
+              {activeItem.key === "locations" ? "Create Location" : settingsSaving ? "Saving" : "Save Changes"}
             </Button>
           }
           className="settings-page__header"
@@ -762,9 +1180,24 @@ export default function SettingsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="settings-placeholder">
-                  <p className="settings-placeholder__title">No locations found</p>
-                  <p className="settings-placeholder__copy">The tenant locations API returned an empty list.</p>
+                <div data-testid="settings-locations-empty-state" data-state="empty" className="settings-empty-state">
+                  <EmptyState
+                    icon={<NavIcon name="mapPin" />}
+                    title="No locations added"
+                    description="Create your first branch or service location to start assigning work to a place."
+                    action={
+                      <Button
+                        id="settings-locations-empty-create-button"
+                        data-testid="settings-locations-empty-create-button"
+                        variant="primary"
+                        className="settings-location-create-button"
+                        onClick={openCreateLocationDialog}
+                      >
+                        <ActionGlyph kind="add" />
+                        Create Location
+                      </Button>
+                    }
+                  />
                 </div>
               )}
             </SectionCard>
@@ -860,6 +1293,171 @@ export default function SettingsPage() {
             </div>
           </SectionCard>
         )}
+
+        <Dialog
+          open={createLocationOpen}
+          onClose={closeCreateLocationDialog}
+          testId="settings-create-location-dialog"
+          title="Create Location"
+          description="Add a branch or service location for this tenant."
+          size="lg"
+          contentClassName="settings-location-dialog"
+          bodyClassName="settings-location-dialog__body"
+        >
+          <div className="settings-location-toolbar">
+            <Input
+              id="settings-location-search-input"
+              data-testid="settings-location-search-input"
+              ref={searchInputRef}
+              value={searchLocation}
+              onChange={(event) => setSearchLocation(event.target.value)}
+              onKeyDown={handleLocationSearchKeyDown}
+              placeholder="Search for your location..."
+              fullWidth
+              disabled={locationSaving || locationDetecting}
+            />
+            <Button
+              id="settings-location-search-button"
+              data-testid="settings-location-search-button"
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={handleLocationSearch}
+              disabled={locationSaving || locationDetecting || !searchLocation.trim()}
+            >
+              Search
+            </Button>
+            <Button
+              id="settings-location-auto-detect-button"
+              data-testid="settings-location-auto-detect-button"
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={handleAutoDetectLocation}
+              disabled={locationSaving || locationDetecting}
+            >
+              {locationDetecting ? "Detecting" : "Auto-detect"}
+            </Button>
+          </div>
+
+          <div data-testid="settings-location-map" data-state={mapStatus} className="settings-map-placeholder">
+            <div ref={mapContainerRef} className="settings-google-map" />
+            {mapStatus === "loading" ? <p className="settings-map-message">Loading map...</p> : null}
+            {mapStatus === "error" ? (
+              <p className="settings-map-message">Map could not be loaded. Check the Google Maps API key and domain restrictions.</p>
+            ) : null}
+          </div>
+
+          <div className="settings-form-grid settings-form-grid--two settings-location-form-grid">
+            <Input
+              id="settings-location-name-input"
+              data-testid="settings-location-name-input"
+              label="Location Name"
+              value={locationForm.locationName}
+              onChange={(event) => updateLocationForm("locationName", event.target.value)}
+              placeholder="Main"
+              fullWidth
+              disabled={locationSaving}
+            />
+            <Input
+              id="settings-location-pincode-input"
+              data-testid="settings-location-pincode-input"
+              label="PinCode"
+              value={locationForm.pincode}
+              onChange={(event) => updateLocationForm("pincode", event.target.value)}
+              placeholder="682001"
+              fullWidth
+              disabled={locationSaving}
+            />
+            <div className="settings-field-span settings-field-span--full">
+              <Textarea
+                id="settings-location-address-textarea"
+                data-testid="settings-location-address-textarea"
+                label="Full Address"
+                value={locationForm.address}
+                onChange={(event) => updateLocationForm("address", event.target.value)}
+                placeholder="Building name, street, city"
+                rows={4}
+                fullWidth
+                disabled={locationSaving}
+              />
+            </div>
+            <div className="settings-location-stack">
+              <Input
+                id="settings-location-map-url-input"
+                data-testid="settings-location-map-url-input"
+                label="Google Map URL"
+                value={locationForm.googleMapUrl}
+                onChange={(event) => updateLocationForm("googleMapUrl", event.target.value)}
+                placeholder="https://maps.google.com/..."
+                fullWidth
+                disabled={locationSaving}
+              />
+              <Select
+                id="settings-location-parking-select"
+                data-testid="settings-location-parking-select"
+                label="Parking"
+                value={locationForm.parking}
+                onChange={(event) => updateLocationForm("parking", event.target.value)}
+                options={PARKING_OPTIONS}
+                fullWidth
+                disabled={locationSaving}
+              />
+              <Checkbox
+                data-testid="settings-location-always-open-checkbox"
+                data-active={locationForm.alwaysOpen}
+                checked={locationForm.alwaysOpen}
+                onChange={(event) => updateLocationForm("alwaysOpen", event.target.checked)}
+                label="24 hours open"
+                disabled={locationSaving}
+              />
+            </div>
+            <div className="settings-location-dialog__coordinates settings-field-span settings-field-span--full">
+              <Input
+                id="settings-location-latitude-input"
+                data-testid="settings-location-latitude-input"
+                label="Latitude"
+                value={locationForm.latitude}
+                onChange={(event) => updateLocationForm("latitude", event.target.value)}
+                placeholder="9.9312"
+                fullWidth
+                disabled={locationSaving}
+              />
+              <Input
+                id="settings-location-longitude-input"
+                data-testid="settings-location-longitude-input"
+                label="Longitude"
+                value={locationForm.longitude}
+                onChange={(event) => updateLocationForm("longitude", event.target.value)}
+                placeholder="76.2673"
+                fullWidth
+                disabled={locationSaving}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              id="settings-location-cancel-button"
+              data-testid="settings-location-cancel-button"
+              variant="secondary"
+              onClick={closeCreateLocationDialog}
+              disabled={locationSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              id="settings-location-submit-button"
+              data-testid="settings-location-submit-button"
+              variant="primary"
+              className="settings-location-create-button"
+              onClick={handleCreateLocation}
+              disabled={locationSaving}
+            >
+              <ActionGlyph kind="add" />
+              {locationSaving ? "Creating" : "Create Location"}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       </div>
     </div>
   );
@@ -987,9 +1585,12 @@ function UsageCard({ item }: { item: UsageItem }) {
 function NavIcon({ name, className }: { name: string; className?: string }) {
   const shared = {
     viewBox: "0 0 24 24",
+    width: 16,
+    height: 16,
     fill: "none",
     stroke: "currentColor",
     strokeWidth: 1.8,
+    "aria-hidden": true,
     className,
   };
 
@@ -1059,7 +1660,7 @@ function NavIcon({ name, className }: { name: string; className?: string }) {
   }
 }
 
-function ActionGlyph({ kind, className }: { kind: "save" | "upload" | "refresh"; className?: string }) {
+function ActionGlyph({ kind, className }: { kind: "save" | "upload" | "add"; className?: string }) {
   const shared = {
     viewBox: "0 0 24 24",
     fill: "none",
@@ -1078,13 +1679,11 @@ function ActionGlyph({ kind, className }: { kind: "save" | "upload" | "refresh";
     );
   }
 
-  if (kind === "refresh") {
+  if (kind === "add") {
     return (
       <svg {...shared}>
-        <path d="M4 12a8 8 0 0 1 13.7-5.7" />
-        <path d="M18 3v5h-5" />
-        <path d="M20 12a8 8 0 0 1-13.7 5.7" />
-        <path d="M6 21v-5h5" />
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
       </svg>
     );
   }

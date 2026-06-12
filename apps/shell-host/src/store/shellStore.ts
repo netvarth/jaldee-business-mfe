@@ -24,10 +24,7 @@ const DEFAULT_ACCOUNT: AccountContext = {
   id: "default-account",
   name: "Jaldee Business",
   licensedProducts: DEFAULT_LICENSED_PRODUCTS,
-  enabledModules: [
-    ...DEFAULT_ENABLED_MODULES,
-    "membership",
-  ] as AccountContext["enabledModules"],
+  enabledModules: DEFAULT_ENABLED_MODULES,
   theme: {
     primaryColor: "#5B21D1",
     logoUrl: "",

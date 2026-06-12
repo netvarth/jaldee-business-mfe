@@ -32,6 +32,15 @@ function normalizeTaskTypeLabel(value?: string): LeadStageTask['type'] {
   return 'TASK';
 }
 
+function normalizedStageName(value?: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isLeadCurrentStage(stage: CrmLeadPipelineDto['stages'][number], lead: CrmLeadDto) {
+  return stage.uid === lead.currentPipelineStageUid ||
+    (Boolean(lead.currentPipelineStageName) && normalizedStageName(stage.stageName) === normalizedStageName(lead.currentPipelineStageName));
+}
+
 export default function LeadDetailScreen({ lead, pipelines, setPipelines, products, leads, onBack, onUpdate }: LeadDetailScreenProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedLead, setEditedLead] = useState<CrmLeadDto>(lead);
@@ -101,13 +110,13 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
   const currentPipeline = pipelines.find(p => p.uid === lead.pipelineUid);
   const stages = currentPipeline?.stages || [];
-  const currentStage = stages.find(s => s.uid === lead.currentPipelineStageUid) || stages[0];
+  const currentStage = stages.find(s => isLeadCurrentStage(s, lead)) || stages[0];
   const orderedStages = [...stages].sort((a, b) => {
     const aOrder = a.sequenceOrder || a.stageOrder || 0;
     const bOrder = b.sequenceOrder || b.stageOrder || 0;
     return aOrder - bOrder;
   });
-  const activeStageIndex = orderedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+  const activeStageIndex = orderedStages.findIndex(s => isLeadCurrentStage(s, lead));
   const completedStageCount = activeStageIndex >= 0 ? activeStageIndex + 1 : 0;
   const totalStageCount = orderedStages.length;
 
@@ -222,27 +231,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
     };
   }, [showAddManualTaskModal]);
 
-  // Lazy initialize stageTasks if missing
   const tasks = lead.stageTasks || [];
-  React.useEffect(() => {
-    if (!lead.stageTasks || lead.stageTasks.length === 0) {
-      const initialTasks: LeadStageTask[] = currentStage?.taskTemplates?.map(t => ({
-        uid: t.uid,
-        title: t.title,
-        type: t.type,
-        required: t.required,
-        completed: false,
-        isManual: false,
-        createdAt: new Date().toISOString()
-      })) || [];
-      if (initialTasks.length > 0) {
-        onUpdate({
-          ...lead,
-          stageTasks: initialTasks
-        });
-      }
-    }
-  }, [lead, currentStage, onUpdate]);
 
   // Compute tasks metrics
   const predefinedTasks = tasks.filter(t => !t.isManual);
@@ -409,7 +398,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
   // Click handler for Timeline Stages Nodes
   const handleTimelineStageClick = (stageUid: string) => {
-    if (stageUid === lead.currentPipelineStageUid) return;
+    const stage = stages.find(s => s.uid === stageUid);
+    if (stage && isLeadCurrentStage(stage, lead)) return;
     setTargetStageUid(stageUid);
     setShowMoveModal(true);
   };
@@ -574,13 +564,26 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       const bOrder = b.sequenceOrder || b.stageOrder || 0;
       return aOrder - bOrder;
     });
-    const currentStageIdx = sortedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+    const currentStageIdx = sortedStages.findIndex(s => isLeadCurrentStage(s, lead));
     const targetStageIdx = sortedStages.findIndex(s => s.uid === targetStageUid);
+    if (currentStageIdx < 0 || targetStageIdx < 0) {
+      alert('Unable to resolve current pipeline stage. Please refresh the lead details and try again.');
+      return;
+    }
+    if (currentStageIdx === targetStageIdx) {
+      alert('Selected stage is already the current stage.');
+      return;
+    }
     const isBackwardMove = targetStageIdx >= 0 && currentStageIdx >= 0 && targetStageIdx < currentStageIdx;
 
     const requiresOverride = !isRequiredComplete && (movementRule === 'Warn Only' || movementRule === 'Manager/Admin Override');
     if (requiresOverride && !overrideReason.trim()) {
       alert('Override justification remarks are required to bypass stage requirements.');
+      return;
+    }
+    const backwardReason = overrideReason.trim();
+    if (isBackwardMove && !backwardReason) {
+      alert('Reason is required for moving to the previous stage.');
       return;
     }
 
@@ -640,10 +643,13 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         response = await leadService.previousStage(lead.uid, {
             targetStageUid: targetStage.uid,
             targetStageName: targetStage.stageName,
-            reason: overrideReason || 'Moved to previous stage from lead detail.',
+            reason: backwardReason,
+            reasonNote: backwardReason,
+            reasonText: backwardReason,
+            notes: backwardReason,
           });
       } else {
-        const stepsToComplete = Math.max(1, targetStageIdx - currentStageIdx);
+        const stepsToComplete = targetStageIdx - currentStageIdx;
         for (let step = 0; step < stepsToComplete; step += 1) {
           response = await leadService.completeStage(lead.uid);
         }

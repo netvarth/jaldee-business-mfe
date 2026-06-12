@@ -115,7 +115,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
   // Real-time duplicate check based on email or phone
   useEffect(() => {
     const emailStr = formData.consumerEmail?.trim().toLowerCase();
-    const phoneStr = formData.consumerPhone?.trim();
+    const phoneDigits = formData.consumerPhone?.replace(/\D/g, '') || '';
+    const phoneStr = phoneDigits.length >= 6 ? phoneDigits : '';
 
     if (!emailStr && !phoneStr) {
       setDuplicateLead(null);
@@ -124,7 +125,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
 
     const found = leads.find(l => {
       const emailMatch = emailStr && l.consumerEmail?.trim().toLowerCase() === emailStr;
-      const phoneMatch = phoneStr && l.consumerPhone?.trim() === phoneStr;
+      const leadPhoneDigits = l.consumerPhone?.replace(/\D/g, '') || '';
+      const phoneMatch = phoneStr && leadPhoneDigits === phoneStr;
       return emailMatch || phoneMatch;
     });
 
@@ -374,9 +376,10 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                     e164Number: formData.consumerPhone || '',
                   }}
                   onChange={(val) => {
+                    const numberDigits = (val.number || '').replace(/\D/g, '');
                     setFormData(prev => ({
                       ...prev,
-                      consumerPhone: val.e164Number || (val.countryCode + val.number)
+                      consumerPhone: numberDigits ? (val.e164Number || (val.countryCode + val.number)) : ''
                     }));
                   }}
                   numberPlaceholder="+1 (555) 000-0000"

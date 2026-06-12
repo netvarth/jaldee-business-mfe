@@ -196,6 +196,7 @@ export function EditStageDialog({
 }) {
   const [stageName, setStageName] = useState(stage.stageName || '');
   const [color, setColor] = useState(stage.color || '#6366f1');
+  const [sequenceOrder, setSequenceOrder] = useState(stage.sequenceOrder ?? stage.stageOrder ?? 1);
   const [probability, setProbability] = useState(stage.probability ?? 50);
   const [slaDays, setSlaDays] = useState(stage.slaDays ?? 3);
   const [isTerminal, setIsTerminal] = useState(Boolean(stage.isTerminal));
@@ -217,6 +218,8 @@ export function EditStageDialog({
     try {
       await onSave({
         stageName: stageName.trim(),
+        stageOrder: sequenceOrder,
+        sequenceOrder,
         color,
         probability,
         slaDays,
@@ -271,6 +274,17 @@ export function EditStageDialog({
               />
             </div>
           </div>
+
+          <Input
+            id={`jaldee-leads-pipeline-stage-${stage.uid}-sequence-order-input`}
+            data-testid={`jaldee-leads-pipeline-stage-${stage.uid}-sequence-order-input`}
+            label="Sequence Order"
+            type="number"
+            min={1}
+            value={String(sequenceOrder)}
+            onChange={e => setSequenceOrder(Math.max(1, parseInt(e.target.value) || 1))}
+            placeholder="e.g. 1"
+          />
 
           <Input
             id={`jaldee-leads-pipeline-stage-${stage.uid}-probability-input`}
@@ -375,15 +389,21 @@ export function AddStageDialog({
   onClose,
   onAdd,
   stageOrder,
+  pipelineUid,
+  pipelineName,
 }: {
   onClose: () => void;
   onAdd: (stageData: Partial<CrmLeadPipelineStageDto>) => Promise<void>;
   stageOrder: number;
+  pipelineUid: string;
+  pipelineName: string;
 }) {
   const [stageName, setStageName] = useState('');
   const [color, setColor] = useState('#6366f1');
+  const [sequenceOrder, setSequenceOrder] = useState(stageOrder);
   const [probability, setProbability] = useState(50);
   const [slaDays, setSlaDays] = useState(3);
+  const [isActive, setIsActive] = useState(true);
   const [isTerminal, setIsTerminal] = useState(false);
   const [terminalType, setTerminalType] = useState<'WON' | 'LOST' | 'JUNK'>('WON');
   const [movementRule, setMovementRule] = useState('No Restriction');
@@ -400,9 +420,11 @@ export function AddStageDialog({
     setError(null);
     try {
       await onAdd({
+        pipelineUid,
+        pipelineName,
         stageName: stageName.trim(),
-        stageOrder,
-        sequenceOrder: stageOrder,
+        stageOrder: sequenceOrder,
+        sequenceOrder,
         color,
         probability,
         slaDays,
@@ -410,7 +432,7 @@ export function AddStageDialog({
         terminalType: isTerminal ? terminalType : undefined,
         taskCompletionMode: 'NONE',
         autogenerateTasks: false,
-        isActive: true,
+        isActive,
         taskList: [],
         movementRule,
         conversionSetting: conversionSetting as any,
@@ -427,7 +449,9 @@ export function AddStageDialog({
       open={true}
       onClose={onClose}
       title="Add New Stage"
-      size="md"
+      description="Define how this stage behaves, when tasks are generated, and how leads can move from it."
+      size="lg"
+      contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto"
     >
       <div className="space-y-5">
         {error && (
@@ -444,6 +468,7 @@ export function AddStageDialog({
                 value={stageName}
                 onChange={e => { setStageName(e.target.value); setError(null); }}
                 placeholder="e.g. Contacted / Qualified"
+                hint="Use a clear status name that the team will see on lead records."
               />
             </div>
             <div className="flex flex-col items-center">
@@ -458,11 +483,22 @@ export function AddStageDialog({
           </div>
 
           <Input
+            label="Sequence Order"
+            type="number"
+            min={1}
+            value={String(sequenceOrder)}
+            onChange={e => setSequenceOrder(Math.max(1, parseInt(e.target.value) || 1))}
+            placeholder="e.g. 1"
+            hint="Position of this stage in the pipeline flow."
+          />
+
+          <Input
             label="Probability (%)"
             type="number"
             value={String(probability)}
             onChange={e => setProbability(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
             placeholder="e.g. 50"
+            hint="Estimated chance that a lead in this stage will convert."
           />
 
           <Input
@@ -471,12 +507,14 @@ export function AddStageDialog({
             value={String(slaDays)}
             onChange={e => setSlaDays(Math.max(0, parseInt(e.target.value) || 0))}
             placeholder="e.g. 3"
+            hint="Expected number of days to act before this stage is overdue."
           />
 
           <Select
             label="Movement Rule"
             value={movementRule}
             onChange={e => setMovementRule(e.target.value)}
+            hint="Defines how strictly users can move leads out of this stage."
             options={[
               { value: 'No Restriction', label: 'No Restriction' },
               { value: 'Strict Block', label: 'Strict Block' },
@@ -489,6 +527,7 @@ export function AddStageDialog({
             label="Convert Rule"
             value={conversionSetting}
             onChange={e => setConversionSetting(e.target.value)}
+            hint="Controls whether conversion is allowed, suggested, or blocked from this stage."
             options={[
               { value: 'ALLOWED', label: 'Allowed' },
               { value: 'RECOMMENDED', label: 'Recommended' },
@@ -497,6 +536,14 @@ export function AddStageDialog({
           />
 
           <div className="col-span-1 md:col-span-2 pt-2 border-t border-slate-100 space-y-3">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <div>
+                <span className="text-sm font-semibold text-slate-700 leading-none block">Active Stage</span>
+                <span className="text-xs font-medium text-slate-400 mt-0.5 block">Make this stage available in the pipeline</span>
+              </div>
+              <Switch checked={isActive} onChange={setIsActive} data-testid="jaldee-leads-pipeline-add-stage-active-switch" />
+            </div>
+
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
               <div>
                 <span className="text-sm font-semibold text-slate-700 leading-none block">Terminal State</span>
@@ -523,7 +570,7 @@ export function AddStageDialog({
 
       <DialogFooter>
         <Button variant="outline" onClick={onClose} disabled={isSaving} className="text-sm font-semibold">Cancel</Button>
-        <Button variant="primary" onClick={handleSubmit} loading={isSaving} className="text-sm font-semibold">Add Stage</Button>
+        <Button variant="primary" onClick={handleSubmit} loading={isSaving} className="shrink-0 whitespace-nowrap text-sm font-semibold">Add Stage</Button>
       </DialogFooter>
     </Dialog>
   );

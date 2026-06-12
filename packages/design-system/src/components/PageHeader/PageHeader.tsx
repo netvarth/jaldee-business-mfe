@@ -41,8 +41,8 @@ export function PageHeader({
 
   return (
     <div data-testid="page-header" className={cn("mb-6", className)}>
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-col gap-1">
           {back && (
             <button
               data-testid="page-header-back"
@@ -85,12 +85,12 @@ export function PageHeader({
             <>
               <h1
                 data-testid="page-header-title"
-                className="m-0 text-2xl font-bold text-gray-900"
+                className="m-0 max-w-full text-2xl font-bold leading-tight text-gray-900"
               >
                 {title}
               </h1>
               {subtitle && (
-                <p className="m-0 text-sm text-gray-500">
+                <p className="m-0 max-w-full text-sm leading-5 text-gray-500">
                   {subtitle}
                 </p>
               )}
@@ -101,7 +101,7 @@ export function PageHeader({
         {actions && (
           <div
             data-testid="page-header-actions"
-            className="flex items-center gap-3"
+            className="flex w-full items-center gap-3 sm:w-auto sm:justify-end"
           >
             {actions}
           </div>

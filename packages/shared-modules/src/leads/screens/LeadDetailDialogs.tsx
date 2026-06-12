@@ -34,6 +34,15 @@ type TaskUser = {
   name: string;
 };
 
+function normalizedStageName(value?: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isLeadCurrentStage(stage: Stage, lead: CrmLeadDto) {
+  return stage.uid === lead.currentPipelineStageUid ||
+    (Boolean(lead.currentPipelineStageName) && normalizedStageName(stage.stageName) === normalizedStageName(lead.currentPipelineStageName));
+}
+
 interface LeadDetailDialogsProps {
   lead: CrmLeadDto;
   showMoveModal: boolean;
@@ -179,6 +188,16 @@ export function LeadDetailDialogs({
   handleConfirmConversion,
   isRequiredComplete,
 }: LeadDetailDialogsProps) {
+  const orderedStages = [...stages].sort((a, b) => {
+    const aOrder = a.sequenceOrder || a.stageOrder || 0;
+    const bOrder = b.sequenceOrder || b.stageOrder || 0;
+    return aOrder - bOrder;
+  });
+  const currentStageIdx = orderedStages.findIndex(s => isLeadCurrentStage(s, lead));
+  const targetStageIdx = orderedStages.findIndex(s => s.uid === targetStageUid);
+  const isBackwardTarget = targetStageIdx >= 0 && currentStageIdx >= 0 && targetStageIdx < currentStageIdx;
+  const showReasonField = Boolean(targetStageUid) && (isBackwardTarget || !isRequiredComplete);
+
   return (
     <>
       <Dialog
@@ -222,7 +241,7 @@ export function LeadDetailDialogs({
           onChange={e => setTargetStageUid(e.target.value)}
           options={[
             { value: "", label: "-- CHOOSE PIPELINE DESTINATION --" },
-            ...stages.filter(s => s.uid !== lead.currentPipelineStageUid).map(s => ({
+            ...stages.filter(s => !isLeadCurrentStage(s, lead)).map(s => ({
               value: s.uid,
               label: s.stageName.toUpperCase()
             }))
@@ -230,26 +249,34 @@ export function LeadDetailDialogs({
         />
 
         {/* Compliance checks */}
-        {!isRequiredComplete && targetStageUid && (
+        {showReasonField && (
            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 text-xs">
-              <p className="font-semibold text-amber-800 text-xs">⚠️ INCOMPLETE STAGE COMPLIANCE CHECKS</p>
-              <p className="text-amber-700 font-medium">The following required predefined tasks for "{lead.currentPipelineStageName}" are incomplete:</p>
-              <ul className="list-disc pl-4 text-amber-700 font-semibold text-xs">
-                 {requiredTasksTotal.filter(t => !t.completed).map(t => (
-                   <li key={t.uid}>{t.title}</li>
-                 ))}
-              </ul>
+              {!isRequiredComplete && (
+                <>
+                  <p className="font-semibold text-amber-800 text-xs">Incomplete stage compliance checks</p>
+                  <p className="text-amber-700 font-medium">The following required predefined tasks for "{lead.currentPipelineStageName}" are incomplete:</p>
+                  <ul className="list-disc pl-4 text-amber-700 font-semibold text-xs">
+                     {requiredTasksTotal.filter(t => !t.completed).map(t => (
+                       <li key={t.uid}>{t.title}</li>
+                     ))}
+                  </ul>
+                </>
+              )}
 
-              {movementRule === 'Strict Block' ? (
+              {isBackwardTarget && (
+                <p className="text-amber-700 font-medium">Reason is required when moving this lead back to a previous stage.</p>
+              )}
+
+              {movementRule === 'Strict Block' && !isBackwardTarget ? (
                  <p className="text-red-600 font-semibold text-xs bg-red-50 p-2 rounded-xl border border-red-100 mt-2">
                     🚫 MOVEMENT STRICTLY BLOCKED: YOU MUST COMPLETE THE DISCLOSURE REQUIREMENTS BEFORE ADVANCING.
                  </p>
               ) : (
                  <Textarea 
-                   label="Override Justification Description *"
+                   label={isBackwardTarget ? "Reason for moving back *" : "Override Justification Description *"}
                    value={overrideReason}
                    onChange={e => setOverrideReason(e.target.value)}
-                   placeholder="State justification for authorization override..."
+                   placeholder={isBackwardTarget ? "State why this lead is moving to a previous stage..." : "State justification for authorization override..."}
                    rows={2}
                  />
               )}

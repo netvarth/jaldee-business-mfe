@@ -5,7 +5,7 @@ import { CrmLeadPipelineDto, CrmLeadDto } from '../types';
 import { cn } from '../lib/utils';
 import { ICONS } from '../constants';
 
-import { PageHeader, Button, Popover, PopoverSection } from "@jaldee/design-system";
+import { PageHeader, Button, Popover, PopoverSection, EmptyState, SectionCard } from "@jaldee/design-system";
 import { leadPipelineService } from '../services/pipelineService';
 import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
 import { PipelineBuilder } from './PipelineBuilder';
@@ -91,7 +91,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
   const visiblePipelines = pipelines;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
+    <div data-testid="jaldee-leads-pipelines-page" data-state={visiblePipelines.length === 0 ? "empty" : "ready"} className="h-full flex flex-col bg-slate-50 p-4 sm:p-6 md:p-8 no-scrollbar overflow-y-auto pb-24 relative space-y-6">
       {editingPipeline ? (
         <PipelineBuilder 
           pipeline={editingPipeline} 
@@ -131,6 +131,8 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
             subtitle="Workflow Architecture & Stage Execution Templates"
             actions={
               <Button 
+                id="jaldee-leads-pipelines-create-button"
+                data-testid="jaldee-leads-pipelines-create-button"
                 onClick={() => setShowCreateDialog(true)}
                 variant="primary"
                 icon={<ICONS.ADD className="w-4 h-4" />}
@@ -141,7 +143,28 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
             }
           />
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-6">
+          {visiblePipelines.length === 0 ? (
+            <SectionCard className="border-slate-200 bg-white p-8 shadow-sm">
+              <div data-testid="jaldee-leads-pipelines-empty-state" data-state="empty">
+                <EmptyState
+                  title="No pipelines found"
+                  description="Create a pipeline to define stages, movement rules, and task templates for leads."
+                  action={
+                    <Button
+                      id="jaldee-leads-pipelines-empty-create-button"
+                      data-testid="jaldee-leads-pipelines-empty-create-button"
+                      variant="primary"
+                      icon={<ICONS.ADD className="h-4 w-4" />}
+                      onClick={() => setShowCreateDialog(true)}
+                    >
+                      Create Pipeline
+                    </Button>
+                  }
+                />
+              </div>
+            </SectionCard>
+          ) : (
+          <div data-testid="jaldee-leads-pipelines-grid" className="grid grid-cols-[repeat(auto-fit,minmax(17.5rem,22rem))] justify-start gap-6">
             {visiblePipelines.map(p => {
               const pipelineLeadCount = leads.filter(l => l.pipelineUid === p.uid).length;
               const templateCount = p.stages.reduce((sum, s) => sum + (s.taskTemplates?.length || 0), 0);
@@ -152,13 +175,14 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
               return (
                 <div 
                   key={p.uid} 
+                  data-testid={`jaldee-leads-pipeline-card-${p.uid}`}
                   onClick={() => {
                     if (loadingPipelineUid !== p.uid) {
                       handleSelectPipeline(p);
                     }
                   }}
                   className={cn(
-                    "bg-white rounded-3xl border border-slate-200 p-6 relative group transition-all cursor-pointer min-h-[240px] flex flex-col justify-between",
+                    "w-full bg-white rounded-2xl border border-slate-200 p-6 relative group transition-all cursor-pointer min-h-[240px] flex flex-col justify-between",
                     isInactive
                       ? "opacity-75 grayscale hover:border-slate-300"
                       : "hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-600/5",
@@ -261,7 +285,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                          <span className="w-1 h-1 rounded-full bg-slate-300"></span> 
                          <span className="text-slate-600">{pipelineLeadCount} Active Leads</span>
                       </div>
-                      <div className="text-xs font-bold text-indigo-500 mt-1.5">
+                      <div className="mt-1.5 text-xs font-semibold text-indigo-600">
                          {templateCount} Stage Task Templates Mapped
                       </div>
                    </div>
@@ -292,6 +316,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
               );
             })}
           </div>
+          )}
         </>
       )}
 

@@ -4,6 +4,49 @@ import * as services from "../services/tasks";
 
 const TASKS_KEY = "tasks";
 
+function unwrapMutationResult(response: unknown, fallback?: unknown) {
+  const payload = (response as any)?.data ?? response;
+  const nested = (payload as any)?.data ?? (payload as any)?.content ?? (payload as any)?.record ?? payload;
+  return nested && typeof nested === "object" ? nested : fallback;
+}
+
+function rowIdentity(row: unknown) {
+  const value = row as any;
+  const id = value?.id ?? value?.uid ?? value?.taskUid;
+  return id === undefined || id === null || id === "" ? "" : String(id);
+}
+
+function upsertRow<T>(rows: T[], row: T) {
+  const nextId = rowIdentity(row);
+  if (!nextId) return [row, ...rows];
+  const existingIndex = rows.findIndex((item) => rowIdentity(item) === nextId);
+  if (existingIndex < 0) return [row, ...rows];
+  const nextRows = [...rows];
+  nextRows[existingIndex] = { ...(nextRows[existingIndex] as any), ...(row as any) };
+  return nextRows;
+}
+
+function upsertCachedList(oldData: unknown, row: unknown) {
+  if (!oldData || !row || typeof row !== "object") return oldData;
+  if (Array.isArray(oldData)) return upsertRow(oldData, row);
+
+  const root = oldData as any;
+  if (Array.isArray(root.data)) return { ...root, data: upsertRow(root.data, row) };
+  if (Array.isArray(root.items)) return { ...root, items: upsertRow(root.items, row) };
+  if (Array.isArray(root.content)) return { ...root, content: upsertRow(root.content, row) };
+  if (Array.isArray(root.results)) return { ...root, results: upsertRow(root.results, row) };
+
+  const data = root.data;
+  if (data && typeof data === "object") {
+    if (Array.isArray(data.data)) return { ...root, data: { ...data, data: upsertRow(data.data, row) } };
+    if (Array.isArray(data.items)) return { ...root, data: { ...data, items: upsertRow(data.items, row) } };
+    if (Array.isArray(data.content)) return { ...root, data: { ...data, content: upsertRow(data.content, row) } };
+    if (Array.isArray(data.results)) return { ...root, data: { ...data, results: upsertRow(data.results, row) } };
+  }
+
+  return oldData;
+}
+
 // === Consumer Tasks ===
 
 export function useConsumerTasks(filters?: unknown) {
@@ -625,8 +668,15 @@ export function useCreateTaskTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: unknown) => services.createTaskTemplate(api, data),
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      const createdTemplate = unwrapMutationResult(response, variables);
+      queryClient.setQueriesData({ queryKey: [TASKS_KEY, "templates"] }, (oldData) =>
+        upsertCachedList(oldData, createdTemplate),
+      );
       queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "templates"] });
+      queryClient.invalidateQueries({ queryKey: [TASKS_KEY, "templates-available"] });
+      queryClient.refetchQueries({ queryKey: [TASKS_KEY, "templates"], type: "active" });
+      queryClient.refetchQueries({ queryKey: [TASKS_KEY, "templates-available"], type: "active" });
     },
   });
 }

@@ -8,6 +8,15 @@ import type { CrmLeadDto, CrmLeadPipelineDto, LeadStageTask, Product } from '../
 type Stage = CrmLeadPipelineDto['stages'][number];
 type ConversionMapping = NonNullable<Product['conversionMapping']>;
 
+function normalizedStageName(value?: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isLeadCurrentStage(stage: Stage, lead: CrmLeadDto) {
+  return stage.uid === lead.currentPipelineStageUid ||
+    (Boolean(lead.currentPipelineStageName) && normalizedStageName(stage.stageName) === normalizedStageName(lead.currentPipelineStageName));
+}
+
 interface LeadDetailBodyProps {
   lead: CrmLeadDto;
   editedLead: CrmLeadDto;
@@ -136,10 +145,10 @@ export function LeadDetailBody({
                     {/* Compute custom sorted stages */}
                     {(() => {
                       const sortedStages = [...stages].sort((a, b) => a.stageOrder - b.stageOrder);
-                      const currentStageIdx = sortedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+                      const currentStageIdx = sortedStages.findIndex(s => isLeadCurrentStage(s, lead));
 
                       return sortedStages.map((stage, idx) => {
-                        const isCurrent = stage.uid === lead.currentPipelineStageUid;
+                        const isCurrent = isLeadCurrentStage(stage, lead);
                         const isPast = idx < currentStageIdx;
                         const isFuture = idx > currentStageIdx;
 

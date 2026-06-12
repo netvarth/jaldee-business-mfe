@@ -64,22 +64,27 @@ export function LeadsModule() {
     forms: null
   });
 
-  const triggerFetchTemplates = (active = true) => {
-    if (fetchedRef.current.forms) return;
+  const triggerFetchTemplates = (active = true, options: { force?: boolean } = {}) => {
+    if (options.force) {
+      fetchedRef.current.forms = false;
+      fetchRequestsRef.current.forms = null;
+    }
+    if (fetchedRef.current.forms && !options.force) return Promise.resolve(forms);
     if (!fetchRequestsRef.current.forms) {
       fetchRequestsRef.current.forms = leadTemplateService.list()
         .finally(() => {
           fetchRequestsRef.current.forms = null;
         });
     }
-    fetchRequestsRef.current.forms
+    return fetchRequestsRef.current.forms
       .then((templates) => {
         fetchedRef.current.forms = true;
         if (active) {
           setForms(templates);
         }
+        return templates;
       })
-      .catch(() => {});
+      .catch(() => undefined);
   };
 
   const triggerFetchPipelines = (active = true) => {
@@ -276,6 +281,7 @@ export function LeadsModule() {
               onBack={() => navigate('/leads/list')}
               onSave={(newLead) => {
                 setLeads((prev) => [newLead, ...prev]);
+                triggerFetchLeads(true, {}, { force: true });
                 navigate('/leads/list');
               }}
             />
@@ -435,8 +441,9 @@ export function LeadsModule() {
           path="/templates/create"
           element={
             <TemplateBuilderScreen
-              onSave={(template) => {
+              onSave={async (template) => {
                 setForms(prev => [template, ...prev.filter(item => item.uid !== template.uid)]);
+                await triggerFetchTemplates(true, { force: true });
                 navigate('/leads/templates');
               }}
             />
@@ -445,7 +452,11 @@ export function LeadsModule() {
         <Route
           path="/templates/:templateUid/edit"
           element={
-            <TemplateEditRoute forms={forms} setForms={setForms} />
+            <TemplateEditRoute
+              forms={forms}
+              setForms={setForms}
+              refreshTemplates={() => triggerFetchTemplates(true, { force: true })}
+            />
           }
         />
         <Route

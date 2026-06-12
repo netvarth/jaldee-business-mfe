@@ -21,7 +21,7 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
 
   const sections: SidebarSection[] = activeProduct
     ? SIDEBAR_CONFIG[activeProduct] ?? []
-    : BASE_CRM_SIDEBAR_SECTIONS;
+    : filterBaseCrmSections(BASE_CRM_SIDEBAR_SECTIONS, account?.enabledModules);
   const submenuTitle = account?.name ?? "Jaldee Business";
 
   function toggleExpand(id: string) {
@@ -83,6 +83,23 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
       )}
     </div>
   );
+}
+
+function filterBaseCrmSections(sections: SidebarSection[], enabledModules: string[] | undefined): SidebarSection[] {
+  const modules = new Set(enabledModules ?? []);
+
+  return sections.filter((section) => {
+    if (section.id === "basecrm-tasks") {
+      return modules.has("tasks");
+    }
+    if (section.id === "basecrm-membership") {
+      return modules.has("membership");
+    }
+    if (section.id === "basecrm-leads" || section.id === "basecrm-audit-log") {
+      return modules.has("leads");
+    }
+    return true;
+  });
 }
 
 function SubmenuHeader({ title }: { title: string }) {

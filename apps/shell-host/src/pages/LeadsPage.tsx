@@ -9,8 +9,6 @@ import { useShellStore } from "../store/shellStore";
 export default function LeadsPage() {
   const user = useShellStore((state) => state.user);
   const account = useShellStore((state) => state.account);
-  const location = useShellStore((state) => state.activeLocation);
-  const availableLocations = useShellStore((state) => state.availableLocations);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -45,8 +43,7 @@ export default function LeadsPage() {
           basePath: "/leads",
           user,
           account: normalizeAccountContext(account),
-          location,
-          availableLocations,
+          location: null,
           api: apiClient,
         }}
       >

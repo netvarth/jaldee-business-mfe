@@ -1,21 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Button, Checkbox, Dialog, DialogFooter, Input, PageHeader, SectionCard, Select, Switch, Textarea } from '@jaldee/design-system';
+import { Button, Checkbox, Drawer, Input, PageHeader, SectionCard, Select, Switch, Textarea } from '@jaldee/design-system';
 import type { CrmLeadPipelineDto, CrmLeadPipelineStageDto, StageTaskTemplate } from '../types';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { leadPipelineService } from '../services/pipelineService';
 import { AddStageDialog, EditStageDialog } from './PipelineDialogs';
 import { getErrorMessage } from './pipelineUtils';
+import { useTaskTemplates } from '../../tasks/queries/tasks';
+import type { TaskTemplateRow } from '../../tasks/types';
+import { normalizeArray } from '../../tasks/taskUtils';
+
+const TASK_TEMPLATE_DROPDOWN_FILTERS = { from: 0, count: 100, available: true };
+
+function sortStagesBySequenceOrder(stages: CrmLeadPipelineStageDto[] = []) {
+  return [...stages].sort((a, b) => {
+    const aOrder = a.sequenceOrder ?? a.stageOrder ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.sequenceOrder ?? b.stageOrder ?? Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return String(a.uid ?? '').localeCompare(String(b.uid ?? ''));
+  });
+}
 
 export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLeadPipelineDto, onClose: () => void, onSave: (p: CrmLeadPipelineDto) => void }) {
-  const [draft, setDraft] = useState<CrmLeadPipelineDto>(pipeline);
+  const [draft, setDraft] = useState<CrmLeadPipelineDto>({ ...pipeline, stages: sortStagesBySequenceOrder(pipeline.stages) });
   const [configuringTasksStageIdx, setConfiguringTasksStageIdx] = useState<number | null>(null);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [savingTasksStageIdx, setSavingTasksStageIdx] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraft(pipeline);
+    setDraft({ ...pipeline, stages: sortStagesBySequenceOrder(pipeline.stages) });
   }, [pipeline.uid, pipeline.stages]);
 
   const handleSave = async () => {
@@ -38,7 +53,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         ...updated,
         name: updated.name && updated.name !== 'Untitled Pipeline' ? updated.name : draft.name.trim(),
         description: updated.description || draft.description,
-        stages: draft.stages,
+        stages: sortStagesBySequenceOrder(draft.stages),
       });
     } catch (err) {
       setSaveError(getErrorMessage(err, 'Failed to save pipeline.'));
@@ -49,7 +64,12 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
 
   const handleStageChange = (index: number, field: keyof CrmLeadPipelineStageDto, value: any) => {
     const newStages = [...draft.stages];
-    newStages[index] = { ...newStages[index], [field]: value };
+    newStages[index] = {
+      ...newStages[index],
+      [field]: value,
+      ...(field === 'sequenceOrder' ? { stageOrder: value } : {}),
+      ...(field === 'stageOrder' ? { sequenceOrder: value } : {}),
+    };
     setDraft({ ...draft, stages: newStages });
   };
 
@@ -62,17 +82,25 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
     setEditingStageIdx(index);
   };
 
+  const refreshPipelineDraft = async () => {
+    const refreshed = await leadPipelineService.detail(draft.uid);
+    setDraft(prev => ({
+      ...prev,
+      ...refreshed,
+      name: refreshed.name || prev.name,
+      description: refreshed.description ?? prev.description,
+      stages: sortStagesBySequenceOrder(refreshed.stages?.length ? refreshed.stages : prev.stages),
+    }));
+    return refreshed;
+  };
+
   const handleUpdateStage = async (index: number, stageData: Partial<CrmLeadPipelineStageDto>) => {
     const stage = draft.stages[index];
     if (!stage) return;
 
     const stageForUpdate = { ...stage, ...stageData };
-    const updatedStage = await leadPipelineService.updateStage(stage.uid, stageForUpdate);
-    setDraft(prev => {
-      const newStages = [...prev.stages];
-      newStages[index] = updatedStage;
-      return { ...prev, stages: newStages };
-    });
+    await leadPipelineService.updateStage(stage.uid, stageForUpdate);
+    await refreshPipelineDraft();
     setEditingStageIdx(null);
   };
 
@@ -98,12 +126,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
     setSavingStageIdx(index);
     setSaveError(null);
     try {
-      const updatedStage = await leadPipelineService.updateStage(stage.uid, stage);
-      setDraft(prev => {
-        const newStages = [...prev.stages];
-        newStages[index] = updatedStage;
-        return { ...prev, stages: newStages };
-      });
+      await leadPipelineService.updateStage(stage.uid, stage);
+      await refreshPipelineDraft();
       setEditingStageUids(prev => ({ ...prev, [stage.uid]: false }));
     } catch (err) {
       setSaveError(getErrorMessage(err, 'Failed to save stage.'));
@@ -116,7 +140,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
 
   const handleAddStage = async (stageData: Partial<CrmLeadPipelineStageDto>) => {
     const newStage = await leadPipelineService.addStage(draft.uid, stageData);
-    setDraft(prev => ({ ...prev, stages: [...prev.stages, newStage] }));
+    setDraft(prev => ({ ...prev, stages: sortStagesBySequenceOrder([...prev.stages, newStage]) }));
     setShowAddStageDialog(false);
   };
 
@@ -136,11 +160,42 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
     });
   };
 
-  const handleSaveTasks = (index: number, templates: StageTaskTemplate[]) => {
-    const newStages = [...draft.stages];
-    newStages[index] = { ...newStages[index], taskTemplates: templates };
-    setDraft({ ...draft, stages: newStages });
-    setConfiguringTasksStageIdx(null);
+  const handleSaveTasks = async (index: number, templates: StageTaskTemplate[]) => {
+    const stage = draft.stages[index];
+    if (!stage) return;
+
+    setSavingTasksStageIdx(index);
+    setSaveError(null);
+    try {
+      const updatedStage = await leadPipelineService.updateStage(stage.uid, {
+        ...stage,
+        taskTemplates: templates,
+        taskList: stageTaskTemplatesToTaskList(templates),
+        autogenerateTasks: templates.length > 0,
+        taskCompletionMode: templates.length > 0 && stage.taskCompletionMode === 'NONE' ? 'ALL' : stage.taskCompletionMode,
+      });
+
+      const stageForDraft = {
+        ...stage,
+        ...updatedStage,
+        uid: updatedStage.uid || stage.uid,
+        pipelineUid: updatedStage.pipelineUid || stage.pipelineUid,
+        pipelineName: updatedStage.pipelineName || stage.pipelineName,
+        stageName: updatedStage.stageName || stage.stageName,
+        taskTemplates: updatedStage.taskTemplates?.length ? updatedStage.taskTemplates : templates,
+        taskList: updatedStage.taskList?.length ? updatedStage.taskList : stageTaskTemplatesToTaskList(templates),
+      };
+      setDraft((prev) => {
+        const newStages = [...prev.stages];
+        newStages[index] = stageForDraft;
+        return { ...prev, stages: newStages };
+      });
+      setConfiguringTasksStageIdx(null);
+    } catch (err) {
+      setSaveError(getErrorMessage(err, 'Failed to save stage tasks.'));
+    } finally {
+      setSavingTasksStageIdx(null);
+    }
   };
 
   return (
@@ -151,18 +206,18 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         back={{ label: 'Back to Pipeline', href: '#' }}
         onNavigate={onClose}
         actions={
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
             {saveError && <p className="text-xs font-semibold text-rose-600">{saveError}</p>}
-            <div className="flex gap-3">
-              <Button onClick={onClose} variant="outline" disabled={isSaving} className="h-9 px-5 text-xs font-semibold active-scale">Cancel</Button>
-              <Button onClick={handleSave} variant="primary" loading={isSaving} className="h-9 px-6 text-xs font-semibold active-scale">Save Pipeline</Button>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+              <Button onClick={onClose} variant="outline" disabled={isSaving} className="h-9 w-full whitespace-nowrap px-4 text-xs font-semibold active-scale sm:w-auto sm:px-5">Cancel</Button>
+              <Button onClick={handleSave} variant="primary" loading={isSaving} className="h-9 w-full whitespace-nowrap px-4 text-xs font-semibold active-scale sm:w-auto sm:px-6">Save Pipeline</Button>
             </div>
           </div>
         }
       />
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 overflow-visible pb-5">
-        <SectionCard className="w-full shrink-0 space-y-5 border-slate-200 bg-white p-5 shadow-sm lg:w-[340px]">
+      <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-visible pb-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <SectionCard className="w-full space-y-5 border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="border-b border-slate-100 pb-3 text-sm font-semibold leading-none text-slate-400 animate-fadeIn">Basic Configuration</h3>
           
           <div className="space-y-4 animate-fadeIn">
@@ -176,7 +231,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
               label="Objectives" 
               value={draft.description} 
               onChange={e => setDraft({...draft, description: e.target.value})} 
-              rows={3} 
+              rows={5} 
               placeholder="Describe the purpose of this pipeline..." 
             />
           </div>
@@ -193,8 +248,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         </SectionCard>
 
         <SectionCard className="relative flex flex-1 flex-col overflow-visible border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex shrink-0 items-center justify-between border-b border-slate-100 pb-4">
-            <div>
+          <div className="mb-5 flex shrink-0 flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h3 className="text-sm font-semibold text-slate-400 leading-none">Pipeline Ingestion Stages</h3>
               <p className="text-xs text-slate-500 mt-2 font-medium">Design structural thresholds, movement rules & compliance task lists.</p>
             </div>
@@ -202,7 +257,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
               onClick={() => setShowAddStageDialog(true)} 
               variant="ghost"
               icon={<ICONS.ADD className="w-4 h-4"/>}
-              className="rounded-lg bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-100"
+              className="w-fit shrink-0 whitespace-nowrap rounded-lg bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-100"
             >
               Add Stage
             </Button>
@@ -221,7 +276,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
             {draft.stages.map((stage, i) => {
               const isEditing = !!editingStageUids[stage.uid];
               return (
-                <div key={stage.uid} className={cn(
+                <div key={stageKey(stage, i)} className={cn(
                   "group relative flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 transition-all hover:border-indigo-200 hover:bg-white animate-fadeIn",
                   stage.isTerminal && stage.terminalType === 'WON' && "bg-emerald-50/20 border-emerald-100 hover:border-emerald-200",
                   stage.isTerminal && (stage.terminalType === 'LOST' || stage.terminalType === 'JUNK') && "bg-rose-50/20 border-rose-100 hover:border-rose-200",
@@ -243,11 +298,21 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                         />
                         
                         <div className="flex-1 grid grid-cols-1 gap-4 items-end md:grid-cols-12">
-                          <div className="md:col-span-8">
+                          <div className="md:col-span-6">
                             <Input 
                               label="Stage Name" 
                               value={stage.stageName} 
                               onChange={e => handleStageChange(i, 'stageName', e.target.value)} 
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <Input
+                              label="Sequence"
+                              type="number"
+                              min={1}
+                              value={String(stage.sequenceOrder ?? stage.stageOrder ?? i + 1)}
+                              onChange={e => handleStageChange(i, 'sequenceOrder', Math.max(1, parseInt(e.target.value) || 1))}
                             />
                           </div>
 
@@ -465,6 +530,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
           stage={draft.stages[configuringTasksStageIdx]}
           onClose={() => setConfiguringTasksStageIdx(null)}
           onSave={(templates) => handleSaveTasks(configuringTasksStageIdx, templates)}
+          saving={savingTasksStageIdx === configuringTasksStageIdx}
         />
       )}
 
@@ -483,6 +549,8 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
           onClose={() => setShowAddStageDialog(false)}
           onAdd={handleAddStage}
           stageOrder={draft.stages.length + 1}
+          pipelineUid={draft.uid}
+          pipelineName={draft.name}
         />
       )}
     </div>
@@ -493,73 +561,30 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
 interface StageTaskTemplatesDrawerProps {
   stage: CrmLeadPipelineStageDto;
   onClose: () => void;
-  onSave: (templates: StageTaskTemplate[]) => void;
+  onSave: (templates: StageTaskTemplate[]) => void | Promise<void>;
+  saving?: boolean;
 }
 
-function StageTaskTemplatesDrawer({ stage, onClose, onSave }: StageTaskTemplatesDrawerProps) {
+function StageTaskTemplatesDrawer({ stage, onClose, onSave, saving = false }: StageTaskTemplatesDrawerProps) {
   const [templates, setTemplates] = useState<StageTaskTemplate[]>(stage.taskTemplates || []);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
-  // Template Form State
-  const [form, setForm] = useState<Partial<StageTaskTemplate>>({
-    title: '',
-    type: 'TASK',
-    required: true,
-    autoCreate: true,
-    dueOffsetHours: 24,
-    assigneeRule: 'Owner',
-    priority: 'NORMAL',
-    outcomeRequired: true,
-    active: true,
-    description: ''
-  });
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const taskTemplatesQuery = useTaskTemplates(TASK_TEMPLATE_DROPDOWN_FILTERS);
+  const taskTemplateRows = normalizeArray<TaskTemplateRow>(taskTemplatesQuery.data);
 
   const handleAddTask = () => {
-    if (!form.title) {
-      alert('A title is mandatory for defining a stage action threshold.');
+    const selectedTemplate = taskTemplateRows.find((item) => taskTemplateId(item) === selectedTemplateId);
+    if (!selectedTemplate) {
+      alert('Select a task template.');
       return;
     }
-    const newTemplate: StageTaskTemplate = {
-      uid: 'tpl_' + Math.random().toString(36).substr(2, 5),
-      title: form.title,
-      type: form.type || 'TASK',
-      required: form.required ?? true,
-      autoCreate: form.autoCreate ?? true,
-      dueOffsetHours: Number(form.dueOffsetHours) || 24,
-      assigneeRule: form.assigneeRule || 'Owner',
-      priority: form.priority || 'NORMAL',
-      outcomeRequired: form.outcomeRequired ?? true,
-      active: form.active ?? true,
-      description: form.description || ''
-    };
 
-    if (editingIndex !== null) {
-      const updated = [...templates];
-      updated[editingIndex] = { ...newTemplate, uid: templates[editingIndex].uid };
-      setTemplates(updated);
-      setEditingIndex(null);
-    } else {
-      setTemplates([...templates, newTemplate]);
+    if (templates.some((template) => template.uid === selectedTemplateId)) {
+      alert('This task template is already selected for the stage.');
+      return;
     }
 
-    // Reset Form
-    setForm({
-      title: '',
-      type: 'TASK',
-      required: true,
-      autoCreate: true,
-      dueOffsetHours: 24,
-      assigneeRule: 'Owner',
-      priority: 'NORMAL',
-      outcomeRequired: true,
-      active: true,
-      description: ''
-    });
-  };
-
-  const startEdit = (index: number) => {
-    setEditingIndex(index);
-    setForm(templates[index]);
+    setTemplates([...templates, taskTemplateToStageTemplate(selectedTemplate)]);
+    setSelectedTemplateId('');
   };
 
   const removeTemplate = (index: number) => {
@@ -595,159 +620,80 @@ function StageTaskTemplatesDrawer({ stage, onClose, onSave }: StageTaskTemplates
   };
 
   return (
-    <Dialog
+    <Drawer
       open={true}
       onClose={onClose}
       title={`Stage Task Templates (${stage.stageName})`}
       size="lg"
-      contentClassName="max-h-[90vh] overflow-y-auto"
-      bodyClassName="space-y-8"
+      contentClassName="flex flex-col gap-6 p-0"
     >
-       {/* Add/Edit Subform card */}
-       <div className="bg-slate-50 border border-slate-150 rounded-2xl p-6 space-y-6">
-          <h4 className="text-xs font-semibold text-slate-800">{editingIndex !== null ? 'Modify Action Template' : 'Register New Action Template'}</h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <Input 
-               label="Task Title *" 
-               value={form.title || ''} 
-               onChange={e => setForm({...form, title: e.target.value})} 
-               placeholder="e.g. Schedule Introductory Call"
-             />
-
-             <Select 
-               label="Action Category"
-               value={form.type || 'TASK'} 
-               onChange={e => setForm({...form, type: e.target.value as any})} 
+       <div className="flex-1 space-y-6 overflow-y-auto p-5">
+       <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+             <Select
+               label="Task Template"
+               value={selectedTemplateId}
+               onChange={e => setSelectedTemplateId(e.target.value)}
+               disabled={taskTemplatesQuery.isLoading}
                options={[
-                 { value: 'CALL', label: 'Outgoing Phone Call' },
-                 { value: 'EMAIL', label: 'Deliver Email Pack' },
-                 { value: 'MEETING', label: 'Schedule Face-to-Face Meeting' },
-                 { value: 'DOCUMENT', label: 'Compliance Document Check' },
-                 { value: 'TASK', label: 'General Workflow Task' },
+                 {
+                   value: '',
+                   label: taskTemplatesQuery.isLoading ? 'Loading task templates...' : 'Select task template',
+                 },
+                 ...taskTemplateRows.map((template) => ({
+                   value: taskTemplateId(template),
+                   label: taskTemplateLabel(template),
+                 })),
                ]}
              />
-
-             <Select 
-               label="Compliance Constraint"
-               value={form.required ? 'true' : 'false'} 
-               onChange={e => setForm({...form, required: e.target.value === 'true'})} 
-               options={[
-                 { value: 'true', label: 'REQUIRED (Blocks stage progression)' },
-                 { value: 'false', label: 'OPTIONAL (Advisory only)' },
-               ]}
-             />
-
-             <Input 
-               label="Due Offset Limit (Hours)" 
-               type="number" 
-               value={String(form.dueOffsetHours || 24)} 
-               onChange={e => setForm({...form, dueOffsetHours: parseInt(e.target.value) || 24})} 
-             />
-
-             <Select 
-               label="Default Assignee Target"
-               value={form.assigneeRule || 'Owner'} 
-               onChange={e => setForm({...form, assigneeRule: e.target.value})} 
-               options={[
-                 { value: 'Owner', label: 'Assigned Lead Custodian (Owner)' },
-                 { value: 'System', label: 'Automated System Agent' },
-                 { value: 'Creator', label: 'Creating Manager' },
-               ]}
-             />
-
-             <Select 
-               label="Execution Urgency"
-               value={form.priority || 'NORMAL'} 
-               onChange={e => setForm({...form, priority: e.target.value as any})} 
-               options={[
-                 { value: 'LOW', label: 'Low Priority Focus' },
-                 { value: 'NORMAL', label: 'Standard Priority Focus' },
-                 { value: 'HIGH', label: 'High Priority Focus' },
-                 { value: 'URGENT', label: 'Urgent Action Required' },
-               ]}
-             />
-
-             <div className="space-y-2 md:col-span-2 flex items-center gap-6 pt-2">
-                <Checkbox 
-                  label="Auto-Create on Stage Entry" 
-                  checked={form.autoCreate ?? true} 
-                  onChange={e => setForm({...form, autoCreate: e.target.checked})} 
-                />
-                <Checkbox 
-                  label="Specific Outcome Required" 
-                  checked={form.outcomeRequired ?? true} 
-                  onChange={e => setForm({...form, outcomeRequired: e.target.checked})} 
-                />
-             </div>
-
-             <div className="md:col-span-2">
-                <Textarea 
-                  label="Advisory Guidance Remarks" 
-                  value={form.description || ''} 
-                  onChange={e => setForm({...form, description: e.target.value})} 
-                  placeholder="Add compliance notes or procedural tips for lead owners..."
-                  rows={2}
-                />
-             </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-             {editingIndex !== null && (
-               <Button 
-                 variant="outline" 
-                 onClick={() => {
-                    setEditingIndex(null);
-                    setForm({ title: '', type: 'TASK', required: true, autoCreate: true, dueOffsetHours: 24, assigneeRule: 'Owner', priority: 'NORMAL', outcomeRequired: true, active: true, description: '' });
-                 }}
-                 className="text-sm font-semibold"
-               >
-                 Reset
-               </Button>
-             )}
-             <Button 
+             <Button
                onClick={handleAddTask}
                variant="primary"
                icon={<ICONS.ADD className="w-3.5 h-3.5" />}
-               className="text-sm font-semibold"
+               disabled={!selectedTemplateId}
+               className="h-10 text-sm font-semibold"
              >
-               {editingIndex !== null ? 'Update Template' : 'Add to threshold'}
+               Add Task
              </Button>
           </div>
+          {taskTemplatesQuery.isError && (
+            <p className="mt-3 text-xs font-semibold text-rose-600">Unable to load task templates.</p>
+          )}
+          {!taskTemplatesQuery.isLoading && taskTemplateRows.length === 0 && (
+            <p className="mt-3 text-xs font-medium text-slate-500">No task templates are available.</p>
+          )}
        </div>
 
-       {/* Active Templates List */}
        <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-slate-400">Threshold Compliance Stage Tasks ({templates.length})</h4>
+          <h4 className="text-sm font-semibold text-slate-400">Selected Stage Tasks ({templates.length})</h4>
           
           <div className="space-y-2">
              {templates.map((tpl, i) => (
                <div 
-                 key={tpl.uid} 
+                 key={stageTaskTemplateKey(tpl, i)} 
                  className={cn(
-                   "border-2 rounded-2xl p-4 flex items-center justify-between gap-4 transition-all relative group",
-                   tpl.active ? (tpl.required ? "bg-indigo-50/20 border-indigo-100" : "bg-white border-slate-200") : "bg-slate-100 border-slate-150 opacity-50"
+                   "relative flex items-center justify-between gap-4 rounded-lg border p-4 transition-all",
+                   tpl.active ? "border-indigo-100 bg-indigo-50/20" : "border-slate-200 bg-slate-100 opacity-60"
                  )}
                >
-                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                 <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
                        <span className={cn(
-                         "px-2 py-0.5 rounded text-xs font-semibold border",
-                         tpl.required ? "bg-indigo-50 text-indigo-700 border-indigo-150" : "bg-slate-50 text-slate-500 border-slate-150"
+                         "rounded border px-2 py-0.5 text-xs font-semibold",
+                         tpl.required ? "border-indigo-150 bg-indigo-50 text-indigo-700" : "border-slate-150 bg-slate-50 text-slate-500"
                        )}>
                           {tpl.required ? 'REQUIRED' : 'OPTIONAL'}
                        </span>
-                       <span className="text-xs font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded leading-none">{tpl.type}</span>
-                       <span className="text-xs font-bold text-slate-400 font-mono">Offset: {tpl.dueOffsetHours}h</span>
+                       <span className="rounded bg-rose-50 px-2 py-0.5 text-xs font-semibold leading-none text-rose-500">{tpl.type}</span>
+                       <span className="font-mono text-xs font-bold text-slate-400">Offset: {tpl.dueOffsetHours}h</span>
                     </div>
-                    <p className="font-semibold text-slate-900 text-xs">{tpl.title}</p>
-                    {tpl.description && <p className="text-sm text-slate-400 font-bold truncate mt-1">{tpl.description}</p>}
+                    <p className="truncate text-sm font-semibold text-slate-900">{stageTaskTemplateText(tpl.title) || 'Untitled task'}</p>
+                    {stageTaskTemplateText(tpl.description) && <p className="mt-1 truncate text-xs font-medium text-slate-500">{stageTaskTemplateText(tpl.description)}</p>}
                  </div>
 
-                 <div className="flex items-center gap-1.5 shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                 <div className="flex shrink-0 items-center gap-1.5">
                     <Button onClick={() => moveUp(i)} disabled={i === 0} variant="outline" iconOnly icon={<ICONS.PREV className="w-3.5 h-3.5 rotate-90" />} className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700" aria-label="Move task up" />
                     <Button onClick={() => moveDown(i)} disabled={i === templates.length - 1} variant="outline" iconOnly icon={<ICONS.PREV className="w-3.5 h-3.5 -rotate-90" />} className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700" aria-label="Move task down" />
-                    <Button onClick={() => startEdit(i)} variant="outline" iconOnly icon={<ICONS.EDIT className="w-3.5 h-3.5" />} className="h-7 w-7 p-0 text-indigo-500 hover:text-indigo-700" aria-label="Edit task" />
                     <Button onClick={() => toggleActive(i)} variant="outline" iconOnly className="h-7 w-7 p-0 text-amber-500 hover:text-amber-700" aria-label="Toggle task active">
                        {tpl.active ? <ICONS.CHECK className="w-3.5 h-3.5 text-emerald-500" /> : <ICONS.ADD className="w-3.5 h-3.5 text-slate-400" />}
                     </Button>
@@ -757,17 +703,135 @@ function StageTaskTemplatesDrawer({ stage, onClose, onSave }: StageTaskTemplates
              ))}
              
              {templates.length === 0 && (
-               <div className="py-12 border-2 border-dashed border-slate-200 rounded-2xl text-center text-slate-400 text-xs font-bold leading-loose">
-                  No Task Templates registered for this stage threshold.<br/>All advancement checks will be bypassed.
+               <div className="rounded-lg border-2 border-dashed border-slate-200 py-12 text-center text-xs font-bold leading-loose text-slate-400">
+                  No task templates selected for this stage.<br/>All advancement checks will be bypassed.
                </div>
              )}
           </div>
        </div>
+       </div>
 
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose} className="text-xs font-semibold">Cancel</Button>
-        <Button variant="primary" onClick={() => onSave(templates)} className="text-sm font-semibold">Apply Thresholds</Button>
-      </DialogFooter>
-    </Dialog>
+      <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
+        <Button variant="ghost" onClick={onClose} disabled={saving} className="text-xs font-semibold">Cancel</Button>
+        <Button variant="primary" onClick={() => onSave(templates)} loading={saving} className="text-sm font-semibold">Apply Thresholds</Button>
+      </div>
+    </Drawer>
   );
+}
+
+function stageKey(stage: CrmLeadPipelineStageDto, index: number) {
+  const uid = String(stage.uid || '').trim();
+  if (uid) return uid;
+
+  const order = stage.sequenceOrder ?? stage.stageOrder ?? index;
+  const name = String(stage.stageName || 'stage').trim() || 'stage';
+  return `${name}-${order}-${index}`;
+}
+
+function stageTaskTemplateKey(template: StageTaskTemplate, index: number) {
+  const uid = String(template.uid || '').trim();
+  if (uid) return uid;
+
+  const title = stageTaskTemplateText(template.title) || 'task';
+  return `${title}-${index}`;
+}
+
+function taskTemplateId(template: TaskTemplateRow) {
+  return String(template.id ?? template.uid);
+}
+
+function stageTaskTemplatesToTaskList(templates: StageTaskTemplate[]) {
+  return templates.map((template, index) => ({
+    id: numericTaskTemplateId(template.uid),
+    taskOrder: index + 1,
+    taskName: stageTaskTemplateText(template.title) || 'Untitled task',
+  }));
+}
+
+function numericTaskTemplateId(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : String(value ?? '');
+}
+
+function taskTemplateLabel(template: TaskTemplateRow) {
+  return (
+    templateFieldText(template, 'templateName') ||
+    templateFieldText(template, 'name') ||
+    templateFieldText(template, 'title') ||
+    templateFieldText(template, 'taskName') ||
+    `Task template ${taskTemplateId(template)}`
+  );
+}
+
+function taskTemplateDescription(template: TaskTemplateRow) {
+  return templateFieldText(template, 'description') || stageTaskTemplateText(template.description);
+}
+
+function taskTemplateToStageTemplate(template: TaskTemplateRow): StageTaskTemplate {
+  return {
+    uid: taskTemplateId(template),
+    title: taskTemplateFieldValueText(template, 'title') || taskTemplateLabel(template),
+    type: normalizeStageTaskType(taskTemplateLookupName(template, 'type')),
+    required: Boolean((template as any)?.title?.ismandatory ?? true),
+    autoCreate: true,
+    dueOffsetHours: templateDueOffsetHours(template),
+    assigneeRule: taskTemplateLookupName(template, 'assignee') || 'Owner',
+    priority: normalizeStageTaskPriority(taskTemplateLookupName(template, 'priority')),
+    outcomeRequired: Boolean((template as any)?.targetResult?.ismandatory ?? false),
+    active: true,
+    description: taskTemplateDescription(template),
+  };
+}
+
+function taskTemplateFieldValueText(template: TaskTemplateRow, key: string) {
+  const value = (template as any)?.[key]?.value;
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'object') return String(value.name ?? value.label ?? value.title ?? '');
+  return String(value);
+}
+
+function templateFieldText(template: TaskTemplateRow, key: string) {
+  const value = (template as any)?.[key];
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'object') return stageTaskTemplateText(value.value?.name ?? value.value ?? value.name ?? value.label);
+  return String(value);
+}
+
+function stageTaskTemplateText(value: unknown) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'object') {
+    const objectValue = value as any;
+    return stageTaskTemplateText(objectValue.value ?? objectValue.name ?? objectValue.label ?? objectValue.title ?? objectValue.taskName);
+  }
+  return String(value);
+}
+
+function taskTemplateLookupName(template: TaskTemplateRow, key: string) {
+  return taskTemplateFieldValueText(template, key) || templateFieldText(template, key);
+}
+
+function templateDueOffsetHours(template: TaskTemplateRow) {
+  const duration = (template as any)?.estDuration?.value ?? template.estDuration;
+  const days = Number(duration?.days) || 0;
+  const hours = Number(duration?.hours) || 0;
+  const minutes = Number(duration?.minutes) || 0;
+  const totalHours = days * 24 + hours + Math.ceil(minutes / 60);
+
+  return totalHours > 0 ? totalHours : 24;
+}
+
+function normalizeStageTaskType(value: string): StageTaskTemplate['type'] {
+  const normalized = value.trim().toUpperCase();
+  if (['CALL', 'EMAIL', 'MEETING', 'DOCUMENT', 'TASK'].includes(normalized)) {
+    return normalized as StageTaskTemplate['type'];
+  }
+  return 'TASK';
+}
+
+function normalizeStageTaskPriority(value: string): StageTaskTemplate['priority'] {
+  const normalized = value.trim().toUpperCase();
+  if (['URGENT', 'HIGH', 'NORMAL', 'LOW'].includes(normalized)) {
+    return normalized as StageTaskTemplate['priority'];
+  }
+  return 'NORMAL';
 }

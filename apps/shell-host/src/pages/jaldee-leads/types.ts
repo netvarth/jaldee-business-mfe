@@ -145,7 +145,7 @@ export interface CrmLeadPipelineStageDto {
   terminalType?: TerminalType;
   taskCompletionMode: 'ALL' | 'ANY' | 'NONE';
   autogenerateTasks: boolean;
-  taskList: { title: string; description: string }[];
+  taskList: { id?: string | number; taskOrder?: number; taskName?: string; title?: string; description?: string }[];
   isActive: boolean;
   sequenceOrder: number;
   proceedStageUid?: string;

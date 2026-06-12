@@ -44,7 +44,6 @@ interface TokenEncryptedLoginRequest {
 }
 
 export interface AccountSettingsResponse {
-  enableTask?: boolean;
   enableLead?: boolean;
   enableMembership?: boolean;
   enableCrmLead?: boolean;
@@ -60,6 +59,12 @@ interface TenantSettingsResponse {
   lending?: boolean | null;
   ecommerce?: boolean | null;
   eCommerce?: boolean | null;
+  lead?: boolean | null;
+  membership?: boolean | null;
+  task?: boolean | null;
+  enableLead?: boolean | null;
+  enableCrmLead?: boolean | null;
+  enableMembership?: boolean | null;
 }
 
 let tenantSettingsCache: unknown | null = null;
@@ -509,10 +514,9 @@ function normalizeAccountSettings(raw: unknown): AccountSettingsResponse {
   const candidate = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
 
   return {
-    enableTask: candidate.enableTask === true,
-    enableLead: candidate.enableLead === true,
-    enableMembership: candidate.enableMembership === true,
-    enableCrmLead: candidate.enableCrmLead === true,
+    enableLead: readTenantBoolean(candidate, ["enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]) === true,
+    enableMembership: readTenantBoolean(candidate, ["enableMembership", "membership", "membershipEnabled", "membershipStatus"]) === true,
+    enableCrmLead: readTenantBoolean(candidate, ["enableCrmLead", "crmLead", "crmLeads", "enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]) === true,
     enableItemGroup: candidate.enableItemGroup === true,
     enableSalesOrder: candidate.enableSalesOrder === true,
     onlinePayment: candidate.onlinePayment === true
@@ -522,7 +526,6 @@ function normalizeAccountSettings(raw: unknown): AccountSettingsResponse {
 async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
   if (isMock) {
     return {
-      enableTask: true,
       enableLead: true,
       enableMembership: true,
       enableCrmLead: true,
@@ -545,15 +548,42 @@ async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
   }
 }
 
+function readTenantBoolean(candidate: Record<string, unknown>, keys: string[]): boolean | null {
+  for (const key of keys) {
+    const value = candidate[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["true", "enabled", "active", "yes"].includes(normalized)) {
+        return true;
+      }
+      if (["false", "disabled", "inactive", "no"].includes(normalized)) {
+        return false;
+      }
+    }
+  }
+
+  return null;
+}
+
 function normalizeTenantSettings(raw: unknown): TenantSettingsResponse {
   const candidate = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
 
   return {
-    finance: typeof candidate.finance === "boolean" ? candidate.finance : null,
-    booking: typeof candidate.booking === "boolean" ? candidate.booking : null,
-    health: typeof candidate.health === "boolean" ? candidate.health : null,
-    lending: typeof candidate.lending === "boolean" ? candidate.lending : null,
-    eCommerce: typeof candidate.eCommerce === "boolean" ? candidate.eCommerce : null,
+    finance: readTenantBoolean(candidate, ["finance"]),
+    booking: readTenantBoolean(candidate, ["booking", "bookingEnabled", "bookingStatus"]),
+    health: readTenantBoolean(candidate, ["health", "healthCrm", "healthCrmEnabled", "healthCrmStatus"]),
+    lending: readTenantBoolean(candidate, ["lending", "lendingCrm", "lendingCrmEnabled", "lendingCrmStatus"]),
+    ecommerce: readTenantBoolean(candidate, ["ecommerce", "eCommerce", "karty", "kartyEnabled", "kartyStatus"]),
+    eCommerce: readTenantBoolean(candidate, ["eCommerce", "ecommerce", "karty", "kartyEnabled", "kartyStatus"]),
+    lead: readTenantBoolean(candidate, ["lead"]),
+    membership: readTenantBoolean(candidate, ["membership"]),
+    task: readTenantBoolean(candidate, ["task"]),
+    enableLead: readTenantBoolean(candidate, ["enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]),
+    enableCrmLead: readTenantBoolean(candidate, ["enableCrmLead", "crmLead", "crmLeads", "enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]),
+    enableMembership: readTenantBoolean(candidate, ["enableMembership", "membership", "membershipEnabled", "membershipStatus"]),
   };
 }
 
@@ -565,6 +595,9 @@ export async function getTenantSettingsForShell(): Promise<unknown | null> {
       finance: true,
       eCommerce: true,
       lending: true,
+      lead: true,
+      membership: true,
+      task: true,
     };
   }
 
@@ -611,33 +644,38 @@ async function fetchTenantSettings(): Promise<TenantSettingsResponse | null> {
 function deriveEnabledModules(
   enabledModules: AccountContext["enabledModules"],
   settings: AccountSettingsResponse,
-  licensedProducts?: AccountContext["licensedProducts"]
+  licensedProducts?: AccountContext["licensedProducts"],
+  tenantSettings?: TenantSettingsResponse | null
 ): AccountContext["enabledModules"] {
   const modules = new Set<string>(
     Array.isArray(enabledModules)
       ? enabledModules.map(String)
-      : [...DEFAULT_ENABLED_MODULES, "membership", "tasks", "leads"]
+      : DEFAULT_ENABLED_MODULES
   );
 
   if (licensedProducts?.includes("finance")) {
     modules.add("finance");
   }
 
-  if (settings.enableMembership === true) {
+  const membershipEnabled = tenantSettings?.membership === true;
+  const tasksEnabled = tenantSettings?.task === true;
+  const leadsEnabled = tenantSettings?.lead === true;
+
+  if (membershipEnabled === true) {
     modules.add("membership");
-  } else if (settings.enableMembership === false) {
+  } else if (membershipEnabled === false) {
     modules.delete("membership");
   }
 
-  if (settings.enableTask === true) {
+  if (tasksEnabled === true) {
     modules.add("tasks");
-  } else if (settings.enableTask === false) {
+  } else if (tasksEnabled === false) {
     modules.delete("tasks");
   }
 
-  if (settings.enableLead === true || settings.enableCrmLead === true) {
+  if (leadsEnabled === true) {
     modules.add("leads");
-  } else if (settings.enableLead === false && settings.enableCrmLead === false) {
+  } else if (leadsEnabled === false) {
     modules.delete("leads");
   }
 
@@ -707,7 +745,8 @@ async function normalizeLoginResponse(raw: unknown): Promise<SessionResponse> {
       enabledModules: deriveEnabledModules(
         normalized.account.enabledModules,
         accountSettings,
-        licensedProducts
+        licensedProducts,
+        tenantSettings
       ),
     }),
   };

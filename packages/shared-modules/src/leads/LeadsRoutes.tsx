@@ -7,7 +7,7 @@ import PipelineDetailScreen from "./screens/PipelineDetailScreen";
 import ProductDetailScreen from "./screens/ProductDetailScreen";
 import TemplateBuilderScreen from "./screens/TemplateBuilderScreen";
 import { PipelineBuilder } from "./screens/PipelineBuilder";
-import type { Channel, CrmLeadDto, CrmLeadPipelineDto, FormTemplate, Product } from "./types";
+import type { Channel, CrmLeadDto, CrmLeadPipelineDto, CrmLeadPipelineStageDto, FormTemplate, LeadStageTask, Product } from "./types";
 import { leadPipelineService } from "./services/pipelineService";
 import { leadProductService } from "./services/productService";
 import { leadService } from "./services/leadService";
@@ -134,9 +134,11 @@ export function PipelineEditRoute({
 export function TemplateEditRoute({
   forms,
   setForms,
+  refreshTemplates,
 }: {
   forms: FormTemplate[];
   setForms: React.Dispatch<React.SetStateAction<FormTemplate[]>>;
+  refreshTemplates?: () => Promise<FormTemplate[] | void> | void;
 }) {
   const navigate = useNavigate();
   const { templateUid } = useParams();
@@ -145,12 +147,37 @@ export function TemplateEditRoute({
   return (
     <TemplateBuilderScreen
       initialTemplate={template}
-      onSave={(updatedTemplate) => {
+      onSave={async (updatedTemplate) => {
         setForms((prev) => [updatedTemplate, ...prev.filter((item) => item.uid !== updatedTemplate.uid)]);
+        await refreshTemplates?.();
         navigate("/leads/templates");
       }}
     />
   );
+}
+
+function mergeLeadStageTasks(...taskGroups: LeadStageTask[][]): LeadStageTask[] {
+  const byUid = new Map<string, LeadStageTask>();
+  taskGroups.flat().forEach((task) => {
+    if (!task.uid) return;
+    const existing = byUid.get(task.uid);
+    byUid.set(task.uid, existing ? { ...existing, ...task } : task);
+  });
+  return Array.from(byUid.values());
+}
+
+function stageDetailTasks(stage: CrmLeadPipelineStageDto | null): LeadStageTask[] {
+  return (stage?.taskTemplates ?? []).map((task, index) => ({
+    uid: String(task.uid || `stage-task-${index + 1}`),
+    title: task.title || `Task ${index + 1}`,
+    type: task.type || "TASK",
+    required: task.required ?? true,
+    completed: false,
+    isManual: false,
+    createdAt: "",
+    priority: task.priority,
+    description: task.description,
+  }));
 }
 
 export function LeadDetailRoute({
@@ -180,13 +207,25 @@ export function LeadDetailRoute({
     async function loadLeadDetails() {
       setIsLoadingLead(true);
       try {
-        const [leadDetail, tenantTasks] = await Promise.all([leadService.detail(leadUid), leadService.getLeadTenantTasks(leadUid)]);
+        const leadDetail = await leadService.detail(leadUid, { force: true });
+        const stageUid = leadDetail.currentPipelineStageUid || lead?.currentPipelineStageUid;
+        const [stageDetail, tenantTasks] = await Promise.all([
+          stageUid ? leadPipelineService.stageDetail(stageUid) : Promise.resolve(null),
+          leadService.getLeadTenantTasks(leadUid, { force: true }),
+        ]);
 
         if (!active) return;
 
         const existingTasks = leadDetail.stageTasks ?? [];
-        const existingTaskIds = new Set(existingTasks.map((task) => task.uid));
-        const mergedTasks = [...existingTasks, ...tenantTasks.filter((task) => !existingTaskIds.has(task.uid))];
+        const existingTaskById = new Map(existingTasks.map((task) => [task.uid, task]));
+        const currentStageTasks = stageDetailTasks(stageDetail).map((task) => ({
+          ...task,
+          isManual: false,
+          completed: existingTaskById.get(task.uid)?.completed ?? task.completed,
+        }));
+        const existingManualTasks = existingTasks.filter((task) => task.isManual);
+        const stageDrivenTasks = currentStageTasks.length ? currentStageTasks : existingTasks.filter((task) => !task.isManual);
+        const mergedTasks = mergeLeadStageTasks(stageDrivenTasks, existingManualTasks, tenantTasks);
         const hydratedLead = { ...leadDetail, stageTasks: mergedTasks };
 
         setLeads((prev) => {
@@ -205,7 +244,7 @@ export function LeadDetailRoute({
     return () => {
       active = false;
     };
-  }, [leadUid, setLeads]);
+  }, [leadUid, lead?.currentPipelineStageUid, setLeads]);
 
   useEffect(() => {
     if (!lead?.pipelineUid) return;

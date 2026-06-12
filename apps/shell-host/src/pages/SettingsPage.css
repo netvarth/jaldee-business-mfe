@@ -15,8 +15,9 @@
 }
 
 .settings-save-button {
-  min-width: 162px;
+  min-width: 176px;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .settings-save-button svg {
@@ -463,6 +464,107 @@
   line-height: 1.45;
 }
 
+.settings-empty-state {
+  border: 1px dashed #cbd8ea;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+
+.settings-empty-state svg {
+  width: 28px;
+  height: 28px;
+}
+
+.settings-empty-state button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-location-create-button {
+  min-width: 176px;
+  white-space: nowrap;
+}
+
+.settings-location-dialog {
+  max-width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+.settings-location-dialog__body {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.settings-location-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-location-toolbar > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-location-toolbar > :not(:first-child) {
+  flex: 0 0 auto;
+}
+
+.settings-map-placeholder {
+  position: relative;
+  height: 255px;
+  min-height: 255px;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #eef2f7;
+  color: #475569;
+}
+
+.settings-google-map {
+  width: 100%;
+  height: 100%;
+}
+
+.settings-map-message {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #475569;
+  font-size: 13px;
+  text-align: center;
+}
+
+.settings-location-form-grid {
+  margin-top: 18px;
+}
+
+.settings-location-form-grid .settings-field-span--full {
+  grid-column: auto;
+}
+
+.settings-location-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-location-dialog__coordinates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
 .settings-product-card {
   display: flex;
   flex-direction: column;
@@ -719,6 +821,7 @@
   .settings-form-grid--two,
   .settings-form-grid--four,
   .settings-location-grid,
+  .settings-location-dialog__coordinates,
   .settings-product-grid,
   .settings-usage-grid,
   .settings-danger-grid {
@@ -731,6 +834,16 @@
 
   .settings-logo-row {
     flex-direction: column;
+  }
+
+  .settings-location-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .settings-map-placeholder {
+    height: 220px;
+    min-height: 220px;
   }
 
   .settings-plan-card {

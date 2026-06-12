@@ -4,7 +4,6 @@ import { Badge, Button, EmptyState, PageHeader, SectionCard } from "@jaldee/desi
 import { Pencil } from "lucide-react";
 import type { FormTemplate } from "../types";
 import { ICONS } from "../constants";
-import { leadTemplateService } from "../services/templateService";
 
 interface TemplatesScreenProps {
   forms: FormTemplate[];
@@ -28,12 +27,14 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
   const sortedForms = useMemo(() => [...forms].sort((a, b) => a.name.localeCompare(b.name)), [forms]);
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 pb-24">
+    <div data-testid="jaldee-leads-templates-page" className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 pb-24">
       <PageHeader
         title="Lead Templates"
         subtitle="Create and manage intake templates for Jaldee Leads."
         actions={
           <Button
+            id="jaldee-leads-templates-create-button"
+            data-testid="jaldee-leads-templates-create-button"
             onClick={() => navigate("/leads/templates/create")}
             variant="primary"
             icon={<ICONS.ADD className="h-4 w-4" />}
@@ -53,23 +54,25 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
           />
         </SectionCard>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
+        <div data-testid="jaldee-leads-templates-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {sortedForms.map((template) => {
             const fieldCount = template.fields.length || countSchemaItems(template.templateSchema);
             const requiredCount = schemaRequired(template.templateSchema) || template.fields.filter((field) => field.required).length;
 
             return (
               <SectionCard key={template.uid} className="border-slate-200 bg-white shadow-sm">
-                <div className="flex min-h-40 flex-col justify-between gap-4">
+                <div data-testid={`jaldee-leads-template-card-${template.uid}`} className="flex min-h-48 flex-col justify-between gap-4">
                   <div>
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="m-0 truncate text-base font-semibold text-slate-900">{template.name}</h3>
-                        <p className="mt-1 text-xs font-mono text-slate-400">{template.uid}</p>
+                        <h3 className="m-0 line-clamp-2 text-base font-semibold leading-6 text-slate-900">{template.name}</h3>
+                        <p className="mt-1 truncate text-xs font-mono text-slate-400">{template.uid}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="info">Template</Badge>
                         <Button
+                          id={`jaldee-leads-template-card-${template.uid}-edit-button`}
+                          data-testid={`jaldee-leads-template-card-${template.uid}-edit-button`}
                           size="sm"
                           variant="ghost"
                           icon={<Pencil size={14} />}
@@ -86,7 +89,7 @@ export default function TemplatesScreen({ forms, setForms }: TemplatesScreenProp
                   </div>
 
                   <div className="rounded-md bg-slate-50 p-3">
-                    <p className="m-0 line-clamp-3 text-xs leading-5 text-slate-500">
+                    <p className="m-0 line-clamp-4 text-xs leading-5 text-slate-500">
                       {template.fields.length
                         ? template.fields.map((field) => field.label).join(", ")
                         : "Schema template"}

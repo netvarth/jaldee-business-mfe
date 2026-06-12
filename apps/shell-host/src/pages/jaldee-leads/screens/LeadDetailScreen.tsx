@@ -34,6 +34,15 @@ function normalizeTaskTypeLabel(value?: string): LeadStageTask['type'] {
   return 'TASK';
 }
 
+function normalizedStageName(value?: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isLeadCurrentStage(stage: CrmLeadPipelineDto['stages'][number], lead: CrmLeadDto) {
+  return stage.uid === lead.currentPipelineStageUid ||
+    (Boolean(lead.currentPipelineStageName) && normalizedStageName(stage.stageName) === normalizedStageName(lead.currentPipelineStageName));
+}
+
 export default function LeadDetailScreen({ lead, pipelines, setPipelines, products, leads, onBack, onUpdate }: LeadDetailScreenProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedLead, setEditedLead] = useState<CrmLeadDto>(lead);
@@ -110,13 +119,13 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
   const currentPipeline = pipelines.find(p => p.uid === lead.pipelineUid);
   const stages = currentPipeline?.stages || [];
-  const currentStage = stages.find(s => s.uid === lead.currentPipelineStageUid) || stages[0];
+  const currentStage = stages.find(s => isLeadCurrentStage(s, lead)) || stages[0];
   const orderedStages = [...stages].sort((a, b) => {
     const aOrder = a.sequenceOrder || a.stageOrder || 0;
     const bOrder = b.sequenceOrder || b.stageOrder || 0;
     return aOrder - bOrder;
   });
-  const activeStageIndex = orderedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+  const activeStageIndex = orderedStages.findIndex(s => isLeadCurrentStage(s, lead));
   const completedStageCount = activeStageIndex >= 0 ? activeStageIndex + 1 : 0;
   const totalStageCount = orderedStages.length;
 
@@ -231,27 +240,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
     };
   }, [showAddManualTaskModal]);
 
-  // Lazy initialize stageTasks if missing
   const tasks = lead.stageTasks || [];
-  React.useEffect(() => {
-    if (!lead.stageTasks || lead.stageTasks.length === 0) {
-      const initialTasks: LeadStageTask[] = currentStage?.taskTemplates?.map(t => ({
-        uid: t.uid,
-        title: t.title,
-        type: t.type,
-        required: t.required,
-        completed: false,
-        isManual: false,
-        createdAt: new Date().toISOString()
-      })) || [];
-      if (initialTasks.length > 0) {
-        onUpdate({
-          ...lead,
-          stageTasks: initialTasks
-        });
-      }
-    }
-  }, [lead, currentStage, onUpdate]);
 
   // Compute tasks metrics
   const predefinedTasks = tasks.filter(t => !t.isManual);
@@ -276,6 +265,9 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       moveStatus = 'WARN';
     }
   }
+  const targetStageIndex = orderedStages.findIndex(s => s.uid === targetStageUid);
+  const isBackwardTarget = targetStageIndex >= 0 && activeStageIndex >= 0 && targetStageIndex < activeStageIndex;
+  const showMoveReasonField = Boolean(targetStageUid) && (isBackwardTarget || !isRequiredComplete);
 
   // Handle task checkbox toggles
   const handleToggleTask = async (taskUid: string) => {
@@ -418,7 +410,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
   // Click handler for Timeline Stages Nodes
   const handleTimelineStageClick = (stageUid: string) => {
-    if (stageUid === lead.currentPipelineStageUid) return;
+    const stage = stages.find(s => s.uid === stageUid);
+    if (stage && isLeadCurrentStage(stage, lead)) return;
     setTargetStageUid(stageUid);
     setShowMoveModal(true);
   };
@@ -583,13 +576,26 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       const bOrder = b.sequenceOrder || b.stageOrder || 0;
       return aOrder - bOrder;
     });
-    const currentStageIdx = sortedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+    const currentStageIdx = sortedStages.findIndex(s => isLeadCurrentStage(s, lead));
     const targetStageIdx = sortedStages.findIndex(s => s.uid === targetStageUid);
+    if (currentStageIdx < 0 || targetStageIdx < 0) {
+      alert('Unable to resolve current pipeline stage. Please refresh the lead details and try again.');
+      return;
+    }
+    if (currentStageIdx === targetStageIdx) {
+      alert('Selected stage is already the current stage.');
+      return;
+    }
     const isBackwardMove = targetStageIdx >= 0 && currentStageIdx >= 0 && targetStageIdx < currentStageIdx;
 
     const requiresOverride = !isRequiredComplete && (movementRule === 'Warn Only' || movementRule === 'Manager/Admin Override');
     if (requiresOverride && !overrideReason.trim()) {
       alert('Override justification remarks are required to bypass stage requirements.');
+      return;
+    }
+    const backwardReason = overrideReason.trim();
+    if (isBackwardMove && !backwardReason) {
+      alert('Reason is required for moving to the previous stage.');
       return;
     }
 
@@ -649,10 +655,13 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         response = await leadService.previousStage(lead.uid, {
             targetStageUid: targetStage.uid,
             targetStageName: targetStage.stageName,
-            reason: overrideReason || 'Moved to previous stage from lead detail.',
+            reason: backwardReason,
+            reasonNote: backwardReason,
+            reasonText: backwardReason,
+            notes: backwardReason,
           });
       } else {
-        const stepsToComplete = Math.max(1, targetStageIdx - currentStageIdx);
+        const stepsToComplete = targetStageIdx - currentStageIdx;
         for (let step = 0; step < stepsToComplete; step += 1) {
           response = await leadService.completeStage(lead.uid);
         }
@@ -746,10 +755,10 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                     {/* Compute custom sorted stages */}
                     {(() => {
                       const sortedStages = [...stages].sort((a, b) => a.stageOrder - b.stageOrder);
-                      const currentStageIdx = sortedStages.findIndex(s => s.uid === lead.currentPipelineStageUid);
+                      const currentStageIdx = sortedStages.findIndex(s => isLeadCurrentStage(s, lead));
 
                       return sortedStages.map((stage, idx) => {
-                        const isCurrent = stage.uid === lead.currentPipelineStageUid;
+                        const isCurrent = isLeadCurrentStage(stage, lead);
                         const isPast = idx < currentStageIdx;
                         const isFuture = idx > currentStageIdx;
 
@@ -1469,7 +1478,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
           onChange={e => setTargetStageUid(e.target.value)}
           options={[
             { value: "", label: "-- CHOOSE PIPELINE DESTINATION --" },
-            ...stages.filter(s => s.uid !== lead.currentPipelineStageUid).map(s => ({
+            ...stages.filter(s => !isLeadCurrentStage(s, lead)).map(s => ({
               value: s.uid,
               label: s.stageName.toUpperCase()
             }))
@@ -1477,26 +1486,34 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         />
 
         {/* Compliance checks */}
-        {!isRequiredComplete && targetStageUid && (
+        {showMoveReasonField && (
            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 text-xs">
-              <p className="font-semibold text-amber-800 text-xs">⚠️ INCOMPLETE STAGE COMPLIANCE CHECKS</p>
-              <p className="text-amber-700 font-medium">The following required predefined tasks for "{lead.currentPipelineStageName}" are incomplete:</p>
-              <ul className="list-disc pl-4 text-amber-700 font-semibold text-xs">
-                 {requiredTasksTotal.filter(t => !t.completed).map(t => (
-                   <li key={t.uid}>{t.title}</li>
-                 ))}
-              </ul>
+              {!isRequiredComplete && (
+                <>
+                  <p className="font-semibold text-amber-800 text-xs">Incomplete stage compliance checks</p>
+                  <p className="text-amber-700 font-medium">The following required predefined tasks for "{lead.currentPipelineStageName}" are incomplete:</p>
+                  <ul className="list-disc pl-4 text-amber-700 font-semibold text-xs">
+                     {requiredTasksTotal.filter(t => !t.completed).map(t => (
+                       <li key={t.uid}>{t.title}</li>
+                     ))}
+                  </ul>
+                </>
+              )}
 
-              {movementRule === 'Strict Block' ? (
+              {isBackwardTarget && (
+                <p className="text-amber-700 font-medium">Reason is required when moving this lead back to a previous stage.</p>
+              )}
+
+              {movementRule === 'Strict Block' && !isBackwardTarget ? (
                  <p className="text-red-600 font-semibold text-xs bg-red-50 p-2 rounded-xl border border-red-100 mt-2">
                     🚫 MOVEMENT STRICTLY BLOCKED: YOU MUST COMPLETE THE DISCLOSURE REQUIREMENTS BEFORE ADVANCING.
                  </p>
               ) : (
                  <Textarea 
-                   label="Override Justification Description *"
+                   label={isBackwardTarget ? "Reason for moving back *" : "Override Justification Description *"}
                    value={overrideReason}
                    onChange={e => setOverrideReason(e.target.value)}
-                   placeholder="State justification for authorization override..."
+                   placeholder={isBackwardTarget ? "State why this lead is moving to a previous stage..." : "State justification for authorization override..."}
                    rows={2}
                  />
               )}

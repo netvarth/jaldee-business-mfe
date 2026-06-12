@@ -50,7 +50,15 @@ function unwrapList<T>(value: unknown): T[] {
 
 const noLocation = { _skipLocationParam: true } as any;
 const pipelineDetailRequests = new Map<string, Promise<CrmLeadPipelineDto>>();
-const pipelineDetailCache = new Map<string, CrmLeadPipelineDto>();
+const pipelineSearchRequests = new Map<string, Promise<CrmLeadPipelineDto[]>>();
+const stageDetailRequests = new Map<string, Promise<CrmLeadPipelineStageDto>>();
+const stageTasksByLeadRequests = new Map<string, Promise<LeadStageTask[]>>();
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`).join(",")}}`;
+}
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -65,10 +73,10 @@ function toStage(raw: any): CrmLeadPipelineStageDto {
         ? raw.tasks
         : Array.isArray(raw?.taskList)
           ? raw.taskList.map((task: any, index: number) => ({
-              uid: String(task?.uid ?? task?.taskUid ?? `task-${index + 1}`),
+              uid: String(task?.uid ?? task?.taskUid ?? task?.id ?? `task-${index + 1}`),
               title: String(task?.title ?? task?.taskTitle ?? task?.taskName ?? ""),
               type: task?.type ?? task?.taskType ?? "TASK",
-              required: Boolean(task?.required ?? task?.isRequired),
+              required: task?.required ?? task?.isRequired ?? true,
               autoCreate: Boolean(task?.autoCreate ?? task?.autogenerate ?? true),
               dueOffsetHours: Number(task?.dueOffsetHours ?? 0),
               assigneeRule: String(task?.assigneeRule ?? ""),
@@ -184,19 +192,25 @@ function toPipelinePayload(data: Partial<CrmLeadPipelineDto>) {
 }
 
 function toStagePayload(stage: Partial<CrmLeadPipelineStageDto>) {
-  const taskList = Array.isArray(stage.taskList)
-    ? stage.taskList.map((t: any, idx: number) => ({
-        uid: t.uid ?? undefined,
-        taskOrder: t.taskOrder ?? idx + 1,
-        taskName: t.taskName ?? t.title ?? "",
-      }))
-    : [];
+  const resolvedStageOrder = stage.sequenceOrder ?? stage.stageOrder;
+  const taskListSource = Array.isArray(stage.taskTemplates) && stage.taskTemplates.length > 0
+    ? stage.taskTemplates
+    : Array.isArray(stage.taskList)
+      ? stage.taskList
+      : [];
+  const taskList = taskListSource.map((t: any, idx: number) => ({
+    id: numericId(t.id ?? t.uid ?? t.taskTemplateId),
+    taskOrder: t.taskOrder ?? idx + 1,
+    taskName: fieldText(t.taskName ?? t.title ?? t.templateName),
+  }));
 
   return {
+    pipelineUid: stage.pipelineUid,
+    pipelineName: stage.pipelineName,
     uid: stage.uid,
     stageName: stage.stageName,
-    stageOrder: stage.stageOrder,
-    sequenceOrder: stage.sequenceOrder ?? stage.stageOrder,
+    stageOrder: resolvedStageOrder,
+    sequenceOrder: resolvedStageOrder,
     color: stage.color,
     probability: stage.probability ?? undefined,
     slaDays: stage.slaDays ?? undefined,
@@ -209,6 +223,20 @@ function toStagePayload(stage: Partial<CrmLeadPipelineStageDto>) {
     proceedStageUid: stage.proceedStageUid ?? undefined,
     redirectStageUid: stage.redirectStageUid ?? undefined,
   };
+}
+
+function numericId(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+function fieldText(value: unknown) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "object") {
+    const objectValue = value as any;
+    return fieldText(objectValue.value ?? objectValue.name ?? objectValue.label ?? objectValue.title ?? objectValue.taskName);
+  }
+  return String(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -227,19 +255,15 @@ export const leadPipelineService = {
     );
     const unwrapped = unwrap<any>(response);
     const pipeline = typeof unwrapped === "string" ? toPipeline({ uid: unwrapped }) : toPipeline(unwrapped);
-    if (pipeline.uid) {
-      pipelineDetailCache.set(pipeline.uid, pipeline);
-    }
     return pipeline;
   },
 
   // POST /v1/api/tenant/crm/leads/pipelines/{pipelineUid}/stages
   async addStage(pipelineUid: string, data: Partial<CrmLeadPipelineStageDto>) {
-    pipelineDetailCache.delete(pipelineUid);
     pipelineDetailRequests.delete(pipelineUid);
     const response = await apiClient.post(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.addStage(pipelineUid)),
-      toStagePayload(data),
+      toStagePayload({ ...data, pipelineUid: data.pipelineUid ?? pipelineUid }),
       noLocation
     );
     const unwrapped = unwrap<any>(response);
@@ -253,7 +277,6 @@ export const leadPipelineService = {
 
   // PUT /v1/api/tenant/crm/leads/pipelines/{pipelineUid}/stages/reorder
   async reorderStages(pipelineUid: string, stageUids: string[]) {
-    pipelineDetailCache.delete(pipelineUid);
     pipelineDetailRequests.delete(pipelineUid);
     const response = await apiClient.put(
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.reorderStages(pipelineUid)),
@@ -265,20 +288,13 @@ export const leadPipelineService = {
 
   // GET /v1/api/tenant/crm/leads/pipelines/{uid}
   async detail(uid: string) {
-    const cachedPipeline = pipelineDetailCache.get(uid);
-    if (cachedPipeline) return cachedPipeline;
-
     const existingRequest = pipelineDetailRequests.get(uid);
     if (existingRequest) return existingRequest;
 
     const request = apiClient.get(
         buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.detail(uid))
       )
-      .then((response) => {
-        const pipeline = toPipeline(unwrap(response));
-        pipelineDetailCache.set(uid, pipeline);
-        return pipeline;
-      })
+      .then((response) => toPipeline(unwrap(response)))
       .finally(() => {
         pipelineDetailRequests.delete(uid);
       });
@@ -295,7 +311,6 @@ export const leadPipelineService = {
       noLocation
     );
     const pipeline = toPipeline(unwrap(response));
-    pipelineDetailCache.set(uid, pipeline);
     pipelineDetailRequests.delete(uid);
     return pipeline;
   },
@@ -307,7 +322,6 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
-    pipelineDetailCache.delete(uid);
     pipelineDetailRequests.delete(uid);
   },
 
@@ -319,9 +333,6 @@ export const leadPipelineService = {
       noLocation
     );
     const pipeline = toPipeline(unwrap(response));
-    if (pipeline.uid) {
-      pipelineDetailCache.set(pipeline.uid, pipeline);
-    }
     return pipeline;
   },
 
@@ -332,7 +343,6 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
-    pipelineDetailCache.delete(uid);
     pipelineDetailRequests.delete(uid);
   },
 
@@ -342,7 +352,6 @@ export const leadPipelineService = {
       buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.delete(uid)),
       noLocation
     );
-    pipelineDetailCache.delete(uid);
     pipelineDetailRequests.delete(uid);
   },
 
@@ -353,7 +362,6 @@ export const leadPipelineService = {
       undefined,
       noLocation
     );
-    pipelineDetailCache.delete(uid);
     pipelineDetailRequests.delete(uid);
   },
 
@@ -370,20 +378,39 @@ export const leadPipelineService = {
     filters: Record<string, unknown> = {},
     params: { page?: number; size?: number } = { page: 0, size: 100 }
   ) {
-    const response = await apiClient.post(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.search),
-      filters,
-      { _skipLocationParam: true, params }
-    );
-    return toPipelineList(response);
+    const requestKey = stableStringify({ filters, params });
+    const existingRequest = pipelineSearchRequests.get(requestKey);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.post(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.search),
+        filters,
+        { _skipLocationParam: true, params }
+      )
+      .then(toPipelineList)
+      .finally(() => {
+        pipelineSearchRequests.delete(requestKey);
+      });
+
+    pipelineSearchRequests.set(requestKey, request);
+    return request;
   },
 
   // GET /v1/api/tenant/crm/leads/pipelines/stages/{stageUid}
   async stageDetail(stageUid: string) {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.stageDetail(stageUid))
-    );
-    return toStage(unwrap(response));
+    const existingRequest = stageDetailRequests.get(stageUid);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.get(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.stageDetail(stageUid))
+      )
+      .then((response) => toStage(unwrap(response)))
+      .finally(() => {
+        stageDetailRequests.delete(stageUid);
+      });
+
+    stageDetailRequests.set(stageUid, request);
+    return request;
   },
 
   // PUT /v1/api/tenant/crm/leads/pipelines/stages/{stageUid}
@@ -394,10 +421,11 @@ export const leadPipelineService = {
       noLocation
     );
     if (data.pipelineUid) {
-      pipelineDetailCache.delete(data.pipelineUid);
       pipelineDetailRequests.delete(data.pipelineUid);
     }
-    return toStage(unwrap(response));
+    const stage = toStage(unwrap(response));
+    stageDetailRequests.delete(stageUid);
+    return stage;
   },
 
   // PATCH /v1/api/tenant/crm/leads/pipelines/stages/{stageUid}/deactivate
@@ -411,9 +439,19 @@ export const leadPipelineService = {
 
   // GET /v1/api/tenant/crm/leads/pipelines/stages/{stageUid}/tasks/lead/{leadUid}
   async stageTasksByLead(stageUid: string, leadUid: string): Promise<LeadStageTask[]> {
-    const response = await apiClient.get(
-      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.stageTasksByLead(stageUid, leadUid))
-    );
-    return unwrapList<any>(response).map(toStageTask);
+    const requestKey = `${stageUid}:${leadUid}`;
+    const existingRequest = stageTasksByLeadRequests.get(requestKey);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.get(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.crmLeadPipelines.stageTasksByLead(stageUid, leadUid))
+      )
+      .then((response) => unwrapList<any>(response).map(toStageTask))
+      .finally(() => {
+        stageTasksByLeadRequests.delete(requestKey);
+      });
+
+    stageTasksByLeadRequests.set(requestKey, request);
+    return request;
   },
 };
