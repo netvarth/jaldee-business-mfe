@@ -123,22 +123,27 @@ export function LeadsModule() {
       .catch(() => {});
   };
 
-  const triggerFetchProducts = (active = true) => {
-    if (fetchedRef.current.products) return;
+  const triggerFetchProducts = (active = true, options: { force?: boolean } = {}) => {
+    if (options.force) {
+      fetchedRef.current.products = false;
+      fetchRequestsRef.current.products = null;
+    }
+    if (fetchedRef.current.products && !options.force) return Promise.resolve(products);
     if (!fetchRequestsRef.current.products) {
       fetchRequestsRef.current.products = leadProductService.search({}, { page: 0, size: 100 })
         .finally(() => {
           fetchRequestsRef.current.products = null;
         });
     }
-    fetchRequestsRef.current.products
+    return fetchRequestsRef.current.products
       .then((data) => {
         fetchedRef.current.products = true;
         if (active) {
           setProducts(data);
         }
+        return data;
       })
-      .catch(() => {});
+      .catch(() => [] as Product[]);
   };
 
   const triggerFetchLeads = (active = true, filters: Record<string, unknown> = {}, options: { force?: boolean } = {}) => {
@@ -426,6 +431,7 @@ export function LeadsModule() {
                     )
                   );
                 }
+                await triggerFetchProducts(true, { force: true });
                 navigate('/leads/products');
               }}
             />

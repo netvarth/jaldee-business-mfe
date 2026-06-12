@@ -608,7 +608,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
         }
       />
 
-      <div className="flex-1 flex flex-col gap-8 overflow-visible mt-6 pb-24 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="flex-1 flex flex-col gap-8 overflow-visible mt-6 pb-24 lg:grid lg:grid-cols-[minmax(0,35fr)_minmax(0,75fr)]">
         <SectionCard className="w-full p-8 h-fit space-y-6">
           <h3 className="text-sm font-semibold text-slate-400 border-b border-slate-100 pb-4 leading-none animate-fadeIn">Basic Configuration</h3>
           
