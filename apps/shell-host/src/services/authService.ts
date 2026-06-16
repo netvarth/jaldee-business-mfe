@@ -45,7 +45,6 @@ interface TokenEncryptedLoginRequest {
 
 export interface AccountSettingsResponse {
   enableLead?: boolean;
-  enableMembership?: boolean;
   enableCrmLead?: boolean;
   enableItemGroup?: boolean;
   enableSalesOrder?: boolean;
@@ -64,7 +63,6 @@ interface TenantSettingsResponse {
   task?: boolean | null;
   enableLead?: boolean | null;
   enableCrmLead?: boolean | null;
-  enableMembership?: boolean | null;
 }
 
 let tenantSettingsCache: unknown | null = null;
@@ -515,7 +513,6 @@ function normalizeAccountSettings(raw: unknown): AccountSettingsResponse {
 
   return {
     enableLead: readTenantBoolean(candidate, ["enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]) === true,
-    enableMembership: readTenantBoolean(candidate, ["enableMembership", "membership", "membershipEnabled", "membershipStatus"]) === true,
     enableCrmLead: readTenantBoolean(candidate, ["enableCrmLead", "crmLead", "crmLeads", "enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]) === true,
     enableItemGroup: candidate.enableItemGroup === true,
     enableSalesOrder: candidate.enableSalesOrder === true,
@@ -527,7 +524,6 @@ async function fetchAccountSettings(): Promise<AccountSettingsResponse> {
   if (isMock) {
     return {
       enableLead: true,
-      enableMembership: true,
       enableCrmLead: true,
       enableItemGroup: false,
       enableSalesOrder: true,
@@ -583,7 +579,6 @@ function normalizeTenantSettings(raw: unknown): TenantSettingsResponse {
     task: readTenantBoolean(candidate, ["task"]),
     enableLead: readTenantBoolean(candidate, ["enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]),
     enableCrmLead: readTenantBoolean(candidate, ["enableCrmLead", "crmLead", "crmLeads", "enableLead", "leads", "lead", "leadsEnabled", "crm", "crmEnabled", "leadSuite"]),
-    enableMembership: readTenantBoolean(candidate, ["enableMembership", "membership", "membershipEnabled", "membershipStatus"]),
   };
 }
 
@@ -657,9 +652,13 @@ function deriveEnabledModules(
     modules.add("finance");
   }
 
-  const membershipEnabled = tenantSettings?.membership === true;
-  const tasksEnabled = tenantSettings?.task === true;
-  const leadsEnabled = tenantSettings?.lead === true;
+  const membershipEnabled = tenantSettings?.membership ?? null;
+  const tasksEnabled = tenantSettings?.task ?? null;
+  const leadsEnabled =
+    tenantSettings?.lead ??
+    tenantSettings?.enableLead ??
+    tenantSettings?.enableCrmLead ??
+    (settings.enableLead || settings.enableCrmLead ? true : null);
 
   if (membershipEnabled === true) {
     modules.add("membership");

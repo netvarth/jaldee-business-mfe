@@ -4,12 +4,118 @@ interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
   post: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
   put: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
+  patch: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
   delete: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
 }
 
 export interface MembershipListResponse {
   data: Membership[];
   total: number;
+}
+
+const MEMBERSHIP_BASE = "/base-service/v1/api/tenant/membership";
+const MEMBERSHIP_SERVICE_BASE = `${MEMBERSHIP_BASE}/service/api/membership`;
+const MEMBERSHIP_REQUEST_CONFIG = { skipLocationScope: true } as const;
+
+const membershipEndpoints = {
+  members: {
+    create: `${MEMBERSHIP_BASE}/member`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/member/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_BASE}/member/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/member/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    approval: (uid: string, status: string) => `${MEMBERSHIP_BASE}/member/${encodeURIComponent(uid)}/approval/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_BASE}/member/search`,
+  },
+  consumerMembers: {
+    create: `${MEMBERSHIP_BASE}/consumer/members`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/consumer/members/${encodeURIComponent(uid)}`,
+    subscriptionTypesSearch: `${MEMBERSHIP_BASE}/consumer/subscription-types/search`,
+  },
+  subscriptionTypes: {
+    create: `${MEMBERSHIP_BASE}/subscription-type`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/subscription-type/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_BASE}/subscription-type/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/subscription-type/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_BASE}/subscription-type/search`,
+  },
+  subscriptions: {
+    create: `${MEMBERSHIP_BASE}/subscription`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/subscription/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/subscription/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_BASE}/subscription/search`,
+  },
+  invoicePayments: {
+    update: (paymentUid: string) => `${MEMBERSHIP_BASE}/invoice/payment/${encodeURIComponent(paymentUid)}/update`,
+    history: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/invoice/payment/${encodeURIComponent(subscriptionUid)}/history`,
+    historyAll: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/invoice/payment/${encodeURIComponent(subscriptionUid)}/history/all`,
+    pay: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/invoice/payment/${encodeURIComponent(subscriptionUid)}/pay`,
+    payCash: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/invoice/payment/${encodeURIComponent(subscriptionUid)}/pay/cash`,
+  },
+  payments: {
+    directCreate: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/payment/${encodeURIComponent(subscriptionUid)}/direct`,
+    directUpdate: (paymentUid: string) => `${MEMBERSHIP_BASE}/payment/${encodeURIComponent(paymentUid)}/direct`,
+    history: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/payment/${encodeURIComponent(subscriptionUid)}/history`,
+    historyAll: (subscriptionUid: string) => `${MEMBERSHIP_BASE}/payment/${encodeURIComponent(subscriptionUid)}/history/all`,
+  },
+  groups: {
+    create: `${MEMBERSHIP_BASE}/group`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/group/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_BASE}/group/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/group/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_BASE}/group/search`,
+  },
+  templates: {
+    create: `${MEMBERSHIP_BASE}/template`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/template/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_BASE}/template/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/template/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_BASE}/template/search`,
+  },
+  settings: {
+    get: `${MEMBERSHIP_BASE}/settings`,
+    update: `${MEMBERSHIP_BASE}/settings`,
+  },
+  serviceCategories: {
+    create: `${MEMBERSHIP_SERVICE_BASE}/service-categories`,
+    detail: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/service-categories/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/service-categories/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_SERVICE_BASE}/service-categories/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_SERVICE_BASE}/service-categories/search`,
+  },
+  services: {
+    create: `${MEMBERSHIP_SERVICE_BASE}/services`,
+    detail: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_SERVICE_BASE}/services/search`,
+    autoExpire: `${MEMBERSHIP_SERVICE_BASE}/services/auto-expire`,
+    assignGroups: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/assign-groups`,
+    assignMembers: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/assign-members`,
+    membersCount: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/members/count`,
+  },
+  memberServices: {
+    assignServices: (memberUid: string) => `${MEMBERSHIP_SERVICE_BASE}/members/${encodeURIComponent(memberUid)}/assign-services`,
+    services: (memberUid: string) => `${MEMBERSHIP_SERVICE_BASE}/members/${encodeURIComponent(memberUid)}/services`,
+    servicesCount: (memberUid: string) => `${MEMBERSHIP_SERVICE_BASE}/members/${encodeURIComponent(memberUid)}/services/count`,
+  },
+  serviceTransactions: {
+    create: `${MEMBERSHIP_SERVICE_BASE}/service-transactions`,
+    detail: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/service-transactions/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_SERVICE_BASE}/service-transactions/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_SERVICE_BASE}/service-transactions/search`,
+  },
+} as const;
+
+function withPagination(filter: Record<string, unknown> = {}, from?: number, count?: number) {
+  return {
+    ...filter,
+    ...(from !== undefined ? { from } : {}),
+    ...(count !== undefined ? { count } : {}),
+  };
+}
+
+function postMembership<T = any>(scopedApi: ScopedApi, path: string, data?: unknown) {
+  return scopedApi.post<T>(path, data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 // Gallery/Attachments
@@ -36,68 +142,68 @@ export async function getProviderLocations(scopedApi: ScopedApi, filter: {} = {}
 
 // Member Types (Subscription Types)
 export async function createSubType(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/subscriptiontype", data);
+  return postMembership(scopedApi, membershipEndpoints.subscriptionTypes.create, data);
 }
 
 export async function updateSubType(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/subscriptiontype/${id}`, data);
+  return scopedApi.put(membershipEndpoints.subscriptionTypes.update(id), data);
 }
 
 export async function getMemberTypes(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/subscriptiontype", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.subscriptionTypes.search, filter);
 }
 
 export async function getMemberTypeByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/subscriptiontype/${uid}`);
+  return scopedApi.get(membershipEndpoints.subscriptionTypes.detail(uid));
 }
 
 export async function getMemberTypeCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/subscriptiontype/count", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.subscriptionTypes.search, filter);
 }
 
 export async function addLabeltoTypes(scopedApi: ScopedApi, uid: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/subscriptiontype/applyLabel/${uid}`, data);
+  return scopedApi.put(membershipEndpoints.subscriptionTypes.update(uid), data);
 }
 
 export async function changeMemberTypeStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.put(`provider/membership/subscriptiontype/${uid}/status/${statusId}`, null);
+  return scopedApi.patch(membershipEndpoints.subscriptionTypes.status(uid, statusId), null);
 }
 
 // Members
 export async function createMember(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/member", data);
+  return postMembership(scopedApi, membershipEndpoints.members.create, data);
 }
 
 export async function getMembers(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.members.search, filter);
 }
 
 export async function getMemberCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/count", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.members.search, filter);
 }
 
 export async function getMemberDetailsByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/member/${uid}`);
+  return scopedApi.get(membershipEndpoints.members.detail(uid));
 }
 
 export async function updateMembers(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/${id}`, data);
+  return scopedApi.put(membershipEndpoints.members.update(id), data);
 }
 
 export async function changeMemberStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.put(`provider/membership/${uid}/status/${statusId}`, null);
+  return scopedApi.patch(membershipEndpoints.members.status(uid, statusId), null);
 }
 
 export async function changeMemberSubscriptionStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.put(`provider/membership/member/subscription/${uid}/status/${statusId}`, null);
+  return scopedApi.patch(membershipEndpoints.subscriptions.status(uid, statusId), null);
 }
 
 export async function submitQuestionnaire(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.post(`provider/membership/questionnaire/submit/${id}`, data);
+  return postMembership(scopedApi, `${MEMBERSHIP_BASE}/questionnaire/submit/${encodeURIComponent(id)}`, data);
 }
 
 export async function resubmitQuestionnaire(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.post(`provider/membership/questionnaire/resubmit/${id}`, data);
+  return postMembership(scopedApi, `${MEMBERSHIP_BASE}/questionnaire/resubmit/${encodeURIComponent(id)}`, data);
 }
 
 export async function getMemberServiceQuestionaire(scopedApi: ScopedApi, serviceId: string, channel: string): Promise<any> {
@@ -106,132 +212,137 @@ export async function getMemberServiceQuestionaire(scopedApi: ScopedApi, service
 
 // Service Types
 export async function createServiceType(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/servicecategory", data);
+  return postMembership(scopedApi, membershipEndpoints.serviceCategories.create, data);
 }
 
 export async function getServiceTypes(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/servicecategory", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.serviceCategories.search, filter);
 }
 
 export async function getServiceTypeCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/servicecategory/count", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.serviceCategories.search, filter);
 }
 
 export async function getServiceTypeByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/servicecategory/${uid}`);
+  return scopedApi.get(membershipEndpoints.serviceCategories.detail(uid));
 }
 
 export async function updateServiceType(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/servicecategory/${id}`, data);
+  return scopedApi.put(membershipEndpoints.serviceCategories.update(id), data);
 }
 
 export async function changeServiceTypeStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.put(`provider/membership/servicecategory/${uid}/status/${statusId}`, null);
+  return scopedApi.patch(membershipEndpoints.serviceCategories.status(uid, statusId), null);
 }
 
 // Subscriptions
 export async function getMemberSubscriptionByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/member/subscription/${uid}`);
+  return scopedApi.get(membershipEndpoints.subscriptions.detail(uid));
 }
 
 export async function getAllMemberSubscriptions(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/subscription", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.subscriptions.search, filter);
 }
 
 export async function getAllMemberSubscriptionsCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/subscription/count", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.subscriptions.search, filter);
 }
 
 export async function getAllMemberSubscriptionByuid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/subscription/${uid}`);
+  return scopedApi.get(membershipEndpoints.subscriptions.detail(uid));
 }
 
 export async function addNewServiceType(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/member/subscription", data);
+  return postMembership(scopedApi, membershipEndpoints.subscriptions.create, data);
 }
 
 // Payments
 export async function makeCashPayment(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/payment/acceptPayment", data);
+  const subscriptionUid = String(data?.subscriptionUid ?? data?.subscriptionId ?? data?.uid ?? "");
+  return postMembership(scopedApi, membershipEndpoints.invoicePayments.payCash(subscriptionUid), data);
 }
 
 export async function Paymentlink(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/payment/createLink", data);
+  const subscriptionUid = String(data?.subscriptionUid ?? data?.subscriptionId ?? data?.uid ?? "");
+  return postMembership(scopedApi, membershipEndpoints.invoicePayments.pay(subscriptionUid), data);
 }
 
 // Templates
 export async function getTemplates(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/template", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.templates.search, filter);
 }
 
 export async function getTemplatesByuuid(scopedApi: ScopedApi, tempUid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/template/servicecategory/${tempUid}`);
+  return scopedApi.get(membershipEndpoints.templates.detail(tempUid));
 }
 
 export async function getMemberTemplatesByuuid(scopedApi: ScopedApi, tempUid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/template/${tempUid}`);
+  return scopedApi.get(membershipEndpoints.templates.detail(tempUid));
 }
 
 // Services
 export async function createService(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/service", data);
+  return postMembership(scopedApi, membershipEndpoints.services.create, data);
 }
 
 export async function getServices(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/service", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.services.search, filter);
 }
 
 export async function changeServiceStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.put(`provider/membership/service/${uid}/status/${statusId}`, null);
+  return scopedApi.patch(membershipEndpoints.services.status(uid, statusId), null);
 }
 
 export async function updateService(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/service/${id}`, data);
+  return scopedApi.put(membershipEndpoints.services.update(id), data);
 }
 
 export async function getServiceCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/service/count", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.services.search, filter);
 }
 
 export async function getServiceByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/service/${uid}`);
+  return scopedApi.get(membershipEndpoints.services.detail(uid));
 }
 
 // Renewals/Assignments
 export async function getPaymentRenewByUid(scopedApi: ScopedApi, uid: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/member/subscription/renew/${uid}`, data);
+  return scopedApi.put(membershipEndpoints.subscriptions.detail(uid), data);
 }
 
 export async function assignService(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/member/transaction/assign", data);
+  const memberUid = String(data?.memberUid ?? data?.memberId ?? data?.uid ?? "");
+  return postMembership(scopedApi, membershipEndpoints.memberServices.assignServices(memberUid), data);
 }
 
 export async function assignMember(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/service/transaction/assign", data);
+  const serviceUid = String(data?.serviceUid ?? data?.serviceId ?? data?.uid ?? "");
+  return postMembership(scopedApi, membershipEndpoints.services.assignMembers(serviceUid), data);
 }
 
 export async function assignGroupToService(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/service/transaction/assign/group", data);
+  const serviceUid = String(data?.serviceUid ?? data?.serviceId ?? data?.uid ?? "");
+  return postMembership(scopedApi, membershipEndpoints.services.assignGroups(serviceUid), data);
 }
 
 export async function getAllMemberServices(scopedApi: ScopedApi, id: string, from: number, count: number): Promise<any> {
-  return scopedApi.get(`provider/membership/service/member/${id}/from/${from}/count/${count}`);
+  return scopedApi.get(membershipEndpoints.memberServices.services(id), { params: withPagination({}, from, count) });
 }
 
 export async function getAllMemberServicesCount(scopedApi: ScopedApi, id: string): Promise<any> {
-  return scopedApi.get(`provider/membership/service/member/${id}/count`);
+  return scopedApi.get(membershipEndpoints.memberServices.servicesCount(id));
 }
 
 export async function getAllServiceMembers(scopedApi: ScopedApi, id: string, from: number, count: number): Promise<any> {
-  return scopedApi.get(`provider/membership/member/service/${id}/from/${from}/count/${count}`);
+  return postMembership(scopedApi, membershipEndpoints.serviceTransactions.search, withPagination({ serviceUid: id }, from, count));
 }
 
 export async function getAllServiceMembersCount(scopedApi: ScopedApi, id: string): Promise<any> {
-  return scopedApi.get(`provider/membership/member/service/${id}/count`);
+  return scopedApi.get(membershipEndpoints.services.membersCount(id));
 }
 
 export async function changeAssignedServiceStatus(scopedApi: ScopedApi, memberId: string, uid: string, status: string): Promise<any> {
-  return scopedApi.put(`provider/membership/transaction/member/${memberId}/service/${uid}/status/${status}`, null);
+  return scopedApi.patch(membershipEndpoints.serviceTransactions.status(uid, status), { memberUid: memberId });
 }
 
 // Labels
@@ -241,54 +352,54 @@ export async function getLabelList(scopedApi: ScopedApi): Promise<any> {
 
 // Analytics
 export async function getAnalytics(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/analytics", { params: filter });
+  return scopedApi.get(`${MEMBERSHIP_BASE}/analytics`, { params: filter });
 }
 
 export async function getGraphAnalyticsData(scopedApi: ScopedApi, data: any[]): Promise<any[]> {
   return Promise.all(
     data.map((item) =>
-      scopedApi.put("provider/membership/analytics/graph", item).then((response) => response.data)
+      scopedApi.put(`${MEMBERSHIP_BASE}/analytics/graph`, item).then((response) => response.data)
     )
   );
 }
 
 // Member Groups
 export async function createMemberGroup(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/membergroup", data);
+  return postMembership(scopedApi, membershipEndpoints.groups.create, data);
 }
 
 export async function updateMemberGroup(scopedApi: ScopedApi, memberGroupUid: string, data: any): Promise<any> {
-  return scopedApi.put(`provider/membership/membergroup/${memberGroupUid}`, data);
+  return scopedApi.put(membershipEndpoints.groups.update(memberGroupUid), data);
 }
 
 export async function getMemberGroup(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/membergroup", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.groups.search, filter);
 }
 
 export async function getMemberGroupCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/membership/membergroup/count", { params: filter });
+  return postMembership(scopedApi, membershipEndpoints.groups.search, filter);
 }
 
 export async function changeMemberGroupStatus(scopedApi: ScopedApi, groupId: string, statusId: string): Promise<any> {
-  return scopedApi.put(`provider/membership/membergroup/${groupId}/status/${statusId}`, null);
+  return scopedApi.patch(membershipEndpoints.groups.status(groupId, statusId), null);
 }
 
 export async function addMemberToGroup(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/membership/member/addGroup", data);
+  const memberUid = String(data?.memberUid ?? data?.memberId ?? data?.uid ?? "");
+  return scopedApi.put(membershipEndpoints.members.update(memberUid), data);
 }
 
 export async function getGroupByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(`provider/membership/membergroup/${uid}`);
+  return scopedApi.get(membershipEndpoints.groups.detail(uid));
 }
 
 export async function createGroupMemberId(scopedApi: ScopedApi, body: any): Promise<any> {
-  const { groupName, memberId, groupmemId } = body;
-  return scopedApi.post(`provider/membership/groupMemId/${groupName}/${memberId}/${groupmemId}`);
+  return postMembership(scopedApi, membershipEndpoints.groups.create, body);
 }
 
 export async function updateGroupMemberId(scopedApi: ScopedApi, body: any): Promise<any> {
-  const { groupName, memberId, groupmemId } = body;
-  return scopedApi.put(`provider/membership/groupMemId/${groupName}/${memberId}/${groupmemId}`);
+  const groupUid = String(body?.groupUid ?? body?.groupId ?? body?.uid ?? "");
+  return scopedApi.put(membershipEndpoints.groups.update(groupUid), body);
 }
 
 // Original membership CRUD (keeping for compatibility)
@@ -309,7 +420,7 @@ export async function getMemberships(
     params.status = filters.status;
   }
 
-  return scopedApi.get<Membership[]>("provider/membership", { params }).then(res => res.data);
+  return postMembership<Membership[]>(scopedApi, membershipEndpoints.members.search, params).then(res => res.data);
 }
 
 export async function getMembershipsCount(
@@ -326,21 +437,21 @@ export async function getMembershipsCount(
     params.status = filters.status;
   }
 
-  return scopedApi.get<number>("provider/membership/count", { params }).then(res => res.data);
+  return postMembership<number>(scopedApi, membershipEndpoints.members.search, params).then(res => res.data);
 }
 
 export async function getMembership(scopedApi: ScopedApi, id: string): Promise<Membership> {
-  return scopedApi.get<Membership>(`provider/membership/${id}`).then(res => res.data);
+  return scopedApi.get<Membership>(membershipEndpoints.members.detail(id)).then(res => res.data);
 }
 
 export async function createMembership(scopedApi: ScopedApi, data: MembershipFormValues): Promise<Membership> {
-  return scopedApi.post<Membership>("provider/membership", data).then(res => res.data);
+  return postMembership<Membership>(scopedApi, membershipEndpoints.members.create, data).then(res => res.data);
 }
 
 export async function updateMembership(scopedApi: ScopedApi, id: string, data: MembershipFormValues): Promise<Membership> {
-  return scopedApi.put<Membership>(`provider/membership/${id}`, data).then(res => res.data);
+  return scopedApi.put<Membership>(membershipEndpoints.members.update(id), data).then(res => res.data);
 }
 
 export async function deleteMembership(scopedApi: ScopedApi, id: string): Promise<void> {
-  return scopedApi.delete(`provider/membership/${id}`).then(() => undefined);
+  return scopedApi.patch(membershipEndpoints.members.status(id, "INACTIVE"), null).then(() => undefined);
 }

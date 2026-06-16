@@ -80,7 +80,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 export function SchemeList() {
   const { assetsBaseUrl, basePath, routeParams } = useSharedModulesContext();
-  const isServiceView = routeParams?.view === "service";
+  const isServiceView = routeParams?.view === "service" || routeParams?.view === "services";
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
   const { page, setPage, pageSize, setPageSize } = useUrlPagination({

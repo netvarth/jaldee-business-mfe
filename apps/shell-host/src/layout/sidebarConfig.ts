@@ -54,7 +54,18 @@ export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
 
-  { id: "basecrm-membership", label: "Membership", icon: "\u{1F5C3}", path: "/membership" },
+  {
+    id: "basecrm-membership",
+    label: "Membership",
+    icon: "\u{1F5C3}",
+    path: "/membership",
+    children: [
+      { id: "basecrm-membership-overview", label: "Overview", icon: "", path: "/membership" },
+      { id: "basecrm-membership-members", label: "Members", icon: "", path: "/membership/members" },
+      { id: "basecrm-membership-services", label: "Services", icon: "", path: "/membership/services" },
+      { id: "basecrm-membership-fee-management", label: "Fee Management", icon: "", path: "/membership/fee-management" },
+    ],
+  },
   {
     id: "basecrm-leads",
     label: "Leads",

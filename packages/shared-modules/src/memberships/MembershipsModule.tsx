@@ -76,7 +76,7 @@ export function MembershipsModule() {
   }
 
   // Handle other views
-  if (view === "dashboard") {
+  if (view === "dashboard" || view === "overview") {
     return <MembershipDashboard />;
   }
 
@@ -104,7 +104,7 @@ export function MembershipsModule() {
     return <MembersList />;
   }
 
-  if (view === "paymentInfo") {
+  if (view === "paymentInfo" || view === "fee-management") {
     return <PaymentInfoList />;
   }
 
@@ -112,7 +112,7 @@ export function MembershipsModule() {
     return <SchemeList />;
   }
 
-  if (view === "service") {
+  if (view === "service" || view === "services") {
     if (subview === "create") {
       return <ServiceForm />;
     }

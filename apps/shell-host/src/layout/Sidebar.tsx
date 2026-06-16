@@ -145,16 +145,34 @@ function SidebarItemRow({
   const isOpen = expanded[section.id] ?? (hasChildren && isActive(section.path));
   const active = !hasChildren && isActive(section.path);
 
+  function normalizePathForMatching(path: string): string {
+    let normalized = path;
+    if (normalized === "/membership/service") {
+      normalized = "/membership/services";
+    } else if (normalized.startsWith("/membership/service/")) {
+      normalized = "/membership/services" + normalized.slice("/membership/service".length);
+    }
+    if (normalized === "/membership/paymentInfo") {
+      normalized = "/membership/fee-management";
+    } else if (normalized.startsWith("/membership/paymentInfo/")) {
+      normalized = "/membership/fee-management" + normalized.slice("/membership/paymentInfo".length);
+    }
+    return normalized;
+  }
+
   function isChildActive(childPath: string) {
-    if (currentPath === childPath) {
+    const normCurrent = normalizePathForMatching(currentPath);
+    const normChild = normalizePathForMatching(childPath);
+
+    if (normCurrent === normChild) {
       return true;
     }
 
-    if (childPath === section.path) {
+    if (normChild === normalizePathForMatching(section.path)) {
       return false;
     }
 
-    return currentPath.startsWith(`${childPath}/`);
+    return normCurrent.startsWith(`${normChild}/`);
   }
 
   return (

@@ -369,6 +369,7 @@ export function ShellMembershipPage() {
   const account = useShellStore((s) => s.account);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
+  const navigateWithinModule = useModuleNavigate("/membership");
   const { routeSegments, tab } = useRouteSegments("membership");
 
   if (!user || !account) {
@@ -384,6 +385,7 @@ export function ShellMembershipPage() {
             product,
             apiScope: "global",
             basePath: "/membership",
+            navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
             location: null,
