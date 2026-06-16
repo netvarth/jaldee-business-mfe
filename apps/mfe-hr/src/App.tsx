@@ -1,6 +1,5 @@
 import { Routes, Route } from "react-router-dom";
 import "./index.css";
-import "./vanilla-style.css";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import EmployeeMaster from "./pages/employees/EmployeeMaster";
 import NewEmployeeWizard from "./pages/employees/NewEmployeeWizard";
@@ -17,7 +16,7 @@ import Dashboard from "./pages/dashboard/Dashboard";
 
 export default function App() {
   return (
-    <div className="flex h-full min-h-[calc(100vh-56px)] flex-col bg-background text-foreground">
+    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
       <div className="flex min-h-0 flex-1 flex-col">
       <Routes>
         <Route path="/" element={<Dashboard />} />

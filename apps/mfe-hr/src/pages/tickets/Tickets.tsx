@@ -1,6 +1,7 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
 import { PageHeader } from "@jaldee/design-system";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
 
@@ -31,8 +32,19 @@ function StatCard({ label, value, tone, icon }: { label: string; value: number; 
 }
 
 export default function Tickets() {
+  const { eventBus } = useMFEProps();
   const { data: employees } = useEmployees();
   const tickets = useTickets();
+
+  useEffect(() => {
+    if (tickets.error) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Helpdesk",
+        message: tickets.error,
+      });
+    }
+  }, [tickets.error, eventBus]);
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
   const empName = (uid?: string) => (uid ? empMap.get(uid)?.name ?? "Staff" : "Staff");
 
@@ -110,9 +122,7 @@ export default function Tickets() {
           <button style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
         </div>
 
-        {tickets.error && (
-          <div style={{ padding: "12px 16px", borderRadius: 14, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertCircle size={16} /> {tickets.error}</div>
-        )}
+
 
         {/* FEED */}
         <div style={{ display: "grid", gap: 24 }}>

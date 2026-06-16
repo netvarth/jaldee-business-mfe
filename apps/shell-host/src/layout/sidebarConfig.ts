@@ -9,6 +9,7 @@ import {
   Megaphone,
   Settings,
   Users,
+  Wrench,
 } from "lucide-react";
 import type { ProductKey } from "../store/shellStore";
 
@@ -154,28 +155,12 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "health-settings", label: "Settings", icon: "\u2699", path: "/health/settings" },
   ],
   bookings: [
-    { id: "bookings-overview", label: "Overview", icon: "\u25A6", path: "/bookings" },
-    { id: "bookings-appointments", label: "Appointments", icon: "\u{1F4C5}", path: "/bookings/appointments" },
-    { id: "bookings-requests", label: "Requests", icon: "\u{1F4E8}", path: "/bookings/requests" },
-    { id: "bookings-queue", label: "Queue", icon: "\u23F3", path: "/bookings/queue" },
-    { id: "bookings-calendar", label: "Calendar", icon: "\u{1F5D3}", path: "/bookings/calendar" },
-    { id: "bookings-services", label: "Services", icon: "\u{1F527}", path: "/bookings/services" },
-    {
-      id: "bookings-drive",
-      label: "Drive",
-      icon: "\u{1F5C2}",
-      path: "/bookings/drive",
-      children: [
-        { id: "bookings-drive-overview", label: "Overview", icon: "", path: "/bookings/drive" },
-        { id: "bookings-drive-files", label: "Files", icon: "", path: "/bookings/drive/files" },
-        { id: "bookings-drive-shared", label: "Shared", icon: "", path: "/bookings/drive/shared" },
-        { id: "bookings-drive-activity", label: "Activity", icon: "", path: "/bookings/drive/activity" },
-        { id: "bookings-drive-settings", label: "Settings", icon: "", path: "/bookings/drive/settings" },
-      ],
-    },
-    { id: "bookings-customers", label: "Customers", icon: "\u{1F464}", path: "/bookings/customers" },
-    { id: "bookings-reports", label: "Reports", icon: "\u{1F4CA}", path: "/bookings/reports" },
-    { id: "bookings-settings", label: "Settings", icon: "\u2699", path: "/bookings/settings" },
+    { id: "bookings-overview", label: "Overview", icon: sidebarIcon(Grid2X2), path: "/bookings/dashboard" },
+    { id: "bookings-list", label: "Bookings", icon: sidebarIcon(Calendar), path: "/bookings" },
+    { id: "bookings-calendars", label: "Calendars", icon: sidebarIcon(Calendar), path: "/bookings/calendars" },
+    { id: "bookings-services", label: "Services", icon: sidebarIcon(Wrench), path: "/bookings/services" },
+    { id: "bookings-customers", label: "Customers", icon: sidebarIcon(Users), path: "/bookings/customers" },
+    { id: "bookings-users", label: "Users", icon: sidebarIcon(Users), path: "/bookings/users" },
   ],
   golderp: [
     { id: "golderp-overview", label: "Overview", icon: "\u25A6", path: "/golderp" },

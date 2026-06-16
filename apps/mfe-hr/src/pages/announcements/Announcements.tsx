@@ -1,6 +1,7 @@
-import { useMemo, useState, type CSSProperties } from "react";
-import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone } from "lucide-react";
+import { PageHeader, EmptyState } from "@jaldee/design-system";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
 
@@ -19,8 +20,20 @@ function typeColor(t?: string): string {
 }
 
 export default function Announcements() {
+  const { eventBus } = useMFEProps();
   const { data: employees } = useEmployees();
   const ann = useAnnouncements();
+
+  useEffect(() => {
+    if (ann.error) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "StaffSpace",
+        message: ann.error,
+      });
+    }
+  }, [ann.error, eventBus]);
+
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
 
   const [search, setSearch] = useState("");
@@ -49,8 +62,8 @@ export default function Announcements() {
   };
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
-      <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", flexDirection: "column", gap: 32 }}>
+    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 32, width: "100%" }}>
         <PageHeader
           title="StaffSpace"
           subtitle="Stay updated with the latest company news and policies."
@@ -66,31 +79,37 @@ export default function Announcements() {
           <button style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
         </div>
 
-        {ann.error && (
-          <div style={{ padding: "12px 16px", borderRadius: 14, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertCircle size={16} /> {ann.error}</div>
-        )}
+
 
         {/* FEED */}
-        <div style={{ display: "grid", gap: 28 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 24 }}>
           {ann.loading ? (
             <div style={{ textAlign: "center", padding: "80px 0", color: "var(--light-text)", fontWeight: 700 }}><Loader2 size={22} className="animate-spin" style={{ display: "inline" }} /> Loading announcements…</div>
           ) : items.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "80px 0", color: "var(--light-text)", fontWeight: 700 }}>No announcements yet.</div>
+            <div style={{ gridColumn: "1 / -1", background: "var(--surface-bg)", borderRadius: 36, padding: "24px 0", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+              <EmptyState
+                icon={<Megaphone size={40} className="text-gray-300" style={{ display: "inline" }} />}
+                title="No announcements yet"
+                description="Stay tuned! Official updates, policy releases, and company news will appear here."
+              />
+            </div>
           ) : items.map((a) => {
             const color = typeColor(a.type);
             return (
               <div key={a.id} style={{ background: a.isPinned ? "rgba(17,94,89,0.02)" : "var(--surface-bg)", borderRadius: 36, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.05)", border: a.isPinned ? "2px solid rgba(17,94,89,0.2)" : "1px solid transparent", display: "flex" }}>
                 <div style={{ width: 8, background: color, flexShrink: 0 }} />
-                <div style={{ flex: 1, padding: "32px 36px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-                      {a.isPinned && <div style={{ background: "rgba(17,94,89,0.1)", padding: 8, borderRadius: 12, display: "flex" }}><Pin size={16} color={TEAL} fill={TEAL} /></div>}
-                      <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: color }}>{a.type || "General"}</span>
-                      <span style={{ ...lbl, display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={12} /> {a.startDate ? new Date(a.startDate).toLocaleDateString() : "Recently"}</span>
+                <div style={{ flex: 1, padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                        {a.isPinned && <div style={{ background: "rgba(17,94,89,0.1)", padding: 8, borderRadius: 12, display: "flex" }}><Pin size={16} color={TEAL} fill={TEAL} /></div>}
+                        <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: color }}>{a.type || "General"}</span>
+                        <span style={{ ...lbl, display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={12} /> {a.startDate ? new Date(a.startDate).toLocaleDateString() : "Recently"}</span>
+                      </div>
                     </div>
+                    <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 16px" }}>{a.title}</h2>
+                    <p style={{ fontSize: 15, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
                   </div>
-                  <h2 style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: "0 0 16px" }}>{a.title}</h2>
-                  <p style={{ fontSize: 17, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 24, paddingTop: 28, borderTop: "1px solid var(--border-color)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ height: 48, width: 48, borderRadius: 16, background: "rgba(17,94,89,0.1)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>A</div>
@@ -110,6 +129,7 @@ export default function Announcements() {
           })}
         </div>
       </div>
+
 
       {/* CREATE MODAL */}
       {addOpen && (

@@ -37,9 +37,8 @@ export function mount(container: HTMLElement, props: MFEProps) {
 }
 
 export function unmount(_container: HTMLElement) {
-  // Run all cleanup functions
-  // event bus listeners, RxJS subscriptions etc.
-  cleanupFns.forEach(fn => fn());
+  // Run all cleanup functions (event bus listeners, subscriptions, etc.)
+  cleanupFns.forEach((fn) => fn());
   cleanupFns.length = 0;
   root?.unmount();
   root = null;
@@ -47,8 +46,6 @@ export function unmount(_container: HTMLElement) {
   currentProps = null;
 }
 
-// Call this from anywhere inside mfe-health
-// to register cleanup on unmount
 export function registerCleanup(fn: () => void) {
   cleanupFns.push(fn);
 }
@@ -57,7 +54,6 @@ export function updateProps(nextProps: Partial<MFEProps>) {
   if (!root || !currentContainer || !currentProps) {
     return;
   }
-
   currentProps = { ...currentProps, ...nextProps };
   renderApp(currentProps);
 }

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Download, Users, CalendarDays, Wallet, FileBarChart, Loader2 } from "lucide-react";
-import { Button } from "@jaldee/design-system";
+import { Button, PageHeader } from "@jaldee/design-system";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaveBalances } from "../../services/useLeaveData";
 import { useAttendance } from "../../services/useAttendanceData";
@@ -65,11 +65,11 @@ export default function Reports() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-5 p-4 md:p-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-foreground">Reports &amp; Analytics</h1>
-        <p className="text-sm text-muted-foreground">Export workforce data across the organization</p>
-      </div>
+    <div className="flex h-full min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Reports & Analytics"
+        subtitle="Export workforce data across the organization"
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <ReportCard icon={<Users className="h-5 w-5" />} title="Employee Directory" desc="All employees with role & status" count={employees.length} onExport={exportEmployees} busy={le} />
         <ReportCard icon={<CalendarDays className="h-5 w-5" />} title="Leave Summary" desc="Balances by type per employee" count={balances.length} onExport={exportLeaveSummary} busy={lb} />

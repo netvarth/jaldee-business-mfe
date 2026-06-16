@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { PageHeader } from "@jaldee/design-system";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
 import { exportToCSV } from "../../lib/utils";
@@ -145,9 +146,13 @@ export default function EmployeeMaster() {
     <section
       id="page-employees"
       className="page-section active"
-      style={{ backgroundColor: "var(--app-bg)", padding: 0, flexDirection: "column", display: "flex" }}
+      style={{ backgroundColor: "var(--app-bg)", padding: 0, flexDirection: "column", display: "flex", minWidth: 0 }}
     >
       <input type="file" accept=".csv" ref={fileInputRef} style={{ display: "none" }} onChange={handleImport} />
+      <PageHeader
+        title="Employee Master"
+        subtitle="Manage employee profiles, departments, roles, and workforce status."
+      />
       <div className="customers-header">
         <div className="customers-tabs">
           <div className="customer-tab active">Employees ({employees.length})</div>

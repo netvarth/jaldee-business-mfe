@@ -1,6 +1,7 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
 import { PageHeader } from "@jaldee/design-system";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
 
@@ -50,10 +51,22 @@ function StatCard({ tag, value, sub, tone, icon, accent }: { tag: string; value:
 }
 
 export default function Leave() {
+  const { eventBus } = useMFEProps();
   const [tab, setTab] = useState<Tab>("overview");
   const { data: employees } = useEmployees();
   const leaves = useLeaves();
   const balances = useLeaveBalances();
+
+  useEffect(() => {
+    const err = leaves.error || balances.error;
+    if (err) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Leave",
+        message: err,
+      });
+    }
+  }, [leaves.error, balances.error, eventBus]);
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
   const empName = (uid?: string) => (uid ? empMap.get(uid)?.name ?? uid : "—");
@@ -149,12 +162,7 @@ export default function Leave() {
         ))}
       </div>
 
-      {/* error banner */}
-      {(leaves.error || balances.error) && (
-        <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 14, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-          <AlertCircle size={16} /> {leaves.error || balances.error}
-        </div>
-      )}
+
 
       {/* ===== OVERVIEW ===== */}
       {tab === "overview" && (

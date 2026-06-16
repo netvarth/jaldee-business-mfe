@@ -14,7 +14,7 @@ interface State {
 }
 
 const PRODUCT_LABELS: Record<string, string> = {
-  "mfe-health": "Health",
+  "mfe-bookings-v2": "Bookings",
 };
 
 export class MFEErrorBoundary extends React.Component<Props, State> {
@@ -63,10 +63,7 @@ export class MFEErrorBoundary extends React.Component<Props, State> {
             <Button onClick={() => window.location.reload()}>
               Reload page
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => window.history.back()}
-            >
+            <Button variant="ghost" onClick={() => window.history.back()}>
               Go back
             </Button>
           </div>

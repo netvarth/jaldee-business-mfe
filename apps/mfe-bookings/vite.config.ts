@@ -30,5 +30,19 @@ export default defineConfig({
   },
   server: {
     port: 3001,
+    origin: "http://localhost:3001",
+    proxy: {
+      // Standalone dev: forward booking-service calls to the API gateway.
+      // Override the target with VITE_BOOKING_SERVICE_PROXY_TARGET.
+      "/booking-service": {
+        target: process.env.VITE_BOOKING_SERVICE_PROXY_TARGET || "http://192.168.29.87:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+  preview: {
+    port: 3001,
+    strictPort: true,
   },
 });

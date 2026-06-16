@@ -1,6 +1,7 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X } from "lucide-react";
 import { PageHeader } from "@jaldee/design-system";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
 import { formatCurrency } from "../../lib/utils";
@@ -50,9 +51,20 @@ function StatCard({ tag: t, label, value, sub, tone, icon, accent }: { tag: stri
 }
 
 export default function Expenses() {
+  const { eventBus } = useMFEProps();
   const [tab, setTab] = useState<Tab>("ledger");
   const { data: employees } = useEmployees();
   const expenses = useExpenses();
+
+  useEffect(() => {
+    if (expenses.error) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Expenses",
+        message: expenses.error,
+      });
+    }
+  }, [expenses.error, eventBus]);
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
   const empName = (uid?: string) => (uid ? empMap.get(uid)?.name ?? uid : "—");
@@ -140,9 +152,7 @@ export default function Expenses() {
         </div>
       </div>
 
-      {expenses.error && (
-        <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 14, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertCircle size={16} /> {expenses.error}</div>
-      )}
+
 
       {/* TABLE */}
       <div style={{ ...card }}>

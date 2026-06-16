@@ -1,52 +1,25 @@
-import { EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
-import { useLocation } from "react-router-dom";
+interface PlaceholderPageProps {
+  title: string;
+  note?: string;
+}
 
-const labels: Record<string, string> = {
-  appointments: "Appointments",
-  requests: "Requests",
-  tokens: "Tokens",
-  checkin: "Self Check-in",
-  queue: "Live Queue",
-  "schedule-settings": "Queue / Schedule Settings",
-  calendar: "Calendar",
-  resources: "Resources",
-  services: "Services",
-  "staff-availability": "Staff Availability",
-  "online-page": "Online Booking Page",
-  deposits: "Booking Deposits",
-  customers: "Booking Customers",
-  leads: "Booking Leads",
-  tasks: "Booking Tasks",
-  users: "Booking Staff",
-  finance: "Booking Payments",
-  analytics: "Booking Analytics",
-  reports: "Booking Reports",
-  membership: "Membership",
-  "audit-log": "Booking Audit Log",
-  settings: "Booking Settings",
-};
-
-export default function PlaceholderPage() {
-  const location = useLocation();
-  const parts = location.pathname.split("/").filter(Boolean);
-  const section = parts[1] ?? parts[0] ?? "";
-  const title = labels[section] ?? (section ? section.replace(/-/g, " ") : "Bookings");
-
+/**
+ * Stub for booking-domain screens not yet ported from the vanilla app
+ * (customers, services, staff, settings, dashboard analytics). Keeps routing +
+ * navigation complete so the structure is reviewable; fill these in subsequent
+ * porting passes.
+ */
+export default function PlaceholderPage({ title, note }: PlaceholderPageProps) {
   return (
-    <div className="app-shell">
-      <div className="app-main">
-        <div className="p-6">
-          <PageHeader
-            title={title}
-            subtitle="This route is registered in the Bookings microfrontend."
-          />
-          <SectionCard>
-            <EmptyState
-              title={`${title} is ready for implementation`}
-              description="The route resolves through shell and the Bookings remote. Connect the feature page here next."
-            />
-          </SectionCard>
+    <div className="h-full flex items-center justify-center p-8">
+      <div className="text-center max-w-md">
+        <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 text-2xl font-black">
+          {title.charAt(0)}
         </div>
+        <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          {note ?? "This screen is scaffolded and pending port from the legacy booking UI."}
+        </p>
       </div>
     </div>
   );
