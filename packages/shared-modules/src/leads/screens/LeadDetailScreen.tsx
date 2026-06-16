@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CrmLeadDto, CrmLeadPipelineDto, LeadStageTask, StageHistory, GeneralNote, Priority, Product } from '../types';
 import { leadService, type TaskLookupOption } from '../services/leadService';
 import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadErrorToast, emitLeadSuccessToast } from '../lib/errorEvents';
 import { LeadDetailBody } from './LeadDetailBody';
 import { LeadDetailDialogs } from './LeadDetailDialogs';
 
@@ -88,7 +89,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const [manualTaskType, setManualTaskType] = useState('');
   const [manualTaskPriority, setManualTaskPriority] = useState('');
   const [manualTaskDescription, setManualTaskDescription] = useState('');
-  const { availableLocations, user: shellUser } = useJaldeeLeadsContext();
+  const { availableLocations, user: shellUser, eventBus } = useJaldeeLeadsContext();
   const [manualTaskLocation, setManualTaskLocation] = useState('');
   const [manualTaskAssignee, setManualTaskAssignee] = useState('');
   const [manualTaskDate, setManualTaskDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -106,7 +107,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
   const [newStageName, setNewStageName] = useState('');
   const [newStageSla, setNewStageSla] = useState(3);
   const [newStageProbability, setNewStageProbability] = useState(50);
-  const [newStageRule, setNewStageRule] = useState<'Strict Block' | 'Warn Only' | 'Manager/Admin Override' | 'No Restriction'>('Strict Block');
 
   const currentPipeline = pipelines.find(p => p.uid === lead.pipelineUid);
   const stages = currentPipeline?.stages || [];
@@ -263,6 +263,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
     
     // Add audit log for completed task
     const toggled = tasks.find(t => t.uid === taskUid);
+    const isNowCompleted = !Boolean(toggled?.completed);
     const newNotes = [...(lead.generalNotes || [])];
     if (toggled) {
       newNotes.push({
@@ -286,6 +287,10 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         ...updatedLead,
         ...response
       });
+      emitLeadSuccessToast(
+        eventBus,
+        isNowCompleted ? "Task marked complete." : "Task reopened."
+      );
     } catch (err) {
       console.error("Failed to update task toggle on backend:", err);
       onUpdate(updatedLead);
@@ -341,7 +346,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       });
     } catch (err) {
       console.error("Failed to create task from lead details:", err);
-      alert('Unable to create task. Please try again.');
+      emitLeadErrorToast(eventBus, err, "Unable to create task. Please try again.");
       setTaskCreateLoading(false);
       return;
     }
@@ -380,6 +385,7 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
     };
 
     onUpdate(updatedLead);
+    emitLeadSuccessToast(eventBus, "Task created successfully.");
 
     // Reset states
     setManualTaskTitle('');
@@ -470,8 +476,10 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         ...updatedLead,
         ...response
       });
+      emitLeadSuccessToast(eventBus, "Lead converted successfully.");
     } catch (err) {
       console.error("Failed to perform lead conversion updates on backend:", err);
+      emitLeadErrorToast(eventBus, err, "Unable to convert lead. Please try again.");
       onUpdate(updatedLead);
     }
 
@@ -516,7 +524,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
       taskList: [],
       isActive: true,
       activeLeadCount: 0,
-      movementRule: newStageRule,
       taskTemplates: []
     };
 
@@ -658,9 +665,11 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         ...updatedLead,
         ...response
       });
+      emitLeadSuccessToast(eventBus, `Lead moved to ${targetStage.stageName}.`);
     } catch (err) {
       console.error("Failed to move lead stage on backend:", err);
-      onUpdate(updatedLead);
+      emitLeadErrorToast(eventBus, err, "Unable to move lead stage. Please try again.");
+      return;
     }
 
     // Reset modals
@@ -678,8 +687,10 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         lastActivityAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
+      emitLeadSuccessToast(eventBus, "Lead contact details updated.");
     } catch (err) {
       console.error("Failed to update contact details on backend:", err);
+      emitLeadErrorToast(eventBus, err, "Unable to update contact details. Please try again.");
       onUpdate({
         ...editedLead,
         lastActivityAt: new Date().toISOString(),
@@ -699,7 +710,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         stages={stages}
         totalStageCount={totalStageCount}
         completedStageCount={completedStageCount}
-        movementRule={movementRule}
         requiredTasksCompleted={requiredTasksCompleted}
         requiredTasksTotal={requiredTasksTotal}
         optionalTasksTotal={optionalTasksTotal}
@@ -707,27 +717,17 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         optionalAndManualTasksCompleted={optionalAndManualTasksCompleted}
         optionalAndManualTasksTotal={optionalAndManualTasksTotal}
         isEditing={isEditing}
-        actingRole={actingRole}
-        missingFields={missingFields}
         productDisplayName={productDisplayName}
-        isOwnerRestricted={isOwnerRestricted}
-        isStageBlocked={isStageBlocked}
-        canOverrideBlock={canOverrideBlock}
-        isConversionRestricted={isConversionRestricted}
         setTargetStageUid={setTargetStageUid}
         setShowMoveModal={setShowMoveModal}
         setShowAddStageModal={setShowAddStageModal}
         setIsEditing={setIsEditing}
         setEditedLead={setEditedLead}
-        setActingRole={setActingRole}
-        setShowConversionModal={setShowConversionModal}
         onBack={onBack}
         handleSaveContactDetails={handleSaveContactDetails}
         handleTimelineStageClick={handleTimelineStageClick}
         handleAddManualTask={handleAddManualTask}
         handleToggleTask={handleToggleTask}
-        currentStage={currentStage}
-        conversionMapping={conversionMapping}
       />
 
       <LeadDetailDialogs
@@ -785,8 +785,6 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
         currentPipeline={currentPipeline}
         newStageName={newStageName}
         setNewStageName={setNewStageName}
-        newStageRule={newStageRule}
-        setNewStageRule={setNewStageRule}
         handleAddNewStage={handleAddNewStage}
         showConversionModal={showConversionModal}
         setShowConversionModal={setShowConversionModal}

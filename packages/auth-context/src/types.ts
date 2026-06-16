@@ -101,6 +101,16 @@ export interface EventBus {
   on: (event: string, handler: (payload: unknown) => void) => () => void;
 }
 
+export const SHELL_TOAST_EVENT = "shell:toast";
+
+export interface ShellToastPayload {
+  intent?: "success" | "error" | "warning" | "info";
+  title?: string;
+  message: string;
+  correlationId?: string | null;
+  durationMs?: number;
+}
+
 // ─── Telemetry (placeholder — filled in later) ────────
 
 export interface TelemetryService {

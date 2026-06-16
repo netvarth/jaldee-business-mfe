@@ -3,12 +3,19 @@ import { useSharedModulesContext } from "../../context";
 
 export function useJaldeeLeadsContext() {
   const context = useSharedModulesContext();
-  const availableLocations = ((context as typeof context & { availableLocations?: BranchLocation[] }).availableLocations ??
-    (context.location ? [context.location] : [])) as BranchLocation[];
+  const sharedLocations = (context as typeof context & { availableLocations?: BranchLocation[] }).availableLocations;
+  const availableLocations = (
+    sharedLocations?.length
+      ? sharedLocations
+      : context.location
+        ? [context.location]
+        : []
+  ) as BranchLocation[];
 
   return {
     account: context.account,
     user: context.user,
+    eventBus: context.eventBus,
     availableLocations,
   };
 }

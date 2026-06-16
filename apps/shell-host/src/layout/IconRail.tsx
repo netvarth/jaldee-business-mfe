@@ -81,7 +81,9 @@ export default function IconRail({
       return;
     }
 
-    const matchedProduct = account.licensedProducts.find((key) =>
+    const visibleProducts = new Set<ProductKey>([...account.licensedProducts, "hr"]);
+    const matchedProduct = PRODUCT_ORDER.find((key) =>
+      visibleProducts.has(key) &&
       location.pathname.startsWith(`/${key}`)
     );
 
@@ -135,7 +137,7 @@ export default function IconRail({
   const isBaseCrmActive = BASE_CRM_PATH_PREFIXES.some((path) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`)
   );
-  const licensedProducts = PRODUCT_ORDER.filter((key) => account.licensedProducts.includes(key));
+  const licensedProducts = PRODUCT_ORDER.filter((key) => key === "hr" || account.licensedProducts.includes(key));
 
   return (
     <div className="icon-rail-wrapper" data-product={activeProduct ?? "default"}>

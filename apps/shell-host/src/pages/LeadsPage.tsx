@@ -5,10 +5,13 @@ import { apiClient } from "@jaldee/api-client";
 import { EmptyState, SectionCard } from "@jaldee/design-system";
 import { LeadsModule, SharedModulesProvider } from "@jaldee/shared-modules";
 import { useShellStore } from "../store/shellStore";
+import { eventBus } from "../eventBus/eventBus";
 
 export default function LeadsPage() {
   const user = useShellStore((state) => state.user);
   const account = useShellStore((state) => state.account);
+  const activeLocation = useShellStore((state) => state.activeLocation);
+  const availableLocations = useShellStore((state) => state.availableLocations);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -43,8 +46,10 @@ export default function LeadsPage() {
           basePath: "/leads",
           user,
           account: normalizeAccountContext(account),
-          location: null,
+          location: activeLocation ?? availableLocations[0] ?? null,
+          availableLocations,
           api: apiClient,
+          eventBus,
         }}
       >
         <LeadsModule />

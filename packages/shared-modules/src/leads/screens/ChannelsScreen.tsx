@@ -6,6 +6,8 @@ import { ICONS } from '../constants';
 import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
 import { Button, EmptyState, PageHeader, DataTable, ColumnDef, Badge, Popover, PopoverSection } from "@jaldee/design-system";
 import { leadChannelService } from '../services/channelService';
+import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 const CHANNEL_TYPE_ICONS: Record<ChannelType, any> = {
   DIRECT: ICONS.PROFILE,
@@ -36,6 +38,7 @@ export default function ChannelsScreen({
 }: ChannelsScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { eventBus } = useJaldeeLeadsContext();
   const showDashboardBack = cameFromDashboard(location);
   const [openMenuUid, setOpenMenuUid] = useState<string | null>(null);
 
@@ -43,10 +46,11 @@ export default function ChannelsScreen({
     if (confirm('Deactivate this ingestion channel point?')) {
       try {
         await leadChannelService.updateStatus(uid, 'INACTIVE');
+        setChannels(channels.map(c => c.uid === uid ? { ...c, status: 'INACTIVE' } : c));
+        emitLeadSuccessToast(eventBus, "Channel deactivated successfully.");
       } catch (err) {
         console.error("Failed to deactivate channel on server:", err);
       }
-      setChannels(channels.map(c => c.uid === uid ? { ...c, status: 'INACTIVE' } : c));
     }
   };
 

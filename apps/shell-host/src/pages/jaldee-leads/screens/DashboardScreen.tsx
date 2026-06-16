@@ -1,80 +1,167 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
-import { CrmLeadDto, CrmLeadPipelineDto, Product, Channel } from '../types';
-import { PieChart, Button, StatCard, PageHeader, SectionCard, TrendAreaChart } from "@jaldee/design-system";
+import { PieChart, Button, StatCard, PageHeader, SectionCard, Select } from "@jaldee/design-system";
+import { leadService } from '../services/leadService';
+import { useShellStore } from '../../../store/shellStore';
+import { CrmLeadPipelineDto, Product, Channel } from '../types';
 
 interface DashboardScreenProps {
-  leads: CrmLeadDto[];
-  pipelines: CrmLeadPipelineDto[];
-  products: Product[];
-  channels: Channel[];
+  pipelines?: CrmLeadPipelineDto[];
+  products?: Product[];
+  channels?: Channel[];
   onNavigate: (route: string, selection?: any) => void;
 }
 
 const COLORS = ['#818cf8', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#f43f5e', '#06b6d4'];
 
-export default function DashboardScreen({ leads, pipelines, products, channels, onNavigate }: DashboardScreenProps) {
-  const activeLeadsCount = leads.filter(l => l.internalStatus === 'ACTIVE' && !l.isRejected && !l.isConverted).length;
-  const wonLeads = leads.filter(l => l.isConverted).length;
-  const activeLeadTrendData = buildActiveLeadTrendData(leads);
-  
-  // Dynamic metrics helpers
-  const newLeadsCount = leads.filter(l => {
-    // Lead created in last 7 days or in first stage
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 7);
-    return new Date(l.createdAt) >= twoDaysAgo;
-  }).length;
+const FREQUENCY_OPTIONS = [
+  { value: 'TODAY', label: 'Today' },
+  { value: 'WEEKLY', label: 'Last 7 Days' },
+  { value: 'MONTHLY', label: 'Last 30 Days' },
+  { value: 'TILL_NOW', label: 'Till Now' },
+];
 
-  const overdueTasksCount = leads.reduce((sum, l) => {
-    // Tasks not completed
-    const pendingTasks = l.stageTasks?.filter(t => !t.completed).length || 0;
-    // For mock values, let's treat any uncompleted task as a pending/overdue workload
-    return sum + (pendingTasks || (l.currentPipelineStageUid === 's1-1' ? 1 : 0));
-  }, 0);
+function readCountMetric(analytics: any, ...keys: string[]) {
+  const target = analytics?.data !== undefined ? analytics.data : analytics;
+  if (target?.metricWiseValues?.length) {
+    const match = target.metricWiseValues.find((item: any) => keys.includes(item.metricName));
+    if (match) {
+      return Number(match.isAmt ? match.amount : match.value) || 0;
+    }
+  }
 
-  const unassignedLeadsCount = leads.filter(l => !l.ownerName || l.ownerName === 'Unassigned' || l.ownerId === 'unassigned').length;
+  for (const key of keys) {
+    const value = target?.[key];
+    if (value !== undefined && value !== null) {
+      return Number(value) || 0;
+    }
+  }
 
-  // Group leads by channel
-  const leadsByChannel = channels.reduce((acc: Record<string, number>, c) => {
-    acc[c.name] = leads.filter(l => l.channelUid === c.uid).length;
-    return acc;
-  }, {});
+  return 0;
+}
 
-  const channelAnalytics = Object.entries(leadsByChannel).map(([name, value]) => ({ name, value }));
+function extractBreakdown(
+  analytics: any,
+  arrayKeys: string[],
+  metadataList?: any[],
+  idKey?: string
+): { name: string; value: number }[] {
+  const target = analytics?.data !== undefined ? analytics.data : analytics;
+  let results: { name: string; value: number; uid?: string }[] = [];
 
-  // Group leads by product
-  const leadsByProduct = products.reduce((acc: Record<string, number>, p) => {
-    acc[p.name] = leads.filter(l => l.productUid === p.uid).length;
-    return acc;
-  }, {});
+  // 1. Try to extract elements from analytics
+  for (const key of arrayKeys) {
+    const arr = target?.[key];
+    if (Array.isArray(arr)) {
+      results = arr.map(item => {
+        let name = item?.byName || item?.name || item?.label || item?.metricLabel || item?.metricName;
+        const idVal = item?.[idKey || ''] || item?.pipelineStageUid || item?.stageUid || item?.productUid || item?.channelUid;
+        if ((!name || name === 'Unknown') && metadataList) {
+          if (idVal) {
+            const match = metadataList.find(m => m.uid === idVal || m.id === idVal);
+            if (match) {
+              name = match.name || match.displayName || match.title || match.stageName;
+            }
+          }
+        }
+        return {
+          uid: idVal,
+          name: name || 'Unknown',
+          value: Number(item?.value !== undefined ? item.value : item?.count !== undefined ? item.count : item?.amount ?? 0)
+        };
+      });
+      break;
+    }
+  }
 
-  const productAnalytics = Object.entries(leadsByProduct).map(([name, value]) => ({ name, value }));
+  // 2. Supplement with missing metadataList entries
+  if (metadataList) {
+    const seenUids = new Set(results.map(r => r.uid).filter(Boolean));
+    const seenNames = new Set(results.map(r => r.name.toLowerCase()).filter(Boolean));
 
-  // Pipeline Saturation using hydrated stage definitions from the active/default pipeline.
-  const defaultPipeline = pipelines.find(p => p.isDefault) || pipelines[0];
-  const activeStages = [...(defaultPipeline?.stages || [])].sort(
-    (a, b) => (a.sequenceOrder ?? a.stageOrder ?? 0) - (b.sequenceOrder ?? b.stageOrder ?? 0)
-  );
-  const pipelineSaturationData = activeStages.map(stage => {
-    const countFromLeads = leads.filter((lead) => {
-      const belongsToPipeline =
-        !defaultPipeline?.uid ||
-        !lead.pipelineUid ||
-        lead.pipelineUid === defaultPipeline.uid ||
-        normalizeStageName(lead.pipelineName) === normalizeStageName(defaultPipeline.name);
+    for (const meta of metadataList) {
+      const metaUid = meta.uid || meta.id;
+      const metaName = meta.name || meta.displayName || meta.title || meta.stageName;
+      if (!metaName) continue;
 
-      if (!belongsToPipeline) return false;
+      if ((metaUid && seenUids.has(metaUid)) || seenNames.has(metaName.toLowerCase())) {
+        continue;
+      }
 
-      return (
-        (stage.uid && lead.currentPipelineStageUid === stage.uid) ||
-        normalizeStageName(lead.currentPipelineStageName) === normalizeStageName(stage.stageName)
-      );
-    }).length;
-    const count = Math.max(countFromLeads, stage.activeLeadCount || 0);
-    return { name: stage.stageName, leads: count, color: stage.color || '#9ca3af' };
-  });
+      results.push({
+        uid: metaUid,
+        name: metaName,
+        value: 0
+      });
+    }
+  }
+
+  return results;
+}
+
+export default function DashboardScreen({ pipelines, products, channels, onNavigate }: DashboardScreenProps) {
+  const account = useShellStore((state) => state.account);
+  const tenantUid = account?.tenantUid ?? account?.id;
+
+  const [frequency, setFrequency] = useState<string>('TILL_NOW');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [summaryData, setSummaryData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!tenantUid) return;
+
+    let active = true;
+    setLoading(true);
+
+    const fetchDashboardData = async () => {
+      try {
+        const summaryRes = await leadService.getAnalytics({
+          tenantUid,
+          frequency,
+          filters: {},
+          includeTotals: false,
+          featureModule: 'CRM_LEAD',
+          getDimensionWiseValue: false
+        });
+
+        if (active) {
+          setSummaryData(summaryRes?.data || summaryRes);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Error fetching leads dashboard analytics:', err);
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchDashboardData();
+
+    return () => {
+      active = false;
+    };
+  }, [frequency, tenantUid]);
+
+  // Extract Summary KPI Counts (strictly 0 fallback, no mock)
+  const totalLeads = summaryData ? readCountMetric(summaryData, "CRM_LEAD_TOTAL_COUNT", "TOTAL_LEADS") : 0;
+  const activeLeadsCount = summaryData ? readCountMetric(summaryData, "CRM_LEAD_ACTIVE_COUNT", "ACTIVE_PROSPECTS", "ACTIVE_LEADS") : 0;
+  const newLeadsCount = summaryData ? readCountMetric(summaryData, "CRM_LEAD_NEW_COUNT", "NEW_LEADS_COUNT", "NEW_LEADS") : 0;
+  const overdueTasksCount = summaryData ? readCountMetric(summaryData, "CRM_LEAD_PENDING_TASKS_COUNT", "PENDING_TASKS", "OVERDUE_TASKS") : 0;
+  const unassignedLeadsCount = summaryData ? readCountMetric(summaryData, "CRM_LEAD_UNASSIGNED_COUNT", "UNASSIGNED_LEADS") : 0;
+
+  // Extract breakdowns with 0 mock defaults, resolving UIDs to names if needed
+  const channelAnalytics = extractBreakdown(summaryData, ["channelWiseValues", "leadsByChannel", "leadsBySource", "sourceWiseValues"], channels, "channelUid");
+  const productAnalytics = extractBreakdown(summaryData, ["productWiseValues", "leadsByProduct", "productAnalytics"], products, "productUid");
+
+  const flatStages = pipelines?.flatMap(p => p.stages || []) || [];
+  const apiStageBreakdown = extractBreakdown(summaryData, ["stageWiseValues", "pipelineSaturationData", "stages", "pipelineWiseValues"], flatStages, "pipelineStageUid");
+  const pipelineSaturationData = apiStageBreakdown.map((item, idx) => ({
+    name: item.name,
+    leads: item.value,
+    color: COLORS[idx % COLORS.length]
+  }));
 
   return (
     <div data-testid="jaldee-leads-dashboard-page" className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 space-y-8 pb-24 no-scrollbar">
@@ -84,6 +171,14 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
         subtitle="Interface & CRM Logistics Engine"
         actions={
           <div className="flex items-center gap-4">
+            <Select
+              options={FREQUENCY_OPTIONS}
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+              fullWidth={false}
+              className="min-w-[150px] text-xs font-semibold"
+              testId="jaldee-leads-dashboard-frequency-select"
+            />
             <Button 
               id="jaldee-leads-dashboard-all-leads-button"
               data-testid="jaldee-leads-dashboard-all-leads-button"
@@ -217,24 +312,15 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
 
       {/* Primary Analytics Row */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
-        <TrendAreaChart
-          eyebrow="Trend Analysis"
-          title="Active Leads Volume"
-          statusLabel="Stable"
-          data={activeLeadTrendData}
-          tooltipSeriesLabel="Leads"
-          className="xl:col-span-3"
-        />
-
-        <SectionCard className="p-8 flex flex-col justify-between">
+        <SectionCard className="p-8 flex flex-col justify-between xl:col-span-4">
           <div className="space-y-6">
             <div>
               <p className="text-sm font-semibold text-slate-400 mb-1">Funnel Overview</p>
               <h4 className="text-xl font-semibold text-slate-900">Leads Volume</h4>
             </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <p className="text-3xl font-semibold text-indigo-600 leading-none">{leads.length}</p>
+                <p className="text-3xl font-semibold text-indigo-600 leading-none">{totalLeads}</p>
                 <p className="text-xs font-semibold text-indigo-400 mt-1">Total Leads Ingested</p>
               </div>
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
@@ -248,7 +334,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
             data-testid="jaldee-leads-dashboard-inspect-leads-button"
             onClick={() => onNavigate('leads')}
             variant="outline"
-            className="w-full py-4 text-sm font-semibold text-slate-400 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all mt-6"
+            className="w-[200px] py-3 text-sm font-semibold text-slate-400 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all mt-6"
           >
             Inspect Leads
           </Button>
@@ -259,7 +345,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
         <SectionCard className="p-4 sm:p-6 lg:p-8 overflow-hidden xl:col-span-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
-            <h3 className="text-sm font-semibold text-slate-900 break-words">Pipeline Saturation ({defaultPipeline?.name})</h3>
+            <h3 className="text-sm font-semibold text-slate-900 break-words">Pipeline Saturation</h3>
             <span className="text-sm font-semibold text-indigo-600 shrink-0">Leads by State</span>
           </div>
           
@@ -274,8 +360,8 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
                    <p className="text-xs font-semibold text-slate-900 truncate mb-1" title={stage.name}>{stage.name}</p>
                    <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
                       <div 
-                        className="h-full" 
-                        style={{ width: `${leads.length ? Math.min((stage.leads / leads.length) * 100, 100) : 0}%`, backgroundColor: stage.color }}
+                         className="h-full" 
+                         style={{ width: `${totalLeads ? Math.min((stage.leads / totalLeads) * 100, 100) : 0}%`, backgroundColor: stage.color }}
                       />
                    </div>
                 </div>
@@ -300,7 +386,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
                 className="border-none bg-transparent h-auto p-0"
              />
              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-4xl font-semibold text-slate-900 leading-none">{leads.length}</span>
+                <span className="text-4xl font-semibold text-slate-900 leading-none">{totalLeads}</span>
                 <span className="text-xs font-semibold text-slate-400 mt-1">Stored</span>
              </div>
           </div>
@@ -326,7 +412,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
               <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <span className="text-xs font-semibold text-slate-800">{c.name}</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-400 font-mono">{(leads.length ? (c.value/leads.length)*100 : 0).toFixed(0)}%</span>
+                  <span className="text-sm font-bold text-slate-400 font-mono">{(totalLeads ? (c.value/totalLeads)*100 : 0).toFixed(0)}%</span>
                   <span className="px-3 py-1 bg-white border border-slate-100 rounded-lg text-xs font-semibold text-indigo-600">{c.value}</span>
                 </div>
               </div>
@@ -341,7 +427,7 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
               <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <span className="text-xs font-semibold text-slate-800 truncate max-w-[200px]">{p.name}</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-400 font-mono">{(leads.length ? (p.value/leads.length)*100 : 0).toFixed(0)}%</span>
+                  <span className="text-sm font-bold text-slate-400 font-mono">{(totalLeads ? (p.value/totalLeads)*100 : 0).toFixed(0)}%</span>
                   <span className="px-3 py-1 bg-white border border-slate-100 rounded-lg text-xs font-semibold text-indigo-600">{p.value}</span>
                 </div>
               </div>
@@ -351,50 +437,4 @@ export default function DashboardScreen({ leads, pipelines, products, channels, 
       </div>
     </div>
   );
-}
-
-function buildActiveLeadTrendData(leads: CrmLeadDto[]) {
-  const today = startOfDay(new Date());
-  const monday = new Date(today);
-  const dayOfWeek = monday.getDay();
-  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  monday.setDate(today.getDate() - daysSinceMonday);
-
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
-    return date;
-  });
-
-  return days.map((day) => {
-    const value = leads.filter((lead) => {
-      if (lead.internalStatus !== 'ACTIVE' || lead.isRejected || lead.isConverted) return false;
-
-      const leadDate = new Date(lead.createdAt || lead.leadDate);
-      return Number.isFinite(leadDate.getTime()) && isSameDay(leadDate, day);
-    }).length;
-
-    return {
-      label: day.toLocaleDateString(undefined, { weekday: 'short' }),
-      value,
-    };
-  });
-}
-
-function startOfDay(date: Date) {
-  const nextDate = new Date(date);
-  nextDate.setHours(0, 0, 0, 0);
-  return nextDate;
-}
-
-function isSameDay(firstDate: Date, secondDate: Date) {
-  return (
-    firstDate.getFullYear() === secondDate.getFullYear() &&
-    firstDate.getMonth() === secondDate.getMonth() &&
-    firstDate.getDate() === secondDate.getDate()
-  );
-}
-
-function normalizeStageName(value?: string) {
-  return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
 }

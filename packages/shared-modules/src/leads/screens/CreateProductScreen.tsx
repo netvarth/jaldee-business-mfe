@@ -4,6 +4,8 @@ import { cn } from '../lib/utils';
 import { mockForms } from '../mockData';
 import { Product, Channel, FormTemplate } from '../types';
 import { Button, Input, Select, Textarea } from '@jaldee/design-system';
+import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 interface CreateProductScreenProps {
   onBack: () => void;
@@ -15,6 +17,7 @@ interface CreateProductScreenProps {
 }
 
 export default function CreateProductScreen({ onBack, onSave, channels, forms, pipelines, initialProduct }: CreateProductScreenProps) {
+  const { eventBus } = useJaldeeLeadsContext();
   const initialPipelineUid = initialProduct?.defaultPipelineUid === 'p-standard' ? '' : initialProduct?.defaultPipelineUid || '';
   const [formData, setFormData] = useState({
     name: initialProduct?.name || '',
@@ -59,6 +62,7 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
 
     try {
       await onSave(product, selectedChannelUids);
+      emitLeadSuccessToast(eventBus, initialProduct ? "Product updated successfully." : "Product created successfully.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Unable to save product right now.');
     } finally {

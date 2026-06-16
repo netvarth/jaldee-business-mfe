@@ -6,6 +6,8 @@ import { ICONS } from '../constants';
 import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOrigin';
 import { Button, EmptyState, PageHeader, SectionCard } from "@jaldee/design-system";
 import { leadProductService } from '../services/productService';
+import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 interface ProductsScreenProps {
   products: Product[];
@@ -40,6 +42,7 @@ export default function ProductsScreen({
 }: ProductsScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { eventBus } = useJaldeeLeadsContext();
   const showDashboardBack = cameFromDashboard(location);
 
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
@@ -62,6 +65,7 @@ export default function ProductsScreen({
       try {
         await leadProductService.updateStatus(uid, 'INACTIVE');
         setProducts(products.map(p => p.uid === uid ? { ...p, status: 'INACTIVE' } : p));
+        emitLeadSuccessToast(eventBus, "Product deactivated successfully.");
       } catch (error) {
         setProductsError(error instanceof Error ? error.message : 'Unable to update product status.');
       } finally {
@@ -202,12 +206,12 @@ export default function ProductsScreen({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col items-start gap-2">
                     <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-600">
                       {product.productEnum || productTypeLabel}
                     </span>
                     {product.displayName ? (
-                      <span className="rounded-md border border-slate-100 bg-white px-2 py-1 text-xs font-semibold text-slate-500">
+                      <span className="max-w-full rounded-md border border-slate-100 bg-white px-2 py-1 text-xs font-semibold text-slate-500">
                         {product.displayName}
                       </span>
                     ) : null}

@@ -5,6 +5,8 @@ import { cn } from "../lib/utils";
 import { format } from '../lib/dateUtils';
 import { Button, Input, Select, Checkbox, DataTable, EmptyState, PageHeader, Badge } from '@jaldee/design-system';
 import type { ColumnDef } from '@jaldee/design-system';
+import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 interface ProductDetailScreenProps {
   product: Product;
@@ -25,6 +27,7 @@ export default function ProductDetailScreen({
   onNavigate,
   onUpdateProduct,
 }: ProductDetailScreenProps) {
+  const { eventBus } = useJaldeeLeadsContext();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [stageFilter, setStageFilter] = React.useState('ALL');
   const [isSavingMapping, setIsSavingMapping] = React.useState(false);
@@ -94,6 +97,7 @@ export default function ProductDetailScreen({
           conversionMapping: updatedMapping
         });
         setIsEditingMapping(false);
+        emitLeadSuccessToast(eventBus, "Product conversion mapping updated.");
       } catch (error) {
         setMappingError(error instanceof Error ? error.message : 'Unable to update product mapping.');
       } finally {
@@ -369,12 +373,6 @@ export default function ProductDetailScreen({
                             <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-tight">
                               {stage.stageName}
                             </p>
-                            <p className={cn(
-                              "text-[10px] font-semibold mt-0.5",
-                              stage.movementRule === 'Strict Block' ? "text-rose-400" : "text-slate-400"
-                            )}>
-                              {stage.movementRule || "Strict"}
-                            </p>
                           </div>
                         </div>
                       </React.Fragment>
@@ -463,7 +461,7 @@ export default function ProductDetailScreen({
                         onChange={(e) => setMappingForm({ ...mappingForm, allowedStageUid: e.target.value })}
                         options={linkedPipeline.stages.map((stage) => ({
                           value: stage.uid,
-                          label: `${stage.stageName} (Rule: ${stage.conversionSetting || "ALLOWED"})`
+                          label: stage.stageName
                         }))}
                       />
                     ) : (

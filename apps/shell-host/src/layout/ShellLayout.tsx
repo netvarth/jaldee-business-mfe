@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import IconRail from "./IconRail";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
+import ShellToastHost from "./ShellToastHost";
 import { useShellStore } from "../store/shellStore";
 import "./shell.css";
 
@@ -14,6 +15,7 @@ export default function ShellLayout({ children }: Props) {
   const location = useLocation();
   const sidebarVisible = useShellStore((s) => s.sidebarVisible);
   const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
+  const activeProduct = useShellStore((s) => s.activeProduct);
   const [collapseSubmenuAfterSelection, setCollapseSubmenuAfterSelection] = useState(false);
   const isSmallScreen = useIsSmallScreen();
   const isSettingsRoute = location.pathname.startsWith("/settings");
@@ -73,7 +75,11 @@ export default function ShellLayout({ children }: Props) {
         </div>
       ) : null}
 
-      <div data-testid="shell-main" className="shell-main" data-sidebar={submenuVisible}>
+      <div
+        data-testid="shell-main"
+        className="shell-main"
+        data-sidebar={submenuVisible}
+      >
         <TopBar
           showMenuToggle
           menuOpen={submenuVisible}
@@ -85,6 +91,7 @@ export default function ShellLayout({ children }: Props) {
           </div>
         </div>
       </div>
+      <ShellToastHost />
     </div>
   );
 }

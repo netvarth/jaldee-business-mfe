@@ -68,9 +68,15 @@ function toChannelList(raw: unknown): Channel[] {
   return list.map(toChannel).filter((channel) => channel.uid);
 }
 
+function getLocationName(location: any): string {
+  return String(location?.name ?? location?.place ?? location?.locationName ?? location?.branchName ?? '').trim();
+}
+
 function toChannelPayload(data: Partial<Channel>) {
-  const availableLocations = useShellStore.getState().availableLocations;
-  const matchedLocation = availableLocations.find(loc => loc.name === data.location);
+  const { availableLocations, activeLocation } = useShellStore.getState();
+  const effectiveLocations = availableLocations.length ? availableLocations : activeLocation ? [activeLocation] : [];
+  const matchedLocation = effectiveLocations.find(loc => getLocationName(loc) === data.location);
+  const matchedLocationName = matchedLocation ? getLocationName(matchedLocation) : "";
 
   return {
     name: data.name?.trim(),
@@ -79,7 +85,7 @@ function toChannelPayload(data: Partial<Channel>) {
       {
         id: Number((matchedLocation as any).locationId) || undefined,
         uid: (matchedLocation as any).uid || matchedLocation.id,
-        place: matchedLocation.name
+        place: matchedLocationName
       }
     ] : undefined,
     productUids: data.productUids || (data.productUid ? [data.productUid] : undefined),

@@ -378,6 +378,7 @@ const leadDetailRequests = new Map<string, Promise<CrmLeadDto>>();
 const leadTenantTaskRequests = new Map<string, Promise<LeadStageTask[]>>();
 const leadSearchRequests = new Map<string, Promise<CrmLeadDto[]>>();
 const taskLookupRequests = new Map<string, Promise<TaskLookupOption[]>>();
+const analyticsRequests = new Map<string, Promise<any>>();
 
 function getTaskLookup(key: string, endpoint: string) {
   const existingRequest = taskLookupRequests.get(key);
@@ -436,8 +437,8 @@ export const leadService = {
     const request = apiClient.post(
         buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantTasks.search),
         {
-          "originFrom-eq": "LEAD",
-          "originUid-eq": leadUid,
+          originFrom: "LEAD",
+          originUid: leadUid,
         },
         {
           skipLocationScope: true,
@@ -588,12 +589,38 @@ export const leadService = {
     const response = await apiClient.get(
       buildBaseServiceUrl("/base-service/v1/api/tenant/audit-logs"),
       withoutLocationParam({
+        featureModule: "CRM_LEAD",
         ...rest, 
         ...(from !== undefined && count !== undefined ? { page: Math.floor(from / count) } : from !== undefined ? { page: from } : {}),
         ...(count !== undefined && { size: count }),
-        auditlogContext: "CRM_LEAD" 
       })
     );
-    return unwrap(response);
+    return response.data;
+  },
+  async getAnalytics(filter: Record<string, any> = {}) {
+    const requestKey = stableStringify(filter);
+    const existingRequest = analyticsRequests.get(requestKey);
+    if (existingRequest) return existingRequest;
+
+    const request = apiClient.post(
+        buildBaseServiceUrl("/platform-service/v1/api/analytics"),
+        filter,
+        withoutLocationParam()
+      )
+      .then((response) => response.data)
+      .finally(() => {
+        analyticsRequests.delete(requestKey);
+      });
+
+    analyticsRequests.set(requestKey, request);
+    return request;
+  },
+  async getGraphAnalytics(payload: any) {
+    const response = await apiClient.put(
+      buildBaseServiceUrl("/platform-service/v1/api/analytics/graph"),
+      payload,
+      withoutLocationParam()
+    );
+    return response.data;
   },
 };

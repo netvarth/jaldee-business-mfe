@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MFE_CONTRACT_VERSION, type MFEProps } from "@jaldee/auth-context";
 
 interface MFELifecycleModule {
@@ -17,6 +17,7 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lifecycleRef = useRef<MFELifecycleModule | null>(null);
   const propsRef = useRef(props);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   propsRef.current = props;
 
@@ -26,6 +27,7 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
     }
 
     let cancelled = false;
+    setLoadError(null);
 
     remote()
       .then((loadedModule) => {
@@ -47,6 +49,9 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
       })
       .catch((err) => {
         console.error("[MFELoader] failed to load remote", err);
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Failed to load remote module");
+        }
       });
 
     return () => {
@@ -73,10 +78,17 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
   }, [props]);
 
   return (
-    <div
-      ref={containerRef}
-      data-testid="mfe-container"
-      className="mfe-container"
-    />
+    <>
+      {loadError ? (
+        <div className="shell-loading" role="alert">
+          Failed to load {props.mfeName}: {loadError}
+        </div>
+      ) : null}
+      <div
+        ref={containerRef}
+        data-testid="mfe-container"
+        className="mfe-container"
+      />
+    </>
   );
 }

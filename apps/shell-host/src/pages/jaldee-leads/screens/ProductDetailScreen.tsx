@@ -369,12 +369,6 @@ export default function ProductDetailScreen({
                             <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-tight">
                               {stage.stageName}
                             </p>
-                            <p className={cn(
-                              "text-[10px] font-semibold mt-0.5",
-                              stage.movementRule === 'Strict Block' ? "text-rose-400" : "text-slate-400"
-                            )}>
-                              {stage.movementRule || "Strict"}
-                            </p>
                           </div>
                         </div>
                       </React.Fragment>
@@ -463,7 +457,7 @@ export default function ProductDetailScreen({
                         onChange={(e) => setMappingForm({ ...mappingForm, allowedStageUid: e.target.value })}
                         options={linkedPipeline.stages.map((stage) => ({
                           value: stage.uid,
-                          label: `${stage.stageName} (Rule: ${stage.conversionSetting || "ALLOWED"})`
+                          label: stage.stageName
                         }))}
                       />
                     ) : (

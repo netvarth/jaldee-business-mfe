@@ -14,3 +14,8 @@ declare module "mfe_golderp/App" {
   const App: React.ComponentType;
   export default App;
 }
+
+declare module "mfe_hr/App" {
+  const App: React.ComponentType;
+  export default App;
+}

@@ -374,41 +374,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                         </div>
                       </div>
 
-                      {/* Task template and movement rule configuration sub-bar */}
-                      <div className="flex flex-wrap items-center justify-between gap-4 mt-2 pt-3 border-t border-slate-100/50">
-                        <div className="flex flex-wrap items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs font-semibold text-slate-400">Movement:</label>
-                            <Select 
-                              value={stage.movementRule || 'No Restriction'}
-                              onChange={e => handleStageChange(i, 'movementRule', e.target.value)}
-                              options={[
-                                { value: 'No Restriction', label: 'No Restriction' },
-                                { value: 'Strict Block', label: 'Strict Block' },
-                                { value: 'Warn Only', label: 'Warn Only' },
-                                { value: 'Manager/Admin Override', label: 'Manager/Admin Override' },
-                              ]}
-                              fullWidth={false}
-                              className="text-sm"
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs font-semibold text-slate-400">Convert Rule:</label>
-                            <Select 
-                              value={stage.conversionSetting || 'ALLOWED'}
-                              onChange={e => handleStageChange(i, 'conversionSetting', e.target.value as any)}
-                              options={[
-                                { value: 'ALLOWED', label: 'Allowed' },
-                                { value: 'RECOMMENDED', label: 'Recommended' },
-                                { value: 'BLOCKED', label: 'Blocked' },
-                              ]}
-                              fullWidth={false}
-                              className="text-sm"
-                            />
-                          </div>
-                        </div>
-
+                      <div className="flex flex-wrap items-center justify-end gap-4 mt-2 pt-3 border-t border-slate-100/50">
                         <div className="flex items-center gap-3">
                           <div className="text-xs font-semibold text-rose-500 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-lg">
                             {stage.taskTemplates?.length || 0} Task templates defined
@@ -490,18 +456,7 @@ export function PipelineBuilder({ pipeline, onClose, onSave }: { pipeline: CrmLe
                         </div>
                       </div>
 
-                      {/* Sub-details for View Mode */}
-                      <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100/50">
-                        <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-500">
-                          <div>
-                            <span className="text-slate-400 font-medium">Movement:</span> {stage.movementRule || 'No Restriction'}
-                          </div>
-                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                          <div>
-                            <span className="text-slate-400 font-medium">Convert Rule:</span> {stage.conversionSetting || 'ALLOWED'}
-                          </div>
-                        </div>
-
+                      <div className="flex flex-wrap items-center justify-end gap-4 pt-3 border-t border-slate-100/50">
                         <div className="flex items-center gap-3">
                           <div className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">
                             {stage.taskTemplates?.length || 0} Task templates defined

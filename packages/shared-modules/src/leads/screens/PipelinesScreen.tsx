@@ -11,6 +11,8 @@ import { cameFromDashboard, navigateBackToDashboard } from '../lib/navigationOri
 import { PipelineBuilder } from './PipelineBuilder';
 import { CreatePipelineDialog, PipelineActionDialog, type PipelineCardAction } from './PipelineDialogs';
 import { getErrorMessage } from './pipelineUtils';
+import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 interface PipelinesScreenProps {
   pipelines: CrmLeadPipelineDto[];
@@ -25,6 +27,7 @@ interface PipelinesScreenProps {
 export default function PipelinesScreen({ pipelines, setPipelines, leads, initialSelectedId, onNavigate }: PipelinesScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { eventBus } = useJaldeeLeadsContext();
   const showDashboardBack = cameFromDashboard(location);
   const [editingPipeline, setEditingPipeline] = useState<CrmLeadPipelineDto | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -71,6 +74,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
         await leadPipelineService.delete(pipeline.uid);
         setPipelines((current) => current.filter((item) => item.uid !== pipeline.uid));
       }
+      emitLeadSuccessToast(eventBus, getPipelineActionSuccessMessage(type));
       setPendingAction(null);
     } catch (err) {
       setPipelineActionError(getErrorMessage(
@@ -345,4 +349,11 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
       />
     </div>
   );
+}
+
+function getPipelineActionSuccessMessage(type: PipelineCardAction) {
+  if (type === 'set-default') return "Default pipeline updated.";
+  if (type === 'activate') return "Pipeline activated successfully.";
+  if (type === 'deactivate') return "Pipeline deactivated successfully.";
+  return "Pipeline deleted successfully.";
 }

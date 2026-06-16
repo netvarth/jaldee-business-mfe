@@ -42,7 +42,7 @@ export function PageHeader({
   return (
     <div data-testid="page-header" className={cn("mb-6", className)}>
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           {back && (
             <button
               data-testid="page-header-back"

@@ -1,9 +1,21 @@
+import { createElement, type ReactNode } from "react";
+import {
+  BarChart3,
+  Calendar,
+  CreditCard,
+  DollarSign,
+  Grid2X2,
+  HelpCircle,
+  Megaphone,
+  Settings,
+  Users,
+} from "lucide-react";
 import type { ProductKey } from "../store/shellStore";
 
 export interface SidebarItem {
   id: string;
   label: string;
-  icon: string;
+  icon: ReactNode;
   path: string;
   children?: SidebarItem[];
 }
@@ -11,7 +23,7 @@ export interface SidebarItem {
 export interface SidebarSection {
   id: string;
   label: string;
-  icon: string;
+  icon: ReactNode;
   path: string;
   children?: SidebarItem[];
 }
@@ -21,6 +33,9 @@ export interface SettingsMenuGroup {
   label: string;
   items: { id: string; label: string; path: string; badge?: string }[];
 }
+
+const sidebarIcon = (Icon: typeof Grid2X2) =>
+  createElement(Icon, { size: 18, strokeWidth: 1.9 });
 
 export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
   { id: "basecrm-customers", label: "Customers", icon: "\u{1F464}", path: "/customers" },
@@ -51,7 +66,6 @@ export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
       { id: "basecrm-leads-products", label: "Products", icon: "", path: "/leads/products" },
       { id: "basecrm-leads-templates", label: "Templates", icon: "", path: "/leads/templates" },
       { id: "basecrm-leads-channels", label: "Channels", icon: "", path: "/leads/channels" },
-      { id: "basecrm-leads-bulk-import", label: "Bulk Import", icon: "", path: "/leads/bulk-import" },
       { id: "basecrm-leads-audit-log", label: "Audit Log", icon: "", path: "/leads/audit-log" },
     ],
   },
@@ -283,12 +297,16 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "lending-settings", label: "Settings", icon: "\u2699", path: "/lending/settings" },
   ],
   hr: [
-    { id: "hr-overview", label: "Overview", icon: "\u25A6", path: "/hr" },
-    { id: "hr-employees", label: "Employees", icon: "\u{1F464}", path: "/hr/employees" },
-    { id: "hr-payroll", label: "Payroll", icon: "\u{1F4B0}", path: "/hr/payroll" },
-    { id: "hr-attendance", label: "Attendance", icon: "\u{1F4C5}", path: "/hr/attendance" },
-    { id: "hr-reports", label: "Reports", icon: "\u{1F4CA}", path: "/hr/reports" },
-    { id: "hr-settings", label: "Settings", icon: "\u2699", path: "/hr/settings" },
+    { id: "hr-dashboard", label: "Dashboard", icon: sidebarIcon(Grid2X2), path: "/hr" },
+    { id: "hr-employees", label: "Employee Master", icon: sidebarIcon(Users), path: "/hr/employees" },
+    { id: "hr-attendance", label: "Attendance", icon: sidebarIcon(Calendar), path: "/hr/attendance" },
+    { id: "hr-leave", label: "Leave", icon: sidebarIcon(Calendar), path: "/hr/leave" },
+    { id: "hr-staffspace", label: "StaffSpace", icon: sidebarIcon(Megaphone), path: "/hr/announcements" },
+    { id: "hr-payroll", label: "Payroll", icon: sidebarIcon(CreditCard), path: "/hr/payroll" },
+    { id: "hr-expenses", label: "Expenses", icon: sidebarIcon(DollarSign), path: "/hr/expenses" },
+    { id: "hr-helpdesk", label: "Helpdesk", icon: sidebarIcon(HelpCircle), path: "/hr/tickets" },
+    { id: "hr-reports", label: "Reports", icon: sidebarIcon(BarChart3), path: "/hr/reports" },
+    { id: "hr-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/hr/settings" },
   ],
   ai: [
     { id: "ai-overview", label: "Overview", icon: "\u25A6", path: "/ai" },

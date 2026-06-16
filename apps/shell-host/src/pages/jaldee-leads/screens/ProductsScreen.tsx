@@ -202,12 +202,12 @@ export default function ProductsScreen({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col items-start gap-2">
                     <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-600">
                       {product.productEnum || productTypeLabel}
                     </span>
                     {product.displayName ? (
-                      <span className="rounded-md border border-slate-100 bg-white px-2 py-1 text-xs font-semibold text-slate-500">
+                      <span className="max-w-full rounded-md border border-slate-100 bg-white px-2 py-1 text-xs font-semibold text-slate-500">
                         {product.displayName}
                       </span>
                     ) : null}

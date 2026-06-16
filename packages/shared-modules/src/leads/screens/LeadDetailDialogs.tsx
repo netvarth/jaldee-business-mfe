@@ -97,8 +97,6 @@ interface LeadDetailDialogsProps {
   currentPipeline?: CrmLeadPipelineDto;
   newStageName: string;
   setNewStageName: React.Dispatch<React.SetStateAction<string>>;
-  newStageRule: 'Strict Block' | 'Warn Only' | 'Manager/Admin Override' | 'No Restriction';
-  setNewStageRule: React.Dispatch<React.SetStateAction<'Strict Block' | 'Warn Only' | 'Manager/Admin Override' | 'No Restriction'>>;
   handleAddNewStage: () => void;
   showConversionModal: boolean;
   setShowConversionModal: React.Dispatch<React.SetStateAction<boolean>>;
@@ -170,8 +168,6 @@ export function LeadDetailDialogs({
   currentPipeline,
   newStageName,
   setNewStageName,
-  newStageRule,
-  setNewStageRule,
   handleAddNewStage,
   showConversionModal,
   setShowConversionModal,
@@ -443,18 +439,6 @@ export function LeadDetailDialogs({
           value={newStageName}
           onChange={e => setNewStageName(e.target.value)}
           placeholder="e.g. Document Verification"
-        />
-
-        <Select 
-          label="Gate Movement Rule"
-          value={newStageRule}
-          onChange={e => setNewStageRule(e.target.value as any)}
-          options={[
-            { value: "Strict Block", label: "Strict Block (Tasks completed before advance)" },
-            { value: "Warn Only", label: "Warn Only (Allow transition with caution alert)" },
-            { value: "Manager/Admin Override", label: "Manager/Admin Override Authorized" },
-            { value: "No Restriction", label: "No Restriction (Instant pass)" }
-          ]}
         />
 
         <DialogFooter>

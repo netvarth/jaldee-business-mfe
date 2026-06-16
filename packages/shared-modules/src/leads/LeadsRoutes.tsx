@@ -331,6 +331,82 @@ export function ChannelDetailRoute({
   );
 }
 
+export function ChannelEditRoute({
+  products,
+  channels,
+  setChannels,
+  availableLocations,
+}: {
+  products: Product[];
+  channels: Channel[];
+  setChannels: React.Dispatch<React.SetStateAction<Channel[]>>;
+  availableLocations: BranchLocation[];
+}) {
+  const { channelUid } = useParams();
+  const navigate = useNavigate();
+  const [channel, setChannel] = React.useState<Channel | null>(
+    () => channels.find((item) => item.uid === channelUid) ?? null
+  );
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const cachedChannel = channels.find((item) => item.uid === channelUid) ?? null;
+
+    if (cachedChannel) {
+      setChannel(cachedChannel);
+      return;
+    }
+
+    if (!channelUid) return;
+
+    setLoading(true);
+    setError(null);
+    leadChannelService
+      .detail(channelUid)
+      .then((loadedChannel) => {
+        if (cancelled) return;
+        setChannel(loadedChannel);
+        setChannels((prev) => [loadedChannel, ...prev.filter((item) => item.uid !== loadedChannel.uid)]);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load channel for editing:", err);
+        setError("Channel not found.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [channelUid, channels, setChannels]);
+
+  if (loading && !channel) {
+    return <div className="p-6 text-sm text-slate-500">Loading channel...</div>;
+  }
+
+  if (error || !channel) {
+    return <div className="p-6 text-sm text-slate-500">{error || "Channel not found."}</div>;
+  }
+
+  return (
+    <CreateChannelScreen
+      products={products}
+      initialChannel={channel}
+      onBack={() => navigate("/leads/channels")}
+      onSave={async (updatedChannel) => {
+        await leadChannelService.update(channel.uid, updatedChannel, availableLocations);
+        const latestChannels = await leadChannelService.search();
+        setChannels(latestChannels);
+        navigate("/leads/channels");
+      }}
+    />
+  );
+}
+
 export function ProductDetailRoute({
   products,
   setProducts,
@@ -535,3 +611,6 @@ export function ProductEditRoute({
     />
   );
 }
+import type { BranchLocation } from "@jaldee/auth-context";
+import CreateChannelScreen from "./screens/CreateChannelScreen";
+import { leadChannelService } from "./services/channelService";

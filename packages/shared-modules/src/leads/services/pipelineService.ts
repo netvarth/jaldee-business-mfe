@@ -106,9 +106,7 @@ function toStage(raw: any): CrmLeadPipelineStageDto {
     proceedStageUid: raw?.proceedStageUid,
     redirectStageUid: raw?.redirectStageUid,
     activeLeadCount: Number(raw?.activeLeadCount ?? 0),
-    movementRule: raw?.movementRule,
     taskTemplates,
-    conversionSetting: raw?.conversionSetting,
   };
 }
 
@@ -218,7 +216,7 @@ function toStagePayload(stage: Partial<CrmLeadPipelineStageDto>) {
     terminalType: stage.isTerminal ? stage.terminalType : undefined,
     taskCompletionMode: stage.taskCompletionMode ?? "NONE",
     autogenerateTasks: stage.autogenerateTasks ?? false,
-    active: stage.isActive !== false,             // API uses "active" not "isActive"
+    inActive: stage.isActive === false,            // API uses "inActive" (backend field renamed)
     taskList,
     proceedStageUid: stage.proceedStageUid ?? undefined,
     redirectStageUid: stage.redirectStageUid ?? undefined,

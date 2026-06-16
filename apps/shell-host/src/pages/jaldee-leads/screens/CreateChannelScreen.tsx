@@ -13,8 +13,23 @@ interface CreateChannelScreenProps {
   initialChannel?: Channel;
 }
 
+function getLocationName(location: any): string {
+  return String(location?.name ?? location?.place ?? location?.locationName ?? location?.branchName ?? '').trim();
+}
+
 export default function CreateChannelScreen({ onBack, onSave, products, initialChannel }: CreateChannelScreenProps) {
   const availableLocations = useShellStore((s) => s.availableLocations);
+  const activeLocation = useShellStore((s) => s.activeLocation);
+  const effectiveLocations = availableLocations.length ? availableLocations : activeLocation ? [activeLocation] : [];
+  const locationOptions = React.useMemo(
+    () => effectiveLocations
+      .map((location) => {
+        const name = getLocationName(location);
+        return name ? { value: name, label: name } : null;
+      })
+      .filter((option): option is { value: string; label: string } => Boolean(option)),
+    [effectiveLocations],
+  );
   const [formData, setFormData] = useState({
     name: initialChannel?.name || '',
     channelType: (initialChannel?.channelType || '') as ChannelType | '',
@@ -23,10 +38,10 @@ export default function CreateChannelScreen({ onBack, onSave, products, initialC
   });
 
   React.useEffect(() => {
-    if (availableLocations.length && !formData.location) {
-      setFormData(prev => ({ ...prev, location: availableLocations[0].name }));
+    if (locationOptions.length && !formData.location) {
+      setFormData(prev => ({ ...prev, location: locationOptions[0].value }));
     }
-  }, [availableLocations, formData.location]);
+  }, [locationOptions, formData.location]);
 
   const handleSubmit = () => {
     if (!formData.name || !formData.channelType) return;
@@ -120,7 +135,7 @@ export default function CreateChannelScreen({ onBack, onSave, products, initialC
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
               placeholder="Select Location"
-              options={availableLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+              options={locationOptions}
             />
           </div>
 

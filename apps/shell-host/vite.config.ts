@@ -45,6 +45,11 @@ export default defineConfig(({ mode }) => {
             from: "vite",
             externalType: "url",
           },
+          mfe_hr: {
+            external: `${env.VITE_HR_URL}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          },
         },
       }),
     ],
@@ -86,6 +91,16 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/platform-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/hr-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
     preview: {
@@ -109,6 +124,16 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
         "/base-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/platform-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/hr-service": {
           target: baseServiceProxyTarget,
           changeOrigin: true,
           secure: false,

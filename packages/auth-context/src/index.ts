@@ -12,12 +12,14 @@ export type {
   BranchLocation,
   ThemeContext,
   EventBus,
+  ShellToastPayload,
   TelemetryService,
   MFEHttpBridge,
   MFEError,
   MFEProps,
   MFELifecycle,
 } from "./types";
+export { SHELL_TOAST_EVENT } from "./types";
 
 // Context + hook
 export { MFEPropsContext, useMFEProps } from "./context";

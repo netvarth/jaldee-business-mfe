@@ -5,6 +5,7 @@ import { Channel, ChannelType, Product } from '../types';
 import { mockProducts } from '../mockData';
 import { Button, Input, MultiCombobox, Select, PageHeader } from '@jaldee/design-system';
 import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 interface CreateChannelScreenProps {
   onBack: () => void;
@@ -13,8 +14,21 @@ interface CreateChannelScreenProps {
   initialChannel?: Channel;
 }
 
+function getLocationName(location: any): string {
+  return String(location?.name ?? location?.place ?? location?.locationName ?? location?.branchName ?? '').trim();
+}
+
 export default function CreateChannelScreen({ onBack, onSave, products, initialChannel }: CreateChannelScreenProps) {
-  const { availableLocations } = useJaldeeLeadsContext();
+  const { availableLocations, eventBus } = useJaldeeLeadsContext();
+  const locationOptions = React.useMemo(
+    () => availableLocations
+      .map((location) => {
+        const name = getLocationName(location);
+        return name ? { value: name, label: name } : null;
+      })
+      .filter((option): option is { value: string; label: string } => Boolean(option)),
+    [availableLocations],
+  );
   const [formData, setFormData] = useState({
     name: initialChannel?.name || '',
     channelType: (initialChannel?.channelType || '') as ChannelType | '',
@@ -23,10 +37,10 @@ export default function CreateChannelScreen({ onBack, onSave, products, initialC
   });
 
   React.useEffect(() => {
-    if (availableLocations.length && !formData.location) {
-      setFormData(prev => ({ ...prev, location: availableLocations[0].name }));
+    if (locationOptions.length && !formData.location) {
+      setFormData(prev => ({ ...prev, location: locationOptions[0].value }));
     }
-  }, [availableLocations, formData.location]);
+  }, [locationOptions, formData.location]);
 
   const handleSubmit = () => {
     if (!formData.name || !formData.channelType) return;
@@ -46,6 +60,7 @@ export default function CreateChannelScreen({ onBack, onSave, products, initialC
     };
     
     onSave(channel as Channel);
+    emitLeadSuccessToast(eventBus, initialChannel ? "Channel updated successfully." : "Channel created successfully.");
   };
 
   return (
@@ -120,7 +135,7 @@ export default function CreateChannelScreen({ onBack, onSave, products, initialC
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
               placeholder="Select Location"
-              options={availableLocations.map(loc => ({ value: loc.name, label: loc.name }))}
+              options={locationOptions}
             />
           </div>
 

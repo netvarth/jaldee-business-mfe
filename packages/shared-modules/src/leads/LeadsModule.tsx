@@ -20,6 +20,7 @@ import { leadChannelService } from './services/channelService';
 import { leadService } from './services/leadService';
 import {
   ChannelDetailRoute,
+  ChannelEditRoute,
   LeadDetailRoute,
   PipelineDetailRoute,
   PipelineEditRoute,
@@ -27,6 +28,7 @@ import {
   ProductEditRoute,
   TemplateEditRoute,
 } from './LeadsRoutes';
+import { useJaldeeLeadsContext } from './lib/sharedContext';
 
 function LegacyLeadDetailRedirect() {
   const { leadUid } = useParams();
@@ -36,6 +38,7 @@ function LegacyLeadDetailRedirect() {
 export function LeadsModule() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { availableLocations } = useJaldeeLeadsContext();
   const [leads, setLeads] = useState<CrmLeadDto[]>([]);
   const [pipelines, setPipelines] = useState<CrmLeadPipelineDto[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -177,7 +180,6 @@ export function LeadsModule() {
     const isLeadDetailPage = path.includes('/list/') && !isCreateLeadPage;
 
     if (path.includes('/dashboard')) {
-      triggerFetchLeads(active);
       triggerFetchPipelines(active);
       triggerFetchProducts(active);
       triggerFetchChannels(active);
@@ -247,7 +249,6 @@ export function LeadsModule() {
           path="/dashboard"
           element={
             <DashboardScreen
-              leads={leads}
               pipelines={pipelines}
               products={products}
               channels={channels}
@@ -489,10 +490,22 @@ export function LeadsModule() {
               products={products}
               onBack={() => navigate('/leads/channels')}
               onSave={async (channel) => {
-                const createdChannel = await leadChannelService.create(channel);
-                setChannels((prev) => [createdChannel, ...prev.filter((item) => item.uid !== createdChannel.uid)]);
+                await leadChannelService.create(channel, availableLocations);
+                const latestChannels = await leadChannelService.search();
+                setChannels(latestChannels);
                 navigate('/leads/channels');
               }}
+            />
+          }
+        />
+        <Route
+          path="/channels/:channelUid/edit"
+          element={
+            <ChannelEditRoute
+              products={products}
+              channels={channels}
+              setChannels={setChannels}
+              availableLocations={availableLocations}
             />
           }
         />
@@ -532,7 +545,6 @@ export function LeadsModule() {
           path="*"
           element={
             <DashboardScreen
-              leads={leads}
               pipelines={pipelines}
               products={products}
               channels={channels}

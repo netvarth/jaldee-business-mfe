@@ -259,9 +259,6 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                                  </div>
                                  <div className="mt-[var(--space-1)] flex flex-wrap items-center gap-[var(--space-2)] text-[length:var(--text-xs)] font-[var(--font-weight-bold)] text-[var(--color-text-secondary)] leading-[var(--line-height-relaxed)]">
                                     <span className="text-[var(--color-text-primary)]">{stage.activeLeadCount || 0} Leads</span>
-                                    <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
-                                    <span className="text-[var(--color-error)] font-[var(--font-weight-semibold)]">{stage.movementRule || 'No Restriction'}</span>
-                                    <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
                                     <span className="text-[var(--color-primary)] font-[var(--font-weight-semibold)]">{reqs.length} Required / {opts.length} Optional Tasks</span>
                                  </div>
                               </div>

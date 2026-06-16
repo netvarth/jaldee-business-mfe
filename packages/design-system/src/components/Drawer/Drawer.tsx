@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../utils";
 
 export interface DrawerProps {
@@ -40,9 +41,9 @@ export function Drawer({
   closeLabel = "Close drawer",
   closeIcon = "×",
 }: DrawerProps) {
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <>
       <div
         data-testid="drawer-overlay"
@@ -87,6 +88,7 @@ export function Drawer({
           {children}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

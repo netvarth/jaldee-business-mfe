@@ -1,4 +1,4 @@
-import type { AccountContext, BranchLocation, MFEHttpBridge, ModuleKey, ProductKey, UserContext } from "@jaldee/auth-context";
+import type { AccountContext, BranchLocation, EventBus, MFEHttpBridge, ModuleKey, ProductKey, UserContext } from "@jaldee/auth-context";
 
 export const API_SCOPES = ["global", "location"] as const;
 
@@ -49,6 +49,7 @@ export interface SharedModuleProps {
   location: BranchLocation | null;
   availableLocations?: BranchLocation[];
   api: MFEHttpBridge;
+  eventBus?: EventBus;
   routeParams?: SharedModuleRouteParams;
 }
 

@@ -7,6 +7,7 @@ import ProductsScreen from './screens/ProductsScreen';
 import CreateProductScreen from './screens/CreateProductScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import ChannelsScreen from './screens/ChannelsScreen';
+import CreateChannelScreen from './screens/CreateChannelScreen';
 import ChannelDetailScreen from './screens/ChannelDetailScreen';
 import LeadDetailScreen from './screens/LeadDetailScreen';
 import BulkImportScreen from './screens/BulkImportScreen';
@@ -353,6 +354,80 @@ function ChannelDetailRoute({
       forms={forms}
       onBack={() => navigate('/jaldee-leads/channels')}
       onNavigate={onNavigate}
+    />
+  );
+}
+
+function ChannelEditRoute({
+  products,
+  channels,
+  setChannels,
+}: {
+  products: Product[];
+  channels: Channel[];
+  setChannels: React.Dispatch<React.SetStateAction<Channel[]>>;
+}) {
+  const { channelUid } = useParams();
+  const navigate = useNavigate();
+  const [channel, setChannel] = React.useState<Channel | null>(
+    () => channels.find((item) => item.uid === channelUid) ?? null
+  );
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const cachedChannel = channels.find((item) => item.uid === channelUid) ?? null;
+
+    if (cachedChannel) {
+      setChannel(cachedChannel);
+      return;
+    }
+
+    if (!channelUid) return;
+
+    setLoading(true);
+    setError(null);
+    leadChannelService
+      .detail(channelUid)
+      .then((loadedChannel) => {
+        if (cancelled) return;
+        setChannel(loadedChannel);
+        setChannels((prev) => [loadedChannel, ...prev.filter((item) => item.uid !== loadedChannel.uid)]);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load channel for editing:", err);
+        setError("Channel not found.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [channelUid, channels, setChannels]);
+
+  if (loading && !channel) {
+    return <div className="p-6 text-sm text-slate-500">Loading channel...</div>;
+  }
+
+  if (error || !channel) {
+    return <div className="p-6 text-sm text-slate-500">{error || "Channel not found."}</div>;
+  }
+
+  return (
+    <CreateChannelScreen
+      products={products}
+      initialChannel={channel}
+      onBack={() => navigate("/jaldee-leads/channels")}
+      onSave={async (updatedChannel) => {
+        await leadChannelService.update(channel.uid, updatedChannel);
+        const latestChannels = await leadChannelService.search();
+        setChannels(latestChannels);
+        navigate("/jaldee-leads/channels");
+      }}
     />
   );
 }
@@ -713,7 +788,6 @@ export default function JaldeeLeadsPage() {
     const isLeadDetailPage = path.includes('/list/') && !isCreateLeadPage;
 
     if (path.includes('/dashboard')) {
-      triggerFetchLeads(active);
       triggerFetchPipelines(active);
       triggerFetchProducts(active);
       triggerFetchChannels(active);
@@ -774,6 +848,52 @@ export default function JaldeeLeadsPage() {
     }
     const normalizedRoute = route.replace('_', '-');
     navigate(`/jaldee-leads/${normalizedRoute}`);
+      triggerFetchPipelines(active);
+      triggerFetchLeads(active);
+    } else if (path.includes('/products/create') || (path.includes('/products/') && path.includes('/edit'))) {
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+      triggerFetchTemplates(active);
+      triggerFetchPipelines(active);
+    } else if (path.includes('/products')) {
+      triggerFetchProducts(active);
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchChannels(active);
+      triggerFetchTemplates(active);
+    } else if (path.includes('/templates')) {
+      triggerFetchTemplates(active);
+    } else if (path.includes('/channels')) {
+      triggerFetchChannels(active);
+      triggerFetchLeads(active);
+      triggerFetchProducts(active);
+      triggerFetchPipelines(active);
+      triggerFetchTemplates(active);
+    } else if (path.includes('/bulk-import')) {
+      triggerFetchLeads(active);
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+      triggerFetchPipelines(active);
+    } else {
+      triggerFetchLeads(active);
+      triggerFetchPipelines(active);
+      triggerFetchProducts(active);
+      triggerFetchChannels(active);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [location.pathname]);
+
+  const handleNavigate = (route: string, selection?: { type: string; id: string }) => {
+    if (selection) {
+      setActiveSelection(selection);
+    } else {
+      setActiveSelection(null);
+    }
+    const normalizedRoute = route.replace('_', '-');
+    navigate(`/jaldee-leads/${normalizedRoute}`);
   };
 
   return (
@@ -783,7 +903,6 @@ export default function JaldeeLeadsPage() {
           path="/dashboard"
           element={
             <DashboardScreen
-              leads={leads}
               pipelines={pipelines}
               products={products}
               channels={channels}
@@ -1017,6 +1136,31 @@ export default function JaldeeLeadsPage() {
           }
         />
         <Route
+          path="/channels/create"
+          element={
+            <CreateChannelScreen
+              products={products}
+              onBack={() => navigate('/jaldee-leads/channels')}
+              onSave={async (channel) => {
+                await leadChannelService.create(channel);
+                const latestChannels = await leadChannelService.search();
+                setChannels(latestChannels);
+                navigate('/jaldee-leads/channels');
+              }}
+            />
+          }
+        />
+        <Route
+          path="/channels/:channelUid/edit"
+          element={
+            <ChannelEditRoute
+              products={products}
+              channels={channels}
+              setChannels={setChannels}
+            />
+          }
+        />
+        <Route
           path="/channels/:channelUid"
           element={
             <ChannelDetailRoute
@@ -1052,7 +1196,6 @@ export default function JaldeeLeadsPage() {
           path="*"
           element={
             <DashboardScreen
-              leads={leads}
               pipelines={pipelines}
               products={products}
               channels={channels}

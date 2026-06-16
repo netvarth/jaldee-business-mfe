@@ -106,9 +106,7 @@ function toStage(raw: any): CrmLeadPipelineStageDto {
     proceedStageUid: raw?.proceedStageUid,
     redirectStageUid: raw?.redirectStageUid,
     activeLeadCount: Number(raw?.activeLeadCount ?? 0),
-    movementRule: raw?.movementRule,
     taskTemplates,
-    conversionSetting: raw?.conversionSetting,
   };
 }
 

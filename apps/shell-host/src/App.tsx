@@ -22,6 +22,7 @@ import { GoldErpMFE } from "./mfes/GoldErpMFE";
 import { FinanceMFE } from "./mfes/FinanceMFE";
 import { KartyMFE } from "./mfes/KartyMFE";
 import { LendingMFE } from "./mfes/LendingMFE";
+import { HrMFE } from "./mfes/HrMFE";
 import { useShellStore } from "./store/shellStore";
 import { getAuthMode, hasStoredAuthSession } from "./services/authService";
 import GlobalPlaceholderPage from "./pages/GlobalPlaceholderPage";
@@ -148,7 +149,15 @@ export default function App() {
                     </div>
                   </Suspense>
                 } />
-                <Route path="/hr/*" element={<GlobalPlaceholderPage />} />
+                <Route path="/hr/*" element={
+                  <Suspense fallback={
+                    <div className="shell-loading">Loading HR...</div>
+                  }>
+                    <div className="mfe-wrapper">
+                      <HrMFE />
+                    </div>
+                  </Suspense>
+                } />
                 <Route path="/ai/*" element={<GlobalPlaceholderPage />} />
                 <Route path="*" element={<Navigate to="/home" replace />} />
               </Routes>

@@ -34,6 +34,7 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
 
   function handleNavigate(path: string) {
     navigate(path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
     if (window.innerWidth <= 1024 || collapseOnSelect) {
       setSidebarVisible(false);
     }

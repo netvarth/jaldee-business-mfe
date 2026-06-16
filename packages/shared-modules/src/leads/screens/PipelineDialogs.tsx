@@ -201,8 +201,6 @@ export function EditStageDialog({
   const [slaDays, setSlaDays] = useState(stage.slaDays ?? 3);
   const [isTerminal, setIsTerminal] = useState(Boolean(stage.isTerminal));
   const [terminalType, setTerminalType] = useState<'WON' | 'LOST' | 'JUNK'>((stage.terminalType as any) || 'WON');
-  const [movementRule, setMovementRule] = useState(stage.movementRule || 'No Restriction');
-  const [conversionSetting, setConversionSetting] = useState(stage.conversionSetting || 'ALLOWED');
   const [isActive, setIsActive] = useState(stage.isActive !== false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,8 +223,6 @@ export function EditStageDialog({
         slaDays,
         isTerminal,
         terminalType: isTerminal ? terminalType : undefined,
-        movementRule,
-        conversionSetting: conversionSetting as any,
         isActive,
       });
     } catch (err) {
@@ -306,33 +302,6 @@ export function EditStageDialog({
             placeholder="e.g. 3"
           />
 
-          <Select
-            id={`jaldee-leads-pipeline-stage-${stage.uid}-movement-rule-select`}
-            data-testid={`jaldee-leads-pipeline-stage-${stage.uid}-movement-rule-select`}
-            label="Movement Rule"
-            value={movementRule}
-            onChange={e => setMovementRule(e.target.value)}
-            options={[
-              { value: 'No Restriction', label: 'No Restriction' },
-              { value: 'Strict Block', label: 'Strict Block' },
-              { value: 'Warn Only', label: 'Warn Only' },
-              { value: 'Manager/Admin Override', label: 'Manager/Admin Override' },
-            ]}
-          />
-
-          <Select
-            id={`jaldee-leads-pipeline-stage-${stage.uid}-conversion-rule-select`}
-            data-testid={`jaldee-leads-pipeline-stage-${stage.uid}-conversion-rule-select`}
-            label="Convert Rule"
-            value={conversionSetting}
-            onChange={e => setConversionSetting(e.target.value)}
-            options={[
-              { value: 'ALLOWED', label: 'Allowed' },
-              { value: 'RECOMMENDED', label: 'Recommended' },
-              { value: 'BLOCKED', label: 'Blocked' },
-            ]}
-          />
-
           <div className="col-span-1 md:col-span-2 pt-2 border-t border-slate-100 space-y-3">
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
               <div>
@@ -406,8 +375,6 @@ export function AddStageDialog({
   const [isActive, setIsActive] = useState(true);
   const [isTerminal, setIsTerminal] = useState(false);
   const [terminalType, setTerminalType] = useState<'WON' | 'LOST' | 'JUNK'>('WON');
-  const [movementRule, setMovementRule] = useState('No Restriction');
-  const [conversionSetting, setConversionSetting] = useState('ALLOWED');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -434,8 +401,6 @@ export function AddStageDialog({
         autogenerateTasks: false,
         isActive,
         taskList: [],
-        movementRule,
-        conversionSetting: conversionSetting as any,
       });
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to add stage.'));
@@ -508,31 +473,6 @@ export function AddStageDialog({
             onChange={e => setSlaDays(Math.max(0, parseInt(e.target.value) || 0))}
             placeholder="e.g. 3"
             hint="Expected number of days to act before this stage is overdue."
-          />
-
-          <Select
-            label="Movement Rule"
-            value={movementRule}
-            onChange={e => setMovementRule(e.target.value)}
-            hint="Defines how strictly users can move leads out of this stage."
-            options={[
-              { value: 'No Restriction', label: 'No Restriction' },
-              { value: 'Strict Block', label: 'Strict Block' },
-              { value: 'Warn Only', label: 'Warn Only' },
-              { value: 'Manager/Admin Override', label: 'Manager/Admin Override' },
-            ]}
-          />
-
-          <Select
-            label="Convert Rule"
-            value={conversionSetting}
-            onChange={e => setConversionSetting(e.target.value)}
-            hint="Controls whether conversion is allowed, suggested, or blocked from this stage."
-            options={[
-              { value: 'ALLOWED', label: 'Allowed' },
-              { value: 'RECOMMENDED', label: 'Recommended' },
-              { value: 'BLOCKED', label: 'Blocked' },
-            ]}
           />
 
           <div className="col-span-1 md:col-span-2 pt-2 border-t border-slate-100 space-y-3">

@@ -85,6 +85,9 @@ export type { FormSectionProps }          from "./components/FormSection/FormSec
 export { Alert }                          from "./components/Alert/Alert";
 export type { AlertProps }                from "./components/Alert/Alert";
 
+export { ToastViewport }                  from "./components/Toast/Toast";
+export type { ToastItem, ToastIntent, ToastViewportProps } from "./components/Toast/Toast";
+
 export { Dialog, DialogFooter }           from "./components/Dialog/Dialog";
 export type { DialogProps }               from "./components/Dialog/Dialog";
 

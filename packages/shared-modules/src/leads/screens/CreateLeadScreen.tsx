@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
-import { CrmLeadDto, Product, Channel, FormTemplate, User, CrmLeadPipelineDto } from '../types';
-import { mockUsers } from '../mockData';
+import { CrmLeadDto, Product, Channel, FormTemplate, CrmLeadPipelineDto } from '../types';
 import { Button, Input, Select, Checkbox, PageHeader, PhoneInput } from '@jaldee/design-system';
 import { leadService } from '../services/leadService';
 import { leadPipelineService } from '../services/pipelineService';
+import { useJaldeeLeadsContext } from '../lib/sharedContext';
+import { emitLeadSuccessToast } from '../lib/errorEvents';
 
 interface CreateLeadScreenProps {
   onBack: () => void;
@@ -32,7 +33,20 @@ const findPipelineForProduct = (product: Product | undefined, pipelines: CrmLead
 };
 
 export default function CreateLeadScreen({ onBack, onSave, pipelines, products, channels, leads, forms }: CreateLeadScreenProps) {
-  const defaultOwner = mockUsers[0];
+  const { user: shellUser, eventBus } = useJaldeeLeadsContext();
+  const ownerOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    if (shellUser?.id) {
+      options.set(shellUser.id, shellUser.name || shellUser.email || shellUser.id);
+    }
+    leads.forEach((lead) => {
+      if (lead.ownerId) {
+        options.set(lead.ownerId, lead.ownerName || lead.ownerId);
+      }
+    });
+    return Array.from(options, ([value, label]) => ({ value, label }));
+  }, [leads, shellUser]);
+  const defaultOwner = ownerOptions[0];
   const [formData, setFormData] = useState<Partial<CrmLeadDto>>({
     consumerFirstName: '',
     consumerLastName: '',
@@ -40,8 +54,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
     consumerPhone: '',
     company: '',
     internalStatus: 'ACTIVE',
-    ownerId: defaultOwner?.uid || '',
-    ownerName: defaultOwner?.name || '',
+    ownerId: defaultOwner?.value || '',
+    ownerName: defaultOwner?.label || '',
     channelUid: channels[0]?.uid || '',
     channelName: channels[0]?.name || '',
     productUid: '',
@@ -62,6 +76,11 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
   const [hasFirstFollowup, setHasFirstFollowup] = useState(false);
   const [firstFollowupDate, setFirstFollowupDate] = useState('');
   const [selectedStageUid, setSelectedStageUid] = useState<string>('');
+
+  useEffect(() => {
+    if (formData.ownerId || !defaultOwner) return;
+    setFormData(prev => ({ ...prev, ownerId: defaultOwner.value, ownerName: defaultOwner.label }));
+  }, [defaultOwner, formData.ownerId]);
 
   // Auto-derive pipeline & form template when solution interest changes
   useEffect(() => {
@@ -103,7 +122,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
       }
     } else {
       setSelectedProduct(null);
-      applyPipeline(findPipelineForProduct(undefined, pipelines));
+      setDerivedPipeline(null);
+      setSelectedStageUid('');
       setCurrentTemplate(null);
     }
 
@@ -143,8 +163,8 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
       const product = products.find(p => p.uid === value);
       setFormData(prev => ({ ...prev, productUid: value, productName: product?.name || '' }));
     } else if (name === 'ownerId') {
-      const user = mockUsers.find(u => u.uid === value);
-      setFormData(prev => ({ ...prev, ownerId: value, ownerName: user?.name || '' }));
+      const user = ownerOptions.find(u => u.value === value);
+      setFormData(prev => ({ ...prev, ownerId: value, ownerName: user?.label || '' }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -233,6 +253,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
         createdByName: savedLead.createdByName || 'Current Owner',
         stageTasks: savedLead.stageTasks?.length ? savedLead.stageTasks : initialStageTasks
       });
+      emitLeadSuccessToast(eventBus, "Lead created successfully.");
     } catch (err) {
       console.error("Failed to save lead to backend:", err);
       // Fallback: save locally
@@ -426,7 +447,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                  </div>
 
                  {/* Dynamic Derivation Card (Workflow derived from Product) */}
-                 {derivedPipeline && (
+                 {formData.productUid && derivedPipeline && (
                    <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center justify-between">
                       <div>
                          <p className="text-xs font-semibold text-indigo-500 leading-none">Derived sales workflow (Pipeline)</p>
@@ -521,6 +542,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
             </section>
 
             {/* Initial Pipeline Stage Selection */}
+            {formData.productUid && derivedPipeline && (
             <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6">
               <div className="flex items-center justify-between border-b border-slate-50 pb-4">
                 <div className="flex items-center gap-3">
@@ -537,7 +559,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                 </p>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {(derivedPipeline || pipelines.find(p => p.isDefault) || pipelines[0])?.stages?.map((stage) => {
+                  {derivedPipeline.stages?.map((stage) => {
                     const isSelected = selectedStageUid === stage.uid;
                     return (
                       <Button
@@ -574,6 +596,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                 </div>
               </div>
             </section>
+            )}
           </div>
 
           {/* Sidebar / Meta Column */}
@@ -592,7 +615,7 @@ export default function CreateLeadScreen({ onBack, onSave, pipelines, products, 
                       label="Internal Lead Owner"
                       value={formData.ownerId}
                       onChange={handleChange}
-                      options={mockUsers.map(u => ({ value: u.uid, label: u.name }))}
+                      options={ownerOptions}
                    />
 
                    <div className="space-y-1.5 text-xs font-bold text-slate-500">

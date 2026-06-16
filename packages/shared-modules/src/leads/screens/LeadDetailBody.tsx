@@ -3,10 +3,9 @@ import { PageHeader, SectionCard, Button, Input, Textarea } from "@jaldee/design
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { format } from '../lib/dateUtils';
-import type { CrmLeadDto, CrmLeadPipelineDto, LeadStageTask, Product } from '../types';
+import type { CrmLeadDto, CrmLeadPipelineDto, LeadStageTask } from '../types';
 
 type Stage = CrmLeadPipelineDto['stages'][number];
-type ConversionMapping = NonNullable<Product['conversionMapping']>;
 
 function normalizedStageName(value?: string) {
   return String(value || '').trim().toLowerCase();
@@ -24,7 +23,6 @@ interface LeadDetailBodyProps {
   stages: Stage[];
   totalStageCount: number;
   completedStageCount: number;
-  movementRule: string;
   requiredTasksCompleted: LeadStageTask[];
   requiredTasksTotal: LeadStageTask[];
   optionalTasksTotal: LeadStageTask[];
@@ -32,27 +30,17 @@ interface LeadDetailBodyProps {
   optionalAndManualTasksCompleted: LeadStageTask[];
   optionalAndManualTasksTotal: LeadStageTask[];
   isEditing: boolean;
-  actingRole: 'ADMIN' | 'MANAGER' | 'SALES_REP';
-  missingFields: string[];
   productDisplayName: string;
-  isOwnerRestricted: boolean;
-  isStageBlocked: boolean;
-  canOverrideBlock: boolean;
-  isConversionRestricted: boolean;
   setTargetStageUid: React.Dispatch<React.SetStateAction<string>>;
   setShowMoveModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddStageModal: React.Dispatch<React.SetStateAction<boolean>>;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   setEditedLead: React.Dispatch<React.SetStateAction<CrmLeadDto>>;
-  setActingRole: React.Dispatch<React.SetStateAction<'ADMIN' | 'MANAGER' | 'SALES_REP'>>;
-  setShowConversionModal: React.Dispatch<React.SetStateAction<boolean>>;
   onBack: () => void;
   handleSaveContactDetails: () => void;
   handleTimelineStageClick: (stageUid: string) => void;
   handleAddManualTask: () => void;
   handleToggleTask: (taskUid: string) => void;
-  currentStage?: Stage;
-  conversionMapping?: ConversionMapping;
 }
 
 export function LeadDetailBody({
@@ -62,7 +50,6 @@ export function LeadDetailBody({
   stages,
   totalStageCount,
   completedStageCount,
-  movementRule,
   requiredTasksCompleted,
   requiredTasksTotal,
   optionalTasksTotal,
@@ -70,27 +57,17 @@ export function LeadDetailBody({
   optionalAndManualTasksCompleted,
   optionalAndManualTasksTotal,
   isEditing,
-  actingRole,
-  missingFields,
   productDisplayName,
-  isOwnerRestricted,
-  isStageBlocked,
-  canOverrideBlock,
-  isConversionRestricted,
   setTargetStageUid,
   setShowMoveModal,
   setShowAddStageModal,
   setIsEditing,
   setEditedLead,
-  setActingRole,
-  setShowConversionModal,
   onBack,
   handleSaveContactDetails,
   handleTimelineStageClick,
   handleAddManualTask,
   handleToggleTask,
-  currentStage,
-  conversionMapping,
 }: LeadDetailBodyProps) {
   return (
     <>
@@ -244,17 +221,6 @@ export function LeadDetailBody({
                    <p className="mt-1 text-sm font-mono font-bold leading-tight text-slate-800">
                      {totalStageCount}/{completedStageCount}
                    </p>
-                 </div>
-                 <div className="sm:text-left">
-                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Stage Movement Rule</span>
-                   <span className={cn(
-                      "mt-1 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase leading-none",
-                      movementRule === 'Strict Block' ? "bg-red-50 text-red-600 border-red-200" :
-                      movementRule === 'Warn Only' ? "bg-amber-50 text-amber-600 border-amber-200" :
-                      "bg-slate-50 text-slate-500 border-slate-200"
-                   )}>
-                     {movementRule}
-                   </span>
                  </div>
                </div>
             </SectionCard>
@@ -701,129 +667,7 @@ export function LeadDetailBody({
                      </div>
                   </SectionCard>
 
-                  {/* Lead Operational Conversion Panel */}
-                  <SectionCard className="p-6 space-y-4">
-                     <div className="border-b border-slate-100 pb-3">
-                        <p className="text-sm font-semibold text-slate-400">Security / Role Simulation</p>
-                        <div className="flex gap-1.5 mt-2 bg-slate-50 border border-slate-100 p-1 rounded-xl">
-                          {(['ADMIN', 'MANAGER', 'SALES_REP'] as const).map(role => (
-                            <button
-                              key={role}
-                              type="button"
-                              onClick={() => setActingRole(role)}
-                              className={cn(
-                                "flex-1 py-1 px-1.5 rounded-lg text-xs font-semibold transition-all",
-                                actingRole === role 
-                                  ? "bg-slate-900 text-white shadow" 
-                                  : "text-slate-400 hover:text-slate-700 font-bold"
-                              )}
-                            >
-                              {role === 'SALES_REP' ? 'REP' : role}
-                            </button>
-                          ))}
-                        </div>
-                     </div>
 
-                     <div className="space-y-3 text-xs text-slate-600">
-                        <p className="text-sm font-semibold text-slate-400">Operation Conversion Target</p>
-                        
-                        {lead.isConverted ? (
-                          <div className="bg-emerald-50 border border-emerald-150 rounded-2xl p-4 space-y-3 animate-fadeIn text-xs text-slate-800">
-                             <div className="flex items-center gap-2">
-                               <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-semibold">
-                                 ✓
-                               </div>
-                               <div className="min-w-0">
-                                 <span className="text-xs font-semibold text-emerald-800 block leading-none truncate">Record Converted</span>
-                                 <span className="text-xs font-semibold text-slate-400 mt-0.5 truncate block">{lead.convertedOn ? format(new Date(lead.convertedOn), 'dd MMM yy HH:mm') : ''}</span>
-                               </div>
-                             </div>
-
-                             <div className="text-xs font-semibold text-slate-500 space-y-1 bg-white/60 p-2.5 rounded-xl border border-emerald-100">
-                               <div>TARGET: <strong className="text-slate-800">{lead.convertedTargetType}</strong></div>
-                               <div>DOC REF: <strong className="text-indigo-600 font-mono text-xs">{lead.convertedObjectRef}</strong></div>
-                               <div>AGENT: <strong className="text-slate-650">{lead.convertedBy || 'System'}</strong></div>
-                               {lead.convertedNotes && (
-                                 <div className="mt-1.5 pt-1 border-t border-slate-100 normal-case italic font-medium text-slate-500 text-sm leading-relaxed">
-                                   "{lead.convertedNotes}"
-                                 </div>
-                               )}
-                             </div>
-
-                             <div className="text-center pt-1 shrink-0">
-                                <Button 
-                                  onClick={() => {
-                                    alert(`Opening operational downstream object ${lead.convertedObjectRef} dashboard workflow!`);
-                                  }}
-                                  variant="primary"
-                                  className="w-full text-xs font-semibold active-scale cursor-pointer py-2"
-                                >
-                                  Open Converted Module Link ↗
-                                </Button>
-                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                             <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl text-sm font-semibold text-slate-400 space-y-1">
-                               <div>BLUEPRINT: <span className="text-slate-805 text-slate-900 font-semibold">{conversionMapping?.targetType || 'Appointment (Fallback)'}</span></div>
-                               <div>SUB-CORE: <span className="font-mono text-indigo-600 font-bold">{conversionMapping?.targetModule || 'Intake Dispatch'}</span></div>
-                               <div>DUPLICATES: <span className="text-indigo-650 font-bold">{conversionMapping?.duplicateRule || 'Ignore'}</span></div>
-                             </div>
-
-                             {/* Eligibility diagnostics banner */}
-                             {isConversionRestricted ? (
-                               <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-sm font-semibold text-rose-600 space-y-1">
-                                 <p className="font-semibold text-xs leading-snug">❌ CONVERSION BLOCKED IN STAGE</p>
-                                 <p className="text-xs font-bold text-slate-400 normal-case leading-normal mt-0.5">Sales reps cannot initiate conversion at this threshold stage. Ask an Admin or Manager override.</p>
-                               </div>
-                             ) : isStageBlocked ? (
-                               <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm font-semibold text-amber-700 space-y-1">
-                                 <p className="font-semibold text-xs leading-snug">⚠️ BLOCKED STAGE (OVERRIDABLE)</p>
-                                 <p className="text-xs font-bold text-slate-500 leading-normal mb-1.5 normal-case">Stage is transition-blocked, but your active simulated security authorization ({actingRole}) grants override bypass.</p>
-                               </div>
-                             ) : currentStage?.conversionSetting === 'RECOMMENDED' ? (
-                               <div className="bg-emerald-50 border border-emerald-150 rounded-xl p-2.5 text-xs font-semibold text-emerald-800 font-semibold text-center">
-                                 🌟 RECOMMENDED TRANSITION THRESHOLD
-                               </div>
-                             ) : null}
-
-                             {isOwnerRestricted && (
-                               <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-semibold text-red-600">
-                                 ❌ ASSIGNED ASSISTANT REQUIRED: Only {lead.ownerName || 'assigned owner'} has permissions in Rep Mode. Switch to ADMIN or MANAGER to bypass.
-                               </div>
-                             )}
-
-                             {missingFields.length > 0 && (
-                               <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs font-semibold text-rose-600 text-wrap leading-tight mt-1 space-y-1">
-                                 <p className="font-semibold">⚠️ MISSING CONVERSION MANDATES:</p>
-                                 <ul className="list-disc list-inside text-xs text-slate-500 normal-case font-bold pl-0.5">
-                                   {missingFields.map((f, vi) => <li key={vi}>{f}</li>)}
-                                 </ul>
-                               </div>
-                             )}
-
-                             <Button
-                               onClick={() => {
-                                 if (isConversionRestricted) {
-                                   alert("Your simulated role does not have authorization to bypass conversion blockages on this pipeline stage.");
-                                   return;
-                                 }
-                                 if (isOwnerRestricted) {
-                                   alert(`Sales representative conversion access denied: This record is assigned to ${lead.ownerName}.`);
-                                   return;
-                                 }
-                                 setShowConversionModal(true);
-                               }}
-                               disabled={isConversionRestricted || isOwnerRestricted}
-                               variant="primary"
-                               className="w-full text-sm font-semibold cursor-pointer py-3"
-                             >
-                               {conversionMapping?.buttonLabel || 'Convert Record ⚡'}
-                             </Button>
-                          </div>
-                        )}
-                     </div>
-                  </SectionCard>
              </div>
 
          </div>
