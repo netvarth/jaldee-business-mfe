@@ -62,7 +62,7 @@ export default function Announcements() {
   };
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 32, width: "100%" }}>
         <PageHeader
           title="StaffSpace"
