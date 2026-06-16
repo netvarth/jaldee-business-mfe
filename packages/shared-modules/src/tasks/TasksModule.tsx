@@ -177,7 +177,7 @@ function TasksWorkspace() {
           title="Tasks"
           actions={
             view === "overview" ? (
-              <Button type="button" variant="primary" onClick={() => setCreateTaskOpen(true)} id="btnCreateTask_SM_Tasks">
+              <Button type="button" variant="primary" onClick={() => setCreateTaskOpen(true)} id="btnCreateTask_SM_Tasks" data-testid="btnCreateTask_SM_Tasks">
                 Create Task
               </Button>
             ) : undefined
@@ -287,10 +287,10 @@ function TaskDetailPage() {
         onNavigate={goBack}
         actions={
           <>
-            <Button type="button" variant="outline" onClick={() => setTaskDialog({ mode: "edit", task })} id="btnEditTask_SM_Detail">
+            <Button type="button" variant="outline" onClick={() => setTaskDialog({ mode: "edit", task })} id="btnEditTask_SM_Detail" data-testid="btnEditTask_SM_Detail">
               Edit
             </Button>
-            <Button type="button" variant="danger" disabled={deleteTask.isPending} onClick={() => removeTask(task)} id="btnDeleteTask_SM_Detail">
+            <Button type="button" variant="danger" disabled={deleteTask.isPending} onClick={() => removeTask(task)} id="btnDeleteTask_SM_Detail" data-testid="btnDeleteTask_SM_Detail">
               Delete
             </Button>
           </>
@@ -351,7 +351,7 @@ function TasksBoardDashboardView() {
         title={`Hey there, ${userName}`}
         subtitle="Welcome back, we're happy to have you here."
         actions={
-          <Button type="button" variant="primary" onClick={() => setTaskDialog({ mode: "create" })} id="btnCreateTask_TB_DB">
+          <Button type="button" variant="primary" onClick={() => setTaskDialog({ mode: "create" })} id="btnCreateTask_TB_DB" data-testid="btnCreateTask_TB_DB">
             Create Task
           </Button>
         }
@@ -377,6 +377,8 @@ function TasksBoardDashboardView() {
                   variant={dashboardView === "status" ? "primary" : "ghost"}
                   onClick={() => setDashboardView("status")}
                   id="btnTaskStatusView_TB_DB"
+                  data-testid="btnTaskStatusView_TB_DB"
+                  data-active={dashboardView === "status" ? "true" : "false"}
                 >
                   Status
                 </Button>
@@ -386,6 +388,8 @@ function TasksBoardDashboardView() {
                   variant={dashboardView === "category" ? "primary" : "ghost"}
                   onClick={() => setDashboardView("category")}
                   id="btnTaskCategoryView_TB_DB"
+                  data-testid="btnTaskCategoryView_TB_DB"
+                  data-active={dashboardView === "category" ? "true" : "false"}
                 >
                   Category
                 </Button>
@@ -404,6 +408,7 @@ function TasksBoardDashboardView() {
                     className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-300 hover:shadow"
                     onClick={() => setSelectedBucket(bucket)}
                     id={`divSelectCard${index}_TB_DB`}
+                    data-testid={`task-board-bucket-${dashboardView}-${bucket.id}`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: TASK_BUCKET_COLORS[index % TASK_BUCKET_COLORS.length] }} />
@@ -522,7 +527,7 @@ function TaskBoardBucketList({
       <div className="border-b border-slate-200 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onBack} id="icoGoBack_TB_TL">
+            <Button type="button" variant="ghost" size="sm" onClick={onBack} id="icoGoBack_TB_TL" data-testid="icoGoBack_TB_TL">
               Back
             </Button>
             <div className="text-lg font-semibold text-slate-900">
@@ -540,6 +545,7 @@ function TaskBoardBucketList({
                 })
               }
               id="divCreateTask_TB_TL"
+              data-testid="divCreateTask_TB_TL"
             >
               Add Task
             </Button>
@@ -616,33 +622,33 @@ function TaskBoardCard({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <article className="flex min-h-[260px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <article data-testid={`task-board-card-${task.taskUid}`} className="flex min-h-[260px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <Badge dot variant={getPriorityVariant(task.priority?.name)}>{task.priority?.name || "Normal"}</Badge>
         <div className="relative">
-          <Button type="button" variant="ghost" size="sm" onClick={() => setMenuOpen((value) => !value)} aria-label="Task actions">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setMenuOpen((value) => !value)} aria-label="Task actions" data-testid={`task-board-card-${task.taskUid}-actions`} data-state={menuOpen ? "open" : "closed"}>
             More
           </Button>
           {menuOpen ? (
-            <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
-              <TaskMenuButton label="View Details" onClick={() => { setMenuOpen(false); onView(); }} />
+            <div data-testid={`task-board-card-${task.taskUid}-actions-menu`} data-state="open" className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+              <TaskMenuButton testId={`task-board-card-${task.taskUid}-view-details`} label="View Details" onClick={() => { setMenuOpen(false); onView(); }} />
               {!task.assignee?.id ? (
-                <TaskMenuButton label="Add Assignee" onClick={() => { setMenuOpen(false); onAction("addAssignee"); }} />
+                <TaskMenuButton testId={`task-board-card-${task.taskUid}-add-assignee`} label="Add Assignee" onClick={() => { setMenuOpen(false); onAction("addAssignee"); }} />
               ) : (
                 <>
-                  <TaskMenuButton label="Change Assignee" onClick={() => { setMenuOpen(false); onAction("changeAssignee"); }} />
-                  <TaskMenuButton label="Remove Assignee" onClick={() => { setMenuOpen(false); onRemoveAssignee(); }} />
+                  <TaskMenuButton testId={`task-board-card-${task.taskUid}-change-assignee`} label="Change Assignee" onClick={() => { setMenuOpen(false); onAction("changeAssignee"); }} />
+                  <TaskMenuButton testId={`task-board-card-${task.taskUid}-remove-assignee`} label="Remove Assignee" onClick={() => { setMenuOpen(false); onRemoveAssignee(); }} />
                 </>
               )}
-              <TaskMenuButton label="Change Status" onClick={() => { setMenuOpen(false); onAction("changeStatus"); }} />
-              <TaskMenuButton label={task.dueDate ? "Change Due Date" : "Add Due Date"} onClick={() => { setMenuOpen(false); onAction(task.dueDate ? "changeDuedate" : "addDuedate"); }} />
+              <TaskMenuButton testId={`task-board-card-${task.taskUid}-change-status`} label="Change Status" onClick={() => { setMenuOpen(false); onAction("changeStatus"); }} />
+              <TaskMenuButton testId={`task-board-card-${task.taskUid}-${task.dueDate ? "change-due-date" : "add-due-date"}`} label={task.dueDate ? "Change Due Date" : "Add Due Date"} onClick={() => { setMenuOpen(false); onAction(task.dueDate ? "changeDuedate" : "addDuedate"); }} />
             </div>
           ) : null}
         </div>
       </div>
 
       <div className="mt-2 text-sm text-slate-500">{task.location?.name || task.location?.place || "-"}</div>
-      <button type="button" className="mt-2 border-0 bg-transparent p-0 text-left font-semibold text-slate-900 hover:text-indigo-700" onClick={onView}>
+      <button type="button" data-testid={`task-board-card-${task.taskUid}-title`} className="mt-2 border-0 bg-transparent p-0 text-left font-semibold text-slate-900 hover:text-indigo-700" onClick={onView}>
         {task.title || "Untitled task"}
       </button>
       {task.description ? <p className="mt-2 line-clamp-3 text-sm text-slate-600">{task.description}</p> : null}
@@ -655,7 +661,7 @@ function TaskBoardCard({
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4 text-sm text-slate-500">
         <span>{formatDate(task.dueDate)}</span>
-        <button type="button" className="border-0 bg-transparent p-0 text-sm text-indigo-700 hover:text-indigo-900" onClick={onAttachment} id="divViewAttach_TB_TL">
+        <button type="button" data-testid={`task-board-card-${task.taskUid}-attachments`} className="border-0 bg-transparent p-0 text-sm text-indigo-700 hover:text-indigo-900" onClick={onAttachment} id="divViewAttach_TB_TL">
           Attachments ({task.taskAttachments?.length ?? 0})
         </button>
         {task.assignee?.name ? <span>{task.assignee.name}</span> : null}
@@ -664,9 +670,9 @@ function TaskBoardCard({
   );
 }
 
-function TaskMenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+function TaskMenuButton({ label, onClick, testId }: { label: string; onClick: () => void; testId: string }) {
   return (
-    <button type="button" className="block w-full border-0 bg-white px-3 py-2 text-left text-slate-700 hover:bg-slate-50" onClick={onClick}>
+    <button type="button" data-testid={testId} className="block w-full border-0 bg-white px-3 py-2 text-left text-slate-700 hover:bg-slate-50" onClick={onClick}>
       {label}
     </button>
   );
@@ -713,6 +719,8 @@ function TaskAdvancedFiltersPanel({
           )}
           onClick={() => setOpen((value) => !value)}
           id="btnTaskFilters_TB_TL"
+          data-testid="btnTaskFilters_TB_TL"
+          data-state={open ? "open" : "closed"}
         >
           <FilterIcon />
           <span>Filter</span>
@@ -725,8 +733,8 @@ function TaskAdvancedFiltersPanel({
       </div>
       {open ? (
         <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 md:grid-cols-3">
-          <Input label="Task Name" id="txtTaskName_TB_Filter" value={draftFilters.query || ""} onChange={(event) => setValue("query", event.target.value)} />
-          <Input label="Due Date" id="txtTaskDueFrom_TB_Filter" type="date" value={draftFilters.fromDueDate || ""} onChange={(event) => setValue("fromDueDate", event.target.value)} />
+          <Input label="Task Name" id="txtTaskName_TB_Filter" data-testid="txtTaskName_TB_Filter" value={draftFilters.query || ""} onChange={(event) => setValue("query", event.target.value)} />
+          <Input label="Due Date" id="txtTaskDueFrom_TB_Filter" data-testid="txtTaskDueFrom_TB_Filter" type="date" value={draftFilters.fromDueDate || ""} onChange={(event) => setValue("fromDueDate", event.target.value)} />
           <Select label="Priority" testId="selectTaskPriority_TB_Filter" value={draftFilters.priorityId || ""} onChange={(event) => setValue("priorityId", event.target.value)} options={[{ value: "", label: "All priorities" }, ...toOptions(lookups.priorities)]} />
           <Select label="Assignee" testId="selectTaskAssignee_TB_Filter" value={draftFilters.assigneeId || ""} onChange={(event) => setValue("assigneeId", event.target.value)} options={[{ value: "", label: "All assignees" }, ...userOptions(lookups.users)]} />
           {dashboardView === "category" ? (
@@ -735,7 +743,7 @@ function TaskAdvancedFiltersPanel({
             <Select label="Category" testId="selectTaskCategory_TB_Filter" value={draftFilters.categoryId || ""} onChange={(event) => setValue("categoryId", event.target.value)} options={[{ value: "", label: "All categories" }, ...toOptions(lookups.categories)]} />
           )}
           <div className="flex items-end justify-end gap-2 md:col-span-3">
-            <Button type="button" variant="outline" onClick={resetFilters} id="btnResetAdvancedTaskFilters_TB_Filter">
+            <Button type="button" variant="outline" onClick={resetFilters} id="btnResetAdvancedTaskFilters_TB_Filter" data-testid="btnResetAdvancedTaskFilters_TB_Filter">
               Reset
             </Button>
             <Button
@@ -746,6 +754,7 @@ function TaskAdvancedFiltersPanel({
                 setOpen(false);
               }}
               id="btnApplyAdvancedTaskFilters_TB_Filter"
+              data-testid="btnApplyAdvancedTaskFilters_TB_Filter"
             >
               Apply
             </Button>
@@ -842,6 +851,7 @@ function TaskActionDialog({
           <Input
             label="Due Date"
             id="txtTaskActionDueDate_TB"
+            data-testid="txtTaskActionDueDate_TB"
             type="date"
             value={values.dueDate}
             onChange={(event) => setValues((prev) => ({ ...prev, dueDate: event.target.value }))}
@@ -849,10 +859,10 @@ function TaskActionDialog({
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} data-testid="btnCancelTaskAction_TB">
             Cancel
           </Button>
-          <Button type="button" variant="primary" disabled={!valid} loading={loading} onClick={() => onSubmit(values)} id="btnSaveTaskAction_TB">
+          <Button type="button" variant="primary" disabled={!valid} loading={loading} onClick={() => onSubmit(values)} id="btnSaveTaskAction_TB" data-testid="btnSaveTaskAction_TB" data-state={loading ? "loading" : valid ? "ready" : "disabled"}>
             Save
           </Button>
         </DialogFooter>

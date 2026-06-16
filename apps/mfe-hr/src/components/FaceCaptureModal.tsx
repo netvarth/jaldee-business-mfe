@@ -56,19 +56,19 @@ export default function FaceCaptureModal({
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface-bg)", borderRadius: 20, width: "100%", maxWidth: 460, boxShadow: "var(--shadow-md)", overflow: "hidden" }}>
+    <div id="hr-face-capture-overlay" data-testid="hr-face-capture-overlay" data-state="open" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div id="hr-face-capture-modal" data-testid="hr-face-capture-modal" data-state="open" onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface-bg)", borderRadius: 20, width: "100%", maxWidth: 460, boxShadow: "var(--shadow-md)", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid var(--border-color)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--primary-light)", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center" }}><ScanFace size={18} /></div>
             <div><div style={{ fontSize: 16, fontWeight: 800, color: "var(--dark-text)" }}>{title}</div>{subtitle && <div style={{ fontSize: 12, color: "var(--light-text)" }}>{subtitle}</div>}</div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+          <button id="hr-face-capture-close" data-testid="hr-face-capture-close" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
         </div>
 
         <div style={{ padding: 22 }}>
           <div style={{ position: "relative", width: "100%", aspectRatio: "4 / 3", background: "#0f172a", borderRadius: 14, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
+            <video id="hr-face-capture-video" data-testid="hr-face-capture-video" ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
             {status === "loading" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "white", background: "rgba(15,23,42,0.6)", fontSize: 13 }}><Loader2 size={18} className="animate-spin" /> Loading camera & models…</div>}
             {status === "capturing" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "white", background: "rgba(15,23,42,0.45)", fontSize: 13 }}><Loader2 size={18} className="animate-spin" /> Scanning face…</div>}
           </div>
@@ -76,8 +76,8 @@ export default function FaceCaptureModal({
           {error && <div style={{ marginTop: 14, padding: "10px 14px", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", borderRadius: 10, fontSize: 13 }}>{error}</div>}
 
           <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
-            <button onClick={onClose} style={{ flex: 1, height: 46, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, cursor: "pointer" }}>Cancel</button>
-            <button onClick={capture} disabled={status !== "ready" || busy} style={{ flex: 2, height: 46, borderRadius: 12, border: "none", background: "var(--primary-color)", color: "white", fontWeight: 800, cursor: status === "ready" && !busy ? "pointer" : "not-allowed", opacity: status === "ready" && !busy ? 1 : 0.6, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <button id="hr-face-capture-cancel" data-testid="hr-face-capture-cancel" onClick={onClose} style={{ flex: 1, height: 46, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, cursor: "pointer" }}>Cancel</button>
+            <button id="hr-face-capture-submit" data-testid="hr-face-capture-submit" onClick={capture} disabled={status !== "ready" || busy} style={{ flex: 2, height: 46, borderRadius: 12, border: "none", background: "var(--primary-color)", color: "white", fontWeight: 800, cursor: status === "ready" && !busy ? "pointer" : "not-allowed", opacity: status === "ready" && !busy ? 1 : 0.6, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               {busy || status === "capturing" ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />} Capture
             </button>
           </div>

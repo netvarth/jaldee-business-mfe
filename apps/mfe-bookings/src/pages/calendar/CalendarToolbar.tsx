@@ -22,13 +22,13 @@ export default function CalendarToolbar({
   isFilterActive, onToggleFilter
 }: CalendarToolbarProps) {
   return (
-    <div className="toolbar border-b border-gray-200 bg-white px-4 py-2 flex items-center justify-between" style={{ height: '60px' }}>
+    <div data-testid="bookings-calendar-toolbar-secondary" className="toolbar border-b border-gray-200 bg-white px-4 py-2 flex items-center justify-between" style={{ height: '60px' }}>
       <div className="toolbar-left flex items-center gap-4">
         <div className="flex items-center gap-1">
-          <button className="p-1.5 text-blue-600 bg-blue-50 rounded">
+          <button id="bookings-toolbar-grid-view" data-testid="bookings-toolbar-grid-view" data-active="true" className="p-1.5 text-blue-600 bg-blue-50 rounded">
             <Grid size={18} />
           </button>
-          <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded hidden">
+          <button id="bookings-toolbar-list-view" data-testid="bookings-toolbar-list-view" data-active="false" className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded hidden">
             <List size={18} />
           </button>
         </div>
@@ -36,6 +36,9 @@ export default function CalendarToolbar({
         <div className="view-pill-group flex items-center bg-gray-100 rounded-lg p-1">
           {(['day', 'week', 'month'] as const).map(mode => (
             <button 
+              id={`bookings-toolbar-view-${mode}`}
+              data-testid={`bookings-toolbar-view-${mode}`}
+              data-active={viewMode === mode ? "true" : "false"}
               key={mode}
               onClick={() => setViewMode(mode)}
               className={`px-3 py-1 text-sm font-medium rounded-md capitalize transition-colors ${
@@ -50,14 +53,14 @@ export default function CalendarToolbar({
         </div>
 
         <div className="date-navigator flex items-center gap-2">
-          <button onClick={onPrevDate} className="p-1.5 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100">
+          <button id="bookings-toolbar-prev-date" data-testid="bookings-toolbar-prev-date" onClick={onPrevDate} className="p-1.5 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100">
             <ChevronLeft size={18} />
           </button>
-          <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700">
+          <button id="bookings-toolbar-current-date" data-testid="bookings-toolbar-current-date" className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700">
             <Calendar size={16} className="text-gray-400" />
             <span>{currentDateDisplay}</span>
           </button>
-          <button onClick={onNextDate} className="p-1.5 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100">
+          <button id="bookings-toolbar-next-date" data-testid="bookings-toolbar-next-date" onClick={onNextDate} className="p-1.5 text-gray-500 hover:text-gray-800 rounded-full hover:bg-gray-100">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -66,6 +69,8 @@ export default function CalendarToolbar({
       <div className="toolbar-right flex items-center gap-3">
         <div className="group-select-wrapper">
           <select 
+            id="bookings-toolbar-view-by"
+            data-testid="bookings-toolbar-view-by"
             value={viewBy} 
             onChange={e => setViewBy(e.target.value as any)}
             className="custom-select bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
@@ -77,6 +82,9 @@ export default function CalendarToolbar({
         </div>
 
         <button 
+          id="bookings-toolbar-filter-toggle"
+          data-testid="bookings-toolbar-filter-toggle"
+          data-active={isFilterActive ? "true" : "false"}
           onClick={onToggleFilter}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
             isFilterActive 
@@ -93,12 +101,12 @@ export default function CalendarToolbar({
           )}
         </button>
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <button id="bookings-toolbar-appointment" data-testid="bookings-toolbar-appointment" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
           <Plus size={16} />
           <span>Appointment</span>
         </button>
 
-        <button className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors">
+        <button id="bookings-toolbar-create-menu" data-testid="bookings-toolbar-create-menu" className="flex items-center gap-2 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors">
           <span>Create</span>
           <ChevronDown size={14} />
         </button>

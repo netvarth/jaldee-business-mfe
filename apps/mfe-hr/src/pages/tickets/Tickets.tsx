@@ -97,12 +97,12 @@ export default function Tickets() {
   const liveSelected = selected ? tickets.data.find((t) => t.id === selected.id) ?? selected : null;
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-tickets-page" data-testid="hr-tickets-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <PageHeader
           title="HR Helpdesk"
           subtitle="Raise and track your HR or admin-related issues."
-          actions={<button onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Raise New Ticket</button>}
+          actions={<button id="hr-tickets-create-button" data-testid="hr-tickets-create-button" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Raise New Ticket</button>}
         />
 
         {/* STAT CARDS */}
@@ -117,9 +117,9 @@ export default function Tickets() {
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ position: "relative", flex: 1 }}>
             <Search size={20} style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-            <input placeholder="Search tickets by ID or subject…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
+            <input id="hr-tickets-search" data-testid="hr-tickets-search" placeholder="Search tickets by ID or subject…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
           </div>
-          <button style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
+          <button id="hr-tickets-filter-button" data-testid="hr-tickets-filter-button" style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
         </div>
 
 
@@ -133,7 +133,7 @@ export default function Tickets() {
           ) : items.map((t) => {
             const sb = statusBadge(t.status);
             return (
-              <div key={t.id} onClick={() => { setMsg(null); setReplyText(""); setSelected(t); }} style={{ background: "var(--surface-bg)", borderRadius: 36, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.05)", display: "flex", cursor: "pointer" }}>
+              <div key={t.id} data-testid={`hr-ticket-card-${t.id}`} onClick={() => { setMsg(null); setReplyText(""); setSelected(t); }} style={{ background: "var(--surface-bg)", borderRadius: 36, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.05)", display: "flex", cursor: "pointer" }}>
                 <div style={{ width: 8, background: statusBar(t.status), flexShrink: 0 }} />
                 <div style={{ flex: 1, padding: "30px 36px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
                   <div style={{ flex: 1, minWidth: 260 }}>
@@ -159,31 +159,31 @@ export default function Tickets() {
 
       {/* RAISE MODAL */}
       {addOpen && (
-        <div style={overlay} onClick={() => setAddOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 820 }}>
+        <div id="hr-tickets-create-modal-overlay" data-testid="hr-tickets-create-modal-overlay" data-state={addOpen ? "open" : "closed"} style={overlay} onClick={() => setAddOpen(false)}>
+          <div id="hr-tickets-create-modal" data-testid="hr-tickets-create-modal" data-state={addOpen ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 820 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Raise a Ticket</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Provide details about your issue so we can help you better.</p></div>
-              <button onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
+              <button id="hr-tickets-create-close" data-testid="hr-tickets-create-close" onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <div><label style={lbl}>Claimant Employee</label><select value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })} style={{ ...field, marginTop: 6 }}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-                <div><label style={lbl}>Subject</label><input placeholder="Brief summary of the issue…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
+                <div><label style={lbl}>Claimant Employee</label><select id="hr-tickets-employee" data-testid="hr-tickets-employee" value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })} style={{ ...field, marginTop: 6 }}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+                <div><label style={lbl}>Subject</label><input id="hr-tickets-subject" data-testid="hr-tickets-subject" placeholder="Brief summary of the issue…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div><label style={lbl}>Category</label><select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={{ ...field, marginTop: 6 }}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-                  <div><label style={lbl}>Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={{ ...field, marginTop: 6 }}><option>Low</option><option>Medium</option><option>High</option></select></div>
+                  <div><label style={lbl}>Category</label><select id="hr-tickets-category" data-testid="hr-tickets-category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={{ ...field, marginTop: 6 }}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><label style={lbl}>Priority</label><select id="hr-tickets-priority" data-testid="hr-tickets-priority" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={{ ...field, marginTop: 6 }}><option>Low</option><option>Medium</option><option>High</option></select></div>
                 </div>
-                <button type="button" style={{ height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", color: "var(--light-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}><Paperclip size={16} /> Attachment (Optional)</button>
+                <button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" style={{ height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", color: "var(--light-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}><Paperclip size={16} /> Attachment (Optional)</button>
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <label style={lbl}>Description</label>
-                <textarea placeholder="Provide more details about your issue…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+                <textarea id="hr-tickets-description" data-testid="hr-tickets-description" placeholder="Provide more details about your issue…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
               </div>
             </div>
             {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-              <button onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Ticket"}</button>
+              <button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
+              <button id="hr-tickets-submit" data-testid="hr-tickets-submit" onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Ticket"}</button>
             </div>
           </div>
         </div>
@@ -191,8 +191,8 @@ export default function Tickets() {
 
       {/* DETAIL / THREAD MODAL */}
       {liveSelected && (
-        <div style={overlay} onClick={() => setSelected(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 620 }}>
+        <div id="hr-tickets-detail-modal-overlay" data-testid="hr-tickets-detail-modal-overlay" data-state={liveSelected ? "open" : "closed"} style={overlay} onClick={() => setSelected(null)}>
+          <div id="hr-tickets-detail-modal" data-testid="hr-tickets-detail-modal" data-state={liveSelected ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 620 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "22px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -202,7 +202,7 @@ export default function Tickets() {
                 <h3 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.8px", color: "var(--dark-text)", margin: 0 }}>{liveSelected.title}</h3>
                 <p style={{ ...lbl, marginTop: 4 }}>{liveSelected.category} · {empName(liveSelected.employeeUid)}</p>
               </div>
-              <button onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
+              <button id="hr-tickets-detail-close" data-testid="hr-tickets-detail-close" onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, maxHeight: "62vh", overflowY: "auto" }}>
               <div style={{ background: "rgba(100,116,139,0.04)", border: "1px solid var(--border-color)", borderRadius: 16, padding: 16 }}>
@@ -214,21 +214,24 @@ export default function Tickets() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {!liveSelected.responses?.length ? (
                     <p style={{ fontSize: 13, color: "var(--light-text)", fontStyle: "italic", textAlign: "center", padding: "16px 0" }}>No replies yet. Start the conversation below.</p>
-                  ) : liveSelected.responses.map((r, i) => (
-                    <div key={i} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
+                  ) : liveSelected.responses.map((r) => {
+                    const replyKey = `${r.respondedAt || r.respondedBy || "reply"}-${(r.message || "").slice(0, 24)}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "reply";
+                    return (
+                    <div key={replyKey} data-testid={`hr-ticket-reply-${liveSelected.id}-${replyKey}`} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                         <span style={{ ...lbl, fontSize: 9, color: TEAL }}>{r.respondedBy || "Support Desk"}</span>
                         <span style={{ ...lbl, fontSize: 8 }}>{r.respondedAt ? new Date(r.respondedAt).toLocaleString() : ""}</span>
                       </div>
                       <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dark-text)", margin: 0 }}>{r.message}</p>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
             <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", display: "flex", gap: 10 }}>
-              <input placeholder="Write a reply…" value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} style={{ ...field, height: 46, borderRadius: 14 }} />
-              <button onClick={sendReply} disabled={replying || !replyText.trim()} style={{ height: 46, padding: "0 20px", borderRadius: 14, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, opacity: replyText.trim() ? 1 : 0.6 }}>{replying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send</button>
+              <input id="hr-tickets-reply-input" data-testid="hr-tickets-reply-input" placeholder="Write a reply…" value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} style={{ ...field, height: 46, borderRadius: 14 }} />
+              <button id="hr-tickets-reply-send" data-testid="hr-tickets-reply-send" onClick={sendReply} disabled={replying || !replyText.trim()} style={{ height: 46, padding: "0 20px", borderRadius: 14, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, opacity: replyText.trim() ? 1 : 0.6 }}>{replying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send</button>
             </div>
             {msg && <div style={{ margin: "0 24px 16px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
           </div>

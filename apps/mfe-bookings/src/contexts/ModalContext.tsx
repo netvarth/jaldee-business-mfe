@@ -27,8 +27,20 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     <ModalContext.Provider value={{ isOpen, modalContent, openModal, closeModal }}>
       {children}
       {isOpen && (
-        <div className="bk-modal-backdrop" onClick={closeModal}>
-          <div className="bk-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div
+          id="bookings-global-modal-backdrop"
+          data-testid="bookings-global-modal-backdrop"
+          data-state={isOpen ? "open" : "closed"}
+          className="bk-modal-backdrop"
+          onClick={closeModal}
+        >
+          <div
+            id="bookings-global-modal-content"
+            data-testid="bookings-global-modal-content"
+            data-state={isOpen ? "open" : "closed"}
+            className="bk-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
             {modalContent}
           </div>
         </div>

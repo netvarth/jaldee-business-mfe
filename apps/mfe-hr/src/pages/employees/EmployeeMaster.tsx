@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@jaldee/design-system";
+import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
 import { exportToCSV } from "../../lib/utils";
@@ -13,6 +14,7 @@ function initials(name?: string): string {
 
 export default function EmployeeMaster() {
   const navigate = useNavigate();
+  const { eventBus } = useMFEProps();
   const api = useHrApi();
   const { data: employees, loading, error, remove } = useEmployees();
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,6 +51,14 @@ export default function EmployeeMaster() {
     );
   };
 
+  const emitToast = (intent: "success" | "error" | "warning", message: string) => {
+    eventBus?.emit(SHELL_TOAST_EVENT, {
+      intent,
+      title: "Employee Master",
+      message,
+    });
+  };
+
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -61,8 +71,7 @@ export default function EmployeeMaster() {
         const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
         
         if (lines.length <= 1) {
-          console.log("Raw CSV text:", text);
-          window.alert(`Debug: File has ${lines.length} lines, total size ${text.length} chars. Text preview: ${text.substring(0, 100)}...`);
+          emitToast("error", "CSV import failed. The file must include a header row and at least one employee row.");
           setImporting(false);
           return;
         }
@@ -114,17 +123,19 @@ export default function EmployeeMaster() {
           } catch (e) {
             failCount++;
             if (!firstError) firstError = e instanceof Error ? e.message : String(e);
-            console.error("Failed to import employee:", name, payload, e);
           }
         }
 
-        window.alert(
-          `Import complete!\nImported: ${successCount}\nFailed: ${failCount}` +
-          (firstError ? `\n\nFirst error:\n${firstError}` : "")
-        );
+        if (successCount > 0 && failCount === 0) {
+          emitToast("success", `Imported ${successCount} employee records.`);
+        } else if (successCount > 0) {
+          emitToast("warning", `Imported ${successCount} employees. ${failCount} rows failed.${firstError ? ` First error: ${firstError}` : ""}`);
+        } else {
+          emitToast("error", firstError || "Employee import failed.");
+        }
         if (successCount > 0) window.location.reload();
       } catch (err) {
-        window.alert("Error parsing CSV file.");
+        emitToast("error", err instanceof Error ? err.message : "Error parsing CSV file.");
       } finally {
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -138,7 +149,7 @@ export default function EmployeeMaster() {
     try {
       await remove(e.id);
     } catch {
-      window.alert("Could not delete employee. Please try again.");
+      emitToast("error", "Could not delete employee. Please try again.");
     }
   };
 
@@ -148,22 +159,24 @@ export default function EmployeeMaster() {
       className="page-section active"
       style={{ backgroundColor: "var(--app-bg)", padding: 0, flexDirection: "column", display: "flex", minWidth: 0 }}
     >
-      <input type="file" accept=".csv" ref={fileInputRef} style={{ display: "none" }} onChange={handleImport} />
+      <input id="hr-employees-import-file" data-testid="hr-employees-import-file" type="file" accept=".csv" ref={fileInputRef} style={{ display: "none" }} onChange={handleImport} />
       <PageHeader
         title="Employee Master"
         subtitle="Manage employee profiles, departments, roles, and workforce status."
       />
       <div className="customers-header">
         <div className="customers-tabs">
-          <div className="customer-tab active">Employees ({employees.length})</div>
-          <div className="customer-tab">Contractors</div>
+          <div className="customer-tab active" id="hr-employees-tab" data-testid="hr-employees-tab" data-active="true">Employees ({employees.length})</div>
+          <div className="customer-tab" id="hr-contractors-tab" data-testid="hr-contractors-tab" data-active="false">Contractors</div>
         </div>
       </div>
 
-      <div className="customers-toolbar">
+      <div className="customers-toolbar" data-testid="hr-employees-toolbar">
         <div style={{ display: "flex", gap: 12, flex: 1 }}>
           <div className="c-search-bar">
             <select
+              id="hr-employees-department-filter"
+              data-testid="hr-employees-department-filter"
               className="c-search-select"
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
@@ -172,6 +185,8 @@ export default function EmployeeMaster() {
               {departments.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <input
+              id="hr-employees-search"
+              data-testid="hr-employees-search"
               type="text"
               placeholder="Enter name, email or ID"
               className="c-search-input"
@@ -180,12 +195,14 @@ export default function EmployeeMaster() {
             />
             <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
           </div>
-          <div className="c-filter-btn">
+          <div className="c-filter-btn" id="hr-employees-filter-indicator" data-testid="hr-employees-filter-indicator">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="var(--primary-color)" stroke="none"><path d="M3 4c0-1.1.9-2 2-2h14a2 2 0 0 1 2 2v2.5c0 .6-.2 1.1-.6 1.5L14 14.2V21c0 .8-.5 1.4-1.2 1.8l-2 1c-1 .5-2.2-.2-2.2-1.3v-8.3L3.6 8A2.2 2.2 0 0 1 3 6.5V4z" /></svg>
           </div>
         </div>
         <div style={{ display: "flex", gap: 12 }}>
           <button
+            id="hr-employees-import-button"
+            data-testid="hr-employees-import-button"
             className="btn-grid-action"
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "8px", fontWeight: 600 }}
             onClick={() => fileInputRef.current?.click()}
@@ -193,6 +210,8 @@ export default function EmployeeMaster() {
             {importing ? "Importing..." : "Import CSV"}
           </button>
           <button
+            id="hr-employees-export-button"
+            data-testid="hr-employees-export-button"
             className="btn-grid-action"
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "8px", fontWeight: 600 }}
             onClick={handleExport}
@@ -200,6 +219,8 @@ export default function EmployeeMaster() {
             Export CSV
           </button>
           <button
+            id="hr-employees-create-button"
+            data-testid="hr-employees-create-button"
             className="btn btn-primary"
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "var(--primary-color)", color: "white", cursor: "pointer", fontWeight: 600 }}
             onClick={() => navigate("/employees/new")}
@@ -210,14 +231,14 @@ export default function EmployeeMaster() {
         </div>
       </div>
 
-      <div className="customers-table-container">
+      <div className="customers-table-container" data-testid="hr-employees-table-container">
         {error ? (
           <div style={{ textAlign: "center", padding: "32px", color: "var(--danger-color)" }}>Could not load employees.</div>
         ) : (
-          <table className="data-grid">
+          <table className="data-grid" data-testid="hr-employees-table">
             <thead>
               <tr>
-                <th style={{ width: 48, textAlign: "center" }}><input type="checkbox" /></th>
+                <th style={{ width: 48, textAlign: "center" }}><input id="hr-employees-select-all" data-testid="hr-employees-select-all" type="checkbox" /></th>
                 <th>Employee &amp; ID</th>
                 <th>Department / Designation</th>
                 <th>Status</th>
@@ -232,8 +253,8 @@ export default function EmployeeMaster() {
                 <tr><td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--light-text)" }}>No matching employees.</td></tr>
               ) : (
                 filtered.map((e) => (
-                  <tr key={e.id} onClick={() => navigate(`/employees/${e.id}`)} style={{ cursor: "pointer" }}>
-                    <td style={{ textAlign: "center" }} onClick={(ev) => ev.stopPropagation()}><input type="checkbox" /></td>
+                  <tr key={e.id} data-testid={`hr-employee-row-${e.id}`} onClick={() => navigate(`/employees/${e.id}`)} style={{ cursor: "pointer" }}>
+                    <td style={{ textAlign: "center" }} onClick={(ev) => ev.stopPropagation()}><input id={`hr-employee-select-${e.id}`} data-testid={`hr-employee-select-${e.id}`} type="checkbox" /></td>
                     <td>
                       <div className="customer-name-cell">
                         {e.photoUrl ? (
@@ -259,12 +280,12 @@ export default function EmployeeMaster() {
                     <td>{e.employmentType || "-"}</td>
                     <td onClick={(ev) => ev.stopPropagation()}>
                       <div className="c-actions">
-                        <button className="btn-grid-action" onClick={() => navigate(`/employees/${e.id}`)}>View</button>
-                        <button className="btn-grid-action" onClick={() => navigate(`/employees/${e.id}?edit=true`)}>
+                        <button className="btn-grid-action" id={`hr-employee-view-${e.id}`} data-testid={`hr-employee-view-${e.id}`} onClick={() => navigate(`/employees/${e.id}`)}>View</button>
+                        <button className="btn-grid-action" id={`hr-employee-edit-${e.id}`} data-testid={`hr-employee-edit-${e.id}`} onClick={() => navigate(`/employees/${e.id}?edit=true`)}>
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                           Edit
                         </button>
-                        <button className="btn-grid-action" onClick={() => handleDelete(e)} style={{ color: "var(--danger-color)" }}>
+                        <button className="btn-grid-action" id={`hr-employee-delete-${e.id}`} data-testid={`hr-employee-delete-${e.id}`} onClick={() => handleDelete(e)} style={{ color: "var(--danger-color)" }}>
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                         </button>
                       </div>

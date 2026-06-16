@@ -232,6 +232,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                           <PopoverSection className="space-y-1">
                             <button
                               type="button"
+                              data-testid={`jaldee-leads-pipeline-${p.uid}-set-default-menu-item`}
                               disabled={p.isDefault || isInactive}
                               onClick={() => requestPipelineAction('set-default', p)}
                               className={cn(
@@ -250,6 +251,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                             {isInactive && (
                               <button
                                 type="button"
+                                data-testid={`jaldee-leads-pipeline-${p.uid}-activate-menu-item`}
                                 onClick={() => requestPipelineAction('activate', p)}
                                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
                               >
@@ -260,6 +262,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                             {!isInactive && (
                               <button
                                 type="button"
+                                data-testid={`jaldee-leads-pipeline-${p.uid}-deactivate-menu-item`}
                                 onClick={() => requestPipelineAction('deactivate', p)}
                                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-amber-600 transition-colors hover:bg-amber-50"
                               >
@@ -269,6 +272,7 @@ export default function PipelinesScreen({ pipelines, setPipelines, leads, initia
                             )}
                             <button
                               type="button"
+                              data-testid={`jaldee-leads-pipeline-${p.uid}-delete-menu-item`}
                               onClick={() => requestPipelineAction('delete', p)}
                               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
                             >

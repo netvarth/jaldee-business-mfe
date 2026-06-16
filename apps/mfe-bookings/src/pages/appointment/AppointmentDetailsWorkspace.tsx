@@ -67,6 +67,11 @@ function initials(name?: string): string {
   return name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
 
+function testToken(value?: string): string {
+  const token = (value || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return token || "item";
+}
+
 export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Props) {
   const { details, timeline, loading, acting, load, act } = useBookingDetails();
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -107,25 +112,25 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const st = details ? STATUS_STYLE[details.status] : null;
 
   return (
-    <div className="w-full lg:w-[460px] bg-white lg:border-l border-slate-200 flex flex-col h-full shadow-2xl relative z-40">
-      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 bg-slate-50 shrink-0">
+    <div data-testid={`bookings-appointment-details-${bookingId}`} data-state={loading || !details ? "loading" : details.status} className="w-full lg:w-[460px] bg-white lg:border-l border-slate-200 flex flex-col h-full shadow-2xl relative z-40">
+      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 bg-slate-50 shrink-0" data-testid="bookings-appointment-details-header">
         <div>
           <h3 className="font-bold text-lg text-slate-800 leading-none">Booking Details</h3>
           {details?.encId && <p className="text-xs text-slate-400 font-mono mt-1">{details.encId}</p>}
         </div>
-        <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full transition-colors">
+        <button id="bookings-appointment-details-close" data-testid="bookings-appointment-details-close" onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full transition-colors" aria-label="Close booking details">
           <X size={20} />
         </button>
       </div>
 
       {loading || !details || !st ? (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center" data-testid="bookings-appointment-details-loading" data-state="loading">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Status */}
-          <div className={cn("border rounded-xl p-4 flex items-center justify-between", st.bg)}>
+          <div data-testid={`bookings-appointment-details-${bookingId}-status`} data-state={details.status} className={cn("border rounded-xl p-4 flex items-center justify-between", st.bg)}>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest mb-1 opacity-70">Status</p>
               <p className={cn("text-lg font-black", st.text)}>{st.label}</p>
@@ -187,8 +192,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
               <div>
                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Notes</h4>
                 <div className="space-y-2 text-sm text-slate-600">
-                  {[...(details.consumerNotes ?? []), ...(details.userNotes ?? [])].map((n, i) => (
-                    <p key={i} className="bg-slate-50 border border-slate-100 rounded-lg p-2">{n}</p>
+                  {[...(details.consumerNotes ?? []), ...(details.userNotes ?? [])].map((n) => (
+                    <p key={`${bookingId}-note-${n}`} data-testid={`bookings-appointment-details-${bookingId}-note-${testToken(n).slice(0, 40)}`} className="bg-slate-50 border border-slate-100 rounded-lg p-2">{n}</p>
                   ))}
                 </div>
               </div>
@@ -211,6 +216,9 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   return (
                     <button
                       key={a}
+                      id={`bookings-appointment-details-${bookingId}-action-${a.toLowerCase()}`}
+                      data-testid={`bookings-appointment-details-${bookingId}-action-${a.toLowerCase()}`}
+                      data-state={busy ? "busy" : "idle"}
                       onClick={() => handleAction(a)}
                       disabled={!!acting}
                       className={cn(
@@ -232,9 +240,11 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
 
             {/* Cancel reason inline */}
             {cancelOpen && (
-              <div className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3">
+              <div data-testid={`bookings-appointment-details-${bookingId}-cancel-panel`} data-state="open" className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3">
                 <label className="block text-xs font-bold text-red-700 mb-1">Cancellation reason</label>
                 <textarea
+                  id={`bookings-appointment-details-${bookingId}-cancel-reason`}
+                  data-testid={`bookings-appointment-details-${bookingId}-cancel-reason`}
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   rows={2}
@@ -242,23 +252,23 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   placeholder="Why is this booking being cancelled?"
                 />
                 <div className="flex justify-end gap-2 mt-2">
-                  <button onClick={() => setCancelOpen(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg">Back</button>
-                  <button onClick={submitCancel} className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">Confirm Cancel</button>
+                  <button id={`bookings-appointment-details-${bookingId}-cancel-back`} data-testid={`bookings-appointment-details-${bookingId}-cancel-back`} onClick={() => setCancelOpen(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg">Back</button>
+                  <button id={`bookings-appointment-details-${bookingId}-cancel-confirm`} data-testid={`bookings-appointment-details-${bookingId}-cancel-confirm`} onClick={submitCancel} className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">Confirm Cancel</button>
                 </div>
               </div>
             )}
 
             {/* Reschedule inline */}
             {reschedOpen && (
-              <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-2">
+              <div data-testid={`bookings-appointment-details-${bookingId}-reschedule-panel`} data-state="open" className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-2">
                 <label className="block text-xs font-bold text-blue-700">Reschedule to</label>
                 <div className="flex gap-2">
-                  <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="flex-1 px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                  <input type="time" value={newStart} onChange={(e) => setNewStart(e.target.value)} className="px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  <input id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="flex-1 px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  <input id={`bookings-appointment-details-${bookingId}-reschedule-time`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-time`} type="time" value={newStart} onChange={(e) => setNewStart(e.target.value)} className="px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => setReschedOpen(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg">Back</button>
-                  <button onClick={submitReschedule} disabled={!newDate} className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50">Confirm</button>
+                  <button id={`bookings-appointment-details-${bookingId}-reschedule-back`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-back`} onClick={() => setReschedOpen(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg">Back</button>
+                  <button id={`bookings-appointment-details-${bookingId}-reschedule-confirm`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-confirm`} onClick={submitReschedule} disabled={!newDate} className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50">Confirm</button>
                 </div>
               </div>
             )}
@@ -274,7 +284,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
             ) : (
               <div className="space-y-3">
                 {timeline.map((ev, i) => (
-                  <div key={i} className="flex gap-3">
+                  <div key={`${ev.eventLabel}-${ev.occurredAt ?? ev.actor ?? ev.remarks ?? "event"}`} data-testid={`bookings-appointment-details-${bookingId}-timeline-${testToken(`${ev.eventLabel}-${ev.occurredAt ?? ev.actor ?? ev.remarks ?? "event"}`)}`} className="flex gap-3">
                     <div className="flex flex-col items-center">
                       <div className="w-3 h-3 rounded-full bg-emerald-500 mt-1 shrink-0" />
                       {i < timeline.length - 1 && <div className="w-px flex-1 bg-slate-200 my-1" />}

@@ -148,7 +148,7 @@ export default function Attendance() {
   const clockText = clockedIn ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-attendance-page" data-testid="hr-attendance-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       {faceOpen && (
         <Suspense fallback={null}>
           <FaceCaptureModal title="Verify Face to Clock In" subtitle={actorEmp?.name} busy={busy} onCapture={verifyAndPunch} onClose={() => setFaceOpen(false)} />
@@ -174,16 +174,16 @@ export default function Attendance() {
           </div>
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
             <div><div style={{ ...lbl, marginBottom: 6 }}>Acting Employee</div>
-              <select style={sel} value={actor} onChange={(e) => setActor(e.target.value)}>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+              <select id="hr-attendance-actor" data-testid="hr-attendance-actor" style={sel} value={actor} onChange={(e) => setActor(e.target.value)}>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
             <div><div style={{ ...lbl, marginBottom: 6 }}>Work Mode</div>
-              <select style={sel} value={mode} onChange={(e) => setMode(e.target.value)}><option>Office</option><option>WFH</option><option>On-Field</option></select></div>
+              <select id="hr-attendance-mode" data-testid="hr-attendance-mode" style={sel} value={mode} onChange={(e) => setMode(e.target.value)}><option>Office</option><option>WFH</option><option>On-Field</option></select></div>
             <div><div style={{ ...lbl, marginBottom: 6 }}>Branch Geofence</div>
-              <select style={sel} value={branch} onChange={(e) => setBranch(e.target.value)}>{branches.map((b) => <option key={b.id} value={b.id}>{b.code || b.name}</option>)}</select></div>
+              <select id="hr-attendance-branch" data-testid="hr-attendance-branch" style={sel} value={branch} onChange={(e) => setBranch(e.target.value)}>{branches.map((b) => <option key={b.id} value={b.id}>{b.code || b.name}</option>)}</select></div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
               <div><div style={{ fontSize: 12, fontWeight: 800, color: "var(--dark-text)" }}>FACE RECOGNITION SCAN</div><div style={{ fontSize: 10, color: "var(--light-text)" }}>Verify check-in with your camera feed</div></div>
-              <button onClick={() => setFace((v) => !v)} aria-label="toggle face" style={{ width: 40, height: 22, borderRadius: 999, border: "none", cursor: "pointer", background: face ? "var(--primary-color)" : "var(--border-color)", position: "relative" }}><span style={{ position: "absolute", top: 2, left: face ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "white", transition: "left .15s" }} /></button>
+              <button id="hr-attendance-face-toggle" data-testid="hr-attendance-face-toggle" data-active={face ? "true" : "false"} onClick={() => setFace((v) => !v)} aria-label="toggle face" style={{ width: 40, height: 22, borderRadius: 999, border: "none", cursor: "pointer", background: face ? "var(--primary-color)" : "var(--border-color)", position: "relative" }}><span style={{ position: "absolute", top: 2, left: face ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "white", transition: "left .15s" }} /></button>
             </div>
-            <button onClick={handlePunch} disabled={busy} style={{ height: 52, borderRadius: 14, border: "none", cursor: busy ? "not-allowed" : "pointer", background: "var(--primary-color)", color: "white", fontWeight: 800, fontSize: 15, letterSpacing: "0.04em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy || !actor ? 0.6 : 1, transition: "opacity .15s" }}>
+            <button id="hr-attendance-punch-button" data-testid="hr-attendance-punch-button" onClick={handlePunch} disabled={busy} style={{ height: 52, borderRadius: 14, border: "none", cursor: busy ? "not-allowed" : "pointer", background: "var(--primary-color)", color: "white", fontWeight: 800, fontSize: 15, letterSpacing: "0.04em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy || !actor ? 0.6 : 1, transition: "opacity .15s" }}>
               {busy ? <Loader2 size={18} className="animate-spin" /> : null} {clockedIn ? "CLOCK OUT" : "CLOCK IN"}
             </button>
             {(msg || empError) && <div style={{ fontSize: 12, textAlign: "center", color: empError && !msg ? "var(--danger-color)" : "var(--light-text)" }}>{msg || `Employees failed to load: ${empError}`}</div>}
@@ -208,7 +208,7 @@ export default function Attendance() {
       {/* sub tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {subtabs.map(([k, label]) => (
-          <button key={k} onClick={() => setSubtab(k)} style={{ padding: "8px 18px", borderRadius: 999, border: subtab === k ? "1px solid var(--primary-color)" : "1px solid transparent", background: subtab === k ? "var(--surface-bg)" : "transparent", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: subtab === k ? "var(--dark-text)" : "var(--light-text)" }}>{label}</button>
+          <button id={`hr-attendance-subtab-${k}`} data-testid={`hr-attendance-subtab-${k}`} data-active={subtab === k ? "true" : "false"} key={k} onClick={() => setSubtab(k)} style={{ padding: "8px 18px", borderRadius: 999, border: subtab === k ? "1px solid var(--primary-color)" : "1px solid transparent", background: subtab === k ? "var(--surface-bg)" : "transparent", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: subtab === k ? "var(--dark-text)" : "var(--light-text)" }}>{label}</button>
         ))}
       </div>
 
@@ -234,8 +234,8 @@ export default function Attendance() {
                 <td style={tdc}>{fmtTime(a.clockIn)}</td>
                 <td style={tdc}>{approver ? <span style={{ fontWeight: 600 }}>{approver.name}</span> : <span style={{ ...lbl }}>HR / Admin</span>}</td>
                 <td style={{ ...tdc, textAlign: "right" }}>
-                  <button onClick={() => attendance.verify(a.id, "Approved", approver?.uid)} className="btn-grid-action" style={{ marginRight: 8 }}>Approve</button>
-                  <button onClick={() => attendance.verify(a.id, "Rejected", approver?.uid)} style={{ height: 30, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "#e11d48", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Reject</button>
+                  <button id={`hr-attendance-approve-${a.id}`} data-testid={`hr-attendance-approve-${a.id}`} onClick={() => attendance.verify(a.id, "Approved", approver?.uid)} className="btn-grid-action" style={{ marginRight: 8 }}>Approve</button>
+                  <button id={`hr-attendance-reject-${a.id}`} data-testid={`hr-attendance-reject-${a.id}`} onClick={() => attendance.verify(a.id, "Rejected", approver?.uid)} style={{ height: 30, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "#e11d48", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Reject</button>
                 </td>
               </tr>
             );})}</tbody>
@@ -250,9 +250,9 @@ export default function Attendance() {
               {geoMsg && <div style={{ fontSize: 11, marginTop: 4, color: /denied|Failed|Could not|not supported|first/.test(geoMsg) ? "#e11d48" : "#059669" }}>{geoMsg}</div>}
             </div>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, color: "var(--light-text)" }}>
-              <input type="checkbox" checked={autoTrack} onChange={(e) => setAutoTrack(e.target.checked)} /> Auto every 30s
+              <input id="hr-attendance-auto-track" data-testid="hr-attendance-auto-track" type="checkbox" checked={autoTrack} onChange={(e) => setAutoTrack(e.target.checked)} /> Auto every 30s
             </label>
-            <button onClick={captureLocation} disabled={geoBusy} style={{ height: 38, padding: "0 18px", borderRadius: 10, border: "none", background: "var(--primary-color)", color: "white", fontWeight: 800, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <button id="hr-attendance-capture-location" data-testid="hr-attendance-capture-location" onClick={captureLocation} disabled={geoBusy} style={{ height: 38, padding: "0 18px", borderRadius: 10, border: "none", background: "var(--primary-color)", color: "white", fontWeight: 800, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
               {geoBusy ? <Loader2 size={15} className="animate-spin" /> : <MapPin size={15} />} Capture Location
             </button>
           </div>
@@ -277,7 +277,7 @@ export default function Attendance() {
             <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Client Site</th><th style={th}>Reason</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
             <tbody>{onduty.data.length === 0 ? <tr><td colSpan={5} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No on-duty requests.</td></tr> : onduty.data.map((o) => (
               <tr key={o.id}><td style={{ ...tdc, fontWeight: 600 }}>{empName(o.employeeUid)}</td><td style={tdc}>{formatDate(o.date)}</td><td style={tdc}>{o.clientSite || "—"}</td><td style={{ ...tdc, color: "var(--light-text)" }}>{o.reason || "—"}</td><td style={{ ...tdc, textAlign: "right" }}>
-                {(o.status || "").toLowerCase() === "pending" ? <button onClick={() => onduty.update(o.id, { status: "Approved" })} className="btn-grid-action">Approve</button> : <span style={lbl}>{o.status || "—"}</span>}
+                {(o.status || "").toLowerCase() === "pending" ? <button id={`hr-attendance-onduty-approve-${o.id}`} data-testid={`hr-attendance-onduty-approve-${o.id}`} onClick={() => onduty.update(o.id, { status: "Approved" })} className="btn-grid-action">Approve</button> : <span style={lbl}>{o.status || "—"}</span>}
               </td></tr>
             ))}</tbody>
           </table>

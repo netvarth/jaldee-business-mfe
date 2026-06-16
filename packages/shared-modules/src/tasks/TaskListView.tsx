@@ -155,7 +155,7 @@ export function TasksListView() {
           {taskQuery.isLoading ? (
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="min-h-[180px] rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={`tasks-loading-card-${index + 1}`} data-testid={`tasks-loading-card-${index + 1}`} data-state="loading" className="min-h-[180px] rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="h-4 w-3/4 rounded bg-slate-100" />
                   <div className="mt-4 h-3 w-full rounded bg-slate-100" />
                   <div className="mt-2 h-3 w-2/3 rounded bg-slate-100" />
@@ -282,6 +282,7 @@ function TaskFiltersBar({
           )}
           onClick={() => setDrawerOpen(true)}
           id="btnTaskDrawerFilters_SM_Tasks"
+          data-testid="btnTaskDrawerFilters_SM_Tasks"
         >
           <FilterIcon />
           <span>Filter</span>
@@ -298,6 +299,7 @@ function TaskFiltersBar({
           <div className="space-y-5 flex-1">
             <Input
               id="txtTaskName_SM_Tasks"
+              data-testid="txtTaskName_SM_Tasks"
               label="Task Name"
               placeholder="Task name"
               value={draftFilters.query}
@@ -322,6 +324,7 @@ function TaskFiltersBar({
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">Task Date</h4>
               <Input
                 id="txtTaskDueDate_SM_Tasks"
+                data-testid="txtTaskDueDate_SM_Tasks"
                 label="Due Date"
                 type="date"
                 value={draftFilters.fromDueDate}
@@ -339,6 +342,7 @@ function TaskFiltersBar({
                 setDrawerOpen(false);
               }}
               id="btnResetAdvancedFilters_Drawer"
+              data-testid="btnResetAdvancedFilters_Drawer"
             >
               Reset All
             </Button>
@@ -350,6 +354,7 @@ function TaskFiltersBar({
                 setDrawerOpen(false);
               }}
               id="btnApplyAdvancedFilters_Drawer"
+              data-testid="btnApplyAdvancedFilters_Drawer"
             >
               Apply Filters
             </Button>
@@ -418,6 +423,8 @@ function TaskCard({
             type="button"
             aria-label="Task actions"
             aria-expanded={menuOpen}
+            data-testid={`task-card-${task.taskUid}-actions`}
+            data-state={menuOpen ? "open" : "closed"}
             className="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-xl font-bold leading-none text-slate-700 transition-colors hover:bg-slate-100"
             onClick={() => setMenuOpen((value) => !value)}
           >
@@ -425,11 +432,11 @@ function TaskCard({
           </button>
 
           {menuOpen ? (
-            <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-2 text-sm shadow-xl">
-              <TaskMenuButton label="View Details" onClick={() => { setMenuOpen(false); onOpen(); }} />
-              <TaskMenuButton label="Change Assignee" onClick={() => { setMenuOpen(false); onChangeAssignee(); }} />
-              <TaskMenuButton label="Remove Assignee" disabled={!task.assignee?.id} onClick={() => { setMenuOpen(false); onRemoveAssignee(); }} />
-              <TaskMenuButton label="Change Status" onClick={() => { setMenuOpen(false); onChangeStatus(); }} />
+            <div data-testid={`task-card-${task.taskUid}-actions-menu`} data-state="open" className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-2 text-sm shadow-xl">
+              <TaskMenuButton testId={`task-card-${task.taskUid}-view-details`} label="View Details" onClick={() => { setMenuOpen(false); onOpen(); }} />
+              <TaskMenuButton testId={`task-card-${task.taskUid}-change-assignee`} label="Change Assignee" onClick={() => { setMenuOpen(false); onChangeAssignee(); }} />
+              <TaskMenuButton testId={`task-card-${task.taskUid}-remove-assignee`} label="Remove Assignee" disabled={!task.assignee?.id} onClick={() => { setMenuOpen(false); onRemoveAssignee(); }} />
+              <TaskMenuButton testId={`task-card-${task.taskUid}-change-status`} label="Change Status" onClick={() => { setMenuOpen(false); onChangeStatus(); }} />
             </div>
           ) : null}
         </div>
@@ -441,6 +448,7 @@ function TaskCard({
         onClick={onOpen}
         title={task.title || "Untitled task"}
         id={`btnTaskDetails_${task.taskUid}`}
+        data-testid={`btnTaskDetails_${task.taskUid}`}
       >
         <span className="line-clamp-2">{task.title || "Untitled task"}</span>
       </button>
@@ -470,11 +478,13 @@ function TaskCard({
   );
 }
 
-function TaskMenuButton({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+function TaskMenuButton({ label, onClick, disabled = false, testId }: { label: string; onClick: () => void; disabled?: boolean; testId: string }) {
   return (
     <button
       type="button"
       disabled={disabled}
+      data-testid={testId}
+      data-state={disabled ? "disabled" : "enabled"}
       className="block w-full border-0 bg-white px-5 py-3 text-left text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
       onClick={onClick}
     >
@@ -594,7 +604,7 @@ function TaskCardActionDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" variant="primary" disabled={!valid} loading={loading} onClick={() => onSubmit(values)}>
+          <Button type="button" variant="primary" disabled={!valid} loading={loading} onClick={() => onSubmit(values)} data-testid="task-card-action-save" data-state={loading ? "loading" : valid ? "ready" : "disabled"}>
             Save
           </Button>
         </DialogFooter>

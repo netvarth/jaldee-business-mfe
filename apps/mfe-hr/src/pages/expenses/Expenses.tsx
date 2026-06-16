@@ -125,11 +125,11 @@ export default function Expenses() {
   ];
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-expenses-page" data-testid="hr-expenses-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       <PageHeader
         title="Expense Claims & Mileage Ledger"
         subtitle="Reimbursements, travel logs and settlement control"
-        actions={<button onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Submit Expense Claim</button>}
+        actions={<button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Submit Expense Claim</button>}
       />
 
       {/* STAT CARDS */}
@@ -143,20 +143,20 @@ export default function Expenses() {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 999 }}>
           {tabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: tab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: tab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: tab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
+            <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} onClick={() => setTab(t.key)} style={{ padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: tab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: tab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: tab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
           ))}
         </div>
         <div style={{ position: "relative", width: 260, maxWidth: "100%" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-          <input placeholder="Search description, categories…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 38, borderRadius: 999, paddingLeft: 34, fontSize: 12.5, fontWeight: 600 }} />
+          <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 38, borderRadius: 999, paddingLeft: 34, fontSize: 12.5, fontWeight: 600 }} />
         </div>
       </div>
 
 
 
       {/* TABLE */}
-      <div style={{ ...card }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div data-testid="hr-expenses-table-panel" style={{ ...card }}>
+        <table id="hr-expenses-table" data-testid="hr-expenses-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
             {tab === "approvals" && <th style={th}>Claimant Staff</th>}
             <th style={th}>Submit Date</th><th style={th}>Voucher Category</th><th style={th}>Claim Amount</th><th style={th}>Travel Summary</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th>
@@ -167,7 +167,7 @@ export default function Expenses() {
             ) : rows.length === 0 ? (
               <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
             ) : rows.map((e) => (
-              <tr key={e.id}>
+              <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
                 {tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 8 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
                 <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, color: "var(--light-text)" }}>{fmtDate(e.date)}</td>
                 <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
@@ -181,7 +181,7 @@ export default function Expenses() {
                 </td>
                 <td style={tdc}><span style={tag(statStyle(e.status))}>{e.status || "—"}</span></td>
                 <td style={{ ...tdc, textAlign: "right" }}>
-                  <button onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
+                  <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
                 </td>
               </tr>
             ))}
@@ -191,29 +191,29 @@ export default function Expenses() {
 
       {/* SUBMIT MODAL */}
       {addOpen && (
-        <div style={overlay} onClick={() => setAddOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 760 }}>
+        <div id="hr-expenses-submit-modal-overlay" data-testid="hr-expenses-submit-modal-overlay" data-state="open" style={overlay} onClick={() => setAddOpen(false)}>
+          <div id="hr-expenses-submit-modal" data-testid="hr-expenses-submit-modal" onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 760 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "24px 30px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div><h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Submit Expense Claim</h3><p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Log a reimbursement or mileage voucher.</p></div>
-              <button onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
+              <button id="hr-expenses-submit-close" data-testid="hr-expenses-submit-close" onClick={() => setAddOpen(false)} aria-label="Close submit expense claim" style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-              <div><label style={{ ...lbl, color: TEAL }}>Claimant Employee</label><select style={{ ...field, marginTop: 6 }} value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-              <div><label style={{ ...lbl, color: TEAL }}>Reimbursement Amount (INR)</label><input type="number" min="0" placeholder="0.00" style={{ ...field, marginTop: 6 }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
-              <div><label style={lbl}>Expense Category</label><select style={{ ...field, marginTop: 6 }} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-              <div><label style={lbl}>Claim Date</label><input type="date" style={{ ...field, marginTop: 6 }} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+              <div><label style={{ ...lbl, color: TEAL }}>Claimant Employee</label><select id="hr-expenses-employee-select" data-testid="hr-expenses-employee-select" style={{ ...field, marginTop: 6 }} value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+              <div><label style={{ ...lbl, color: TEAL }}>Reimbursement Amount (INR)</label><input id="hr-expenses-amount-input" data-testid="hr-expenses-amount-input" type="number" min="0" placeholder="0.00" style={{ ...field, marginTop: 6 }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
+              <div><label style={lbl}>Expense Category</label><select id="hr-expenses-category-select" data-testid="hr-expenses-category-select" style={{ ...field, marginTop: 6 }} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div><label style={lbl}>Claim Date</label><input id="hr-expenses-date-input" data-testid="hr-expenses-date-input" type="date" style={{ ...field, marginTop: 6 }} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
               {form.category === "Travel" && (
                 <>
-                  <div><label style={lbl}>Distance (KMs)</label><input type="number" min="0" placeholder="e.g. 120" style={{ ...field, marginTop: 6 }} value={form.kms} onChange={(e) => setForm({ ...form, kms: e.target.value })} /></div>
-                  <div><label style={lbl}>Mode of Transport</label><input placeholder="e.g. Company Sedan" style={{ ...field, marginTop: 6 }} value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} /></div>
+                  <div><label style={lbl}>Distance (KMs)</label><input id="hr-expenses-distance-input" data-testid="hr-expenses-distance-input" type="number" min="0" placeholder="e.g. 120" style={{ ...field, marginTop: 6 }} value={form.kms} onChange={(e) => setForm({ ...form, kms: e.target.value })} /></div>
+                  <div><label style={lbl}>Mode of Transport</label><input id="hr-expenses-transport-input" data-testid="hr-expenses-transport-input" placeholder="e.g. Company Sedan" style={{ ...field, marginTop: 6 }} value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} /></div>
                 </>
               )}
-              <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Notes / Description</label><textarea placeholder="Short description of the expense…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={{ marginTop: 6, width: "100%", minHeight: 90, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: 14, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} /></div>
+              <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Notes / Description</label><textarea id="hr-expenses-notes-textarea" data-testid="hr-expenses-notes-textarea" placeholder="Short description of the expense…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={{ marginTop: 6, width: "100%", minHeight: 90, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: 14, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} /></div>
             </div>
             {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-              <button onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Claim Proposal"}</button>
+              <button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
+              <button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Claim Proposal"}</button>
             </div>
           </div>
         </div>
@@ -221,11 +221,11 @@ export default function Expenses() {
 
       {/* DETAIL MODAL */}
       {selected && (
-        <div style={overlay} onClick={() => setSelected(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 560 }}>
+        <div id={`hr-expenses-detail-modal-overlay-${selected.id}`} data-testid={`hr-expenses-detail-modal-overlay-${selected.id}`} data-state="open" style={overlay} onClick={() => setSelected(null)}>
+          <div id={`hr-expenses-detail-modal-${selected.id}`} data-testid={`hr-expenses-detail-modal-${selected.id}`} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 560 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "22px 28px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>Claim Profile</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{empName(selected.employeeUid)} · {empCode(selected.employeeUid)}</p></div>
-              <button onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
+              <button id={`hr-expenses-detail-close-${selected.id}`} data-testid={`hr-expenses-detail-close-${selected.id}`} onClick={() => setSelected(null)} aria-label="Close expense claim profile" style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -248,13 +248,13 @@ export default function Expenses() {
 
               {selected.status === "Pending" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, paddingTop: 4 }}>
-                  <button onClick={() => act("reject")} disabled={acting} style={{ height: 40, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline</button>
-                  <button onClick={() => act("approve")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve Claim</button>
+                  <button id={`hr-expenses-reject-${selected.id}`} data-testid={`hr-expenses-reject-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reject")} disabled={acting} style={{ height: 40, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline</button>
+                  <button id={`hr-expenses-approve-${selected.id}`} data-testid={`hr-expenses-approve-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("approve")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve Claim</button>
                 </div>
               )}
               {selected.status === "Approved" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
-                  <button onClick={() => act("reimburse")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: "#2563eb", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Mark Reimbursed</button>
+                  <button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reimburse")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: "#2563eb", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Mark Reimbursed</button>
                 </div>
               )}
               {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}

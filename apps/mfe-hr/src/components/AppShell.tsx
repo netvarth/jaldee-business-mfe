@@ -43,8 +43,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const initials = getInitials(accountName);
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-56px)] bg-[#f7f9fc] text-slate-900">
-      <aside className="flex w-[292px] shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc] px-4 py-5">
+    <div id="hr-app-shell" data-testid="hr-app-shell" className="flex h-full min-h-[calc(100vh-56px)] bg-[#f7f9fc] text-slate-900">
+      <aside id="hr-app-sidebar" data-testid="hr-app-sidebar" className="flex w-[292px] shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc] px-4 py-5">
         <div className="mb-8 flex items-center gap-3 px-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2e6f67] text-white shadow-sm">
             <BriefcaseBusiness size={20} />
@@ -65,14 +65,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 end={item.end}
                 className={({ isActive }) => navClass(isActive)}
               >
-                <Icon size={18} />
-                <span>{item.label}</span>
+                {({ isActive }) => (
+                  <div data-testid={`hr-sidebar-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`} data-active={isActive ? "true" : "false"} className="contents">
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </div>
+                )}
               </NavLink>
             );
           })}
         </nav>
 
         <button
+          id="hr-app-logout"
+          data-testid="hr-app-logout"
           type="button"
           className="mt-6 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 shadow-sm"
         >
@@ -81,11 +87,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </button>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-20 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-8">
+      <main id="hr-app-main" data-testid="hr-app-main" className="flex min-w-0 flex-1 flex-col">
+        <header id="hr-app-topbar" data-testid="hr-app-topbar" className="flex h-20 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-8">
           <div className="relative w-full max-w-xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
+              id="hr-app-search"
+              data-testid="hr-app-search"
               type="search"
               placeholder="Search everything..."
               className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none focus:border-teal-300 focus:bg-white"

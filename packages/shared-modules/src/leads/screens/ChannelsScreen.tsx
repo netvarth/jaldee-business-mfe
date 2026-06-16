@@ -156,6 +156,7 @@ export default function ChannelsScreen({
             <PopoverSection className="space-y-1">
               <button
                 type="button"
+                data-testid={`jaldee-leads-channel-${row.uid}-edit-menu-item`}
                 onClick={() => {
                   setOpenMenuUid(null);
                   navigate(`/leads/channels/${row.uid}/edit`);
@@ -168,6 +169,7 @@ export default function ChannelsScreen({
               {row.status !== 'INACTIVE' && (
                 <button
                   type="button"
+                  data-testid={`jaldee-leads-channel-${row.uid}-delete-menu-item`}
                   onClick={() => {
                     setOpenMenuUid(null);
                     handleDelete(row.uid);

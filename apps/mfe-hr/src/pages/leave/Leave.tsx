@@ -143,14 +143,14 @@ export default function Leave() {
   ];
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-leave-page" data-testid="hr-leave-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       <PageHeader
         title="Corporate Leave Dashboard"
         subtitle="Administrative leave and attendance control"
         actions={
           <>
-          <span style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 999 }}><UserCheck size={14} /> Corporate Admin Control</span>
-          <button onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 40, padding: "0 22px", borderRadius: 999, border: "none", cursor: "pointer", background: "var(--dark-text)", color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
+          <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 999 }}><UserCheck size={14} /> Corporate Admin Control</span>
+          <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 40, padding: "0 22px", borderRadius: 999, border: "none", cursor: "pointer", background: "var(--dark-text)", color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
           </>
         }
       />
@@ -158,7 +158,7 @@ export default function Leave() {
       {/* PILL TABS */}
       <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 999, marginBottom: 28 }}>
         {tabs.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: "8px 20px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
+          <button id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => setTab(t.key)} style={{ padding: "8px 20px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
         ))}
       </div>
 
@@ -221,7 +221,7 @@ export default function Leave() {
                     <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</td>
                     <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
                     <td style={{ ...tdc, textAlign: "right" }}>
-                      <button onClick={() => { setSelected(l); setRemarks(""); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> Inspect</button>
+                      <button id={`hr-leave-pending-inspect-${l.id}`} data-testid={`hr-leave-pending-inspect-${l.id}`} onClick={() => { setSelected(l); setRemarks(""); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> Inspect</button>
                     </td>
                   </tr>
                 ))}
@@ -241,7 +241,7 @@ export default function Leave() {
             </div>
             <div style={{ position: "relative", width: 300, maxWidth: "100%" }}>
               <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-              <input placeholder="Search employee or department…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 40, borderRadius: 999, paddingLeft: 38, fontWeight: 600, fontSize: 12.5 }} />
+              <input id="hr-leave-balance-search" data-testid="hr-leave-balance-search" placeholder="Search employee or department…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 40, borderRadius: 999, paddingLeft: 38, fontWeight: 600, fontSize: 12.5 }} />
             </div>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -294,7 +294,7 @@ export default function Leave() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Global Leave Register History</div>
               <div style={{ ...lbl, marginTop: 2 }}>Master record ledger of all submissions</div>
             </div>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...field, width: 170, height: 40, borderRadius: 999, fontSize: 12.5 }}>
+            <select id="hr-leave-status-filter" data-testid="hr-leave-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...field, width: 170, height: 40, borderRadius: 999, fontSize: 12.5 }}>
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
               <option value="pending">Pending</option>
@@ -316,7 +316,7 @@ export default function Leave() {
                   <td style={{ ...tdc, textAlign: "right" }}>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                       <span style={pill(l.status)}>{l.status}</span>
-                      <button onClick={() => { setSelected(l); setRemarks(""); }} title="Inspect" style={{ height: 28, width: 28, borderRadius: 8, border: "1px solid transparent", background: "transparent", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Eye size={15} /></button>
+                      <button id={`hr-leave-ledger-inspect-${l.id}`} data-testid={`hr-leave-ledger-inspect-${l.id}`} onClick={() => { setSelected(l); setRemarks(""); }} title="Inspect" style={{ height: 28, width: 28, borderRadius: 8, border: "1px solid transparent", background: "transparent", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Eye size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -328,26 +328,26 @@ export default function Leave() {
 
       {/* ===== APPLY MODAL ===== */}
       {applyOpen && (
-        <div style={overlay} onClick={() => setApplyOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 900 }}>
+        <div id="hr-leave-apply-modal-overlay" data-testid="hr-leave-apply-modal-overlay" data-state={applyOpen ? "open" : "closed"} style={overlay} onClick={() => setApplyOpen(false)}>
+          <div id="hr-leave-apply-modal" data-testid="hr-leave-apply-modal" data-state={applyOpen ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 900 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Apply for Leave</h3>
                 <p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Submit details of your upcoming absence plan.</p>
               </div>
-              <button onClick={() => setApplyOpen(false)} style={iconBtn}><X size={20} /></button>
+              <button id="hr-leave-apply-close" data-testid="hr-leave-apply-close" onClick={() => setApplyOpen(false)} style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <div><label style={{ ...lbl, color: TEAL }}>Employee</label><select style={{ ...field, marginTop: 6 }} value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-                <div><label style={{ ...lbl, color: TEAL }}>Leave Type Profile</label><select style={{ ...field, marginTop: 6 }} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{LEAVE_QUOTAS.map((q) => <option key={q.type} value={q.type}>{q.type}</option>)}</select></div>
+                <div><label style={{ ...lbl, color: TEAL }}>Employee</label><select id="hr-leave-employee" data-testid="hr-leave-employee" style={{ ...field, marginTop: 6 }} value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+                <div><label style={{ ...lbl, color: TEAL }}>Leave Type Profile</label><select id="hr-leave-type" data-testid="hr-leave-type" style={{ ...field, marginTop: 6 }} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{LEAVE_QUOTAS.map((q) => <option key={q.type} value={q.type}>{q.type}</option>)}</select></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div><label style={lbl}>Start Date</label><input type="date" style={{ ...field, marginTop: 6 }} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
-                  <div><label style={lbl}>End Date</label><input type="date" style={{ ...field, marginTop: 6 }} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></div>
+                  <div><label style={lbl}>Start Date</label><input id="hr-leave-start-date" data-testid="hr-leave-start-date" type="date" style={{ ...field, marginTop: 6 }} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
+                  <div><label style={lbl}>End Date</label><input id="hr-leave-end-date" data-testid="hr-leave-end-date" type="date" style={{ ...field, marginTop: 6 }} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></div>
                 </div>
                 {form.startDate && form.startDate === form.endDate && (
                   <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
-                    <input type="checkbox" checked={form.isHalfDay} onChange={(e) => setForm({ ...form, isHalfDay: e.target.checked })} /> Apply as Half Day (0.5 days)
+                    <input id="hr-leave-half-day" data-testid="hr-leave-half-day" type="checkbox" checked={form.isHalfDay} onChange={(e) => setForm({ ...form, isHalfDay: e.target.checked })} /> Apply as Half Day (0.5 days)
                   </label>
                 )}
                 {form.startDate && form.endDate && (
@@ -363,13 +363,13 @@ export default function Leave() {
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <label style={lbl}>Detailed Statement / Reason</label>
-                <textarea placeholder="Share a short note detailing the cause of your request…" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 18, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+                <textarea id="hr-leave-reason" data-testid="hr-leave-reason" placeholder="Share a short note detailing the cause of your request…" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 18, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
               </div>
             </div>
             {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button onClick={() => setApplyOpen(false)} style={ghostBtn}>Close</button>
-              <button onClick={submitApply} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
+              <button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" onClick={() => setApplyOpen(false)} style={ghostBtn}>Close</button>
+              <button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" onClick={submitApply} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
             </div>
           </div>
         </div>
@@ -377,11 +377,11 @@ export default function Leave() {
 
       {/* ===== DETAIL / APPROVE MODAL ===== */}
       {selected && (
-        <div style={overlay} onClick={() => setSelected(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 620 }}>
+        <div id="hr-leave-detail-modal-overlay" data-testid="hr-leave-detail-modal-overlay" data-state={selected ? "open" : "closed"} style={overlay} onClick={() => setSelected(null)}>
+          <div id="hr-leave-detail-modal" data-testid="hr-leave-detail-modal" data-state={selected ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 620 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "22px 28px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>Leave Request Detail</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{empName(selected.employeeUid)} · {empCode(selected.employeeUid)}</p></div>
-              <button onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
+              <button id="hr-leave-detail-close" data-testid="hr-leave-detail-close" onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -420,10 +420,10 @@ export default function Leave() {
               {(selected.status || "").toLowerCase() === "pending" && (
                 <div style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 20, padding: 18 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}><AlertCircle size={16} color="#d97706" /><span style={{ ...lbl, color: "#b45309" }}>Authorized Approver Clearance Action</span></div>
-                  <textarea placeholder="Comment explaining approval or rejection…" value={remarks} onChange={(e) => setRemarks(e.target.value)} style={{ width: "100%", minHeight: 70, borderRadius: 12, border: "1px solid rgba(245,158,11,0.3)", background: "white", padding: 12, fontSize: 12.5, resize: "vertical" }} />
+                  <textarea id="hr-leave-approval-remarks" data-testid="hr-leave-approval-remarks" placeholder="Comment explaining approval or rejection…" value={remarks} onChange={(e) => setRemarks(e.target.value)} style={{ width: "100%", minHeight: 70, borderRadius: 12, border: "1px solid rgba(245,158,11,0.3)", background: "white", padding: 12, fontSize: 12.5, resize: "vertical" }} />
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
-                    <button onClick={() => act("Rejected")} disabled={acting} style={{ height: 38, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline &amp; Reject</button>
-                    <button onClick={() => act("Approved")} disabled={acting} style={{ height: 38, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Clear &amp; Approve</button>
+                    <button id="hr-leave-reject" data-testid="hr-leave-reject" onClick={() => act("Rejected")} disabled={acting} style={{ height: 38, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline &amp; Reject</button>
+                    <button id="hr-leave-approve" data-testid="hr-leave-approve" onClick={() => act("Approved")} disabled={acting} style={{ height: 38, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Clear &amp; Approve</button>
                   </div>
                 </div>
               )}

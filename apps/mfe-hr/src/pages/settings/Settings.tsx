@@ -17,6 +17,10 @@ type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "
 interface Field { key: string; label: string; type?: FieldType; options?: string[]; full?: boolean; placeholder?: string; }
 type Row = Record<string, unknown>;
 
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
 function buildPayload(fields: Field[], form: Row): Row {
   const out: Row = {};
   fields.forEach((f) => {
@@ -28,25 +32,25 @@ function buildPayload(fields: Field[], form: Row): Row {
   return out;
 }
 
-function FieldInput({ f, value, onChange }: { f: Field; value: unknown; onChange: (v: unknown) => void }) {
+function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: unknown; onChange: (v: unknown) => void; automationKey: string }) {
   if (f.type === "checkbox") {
     return (
-      <label style={{ display: "flex", alignItems: "center", gap: 10, height: 44, fontSize: 14, fontWeight: 700, color: "var(--dark-text)", cursor: "pointer" }}>
-        <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} style={{ width: 18, height: 18 }} /> {f.label}
+      <label htmlFor={automationKey} style={{ display: "flex", alignItems: "center", gap: 10, height: 44, fontSize: 14, fontWeight: 700, color: "var(--dark-text)", cursor: "pointer" }}>
+        <input id={automationKey} data-testid={automationKey} data-active={value ? "true" : "false"} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} style={{ width: 18, height: 18 }} /> {f.label}
       </label>
     );
   }
   if (f.type === "select") {
-    return <select value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} style={field}><option value="">—</option>{f.options!.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+    return <select id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} style={field}><option value="">—</option>{f.options!.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
   }
   if (f.type === "textarea") {
-    return <textarea value={(value as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={{ ...field, height: 80, padding: 12, resize: "vertical" }} />;
+    return <textarea id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={{ ...field, height: 80, padding: 12, resize: "vertical" }} />;
   }
   if (f.type === "color") {
-    return <div style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="color" value={(value as string) || "#115E59"} onChange={(e) => onChange(e.target.value)} style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--border-color)", padding: 2, background: "var(--surface-bg)" }} /><input value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="#115E59" style={field} /></div>;
+    return <div style={{ display: "flex", gap: 8, alignItems: "center" }}><input id={`${automationKey}-picker`} data-testid={`${automationKey}-picker`} type="color" value={(value as string) || "#115E59"} onChange={(e) => onChange(e.target.value)} style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--border-color)", padding: 2, background: "var(--surface-bg)" }} /><input id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="#115E59" style={field} /></div>;
   }
   const tv = f.type === "time" && typeof value === "string" ? value.slice(0, 5) : value;
-  return <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"} value={(tv as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={field} />;
+  return <input id={automationKey} data-testid={automationKey} type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"} value={(tv as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={field} />;
 }
 
 /* ---- Google Places location picker ---- */
@@ -69,7 +73,7 @@ function loadGoogleMaps(): Promise<void> {
 }
 
 export interface PickedPlace { address: string; latitude: number; longitude: number; name?: string; }
-function LocationPicker({ onPick }: { onPick: (p: PickedPlace) => void }) {
+function LocationPicker({ onPick, automationKey }: { onPick: (p: PickedPlace) => void; automationKey: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -96,17 +100,18 @@ function LocationPicker({ onPick }: { onPick: (p: PickedPlace) => void }) {
     <div>
       <div style={{ position: "relative" }}>
         <MapPin size={16} style={{ position: "absolute", left: 12, top: 14, color: "var(--light-text)" }} />
-        <input ref={inputRef} placeholder="Search a place on Google… (auto-fills address & coordinates)" style={{ ...field, paddingLeft: 36 }} />
+        <input id={automationKey} data-testid={automationKey} ref={inputRef} placeholder="Search a place on Google… (auto-fills address & coordinates)" style={{ ...field, paddingLeft: 36 }} />
       </div>
-      {err && <div style={{ marginTop: 6, fontSize: 12, color: err.includes("VITE_GOOGLE") ? "var(--light-text)" : "#e11d48" }}>{err}</div>}
+      {err && <div data-testid={`${automationKey}-error`} data-state="error" style={{ marginTop: 6, fontSize: 12, color: err.includes("VITE_GOOGLE") ? "var(--light-text)" : "#e11d48" }}>{err}</div>}
     </div>
   );
 }
 
 /* ---- Singleton config form ---- */
-function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSave }: {
+function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSave, automationScope }: {
   title: string; subtitle: string; icon: ReactNode; fields: Field[];
   data: Row | null; loading: boolean; error: string | null; onSave: (p: Row) => Promise<void>;
+  automationScope: string;
 }) {
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
@@ -124,20 +129,20 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
     <div>
       <PanelHeader title={title} subtitle={subtitle} icon={icon} />
       {error && <ErrorBar text={error} />}
-      <div style={{ ...card, padding: 24 }}>
+      <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={{ ...card, padding: 24 }}>
         {loading ? <Center><Loader2 size={22} className="animate-spin" /></Center> : (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
               {fields.map((f) => (
                 <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
                   {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
-                  <FieldInput f={f} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
+                  <FieldInput f={f} automationKey={`${automationScope}-${slugify(f.key)}`} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
                 </div>
               ))}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14, marginTop: 22 }}>
               {msg && <span style={{ fontSize: 13, color: msg === "Saved." ? "#059669" : "#e11d48", fontWeight: 600 }}>{msg}</span>}
-              <button onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes</button>
+              <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes</button>
             </div>
           </>
         )}
@@ -148,10 +153,11 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
 
 /* ---- Generic list CRUD panel ---- */
 interface Crud { data: (Row & { id: string })[]; loading: boolean; error: string | null; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
-function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker }: {
+function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, automationScope }: {
   title: string; subtitle: string; icon: ReactNode; addLabel: string; fields: Field[];
   columns: { label: string; render: (r: Row) => ReactNode; align?: "right" }[]; hook: Crud;
   locationPicker?: boolean;
+  automationScope: string;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
@@ -174,10 +180,10 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
 
   return (
     <div>
-      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={<button onClick={openAdd} style={primaryBtn}><Plus size={16} /> {addLabel}</button>} />
+      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={<button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} onClick={openAdd} style={primaryBtn}><Plus size={16} /> {addLabel}</button>} />
       {hook.error && <ErrorBar text={hook.error} />}
-      <div style={card}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={card}>
+        <table id={`${automationScope}-table`} data-testid={`${automationScope}-table`} style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>{columns.map((c) => <th key={c.label} style={{ ...th, textAlign: c.align || "left" }}>{c.label}</th>)}<th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
           <tbody>
             {hook.loading ? (
@@ -185,11 +191,11 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
             ) : hook.data.length === 0 ? (
               <tr><td colSpan={columns.length + 1} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No records yet.</td></tr>
             ) : hook.data.map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} id={`${automationScope}-row-${r.id}`} data-testid={`${automationScope}-row-${r.id}`}>
                 {columns.map((c) => <td key={c.label} style={{ ...tdc, textAlign: c.align || "left" }}>{c.render(r)}</td>)}
                 <td style={{ ...tdc, textAlign: "right" }}>
-                  <button onClick={() => openEdit(r)} title="Edit" style={iconAction}><Pencil size={15} /></button>
-                  <button onClick={() => { if (confirm("Delete this record?")) hook.remove(r.id); }} title="Delete" style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
+                  <button id={`${automationScope}-edit-${r.id}`} data-testid={`${automationScope}-edit-${r.id}`} onClick={() => openEdit(r)} title="Edit" aria-label={`Edit ${title} record`} style={iconAction}><Pencil size={15} /></button>
+                  <button id={`${automationScope}-delete-${r.id}`} data-testid={`${automationScope}-delete-${r.id}`} onClick={() => { if (confirm("Delete this record?")) hook.remove(r.id); }} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
                 </td>
               </tr>
             ))}
@@ -198,17 +204,17 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
       </div>
 
       {open && (
-        <div style={overlay} onClick={() => setOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={modalBox}>
+        <div id={`${automationScope}-modal-overlay`} data-testid={`${automationScope}-modal-overlay`} data-state="open" style={overlay} onClick={() => setOpen(false)}>
+          <div id={`${automationScope}-modal`} data-testid={`${automationScope}-modal`} onClick={(e) => e.stopPropagation()} style={modalBox}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
               <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
-              <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+              <button id={`${automationScope}-modal-close`} data-testid={`${automationScope}-modal-close`} onClick={() => setOpen(false)} aria-label={`Close ${title} dialog`} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxHeight: "62vh", overflowY: "auto" }}>
               {locationPicker && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Search location (Google)</label>
-                  <LocationPicker onPick={(p) => setForm((prev) => ({
+                  <LocationPicker automationKey={`${automationScope}-location-search`} onPick={(p) => setForm((prev) => ({
                     ...prev,
                     address: p.address,
                     latitude: p.latitude,
@@ -220,14 +226,14 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
               {fields.map((f) => (
                 <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
                   {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
-                  <FieldInput f={f} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
+                  <FieldInput f={f} automationKey={`${automationScope}-${slugify(f.key)}`} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
                 </div>
               ))}
             </div>
             {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button onClick={() => setOpen(false)} style={ghostBtn}>Cancel</button>
-              <button onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editing ? "Update" : "Create"}</button>
+              <button id={`${automationScope}-cancel`} data-testid={`${automationScope}-cancel`} onClick={() => setOpen(false)} style={ghostBtn}>Cancel</button>
+              <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editing ? "Update" : "Create"}</button>
             </div>
           </div>
         </div>
@@ -276,14 +282,14 @@ export default function Settings() {
   const payroll = usePayrollSettings();
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-settings-page" data-testid="hr-settings-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       <PageHeader title="Settings" subtitle="Organization configuration and HR policy control" />
 
       <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 28, alignItems: "start" }}>
         {/* LEFT NAV */}
-        <nav style={{ ...card, padding: 8, position: "sticky", top: 0 }}>
+        <nav id="hr-settings-sections" data-testid="hr-settings-sections" style={{ ...card, padding: 8, position: "sticky", top: 0 }}>
           {SECTIONS.map((s) => (
-            <button key={s.key} onClick={() => setSection(s.key)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, border: "none", cursor: "pointer", textAlign: "left", marginBottom: 2, background: section === s.key ? "rgba(17,94,89,0.08)" : "transparent", color: section === s.key ? TEAL : "var(--dark-text)", fontWeight: section === s.key ? 800 : 600, fontSize: 13.5 }}>
+            <button key={s.key} id={`hr-settings-section-${s.key}`} data-testid={`hr-settings-section-${s.key}`} data-active={section === s.key ? "true" : "false"} onClick={() => setSection(s.key)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, border: "none", cursor: "pointer", textAlign: "left", marginBottom: 2, background: section === s.key ? "rgba(17,94,89,0.08)" : "transparent", color: section === s.key ? TEAL : "var(--dark-text)", fontWeight: section === s.key ? 800 : 600, fontSize: 13.5 }}>
               <span style={{ color: section === s.key ? TEAL : "var(--light-text)" }}>{s.icon}</span> {s.label}
             </button>
           ))}
@@ -293,7 +299,7 @@ export default function Settings() {
         <div style={{ minWidth: 0 }}>
           {section === "company" && (
             <ConfigForm title="Company Profile" subtitle="Organization identity, tax & locale" icon={<Building2 size={20} />}
-              data={company.data} loading={company.loading} error={company.error} onSave={company.save}
+              data={company.data} loading={company.loading} error={company.error} onSave={company.save} automationScope="hr-settings-company"
               fields={[
                 { key: "name", label: "Company Name" }, { key: "legalName", label: "Legal Name" },
                 { key: "industry", label: "Industry" }, { key: "email", label: "Contact Email" },
@@ -307,12 +313,12 @@ export default function Settings() {
               ]} />
           )}
           {section === "departments" && (
-            <CrudPanel title="Departments" subtitle="Organizational units" icon={<Users2 size={20} />} addLabel="Add Department" hook={departments}
+            <CrudPanel title="Departments" subtitle="Organizational units" icon={<Users2 size={20} />} addLabel="Add Department" hook={departments} automationScope="hr-settings-departments"
               fields={[{ key: "name", label: "Department Name" }, { key: "code", label: "Code" }]}
               columns={[{ label: "Name", render: (r) => <b>{r.name as string}</b> }, { label: "Code", render: (r) => (r.code as string) || "—" }]} />
           )}
           {section === "designations" && (
-            <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={designations}
+            <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={designations} automationScope="hr-settings-designations"
               fields={[
                 { key: "name", label: "Role / Designation" }, { key: "code", label: "Code" },
                 { key: "department", label: "Department", type: "select", options: departments.data.map((d) => (d.name as string)).filter(Boolean) },
@@ -327,7 +333,7 @@ export default function Settings() {
               ]} />
           )}
           {section === "branches" && (
-            <CrudPanel title="Branches & Geofence" subtitle="Office locations & attendance perimeter" icon={<MapPin size={20} />} addLabel="Add Branch" hook={branches} locationPicker
+            <CrudPanel title="Branches & Geofence" subtitle="Office locations & attendance perimeter" icon={<MapPin size={20} />} addLabel="Add Branch" hook={branches} locationPicker automationScope="hr-settings-branches"
               fields={[
                 { key: "name", label: "Branch Name" }, { key: "code", label: "Code" },
                 { key: "address", label: "Address", full: true },
@@ -342,7 +348,7 @@ export default function Settings() {
               ]} />
           )}
           {section === "shifts" && (
-            <CrudPanel title="Shifts" subtitle="Working hours & weekly off" icon={<Clock size={20} />} addLabel="Add Shift" hook={shifts}
+            <CrudPanel title="Shifts" subtitle="Working hours & weekly off" icon={<Clock size={20} />} addLabel="Add Shift" hook={shifts} automationScope="hr-settings-shifts"
               fields={[
                 { key: "name", label: "Shift Name" },
                 { key: "startTime", label: "Start Time", type: "time" }, { key: "endTime", label: "End Time", type: "time" },
@@ -357,7 +363,7 @@ export default function Settings() {
               ]} />
           )}
           {section === "leavetypes" && (
-            <CrudPanel title="Leave Policy" subtitle="Leave types, quotas & carry-forward" icon={<Plane size={20} />} addLabel="Add Leave Type" hook={leaveTypes}
+            <CrudPanel title="Leave Policy" subtitle="Leave types, quotas & carry-forward" icon={<Plane size={20} />} addLabel="Add Leave Type" hook={leaveTypes} automationScope="hr-settings-leave-types"
               fields={[
                 { key: "name", label: "Leave Type" }, { key: "annualQuota", label: "Annual Quota (days)", type: "number" },
                 { key: "accrualType", label: "Accrual", type: "select", options: ["Annual", "Monthly", "Quarterly"] },
@@ -375,7 +381,7 @@ export default function Settings() {
               ]} />
           )}
           {section === "holidays" && (
-            <CrudPanel title="Holiday Calendar" subtitle="Company holidays & observances" icon={<CalendarDays size={20} />} addLabel="Add Holiday" hook={holidays}
+            <CrudPanel title="Holiday Calendar" subtitle="Company holidays & observances" icon={<CalendarDays size={20} />} addLabel="Add Holiday" hook={holidays} automationScope="hr-settings-holidays"
               fields={[
                 { key: "name", label: "Holiday Name" }, { key: "date", label: "Date", type: "date" },
                 { key: "type", label: "Type", type: "select", options: ["Public", "Optional", "Restricted"] },
@@ -390,7 +396,7 @@ export default function Settings() {
           )}
           {section === "attendance" && (
             <ConfigForm title="Attendance Rules" subtitle="Work hours, thresholds & verification" icon={<Fingerprint size={20} />}
-              data={attRules.data} loading={attRules.loading} error={attRules.error} onSave={attRules.save}
+              data={attRules.data} loading={attRules.loading} error={attRules.error} onSave={attRules.save} automationScope="hr-settings-attendance"
               fields={[
                 { key: "workHoursPerDay", label: "Work Hours / Day", type: "number" }, { key: "fullDayThresholdHours", label: "Full-Day Threshold (hrs)", type: "number" },
                 { key: "shiftStartTime", label: "Default Shift Start", type: "time" }, { key: "graceMinutes", label: "Grace Period (min)", type: "number" },
@@ -402,7 +408,7 @@ export default function Settings() {
           )}
           {section === "payroll" && (
             <ConfigForm title="Payroll Settings" subtitle="Pay cycle, statutory rates & deductions" icon={<Wallet size={20} />}
-              data={payroll.data} loading={payroll.loading} error={payroll.error} onSave={payroll.save}
+              data={payroll.data} loading={payroll.loading} error={payroll.error} onSave={payroll.save} automationScope="hr-settings-payroll"
               fields={[
                 { key: "payCycle", label: "Pay Cycle", type: "select", options: ["Monthly", "Bi-Weekly", "Weekly"] },
                 { key: "payDay", label: "Pay Day (day of month)", type: "number" },

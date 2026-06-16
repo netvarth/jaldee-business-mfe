@@ -14,6 +14,11 @@ interface LeadDetailDrawerProps {
   onUpdate: (lead: CrmLeadDto) => void;
 }
 
+function automationToken(value: unknown, fallback = "item") {
+  const token = String(value ?? fallback).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return token || fallback;
+}
+
 export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpdate }: LeadDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'timeline' | 'notes'>('details');
   const [isMoveStageOpen, setIsMoveStageOpen] = useState(false);
@@ -298,15 +303,18 @@ export default function LeadDetailDrawer({ lead, currentPipeline, onClose, onUpd
                 </div>
               ) : (
                 <div className="space-y-4">
-                   {lead.generalNotes.map((note, i) => (
-                      <div key={i} className="bg-white p-6 rounded-[24px] border border-slate-200 software-shadow">
+                   {lead.generalNotes.map((note) => {
+                      const noteKey = automationToken(note.id || note.createdAt || note.notes, "note");
+                      return (
+                      <div key={noteKey} data-testid={`jaldee-leads-lead-${lead.uid}-note-${noteKey}`} className="bg-white p-6 rounded-[24px] border border-slate-200 software-shadow">
                          <p className="text-slate-800 text-sm font-medium leading-relaxed">{note.notes}</p>
                          <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2">
                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                            <span className="text-xs font-semibold text-slate-400">Archived Annotation</span>
                          </div>
                       </div>
-                   ))}
+                      );
+                   })}
                 </div>
               )}
             </div>

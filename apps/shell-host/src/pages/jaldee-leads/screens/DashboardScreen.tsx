@@ -22,6 +22,11 @@ const FREQUENCY_OPTIONS = [
   { value: 'TILL_NOW', label: 'Till Now' },
 ];
 
+function automationToken(value: unknown, fallback = "item") {
+  const token = String(value ?? fallback).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return token || fallback;
+}
+
 function readCountMetric(analytics: any, ...keys: string[]) {
   const target = analytics?.data !== undefined ? analytics.data : analytics;
   if (target?.metricWiseValues?.length) {
@@ -351,7 +356,7 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
           
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-[repeat(auto-fit,minmax(min(100%,7.5rem),1fr))] sm:overflow-visible sm:pb-0">
              {pipelineSaturationData.map((stage, idx) => (
-                <div key={idx} className="min-w-[132px] sm:min-w-0 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-600 transition-all group cursor-pointer text-center">
+                <div key={`${automationToken(stage.name, "stage")}-${idx}`} data-testid={`jaldee-leads-dashboard-stage-${automationToken(stage.name, "stage")}`} className="min-w-[132px] sm:min-w-0 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-600 transition-all group cursor-pointer text-center">
                    <div 
                      className="w-7 h-7 rounded-full bg-white mx-auto mb-3 flex items-center justify-center text-slate-800 font-bold text-xs shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all border border-slate-200"
                    >
@@ -408,8 +413,8 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
         <SectionCard className="p-6">
           <h4 className="text-xs font-semibold text-slate-400 mb-4">Leads by Source Channel</h4>
           <div className="space-y-3">
-            {channelAnalytics.map((c, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+            {channelAnalytics.map((c) => (
+              <div key={`channel-${automationToken(c.uid || c.name, "channel")}`} data-testid={`jaldee-leads-dashboard-channel-${automationToken(c.uid || c.name, "channel")}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <span className="text-xs font-semibold text-slate-800">{c.name}</span>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-slate-400 font-mono">{(totalLeads ? (c.value/totalLeads)*100 : 0).toFixed(0)}%</span>
@@ -423,8 +428,8 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
         <SectionCard className="p-6">
           <h4 className="text-xs font-semibold text-slate-400 mb-4">Leads by Product Offer</h4>
           <div className="space-y-3">
-            {productAnalytics.map((p, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+            {productAnalytics.map((p) => (
+              <div key={`product-${automationToken(p.uid || p.name, "product")}`} data-testid={`jaldee-leads-dashboard-product-${automationToken(p.uid || p.name, "product")}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <span className="text-xs font-semibold text-slate-800 truncate max-w-[200px]">{p.name}</span>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-slate-400 font-mono">{(totalLeads ? (p.value/totalLeads)*100 : 0).toFixed(0)}%</span>

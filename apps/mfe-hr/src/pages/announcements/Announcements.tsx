@@ -62,21 +62,21 @@ export default function Announcements() {
   };
 
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, display: "flex", flexDirection: "column" }}>
+    <section id="hr-announcements-page" data-testid="hr-announcements-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 32, width: "100%" }}>
         <PageHeader
           title="StaffSpace"
           subtitle="Stay updated with the latest company news and policies."
-          actions={<button onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> New Announcement</button>}
+          actions={<button id="hr-announcements-create-button" data-testid="hr-announcements-create-button" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> New Announcement</button>}
         />
 
         {/* SEARCH */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ position: "relative", flex: 1 }}>
             <Search size={20} style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-            <input placeholder="Search announcements…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
+            <input id="hr-announcements-search" data-testid="hr-announcements-search" placeholder="Search announcements…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
           </div>
-          <button style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
+          <button id="hr-announcements-filter-button" data-testid="hr-announcements-filter-button" style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
         </div>
 
 
@@ -118,9 +118,9 @@ export default function Announcements() {
                     <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
-                        <span onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
+                        <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
                       </div>
-                      <button onClick={() => ann.acknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
+                      <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => ann.acknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
                     </div>
                   </div>
                 </div>
@@ -133,38 +133,38 @@ export default function Announcements() {
 
       {/* CREATE MODAL */}
       {addOpen && (
-        <div style={overlay} onClick={() => setAddOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 820 }}>
+        <div id="hr-announcements-create-modal-overlay" data-testid="hr-announcements-create-modal-overlay" data-state={addOpen ? "open" : "closed"} style={overlay} onClick={() => setAddOpen(false)}>
+          <div id="hr-announcements-create-modal" data-testid="hr-announcements-create-modal" data-state={addOpen ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 820 }}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Create Announcement</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Post a new update for all employees to see.</p></div>
-                <button onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
+                <button id="hr-announcements-create-close" data-testid="hr-announcements-create-close" onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
               </div>
             </div>
             <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <div><label style={lbl}>Title</label><input placeholder="Enter a catchy title…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
+                <div><label style={lbl}>Title</label><input id="hr-announcements-title" data-testid="hr-announcements-title" placeholder="Enter a catchy title…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div><label style={lbl}>Category</label><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={{ ...field, marginTop: 6 }}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label style={lbl}>Validity (Optional)</label><input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} style={{ ...field, marginTop: 6 }} /></div>
+                  <div><label style={lbl}>Category</label><select id="hr-announcements-category" data-testid="hr-announcements-category" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={{ ...field, marginTop: 6 }}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label style={lbl}>Validity (Optional)</label><input id="hr-announcements-end-date" data-testid="hr-announcements-end-date" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} style={{ ...field, marginTop: 6 }} /></div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4 }}>
-                  <button type="button" style={{ height: 44, padding: "0 18px", borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}><Paperclip size={16} /> Add Attachment</button>
+                  <button id="hr-announcements-attachment" data-testid="hr-announcements-attachment" type="button" style={{ height: 44, padding: "0 18px", borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}><Paperclip size={16} /> Add Attachment</button>
                   <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: "10px 16px", borderRadius: 12, cursor: "pointer" }}>
-                    <input type="checkbox" checked={form.isPinned} onChange={(e) => setForm({ ...form, isPinned: e.target.checked })} style={{ width: 18, height: 18 }} />
+                    <input id="hr-announcements-pin-top" data-testid="hr-announcements-pin-top" type="checkbox" checked={form.isPinned} onChange={(e) => setForm({ ...form, isPinned: e.target.checked })} style={{ width: 18, height: 18 }} />
                     <span style={lbl}>Pin to top</span>
                   </label>
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <label style={lbl}>Content</label>
-                <textarea placeholder="Write your announcement here…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 200, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+                <textarea id="hr-announcements-content" data-testid="hr-announcements-content" placeholder="Write your announcement here…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 200, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
               </div>
             </div>
             {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-              <button onClick={post} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Posting…</> : "Post Announcement"}</button>
+              <button id="hr-announcements-cancel" data-testid="hr-announcements-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
+              <button id="hr-announcements-submit" data-testid="hr-announcements-submit" onClick={post} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Posting…</> : "Post Announcement"}</button>
             </div>
           </div>
         </div>
@@ -172,11 +172,11 @@ export default function Announcements() {
 
       {/* TRACKING MODAL */}
       {tracking && (
-        <div style={overlay} onClick={() => setTracking(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 440 }}>
+        <div id="hr-announcements-tracking-modal-overlay" data-testid="hr-announcements-tracking-modal-overlay" data-state={tracking ? "open" : "closed"} style={overlay} onClick={() => setTracking(null)}>
+          <div id="hr-announcements-tracking-modal" data-testid="hr-announcements-tracking-modal" data-state={tracking ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 440 }}>
             <div style={{ padding: "24px 28px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div><h3 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.6px", color: "var(--dark-text)", margin: 0 }}>Acknowledgment Tracking</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Staff who have acknowledged this announcement.</p></div>
-              <button onClick={() => setTracking(null)} style={iconBtn}><X size={20} /></button>
+              <button id="hr-announcements-tracking-close" data-testid="hr-announcements-tracking-close" onClick={() => setTracking(null)} style={iconBtn}><X size={20} /></button>
             </div>
             <div style={{ padding: "8px 24px 24px", display: "flex", flexDirection: "column", gap: 12, maxHeight: "60vh", overflowY: "auto" }}>
               {!tracking.acknowledgedBy?.length ? (

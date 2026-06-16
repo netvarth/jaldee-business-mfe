@@ -148,6 +148,7 @@ export function TasksCalendarView() {
                     type="button"
                     variant="primary"
                     aria-label={`Previous ${calendarMode}`}
+                    data-testid="tasks-calendar-prev-button"
                     className="h-9 w-9 rounded-r-none px-0"
                     onClick={() => moveCalendar(-1)}
                   >
@@ -157,13 +158,14 @@ export function TasksCalendarView() {
                     type="button"
                     variant="primary"
                     aria-label={`Next ${calendarMode}`}
+                    data-testid="tasks-calendar-next-button"
                     className="h-9 w-9 rounded-l-none px-0"
                     onClick={() => moveCalendar(1)}
                   >
                     &gt;
                   </Button>
                 </div>
-                <Button type="button" variant="primary" className="h-9 px-3" onClick={goToday}>
+                <Button type="button" variant="primary" className="h-9 px-3" onClick={goToday} data-testid="tasks-calendar-today-button">
                   Today
                 </Button>
               </div>
@@ -180,6 +182,8 @@ export function TasksCalendarView() {
                       <button
                         key={label}
                         type="button"
+                        data-testid={`tasks-calendar-mode-${value}`}
+                        data-active={active ? "true" : "false"}
                         aria-pressed={active}
                         onClick={() => setCalendarMode(value)}
                         className={[
@@ -227,6 +231,7 @@ export function TasksCalendarView() {
                       <button
                         key={task.taskUid}
                         type="button"
+                        data-testid={`tasks-calendar-list-task-${task.taskUid}`}
                         className="grid w-full grid-cols-[4.5rem_0.75rem_minmax(0,1fr)] items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 last:border-b-0 hover:bg-slate-50"
                         onClick={() => openTask(task.taskUid)}
                       >
@@ -353,6 +358,7 @@ export function CrmLeadStageTasksView() {
                   className="border-0 bg-transparent p-0 text-left font-semibold text-slate-900 hover:text-indigo-700"
                   onClick={() => setSelectedTaskUid(row.taskUid)}
                   id={`btnCrmStageTask_${row.taskUid}`}
+                  data-testid={`btnCrmStageTask_${row.taskUid}`}
                 >
                   {row.title}
                 </button>

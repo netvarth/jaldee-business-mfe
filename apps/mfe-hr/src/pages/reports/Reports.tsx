@@ -65,7 +65,12 @@ export default function Reports() {
   );
 
   return (
-    <div className="flex h-full min-w-0 flex-col gap-5">
+    <section
+      id="hr-reports-page"
+      data-testid="hr-reports-page"
+      className="page-section active"
+      style={{ background: "var(--app-bg)", minWidth: 0 }}
+    >
       <PageHeader
         title="Reports & Analytics"
         subtitle="Export workforce data across the organization"
@@ -76,6 +81,6 @@ export default function Reports() {
         <ReportCard icon={<FileBarChart className="h-5 w-5" />} title="Hours & Days Worked" desc="Attendance ledger" count={attendance.length} onExport={exportAttendance} busy={la} />
         <ReportCard icon={<Wallet className="h-5 w-5" />} title="Payroll Export" desc="Payslips & net pay" count={payslips.length} onExport={exportPayroll} busy={lp} />
       </div>
-    </div>
+    </section>
   );
 }

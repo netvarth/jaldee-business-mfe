@@ -241,6 +241,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                                       )}
                                       <button
                                         type="button"
+                                        data-testid={`jaldee-leads-pipeline-${pipeline.uid}-stage-${stage.uid}-edit-button`}
                                         onClick={(e) => { e.stopPropagation(); onEdit(); }}
                                         title="Edit stage"
                                         className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
@@ -249,6 +250,7 @@ export default function PipelineDetailScreen({ pipeline, leads, onBack, onEdit, 
                                       </button>
                                       <button
                                         type="button"
+                                        data-testid={`jaldee-leads-pipeline-${pipeline.uid}-stage-${stage.uid}-remove-button`}
                                         onClick={(e) => { e.stopPropagation(); }}
                                         title="Remove stage"
                                         className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600"

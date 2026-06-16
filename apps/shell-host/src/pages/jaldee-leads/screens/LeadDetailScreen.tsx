@@ -738,6 +738,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
                    <p className="text-sm font-bold text-slate-400 mt-0.5">Move the lead across operational stages dynamically</p>
                 </div>
                 <Button 
+                  id={`jaldee-leads-lead-${lead.uid}-new-pipeline-stage-button`}
+                  data-testid={`jaldee-leads-lead-${lead.uid}-new-pipeline-stage-button`}
                   onClick={() => setShowAddStageModal(true)}
                   variant="outline"
                   icon={<ICONS.ADD className="w-3.5 h-3.5" />}
@@ -827,6 +829,8 @@ export default function LeadDetailScreen({ lead, pipelines, setPipelines, produc
 
                     {/* Interactive add stage circle node */}
                     <button 
+                      type="button"
+                      data-testid={`jaldee-leads-lead-${lead.uid}-add-stage-node-button`}
                       onClick={() => setShowAddStageModal(true)}
                       className="flex flex-col items-center group cursor-pointer text-center px-2 py-2 rounded-2xl hover:bg-indigo-50/20 transition-all duration-200 min-w-[120px]"
                     >

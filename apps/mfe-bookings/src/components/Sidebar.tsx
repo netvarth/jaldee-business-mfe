@@ -37,12 +37,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {isOpen && (
         <div
+          id="bookings-sidebar-backdrop"
+          data-testid="bookings-sidebar-backdrop"
+          data-state={isOpen ? "open" : "closed"}
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       <div
+        id="bookings-sidebar"
+        data-testid="bookings-sidebar"
+        data-state={isOpen ? "open" : "closed"}
         className={cn(
           "fixed lg:static inset-y-0 left-0 w-[220px] bg-slate-900 text-slate-400 flex flex-col z-50 transition-transform lg:translate-x-0 h-full",
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -56,6 +62,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </p>
           </div>
           <button
+            id="bookings-sidebar-close"
+            data-testid="bookings-sidebar-close"
             onClick={onClose}
             className="p-2 lg:hidden text-slate-400 hover:bg-slate-800 rounded-lg"
           >
@@ -80,7 +88,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               }
             >
               {({ isActive }) => (
-                <>
+                <div data-testid={`bookings-sidebar-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`} data-active={isActive ? "true" : "false"} className="contents">
                   <item.icon
                     size={18}
                     className={cn(
@@ -88,7 +96,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     )}
                   />
                   {item.label}
-                </>
+                </div>
               )}
             </NavLink>
           ))}

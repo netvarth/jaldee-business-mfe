@@ -5,10 +5,12 @@ export default function CalendarDetails() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div id="bookings-calendar-details-page" data-testid="bookings-calendar-details-page" className="flex flex-col h-full bg-slate-50">
       {/* Back header */}
       <div className="flex items-center p-4 border-b border-slate-200 bg-white">
-        <button 
+        <button
+          id="bookings-calendar-details-back"
+          data-testid="bookings-calendar-details-back"
           onClick={() => navigate('/calendars')}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-semibold text-sm transition-colors"
         >
@@ -23,7 +25,7 @@ export default function CalendarDetails() {
       <div className="flex h-full overflow-hidden">
         {/* Main details content */}
         <div className="flex-1 p-6 overflow-y-auto">
-          <div className="flex items-start gap-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div id="bookings-calendar-details-summary" data-testid="bookings-calendar-details-summary" className="flex items-start gap-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-blue-500 shrink-0"></div>
             <div className="flex-1">
               <div className="flex items-center gap-3">
@@ -40,9 +42,9 @@ export default function CalendarDetails() {
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <button onClick={() => navigate('/calendars/edit')} className="h-10 px-4 rounded-xl font-bold bg-white border border-slate-200 text-slate-700 text-sm hover:bg-slate-50 transition-colors shadow-sm">Edit Calendar</button>
-              <button onClick={() => navigate('/calendars/customize')} className="h-10 px-4 rounded-xl font-bold bg-white border border-slate-200 text-slate-700 text-sm hover:bg-slate-50 transition-colors shadow-sm">Customize</button>
-              <button onClick={() => navigate('/calendars/customize')} className="h-10 px-4 rounded-xl font-bold bg-[#0f172a] text-white text-sm hover:bg-slate-800 transition-colors shadow-sm">Calendar Settings</button>
+              <button id="bookings-calendar-details-edit" data-testid="bookings-calendar-details-edit" onClick={() => navigate('/calendars/edit')} className="h-10 px-4 rounded-xl font-bold bg-white border border-slate-200 text-slate-700 text-sm hover:bg-slate-50 transition-colors shadow-sm">Edit Calendar</button>
+              <button id="bookings-calendar-details-customize" data-testid="bookings-calendar-details-customize" onClick={() => navigate('/calendars/customize')} className="h-10 px-4 rounded-xl font-bold bg-white border border-slate-200 text-slate-700 text-sm hover:bg-slate-50 transition-colors shadow-sm">Customize</button>
+              <button id="bookings-calendar-details-settings" data-testid="bookings-calendar-details-settings" onClick={() => navigate('/calendars/customize')} className="h-10 px-4 rounded-xl font-bold bg-[#0f172a] text-white text-sm hover:bg-slate-800 transition-colors shadow-sm">Calendar Settings</button>
             </div>
           </div>
 
@@ -50,18 +52,18 @@ export default function CalendarDetails() {
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-900">Schedules</h3>
-              <button onClick={() => navigate('/calendars/edit-schedule')} className="h-9 px-3 rounded-lg font-bold bg-white border border-slate-200 text-slate-700 text-xs hover:bg-slate-50 transition-colors shadow-sm">+ Add Schedule</button>
+              <button id="bookings-calendar-details-add-schedule" data-testid="bookings-calendar-details-add-schedule" onClick={() => navigate('/calendars/edit-schedule')} className="h-9 px-3 rounded-lg font-bold bg-white border border-slate-200 text-slate-700 text-xs hover:bg-slate-50 transition-colors shadow-sm">+ Add Schedule</button>
             </div>
 
-            <div className="grid gap-4">
+            <div id="bookings-calendar-details-schedules" data-testid="bookings-calendar-details-schedules" className="grid gap-4">
               {/* Dummy Schedule Card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div id="bookings-calendar-schedule-morning-shift" data-testid="bookings-calendar-schedule-morning-shift" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-bold text-slate-900">Morning Shift</h4>
                     <p className="text-sm text-slate-500 mt-1">Mon, Tue, Wed • 09:00 AM - 01:00 PM</p>
                   </div>
-                  <button onClick={() => navigate('/calendars/edit-schedule')} className="text-sm font-semibold text-blue-600 hover:text-blue-700">Edit</button>
+                  <button id="bookings-calendar-schedule-edit-morning-shift" data-testid="bookings-calendar-schedule-edit-morning-shift" onClick={() => navigate('/calendars/edit-schedule')} className="text-sm font-semibold text-blue-600 hover:text-blue-700">Edit</button>
                 </div>
               </div>
             </div>
@@ -69,7 +71,7 @@ export default function CalendarDetails() {
         </div>
 
         {/* Sidebar details content */}
-        <aside className="w-72 bg-white border-l border-slate-200 p-6 overflow-y-auto flex flex-col gap-8 shrink-0">
+        <aside id="bookings-calendar-details-sidebar" data-testid="bookings-calendar-details-sidebar" className="w-72 bg-white border-l border-slate-200 p-6 overflow-y-auto flex flex-col gap-8 shrink-0">
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Services</h4>
             <div className="flex flex-wrap gap-2">

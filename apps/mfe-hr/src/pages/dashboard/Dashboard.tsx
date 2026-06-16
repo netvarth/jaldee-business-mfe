@@ -91,7 +91,7 @@ export default function Dashboard() {
   });
 
   return (
-    <section id="page-hr-home" className="page-section active" style={{ background: "#f8fafc", flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <section id="page-hr-home" data-testid="hr-dashboard-page" className="page-section active" style={{ background: "#f8fafc", flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
       <div style={{ minWidth: 0, boxSizing: "border-box" }}>
         {/* HEADER */}
         <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
@@ -109,9 +109,9 @@ export default function Dashboard() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", background: "#f8fafc", border: "1px solid rgba(226,232,240,0.5)", borderRadius: 12, padding: 4 }}>
-              <button style={periodBtn("today", "Today")}>Today</button>
-              <button style={periodBtn("week", "This Week")}>This Week</button>
-              <button style={periodBtn("month", "This Month")}>This Month</button>
+              <button id="hr-dashboard-period-today" data-testid="hr-dashboard-period-today" data-active="false" style={periodBtn("today", "Today")}>Today</button>
+              <button id="hr-dashboard-period-week" data-testid="hr-dashboard-period-week" data-active="false" style={periodBtn("week", "This Week")}>This Week</button>
+              <button id="hr-dashboard-period-month" data-testid="hr-dashboard-period-month" data-active="true" style={periodBtn("month", "This Month")}>This Month</button>
             </div>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function Dashboard() {
         {/* KPI CARDS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
           {kpis.map((k) => (
-            <div key={k.label} onClick={k.onClick} style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: 20, position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", cursor: "pointer" }}>
+            <div key={k.label} id={`hr-dashboard-kpi-${k.label.toLowerCase().replace(/\s+/g, "-")}`} data-testid={`hr-dashboard-kpi-${k.label.toLowerCase().replace(/\s+/g, "-")}`} onClick={k.onClick} style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: 20, position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", cursor: "pointer" }}>
               <div style={{ position: "absolute", right: 0, top: 0, width: 100, height: 100, background: k.bg, pointerEvents: "none" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, position: "relative", zIndex: 1 }}>
                 <span style={{ padding: 8, background: "rgba(241,245,249,0.5)", border: "1px solid #f1f5f9", borderRadius: 12, display: "flex" }}>{k.icon}</span>
@@ -140,7 +140,7 @@ export default function Dashboard() {
         {/* TREND + BROADCASTS */}
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(320px, 1.5fr)", gap: 20, marginBottom: 24 }}>
           {/* ATTENDANCE TREND */}
-          <div style={{ ...card, position: "relative" }}>
+          <div id="hr-dashboard-attendance-trend" data-testid="hr-dashboard-attendance-trend" style={{ ...card, position: "relative" }}>
             <h3 style={cardTitle}>Attendance Trend</h3>
             <p style={cardSub}>Daily active workforce vs scheduled leaves.</p>
             <svg viewBox="0 0 600 180" style={{ width: "100%", height: 220, marginTop: 16 }}>
@@ -152,13 +152,13 @@ export default function Dashboard() {
           </div>
 
           {/* LATEST BROADCASTS */}
-          <div style={{ ...card, display: "flex", flexDirection: "column" }}>
+          <div id="hr-dashboard-broadcasts" data-testid="hr-dashboard-broadcasts" style={{ ...card, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <h3 style={cardTitle}>Latest Broadcasts</h3>
                 <p style={cardSub}>Company-wide announcements.</p>
               </div>
-              <button onClick={() => navigate("/announcements")} style={{ background: "rgba(17,94,89,0.05)", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#115E59", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <button id="hr-dashboard-broadcasts-view-all" data-testid="hr-dashboard-broadcasts-view-all" onClick={() => navigate("/announcements")} style={{ background: "rgba(17,94,89,0.05)", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#115E59", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 View All <ChevronRight size={14} />
               </button>
             </div>
@@ -168,7 +168,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>No announcements yet.</div>
               ) : (
                 pinned.map((a) => (
-                  <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f8fafc", borderRadius: 12 }}>
+                  <div key={a.id} id={`hr-dashboard-broadcast-${a.id}`} data-testid={`hr-dashboard-broadcast-${a.id}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f8fafc", borderRadius: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ padding: 8, background: "white", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                         <Megaphone size={16} stroke="#115E59" />
@@ -188,7 +188,7 @@ export default function Dashboard() {
 
         {/* WORKFORCE DEMOGRAPHICS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 24 }}>
-          <div style={card}>
+          <div id="hr-dashboard-department-breakdown" data-testid="hr-dashboard-department-breakdown" style={card}>
             <h3 style={cardTitle}>Department Breakdown</h3>
             <p style={cardSub}>Distribution of staff across teams.</p>
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -204,13 +204,13 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          <div style={card}>
+          <div id="hr-dashboard-tenure-average" data-testid="hr-dashboard-tenure-average" style={card}>
             <h3 style={cardTitle}>Tenure Average</h3>
             <p style={cardSub}>Employee retention health.</p>
             <div style={{ fontSize: 32, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>2.4 yrs</div>
             <div style={{ fontSize: 12, color: "#10b981", marginTop: 4, fontWeight: 700 }}>+8% YoY retention</div>
           </div>
-          <div style={card}>
+          <div id="hr-dashboard-diversity-ratio" data-testid="hr-dashboard-diversity-ratio" style={card}>
             <h3 style={cardTitle}>Diversity Ratio</h3>
             <p style={cardSub}>Gender distribution.</p>
             <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>42% / 58%</div>

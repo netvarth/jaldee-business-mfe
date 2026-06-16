@@ -1084,7 +1084,7 @@ export default function SettingsPage() {
                 <div className="settings-logo-copy">
                   <p className="settings-logo-copy__title">Change your business logo</p>
                   <p className="settings-logo-copy__meta">Square images work best. Max 2MB, PNG or JPG.</p>
-                  <button type="button" className="settings-link-danger">Remove logo</button>
+                  <button type="button" id="settings-company-remove-logo" data-testid="settings-company-remove-logo" className="settings-link-danger">Remove logo</button>
                 </div>
               </div>
             </SectionCard>
@@ -1216,7 +1216,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="settings-plan-card__actions">
                   <Button variant="primary">Upgrade Plan</Button>
-                  <button type="button" className="settings-link-button">
+                  <button type="button" id="settings-billing-history-button" data-testid="settings-billing-history-button" className="settings-link-button">
                     <NavIcon name="historyClock" className="settings-link-button__icon" />
                     <span>View billing history</span>
                   </button>
@@ -1278,7 +1278,7 @@ export default function SettingsPage() {
                   <UsageCard key={item.id} item={item} />
                 ))}
               </div>
-              <button type="button" className="settings-usage-link">
+              <button type="button" id="settings-usage-report-button" data-testid="settings-usage-report-button" className="settings-usage-link">
                 <span>View detailed usage report</span>
                 <NavIcon name="arrowRight" className="settings-usage-link__icon" />
               </button>
@@ -1482,6 +1482,9 @@ function SettingsNavGroup({
           <button
             key={item.key}
             type="button"
+            id={`settings-nav-${item.key}`}
+            data-testid={`settings-nav-${item.key}`}
+            data-active={activeKey === item.key ? "true" : "false"}
             onClick={() => onNavigate(item.key)}
             className={`settings-nav-item ${activeKey === item.key ? "settings-nav-item--active" : ""}`}
           >
@@ -1508,8 +1511,9 @@ function CardHeading({ icon, title, subtitle }: { icon: string; title: string; s
 }
 
 function DangerTile({ icon, title, description }: { icon: string; title: string; description: string }) {
+  const testId = `settings-danger-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`;
   return (
-    <button type="button" className="settings-danger-tile">
+    <button type="button" id={testId} data-testid={testId} className="settings-danger-tile">
       <span className="settings-danger-tile__icon">
         <NavIcon name={icon} />
       </span>
@@ -1554,7 +1558,7 @@ function ProductCard({
           <span>{item.statusMeta}</span>
         </div>
         {item.actionLabel ? (
-          <button type="button" className="settings-product-card__action">
+          <button type="button" id={`settings-product-${item.id}-action`} data-testid={`settings-product-${item.id}-action`} className="settings-product-card__action">
             <span>{item.actionLabel}</span>
             <NavIcon name="arrowRight" className="settings-product-card__action-icon" />
           </button>
