@@ -1,7 +1,7 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { MFEPropsContext } from "@jaldee/auth-context";
-import type { MFEProps } from "@jaldee/auth-context";
+import { MFEPropsContext, type MFEProps } from "@jaldee/auth-context";
+import { ensureApiClientInitialized } from "./lib/apiClient";
 import App from "./App";
 import { MFEErrorBoundary } from "./error/MFEErrorBoundary";
 
@@ -30,6 +30,7 @@ function renderApp(props: MFEProps) {
 }
 
 export function mount(container: HTMLElement, props: MFEProps) {
+  ensureApiClientInitialized(props.mfeName, props.authToken);
   currentContainer = container;
   currentProps = props;
   root = ReactDOM.createRoot(container);
@@ -54,5 +55,6 @@ export function updateProps(nextProps: Partial<MFEProps>) {
     return;
   }
   currentProps = { ...currentProps, ...nextProps };
+  ensureApiClientInitialized(currentProps.mfeName, currentProps.authToken);
   renderApp(currentProps);
 }

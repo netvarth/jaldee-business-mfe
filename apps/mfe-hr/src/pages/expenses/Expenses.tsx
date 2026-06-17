@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, Dialog } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
@@ -190,39 +190,67 @@ export default function Expenses() {
       </div>
 
       {/* SUBMIT MODAL */}
-      {addOpen && (
-        <div id="hr-expenses-submit-modal-overlay" data-testid="hr-expenses-submit-modal-overlay" data-state="open" style={overlay} onClick={() => setAddOpen(false)}>
-          <div id="hr-expenses-submit-modal" data-testid="hr-expenses-submit-modal" onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 760 }}>
-            <div style={{ background: "rgba(17,94,89,0.05)", padding: "24px 30px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div><h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Submit Expense Claim</h3><p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Log a reimbursement or mileage voucher.</p></div>
-              <button id="hr-expenses-submit-close" data-testid="hr-expenses-submit-close" onClick={() => setAddOpen(false)} aria-label="Close submit expense claim" style={iconBtn}><X size={20} /></button>
-            </div>
-            <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-              <div><label style={{ ...lbl, color: TEAL }}>Claimant Employee</label><select id="hr-expenses-employee-select" data-testid="hr-expenses-employee-select" style={{ ...field, marginTop: 6 }} value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-              <div><label style={{ ...lbl, color: TEAL }}>Reimbursement Amount (INR)</label><input id="hr-expenses-amount-input" data-testid="hr-expenses-amount-input" type="number" min="0" placeholder="0.00" style={{ ...field, marginTop: 6 }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
-              <div><label style={lbl}>Expense Category</label><select id="hr-expenses-category-select" data-testid="hr-expenses-category-select" style={{ ...field, marginTop: 6 }} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-              <div><label style={lbl}>Claim Date</label><input id="hr-expenses-date-input" data-testid="hr-expenses-date-input" type="date" style={{ ...field, marginTop: 6 }} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
-              {form.category === "Travel" && (
-                <>
-                  <div><label style={lbl}>Distance (KMs)</label><input id="hr-expenses-distance-input" data-testid="hr-expenses-distance-input" type="number" min="0" placeholder="e.g. 120" style={{ ...field, marginTop: 6 }} value={form.kms} onChange={(e) => setForm({ ...form, kms: e.target.value })} /></div>
-                  <div><label style={lbl}>Mode of Transport</label><input id="hr-expenses-transport-input" data-testid="hr-expenses-transport-input" placeholder="e.g. Company Sedan" style={{ ...field, marginTop: 6 }} value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} /></div>
-                </>
-              )}
-              <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Notes / Description</label><textarea id="hr-expenses-notes-textarea" data-testid="hr-expenses-notes-textarea" placeholder="Short description of the expense…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={{ marginTop: 6, width: "100%", minHeight: 90, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: 14, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} /></div>
-            </div>
-            {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-            <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-              <button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Claim Proposal"}</button>
-            </div>
-          </div>
+      <Dialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        testId="hr-expenses-submit-modal"
+        hideHeader
+        contentClassName="max-w-[760px] p-0 overflow-hidden"
+      >
+        <div style={{ background: "rgba(17,94,89,0.05)", padding: "24px 30px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div><h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Submit Expense Claim</h3><p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Log a reimbursement or mileage voucher.</p></div>
+          <button id="hr-expenses-submit-close" data-testid="hr-expenses-submit-close" onClick={() => setAddOpen(false)} aria-label="Close submit expense claim" style={iconBtn}><X size={20} /></button>
         </div>
-      )}
+        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+          <Select
+            id="hr-expenses-employee-select"
+            testId="hr-expenses-employee-select"
+            label="Claimant Employee"
+            value={form.employeeUid}
+            onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+            placeholder="Select employee"
+            options={employees.map((e) => ({ value: e.id, label: e.name }))}
+          />
+          <div><label style={{ ...lbl, color: TEAL }}>Reimbursement Amount (INR)</label><input id="hr-expenses-amount-input" data-testid="hr-expenses-amount-input" type="number" min="0" placeholder="0.00" style={{ ...field, marginTop: 6 }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
+          <Select
+            id="hr-expenses-category-select"
+            testId="hr-expenses-category-select"
+            label="Expense Category"
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+          />
+          <DatePicker
+            id="hr-expenses-date-input"
+            label="Claim Date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+          />
+          {form.category === "Travel" && (
+            <>
+              <div><label style={lbl}>Distance (KMs)</label><input id="hr-expenses-distance-input" data-testid="hr-expenses-distance-input" type="number" min="0" placeholder="e.g. 120" style={{ ...field, marginTop: 6 }} value={form.kms} onChange={(e) => setForm({ ...form, kms: e.target.value })} /></div>
+              <div><label style={lbl}>Mode of Transport</label><input id="hr-expenses-transport-input" data-testid="hr-expenses-transport-input" placeholder="e.g. Company Sedan" style={{ ...field, marginTop: 6 }} value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} /></div>
+            </>
+          )}
+          <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Notes / Description</label><textarea id="hr-expenses-notes-textarea" data-testid="hr-expenses-notes-textarea" placeholder="Short description of the expense…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={{ marginTop: 6, width: "100%", minHeight: 90, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: 14, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} /></div>
+        </div>
+        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
+          <button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Claim Proposal"}</button>
+        </div>
+      </Dialog>
 
       {/* DETAIL MODAL */}
-      {selected && (
-        <div id={`hr-expenses-detail-modal-overlay-${selected.id}`} data-testid={`hr-expenses-detail-modal-overlay-${selected.id}`} data-state="open" style={overlay} onClick={() => setSelected(null)}>
-          <div id={`hr-expenses-detail-modal-${selected.id}`} data-testid={`hr-expenses-detail-modal-${selected.id}`} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 560 }}>
+      <Dialog
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        testId="hr-expenses-detail-modal"
+        hideHeader
+        contentClassName="max-w-[560px] p-0 overflow-hidden"
+      >
+        {selected && (
+          <>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "22px 28px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>Claim Profile</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{empName(selected.employeeUid)} · {empCode(selected.employeeUid)}</p></div>
               <button id={`hr-expenses-detail-close-${selected.id}`} data-testid={`hr-expenses-detail-close-${selected.id}`} onClick={() => setSelected(null)} aria-label="Close expense claim profile" style={iconBtn}><X size={20} /></button>
@@ -259,9 +287,9 @@ export default function Expenses() {
               )}
               {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Dialog>
     </section>
   );
 }

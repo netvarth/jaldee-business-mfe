@@ -280,7 +280,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #7c3aed 0%, #5b21d1 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: var(--color-text-inverse);
   font-size: 32px;
   font-weight: 700;
@@ -331,7 +331,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #7c3aed 0%, #5b21d1 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: var(--color-text-inverse);
   font-size: 18px;
   font-weight: 700;
@@ -485,7 +485,7 @@
 }
 
 .sidebar-item[data-active="true"] {
-  background: linear-gradient(180deg, #6d44b8 0%, #5f3aa9 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: #ffffff;
 }
 
@@ -577,7 +577,7 @@
 }
 
 .sidebar-child[data-active="true"] {
-  background: linear-gradient(180deg, #6d44b8 0%, #5f3aa9 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: #ffffff;
 }
 
@@ -766,7 +766,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #7c3aed 0%, #5b21d1 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: #fff;
   font-weight: 700;
 }
@@ -831,12 +831,12 @@
 }
 
 .settings-item-active {
-  background: linear-gradient(180deg, #6d44b8 0%, #5f3aa9 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: #ffffff;
 }
 
 .settings-item-active:hover {
-  background: linear-gradient(180deg, #6d44b8 0%, #5f3aa9 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: #ffffff;
 }
 

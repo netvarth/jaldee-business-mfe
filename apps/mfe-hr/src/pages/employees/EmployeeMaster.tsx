@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
@@ -172,18 +172,20 @@ export default function EmployeeMaster() {
       </div>
 
       <div className="customers-toolbar" data-testid="hr-employees-toolbar">
-        <div style={{ display: "flex", gap: 12, flex: 1 }}>
-          <div className="c-search-bar">
-            <select
-              id="hr-employees-department-filter"
-              data-testid="hr-employees-department-filter"
-              className="c-search-select"
-              value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-            >
-              <option value="all">All Depts</option>
-              {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+        <div style={{ display: "flex", gap: 12, flex: 1, alignItems: "center" }}>
+          <Select
+            id="hr-employees-department-filter"
+            testId="hr-employees-department-filter"
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            containerClassName="w-[160px]"
+            fullWidth={false}
+            options={[
+              { value: "all", label: "All Depts" },
+              ...departments.map((d) => ({ value: d, label: d }))
+            ]}
+          />
+          <div className="c-search-bar" style={{ flex: 1, maxWidth: 320 }}>
             <input
               id="hr-employees-search"
               data-testid="hr-employees-search"

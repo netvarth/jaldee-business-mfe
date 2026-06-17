@@ -4,23 +4,20 @@ import {
   DataTable,
   Drawer,
   EmptyState,
-  Icon,
   Input,
   Popover,
   PopoverSection,
   Select,
-  StatCard,
-  Tabs,
   cn,
   type ColumnDef,
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
-import { useUserDepartments, useUserTeams, useUsersList, useUserLocations } from "../queries/users";
+import { useUserDepartments, useUsersList, useUserLocations } from "../queries/users";
 import type { UserSummary } from "../types";
 import { FunnelGlyph, MoreGlyph, PlusGlyph, UserAvatar, UsersPageShell } from "./shared";
-import { AssignLocationsDialog, ChangeLoginIdDialog, CreateTeamDialog, CreateUserDialog } from "./UserCreateDialogs";
+import { AssignLocationsDialog, ChangeLoginIdDialog, CreateUserDialog } from "./UserCreateDialogs";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -67,7 +64,6 @@ export function UsersList() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
   const [assignLocationsUser, setAssignLocationsUser] = useState<UserSummary | null>(null);
   const [changeLoginIdUser, setChangeLoginIdUser] = useState<UserSummary | null>(null);
 
@@ -99,24 +95,16 @@ export function UsersList() {
       userType: typeFilter,
       ...advancedFilters,
     }),
-    [
-      page,
-      pageSize,
-      statusFilter,
-      typeFilter,
-      advancedFilters,
-    ]
+    [page, pageSize, statusFilter, typeFilter, advancedFilters]
   );
 
   const listQuery = useUsersList(filters);
-  const teamsQuery = useUserTeams("all");
   const departmentsQuery = useUserDepartments();
   const locationsQuery = useUserLocations();
 
   const rows = listQuery.data?.users ?? [];
-  const totalUsers = listQuery.data?.total ?? rows.length;
   const activeUsers = listQuery.data?.total ?? rows.length;
-  const totalTeams = teamsQuery.data?.length ?? 0;
+
   const departmentNameMap = useMemo(
     () => new Map((departmentsQuery.data ?? []).map((department) => [String(department.id), department.name])),
     [departmentsQuery.data]
@@ -246,136 +234,112 @@ export function UsersList() {
         title="User Overview"
         subtitle="Create And Manage Users"
         actions={
-          <Popover
-            align="end"
-            contentClassName="min-w-[220px] p-2"
-            trigger={
-              <Button type="button" variant="primary" size="md" icon={<PlusGlyph />}>
-                Create
-              </Button>
-            }
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            icon={<PlusGlyph />}
+            onClick={() => setCreateDialogOpen(true)}
           >
-            <PopoverSection className="space-y-1">
-              <UserMenuAction label="Create User" onClick={() => setCreateDialogOpen(true)} />
-              <UserMenuAction label="Create Team" onClick={() => setCreateTeamDialogOpen(true)} muted />
-            </PopoverSection>
-          </Popover>
+            Create User
+          </Button>
         }
       >
-        <div className="grid gap-4 md:grid-cols-3">
-            <StatCard label="Total Users" value={totalUsers} accent="indigo" icon={<Icon name="list" />} />
-            <StatCard label="Total Teams" value={totalTeams} accent="amber" icon={<Icon name="layers" />} />
-            <StatCard label="Active Users" value={activeUsers} accent="emerald" icon={<Icon name="list" />} />
-          </div>
 
         <div className="space-y-8 py-5 px-0">
-            <div className="flex items-center justify-between gap-4">
-              <Tabs
-                value="users"
-                onValueChange={(value) => {
-                  if (value === "teams") navigate(`${basePath}/teams`);
-                }}
-                items={[
-                  { value: "users", label: "Users" },
-                  { value: "teams", label: "Teams" },
-                ]}
-                className="border-b-0"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="w-56">
-                  <Select
-                    value={statusFilter}
-                    onChange={(event) => {
-                      setStatusFilter(event.target.value);
-                      setPage(1);
-                    }}
-                    options={[
-                      { value: "ACTIVE", label: "Active Users" },
-                      { value: "INACTIVE", label: "Inactive Users" },
-                      { value: "all", label: "All Users" },
-                    ]}
-                  />
-                </div>
-                <div className="w-56">
-                  <Select
-                    value={typeFilter}
-                    onChange={(event) => {
-                      setTypeFilter(event.target.value);
-                      setPage(1);
-                    }}
-                    options={[
-                      { value: "all", label: "All Types" },
-                      { value: "PROVIDER", label: "Provider" },
-                      { value: "ASSISTANT", label: "Assistant" },
-                      { value: "ADMIN", label: "Admin" },
-                    ]}
-                  />
-                </div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="w-56">
+                <Select
+                  value={statusFilter}
+                  onChange={(event) => {
+                    setStatusFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  options={[
+                    { value: "ACTIVE", label: "Active Users" },
+                    { value: "INACTIVE", label: "Inactive Users" },
+                    { value: "all", label: "All Users" },
+                  ]}
+                />
               </div>
-              <Button
-                type="button"
-                variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
+              <div className="w-56">
+                <Select
+                  value={typeFilter}
+                  onChange={(event) => {
+                    setTypeFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  options={[
+                    { value: "all", label: "All Types" },
+                    { value: "PROVIDER", label: "Provider" },
+                    { value: "ASSISTANT", label: "Assistant" },
+                    { value: "ADMIN", label: "Admin" },
+                  ]}
+                />
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
+              className={cn(
+                "flex items-center gap-2 rounded-md font-semibold px-4 py-2 border-slate-300",
+                appliedAdvancedFilterCount > 0
+                  ? ""
+                  : "text-indigo-700 border-indigo-100 hover:bg-indigo-50/20"
+              )}
+              onClick={() => {
+                setDraftFilters(advancedFilters);
+                setDrawerOpen(true);
+              }}
+              id="btnUserDrawerFilters_SM_Users"
+            >
+              <svg
+                viewBox="0 0 24 24"
                 className={cn(
-                  "flex items-center gap-2 rounded-md font-semibold px-4 py-2 border-slate-300",
-                  appliedAdvancedFilterCount > 0
-                    ? ""
-                    : "text-indigo-700 border-indigo-100 hover:bg-indigo-50/20"
+                  "h-4 w-4 stroke-[2.2]",
+                  appliedAdvancedFilterCount > 0 ? "text-white" : "text-indigo-700"
                 )}
-                onClick={() => {
-                  setDraftFilters(advancedFilters);
-                  setDrawerOpen(true);
-                }}
-                id="btnUserDrawerFilters_SM_Users"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  className={cn(
-                    "h-4 w-4 stroke-[2.2]",
-                    appliedAdvancedFilterCount > 0 ? "text-white" : "text-indigo-700"
-                  )}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
-                </svg>
-                <span>Filter</span>
-                {appliedAdvancedFilterCount > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
-                    {appliedAdvancedFilterCount}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-none">
-              <DataTable
-                data={rows}
-                columns={columns}
-                loading={listQuery.isLoading}
-                onRowClick={(row) => navigate(`${basePath}/${row.id}`)}
-                selection={{
-                  selectedRowKeys,
-                  onChange: setSelectedRowKeys,
-                }}
-                pagination={{
-                  page,
-                  pageSize,
-                  total: activeUsers,
-                  onChange: setPage,
-                  onPageSizeChange: setPageSize,
-                  mode: "server",
-                }}
-                className="rounded-xl border-0 shadow-none"
-                tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-4"
-                emptyState={<EmptyState title="No users found" description="Try adjusting the active filters." />}
-              />
-            </div>
+                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+              </svg>
+              <span>Filter</span>
+              {appliedAdvancedFilterCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                  {appliedAdvancedFilterCount}
+                </span>
+              )}
+            </Button>
           </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-none">
+            <DataTable
+              data={rows}
+              columns={columns}
+              loading={listQuery.isLoading}
+              onRowClick={(row) => navigate(`${basePath}/${row.id}`)}
+              selection={{
+                selectedRowKeys,
+                onChange: setSelectedRowKeys,
+              }}
+              pagination={{
+                page,
+                pageSize,
+                total: activeUsers,
+                onChange: setPage,
+                onPageSizeChange: setPageSize,
+                mode: "server",
+              }}
+              className="rounded-xl border-0 shadow-none"
+              tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-4"
+              emptyState={<EmptyState title="No users found" description="Try adjusting the active filters." />}
+            />
+          </div>
+        </div>
       </UsersPageShell>
 
       <Drawer
@@ -526,12 +490,12 @@ export function UsersList() {
           </div>
         </div>
       </Drawer>
+
       <CreateUserDialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         onCreated={(userId) => navigate(`${basePath}/${userId}`)}
       />
-      <CreateTeamDialog open={createTeamDialogOpen} onClose={() => setCreateTeamDialogOpen(false)} />
       <AssignLocationsDialog
         open={Boolean(assignLocationsUser)}
         onClose={() => setAssignLocationsUser(null)}

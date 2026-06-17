@@ -1,9 +1,9 @@
 import { forwardRef, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, InputHTMLAttributes, KeyboardEvent } from "react";
-import { DatePickerPopover } from "../DatePickerPopover/DatePickerPopover";
+import { MonthPickerPopover } from "../MonthPickerPopover/MonthPickerPopover";
 import { cn } from "../../utils";
 
-export interface DatePickerProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
+export interface MonthPickerProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
   label?: string;
   error?: string;
   hint?: string;
@@ -26,31 +26,30 @@ const MONTH_LABELS = [
   "December",
 ] as const;
 
-function parseDateValue(value?: string | number | readonly string[]) {
+function parseMonthValue(value?: string | number | readonly string[]) {
   if (typeof value !== "string" || !value) {
     return null;
   }
 
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) {
+  const [year, month] = value.split("-").map(Number);
+  if (!year || !month) {
     return null;
   }
 
-  return new Date(year, month - 1, day);
+  return new Date(year, month - 1, 1);
 }
 
-function formatDateValue(date: Date) {
+function formatMonthValue(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${year}-${month}`;
 }
 
 function formatDisplayValue(date: Date) {
-  return `${MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  return `${MONTH_LABELS[date.getMonth()]}, ${date.getFullYear()}`;
 }
 
-const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
+const MonthPicker = forwardRef<HTMLInputElement, MonthPickerProps>(
   (
     {
       className,
@@ -67,9 +66,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
       onBlur,
       required,
       disabled,
-      placeholder = "Select date",
-      min,
-      max,
+      placeholder = "Select month",
       ...props
     },
     ref
@@ -80,32 +77,33 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
     const [isOpen, setIsOpen] = useState(false);
 
     const selectedDate = useMemo(
-      () => parseDateValue(value ?? defaultValue),
+      () => parseMonthValue(value ?? defaultValue),
       [defaultValue, value]
     );
 
     const hiddenValue = typeof value === "string"
       ? value
       : selectedDate
-        ? formatDateValue(selectedDate)
+        ? formatMonthValue(selectedDate)
         : typeof defaultValue === "string"
           ? defaultValue
           : "";
 
-    function handleSelectDate(date: Date) {
-      const nextValue = formatDateValue(date);
-
-      if (typeof min === "string" && nextValue < min) {
-        return;
-      }
-
-      if (typeof max === "string" && nextValue > max) {
-        return;
-      }
+    function handleSelectMonth(date: Date) {
+      const nextValue = formatMonthValue(date);
 
       onChange?.({
         target: { value: nextValue, name: name ?? "", id: inputId ?? "" },
         currentTarget: { value: nextValue, name: name ?? "", id: inputId ?? "" },
+      } as ChangeEvent<HTMLInputElement>);
+
+      setIsOpen(false);
+    }
+
+    function handleClear() {
+      onChange?.({
+        target: { value: "", name: name ?? "", id: inputId ?? "" },
+        currentTarget: { value: "", name: name ?? "", id: inputId ?? "" },
       } as ChangeEvent<HTMLInputElement>);
 
       setIsOpen(false);
@@ -180,7 +178,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
             disabled={disabled}
             onClick={() => setIsOpen((current) => !current)}
             className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[10px] border border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)]"
-            aria-label="Open date picker"
+            aria-label="Open month picker"
             tabIndex={-1}
           >
             <CalendarIcon />
@@ -188,12 +186,13 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         </div>
 
         {isOpen ? (
-          <DatePickerPopover
+          <MonthPickerPopover
             selectedDate={selectedDate}
             anchorRect={fieldRef.current?.getBoundingClientRect() ?? null}
             anchorRef={fieldRef}
             align="end"
-            onSelectDate={handleSelectDate}
+            onSelectMonth={handleSelectMonth}
+            onClear={handleClear}
             onClose={() => setIsOpen(false)}
           />
         ) : null}
@@ -209,8 +208,8 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
   }
 );
 
-DatePicker.displayName = "DatePicker";
-export { DatePicker };
+MonthPicker.displayName = "MonthPicker";
+export { MonthPicker };
 
 function CalendarIcon() {
   return (

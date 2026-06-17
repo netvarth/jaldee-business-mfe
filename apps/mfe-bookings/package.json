@@ -11,6 +11,7 @@
     "serve": "vite preview --port 3001 --strictPort"
   },
   "dependencies": {
+    "@jaldee/api-client": "*",
     "@jaldee/auth-context": "*",
     "@jaldee/design-system": "*",
     "react": "18.2.0",

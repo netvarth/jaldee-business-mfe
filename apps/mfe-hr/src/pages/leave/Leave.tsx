@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, Dialog } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
@@ -150,7 +150,7 @@ export default function Leave() {
         actions={
           <>
           <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 999 }}><UserCheck size={14} /> Corporate Admin Control</span>
-          <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 40, padding: "0 22px", borderRadius: 999, border: "none", cursor: "pointer", background: "var(--dark-text)", color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
+          <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 40, padding: "0 22px", borderRadius: 999, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
           </>
         }
       />
@@ -294,12 +294,20 @@ export default function Leave() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Global Leave Register History</div>
               <div style={{ ...lbl, marginTop: 2 }}>Master record ledger of all submissions</div>
             </div>
-            <select id="hr-leave-status-filter" data-testid="hr-leave-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...field, width: 170, height: 40, borderRadius: 999, fontSize: 12.5 }}>
-              <option value="all">All Status</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
+            <Select
+              id="hr-leave-status-filter"
+              testId="hr-leave-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              containerClassName="w-[170px]"
+              fullWidth={false}
+              options={[
+                { value: "all", label: "All Status" },
+                { value: "approved", label: "Approved" },
+                { value: "pending", label: "Pending" },
+                { value: "rejected", label: "Rejected" },
+              ]}
+            />
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={th}>Staff Associate</th><th style={th}>Category</th><th style={th}>Duration</th><th style={th}>Days</th><th style={th}>Statement</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
@@ -327,58 +335,91 @@ export default function Leave() {
       )}
 
       {/* ===== APPLY MODAL ===== */}
-      {applyOpen && (
-        <div id="hr-leave-apply-modal-overlay" data-testid="hr-leave-apply-modal-overlay" data-state={applyOpen ? "open" : "closed"} style={overlay} onClick={() => setApplyOpen(false)}>
-          <div id="hr-leave-apply-modal" data-testid="hr-leave-apply-modal" data-state={applyOpen ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 900 }}>
-            <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Apply for Leave</h3>
-                <p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Submit details of your upcoming absence plan.</p>
-              </div>
-              <button id="hr-leave-apply-close" data-testid="hr-leave-apply-close" onClick={() => setApplyOpen(false)} style={iconBtn}><X size={20} /></button>
+      <Dialog
+        open={applyOpen}
+        onClose={() => setApplyOpen(false)}
+        testId="hr-leave-apply-modal"
+        hideHeader
+        contentClassName="max-w-[900px] p-0 overflow-hidden"
+      >
+        <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Apply for Leave</h3>
+            <p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Submit details of your upcoming absence plan.</p>
+          </div>
+          <button id="hr-leave-apply-close" data-testid="hr-leave-apply-close" onClick={() => setApplyOpen(false)} style={iconBtn}><X size={20} /></button>
+        </div>
+        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <Select
+              id="hr-leave-employee"
+              testId="hr-leave-employee"
+              label="Employee"
+              value={form.employeeUid}
+              onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+              placeholder="Select employee"
+              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            />
+            <Select
+              id="hr-leave-type"
+              testId="hr-leave-type"
+              label="Leave Type Profile"
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              options={LEAVE_QUOTAS.map((q) => ({ value: q.type, label: q.type }))}
+            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <DatePicker
+                id="hr-leave-start-date"
+                label="Start Date"
+                value={form.startDate}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+              />
+              <DatePicker
+                id="hr-leave-end-date"
+                label="End Date"
+                value={form.endDate}
+                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+              />
             </div>
-            <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <div><label style={{ ...lbl, color: TEAL }}>Employee</label><select id="hr-leave-employee" data-testid="hr-leave-employee" style={{ ...field, marginTop: 6 }} value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-                <div><label style={{ ...lbl, color: TEAL }}>Leave Type Profile</label><select id="hr-leave-type" data-testid="hr-leave-type" style={{ ...field, marginTop: 6 }} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{LEAVE_QUOTAS.map((q) => <option key={q.type} value={q.type}>{q.type}</option>)}</select></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div><label style={lbl}>Start Date</label><input id="hr-leave-start-date" data-testid="hr-leave-start-date" type="date" style={{ ...field, marginTop: 6 }} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
-                  <div><label style={lbl}>End Date</label><input id="hr-leave-end-date" data-testid="hr-leave-end-date" type="date" style={{ ...field, marginTop: 6 }} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></div>
-                </div>
-                {form.startDate && form.startDate === form.endDate && (
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
-                    <input id="hr-leave-half-day" data-testid="hr-leave-half-day" type="checkbox" checked={form.isHalfDay} onChange={(e) => setForm({ ...form, isHalfDay: e.target.checked })} /> Apply as Half Day (0.5 days)
-                  </label>
-                )}
-                {form.startDate && form.endDate && (
-                  <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 16, borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ ...lbl, color: TEAL }}>Total Days Count</span>
-                    <span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>{calcDays(form.startDate, form.endDate, form.isHalfDay)} Days</span>
-                  </div>
-                )}
-                <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: 16, display: "flex", gap: 14 }}>
-                  <div style={{ height: 40, width: 40, borderRadius: 12, background: "rgba(99,102,241,0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Info size={20} /></div>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", lineHeight: 1.5, margin: 0 }}>Leave balances are real-time and auto-deducted once administrators verify and approve your request.</p>
-                </div>
+            {form.startDate && form.startDate === form.endDate && (
+              <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
+                <input id="hr-leave-half-day" data-testid="hr-leave-half-day" type="checkbox" checked={form.isHalfDay} onChange={(e) => setForm({ ...form, isHalfDay: e.target.checked })} /> Apply as Half Day (0.5 days)
+              </label>
+            )}
+            {form.startDate && form.endDate && (
+              <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 16, borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ ...lbl, color: TEAL }}>Total Days Count</span>
+                <span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>{calcDays(form.startDate, form.endDate, form.isHalfDay)} Days</span>
               </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <label style={lbl}>Detailed Statement / Reason</label>
-                <textarea id="hr-leave-reason" data-testid="hr-leave-reason" placeholder="Share a short note detailing the cause of your request…" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 18, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
-              </div>
-            </div>
-            {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-            <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" onClick={() => setApplyOpen(false)} style={ghostBtn}>Close</button>
-              <button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" onClick={submitApply} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
+            )}
+            <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: 16, display: "flex", gap: 14 }}>
+              <div style={{ height: 40, width: 40, borderRadius: 12, background: "rgba(99,102,241,0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Info size={20} /></div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", lineHeight: 1.5, margin: 0 }}>Leave balances are real-time and auto-deducted once administrators verify and approve your request.</p>
             </div>
           </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <label style={lbl}>Detailed Statement / Reason</label>
+            <textarea id="hr-leave-reason" data-testid="hr-leave-reason" placeholder="Share a short note detailing the cause of your request…" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 18, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+          </div>
         </div>
-      )}
+        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" onClick={() => setApplyOpen(false)} style={ghostBtn}>Close</button>
+          <button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" onClick={submitApply} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
+        </div>
+      </Dialog>
 
       {/* ===== DETAIL / APPROVE MODAL ===== */}
-      {selected && (
-        <div id="hr-leave-detail-modal-overlay" data-testid="hr-leave-detail-modal-overlay" data-state={selected ? "open" : "closed"} style={overlay} onClick={() => setSelected(null)}>
-          <div id="hr-leave-detail-modal" data-testid="hr-leave-detail-modal" data-state={selected ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 620 }}>
+      <Dialog
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        testId="hr-leave-detail-modal"
+        hideHeader
+        contentClassName="max-w-[620px] p-0 overflow-hidden"
+      >
+        {selected && (
+          <>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "22px 28px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>Leave Request Detail</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{empName(selected.employeeUid)} · {empCode(selected.employeeUid)}</p></div>
               <button id="hr-leave-detail-close" data-testid="hr-leave-detail-close" onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
@@ -428,15 +469,13 @@ export default function Leave() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Dialog>
     </section>
   );
 }
 
-const overlay: CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
-const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 28, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", overflow: "hidden", maxHeight: "92vh" };
 const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" };
 const ghostBtn: CSSProperties = { height: 44, padding: "0 22px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
 const primaryBtn: CSSProperties = { height: 44, padding: "0 26px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };

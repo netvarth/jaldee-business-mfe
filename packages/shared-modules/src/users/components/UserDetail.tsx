@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Checkbox,
@@ -15,22 +15,7 @@ import {
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUserDepartments, useUserDetail } from "../queries/users";
-import {
-  UserAccountPanel,
-  UserNonWorkingDaysPanel,
-  UserQueuesPanel,
-  UserSchedulesPanel,
-  UserServicesPanel,
-} from "./UserFeaturePanels";
 import { UserAvatar, UsersPageShell } from "./shared";
-
-type DetailSectionKey =
-  | "personal-details"
-  | "my-account"
-  | "services"
-  | "queues"
-  | "schedules"
-  | "non-working-days";
 
 type UserDetailFormState = {
   firstName: string;
@@ -53,38 +38,12 @@ type UserDetailFormState = {
   bookingColor: string;
 };
 
-const DETAIL_SECTIONS: { key: DetailSectionKey; label: string }[] = [
-  { key: "personal-details", label: "Personal Details" },
-  { key: "my-account", label: "My Account" },
-  { key: "services", label: "Services" },
-  { key: "queues", label: "Queues" },
-  { key: "schedules", label: "Schedules" },
-  { key: "non-working-days", label: "Non Working Days" },
-];
-
-const SECTION_DESCRIPTIONS: Record<DetailSectionKey, string> = {
-  "personal-details": "Identity, communication, department, and privilege settings.",
-  "my-account": "Account-level preferences, login controls, and role-linked settings.",
-  services: "Assigned services and user-level service configuration.",
-  queues: "Queue access, waitlist responsibilities, and queue-specific capabilities.",
-  schedules: "Schedule ownership, availability, and booking-related configuration.",
-  "non-working-days": "Holiday and leave windows for this user.",
-};
-
 const USER_TYPE_OPTIONS = [
   { value: "PROVIDER", label: "Doctor" },
   { value: "ASSISTANT", label: "Assistant" },
   { value: "ADMIN", label: "Admin" },
   { value: "USER", label: "User" },
 ];
-
-function ChevronDownGlyph() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m5 7 5 6 5-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function normalizeDateInput(value?: string) {
   if (!value) return "";
@@ -148,30 +107,40 @@ function buildInitialFormState(detail?: {
   };
 }
 
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        {description && <p className="text-xs text-slate-500">{description}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function UserDetailView({
   userId,
-  section,
   standalone = false,
 }: {
   userId: string;
   section?: string | null;
   standalone?: boolean;
 }) {
-  const { basePath, routeParams } = useSharedModulesContext();
-  const subview = section ?? routeParams?.subview ?? null;
+  const { basePath } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const detailQuery = useUserDetail(userId);
   const departmentsQuery = useUserDepartments();
   const detail = detailQuery.data;
-  const [activeSection, setActiveSection] = useState<DetailSectionKey>("personal-details");
   const [formState, setFormState] = useState<UserDetailFormState>(() => buildInitialFormState());
-
-  useEffect(() => {
-    const nextSection = DETAIL_SECTIONS.some((item) => item.key === subview)
-      ? (subview as DetailSectionKey)
-      : "personal-details";
-    setActiveSection(nextSection);
-  }, [subview]);
 
   useEffect(() => {
     if (detail) {
@@ -198,42 +167,37 @@ export function UserDetailView({
   );
 
   const privilegeItems = useMemo(
-    () => [
-      {
-        key: "adminPrivilege",
-        label: "Admin Privileges",
-        description: "This privilege allows the user to create new user, modify existing user etc.",
-      },
-      {
-        key: "showPatientsList",
-        label: "Show Patients List",
-        description: "This privilege allows the user to see patients data based.",
-      },
-      {
-        key: "showBusinessProfile",
-        label: "Allow Business Profile",
-        description: "This privilege will allow the user to create their own profile.",
-      },
-      {
-        key: "showFinanceManager",
-        label: "Show Finance Manager",
-        description: "This privilege will allow the user to see finance manager.",
-      },
-      {
-        key: "showInventoryManager",
-        label: "Show Inventory Manager",
-        description: "This privilege will allow the user to see inventory manager.",
-      },
-    ] as const,
+    () =>
+      [
+        {
+          key: "adminPrivilege",
+          label: "Admin Privileges",
+          description: "This privilege allows the user to create new user, modify existing user etc.",
+        },
+        {
+          key: "showPatientsList",
+          label: "Show Patients List",
+          description: "This privilege allows the user to see patients data based.",
+        },
+        {
+          key: "showBusinessProfile",
+          label: "Allow Business Profile",
+          description: "This privilege will allow the user to create their own profile.",
+        },
+        {
+          key: "showFinanceManager",
+          label: "Show Finance Manager",
+          description: "This privilege will allow the user to see finance manager.",
+        },
+        {
+          key: "showInventoryManager",
+          label: "Show Inventory Manager",
+          description: "This privilege will allow the user to see inventory manager.",
+        },
+      ] as const,
     []
   );
 
-  function openSection(nextSection: DetailSectionKey) {
-    setActiveSection(nextSection);
-    navigate(`${basePath}/${nextSection}/${userId}`);
-  }
-
-  const showSidebar = !standalone;
   const pageTitle = standalone ? "User Details" : "Users";
   const pageSubtitle = standalone
     ? ""
@@ -255,48 +219,49 @@ export function UserDetailView({
       )}
 
       {!detailQuery.isLoading && !detailQuery.isError && detail && (
-        <div className={`grid gap-6 ${showSidebar ? "xl:grid-cols-[320px_minmax(0,1fr)]" : ""}`}>
-          {showSidebar ? (
-            <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
-              <div className="flex flex-col items-center border-b border-slate-200 px-6 py-8 text-center">
-                <UserAvatar name={detail.name} subtitle={detail.roleName || detail.userType} />
-                <div className="mt-3 text-sm font-semibold text-slate-900">{detail.name}</div>
+        <div className="space-y-5">
+          {/* Profile Header Card */}
+          <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
+            <div className="flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:gap-6">
+              <div className="shrink-0">
+                <UserAvatar name={detail.name} subtitle={detail.roleName || detail.userType} size="lg" prominent />
               </div>
-              <div className="divide-y divide-slate-100">
-                {DETAIL_SECTIONS.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => openSection(item.key)}
-                    className={`w-full px-5 py-4 text-left transition border-r-[3px] border-solid ${
-                      activeSection === item.key
-                        ? "bg-[var(--color-primary-subtle)] font-semibold text-[var(--color-primary)] border-r-[var(--color-primary)]"
-                        : "bg-white text-slate-600 hover:bg-slate-50 border-r-transparent"
-                    }`}
-                  >
-                    <div className="text-sm font-medium">{item.label}</div>
-                    <div className="mt-1 text-xs text-slate-500">{SECTION_DESCRIPTIONS[item.key]}</div>
-                  </button>
-                ))}
-              </div>
-            </SectionCard>
-          ) : null}
-
-          {activeSection === "personal-details" ? (
-            <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
-              <div className={`space-y-8 ${standalone ? "p-5 md:p-6" : "p-5"}`}>
-                {!standalone ? (
-                  <>
-                    <div className="space-y-1">
-                      <h2 className="text-lg font-semibold text-slate-900">Personal Details</h2>
-                      <p className="text-sm text-slate-500">
-                        Manage profile information, communication channels, department assignment, and user privileges.
-                      </p>
-                    </div>
-                    <Divider />
-                  </>
+              <div className="min-w-0 flex-1">
+                <div className="text-xl font-semibold text-slate-900">{detail.name}</div>
+                {detail.roleName || detail.userType ? (
+                  <div className="mt-0.5 text-sm text-slate-500">{detail.roleName || detail.userType}</div>
                 ) : null}
+                {detail.email ? (
+                  <div className="mt-1 text-sm text-slate-400">{detail.email}</div>
+                ) : null}
+              </div>
+              {detail.digitalSignatureUrl && (
+                <div className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(detail.digitalSignatureUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    View Digital Signature
+                  </Button>
+                </div>
+              )}
+            </div>
+          </SectionCard>
 
+          {/* Personal Details Form */}
+          <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
+            <div className="border-b border-slate-100 px-6 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Personal Details</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Profile information, communication channels, department assignment, and user privileges.
+              </p>
+            </div>
+
+            <div className="space-y-8 p-6">
+              {/* Identity */}
+              <FormSection title="Identity" description="Basic identification and role information.">
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input
                     label="First Name *"
@@ -309,9 +274,32 @@ export function UserDetailView({
                     onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))}
                   />
                   <Input
+                    label="Employee ID"
+                    value={formState.employeeId}
+                    onChange={(event) => setFormState((current) => ({ ...current, employeeId: event.target.value }))}
+                  />
+                  <Input
+                    label="PIN Code"
+                    value={formState.pinCode}
+                    onChange={(event) => setFormState((current) => ({ ...current, pinCode: event.target.value }))}
+                  />
+                </div>
+              </FormSection>
+
+              <Divider />
+
+              {/* Contact */}
+              <FormSection title="Contact" description="Communication channels for this user.">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
                     label="Email"
                     value={formState.email}
                     onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
+                  />
+                  <DatePicker
+                    label="Date of Birth"
+                    value={formState.dob}
+                    onChange={(event) => setFormState((current) => ({ ...current, dob: event.target.value }))}
                   />
                   <PhoneInput
                     label="Phone Number"
@@ -319,7 +307,7 @@ export function UserDetailView({
                     onChange={(value) => setFormState((current) => ({ ...current, phoneNumber: value }))}
                   />
                   <PhoneInput
-                    label="Whatsapp Number"
+                    label="WhatsApp Number"
                     value={formState.whatsappNumber}
                     onChange={(value) => setFormState((current) => ({ ...current, whatsappNumber: value }))}
                   />
@@ -328,8 +316,16 @@ export function UserDetailView({
                     value={formState.telegramNumber}
                     onChange={(value) => setFormState((current) => ({ ...current, telegramNumber: value }))}
                   />
+                </div>
+              </FormSection>
+
+              <Divider />
+
+              {/* Role & Department */}
+              <FormSection title="Role & Department" description="Organisational assignment and booking preferences.">
+                <div className="grid gap-4 md:grid-cols-2">
                   <Select
-                    label="Usertype"
+                    label="User Type"
                     value={formState.userType}
                     onChange={(event) => setFormState((current) => ({ ...current, userType: event.target.value }))}
                     options={USER_TYPE_OPTIONS}
@@ -340,137 +336,94 @@ export function UserDetailView({
                     onChange={(event) => setFormState((current) => ({ ...current, departmentId: event.target.value }))}
                     options={departmentOptions}
                   />
-                  <Input
-                    label="Employee Id"
-                    value={formState.employeeId}
-                    onChange={(event) => setFormState((current) => ({ ...current, employeeId: event.target.value }))}
-                  />
-                  <Input
-                    label="Pincode"
-                    value={formState.pinCode}
-                    onChange={(event) => setFormState((current) => ({ ...current, pinCode: event.target.value }))}
-                  />
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-white">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-700"
-                  >
-                    <span>Additional details</span>
-                    <span className="text-slate-400">
-                      <ChevronDownGlyph />
-                    </span>
-                  </button>
-                </div>
-
-                <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="space-y-5">
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-semibold text-slate-900">Access Controls</h3>
-                      <p className="text-xs text-slate-500">
-                        Toggle the privileges and visibility options assigned to this user.
-                      </p>
-                    </div>
-
-                    {privilegeItems.map((item) => (
-                      <Checkbox
-                        key={item.key}
-                        checked={formState[item.key]}
-                        onChange={(event) =>
-                          setFormState((current) => ({
-                            ...current,
-                            [item.key]: event.target.checked,
-                          }))
-                        }
-                        label={item.label}
-                        description={item.description}
-                        labelClassName="text-sm font-medium text-slate-800"
-                      />
-                    ))}
-
-                    <DatePicker
-                      label="Date of Birth"
-                      value={formState.dob}
-                      onChange={(event) => setFormState((current) => ({ ...current, dob: event.target.value }))}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Gender */}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <RadioGroup
+                      label="Gender"
+                      name="user-gender"
+                      value={formState.gender}
+                      onChange={(value) => setFormState((current) => ({ ...current, gender: value }))}
+                      options={[
+                        { value: "Male", label: "Male" },
+                        { value: "Female", label: "Female" },
+                        { value: "Other", label: "Other" },
+                      ]}
+                      className="gap-3"
+                      optionClassName="flex-row items-center"
                     />
                   </div>
 
-                  <div className="space-y-8">
-                    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="text-sm font-semibold text-slate-900">Booking Color</div>
-                      <p className="text-xs text-slate-500">Preview the color used for this user's booking presence.</p>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={formState.bookingColor}
-                          onChange={(event) => setFormState((current) => ({ ...current, bookingColor: event.target.value }))}
-                          className="h-9 w-12 cursor-pointer rounded border border-slate-200 bg-white p-1"
-                        />
-                        <span
-                          className="inline-flex rounded-md px-3 py-2 text-xs font-semibold text-white shadow-none"
-                          style={bookingColorPreviewStyle}
-                        >
-                          Preview
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (detail.digitalSignatureUrl) {
-                            window.open(detail.digitalSignatureUrl, "_blank", "noopener,noreferrer");
-                          }
-                        }}
-                        disabled={!detail.digitalSignatureUrl}
-                      >
-                        {detail.digitalSignatureUrl ? "Open Digital Signature" : "Add Digital Signature"}
-                      </Button>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <RadioGroup
-                        label="Gender"
-                        name="user-gender"
-                        value={formState.gender}
-                        onChange={(value) => setFormState((current) => ({ ...current, gender: value }))}
-                        options={[
-                          { value: "Male", label: "Male" },
-                          { value: "Female", label: "Female" },
-                          { value: "Other", label: "Other" },
-                        ]}
-                        className="gap-3"
-                        optionClassName="flex-row items-center"
+                  {/* Booking Color */}
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-sm font-semibold text-slate-900">Booking Color</div>
+                    <p className="text-xs text-slate-500">Color used for this user's booking presence.</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={formState.bookingColor}
+                        onChange={(event) => setFormState((current) => ({ ...current, bookingColor: event.target.value }))}
+                        className="h-9 w-12 cursor-pointer rounded border border-slate-200 bg-white p-1"
                       />
+                      <span
+                        className="inline-flex rounded-md px-3 py-2 text-xs font-semibold text-white"
+                        style={bookingColorPreviewStyle}
+                      >
+                        Preview
+                      </span>
                     </div>
                   </div>
                 </div>
+              </FormSection>
 
-                <Divider />
+              <Divider />
 
-                <div className="flex justify-start gap-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => (standalone ? navigate(basePath) : setFormState(buildInitialFormState(detail)))}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="button" variant="primary" size="sm" onClick={() => {}}>
-                    Save
-                  </Button>
+              {/* Access Controls */}
+              <FormSection
+                title="Access Controls"
+                description="Toggle the privileges and visibility options assigned to this user."
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  {privilegeItems.map((item) => (
+                    <Checkbox
+                      key={item.key}
+                      checked={formState[item.key]}
+                      onChange={(event) =>
+                        setFormState((current) => ({
+                          ...current,
+                          [item.key]: event.target.checked,
+                        }))
+                      }
+                      label={item.label}
+                      description={item.description}
+                      labelClassName="text-sm font-medium text-slate-800"
+                    />
+                  ))}
                 </div>
-              </div>
-            </SectionCard>
-          ) : null}
+              </FormSection>
 
-          {activeSection === "my-account" ? <UserAccountPanel userId={userId} /> : null}
-          {activeSection === "services" ? <UserServicesPanel userId={userId} /> : null}
-          {activeSection === "queues" ? <UserQueuesPanel userId={userId} /> : null}
-          {activeSection === "schedules" ? <UserSchedulesPanel userId={userId} /> : null}
-          {activeSection === "non-working-days" ? <UserNonWorkingDaysPanel userId={userId} /> : null}
+              <Divider />
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    standalone ? navigate(basePath) : setFormState(buildInitialFormState(detail))
+                  }
+                >
+                  Cancel
+                </Button>
+                <Button type="button" variant="primary" size="sm" onClick={() => {}}>
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
         </div>
       )}
     </UsersPageShell>

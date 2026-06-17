@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Dialog, Select } from "@jaldee/design-system";
 import {
   useDepartments, useDesignations, useBranchesAdmin, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
@@ -41,7 +41,18 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
     );
   }
   if (f.type === "select") {
-    return <select id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} style={field}><option value="">—</option>{f.options!.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+    return (
+      <Select
+        id={automationKey}
+        testId={automationKey}
+        value={(value as string) ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="—"
+        options={f.options!.map((o) => ({ value: o, label: o }))}
+        fullWidth
+        className="!h-11 rounded-xl"
+      />
+    );
   }
   if (f.type === "textarea") {
     return <textarea id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={{ ...field, height: 80, padding: 12, resize: "vertical" }} />;
@@ -203,41 +214,43 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
         </table>
       </div>
 
-      {open && (
-        <div id={`${automationScope}-modal-overlay`} data-testid={`${automationScope}-modal-overlay`} data-state="open" style={overlay} onClick={() => setOpen(false)}>
-          <div id={`${automationScope}-modal`} data-testid={`${automationScope}-modal`} onClick={(e) => e.stopPropagation()} style={modalBox}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
-              <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
-              <button id={`${automationScope}-modal-close`} data-testid={`${automationScope}-modal-close`} onClick={() => setOpen(false)} aria-label={`Close ${title} dialog`} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
-            </div>
-            <div style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxHeight: "62vh", overflowY: "auto" }}>
-              {locationPicker && (
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Search location (Google)</label>
-                  <LocationPicker automationKey={`${automationScope}-location-search`} onPick={(p) => setForm((prev) => ({
-                    ...prev,
-                    address: p.address,
-                    latitude: p.latitude,
-                    longitude: p.longitude,
-                    name: (prev.name as string) || p.name || "",
-                  }))} />
-                </div>
-              )}
-              {fields.map((f) => (
-                <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
-                  {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
-                  <FieldInput f={f} automationKey={`${automationScope}-${slugify(f.key)}`} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
-                </div>
-              ))}
-            </div>
-            {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-            <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button id={`${automationScope}-cancel`} data-testid={`${automationScope}-cancel`} onClick={() => setOpen(false)} style={ghostBtn}>Cancel</button>
-              <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editing ? "Update" : "Create"}</button>
-            </div>
-          </div>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        testId={`${automationScope}-modal`}
+        hideHeader
+        contentClassName="max-w-[560px] p-0 overflow-hidden"
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
+          <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
+          <button id={`${automationScope}-modal-close`} data-testid={`${automationScope}-modal-close`} onClick={() => setOpen(false)} aria-label={`Close ${title} dialog`} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
         </div>
-      )}
+        <div style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxHeight: "62vh", overflowY: "auto" }}>
+          {locationPicker && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Search location (Google)</label>
+              <LocationPicker automationKey={`${automationScope}-location-search`} onPick={(p) => setForm((prev) => ({
+                ...prev,
+                address: p.address,
+                latitude: p.latitude,
+                longitude: p.longitude,
+                name: (prev.name as string) || p.name || "",
+              }))} />
+            </div>
+          )}
+          {fields.map((f) => (
+            <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
+              {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
+              <FieldInput f={f} automationKey={`${automationScope}-${slugify(f.key)}`} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
+            </div>
+          ))}
+        </div>
+        {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+        <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button id={`${automationScope}-cancel`} data-testid={`${automationScope}-cancel`} onClick={() => setOpen(false)} style={ghostBtn}>Cancel</button>
+          <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editing ? "Update" : "Create"}</button>
+        </div>
+      </Dialog>
     </div>
   );
 }

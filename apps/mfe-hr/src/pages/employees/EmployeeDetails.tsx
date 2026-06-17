@@ -6,7 +6,7 @@ import {
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus,
 } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker } from "@jaldee/design-system";
 import { useEmployee } from "../../services/useEmployee";
 import { useEmployees } from "../../services/useEmployees";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
@@ -205,19 +205,129 @@ export default function EmployeeDetails() {
                 <div className="form-group"><label>Full Name</label><input className={field} value={form.name ?? ""} onChange={setF("name")} /></div>
                 <div className="form-group"><label>Email</label><input className={field} value={form.email ?? ""} onChange={setF("email")} /></div>
                 <div className="form-group"><label>Contact</label><input className={field} value={form.contactNumber ?? ""} onChange={setF("contactNumber")} /></div>
-                <div className="form-group"><label>Gender</label><select className="custom-select" value={form.gender ?? ""} onChange={setF("gender")}><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-                <div className="form-group"><label>Date of Birth</label><input type="date" className={field} value={form.dob ?? ""} onChange={setF("dob")} /></div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-gender"
+                    testId="hr-employee-gender"
+                    label="Gender"
+                    value={form.gender ?? ""}
+                    onChange={setF("gender")}
+                    options={[
+                      { value: "", label: "—" },
+                      { value: "Male", label: "Male" },
+                      { value: "Female", label: "Female" },
+                      { value: "Other", label: "Other" }
+                    ]}
+                  />
+                </div>
+                <div className="form-group">
+                  <DatePicker
+                    id="hr-employee-dob"
+                    label="Date of Birth"
+                    value={form.dob ?? ""}
+                    onChange={setF("dob")}
+                  />
+                </div>
                 <div className="form-group"><label>PAN</label><input className={field} value={form.pan ?? ""} onChange={setF("pan")} /></div>
                 <div className="form-group"><label>UAN</label><input className={field} value={form.uan ?? ""} onChange={setF("uan")} /></div>
               </>),
               employment: (<>
-                <div className="form-group"><label>Role / Designation</label><select className="custom-select" value={form.designation ?? ""} onChange={setF("designation")}><option value="">—</option>{designations.map((d) => <option key={d.id} value={d.name}>{d.name}{d.level != null ? ` · L${d.level}` : ""}</option>)}{form.designation && !designations.some((d) => d.name === form.designation) && <option value={form.designation as string}>{form.designation as string}</option>}</select></div>
-                <div className="form-group"><label>Department</label><select className="custom-select" value={form.department ?? ""} onChange={setF("department")}><option value="">—</option>{departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}{form.department && !departments.some((d) => d.name === form.department) && <option value={form.department as string}>{form.department as string}</option>}</select></div>
-                <div className="form-group"><label>Date of Joining</label><input type="date" className={field} value={form.doj ?? ""} onChange={setF("doj")} /></div>
-                <div className="form-group"><label>Employment Type</label><select className="custom-select" value={form.employmentType ?? ""} onChange={setF("employmentType")}><option value="">—</option><option>Full-time</option><option>Contract</option><option>Daily Wage</option><option>Hourly</option><option>Intern</option></select></div>
-                <div className="form-group"><label>Status</label><select className="custom-select" value={form.status ?? ""} onChange={setF("status")}><option value="">—</option><option>Active</option><option>Onboarding</option><option>Notice Period</option><option>Inactive</option><option>Left</option></select></div>
-                <div className="form-group"><label>Branch</label><select className="custom-select" value={form.branchUid ?? ""} onChange={setF("branchUid")}><option value="">No Branch</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-                <div className="form-group"><label>Reporting Manager</label><select className="custom-select" value={form.reportingManagerUid ?? ""} onChange={setF("reportingManagerUid")}><option value="">—</option>{allEmployees.filter((e) => e.id !== employee.id).map((e) => <option key={e.id} value={e.id}>{e.name}{e.designation ? ` (${e.designation})` : ""}</option>)}</select></div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-designation"
+                    testId="hr-employee-designation"
+                    label="Role / Designation"
+                    value={form.designation ?? ""}
+                    onChange={setF("designation")}
+                    options={[
+                      { value: "", label: "—" },
+                      ...designations.map((d) => ({ value: d.name, label: `${d.name}${d.level != null ? ` · L${d.level}` : ""}` })),
+                      ...(form.designation && !designations.some((d) => d.name === form.designation) ? [{ value: form.designation, label: form.designation }] : [])
+                    ]}
+                  />
+                </div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-department"
+                    testId="hr-employee-department"
+                    label="Department"
+                    value={form.department ?? ""}
+                    onChange={setF("department")}
+                    options={[
+                      { value: "", label: "—" },
+                      ...departments.map((d) => ({ value: d.name, label: d.name })),
+                      ...(form.department && !departments.some((d) => d.name === form.department) ? [{ value: form.department, label: form.department }] : [])
+                    ]}
+                  />
+                </div>
+                <div className="form-group">
+                  <DatePicker
+                    id="hr-employee-doj"
+                    label="Date of Joining"
+                    value={form.doj ?? ""}
+                    onChange={setF("doj")}
+                  />
+                </div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-employment-type"
+                    testId="hr-employee-employment-type"
+                    label="Employment Type"
+                    value={form.employmentType ?? ""}
+                    onChange={setF("employmentType")}
+                    options={[
+                      { value: "", label: "—" },
+                      { value: "Full-time", label: "Full-time" },
+                      { value: "Contract", label: "Contract" },
+                      { value: "Daily Wage", label: "Daily Wage" },
+                      { value: "Hourly", label: "Hourly" },
+                      { value: "Intern", label: "Intern" }
+                    ]}
+                  />
+                </div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-status"
+                    testId="hr-employee-status"
+                    label="Status"
+                    value={form.status ?? ""}
+                    onChange={setF("status")}
+                    options={[
+                      { value: "", label: "—" },
+                      { value: "Active", label: "Active" },
+                      { value: "Onboarding", label: "Onboarding" },
+                      { value: "Notice Period", label: "Notice Period" },
+                      { value: "Inactive", label: "Inactive" },
+                      { value: "Left", label: "Left" }
+                    ]}
+                  />
+                </div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-branch"
+                    testId="hr-employee-branch"
+                    label="Branch"
+                    value={form.branchUid ?? ""}
+                    onChange={setF("branchUid")}
+                    options={[
+                      { value: "", label: "No Branch" },
+                      ...branches.map((b) => ({ value: b.id, label: b.name }))
+                    ]}
+                  />
+                </div>
+                <div className="form-group">
+                  <Select
+                    id="hr-employee-manager"
+                    testId="hr-employee-manager"
+                    label="Reporting Manager"
+                    value={form.reportingManagerUid ?? ""}
+                    onChange={setF("reportingManagerUid")}
+                    options={[
+                      { value: "", label: "—" },
+                      ...allEmployees.filter((e) => e.id !== employee.id).map((e) => ({ value: e.id, label: `${e.name}${e.designation ? ` (${e.designation})` : ""}` }))
+                    ]}
+                  />
+                </div>
               </>),
               bank: (<>
                 <div className="form-group"><label>Bank Name</label><input className={field} value={bank.bankName ?? ""} onChange={setBank("bankName")} /></div>

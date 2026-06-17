@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../services/serviceUrls";
 import { getTenantSettingsForShell, updateTenantSettingsForShell } from "../services/authService";
 import { useShellStore } from "../store/shellStore";
+import { hexToHSL } from "../theme/colorUtils";
 import "./SettingsPage.css";
 
 type SettingsNavItem = {
@@ -544,6 +545,42 @@ export default function SettingsPage() {
   const [coreProducts, setCoreProducts] = useState(CORE_PRODUCTS);
   const [addOnModules, setAddOnModules] = useState(ADD_ON_MODULES);
 
+  // Theme & Branding
+  const [brandColor, setBrandColor] = useState(account?.theme?.primaryColor ?? "#5B21D1");
+  const [logoUrl, setLogoUrl] = useState(account?.theme?.logoUrl ?? "");
+  const [faviconUrl, setFaviconUrl] = useState(account?.theme?.faviconUrl ?? "");
+
+  // Personal Preferences
+  const userPreferences = useShellStore((state) => state.userPreferences);
+  const setUserPreferences = useShellStore((state) => state.setUserPreferences);
+  const [prefTheme, setPrefTheme] = useState(userPreferences?.theme ?? "light");
+  const [prefFontSize, setPrefFontSize] = useState(userPreferences?.fontSize ?? "md");
+
+  // White Label (Enterprise only)
+  const [platformName, setPlatformName] = useState(account?.whiteLabel?.platformName ?? "");
+  const [customDomain, setCustomDomain] = useState(account?.whiteLabel?.customDomain ?? "");
+  const [hideBranding, setHideBranding] = useState(account?.whiteLabel?.hideJaldeeBranding ?? false);
+  const [customCss, setCustomCss] = useState(account?.whiteLabel?.customCss ?? "");
+
+  useEffect(() => {
+    if (account) {
+      setBrandColor(account.theme?.primaryColor ?? "#5B21D1");
+      setLogoUrl(account.theme?.logoUrl ?? "");
+      setFaviconUrl(account.theme?.faviconUrl ?? "");
+      setPlatformName(account.whiteLabel?.platformName ?? "");
+      setCustomDomain(account.whiteLabel?.customDomain ?? "");
+      setHideBranding(account.whiteLabel?.hideJaldeeBranding ?? false);
+      setCustomCss(account.whiteLabel?.customCss ?? "");
+    }
+  }, [account]);
+
+  useEffect(() => {
+    if (userPreferences) {
+      setPrefTheme(userPreferences.theme);
+      setPrefFontSize(userPreferences.fontSize);
+    }
+  }, [userPreferences]);
+
   const activeKey = useMemo(() => {
     const parts = location.pathname.split("/").filter(Boolean);
     const routeKey = parts[1] ?? "company";
@@ -961,6 +998,36 @@ export default function SettingsPage() {
     setSettingsSaving(true);
     setSettingsError(null);
 
+    if (activeKey === "branding") {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        
+        setUserPreferences({ theme: prefTheme, fontSize: prefFontSize });
+        
+        if (account) {
+          setAccount({
+            ...account,
+            theme: {
+              primaryColor: brandColor,
+              logoUrl,
+              faviconUrl: faviconUrl || undefined,
+            },
+            whiteLabel: {
+              platformName: platformName || undefined,
+              customDomain: customDomain || undefined,
+              hideJaldeeBranding: hideBranding,
+              customCss: customCss || undefined,
+            },
+          });
+        }
+      } catch {
+        setSettingsError("Unable to save branding settings.");
+      } finally {
+        setSettingsSaving(false);
+      }
+      return;
+    }
+
     const selectedCoreProducts = Object.fromEntries(coreProducts.map((item) => [item.id, item.enabled]));
     const selectedAddOns = Object.fromEntries(addOnModules.map((item) => [item.id, item.enabled]));
     const payload = {
@@ -1282,6 +1349,241 @@ export default function SettingsPage() {
                 <span>View detailed usage report</span>
                 <NavIcon name="arrowRight" className="settings-usage-link__icon" />
               </button>
+            </SectionCard>
+          </div>
+        ) : activeItem.key === "branding" ? (
+          <div className="settings-page__cards">
+            {/* Brand Identity Card */}
+            <SectionCard className="settings-card">
+              <CardHeading icon="palette" title="Brand Identity" subtitle="Customize the primary brand color, logo, and browser icons for your account." />
+              <div className="settings-form-grid settings-form-grid--two">
+                <div>
+                  <label className="ds-form-label">Primary Brand Color</label>
+                  <p className="settings-field-note" style={{ marginBottom: "12px" }}>Used for primary buttons, active link states, and focus states.</p>
+                  
+                  {/* Preset Colors */}
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                    {[
+                      { hex: "#5B21D1", label: "Purple (Default)" },
+                      { hex: "#0D9488", label: "Teal" },
+                      { hex: "#2563EB", label: "Blue" },
+                      { hex: "#EA580C", label: "Orange" },
+                      { hex: "#059669", label: "Green" },
+                      { hex: "#6366F1", label: "Indigo" },
+                    ].map((preset) => (
+                      <button
+                        key={preset.hex}
+                        type="button"
+                        title={preset.label}
+                        onClick={() => setBrandColor(preset.hex)}
+                        style={{
+                          width: "32px",
+                          height: "32px",
+                          borderRadius: "50%",
+                          backgroundColor: preset.hex,
+                          border: brandColor === preset.hex ? "3px solid #000" : "1px solid rgba(0,0,0,0.15)",
+                          cursor: "pointer",
+                          transform: brandColor === preset.hex ? "scale(1.1)" : "none",
+                          transition: "all 0.15s ease",
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Custom Hex Picker */}
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={brandColor}
+                      onChange={(e) => setBrandColor(e.target.value)}
+                      style={{
+                        width: "42px",
+                        height: "42px",
+                        padding: "0",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <Input
+                      placeholder="#5B21D1"
+                      value={brandColor}
+                      onChange={(e) => setBrandColor(e.target.value)}
+                      style={{ maxWidth: "120px" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Theme Preview Box */}
+                <div style={{
+                  padding: "16px",
+                  borderRadius: "14px",
+                  background: "var(--color-surface-alt)",
+                  border: "1px solid var(--color-border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}>
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--color-text-secondary)" }}>LIVE PREVIEW</div>
+                  
+                  {/* Mock Button */}
+                  <button type="button" style={{
+                    backgroundColor: brandColor,
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "8px 16px",
+                    fontWeight: "600",
+                    fontSize: "13px",
+                    cursor: "default",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}>
+                    Primary Action Button
+                  </button>
+
+                  {/* Mock Sidebar Item */}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    background: `linear-gradient(180deg, hsl(${brandColor.startsWith("#") ? hexToHSL(brandColor).h : 260}, ${brandColor.startsWith("#") ? hexToHSL(brandColor).s : 70}%, ${Math.min((brandColor.startsWith("#") ? hexToHSL(brandColor).l : 50) + 10, 95)}%) 0%, ${brandColor} 100%)`,
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                  }}>
+                    <span>★</span>
+                    <span>Active Navigation Link</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-form-grid settings-form-grid--two" style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #e5edf6" }}>
+                <Input
+                  label="Custom Logo URL"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  fullWidth
+                />
+                <Input
+                  label="Custom Favicon URL"
+                  value={faviconUrl}
+                  onChange={(e) => setFaviconUrl(e.target.value)}
+                  placeholder="https://example.com/favicon.ico"
+                  fullWidth
+                />
+              </div>
+            </SectionCard>
+
+            {/* Personal Preferences Card */}
+            <SectionCard className="settings-card">
+              <CardHeading icon="slidersHorizontal" title="Personal Preferences" subtitle="Choose your workspace theme mode and typography scaling." />
+              <div className="settings-form-grid settings-form-grid--two">
+                <Select
+                  label="Theme Mode"
+                  value={prefTheme}
+                  onChange={(e) => setPrefTheme(e.target.value as "light" | "dark" | "system")}
+                  options={[
+                    { value: "light", label: "Light Mode" },
+                    { value: "dark", label: "Dark Mode" },
+                    { value: "system", label: "System Default" },
+                  ]}
+                  fullWidth
+                />
+                <Select
+                  label="Font Size"
+                  value={prefFontSize}
+                  onChange={(e) => setPrefFontSize(e.target.value as "sm" | "md" | "lg")}
+                  options={[
+                    { value: "sm", label: "Small (13px)" },
+                    { value: "md", label: "Medium (14px - Default)" },
+                    { value: "lg", label: "Large (15px)" },
+                  ]}
+                  fullWidth
+                />
+              </div>
+            </SectionCard>
+
+            {/* White Label Overrides Card */}
+            <SectionCard className="settings-card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", borderBottom: "1px solid #e5edf6", paddingBottom: "18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <NavIcon name="shield" className="settings-card__title-icon" />
+                  <h3 style={{ margin: "0", fontSize: "17px", fontWeight: "700", color: "#0f172a" }}>White Label Overrides</h3>
+                </div>
+                {account?.plan !== "enterprise" && (
+                  <Badge variant="neutral" style={{ background: "#fef3c7", color: "#d97706", fontWeight: "700" }}>ENTERPRISE FEATURE</Badge>
+                )}
+              </div>
+              
+              {account?.plan !== "enterprise" && (
+                <div style={{
+                  padding: "12px",
+                  background: "#fff9eb",
+                  border: "1px solid #fef3c7",
+                  borderRadius: "8px",
+                  color: "#b45309",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  marginBottom: "18px",
+                }}>
+                  Your account is currently on the {formatPlanName(account?.plan ?? "growth")} plan. White Labelling options are locked and require upgrading to the Enterprise plan.
+                </div>
+              )}
+
+              <div className="settings-form-grid settings-form-grid--two" style={{ opacity: account?.plan === "enterprise" ? 1 : 0.6 }}>
+                <Input
+                  label="Platform Name"
+                  value={platformName}
+                  onChange={(e) => setPlatformName(e.target.value)}
+                  placeholder="Jaldee Business"
+                  disabled={account?.plan !== "enterprise"}
+                  fullWidth
+                />
+                <Input
+                  label="Custom Domain URL"
+                  value={customDomain}
+                  onChange={(e) => setCustomDomain(e.target.value)}
+                  placeholder="app.mycompany.com"
+                  disabled={account?.plan !== "enterprise"}
+                  fullWidth
+                />
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div className="settings-inline-check" style={{ marginTop: "0", borderTop: "none", paddingTop: "0" }}>
+                    <Switch
+                      checked={hideBranding}
+                      onChange={(checked) => setHideBranding(checked)}
+                      disabled={account?.plan !== "enterprise"}
+                    />
+                    <div>
+                      <div className="settings-inline-check__title" style={{ color: "var(--color-text-primary)" }}>Hide Jaldee branding</div>
+                      <div className="settings-inline-check__copy">Removes "Powered by Jaldee" footers and default branding links throughout the UI.</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label className="ds-form-label">Custom CSS Overrides</label>
+                  <p className="settings-field-note" style={{ marginBottom: "8px" }}>Escape hatch for fine-grained style customisation (e.g. custom font embedding, spacing overrides).</p>
+                  <Textarea
+                    value={customCss}
+                    onChange={(e) => setCustomCss(e.target.value)}
+                    placeholder="/* Custom CSS variables or styling */&#10;:root {&#10;  --font-family-base: 'Outfit', sans-serif;&#10;}"
+                    disabled={account?.plan !== "enterprise"}
+                    rows={6}
+                    fullWidth
+                    style={{
+                      fontFamily: "var(--font-family-mono)",
+                      fontSize: "12px",
+                      background: account?.plan === "enterprise" ? "#FAFBFD" : "var(--color-surface-alt)",
+                    }}
+                  />
+                </div>
+              </div>
             </SectionCard>
           </div>
         ) : (

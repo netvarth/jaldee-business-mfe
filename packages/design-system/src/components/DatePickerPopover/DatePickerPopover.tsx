@@ -24,6 +24,7 @@ const MONTH_LABELS = [
 export interface DatePickerPopoverProps {
   selectedDate?: Date | null;
   anchorRect?: DOMRect | null;
+  anchorRef?: React.RefObject<HTMLElement> | null;
   onSelectDate?: (date: Date) => void;
   onClose?: () => void;
   title?: string;
@@ -59,15 +60,17 @@ const isSameDay = (left?: Date | null, right?: Date | null): boolean =>
 export function DatePickerPopover({
   selectedDate,
   anchorRect,
+  anchorRef,
   onSelectDate,
   onClose,
   title = "Change date",
-  width = 332,
+  width = 310,
   align = "end",
   className,
   overlayClassName,
 }: DatePickerPopoverProps) {
   const [viewDate, setViewDate] = useState<Date>(selectedDate || new Date());
+  const [coords, setCoords] = useState<{ top?: number; left?: number; width?: number }>({});
 
   useEffect(() => {
     if (selectedDate) {
@@ -99,38 +102,57 @@ export function DatePickerPopover({
   };
 
   const { innerWidth, innerHeight } = typeof window !== "undefined" ? window : { innerWidth: 1024, innerHeight: 768 };
-  const anchorLeft =
-    anchorRect != null
-      ? align === "end"
-        ? anchorRect.right - width + 8
-        : anchorRect.left
-      : undefined;
-  const computedLeft =
-    anchorLeft != null ? Math.min(Math.max(8, anchorLeft), innerWidth - width - 16) : undefined;
-  const estimatedHeight = 404;
-  const spaceBelow = anchorRect != null ? innerHeight - anchorRect.bottom - 12 : innerHeight;
-  const spaceAbove = anchorRect != null ? anchorRect.top - 12 : 0;
-  const shouldOpenAbove = anchorRect != null && spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
-  const computedTop =
-    anchorRect != null
-        ? shouldOpenAbove
-          ? Math.max(8, anchorRect.top - estimatedHeight - 6)
-          : anchorRect.bottom + 6
-      : undefined;
+  const estimatedHeight = 350;
 
-  const popoverStyle: CSSProperties =
-    anchorRect != null
-      ? { position: "fixed", top: computedTop, left: computedLeft, width: `min(${width}px, 92vw)` }
-      : { position: "fixed", width: `min(${width}px, 92vw)` };
+  useEffect(() => {
+    const updatePosition = () => {
+      const rect = anchorRef?.current?.getBoundingClientRect() || anchorRect;
+      if (!rect) return;
+
+      const spaceBelow = innerHeight - rect.bottom - 12;
+      const spaceAbove = rect.top - 12;
+      const shouldOpenAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+
+      const computedTop = shouldOpenAbove
+        ? Math.max(8, rect.top - estimatedHeight - 6)
+        : rect.bottom + 6;
+
+      const anchorLeft = align === "end" ? rect.right - width : rect.left;
+      const computedLeft = Math.min(Math.max(8, anchorLeft), innerWidth - width - 16);
+
+      setCoords({
+        top: computedTop,
+        left: computedLeft,
+        width: Math.min(width, innerWidth - 16),
+      });
+    };
+
+    updatePosition();
+
+    window.addEventListener("scroll", updatePosition, { capture: true, passive: true });
+    window.addEventListener("resize", updatePosition, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition, { capture: true });
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [anchorRect, anchorRef, width, align, innerWidth, innerHeight]);
+
+  const popoverStyle: CSSProperties = {
+    position: "fixed",
+    top: coords.top,
+    left: coords.left,
+    width: coords.width ? `${coords.width}px` : `min(${width}px, 92vw)`,
+  };
 
   const content = (
     <div
-      className={cn("fixed inset-0 z-[260] pointer-events-auto", overlayClassName)}
+      className={cn("fixed inset-0 z-[9999] pointer-events-auto", overlayClassName)}
       onClick={onClose}
     >
       <div
         className={cn(
-          "box-border flex h-auto max-h-[404px] flex-col gap-3 rounded-[20px] border border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.16)]",
+          "box-border flex h-auto max-h-[360px] flex-col gap-2.5 rounded-[16px] border border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] bg-white p-3.5 shadow-[0_12px_30px_rgba(15,23,42,0.12)]",
           className
         )}
         style={popoverStyle}
@@ -138,18 +160,18 @@ export function DatePickerPopover({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="m-0 text-[0.82rem] text-[#8a8aa8]">{title}</p>
-            <strong className="m-0 block overflow-hidden text-ellipsis whitespace-nowrap text-[1.45rem] font-bold leading-none text-[#252b56]">
+            <p className="m-0 text-[0.7rem] text-[#8a8aa8]">{title}</p>
+            <strong className="m-0 block overflow-hidden text-ellipsis whitespace-nowrap text-[1.1rem] font-bold leading-none text-[#252b56]">
               {monthLabel}
             </strong>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <Button
               type="button"
               variant="ghost"
               size="md"
-              className="h-[34px] min-w-[34px] rounded-[10px] border border-[#d9dcf2] bg-[#f8f7ff] p-0 text-[1rem] font-semibold text-[#6e61b5]"
+              className="h-[28px] min-w-[28px] rounded-[8px] border border-[#d9dcf2] bg-[#f8f7ff] p-0 text-[0.85rem] font-semibold text-[#6e61b5]"
               onClick={() => setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
               aria-label="Previous month"
             >
@@ -159,7 +181,7 @@ export function DatePickerPopover({
               type="button"
               variant="ghost"
               size="md"
-              className="h-[34px] min-w-[34px] rounded-[10px] border border-[#d9dcf2] bg-[#f8f7ff] p-0 text-[1rem] font-semibold text-[#6e61b5]"
+              className="h-[28px] min-w-[28px] rounded-[8px] border border-[#d9dcf2] bg-[#f8f7ff] p-0 text-[0.85rem] font-semibold text-[#6e61b5]"
               onClick={() => setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
               aria-label="Next month"
             >
@@ -168,9 +190,9 @@ export function DatePickerPopover({
           </div>
         </div>
 
-        <div className="flex justify-between gap-3">
-          <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="date-picker-popover-month" className="text-[0.75rem] uppercase tracking-[0.04em] text-[#a3a5c6]">
+        <div className="flex justify-between gap-2">
+          <div className="flex flex-1 flex-col gap-0.5">
+            <label htmlFor="date-picker-popover-month" className="text-[0.65rem] uppercase tracking-[0.04em] text-[var(--color-text-secondary)]">
               Month
             </label>
             <Select
@@ -178,12 +200,12 @@ export function DatePickerPopover({
               value={String(viewDate.getMonth())}
               onChange={handleMonthChange}
               options={MONTH_LABELS.map((label, index) => ({ value: String(index), label }))}
-              className="min-h-[38px] rounded-[12px] border-[#dfe1f2] bg-[#f8f7ff] px-3 text-[0.9rem] text-[#252b56]"
+              className="!min-h-0 !h-8 !py-0 !pl-2 rounded-[8px] border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-text-primary)]"
             />
           </div>
 
-          <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="date-picker-popover-year" className="text-[0.75rem] uppercase tracking-[0.04em] text-[#a3a5c6]">
+          <div className="flex flex-1 flex-col gap-0.5">
+            <label htmlFor="date-picker-popover-year" className="text-[0.65rem] uppercase tracking-[0.04em] text-[var(--color-text-secondary)]">
               Year
             </label>
             <Select
@@ -191,19 +213,19 @@ export function DatePickerPopover({
               value={String(viewDate.getFullYear())}
               onChange={handleYearChange}
               options={yearOptions.map((year) => ({ value: String(year), label: String(year) }))}
-              className="min-h-[38px] rounded-[12px] border-[#dfe1f2] bg-[#f8f7ff] px-3 text-[0.9rem] text-[#252b56]"
+              className="!min-h-0 !h-8 !py-0 !pl-2 rounded-[8px] border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-text-primary)]"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center text-[0.72rem] uppercase tracking-[0.05em] text-[#a3a5c6]">
+        <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] uppercase tracking-[0.05em] text-[#a3a5c6]">
           {WEEKDAYS.map((day) => (
             <span key={day}>{day}</span>
           ))}
         </div>
 
         <div className="flex flex-1 flex-col">
-          <div className="grid flex-1 grid-cols-7 gap-y-1.5 gap-x-1 overflow-hidden">
+          <div className="grid flex-1 grid-cols-7 gap-y-1 gap-x-1 overflow-hidden">
             {days.map((day, index) => {
               const isToday = isSameDay(day, today);
               const isSelected = isSameDay(day, selectedDate);
@@ -215,9 +237,9 @@ export function DatePickerPopover({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-[12px] border-0 bg-transparent p-0 text-[0.92rem] font-medium text-[#1b2040]",
+                    "flex h-8 w-8 items-center justify-center rounded-[8px] border-0 bg-transparent p-0 text-[0.82rem] font-medium text-[#1b2040]",
                     "transition-colors duration-200 hover:bg-[#f4f1ff]",
-                    isSelected && "bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)] text-white shadow-[0_14px_28px_rgba(108,50,255,0.32)] hover:bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)]",
+                    isSelected && "bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)] text-white shadow-[0_8px_16px_rgba(108,50,255,0.24)] hover:bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)]",
                     isToday && "border border-[rgba(108,50,255,0.24)] bg-[#faf7ff]",
                     !day && "cursor-default opacity-0 hover:bg-transparent"
                   )}

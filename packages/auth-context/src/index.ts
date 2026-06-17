@@ -11,6 +11,8 @@ export type {
   AccountContext,
   BranchLocation,
   ThemeContext,
+  UserPreferences,
+  WhiteLabelConfig,
   EventBus,
   ShellToastPayload,
   TelemetryService,

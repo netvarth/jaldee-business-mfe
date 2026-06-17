@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserCircle2, Briefcase, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker } from "@jaldee/design-system";
 import { useHrApi } from "../../services/useHrApi";
 import { useEmployees } from "../../services/useEmployees";
 import { useBranches } from "../../services/useBranches";
@@ -139,18 +139,28 @@ export default function NewEmployeeWizard() {
                       <input type="text" placeholder="e.g. +1 234 567 890" value={personal.contactNumber} onChange={sp("contactNumber")} />
                     </div>
                     <div className="form-group">
-                      <label>Gender</label>
-                      <select className="custom-select" value={personal.gender} onChange={sp("gender")}>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
+                      <Select
+                        id="hr-new-employee-gender"
+                        testId="hr-new-employee-gender"
+                        label="Gender"
+                        value={personal.gender}
+                        onChange={sp("gender")}
+                        options={[
+                          { value: "Male", label: "Male" },
+                          { value: "Female", label: "Female" },
+                          { value: "Other", label: "Other" }
+                        ]}
+                      />
                     </div>
                   </div>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Date of Birth</label>
-                      <input type="date" value={personal.dob} onChange={sp("dob")} />
+                      <DatePicker
+                        id="hr-new-employee-dob"
+                        label="Date of Birth"
+                        value={personal.dob}
+                        onChange={sp("dob")}
+                      />
                     </div>
                   </div>
 
@@ -191,37 +201,61 @@ export default function NewEmployeeWizard() {
                 <>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Role / Designation</label>
-                      <select className="custom-select" value={employment.designation} onChange={se("designation")}>
-                        <option value="">Select Role / Designation</option>
-                        {designations.map((d) => <option key={d.id} value={d.name}>{d.name}{d.level != null ? ` · L${d.level}` : ""}</option>)}
-                      </select>
+                      <Select
+                        id="hr-new-employee-designation"
+                        testId="hr-new-employee-designation"
+                        label="Role / Designation"
+                        value={employment.designation}
+                        onChange={se("designation")}
+                        options={[
+                          { value: "", label: "Select Role / Designation" },
+                          ...designations.map((d) => ({ value: d.name, label: `${d.name}${d.level != null ? ` · L${d.level}` : ""}` }))
+                        ]}
+                      />
                     </div>
                     <div className="form-group">
-                      <label>Department</label>
-                      <select className="custom-select" value={employment.department} onChange={se("department")}>
-                        <option value="">Select Department</option>
-                        {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
-                      </select>
+                      <Select
+                        id="hr-new-employee-department"
+                        testId="hr-new-employee-department"
+                        label="Department"
+                        value={employment.department}
+                        onChange={se("department")}
+                        options={[
+                          { value: "", label: "Select Department" },
+                          ...departments.map((d) => ({ value: d.name, label: d.name }))
+                        ]}
+                      />
                     </div>
                   </div>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Employment Type</label>
-                      <select className="custom-select" value={employment.employmentType} onChange={se("employmentType")}>
-                        <option value="Full-time">Full-time</option>
-                        <option value="Contract">Contract</option>
-                        <option value="Daily Wage">Daily Wage</option>
-                        <option value="Hourly">Hourly</option>
-                        <option value="Intern">Intern</option>
-                      </select>
+                      <Select
+                        id="hr-new-employee-employment-type"
+                        testId="hr-new-employee-employment-type"
+                        label="Employment Type"
+                        value={employment.employmentType}
+                        onChange={se("employmentType")}
+                        options={[
+                          { value: "Full-time", label: "Full-time" },
+                          { value: "Contract", label: "Contract" },
+                          { value: "Daily Wage", label: "Daily Wage" },
+                          { value: "Hourly", label: "Hourly" },
+                          { value: "Intern", label: "Intern" }
+                        ]}
+                      />
                     </div>
                     <div className="form-group">
-                      <label>Work Site / Branch</label>
-                      <select className="custom-select" value={employment.branchUid} onChange={se("branchUid")}>
-                        <option value="">No Branch Assigned</option>
-                        {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
+                      <Select
+                        id="hr-new-employee-branch"
+                        testId="hr-new-employee-branch"
+                        label="Work Site / Branch"
+                        value={employment.branchUid}
+                        onChange={se("branchUid")}
+                        options={[
+                          { value: "", label: "No Branch Assigned" },
+                          ...branches.map((b) => ({ value: b.id, label: b.name }))
+                        ]}
+                      />
                     </div>
                   </div>
                   <div className="form-row">
@@ -230,13 +264,17 @@ export default function NewEmployeeWizard() {
                       <input type="number" placeholder="₹" value={employment.baseSalary} onChange={se("baseSalary")} />
                     </div>
                     <div className="form-group">
-                      <label>Reporting Manager</label>
-                      <select className="custom-select" value={employment.reportingManagerUid} onChange={se("reportingManagerUid")}>
-                        <option value="">Select manager</option>
-                        {employees.map((emp) => (
-                          <option key={emp.id} value={emp.id}>{emp.name}{emp.designation ? ` (${emp.designation})` : ""}</option>
-                        ))}
-                      </select>
+                      <Select
+                        id="hr-new-employee-manager"
+                        testId="hr-new-employee-manager"
+                        label="Reporting Manager"
+                        value={employment.reportingManagerUid}
+                        onChange={se("reportingManagerUid")}
+                        options={[
+                          { value: "", label: "Select manager" },
+                          ...employees.map((emp) => ({ value: emp.id, label: `${emp.name}${emp.designation ? ` (${emp.designation})` : ""}` }))
+                        ]}
+                      />
                     </div>
                   </div>
                 </>

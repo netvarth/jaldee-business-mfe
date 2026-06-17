@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
+import { apiClient } from "@jaldee/api-client";
 
 /**
  * HR service client.
@@ -21,64 +22,47 @@ export function useHrApi() {
   const { authToken } = useMFEProps();
 
   return useMemo(() => {
-    const headers = (): Record<string, string> => {
-      const h: Record<string, string> = { "Content-Type": "application/json" };
-      if (authToken) h["Authorization"] = `Bearer ${authToken}`;
-      return h;
-    };
-
-    // Fail fast when backend/gateway is unreachable so callers can fall back to
-    // samples instead of hanging. Override via VITE_HR_API_TIMEOUT_MS.
-    const TIMEOUT = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
-
-    async function request<T>(endpoint: string, init: RequestInit): Promise<T> {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), TIMEOUT);
+    async function request<T>(
+      endpoint: string,
+      method: "GET" | "POST" | "PUT" | "DELETE",
+      body?: Json
+    ): Promise<T> {
+      const timeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
       try {
-        const res = await fetch(`${BASE}${endpoint}`, {
-          ...init,
-          headers: headers(),
-          credentials: "include",
-          signal: controller.signal,
-        }).catch(err => {
-          if (err.name === 'AbortError') {
-            throw new Error(`Request timed out after ${TIMEOUT}ms. Ensure the backend is running and reachable.`);
-          }
-          throw err;
+        const res = await apiClient.request<any>({
+          url: `${BASE}${endpoint}`,
+          method,
+          data: body,
+          timeout,
         });
-        if (!res.ok) {
-          let detail = "";
-          try {
-            const errText = await res.text();
-            if (errText) {
-              try {
-                const j = JSON.parse(errText);
-                detail = j?.message || j?.error || j?.detail || errText;
-              } catch {
-                detail = errText;
-              }
-            }
-          } catch { /* ignore body read errors */ }
-          throw new Error(`HR API ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ""}`);
-        }
-        const text = await res.text();
-        const parsed = text ? JSON.parse(text) : {};
+
+        const parsed = res.data;
         // Unwrap ApiResponse<T> = { status, data, timestamp }
-        return (parsed && typeof parsed === "object" && "data" in parsed
+        return parsed && typeof parsed === "object" && "data" in parsed
           ? (parsed as { data: T }).data
-          : (parsed as T));
-      } finally {
-        clearTimeout(timer);
+          : (parsed as T);
+      } catch (err: any) {
+        if (err.code === "ECONNABORTED") {
+          throw new Error(`Request timed out after ${timeout}ms. Ensure the backend is running and reachable.`);
+        }
+        const status = err.response?.status;
+        const statusText = err.response?.statusText || "";
+        const data = err.response?.data;
+        let detail = "";
+        if (data) {
+          detail = data.message || data.error || data.detail || (typeof data === "string" ? data : "");
+        }
+        throw new Error(
+          `HR API ${status || "Error"} ${statusText}${detail ? ` — ${detail}` : err.message ? ` — ${err.message}` : ""}`
+        );
       }
     }
 
     return {
-      get: <T>(endpoint: string) => request<T>(endpoint, { method: "GET" }),
-      post: <T>(endpoint: string, body?: Json) =>
-        request<T>(endpoint, { method: "POST", body: JSON.stringify(body ?? {}) }),
-      put: <T>(endpoint: string, body?: Json) =>
-        request<T>(endpoint, { method: "PUT", body: JSON.stringify(body ?? {}) }),
-      del: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),
+      get: <T>(endpoint: string) => request<T>(endpoint, "GET"),
+      post: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "POST", body),
+      put: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "PUT", body),
+      del: <T>(endpoint: string) => request<T>(endpoint, "DELETE"),
     };
   }, [authToken]);
 }

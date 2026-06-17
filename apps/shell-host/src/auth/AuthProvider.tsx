@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
 import { authService, clearStoredCredentials, getAuthMode, getStoredAccessToken, getStoredCredentials, setStoredCredentials } from "../services/authService";
+import { themeService } from "../theme/ThemeService";
 import type {
   LoginRequest,
   SessionResponse,
@@ -45,6 +46,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeLocation,
     availableLocations,
   } = useShellStore();
+
+  const account = useShellStore((s) => s.account);
+  const userPreferences = useShellStore((s) => s.userPreferences);
+
+  useEffect(() => {
+    if (isAuthenticated && account) {
+      themeService.applyAccountTheme(account.theme);
+      if (account.whiteLabel) {
+        themeService.applyWhiteLabel(account.whiteLabel);
+      } else {
+        themeService.clearWhiteLabel();
+      }
+    } else {
+      themeService.reset();
+    }
+  }, [account, isAuthenticated]);
+
+  useEffect(() => {
+    if (userPreferences) {
+      themeService.applyUserPreferences(userPreferences);
+    }
+  }, [userPreferences]);
 
   useEffect(() => {
     if (hasHydrated) {

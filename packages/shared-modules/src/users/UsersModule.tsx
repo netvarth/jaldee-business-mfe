@@ -2,7 +2,6 @@ import { EmptyState, SectionCard } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../context";
 import { useModuleAccess } from "../useModuleAccess";
 import { UserDetailView } from "./components/UserDetail";
-import { UserTeamsList } from "./components/UserTeamsList";
 import { UsersList } from "./components/UsersList";
 import { UsersOverview } from "./components/UsersOverview";
 
@@ -11,7 +10,6 @@ export function UsersModule() {
   const { routeParams } = useSharedModulesContext();
   const view = routeParams?.view ?? "overview";
   const recordId = routeParams?.recordId ?? null;
-  const subview = routeParams?.subview ?? null;
   const tab = routeParams?.tab ?? null;
 
   if (!access.allowed) {
@@ -35,7 +33,6 @@ export function UsersModule() {
     return (
       <UserDetailView
         userId={recordId}
-        section={subview ?? "personal-details"}
         standalone={tab === "standalone"}
       />
     );
@@ -43,10 +40,6 @@ export function UsersModule() {
 
   if (view === "list") {
     return <UsersList />;
-  }
-
-  if (view === "teams") {
-    return <UserTeamsList />;
   }
 
   return <UsersOverview />;

@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { Download, Play, Plus, History as HistoryIcon, Loader2, UserPlus, X } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select, Dialog, MonthPicker } from "@jaldee/design-system";
 import { useEmployees } from "../../services/useEmployees";
 import { usePayslips, usePayrollRuns, usePayrollPlans, type Payslip } from "../../services/usePayrollData";
 import { formatCurrency, formatDate, exportToCSV } from "../../lib/utils";
@@ -177,7 +177,7 @@ export default function Payroll() {
           <button id="hr-payroll-run" data-testid="hr-payroll-run" className="btn btn-secondary" onClick={handleRunPayroll} disabled={busy} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Play size={16} /> Run Payroll
           </button>
-          <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dark-bg)", border: "none", color: "white" }}>
+          <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Download size={16} /> Export
           </button>
           </>
@@ -237,17 +237,22 @@ export default function Payroll() {
           <div id="hr-payroll-quick-create" data-testid="hr-payroll-quick-create" className="modal-card" style={{ position: "relative", transform: "none", left: 0, top: 0, width: "100%", maxHeight: "none", boxShadow: "var(--shadow-sm)" }}>
             <div className="modal-header" style={{ padding: "20px 24px" }}><h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Quick Create</h3></div>
             <div className="modal-body" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Employee</label>
-                <select id="hr-payroll-generate-employee" data-testid="hr-payroll-generate-employee" className="custom-select" value={genEmp} onChange={(e) => setGenEmp(e.target.value)}>
-                  <option value="">Select…</option>
-                  {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Month</label>
-                <input id="hr-payroll-generate-month" data-testid="hr-payroll-generate-month" type="month" value={genMonth} onChange={(e) => setGenMonth(e.target.value)} />
-              </div>
+              <Select
+                id="hr-payroll-generate-employee"
+                testId="hr-payroll-generate-employee"
+                label="Employee"
+                value={genEmp}
+                onChange={(e) => setGenEmp(e.target.value)}
+                placeholder="Select employee"
+                options={employees.map((e) => ({ value: e.id, label: e.name }))}
+              />
+              <MonthPicker
+                id="hr-payroll-generate-month"
+                data-testid="hr-payroll-generate-month"
+                label="Month"
+                value={genMonth}
+                onChange={(e) => setGenMonth(e.target.value)}
+              />
               <button id="hr-payroll-generate-submit" data-testid="hr-payroll-generate-submit" className="btn btn-primary" onClick={handleGenerate} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--primary-color)", border: "none", color: "white" }}>
                 {busy ? <><Loader2 size={16} className="animate-spin" /> Working…</> : "Generate Payslip"}
               </button>
@@ -362,20 +367,26 @@ export default function Payroll() {
       )}
 
       {/* PAYSLIP DETAIL MODAL */}
-      {viewSlip && (() => {
-        const e = viewSlip.earnings ?? {};
-        const d = viewSlip.deductions ?? {};
-        const gross = (e.basic ?? 0) + (e.hra ?? 0) + (e.allowance ?? 0) + (e.bonus ?? 0);
-        const totalDed = (d.pf ?? 0) + (d.tax ?? 0) + (d.other ?? 0);
-        const net = viewSlip.netPay != null ? viewSlip.netPay : gross - totalDed;
-        const row = (label: string, val?: number, bold?: boolean) => (
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontWeight: bold ? 800 : 500, fontSize: bold ? 15 : 14, borderTop: bold ? "1px solid var(--border-color)" : "none", color: "var(--dark-text)" }}>
-            <span style={{ color: bold ? "var(--dark-text)" : "var(--light-text)" }}>{label}</span><span>{inr(val)}</span>
-          </div>
-        );
-        return (
-          <div id="hr-payroll-payslip-modal-overlay" data-testid="hr-payroll-payslip-modal-overlay" data-state="open" onClick={() => setViewSlip(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-            <div id="hr-payroll-payslip-modal" data-testid="hr-payroll-payslip-modal" onClick={(ev) => ev.stopPropagation()} className="modal-card" style={{ position: "relative", transform: "none", left: 0, top: 0, width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto", background: "var(--surface-bg)", borderRadius: 16, boxShadow: "var(--shadow-lg)" }}>
+      <Dialog
+        open={!!viewSlip}
+        onClose={() => setViewSlip(null)}
+        testId="hr-payroll-payslip-modal"
+        hideHeader
+        contentClassName="max-w-[460px] p-0 overflow-hidden"
+      >
+        {viewSlip && (() => {
+          const e = viewSlip.earnings ?? {};
+          const d = viewSlip.deductions ?? {};
+          const gross = (e.basic ?? 0) + (e.hra ?? 0) + (e.allowance ?? 0) + (e.bonus ?? 0);
+          const totalDed = (d.pf ?? 0) + (d.tax ?? 0) + (d.other ?? 0);
+          const net = viewSlip.netPay != null ? viewSlip.netPay : gross - totalDed;
+          const row = (label: string, val?: number, bold?: boolean) => (
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontWeight: bold ? 800 : 500, fontSize: bold ? 15 : 14, borderTop: bold ? "1px solid var(--border-color)" : "none", color: "var(--dark-text)" }}>
+              <span style={{ color: bold ? "var(--dark-text)" : "var(--light-text)" }}>{label}</span><span>{inr(val)}</span>
+            </div>
+          );
+          return (
+            <>
               <div className="modal-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
                 <div>
                   <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Payslip — {empName(viewSlip.employeeUid)}</h3>
@@ -402,67 +413,73 @@ export default function Payroll() {
                   <span style={{ fontSize: 22, fontWeight: 800, fontFamily: "var(--font-heading)" }}>{inr(net)}</span>
                 </div>
               </div>
-            </div>
-          </div>
-        );
-      })()}
+            </>
+          );
+        })()}
+      </Dialog>
 
       {/* ASSIGN / EDIT SALARY STRUCTURE MODAL */}
-      {assignOpen && (
-        <div id="hr-payroll-assign-modal-overlay" data-testid="hr-payroll-assign-modal-overlay" data-state="open" onClick={() => setAssignOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-          <div id="hr-payroll-assign-modal" data-testid="hr-payroll-assign-modal" onClick={(e) => e.stopPropagation()} className="modal-card" style={{ position: "relative", transform: "none", left: 0, top: 0, width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto", background: "var(--surface-bg)", borderRadius: 16, boxShadow: "var(--shadow-lg)" }}>
-            <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
-              <div>
-                <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Assign Salary Structure</h3>
-                <p className="modal-subtitle" style={{ margin: "2px 0 0" }}>Pick an employee, optionally apply a plan, then edit & save</p>
-              </div>
-              <button id="hr-payroll-assign-modal-close" data-testid="hr-payroll-assign-modal-close" className="btn-grid-action" onClick={() => setAssignOpen(false)} aria-label="Close"><X size={16} /></button>
-            </div>
-            <div style={{ padding: 24 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label>Employee</label>
-                  <select id="hr-payroll-assign-employee" data-testid="hr-payroll-assign-employee" className="custom-select" value={assignEmpId} onChange={(e) => pickAssignEmp(e.target.value)}>
-                    <option value="">Select…</option>
-                    {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label>Apply a plan (optional)</label>
-                  <select id="hr-payroll-assign-plan" data-testid="hr-payroll-assign-plan" className="custom-select" defaultValue="" onChange={(e) => { if (e.target.value) applyPlan(e.target.value); }}>
-                    <option value="">— pick a plan —</option>
-                    {plans.data.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-              </div>
+      <Dialog
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        testId="hr-payroll-assign-modal"
+        hideHeader
+        contentClassName="max-w-[560px] p-0 overflow-hidden"
+      >
+        <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
+          <div>
+            <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Assign Salary Structure</h3>
+            <p className="modal-subtitle" style={{ margin: "2px 0 0" }}>Pick an employee, optionally apply a plan, then edit & save</p>
+          </div>
+          <button id="hr-payroll-assign-modal-close" data-testid="hr-payroll-assign-modal-close" className="btn-grid-action" onClick={() => setAssignOpen(false)} aria-label="Close"><X size={16} /></button>
+        </div>
+        <div style={{ padding: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
+            <Select
+              id="hr-payroll-assign-employee"
+              testId="hr-payroll-assign-employee"
+              label="Employee"
+              value={assignEmpId}
+              onChange={(e) => pickAssignEmp(e.target.value)}
+              placeholder="Select employee"
+              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            />
+            <Select
+              id="hr-payroll-assign-plan"
+              testId="hr-payroll-assign-plan"
+              label="Apply a plan (optional)"
+              defaultValue=""
+              onChange={(e) => { if (e.target.value) applyPlan(e.target.value); }}
+              placeholder="— pick a plan —"
+              options={plans.data.map((p) => ({ value: p.id, label: p.name }))}
+            />
+          </div>
 
-              {COMP_GROUPS.map((g) => (
-                <div key={g.title} style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)", marginBottom: 8 }}>{g.title}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-                    {g.keys.map((k) => (
-                      <div className="form-group" key={k} style={{ margin: 0 }}>
-                        <label>{COMP_LABEL[k]}</label>
-                        <input id={`hr-payroll-assign-${k}`} data-testid={`hr-payroll-assign-${k}`} type="number" value={(assignStruct as Record<string, number | undefined>)[k] ?? ""} onChange={(e) => setAssignStruct((s) => ({ ...s, [k]: e.target.value === "" ? undefined : Number(e.target.value) }))} style={fieldStyle} />
-                      </div>
-                    ))}
+          {COMP_GROUPS.map((g) => (
+            <div key={g.title} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)", marginBottom: 8 }}>{g.title}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                {g.keys.map((k) => (
+                  <div className="form-group" key={k} style={{ margin: 0 }}>
+                    <label>{COMP_LABEL[k]}</label>
+                    <input id={`hr-payroll-assign-${k}`} data-testid={`hr-payroll-assign-${k}`} type="number" value={(assignStruct as Record<string, number | undefined>)[k] ?? ""} onChange={(e) => setAssignStruct((s) => ({ ...s, [k]: e.target.value === "" ? undefined : Number(e.target.value) }))} style={fieldStyle} />
                   </div>
-                </div>
-              ))}
-
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 8, padding: "12px 16px", borderRadius: 12, background: "var(--app-bg)", fontSize: 13, fontWeight: 700 }}>
-                <span style={{ color: "var(--light-text)" }}>Gross {inr(assignGross)} · Deductions {inr(assignDed)}</span>
-                <span>Net {inr(assignGross - assignDed)}</span>
+                ))}
               </div>
             </div>
-            <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14 }}>
-              {assignMsg && <span style={{ fontSize: 13, fontWeight: 600, color: assignMsg.includes("saved") ? "#059669" : "#e11d48" }}>{assignMsg}</span>}
-              <button id="hr-payroll-assign-cancel" data-testid="hr-payroll-assign-cancel" className="btn btn-secondary" onClick={() => setAssignOpen(false)}>Cancel</button>
-              <button id="hr-payroll-assign-save" data-testid="hr-payroll-assign-save" className="btn btn-primary" onClick={saveAssign} disabled={assignBusy || !assignEmpId} style={{ background: "var(--primary-color)", border: "none", color: "white" }}>{assignBusy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
-            </div>
+          ))}
+
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 8, padding: "12px 16px", borderRadius: 12, background: "var(--app-bg)", fontSize: 13, fontWeight: 700 }}>
+            <span style={{ color: "var(--light-text)" }}>Gross {inr(assignGross)} · Deductions {inr(assignDed)}</span>
+            <span>Net {inr(assignGross - assignDed)}</span>
           </div>
         </div>
-      )}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14 }}>
+          {assignMsg && <span style={{ fontSize: 13, fontWeight: 600, color: assignMsg.includes("saved") ? "#059669" : "#e11d48" }}>{assignMsg}</span>}
+          <button id="hr-payroll-assign-cancel" data-testid="hr-payroll-assign-cancel" className="btn btn-secondary" onClick={() => setAssignOpen(false)}>Cancel</button>
+          <button id="hr-payroll-assign-save" data-testid="hr-payroll-assign-save" className="btn btn-primary" onClick={saveAssign} disabled={assignBusy || !assignEmpId} style={{ background: "var(--primary-color)", border: "none", color: "white" }}>{assignBusy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
+        </div>
+      </Dialog>
     </section>
   );
 }

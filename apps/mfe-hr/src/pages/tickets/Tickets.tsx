@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select, Dialog } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
@@ -157,42 +157,72 @@ export default function Tickets() {
         </div>
       </div>
 
-      {/* RAISE MODAL */}
-      {addOpen && (
-        <div id="hr-tickets-create-modal-overlay" data-testid="hr-tickets-create-modal-overlay" data-state={addOpen ? "open" : "closed"} style={overlay} onClick={() => setAddOpen(false)}>
-          <div id="hr-tickets-create-modal" data-testid="hr-tickets-create-modal" data-state={addOpen ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 820 }}>
-            <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Raise a Ticket</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Provide details about your issue so we can help you better.</p></div>
-              <button id="hr-tickets-create-close" data-testid="hr-tickets-create-close" onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
+      {/* ===== RAISE MODAL ===== */}
+      <Dialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        testId="hr-tickets-create-modal"
+        hideHeader
+        contentClassName="max-w-[820px] p-0 overflow-hidden"
+      >
+        <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Raise a Ticket</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Provide details about your issue so we can help you better.</p></div>
+          <button id="hr-tickets-create-close" data-testid="hr-tickets-create-close" onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
+        </div>
+        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <Select
+              id="hr-tickets-employee"
+              testId="hr-tickets-employee"
+              label="Claimant Employee"
+              value={form.employeeUid}
+              onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+              placeholder="Select employee"
+              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            />
+            <div><label style={lbl}>Subject</label><input id="hr-tickets-subject" data-testid="hr-tickets-subject" placeholder="Brief summary of the issue…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Select
+                id="hr-tickets-category"
+                testId="hr-tickets-category"
+                label="Category"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+              />
+              <Select
+                id="hr-tickets-priority"
+                testId="hr-tickets-priority"
+                label="Priority"
+                value={form.priority}
+                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                options={["Low", "Medium", "High"].map((p) => ({ value: p, label: p }))}
+              />
             </div>
-            <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <div><label style={lbl}>Claimant Employee</label><select id="hr-tickets-employee" data-testid="hr-tickets-employee" value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })} style={{ ...field, marginTop: 6 }}><option value="">Select employee</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-                <div><label style={lbl}>Subject</label><input id="hr-tickets-subject" data-testid="hr-tickets-subject" placeholder="Brief summary of the issue…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div><label style={lbl}>Category</label><select id="hr-tickets-category" data-testid="hr-tickets-category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={{ ...field, marginTop: 6 }}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-                  <div><label style={lbl}>Priority</label><select id="hr-tickets-priority" data-testid="hr-tickets-priority" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={{ ...field, marginTop: 6 }}><option>Low</option><option>Medium</option><option>High</option></select></div>
-                </div>
-                <button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" style={{ height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", color: "var(--light-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}><Paperclip size={16} /> Attachment (Optional)</button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <label style={lbl}>Description</label>
-                <textarea id="hr-tickets-description" data-testid="hr-tickets-description" placeholder="Provide more details about your issue…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
-              </div>
-            </div>
-            {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-            <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-              <button id="hr-tickets-submit" data-testid="hr-tickets-submit" onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Ticket"}</button>
-            </div>
+            <button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" style={{ height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", color: "var(--light-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}><Paperclip size={16} /> Attachment (Optional)</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <label style={lbl}>Description</label>
+            <textarea id="hr-tickets-description" data-testid="hr-tickets-description" placeholder="Provide more details about your issue…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
           </div>
         </div>
-      )}
+        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+        <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
+          <button id="hr-tickets-submit" data-testid="hr-tickets-submit" onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Ticket"}</button>
+        </div>
+      </Dialog>
 
-      {/* DETAIL / THREAD MODAL */}
-      {liveSelected && (
-        <div id="hr-tickets-detail-modal-overlay" data-testid="hr-tickets-detail-modal-overlay" data-state={liveSelected ? "open" : "closed"} style={overlay} onClick={() => setSelected(null)}>
-          <div id="hr-tickets-detail-modal" data-testid="hr-tickets-detail-modal" data-state={liveSelected ? "open" : "closed"} onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 620 }}>
+      {/* ===== DETAIL / THREAD MODAL ===== */}
+      <Dialog
+        open={!!liveSelected}
+        onClose={() => setSelected(null)}
+        testId="hr-tickets-detail-modal"
+        hideHeader
+        contentClassName="max-w-[620px] p-0 overflow-hidden"
+      >
+        {liveSelected && (
+          <>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "22px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -217,13 +247,13 @@ export default function Tickets() {
                   ) : liveSelected.responses.map((r) => {
                     const replyKey = `${r.respondedAt || r.respondedBy || "reply"}-${(r.message || "").slice(0, 24)}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "reply";
                     return (
-                    <div key={replyKey} data-testid={`hr-ticket-reply-${liveSelected.id}-${replyKey}`} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ ...lbl, fontSize: 9, color: TEAL }}>{r.respondedBy || "Support Desk"}</span>
-                        <span style={{ ...lbl, fontSize: 8 }}>{r.respondedAt ? new Date(r.respondedAt).toLocaleString() : ""}</span>
+                      <div key={replyKey} data-testid={`hr-ticket-reply-${liveSelected.id}-${replyKey}`} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ ...lbl, fontSize: 9, color: TEAL }}>{r.respondedBy || "Support Desk"}</span>
+                          <span style={{ ...lbl, fontSize: 8 }}>{r.respondedAt ? new Date(r.respondedAt).toLocaleString() : ""}</span>
+                        </div>
+                        <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dark-text)", margin: 0 }}>{r.message}</p>
                       </div>
-                      <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dark-text)", margin: 0 }}>{r.message}</p>
-                    </div>
                     );
                   })}
                 </div>
@@ -234,15 +264,13 @@ export default function Tickets() {
               <button id="hr-tickets-reply-send" data-testid="hr-tickets-reply-send" onClick={sendReply} disabled={replying || !replyText.trim()} style={{ height: 46, padding: "0 20px", borderRadius: 14, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, opacity: replyText.trim() ? 1 : 0.6 }}>{replying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send</button>
             </div>
             {msg && <div style={{ margin: "0 24px 16px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Dialog>
     </section>
   );
 }
 
-const overlay: CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
-const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 32, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", overflow: "hidden", maxHeight: "92vh", display: "flex", flexDirection: "column" };
 const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" };
 const ghostBtn: CSSProperties = { height: 44, padding: "0 22px", borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
 const primaryBtn: CSSProperties = { height: 44, padding: "0 26px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };

@@ -350,6 +350,6 @@ export const PRODUCT_ACCENTS: Partial<Record<ProductKey, string>> = {
   karty: "#EA580C",
   finance: "#059669",
   lending: "#7C3AED",
-  hr: "#0369A1",
+  hr: "#115E59",
   ai: "#6366F1",
 };

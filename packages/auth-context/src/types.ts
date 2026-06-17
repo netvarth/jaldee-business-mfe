@@ -78,6 +78,7 @@ export interface AccountContext {
   plan: PlanKey;
   domain: DomainKey;
   labels: AccountLabels;
+  whiteLabel?: WhiteLabelConfig;
 }
 
 // ─── Location ─────────────────────────────────────────
@@ -92,6 +93,18 @@ export interface BranchLocation {
 
 export interface ThemeContext {
   primaryColor: string;
+}
+
+export interface UserPreferences {
+  theme: "light" | "dark" | "system";
+  fontSize: "sm" | "md" | "lg";
+}
+
+export interface WhiteLabelConfig {
+  platformName?: string;
+  customDomain?: string;
+  hideJaldeeBranding?: boolean;
+  customCss?: string;
 }
 
 // ─── EventBus ─────────────────────────────────────────

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useShellStore } from "../store/shellStore";
 import type { ProductKey } from "../store/shellStore";
 import { SETTINGS_MENU_GROUPS } from "./sidebarConfig";
+import { themeService } from "../theme/ThemeService";
 
 const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: ReactNode }> = {
   health: { label: "Health", icon: <ShieldMedicalIcon /> },
@@ -63,6 +64,14 @@ export default function IconRail({
   const activeProduct = useShellStore((s) => s.activeProduct);
   const setActiveProduct = useShellStore((s) => s.setActiveProduct);
   const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
+
+  useEffect(() => {
+    if (activeProduct) {
+      themeService.applyProductAccent(activeProduct);
+    } else {
+      themeService.clearProductAccent();
+    }
+  }, [activeProduct]);
 
   if (!account) return null;
 

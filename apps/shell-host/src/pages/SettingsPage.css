@@ -87,7 +87,7 @@
 }
 
 .settings-nav-item--active {
-  background: linear-gradient(180deg, #6d44b8 0%, #5f3aa9 100%);
+  background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
   color: #ffffff;
   box-shadow: 0 10px 24px rgba(95, 58, 169, 0.2);
 }

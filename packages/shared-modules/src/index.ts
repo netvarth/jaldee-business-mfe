@@ -193,7 +193,6 @@ export type {
   UserLocation,
   UserStatus,
   UserSummary,
-  UserTeam,
   UsersDataset,
   UsersFilters,
   UsersSummary,
@@ -203,12 +202,10 @@ export {
   UsersModule,
   UsersOverview,
   UsersList,
-  UserTeamsList,
   UserDetailView,
   useUsersDataset,
   useUsersList,
   useUserDetail,
-  useUserTeams,
   useUserDepartments,
   useUserLocations,
   useUpdateTenantUser,
@@ -217,7 +214,6 @@ export {
   getUsersDataset,
   listUsers,
   getUserDetail,
-  listUserTeams,
   listUserDepartments,
   listUserLocations,
   updateTenantUser,
@@ -302,4 +298,3 @@ export {
 export * from "./tasks";
 export * from "./tenant";
 export * from "./serviceUrls";
-

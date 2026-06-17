@@ -12,6 +12,7 @@
     "serve": "vite preview --port 4008 --strictPort"
   },
   "dependencies": {
+    "@jaldee/api-client": "*",
     "@jaldee/auth-context": "*",
     "@jaldee/design-system": "*",
     "@vladmandic/face-api": "^1.7.14",

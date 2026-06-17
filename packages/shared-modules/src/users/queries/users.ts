@@ -4,7 +4,6 @@ import {
   assignUserLocations,
   changeUserLoginId,
   createUser,
-  createUserTeam,
   getUserLoginId,
   getUserAccountProfile,
   getUserDetail,
@@ -17,12 +16,11 @@ import {
   listUserSchedules,
   listUserServices,
   listUsers,
-  listUserTeams,
   updateTenantUser,
   updateTenantUserAvailableStatus,
   updateTenantUserStatus,
 } from "../services/users";
-import type { ChangeLoginIdInput, CreateTeamInput, CreateUserInput, UsersFilters } from "../types";
+import type { ChangeLoginIdInput, CreateUserInput, UsersFilters } from "../types";
 
 const USERS_KEY = "users";
 
@@ -136,21 +134,6 @@ export function useCreateUser() {
   });
 }
 
-export function useCreateUserTeam() {
-  const { api } = useSharedModulesContext();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: CreateTeamInput) => createUserTeam(api, input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "teams"] }),
-        queryClient.invalidateQueries({ queryKey: [USERS_KEY, "dataset"] }),
-      ]);
-    },
-  });
-}
-
 export function useAssignUserLocations(userId?: string | null) {
   const { api } = useSharedModulesContext();
   const queryClient = useQueryClient();
@@ -190,16 +173,6 @@ export function useChangeUserLoginId() {
         queryClient.invalidateQueries({ queryKey: [USERS_KEY, "detail", variables.userId] }),
       ]);
     },
-  });
-}
-
-export function useUserTeams(status = "ACTIVE") {
-  const { api } = useSharedModulesContext();
-
-  return useQuery({
-    queryKey: [USERS_KEY, "teams", status],
-    queryFn: () => listUserTeams(api, status),
-    placeholderData: (prev) => prev,
   });
 }
 

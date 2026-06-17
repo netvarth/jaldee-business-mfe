@@ -5,12 +5,14 @@ import type {
   AccountContext,
   BranchLocation,
   ProductKey,
+  UserPreferences,
 } from "@jaldee/auth-context";
 import {
   DEFAULT_ENABLED_MODULES,
   DEFAULT_LICENSED_PRODUCTS,
   normalizeAccountContext,
 } from "@jaldee/auth-context";
+import { themeService } from "../theme/ThemeService";
 
 const DEFAULT_USER: UserContext = {
   id: "default-user",
@@ -52,6 +54,7 @@ type PersistedShellStore = Partial<
     | "activeLocation"
     | "availableLocations"
     | "activeProduct"
+    | "userPreferences"
   >
 >;
 
@@ -73,6 +76,7 @@ interface ShellStore {
   activeProduct:   ProductKey | null;
   sidebarCollapsed: boolean;
   sidebarVisible:    boolean;
+  userPreferences:   UserPreferences;
 
   // Actions
   setAuth:          (user: UserContext, account: AccountContext, token: string) => void;
@@ -86,6 +90,7 @@ interface ShellStore {
   toggleSidebar:    () => void;
   setSidebarVisible: (visible: boolean) => void;
   setHasHydrated:   (value: boolean) => void;
+  setUserPreferences: (prefs: Partial<UserPreferences>) => void;
 }
 
 export const useShellStore = create<ShellStore>()(
@@ -103,6 +108,7 @@ export const useShellStore = create<ShellStore>()(
       activeProduct:      null,
       sidebarCollapsed:   false,
       sidebarVisible:     true,
+      userPreferences:    { theme: "light", fontSize: "md" },
 
       setAuth: (user, account, token) =>
         set({
@@ -142,7 +148,6 @@ export const useShellStore = create<ShellStore>()(
       setAvailableLocations: (locations) =>
         set({ availableLocations: locations }),
 
-
       setActiveProduct: (product) =>
         set({ activeProduct: product }),
 
@@ -154,6 +159,13 @@ export const useShellStore = create<ShellStore>()(
 
       setHasHydrated: (value) =>
         set({ hasHydrated: value }),
+
+      setUserPreferences: (prefs) =>
+        set((state) => {
+          const next = { ...state.userPreferences, ...prefs };
+          themeService.applyUserPreferences(next);
+          return { userPreferences: next };
+        }),
     }),
     {
       name: "jaldee-shell-store",
@@ -168,6 +180,7 @@ export const useShellStore = create<ShellStore>()(
         availableLocations: state.availableLocations,
         activeProduct: state.activeProduct,
         onboardingStatus: state.onboardingStatus,
+        userPreferences: state.userPreferences,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as PersistedShellStore;
@@ -181,6 +194,7 @@ export const useShellStore = create<ShellStore>()(
             persisted.availableLocations ?? currentState.availableLocations,
           activeLocation: persisted.activeLocation ?? currentState.activeLocation,
           onboardingStatus: persisted.onboardingStatus ?? "complete",
+          userPreferences: persisted.userPreferences ?? currentState.userPreferences,
         };
 
         if (merged.isAuthenticated && (!merged.user || !merged.account)) {
@@ -195,6 +209,10 @@ export const useShellStore = create<ShellStore>()(
       },
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
+        // Apply rehydrated preferences immediately
+        if (state?.userPreferences) {
+          themeService.applyUserPreferences(state.userPreferences);
+        }
       },
     }
   )

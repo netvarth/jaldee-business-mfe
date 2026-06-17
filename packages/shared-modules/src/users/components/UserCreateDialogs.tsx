@@ -10,8 +10,8 @@ import {
   Select,
   Textarea,
 } from "@jaldee/design-system";
-import { useAssignUserLocations, useChangeUserLoginId, useCreateUser, useCreateUserTeam, useUserDepartments, useUserDetail, useUserLocations, useUserLoginId } from "../queries/users";
-import type { CreateTeamInput, CreateUserInput } from "../types";
+import { useAssignUserLocations, useChangeUserLoginId, useCreateUser, useUserDepartments, useUserDetail, useUserLocations, useUserLoginId } from "../queries/users";
+import type { CreateUserInput } from "../types";
 
 const EMPTY_USER: CreateUserInput = {
   firstName: "",
@@ -24,10 +24,6 @@ const EMPTY_USER: CreateUserInput = {
   phoneNumber: "",
 };
 
-const EMPTY_TEAM: CreateTeamInput = {
-  name: "",
-  description: "",
-};
 
 export function CreateUserDialog({
   open,
@@ -117,56 +113,6 @@ export function CreateUserDialog({
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => void handleSubmit()} loading={createMutation.isPending}>
           Create User
-        </Button>
-      </DialogFooter>
-    </Dialog>
-  );
-}
-
-export function CreateTeamDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const [values, setValues] = useState<CreateTeamInput>(EMPTY_TEAM);
-  const createMutation = useCreateUserTeam();
-
-  useEffect(() => {
-    if (!open) {
-      setValues(EMPTY_TEAM);
-    }
-  }, [open]);
-
-  async function handleSubmit() {
-    await createMutation.mutateAsync(values);
-    onClose();
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Create Team"
-      description="Create a user team group. Member assignment can be added next from the teams workflow."
-      size="md"
-    >
-      <div className="space-y-4">
-        {createMutation.error ? (
-          <Alert variant="danger" title="Team creation failed">
-            {String(createMutation.error)}
-          </Alert>
-        ) : null}
-
-        <Input label="Team Name" value={values.name} onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))} />
-        <Textarea label="Description" rows={4} value={values.description} onChange={(event) => setValues((current) => ({ ...current, description: event.target.value }))} />
-      </div>
-
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => void handleSubmit()} loading={createMutation.isPending}>
-          Create Team
         </Button>
       </DialogFooter>
     </Dialog>

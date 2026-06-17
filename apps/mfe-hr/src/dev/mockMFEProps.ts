@@ -17,7 +17,7 @@ export const mockMFEProps: MFEProps = {
     name: "Dev Company",
     licensedProducts: [],
     enabledModules: [],
-    theme: { primaryColor: "#0369A1", logoUrl: "" },
+    theme: { primaryColor: "#115E59", logoUrl: "" },
     plan: "starter",
     domain: "services",
     labels: {
@@ -29,7 +29,7 @@ export const mockMFEProps: MFEProps = {
       lead: "Lead",
     },
   },
-  theme: { primaryColor: "#0369A1" },
+  theme: { primaryColor: "#115E59" },
   locale: "en-IN",
   location: { id: "loc-1", name: "Head Office", code: "HO" },
   navigate: (route) => console.log("[dev navigate]", route),

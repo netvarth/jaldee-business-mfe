@@ -60,6 +60,11 @@ export type { DatePickerProps }           from "./components/DatePicker/DatePick
 export { DatePickerPopover }              from "./components/DatePickerPopover/DatePickerPopover";
 export type { DatePickerPopoverProps }    from "./components/DatePickerPopover/DatePickerPopover";
 
+export { MonthPicker }                    from "./components/MonthPicker/MonthPicker";
+export type { MonthPickerProps }          from "./components/MonthPicker/MonthPicker";
+export { MonthPickerPopover }             from "./components/MonthPickerPopover/MonthPickerPopover";
+export type { MonthPickerPopoverProps }   from "./components/MonthPickerPopover/MonthPickerPopover";
+
 export { DateRangePicker }                from "./components/DateRangePicker/DateRangePicker";
 export type { DateRangePickerProps, DateRangeValue } from "./components/DateRangePicker/DateRangePicker";
 

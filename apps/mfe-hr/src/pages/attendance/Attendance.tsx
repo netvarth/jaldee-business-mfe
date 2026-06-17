@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
 import { Clock, MapPin, ScanFace, History, Loader2 } from "lucide-react";
-import { PageHeader } from "@jaldee/design-system";
+import { PageHeader, Select } from "@jaldee/design-system";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
 import { useBranches } from "../../services/useBranches";
@@ -173,12 +173,30 @@ export default function Attendance() {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, border: "1px solid var(--border-color)", fontSize: 11, fontWeight: 800, color: "var(--primary-color)" }}><MapPin size={12} /> {branchName}</div>
           </div>
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-            <div><div style={{ ...lbl, marginBottom: 6 }}>Acting Employee</div>
-              <select id="hr-attendance-actor" data-testid="hr-attendance-actor" style={sel} value={actor} onChange={(e) => setActor(e.target.value)}>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
-            <div><div style={{ ...lbl, marginBottom: 6 }}>Work Mode</div>
-              <select id="hr-attendance-mode" data-testid="hr-attendance-mode" style={sel} value={mode} onChange={(e) => setMode(e.target.value)}><option>Office</option><option>WFH</option><option>On-Field</option></select></div>
-            <div><div style={{ ...lbl, marginBottom: 6 }}>Branch Geofence</div>
-              <select id="hr-attendance-branch" data-testid="hr-attendance-branch" style={sel} value={branch} onChange={(e) => setBranch(e.target.value)}>{branches.map((b) => <option key={b.id} value={b.id}>{b.code || b.name}</option>)}</select></div>
+            <Select
+              id="hr-attendance-actor"
+              testId="hr-attendance-actor"
+              label="Acting Employee"
+              value={actor}
+              onChange={(e) => setActor(e.target.value)}
+              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            />
+            <Select
+              id="hr-attendance-mode"
+              testId="hr-attendance-mode"
+              label="Work Mode"
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+              options={[{ value: "Office", label: "Office" }, { value: "WFH", label: "WFH" }, { value: "On-Field", label: "On-Field" }]}
+            />
+            <Select
+              id="hr-attendance-branch"
+              testId="hr-attendance-branch"
+              label="Branch Geofence"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              options={branches.map((b) => ({ value: b.id, label: b.code || b.name }))}
+            />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
               <div><div style={{ fontSize: 12, fontWeight: 800, color: "var(--dark-text)" }}>FACE RECOGNITION SCAN</div><div style={{ fontSize: 10, color: "var(--light-text)" }}>Verify check-in with your camera feed</div></div>
               <button id="hr-attendance-face-toggle" data-testid="hr-attendance-face-toggle" data-active={face ? "true" : "false"} onClick={() => setFace((v) => !v)} aria-label="toggle face" style={{ width: 40, height: 22, borderRadius: 999, border: "none", cursor: "pointer", background: face ? "var(--primary-color)" : "var(--border-color)", position: "relative" }}><span style={{ position: "absolute", top: 2, left: face ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "white", transition: "left .15s" }} /></button>

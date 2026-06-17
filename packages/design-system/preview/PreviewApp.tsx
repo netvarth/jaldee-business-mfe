@@ -16,6 +16,8 @@ import {
   DataTableToolbar,
   DatePicker,
   DatePickerPopover,
+  MonthPicker,
+  MonthPickerPopover,
   DateRangePicker,
   DescriptionList,
   Dialog,
@@ -208,6 +210,11 @@ export default function PreviewApp() {
   const [componentCrash, setComponentCrash] = useState(false);
   const [boardItems, setBoardItems] = useState(initialBoardItems);
   const datePopoverAnchorRef = useRef<HTMLButtonElement | null>(null);
+
+  const [selectedMonth, setSelectedMonth] = useState("2026-06");
+  const [monthPopoverOpen, setMonthPopoverOpen] = useState(false);
+  const [selectedPopoverMonth, setSelectedPopoverMonth] = useState<Date | null>(new Date(2026, 5, 1));
+  const monthPopoverAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -503,6 +510,25 @@ export default function PreviewApp() {
                   onClick={() => setDatePopoverOpen(true)}
                 >
                   {selectedPopoverDate?.toLocaleDateString() ?? "Choose date"}
+                </Button>
+              </div>
+              <MonthPicker
+                label="Scheduled month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                hint={`Selected value: ${selectedMonth}`}
+              />
+              <div className="flex flex-col gap-1.5">
+                <span className="ds-form-label">Month picker popover</span>
+                <Button
+                  ref={monthPopoverAnchorRef}
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMonthPopoverOpen(true)}
+                >
+                  {selectedPopoverMonth
+                    ? `${selectedPopoverMonth.toLocaleString("default", { month: "long" })}, ${selectedPopoverMonth.getFullYear()}`
+                    : "Choose month"}
                 </Button>
               </div>
               <DateRangePicker
@@ -876,11 +902,28 @@ export default function PreviewApp() {
         <DatePickerPopover
           selectedDate={selectedPopoverDate}
           anchorRect={datePopoverAnchorRef.current?.getBoundingClientRect() ?? null}
+          anchorRef={datePopoverAnchorRef}
           onSelectDate={(date) => {
             setSelectedPopoverDate(date);
             setDatePopoverOpen(false);
           }}
           onClose={() => setDatePopoverOpen(false)}
+        />
+      ) : null}
+
+      {monthPopoverOpen ? (
+        <MonthPickerPopover
+          selectedDate={selectedPopoverMonth}
+          anchorRect={monthPopoverAnchorRef.current?.getBoundingClientRect() ?? null}
+          anchorRef={monthPopoverAnchorRef}
+          onSelectMonth={(date) => {
+            setSelectedPopoverMonth(date);
+            setMonthPopoverOpen(false);
+          }}
+          onClose={() => setMonthPopoverOpen(false)}
+          onClear={() => {
+            setSelectedPopoverMonth(null);
+          }}
         />
       ) : null}
     </div>
