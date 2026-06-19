@@ -4,6 +4,7 @@ import federation       from "@originjs/vite-plugin-federation";
 import path             from "path";
 
 export default defineConfig({
+  envDir: path.resolve(__dirname, "../shell-host"),
   plugins: [
     react(),
     federation({
