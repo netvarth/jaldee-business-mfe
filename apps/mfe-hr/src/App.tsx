@@ -15,6 +15,7 @@ const Tickets = lazy(() => import("./pages/tickets/Tickets"));
 const Reports = lazy(() => import("./pages/reports/Reports"));
 const Settings = lazy(() => import("./pages/settings/Settings"));
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
+const EssPortal = lazy(() => import("./pages/ess/EssPortal"));
 
 export default function App() {
   return (
@@ -35,6 +36,8 @@ export default function App() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/:section" element={<Settings />} />
+            <Route path="/me" element={<EssPortal />} />
+            <Route path="/me/*" element={<EssPortal />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No HR screen for this route." />} />
           </Routes>
         </Suspense>

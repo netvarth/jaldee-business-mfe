@@ -2,7 +2,13 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { Download, Play, Plus, History as HistoryIcon, Loader2, UserPlus, X } from "lucide-react";
 import { PageHeader, Select, Dialog, MonthPicker, SkeletonTable } from "@jaldee/design-system";
 import { useEmployees } from "../../services/useEmployees";
-import { usePayslips, usePayrollRuns, usePayrollPlans, type Payslip } from "../../services/usePayrollData";
+import {
+  usePayslips,
+  usePayrollRuns,
+  usePayrollPlans,
+  type Payslip,
+  type PayrollPlan,
+} from "../../services/usePayrollData";
 import { formatCurrency, formatDate, exportToCSV } from "../../lib/utils";
 import type { SalaryStructure } from "../../types";
 
@@ -86,9 +92,17 @@ export default function Payroll() {
   };
 
   const handleRunPayroll = async () => {
-    setBusy(true);
-    try { await runs.createRun({ month: monthNow, status: "Processing" }); }
-    finally { setBusy(false); }
+    setBusy(true); setMsg(null);
+    try {
+      const run = await runs.processRun(genMonth);
+      await payslips.reload();
+      setMsg(
+        `Processed ${run?.employeeCount ?? 0} employee(s) for ${genMonth}. ` +
+        `Net payout: ${inr(run?.totalPayout)}.`
+      );
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Payroll run failed.");
+    } finally { setBusy(false); }
   };
 
   const handleExport = () => exportToCSV(
@@ -98,13 +112,34 @@ export default function Payroll() {
   );
 
   const [planOpen, setPlanOpen] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [plan, setPlan] = useState<Record<string, string>>({ name: "" });
   const submitPlan = async () => {
     if (!plan.name) return;
     const payload: Record<string, unknown> = { name: plan.name };
     ALL_COMP_KEYS.forEach((k) => { payload[k] = Number(plan[k]) || 0; });
-    await plans.createPlan(payload);
-    setPlanOpen(false); setPlan({ name: "" });
+    if (editingPlanId) await plans.updatePlan(editingPlanId, payload);
+    else await plans.createPlan(payload);
+    setPlanOpen(false); setPlan({ name: "" }); setEditingPlanId(null);
+  };
+  const openNewPlan = () => {
+    setEditingPlanId(null);
+    setPlan({ name: "" });
+    setPlanOpen(true);
+  };
+  const openEditPlan = (currentPlan: PayrollPlan) => {
+    const values: Record<string, string> = { name: currentPlan.name ?? "" };
+    ALL_COMP_KEYS.forEach((key) => {
+      const value = (currentPlan as Record<string, unknown>)[key];
+      values[key] = value == null ? "" : String(value);
+    });
+    setEditingPlanId(currentPlan.id);
+    setPlan(values);
+    setPlanOpen(true);
+  };
+  const removePlan = async (currentPlan: PayrollPlan) => {
+    if (!window.confirm(`Delete plan "${currentPlan.name}"?`)) return;
+    await plans.removePlan(currentPlan.id);
   };
 
   /* ---- Assign salary structure to an employee (doubles as edit) ---- */
@@ -303,7 +338,7 @@ export default function Payroll() {
             <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Create &amp; Assign Plans</h3>
             <div style={{ display: "flex", gap: 10 }}>
               <button id="hr-payroll-assign-open" data-testid="hr-payroll-assign-open" className="btn btn-secondary" onClick={() => openAssign()} style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 12 }}><UserPlus size={16} /> Assign to Employee</button>
-              <button id="hr-payroll-plan-toggle" data-testid="hr-payroll-plan-toggle" data-state={planOpen ? "open" : "closed"} className="btn btn-primary" onClick={() => setPlanOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}><Plus size={16} /> New Plan</button>
+              <button id="hr-payroll-plan-toggle" data-testid="hr-payroll-plan-toggle" data-state={planOpen ? "open" : "closed"} className="btn btn-primary" onClick={openNewPlan} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}><Plus size={16} /> New Plan</button>
             </div>
           </div>
           {planOpen && (
@@ -323,7 +358,7 @@ export default function Payroll() {
                 </div>
               ))}
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <button id="hr-payroll-plan-save" data-testid="hr-payroll-plan-save" className="btn btn-primary" onClick={submitPlan} disabled={!plan.name} style={{ background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}>Save Plan</button>
+                <button id="hr-payroll-plan-save" data-testid="hr-payroll-plan-save" className="btn btn-primary" onClick={submitPlan} disabled={!plan.name} style={{ background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}>{editingPlanId ? "Update Plan" : "Save Plan"}</button>
               </div>
             </div>
           )}
@@ -340,7 +375,13 @@ export default function Payroll() {
                     <td style={tdStyle}>{inr(p.hra)}</td>
                     <td style={tdStyle}>{inr(p.allowance)}</td>
                     <td style={tdStyle}>{inr(p.otherDeductions)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}><button id={`hr-payroll-plan-assign-${p.id}`} data-testid={`hr-payroll-plan-assign-${p.id}`} className="btn-grid-action" onClick={() => openAssign(p.id)} style={{ borderRadius: 12 }}>Assign</button></td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <div style={{ display: "inline-flex", gap: 6 }}>
+                        <button id={`hr-payroll-plan-assign-${p.id}`} data-testid={`hr-payroll-plan-assign-${p.id}`} className="btn-grid-action" onClick={() => openAssign(p.id)} style={{ borderRadius: 12 }}>Assign</button>
+                        <button id={`hr-payroll-plan-edit-${p.id}`} data-testid={`hr-payroll-plan-edit-${p.id}`} className="btn-grid-action" onClick={() => openEditPlan(p)} style={{ borderRadius: 12 }}>Edit</button>
+                        <button id={`hr-payroll-plan-delete-${p.id}`} data-testid={`hr-payroll-plan-delete-${p.id}`} className="btn-grid-action" onClick={() => void removePlan(p)} style={{ borderRadius: 12, color: "var(--danger-color, #dc2626)" }}>Delete</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -354,17 +395,19 @@ export default function Payroll() {
           <div className="modal-header" style={{ padding: "20px 24px" }}><h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Payroll Runs</h3></div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={thStyle}>Month</th><th style={thStyle}>Employees</th><th style={thStyle}>Total Payout</th><th style={thStyle}>Status</th><th style={thStyle}>Processed</th></tr></thead>
+              <thead><tr><th style={thStyle}>Month</th><th style={thStyle}>Employees</th><th style={thStyle}>Net Payout</th><th style={thStyle}>Deductions</th><th style={thStyle}>Employer Cost</th><th style={thStyle}>Status</th><th style={thStyle}>Processed</th></tr></thead>
               <tbody>
                 {runs.loading ? (
-                  <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)" }}>Loading…</td></tr>
+                  <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)" }}>Loading…</td></tr>
                 ) : runs.data.length === 0 ? (
-                  <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)", padding: "48px 16px" }}>No payroll runs yet.</td></tr>
+                  <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)", padding: "48px 16px" }}>No payroll runs yet.</td></tr>
                 ) : runs.data.map((r) => (
                   <tr key={r.id}>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{r.month || "—"}</td>
                     <td style={tdStyle}>{r.employeeCount ?? "—"}</td>
                     <td style={{ ...tdStyle, fontWeight: 700 }}>{r.totalPayout != null ? inr(r.totalPayout) : "—"}</td>
+                    <td style={tdStyle}>{r.totalDeductions != null ? inr(r.totalDeductions) : "—"}</td>
+                    <td style={tdStyle}>{r.totalEmployerCost != null ? inr(r.totalEmployerCost) : "—"}</td>
                     <td style={tdStyle}><span className="badge" style={{ background: "var(--success-bg)", color: "var(--success-color)", padding: "4px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>{r.status || "—"}</span></td>
                     <td style={{ ...tdStyle, color: "var(--light-text)" }}>{formatDate(r.processedAt)}</td>
                   </tr>
@@ -386,8 +429,12 @@ export default function Payroll() {
         {viewSlip && (() => {
           const e = viewSlip.earnings ?? {};
           const d = viewSlip.deductions ?? {};
-          const gross = (e.basic ?? 0) + (e.hra ?? 0) + (e.allowance ?? 0) + (e.bonus ?? 0);
-          const totalDed = (d.pf ?? 0) + (d.tax ?? 0) + (d.other ?? 0);
+          const gross = e.gross ?? (e.basic ?? 0) + (e.hra ?? 0) + (e.allowance ?? 0) + (e.bonus ?? 0);
+          const tds = d.tds ?? d.tax ?? 0;
+          const totalDed = d.total ??
+            (d.pf ?? 0) + (d.esi ?? 0) + (d.professionalTax ?? 0) +
+            tds + (d.lwf ?? 0) + (d.other ?? 0);
+          const employerContribution = (d.pfEmployer ?? 0) + (d.esiEmployer ?? 0);
           const net = viewSlip.netPay != null ? viewSlip.netPay : gross - totalDed;
           const row = (label: string, val?: number, bold?: boolean) => (
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontWeight: bold ? 800 : 500, fontSize: bold ? 15 : 14, borderTop: bold ? "1px solid var(--border-color)" : "none", color: "var(--dark-text)" }}>
@@ -413,9 +460,21 @@ export default function Payroll() {
 
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)", margin: "20px 0 4px" }}>Deductions</div>
                 {row("Provident Fund", d.pf)}
-                {row("Tax", d.tax)}
+                {d.esi ? row("ESI", d.esi) : null}
+                {d.professionalTax ? row("Professional Tax", d.professionalTax) : null}
+                {row("TDS / Income Tax", tds)}
+                {d.lwf ? row("Labour Welfare Fund", d.lwf) : null}
                 {row("Other", d.other)}
                 {row("Total Deductions", totalDed, true)}
+
+                {employerContribution > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)", margin: "20px 0 4px" }}>Employer Contributions</div>
+                    {d.pfEmployer ? row("PF (Employer)", d.pfEmployer) : null}
+                    {d.esiEmployer ? row("ESI (Employer)", d.esiEmployer) : null}
+                    {row("Total Employer Cost", gross + employerContribution, true)}
+                  </>
+                )}
 
                 <div style={{ marginTop: 20, padding: "16px 18px", borderRadius: 12, background: "var(--dark-bg)", color: "white", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Net Pay</span>

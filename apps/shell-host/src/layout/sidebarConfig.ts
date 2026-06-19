@@ -303,6 +303,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "hr-expenses", label: "Expenses", icon: sidebarIcon(DollarSign), path: "/hr/expenses" },
     { id: "hr-helpdesk", label: "Helpdesk", icon: sidebarIcon(HelpCircle), path: "/hr/tickets" },
     { id: "hr-reports", label: "Reports", icon: sidebarIcon(BarChart3), path: "/hr/reports" },
+    { id: "hr-self-service", label: "My HR", icon: sidebarIcon(Users), path: "/hr/me" },
     { id: "hr-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/hr/settings" },
   ],
   ai: [

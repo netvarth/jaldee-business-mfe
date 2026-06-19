@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X } from "lucide-react";
-import { PageHeader, Select, DatePicker, Dialog, SkeletonTable } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
@@ -237,7 +237,17 @@ export default function Expenses() {
               <div><label style={lbl}>Mode of Transport</label><input id="hr-expenses-transport-input" data-testid="hr-expenses-transport-input" placeholder="e.g. Company Sedan" style={{ ...field, marginTop: 6 }} value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} /></div>
             </>
           )}
-          <div style={{ gridColumn: "1 / -1" }}><label style={lbl}>Notes / Description</label><textarea id="hr-expenses-notes-textarea" data-testid="hr-expenses-notes-textarea" placeholder="Short description of the expense…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={{ marginTop: 6, width: "100%", minHeight: 90, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: 14, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} /></div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Textarea
+              id="hr-expenses-notes-textarea"
+              data-testid="hr-expenses-notes-textarea"
+              label="Notes / Description"
+              placeholder="Short description of the expense…"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              rows={4}
+            />
+          </div>
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>

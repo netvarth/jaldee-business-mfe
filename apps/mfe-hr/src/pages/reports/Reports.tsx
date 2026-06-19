@@ -50,7 +50,7 @@ export default function Reports() {
   );
   const exportLeaveSummary = () => exportToCSV(
     ["Employee", "Leave Type", "Total", "Used", "Available"],
-    balances.map((b) => [empName(b.employeeUid), b.leaveType ?? "", b.total ?? 0, b.used ?? 0, b.available ?? 0]),
+    balances.map((b) => [empName(b.employeeUid), b.leaveTypeName ?? b.leaveType ?? "", b.total ?? 0, b.used ?? 0, b.available ?? 0]),
     "leave-summary.csv"
   );
   const exportAttendance = () => exportToCSV(

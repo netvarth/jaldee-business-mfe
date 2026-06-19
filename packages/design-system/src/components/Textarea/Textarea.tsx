@@ -29,19 +29,21 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           rows={rows}
           className={cn(
             fullWidth && "w-full",
-            "rounded-[var(--radius-control)] border border-gray-200 bg-white px-3 py-2 text-[length:var(--text-sm)] text-gray-800",
-            "placeholder:text-gray-400 resize-y",
-            "focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-            "disabled:bg-gray-50 disabled:cursor-not-allowed",
+            "rounded-[var(--radius-control)] border px-[var(--control-padding-x)] py-[var(--control-padding-y)] text-[length:var(--text-sm)] leading-normal",
+            "bg-[color:color-mix(in_srgb,var(--color-surface)_92%,white)] text-[var(--color-text-primary)]",
+            "border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] placeholder:text-[var(--color-text-secondary)] resize-y",
+            "shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+            "focus:outline-none focus:border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]",
+            "disabled:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed",
             "transition-colors duration-100",
-            error && "border-red-500",
+            error && "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-0",
             className
           )}
           aria-invalid={!!error}
           {...props}
         />
-        {hint && !error && <p className="text-[length:var(--text-xs)] text-gray-500">{hint}</p>}
-        {error && <p role="alert" className="text-[length:var(--text-xs)] text-red-600">{error}</p>}
+        {hint && !error && <p className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">{hint}</p>}
+        {error && <p role="alert" className="text-[length:var(--text-xs)] text-[var(--color-danger)]">{error}</p>}
       </div>
     );
   }

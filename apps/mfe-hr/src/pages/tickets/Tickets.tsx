@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { PageHeader, Select, Dialog, SkeletonCard } from "@jaldee/design-system";
+import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
@@ -133,7 +133,26 @@ export default function Tickets() {
               <SkeletonCard />
             </div>
           ) : items.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "80px 0", color: "var(--light-text)", fontWeight: 700 }}>No tickets found.</div>
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+              <EmptyState
+                icon={<MessageSquare size={40} />}
+                title={search.trim() ? "No matching tickets" : "No helpdesk tickets yet"}
+                description={
+                  search.trim()
+                    ? "Try a different ticket ID, subject, or keyword."
+                    : "Raise your first HR or administration request and track its progress here."
+                }
+                action={
+                  search.trim() ? (
+                    <button className="btn btn-secondary" onClick={() => setSearch("")}>Clear search</button>
+                  ) : (
+                    <button className="btn btn-primary" onClick={() => { setMsg(null); setAddOpen(true); }}>
+                      <Plus size={16} /> Raise New Ticket
+                    </button>
+                  )
+                }
+              />
+            </div>
           ) : items.map((t) => {
             const sb = statusBadge(t.status);
             return (
@@ -184,7 +203,14 @@ export default function Tickets() {
               placeholder="Select employee"
               options={employees.map((e) => ({ value: e.id, label: e.name }))}
             />
-            <div><label style={lbl}>Subject</label><input id="hr-tickets-subject" data-testid="hr-tickets-subject" placeholder="Brief summary of the issue…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
+            <Input
+              id="hr-tickets-subject"
+              data-testid="hr-tickets-subject"
+              label="Subject"
+              placeholder="Brief summary of the issue…"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <Select
                 id="hr-tickets-category"
@@ -206,8 +232,15 @@ export default function Tickets() {
             <button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" style={{ height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", color: "var(--light-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}><Paperclip size={16} /> Attachment (Optional)</button>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <label style={lbl}>Description</label>
-            <textarea id="hr-tickets-description" data-testid="hr-tickets-description" placeholder="Provide more details about your issue…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+            <Textarea
+              id="hr-tickets-description"
+              data-testid="hr-tickets-description"
+              label="Description"
+              placeholder="Provide more details about your issue…"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={9}
+            />
           </div>
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { PageHeader, Select, DatePicker, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
@@ -84,7 +84,7 @@ export default function Leave() {
     balances.data.forEach((b) => {
       if (!b.employeeUid) return;
       if (!m.has(b.employeeUid)) m.set(b.employeeUid, new Map());
-      m.get(b.employeeUid)!.set((b.leaveType || "").toLowerCase(), b);
+      m.get(b.employeeUid)!.set((b.leaveTypeName || b.leaveType || "").toLowerCase(), b);
     });
     return m;
   }, [balances.data]);
@@ -213,7 +213,7 @@ export default function Leave() {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                         <h4 style={{ fontSize: 12.5, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{empName(l.employeeUid)}</h4>
-                        <span style={{ ...lbl, color: "#059669", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", padding: "2px 6px", borderRadius: 6 }}>{l.type}</span>
+                        <span style={{ ...lbl, color: "#059669", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", padding: "2px 6px", borderRadius: 6 }}>{l.leaveTypeName || l.type}</span>
                       </div>
                       <p style={{ ...lbl, marginTop: 4 }}>{empDept(l.employeeUid)} · {calcDays(l.startDate, l.endDate, l.isHalfDay)} days away</p>
                       <p style={{ fontSize: 11.5, color: "var(--dark-text)", fontStyle: "italic", margin: "6px 0 0", opacity: 0.8 }}>“{l.reason}”</p>
@@ -242,7 +242,7 @@ export default function Leave() {
                 ) : pendingLeaves.map((l) => (
                   <tr key={l.id}>
                     <td style={{ ...tdc, fontWeight: 700 }}>{empName(l.employeeUid)}<span style={{ display: "block", ...lbl, fontSize: 8 }}>Dept: {empDept(l.employeeUid)}</span></td>
-                    <td style={{ ...tdc, fontWeight: 700 }}>{l.type}</td>
+                    <td style={{ ...tdc, fontWeight: 700 }}>{l.leaveTypeName || l.type}</td>
                     <td style={{ ...tdc, fontFamily: "monospace", fontSize: 11, color: "var(--light-text)" }}>{l.startDate} → {l.endDate}</td>
                     <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</td>
                     <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
@@ -359,7 +359,7 @@ export default function Leave() {
               ) : ledgerRows.map((l) => (
                 <tr key={l.id}>
                   <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(l.employeeUid)}</div><div style={{ ...lbl, fontSize: 9 }}>ID: {empCode(l.employeeUid)}</div></td>
-                  <td style={{ ...tdc, fontWeight: 600 }}>{l.type}</td>
+                  <td style={{ ...tdc, fontWeight: 600 }}>{l.leaveTypeName || l.type}</td>
                   <td style={{ ...tdc, fontFamily: "monospace", fontSize: 11, color: "var(--light-text)" }}>{l.startDate} → {l.endDate}</td>
                   <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</td>
                   <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
@@ -443,8 +443,15 @@ export default function Leave() {
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <label style={lbl}>Detailed Statement / Reason</label>
-            <textarea id="hr-leave-reason" data-testid="hr-leave-reason" placeholder="Share a short note detailing the cause of your request…" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 220, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 18, fontSize: 14, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+            <Textarea
+              id="hr-leave-reason"
+              data-testid="hr-leave-reason"
+              label="Detailed Statement / Reason"
+              placeholder="Share a short note detailing the cause of your request…"
+              value={form.reason}
+              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+              rows={9}
+            />
           </div>
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
@@ -484,7 +491,7 @@ export default function Leave() {
                 <span style={{ ...lbl, marginBottom: 8, display: "block" }}>Applicant Remaining Balance</span>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
                   {LEAVE_QUOTAS.map((q) => {
-                    const isReq = q.type.toLowerCase() === (selected.type || "").toLowerCase();
+                    const isReq = q.type.toLowerCase() === (selected.leaveTypeName || selected.type || "").toLowerCase();
                     const avl = balFor(selected.employeeUid || "", q.type)?.available ?? 0;
                     return (
                       <div key={q.type} style={{ padding: 10, borderRadius: 12, textAlign: "center", background: isReq ? "rgba(17,94,89,0.08)" : "rgba(100,116,139,0.04)", border: isReq ? "1px solid rgba(17,94,89,0.3)" : "1px solid var(--border-color)" }}>
@@ -505,7 +512,15 @@ export default function Leave() {
               {(selected.status || "").toLowerCase() === "pending" && (
                 <div style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 20, padding: 18 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}><AlertCircle size={16} color="#d97706" /><span style={{ ...lbl, color: "#b45309" }}>Authorized Approver Clearance Action</span></div>
-                  <textarea id="hr-leave-approval-remarks" data-testid="hr-leave-approval-remarks" placeholder="Comment explaining approval or rejection…" value={remarks} onChange={(e) => setRemarks(e.target.value)} style={{ width: "100%", minHeight: 70, borderRadius: 12, border: "1px solid rgba(245,158,11,0.3)", background: "white", padding: 12, fontSize: 12.5, resize: "vertical" }} />
+                  <Textarea
+                    id="hr-leave-approval-remarks"
+                    data-testid="hr-leave-approval-remarks"
+                    placeholder="Comment explaining approval or rejection…"
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    rows={3}
+                    aria-label="Approval remarks"
+                  />
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
                     <button id="hr-leave-reject" data-testid="hr-leave-reject" onClick={() => act("Rejected")} disabled={acting} style={{ height: 38, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline &amp; Reject</button>
                     <button id="hr-leave-approve" data-testid="hr-leave-approve" onClick={() => act("Approved")} disabled={acting} style={{ height: 38, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Clear &amp; Approve</button>

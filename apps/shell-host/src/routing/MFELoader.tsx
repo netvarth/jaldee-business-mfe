@@ -14,6 +14,34 @@ interface MFELoaderProps {
   props: MFEProps;
 }
 
+const STYLESHEET_LOAD_TIMEOUT_MS = 5000;
+
+function waitForPendingStylesheets() {
+  const pendingStylesheets = Array.from(
+    document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+  ).filter((stylesheet) => !stylesheet.sheet);
+
+  return Promise.allSettled(
+    pendingStylesheets.map(
+      (stylesheet) =>
+        new Promise<void>((resolve) => {
+          let timeoutId = 0;
+
+          const finish = () => {
+            window.clearTimeout(timeoutId);
+            stylesheet.removeEventListener("load", finish);
+            stylesheet.removeEventListener("error", finish);
+            resolve();
+          };
+
+          stylesheet.addEventListener("load", finish, { once: true });
+          stylesheet.addEventListener("error", finish, { once: true });
+          timeoutId = window.setTimeout(finish, STYLESHEET_LOAD_TIMEOUT_MS);
+        }),
+    ),
+  );
+}
+
 export function MFELoader({ remote, props }: MFELoaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lifecycleRef = useRef<MFELifecycleModule | null>(null);
@@ -34,7 +62,7 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
     setIsLoading(true);
 
     remote()
-      .then((loadedModule) => {
+      .then(async (loadedModule) => {
         if (cancelled || !containerRef.current) {
           return;
         }
@@ -46,6 +74,11 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
           throw new Error(
             `[MFELoader] Contract version mismatch for ${propsRef.current.mfeName}: expected ${MFE_CONTRACT_VERSION}, received ${contractVersion ?? "unknown"}`
           );
+        }
+
+        await waitForPendingStylesheets();
+        if (cancelled || !containerRef.current) {
+          return;
         }
 
         lifecycleModule.mount(containerRef.current, propsRef.current);

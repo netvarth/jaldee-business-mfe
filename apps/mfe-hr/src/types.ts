@@ -39,6 +39,7 @@ export interface Employee {
   id: string;
   uid?: string;
   employeeId: string;
+  salutation?: string;
   name: string;
   email: string;
   contactNumber?: string;
@@ -60,4 +61,13 @@ export interface Employee {
   faceDescriptor?: string | null;
   branchUid?: string | null;
   shiftUid?: string | null;
+}
+
+export interface AttendanceBreak {
+  id?: string;
+  uid?: string;
+  breakIn?: string;
+  breakOut?: string;
+  breakType?: string;
+  durationMinutes?: number;
 }

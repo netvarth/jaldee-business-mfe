@@ -6,6 +6,7 @@ export interface AttendanceRecord {
   clockIn?: string; clockOut?: string; clockInType?: string; status?: string;
   wfhStatus?: string; workedHours?: number; branchUid?: string; branchName?: string;
   verifiedByUid?: string; verifiedAt?: string;
+  totalBreakMinutes?: number; breaks?: import("../types").AttendanceBreak[];
 }
 export interface OnDutyRequest {
   id: string; uid?: string; employeeUid?: string; date?: string;
@@ -55,7 +56,20 @@ export function useAttendance() {
   const verify = useCallback(async (uid: string, wfhStatus: string, verifiedByUid?: string | null) => {
     await api.put(`/attendance/${uid}/verify`, { wfhStatus, verifiedByUid: verifiedByUid || null }); await reload();
   }, [api, reload]);
-  return { data, loading, error, reload, punchIn, punchOut, verify };
+  const startBreak = useCallback(async (uid: string, breakType: string) => {
+    await api.post(`/attendance/${uid}/breaks`, {
+      breakIn: new Date().toISOString(),
+      breakType,
+    });
+    await reload();
+  }, [api, reload]);
+  const endBreak = useCallback(async (uid: string, breakUid: string) => {
+    await api.put(`/attendance/${uid}/breaks/${breakUid}`, {
+      breakOut: new Date().toISOString(),
+    });
+    await reload();
+  }, [api, reload]);
+  return { data, loading, error, reload, punchIn, punchOut, verify, startBreak, endBreak };
 }
 
 export function useOnDuty() {

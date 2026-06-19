@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useHrApi } from "./useHrApi";
 
-export interface PayslipEarnings { basic?: number; hra?: number; allowance?: number; bonus?: number; }
-export interface PayslipDeductions { pf?: number; tax?: number; other?: number; }
+export interface PayslipEarnings {
+  basic?: number; hra?: number; allowance?: number; bonus?: number; gross?: number;
+}
+export interface PayslipDeductions {
+  pf?: number; tax?: number; other?: number;
+  esi?: number; professionalTax?: number; tds?: number; lwf?: number;
+  total?: number;
+  pfEmployer?: number; esiEmployer?: number;
+}
 export interface Payslip {
   id: string; uid?: string; employeeUid?: string; month?: string;
   netPay?: number; status?: string; generatedAt?: string;
@@ -10,7 +17,8 @@ export interface Payslip {
 }
 export interface PayrollRun {
   id: string; uid?: string; month?: string; status?: string;
-  totalPayout?: number; employeeCount?: number; processedAt?: string;
+  totalPayout?: number; totalEmployerCost?: number; totalDeductions?: number;
+  employeeCount?: number; processedAt?: string;
 }
 export interface PayrollPlan {
   id: string; uid?: string; name?: string; basic?: number; hra?: number;
@@ -59,7 +67,14 @@ export function usePayrollRuns() {
   const createRun = useCallback(async (payload: Record<string, unknown>) => {
     await api.post("/payroll/runs", payload); await reload();
   }, [api, reload]);
-  return { data, loading, error, reload, createRun };
+  const processRun = useCallback(async (month: string) => {
+    const run = await api.post<PayrollRun>(
+      `/payroll/runs/process?month=${encodeURIComponent(month)}`
+    );
+    await reload();
+    return run;
+  }, [api, reload]);
+  return { data, loading, error, reload, createRun, processRun };
 }
 
 export function usePayrollPlans() {
@@ -67,5 +82,11 @@ export function usePayrollPlans() {
   const createPlan = useCallback(async (payload: Record<string, unknown>) => {
     await api.post("/payroll/plans", payload); await reload();
   }, [api, reload]);
-  return { data, loading, error, reload, createPlan };
+  const updatePlan = useCallback(async (uid: string, payload: Record<string, unknown>) => {
+    await api.put(`/payroll/plans/${uid}`, payload); await reload();
+  }, [api, reload]);
+  const removePlan = useCallback(async (uid: string) => {
+    await api.del(`/payroll/plans/${uid}`); await reload();
+  }, [api, reload]);
+  return { data, loading, error, reload, createPlan, updatePlan, removePlan };
 }

@@ -3,11 +3,13 @@ import { useHrApi } from "../services/useHrApi";
 
 export interface LeaveRequest {
   id: string; uid?: string; employeeUid?: string; type?: string;
+  leaveTypeName?: string; leaveTypeUid?: string;
   startDate?: string; endDate?: string; reason?: string; status?: string;
   appliedAt?: string; isHalfDay?: boolean; duration?: number; statusRemarks?: string;
 }
 export interface LeaveBalance {
   id: string; uid?: string; employeeUid?: string; leaveType?: string;
+  leaveTypeName?: string; leaveTypeUid?: string;
   total?: number; used?: number; available?: number;
 }
 

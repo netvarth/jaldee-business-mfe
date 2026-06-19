@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone } from "lucide-react";
-import { PageHeader, EmptyState, Select, DatePicker, Dialog, SkeletonCard } from "@jaldee/design-system";
+import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
@@ -178,8 +178,15 @@ export default function Announcements() {
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <label style={lbl}>Content</label>
-            <textarea id="hr-announcements-content" data-testid="hr-announcements-content" placeholder="Write your announcement here…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ marginTop: 6, flex: 1, minHeight: 200, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: 20, fontSize: 15, fontWeight: 500, color: "var(--dark-text)", resize: "vertical" }} />
+            <Textarea
+              id="hr-announcements-content"
+              data-testid="hr-announcements-content"
+              label="Content"
+              placeholder="Write your announcement here…"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={8}
+            />
           </div>
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}

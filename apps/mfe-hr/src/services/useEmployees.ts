@@ -55,6 +55,7 @@ export function useEmployees() {
       const extra = emp as unknown as Record<string, unknown>;
       const payload: Record<string, unknown> = {
         employeeId: emp.employeeId,
+        salutation: emp.salutation || "Mr",
         name: emp.name,
         email: emp.email,
         contactNumber: emp.contactNumber || null,

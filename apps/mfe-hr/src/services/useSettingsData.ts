@@ -22,6 +22,8 @@ export interface AttendanceRule {
 export interface PayrollSetting {
   uid?: string; payCycle?: string; payDay?: number; currency?: string; pfEnabled?: boolean; pfRate?: number;
   esiEnabled?: boolean; esiRate?: number; professionalTax?: number; tdsEnabled?: boolean;
+  ptEnabled?: boolean; esiEmployerRate?: number; pfWageCeiling?: number;
+  esiGrossCeiling?: number; lwfAmount?: number; state?: string;
 }
 
 function withId<T extends { uid?: string; id?: string }>(r: Record<string, unknown>): T {
