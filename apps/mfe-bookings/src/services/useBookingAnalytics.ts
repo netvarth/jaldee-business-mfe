@@ -7,6 +7,9 @@ export type Period = "today" | "week" | "month";
 interface BookingDto {
   status?: string;
   bookingChannel?: string;
+  amount?: number;
+  totalAmount?: number;
+  price?: number;
 }
 
 export interface Analytics {
@@ -21,8 +24,6 @@ export interface Analytics {
   live: boolean;     // true when numbers came from the backend
   loading: boolean;
 }
-
-export const AVG_PRICE = 500;
 
 function bucket(status: string): "confirmed" | "completed" | "pending" | "cancelled" {
   const s = status.toLowerCase();
@@ -54,6 +55,7 @@ function rangeFor(period: Period): { from: string; to: string } {
 
 function compute(bks: BookingDto[], live: boolean, loading: boolean): Analytics {
   let confirmed = 0, completed = 0, pending = 0, cancelled = 0, online = 0, walkin = 0;
+  let revenue = 0;
   bks.forEach((b) => {
     const k = bucket(b.status ?? "");
     if (k === "confirmed") confirmed++;
@@ -63,12 +65,15 @@ function compute(bks: BookingDto[], live: boolean, loading: boolean): Analytics 
     const ch = (b.bookingChannel ?? "").toUpperCase();
     if (ch.includes("WALK")) walkin++;
     else online++;
+    if (k !== "cancelled") {
+      revenue += Number(b.totalAmount ?? b.amount ?? b.price ?? 0);
+    }
   });
   const total = bks.length;
   return {
     total, confirmed, completed, pending, cancelled,
     online, walkin,
-    revenue: (total - cancelled) * AVG_PRICE,
+    revenue,
     live, loading,
   };
 }
@@ -89,7 +94,7 @@ export function useBookingAnalytics(period: Period): Analytics {
       );
       const bks = unwrapList<BookingDto>(response);
       // `live` reflects whether real data came back; no mock fallback.
-      setData(compute(bks, bks.length > 0, false));
+      setData(compute(bks, true, false));
     } catch {
       // No live backend — show zeros (live=false), not sample data.
       setData(compute([], false, false));

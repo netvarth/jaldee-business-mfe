@@ -14,9 +14,14 @@ import { apiClient } from "@jaldee/api-client";
  * All responses are wrapped in `ApiResponse<T> = { status, data, timestamp }`,
  * so we unwrap `.data` here and hand callers the raw payload.
  */
-const BASE = "/hr-service";
+const BASE = "/hr-service/v1/api/tenant";
 
 type Json = Record<string, unknown> | unknown[];
+
+function buildHrServiceUrl(endpoint: string) {
+  const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  return new URL(`${BASE}${normalizedEndpoint}`, window.location.origin).toString();
+}
 
 export function useHrApi() {
   const { authToken } = useMFEProps();
@@ -30,10 +35,11 @@ export function useHrApi() {
       const timeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
       try {
         const res = await apiClient.request<any>({
-          url: `${BASE}${endpoint}`,
+          url: buildHrServiceUrl(endpoint),
           method,
           data: body,
           timeout,
+          _skipLocationParam: true,
         });
 
         const parsed = res.data;

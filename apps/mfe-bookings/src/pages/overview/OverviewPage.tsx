@@ -1,11 +1,10 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { Button, PageHeader } from "@jaldee/design-system";
-import { useBookingAnalytics, AVG_PRICE, type Period } from "../../services/useBookingAnalytics";
+import { useBookingAnalytics, type Period } from "../../services/useBookingAnalytics";
 
 /**
  * Bookings analytics overview.
- * Numbers are computed live from GET /bookings/range for the selected period
- * (useBookingAnalytics), falling back to sample data when the backend is down.
+ * Numbers are computed from booking API records for the selected period.
  */
 const card: CSSProperties = { background: "white", border: "1px solid #f1f5f9", borderRadius: 24, padding: 24 };
 const cardTitle: CSSProperties = { fontSize: 13, fontWeight: 800, color: "#1e293b", textTransform: "uppercase", margin: 0, letterSpacing: "0.05em", fontFamily: "'Outfit',sans-serif" };
@@ -27,9 +26,8 @@ export default function OverviewPage() {
     {
       label: "Total Bookings", value: total, color: "#6366f1",
       bg: "radial-gradient(circle at top right, #eef2ff 0%, transparent 65%)",
-      badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", background: "#ecfdf5", border: "1px solid #d1fae5", padding: "3px 6px", borderRadius: 6 }}>▲ 12.4%</span>,
+      badge: null,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /></svg>,
-      sub: <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: 10 }}>Period target quota: <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#334155", background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>100 slots</span></div>,
     },
     {
       label: "Confirmed", value: confirmed, color: "#10b981",
@@ -55,7 +53,7 @@ export default function OverviewPage() {
     {
       label: "Cancelled", value: cancelled, color: "#ef4444",
       bg: "radial-gradient(circle at top right, rgba(239,68,68,0.08) 0%, transparent 65%)",
-      badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fecaca", padding: "3px 6px", borderRadius: 6 }}>▼ 3% d/d</span>,
+      badge: <span style={{ fontSize: 10, fontWeight: 900, color: "#b91c1c", background: "#fee2e2", padding: "3px 7px", borderRadius: 10 }}>{pct(cancelled, total)}%</span>,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>,
       bar: total ? cancelled / total : 0, barColor: "#ef4444",
     },
@@ -91,11 +89,13 @@ export default function OverviewPage() {
             </div>
           }
         />
-        <div className="mb-4">
-          <span style={{ fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 8, color: live ? "#065f46" : "#92400e", background: live ? "#d1fae5" : "#fef3c7" }}>
-            {loading ? "Loading…" : live ? "● Live" : "Sample data"}
-          </span>
-        </div>
+        {(loading || live) && (
+          <div className="mb-4">
+            <span style={{ fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 8, color: "#065f46", background: "#d1fae5" }}>
+              {loading ? "Loading…" : "● Live"}
+            </span>
+          </div>
+        )}
 
         {/* KPI CARDS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 16, marginBottom: 24 }}>
@@ -138,22 +138,13 @@ export default function OverviewPage() {
           </div>
           <div style={card}>
             <h3 style={cardTitle}>Estimated Revenue</h3>
-            <p style={cardSub}>Projected from non-cancelled bookings.</p>
+            <p style={cardSub}>Recorded value from non-cancelled bookings.</p>
             <div style={{ fontSize: 36, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>₹{revenue.toLocaleString("en-IN")}</div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>Avg. value per booking ₹{AVG_PRICE.toLocaleString("en-IN")}</div>
           </div>
         </div>
 
-        {/* TREND + STATUS */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 24 }}>
-          <div style={{ ...card, position: "relative" }}>
-            <h3 style={cardTitle}>Booking Trend</h3>
-            <p style={cardSub}>Volume across the selected period.</p>
-            <svg viewBox="0 0 600 180" style={{ width: "100%", height: 180, marginTop: 16 }}>
-              <polyline fill="none" stroke="#55349A" strokeWidth="3" points="0,140 100,110 200,120 300,70 400,90 500,50 600,80" />
-              <polygon fill="rgba(85,52,154,0.08)" points="0,140 100,110 200,120 300,70 400,90 500,50 600,80 600,180 0,180" />
-            </svg>
-          </div>
+        {/* STATUS */}
+        <div style={{ marginBottom: 24 }}>
           <div style={card}>
             <h3 style={cardTitle}>Status Breakdown</h3>
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -166,27 +157,6 @@ export default function OverviewPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* WORKLOAD + DEPARTMENTS + PEAK */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
-          <div style={card}>
-            <h3 style={cardTitle}>Doctor Utilization</h3>
-            <p style={cardSub}>Load distribution across providers.</p>
-            <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>{pct(confirmed + completed, total)}%</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Average utilization</div>
-          </div>
-          <div style={card}>
-            <h3 style={cardTitle}>Departments</h3>
-            <p style={cardSub}>Bookings by department.</p>
-            <div style={{ marginTop: 16, fontSize: 13, color: "#334155", fontWeight: 600 }}>General Medicine · Cardiology · Pediatrics</div>
-          </div>
-          <div style={card}>
-            <h3 style={cardTitle}>Peak Load</h3>
-            <p style={cardSub}>Busiest booking window.</p>
-            <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>09:00 – 11:00</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Highest concentration of slots</div>
           </div>
         </div>
       </div>

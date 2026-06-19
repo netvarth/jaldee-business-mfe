@@ -19,10 +19,7 @@ const BASE_PATH = "/booking-service/v1/api/tenant";
 
 function buildBookingServiceUrl(endpoint: string) {
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const bookingEndpoint = normalizedEndpoint.startsWith("/bookings")
-    ? normalizedEndpoint
-    : `/bookings${normalizedEndpoint}`;
-  return new URL(`${BASE_PATH}${bookingEndpoint}`, window.location.origin).toString();
+  return new URL(`${BASE_PATH}${normalizedEndpoint}`, window.location.origin).toString();
 }
 
 interface BookingRequestOptions {
