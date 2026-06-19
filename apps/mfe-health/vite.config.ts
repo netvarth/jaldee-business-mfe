@@ -27,7 +27,7 @@ export default defineConfig({
     modulePreload: false,
     target:       "esnext",
     minify:       "esbuild",
-    cssCodeSplit: false,
+    cssCodeSplit: true,
     chunkSizeWarningLimit: 600,
   },
   server: {

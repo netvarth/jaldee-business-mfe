@@ -1,27 +1,26 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { cn } from "@jaldee/design-system";
-import "./index.css"; // tailwind base + modal/toast styles (also load in federated mode)
-import { ToastProvider } from "./contexts/ToastContext";
+import "./index.css";
 import { ModalProvider } from "./contexts/ModalContext";
 import AppShell from "./components/AppShell";
 
-import CalendarDashboard from "./pages/calendar/CalendarDashboard";
-import AppointmentDetailsWorkspace from "./pages/appointment/AppointmentDetailsWorkspace";
-import CalendarList from "./pages/calendar/CalendarList";
-import CalendarWizard from "./pages/calendar/CalendarWizard";
-import CalendarDetails from "./pages/calendar/CalendarDetails";
-import CustomizeCalendar from "./pages/calendar/CustomizeCalendar";
-import EditCalendar from "./pages/calendar/EditCalendar";
-import EditSchedule from "./pages/calendar/EditSchedule";
-import CustomersPage from "./pages/customers/CustomersPage";
-import ServicesPage from "./pages/services/ServicesPage";
-import CreateServicePage from "./pages/services/CreateServicePage";
-import OverviewPage from "./pages/overview/OverviewPage";
-import SettingsPage from "./pages/settings/SettingsPage";
-import StaffPage from "./pages/users/StaffPage";
-import UsersPage from "./pages/users/UsersPage";
-import PlaceholderPage from "./pages/PlaceholderPage";
+const CalendarDashboard = lazy(() => import("./pages/calendar/CalendarDashboard"));
+const AppointmentDetailsWorkspace = lazy(() => import("./pages/appointment/AppointmentDetailsWorkspace"));
+const CalendarList = lazy(() => import("./pages/calendar/CalendarList"));
+const CalendarWizard = lazy(() => import("./pages/calendar/CalendarWizard"));
+const CalendarDetails = lazy(() => import("./pages/calendar/CalendarDetails"));
+const CustomizeCalendar = lazy(() => import("./pages/calendar/CustomizeCalendar"));
+const EditCalendar = lazy(() => import("./pages/calendar/EditCalendar"));
+const EditSchedule = lazy(() => import("./pages/calendar/EditSchedule"));
+const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
+const ServicesPage = lazy(() => import("./pages/services/ServicesPage"));
+const CreateServicePage = lazy(() => import("./pages/services/CreateServicePage"));
+const OverviewPage = lazy(() => import("./pages/overview/OverviewPage"));
+const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
+const StaffPage = lazy(() => import("./pages/users/StaffPage"));
+const UsersPage = lazy(() => import("./pages/users/UsersPage"));
+const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
 function CalendarPage() {
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
@@ -44,9 +43,9 @@ function CalendarPage() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <ModalProvider>
-        <AppShell>
+    <ModalProvider>
+      <AppShell>
+        <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading Bookings...</div>}>
           <Routes>
             <Route path="/" element={<CalendarPage />} />
             <Route path="/calendar" element={<Navigate to="/" replace />} />
@@ -65,8 +64,8 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No booking screen for this route." />} />
           </Routes>
-        </AppShell>
-      </ModalProvider>
-    </ToastProvider>
+        </Suspense>
+      </AppShell>
+    </ModalProvider>
   );
 }

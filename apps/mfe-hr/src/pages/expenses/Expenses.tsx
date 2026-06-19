@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X } from "lucide-react";
-import { PageHeader, Select, DatePicker, Dialog } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, Dialog, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
@@ -155,39 +155,44 @@ export default function Expenses() {
 
 
       {/* TABLE */}
-      <div data-testid="hr-expenses-table-panel" style={{ ...card }}>
-        <table id="hr-expenses-table" data-testid="hr-expenses-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr>
-            {tab === "approvals" && <th style={th}>Claimant Staff</th>}
-            <th style={th}>Submit Date</th><th style={th}>Voucher Category</th><th style={th}>Claim Amount</th><th style={th}>Travel Summary</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th>
-          </tr></thead>
-          <tbody>
-            {expenses.loading ? (
-              <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", padding: "40px 16px" }}><Loader2 size={20} className="animate-spin" style={{ display: "inline" }} /></td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
-            ) : rows.map((e) => (
-              <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
-                {tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 8 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
-                <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, color: "var(--light-text)" }}>{fmtDate(e.date)}</td>
-                <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
-                <td style={{ ...tdc, fontWeight: 900 }}>{formatCurrency(e.amount)}</td>
-                <td style={{ ...tdc, maxWidth: 200 }}>
-                  {e.category === "Travel" && e.kms ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 }}><Car size={13} color="#0891b2" /> {e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</div>
-                  ) : (
-                    <span style={{ fontSize: 12, fontStyle: "italic", color: "var(--light-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>“{e.notes || "—"}”</span>
-                  )}
-                </td>
-                <td style={tdc}><span style={tag(statStyle(e.status))}>{e.status || "—"}</span></td>
-                <td style={{ ...tdc, textAlign: "right" }}>
-                  <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* TABLE */}
+      {expenses.loading ? (
+        <div style={{ ...card, padding: 20 }}>
+          <SkeletonTable rows={4} columns={tab === "approvals" ? 7 : 6} />
+        </div>
+      ) : (
+        <div data-testid="hr-expenses-table-panel" style={{ ...card }}>
+          <table id="hr-expenses-table" data-testid="hr-expenses-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              {tab === "approvals" && <th style={th}>Claimant Staff</th>}
+              <th style={th}>Submit Date</th><th style={th}>Voucher Category</th><th style={th}>Claim Amount</th><th style={th}>Travel Summary</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th>
+            </tr></thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
+              ) : rows.map((e) => (
+                <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
+                  {tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 8 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
+                  <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, color: "var(--light-text)" }}>{fmtDate(e.date)}</td>
+                  <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
+                  <td style={{ ...tdc, fontWeight: 900 }}>{formatCurrency(e.amount)}</td>
+                  <td style={{ ...tdc, maxWidth: 200 }}>
+                    {e.category === "Travel" && e.kms ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 }}><Car size={13} color="#0891b2" /> {e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</div>
+                    ) : (
+                      <span style={{ fontSize: 12, fontStyle: "italic", color: "var(--light-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>“{e.notes || "—"}”</span>
+                    )}
+                  </td>
+                  <td style={tdc}><span style={tag(statStyle(e.status))}>{e.status || "—"}</span></td>
+                  <td style={{ ...tdc, textAlign: "right" }}>
+                    <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* SUBMIT MODAL */}
       <Dialog

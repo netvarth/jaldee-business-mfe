@@ -4,7 +4,7 @@ interface PlaceholderPageProps {
 }
 
 /**
- * Stub for booking-domain screens not yet ported from the vanilla app
+ * Stub for booking-domain screens not yet implemented
  * (customers, services, staff, settings, dashboard analytics). Keeps routing +
  * navigation complete so the structure is reviewable; fill these in subsequent
  * porting passes.

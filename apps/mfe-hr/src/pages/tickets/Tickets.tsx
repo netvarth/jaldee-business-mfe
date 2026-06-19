@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { PageHeader, Select, Dialog } from "@jaldee/design-system";
+import { PageHeader, Select, Dialog, SkeletonCard } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
@@ -127,7 +127,11 @@ export default function Tickets() {
         {/* FEED */}
         <div style={{ display: "grid", gap: 24 }}>
           {tickets.loading ? (
-            <div style={{ textAlign: "center", padding: "80px 0", color: "var(--light-text)", fontWeight: 700 }}><Loader2 size={22} className="animate-spin" style={{ display: "inline" }} /> Loading tickets…</div>
+            <div className="space-y-4">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
           ) : items.length === 0 ? (
             <div style={{ textAlign: "center", padding: "80px 0", color: "var(--light-text)", fontWeight: 700 }}>No tickets found.</div>
           ) : items.map((t) => {

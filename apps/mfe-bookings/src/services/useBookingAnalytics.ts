@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
+import { unwrapList } from "./response";
 
 export type Period = "today" | "week" | "month";
 
@@ -72,7 +73,7 @@ function compute(bks: BookingDto[], live: boolean, loading: boolean): Analytics 
   };
 }
 
-/** Live booking analytics for the dashboard, computed from GET /bookings/range. */
+/** Live booking analytics for the dashboard, computed from POST /bookings/search. */
 export function useBookingAnalytics(period: Period): Analytics {
   const api = useBookingApi();
   // Start from zeros (loading) — never seed the dashboard with sample numbers.
@@ -81,9 +82,14 @@ export function useBookingAnalytics(period: Period): Analytics {
   const load = useCallback(async () => {
     const { from, to } = rangeFor(period);
     try {
-      const bks = await api.get<BookingDto[]>(`/bookings/range?from=${from}&to=${to}`);
+      const response = await api.post<unknown>(
+        "/bookings/search",
+        { from, to },
+        { params: { page: 0, size: 100 } },
+      );
+      const bks = unwrapList<BookingDto>(response);
       // `live` reflects whether real data came back; no mock fallback.
-      setData(compute(bks ?? [], Boolean(bks && bks.length), false));
+      setData(compute(bks, bks.length > 0, false));
     } catch {
       // No live backend — show zeros (live=false), not sample data.
       setData(compute([], false, false));

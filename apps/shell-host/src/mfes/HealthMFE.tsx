@@ -1,6 +1,15 @@
 import { MFELoader }        from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
 
+export function loadHealthRemote() {
+  if (import.meta.env.DEV) {
+    const healthUrl = import.meta.env.VITE_HEALTH_URL ?? "http://localhost:3002";
+    return import(/* @vite-ignore */ `${healthUrl}/src/mount.tsx`);
+  }
+
+  return import("mfe_health/mount");
+}
+
 export function HealthMFE() {
   const props = useBuildMFEProps("mfe-health", "/health");
 
@@ -12,7 +21,7 @@ export function HealthMFE() {
 
   return (
     <MFELoader
-      remote={() => import("mfe_health/mount")}
+      remote={loadHealthRemote}
       props={props}
     />
   );

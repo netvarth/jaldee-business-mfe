@@ -28,7 +28,7 @@ export interface ServiceFormInput {
   customIntake: boolean;
 }
 
-/** Builds the exact vanilla POST /services payload from the form. */
+/** Builds the booking-service POST /services payload from the form. */
 function buildPayload(f: ServiceFormInput) {
   const totalDuration = f.durHrs * 60 + f.durMins;
   const displayServiceType = f.serviceType === "Onsite Service" ? "Onsite Consultation" : "Tele-Consultation";

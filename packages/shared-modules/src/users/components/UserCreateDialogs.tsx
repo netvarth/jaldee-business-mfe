@@ -59,6 +59,7 @@ export function CreateUserDialog({
       title="Create User"
       description="Create a provider, assistant, admin, or user using the shared users module."
       size="lg"
+      data-testid="dlgCreateUser_SM_Users"
     >
       <div className="space-y-4">
         {createMutation.error ? (
@@ -68,12 +69,37 @@ export function CreateUserDialog({
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Input label="First Name" value={values.firstName} onChange={(event) => setValues((current) => ({ ...current, firstName: event.target.value }))} />
-          <Input label="Last Name" value={values.lastName} onChange={(event) => setValues((current) => ({ ...current, lastName: event.target.value }))} />
-          <Input label="Email" value={values.email} onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))} />
-          <Input label="Employee ID" value={values.employeeId} onChange={(event) => setValues((current) => ({ ...current, employeeId: event.target.value }))} />
+          <Input
+            id="txtCreateFirstName_SM_Users"
+            data-testid="txtCreateFirstName_SM_Users"
+            label="First Name"
+            value={values.firstName}
+            onChange={(event) => setValues((current) => ({ ...current, firstName: event.target.value }))}
+          />
+          <Input
+            id="txtCreateLastName_SM_Users"
+            data-testid="txtCreateLastName_SM_Users"
+            label="Last Name"
+            value={values.lastName}
+            onChange={(event) => setValues((current) => ({ ...current, lastName: event.target.value }))}
+          />
+          <Input
+            id="txtCreateEmail_SM_Users"
+            data-testid="txtCreateEmail_SM_Users"
+            label="Email"
+            value={values.email}
+            onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
+          />
+          <Input
+            id="txtCreateEmployeeId_SM_Users"
+            data-testid="txtCreateEmployeeId_SM_Users"
+            label="Employee ID"
+            value={values.employeeId}
+            onChange={(event) => setValues((current) => ({ ...current, employeeId: event.target.value }))}
+          />
           <Select
             label="User Type"
+            testId="selectCreateUserType_SM_Users"
             value={values.userType}
             onChange={(event) => setValues((current) => ({ ...current, userType: event.target.value }))}
             options={[
@@ -85,6 +111,7 @@ export function CreateUserDialog({
           />
           <Select
             label="Department"
+            testId="selectCreateDepartment_SM_Users"
             value={values.departmentId}
             onChange={(event) => setValues((current) => ({ ...current, departmentId: event.target.value }))}
             options={[
@@ -96,6 +123,8 @@ export function CreateUserDialog({
             ]}
           />
           <PhoneInput
+            id="phoneCreatePhone_SM_Users"
+            data-testid="phoneCreatePhone_SM_Users"
             label="Phone Number"
             value={{ countryCode: values.phoneCountryCode, number: values.phoneNumber }}
             onChange={(phone) =>
@@ -110,8 +139,21 @@ export function CreateUserDialog({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => void handleSubmit()} loading={createMutation.isPending}>
+        <Button
+          variant="ghost"
+          id="btnCancelCreateUser_SM_Users"
+          data-testid="btnCancelCreateUser_SM_Users"
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          id="btnSubmitCreateUser_SM_Users"
+          data-testid="btnSubmitCreateUser_SM_Users"
+          data-state={createMutation.isPending ? "loading" : "ready"}
+          onClick={() => void handleSubmit()}
+          loading={createMutation.isPending}
+        >
           Create User
         </Button>
       </DialogFooter>
@@ -171,6 +213,7 @@ export function AssignLocationsDialog({
       title="Assign to Locations"
       description={userName ? `Select business locations for ${userName}.` : "Select business locations for this user."}
       size="md"
+      data-testid="dlgAssignLocations_SM_Users"
     >
       <div className="space-y-4">
         {assignMutation.error ? (
@@ -181,15 +224,21 @@ export function AssignLocationsDialog({
 
         <div className="space-y-3">
           <div className="text-sm font-medium text-slate-700">Select Locations *</div>
-          <div className="space-y-2">
+          <div className="space-y-2" data-testid="listAssignLocations_SM_Users">
             {(locationsQuery.data ?? []).map((location) => {
               const checked = selectedLocationIds.includes(location.id);
               return (
                 <label
                   key={location.id}
+                  data-testid={`chkLocation_${location.id}_SM_Users`}
+                  data-state={checked ? "checked" : "unchecked"}
                   className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 px-3 py-3 transition-colors hover:bg-slate-50"
                 >
-                  <Checkbox checked={checked} onChange={() => toggleLocation(location.id)} aria-label={location.name} />
+                  <Checkbox
+                    checked={checked}
+                    onChange={() => toggleLocation(location.id)}
+                    aria-label={location.name}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-slate-900">{location.name}</div>
                     {location.status ? <div className="mt-1 text-xs text-slate-500">{location.status}</div> : null}
@@ -202,8 +251,22 @@ export function AssignLocationsDialog({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => void handleSubmit()} loading={assignMutation.isPending} disabled={!selectedLocationIds.length || detailQuery.isLoading}>
+        <Button
+          variant="ghost"
+          id="btnCancelAssignLocations_SM_Users"
+          data-testid="btnCancelAssignLocations_SM_Users"
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          id="btnSaveAssignLocations_SM_Users"
+          data-testid="btnSaveAssignLocations_SM_Users"
+          data-state={assignMutation.isPending ? "loading" : !selectedLocationIds.length ? "disabled" : "ready"}
+          onClick={() => void handleSubmit()}
+          loading={assignMutation.isPending}
+          disabled={!selectedLocationIds.length || detailQuery.isLoading}
+        >
           Save
         </Button>
       </DialogFooter>
@@ -250,6 +313,7 @@ export function ChangeLoginIdDialog({
       title="Change Login ID"
       description=""
       size="md"
+      data-testid="dlgChangeLoginId_SM_Users"
     >
       <div className="space-y-4">
         {changeMutation.error ? (
@@ -258,13 +322,15 @@ export function ChangeLoginIdDialog({
           </Alert>
         ) : null}
 
-        <div className="text-sm text-slate-600">
+        <div className="text-sm text-slate-600" data-testid="txtCurrentLoginId_SM_Users">
           <span className="font-medium text-slate-700">Current Login ID :</span>{" "}
           <span>{loginIdQuery.data || "-"}</span>
         </div>
 
         <div className="space-y-2">
           <Input
+            id="txtNewLoginId_SM_Users"
+            data-testid="txtNewLoginId_SM_Users"
             label="New Login ID"
             placeholder="Enter Login ID"
             value={loginId}
@@ -275,8 +341,22 @@ export function ChangeLoginIdDialog({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => void handleSubmit()} loading={changeMutation.isPending} disabled={!isValid}>
+        <Button
+          variant="ghost"
+          id="btnCancelChangeLoginId_SM_Users"
+          data-testid="btnCancelChangeLoginId_SM_Users"
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          id="btnSaveChangeLoginId_SM_Users"
+          data-testid="btnSaveChangeLoginId_SM_Users"
+          data-state={changeMutation.isPending ? "loading" : !isValid ? "disabled" : "ready"}
+          onClick={() => void handleSubmit()}
+          loading={changeMutation.isPending}
+          disabled={!isValid}
+        >
           Save
         </Button>
       </DialogFooter>

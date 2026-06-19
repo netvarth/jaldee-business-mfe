@@ -1,4 +1,5 @@
 import { CheckCircle, Calendar, Clock, User } from "../../components/icons";
+import { Button } from "@jaldee/design-system";
 import { useModal } from "../../contexts/ModalContext";
 
 export interface BookingSummary {
@@ -41,12 +42,12 @@ export default function BookingSuccess({ summary }: { summary: BookingSummary })
       </div>
 
       <div className="px-6 pb-6">
-        <button
+        <Button
           onClick={closeModal}
-          className="w-full py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm shadow-emerald-200 transition-colors"
+          fullWidth
         >
           Done
-        </button>
+        </Button>
       </div>
     </div>
   );

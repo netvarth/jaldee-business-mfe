@@ -1,7 +1,7 @@
 import { MFELoader } from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
 
-function loadHrRemote() {
+export function loadHrRemote() {
   if (import.meta.env.DEV) {
     const hrUrl = import.meta.env.VITE_HR_URL ?? "http://localhost:4008";
     return import(/* @vite-ignore */ `${hrUrl}/src/mount.tsx`);
@@ -19,5 +19,4 @@ export function HrMFE() {
 
   return <MFELoader remote={loadHrRemote} props={props} />;
 }
-
 

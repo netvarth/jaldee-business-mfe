@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
 import { Clock, MapPin, ScanFace, History, Loader2 } from "lucide-react";
-import { PageHeader, Select } from "@jaldee/design-system";
+import { PageHeader, Select, SkeletonTable } from "@jaldee/design-system";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
 import { useBranches } from "../../services/useBranches";
@@ -34,6 +34,7 @@ export default function Attendance() {
   const onduty = useOnDuty();
   const compoffs = useCompOffs();
   const locationLogs = useLocationLogs();
+  const isLoading = empLoading || attendance.loading || onduty.loading || compoffs.loading || locationLogs.loading;
 
   const [actor, setActor] = useState("");
   const [mode, setMode] = useState("Office");
@@ -231,7 +232,13 @@ export default function Attendance() {
       </div>
 
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
-        {subtab === "logs" && (
+        {isLoading && subtab !== "kiosk" ? (
+          <div className="p-4">
+            <SkeletonTable rows={4} columns={5} />
+          </div>
+        ) : (
+          <>
+            {subtab === "logs" && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Type / Branch Geo</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
             <tbody>{attendance.data.length === 0 ? <tr><td colSpan={6} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No attendance logs.</td></tr> : attendance.data.map((a) => (
@@ -300,7 +307,9 @@ export default function Attendance() {
             ))}</tbody>
           </table>
         )}
-        {subtab === "kiosk" && <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--light-text)", fontSize: 13 }}>Face Kiosk Mode — webcam capture is pending; the backend enrollment endpoint is wired.</div>}
+            {subtab === "kiosk" && <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--light-text)", fontSize: 13 }}>Face Kiosk Mode — webcam capture is pending; the backend enrollment endpoint is wired.</div>}
+          </>
+        )}
       </div>
     </section>
   );

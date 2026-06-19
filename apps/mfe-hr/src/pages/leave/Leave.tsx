@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { PageHeader, Select, DatePicker, Dialog } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
@@ -53,9 +53,10 @@ function StatCard({ tag, value, sub, tone, icon, accent }: { tag: string; value:
 export default function Leave() {
   const { eventBus } = useMFEProps();
   const [tab, setTab] = useState<Tab>("overview");
-  const { data: employees } = useEmployees();
+  const { data: employees, loading: empLoading } = useEmployees();
   const leaves = useLeaves();
   const balances = useLeaveBalances();
+  const isLoading = leaves.loading || balances.loading || empLoading;
 
   useEffect(() => {
     const err = leaves.error || balances.error;
@@ -149,16 +150,16 @@ export default function Leave() {
         subtitle="Administrative leave and attendance control"
         actions={
           <>
-          <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 999 }}><UserCheck size={14} /> Corporate Admin Control</span>
-          <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 40, padding: "0 22px", borderRadius: 999, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
+          <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 12 }}><UserCheck size={14} /> Corporate Admin Control</span>
+          <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
           </>
         }
       />
 
       {/* PILL TABS */}
-      <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 999, marginBottom: 28 }}>
+      <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 12, marginBottom: 28 }}>
         {tabs.map((t) => (
-          <button id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => setTab(t.key)} style={{ padding: "8px 20px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
+          <button id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => setTab(t.key)} style={{ padding: "8px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
         ))}
       </div>
 
@@ -167,11 +168,36 @@ export default function Leave() {
       {/* ===== OVERVIEW ===== */}
       {tab === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
-            <StatCard tag="Total Submitted" value={`${pendingLeaves.length} Pending`} sub="Needs verification" tone="#d97706" icon={<Clock size={24} />} />
-            <StatCard tag="Active Workforce Status" value={`${employees.length - onLeaveToday.length} / ${employees.length}`} sub="Active today" tone="#10b981" icon={<Users size={24} />} />
-            <StatCard tag="Out of Office" value={`${onLeaveToday.length} On Leave`} sub="Absent today" tone={TEAL} icon={<Calendar size={24} />} accent />
-          </div>
+          {isLoading ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
+                <div style={{ ...card, borderRadius: 28, padding: 24, height: 124 }} className="animate-pulse space-y-3">
+                  <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
+                  <Skeleton height={32} width={140} className="rounded-lg bg-[var(--border-color)] opacity-60" />
+                  <Skeleton height={12} width={160} className="rounded bg-[var(--border-color)] opacity-40" />
+                </div>
+                <div style={{ ...card, borderRadius: 28, padding: 24, height: 124 }} className="animate-pulse space-y-3">
+                  <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
+                  <Skeleton height={32} width={120} className="rounded-lg bg-[var(--border-color)] opacity-60" />
+                  <Skeleton height={12} width={140} className="rounded bg-[var(--border-color)] opacity-40" />
+                </div>
+                <div style={{ ...card, borderRadius: 28, padding: 24, height: 124 }} className="animate-pulse space-y-3">
+                  <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
+                  <Skeleton height={32} width={150} className="rounded-lg bg-[var(--border-color)] opacity-60" />
+                  <Skeleton height={12} width={170} className="rounded bg-[var(--border-color)] opacity-40" />
+                </div>
+              </div>
+              <div style={{ ...card, padding: 20 }}>
+                <SkeletonTable rows={3} columns={5} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
+                <StatCard tag="Total Submitted" value={`${pendingLeaves.length} Pending`} sub="Needs verification" tone="#d97706" icon={<Clock size={24} />} />
+                <StatCard tag="Active Workforce Status" value={`${employees.length - onLeaveToday.length} / ${employees.length}`} sub="Active today" tone="#10b981" icon={<Users size={24} />} />
+                <StatCard tag="Out of Office" value={`${onLeaveToday.length} On Leave`} sub="Absent today" tone={TEAL} icon={<Calendar size={24} />} accent />
+              </div>
 
           {/* who is on leave today */}
           <div>
@@ -228,13 +254,21 @@ export default function Leave() {
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </div>
       )}
 
       {/* ===== BALANCES ===== */}
       {tab === "balances" && (
         <div style={{ ...card }}>
-          <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+          {isLoading ? (
+            <div className="p-6">
+              <SkeletonTable rows={5} columns={6} />
+            </div>
+          ) : (
+            <>
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL }}>Overall Leave Left status for each employee</div>
               <div style={{ ...lbl, marginTop: 2 }}>Remaining balances computed from approved ledger history</div>
@@ -283,13 +317,21 @@ export default function Leave() {
               })}
             </tbody>
           </table>
+            </>
+          )}
         </div>
       )}
 
       {/* ===== LEDGER ===== */}
       {tab === "ledger" && (
         <div style={{ ...card }}>
-          <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+          {isLoading ? (
+            <div className="p-6">
+              <SkeletonTable rows={5} columns={6} />
+            </div>
+          ) : (
+            <>
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Global Leave Register History</div>
               <div style={{ ...lbl, marginTop: 2 }}>Master record ledger of all submissions</div>
@@ -331,6 +373,8 @@ export default function Leave() {
               ))}
             </tbody>
           </table>
+            </>
+          )}
         </div>
       )}
 

@@ -40,6 +40,23 @@
     height: 100%;
 }
 
+.mfe-loader {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+}
+
+.mfe-loading-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: var(--color-surface);
+}
+
+.mfe-container-loading {
+    visibility: hidden;
+}
+
 /* Jaldee Leads CRM Styles */
 .mfe-wrapper.jaldee-leads-page {
   padding: 0;

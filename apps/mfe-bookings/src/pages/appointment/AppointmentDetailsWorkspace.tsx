@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { cn } from "@jaldee/design-system";
+import { Button, Input, Textarea, TimePicker, cn } from "@jaldee/design-system";
 import {
   X, Calendar, Clock, User, CheckCircle, RotateCw, Ban, CreditCard, Play, FileText,
 } from "../../components/icons";
@@ -118,9 +118,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
           <h3 className="font-bold text-lg text-slate-800 leading-none">Booking Details</h3>
           {details?.encId && <p className="text-xs text-slate-400 font-mono mt-1">{details.encId}</p>}
         </div>
-        <button id="bookings-appointment-details-close" data-testid="bookings-appointment-details-close" onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full transition-colors" aria-label="Close booking details">
-          <X size={20} />
-        </button>
+        <Button variant="ghost" size="sm" iconOnly icon={<X size={20} />} id="bookings-appointment-details-close" data-testid="bookings-appointment-details-close" onClick={onClose} className="rounded-full text-slate-400" aria-label="Close booking details" />
       </div>
 
       {loading || !details || !st ? (
@@ -214,7 +212,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   const Icon = meta.icon;
                   const busy = acting === a;
                   return (
-                    <button
+                    <Button
+                      variant="outline"
                       key={a}
                       id={`bookings-appointment-details-${bookingId}-action-${a.toLowerCase()}`}
                       data-testid={`bookings-appointment-details-${bookingId}-action-${a.toLowerCase()}`}
@@ -232,7 +231,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                         <Icon size={22} />
                       )}
                       <span className="text-xs font-bold uppercase">{meta.label}</span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -242,18 +241,18 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
             {cancelOpen && (
               <div data-testid={`bookings-appointment-details-${bookingId}-cancel-panel`} data-state="open" className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3">
                 <label className="block text-xs font-bold text-red-700 mb-1">Cancellation reason</label>
-                <textarea
+                <Textarea
                   id={`bookings-appointment-details-${bookingId}-cancel-reason`}
                   data-testid={`bookings-appointment-details-${bookingId}-cancel-reason`}
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
+                  className="border-red-200 focus:border-red-300"
                   placeholder="Why is this booking being cancelled?"
                 />
                 <div className="flex justify-end gap-2 mt-2">
-                  <button id={`bookings-appointment-details-${bookingId}-cancel-back`} data-testid={`bookings-appointment-details-${bookingId}-cancel-back`} onClick={() => setCancelOpen(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg">Back</button>
-                  <button id={`bookings-appointment-details-${bookingId}-cancel-confirm`} data-testid={`bookings-appointment-details-${bookingId}-cancel-confirm`} onClick={submitCancel} className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">Confirm Cancel</button>
+                  <Button variant="ghost" size="sm" id={`bookings-appointment-details-${bookingId}-cancel-back`} data-testid={`bookings-appointment-details-${bookingId}-cancel-back`} onClick={() => setCancelOpen(false)}>Back</Button>
+                  <Button variant="danger" size="sm" id={`bookings-appointment-details-${bookingId}-cancel-confirm`} data-testid={`bookings-appointment-details-${bookingId}-cancel-confirm`} onClick={submitCancel}>Confirm Cancel</Button>
                 </div>
               </div>
             )}
@@ -263,12 +262,12 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
               <div data-testid={`bookings-appointment-details-${bookingId}-reschedule-panel`} data-state="open" className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-2">
                 <label className="block text-xs font-bold text-blue-700">Reschedule to</label>
                 <div className="flex gap-2">
-                  <input id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="flex-1 px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" />
-                  <input id={`bookings-appointment-details-${bookingId}-reschedule-time`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-time`} type="time" value={newStart} onChange={(e) => setNewStart(e.target.value)} className="px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  <Input id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} containerClassName="flex-1" />
+                  <TimePicker id={`bookings-appointment-details-${bookingId}-reschedule-time`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-time`} value={newStart} onChange={(e) => setNewStart(e.target.value)} fullWidth={false} />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button id={`bookings-appointment-details-${bookingId}-reschedule-back`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-back`} onClick={() => setReschedOpen(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg">Back</button>
-                  <button id={`bookings-appointment-details-${bookingId}-reschedule-confirm`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-confirm`} onClick={submitReschedule} disabled={!newDate} className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50">Confirm</button>
+                  <Button variant="ghost" size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-back`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-back`} onClick={() => setReschedOpen(false)}>Back</Button>
+                  <Button size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-confirm`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-confirm`} onClick={submitReschedule} disabled={!newDate}>Confirm</Button>
                 </div>
               </div>
             )}

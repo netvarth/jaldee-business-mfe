@@ -13,6 +13,7 @@ const cardTitle: CSSProperties = { fontSize: 13, fontWeight: 800, color: "#1e293
 const cardSub: CSSProperties = { fontSize: 11, color: "#94a3b8", margin: "4px 0 0", fontWeight: 500 };
 
 interface Kpi {
+  id: string;
   label: string; value: number | string; color: string; bg: string;
   badge: ReactNode; icon: ReactNode; bar?: number; barColor?: string; sub?: ReactNode; onClick?: () => void;
 }
@@ -28,6 +29,8 @@ export default function Dashboard() {
   const { data: announcements } = useAnnouncements();
   const { data: runs } = usePayrollRuns();
 
+  const [period, setPeriod] = useState<"today" | "week" | "month">("month");
+
   const today = new Date().toISOString().slice(0, 10);
   const stats = useMemo(() => ({
     employees: employees.length,
@@ -41,6 +44,7 @@ export default function Dashboard() {
 
   const kpis: Kpi[] = [
     {
+      id: "total-employees",
       label: "Total Employees", value: stats.employees, color: "#6366f1",
       bg: "radial-gradient(circle at top right, #eef2ff 0%, transparent 65%)",
       badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", background: "#ecfdf5", border: "1px solid #d1fae5", padding: "3px 6px", borderRadius: 6 }}>▲ 2.1%</span>,
@@ -49,7 +53,9 @@ export default function Dashboard() {
       onClick: () => navigate("/employees")
     },
     {
-      label: "Present Today", value: stats.presentToday, color: "#10b981",
+      id: "present-today",
+      label: period === "today" ? "Present Today" : period === "week" ? "Avg Present (Week)" : "Avg Present (Month)",
+      value: stats.presentToday, color: "#10b981",
       bg: "radial-gradient(circle at top right, rgba(16,185,129,0.08) 0%, transparent 65%)",
       badge: <span style={{ fontSize: 10, fontWeight: 900, color: "#065f46", background: "#d1fae5", padding: "3px 7px", borderRadius: 10 }}>{pct(stats.presentToday, stats.employees)}%</span>,
       icon: <CalendarClock size={18} stroke="#10b981" strokeWidth={2.5} />,
@@ -57,7 +63,9 @@ export default function Dashboard() {
       onClick: () => navigate("/attendance")
     },
     {
-      label: "Pending Leaves", value: stats.pendingLeaves, color: "#f59e0b",
+      id: "pending-leaves",
+      label: period === "today" ? "Pending Leaves" : period === "week" ? "Pending Leaves (Week)" : "Pending Leaves (Month)",
+      value: stats.pendingLeaves, color: "#f59e0b",
       bg: "radial-gradient(circle at top right, rgba(245,158,11,0.08) 0%, transparent 65%)",
       badge: <span style={{ fontSize: 10, fontWeight: 900, color: "#92400e", background: "#fef3c7", padding: "3px 7px", borderRadius: 10 }}>Action Req</span>,
       icon: <CalendarClock size={18} stroke="#f59e0b" strokeWidth={2.5} />,
@@ -65,7 +73,9 @@ export default function Dashboard() {
       onClick: () => navigate("/leave")
     },
     {
-      label: "Open Tickets", value: stats.openTickets, color: "#ef4444",
+      id: "open-tickets",
+      label: period === "today" ? "Open Tickets" : period === "week" ? "Open Tickets (Week)" : "Open Tickets (Month)",
+      value: stats.openTickets, color: "#ef4444",
       bg: "radial-gradient(circle at top right, rgba(239,68,68,0.08) 0%, transparent 65%)",
       badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fecaca", padding: "3px 6px", borderRadius: 6 }}>▼ 12%</span>,
       icon: <Ticket size={18} stroke="#ef4444" strokeWidth={2.5} />,
@@ -73,6 +83,7 @@ export default function Dashboard() {
       onClick: () => navigate("/tickets")
     },
     {
+      id: "last-payout",
       label: "Last Payout", value: stats.lastPayout != null ? formatCurrency(stats.lastPayout) : "—", color: "#8b5cf6",
       bg: "radial-gradient(circle at top right, rgba(139,92,246,0.08) 0%, transparent 65%)",
       badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#4c1d95", background: "#ede9fe", border: "1px solid #ddd6fe", padding: "3px 6px", borderRadius: 6 }}>Paid</span>,
@@ -82,13 +93,39 @@ export default function Dashboard() {
     },
   ];
 
-  const periodBtn = (p: string, label: string): CSSProperties => ({
+  const periodBtn = (p: "today" | "week" | "month", label: string): CSSProperties => ({
     padding: "6px 14px", borderRadius: 8, border: "none", fontSize: 12, cursor: "pointer",
-    background: p === "month" ? "white" : "transparent",
-    fontWeight: p === "month" ? 900 : 700,
-    color: p === "month" ? "#55349A" : "#94a3b8",
-    boxShadow: p === "month" ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+    background: p === period ? "white" : "transparent",
+    fontWeight: p === period ? 900 : 700,
+    color: p === period ? "#115E59" : "#94a3b8",
+    boxShadow: p === period ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+    transition: "all 0.15s ease",
   });
+
+  const trendConfig = useMemo(() => {
+    if (period === "today") {
+      return {
+        sub: "Daily active hours distribution (Today).",
+        points: "0,160 100,150 200,120 300,100 400,90 500,95 600,110",
+        poly: "0,160 100,150 200,120 300,100 400,90 500,95 600,110 600,220 0,220",
+        dash: "0,180 100,180 200,175 300,170 400,175 500,175 600,180"
+      };
+    }
+    if (period === "week") {
+      return {
+        sub: "Weekly active workforce vs scheduled leaves.",
+        points: "0,140 100,120 200,90 300,95 400,70 500,85 600,80",
+        poly: "0,140 100,120 200,90 300,95 400,70 500,85 600,80 600,220 0,220",
+        dash: "0,180 100,175 200,170 300,165 400,170 500,160 600,165"
+      };
+    }
+    return {
+      sub: "Monthly active workforce vs scheduled leaves.",
+      points: "0,120 100,100 200,110 300,80 400,90 500,60 600,70",
+      poly: "0,120 100,100 200,110 300,80 400,90 500,60 600,70 600,220 0,220",
+      dash: "0,180 100,170 200,160 300,175 400,160 500,180 600,165"
+    };
+  }, [period]);
 
   return (
     <section id="page-hr-home" data-testid="hr-dashboard-page" className="page-section active" style={{ background: "#f8fafc", flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -109,9 +146,9 @@ export default function Dashboard() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", background: "#f8fafc", border: "1px solid rgba(226,232,240,0.5)", borderRadius: 12, padding: 4 }}>
-              <button id="hr-dashboard-period-today" data-testid="hr-dashboard-period-today" data-active="false" style={periodBtn("today", "Today")}>Today</button>
-              <button id="hr-dashboard-period-week" data-testid="hr-dashboard-period-week" data-active="false" style={periodBtn("week", "This Week")}>This Week</button>
-              <button id="hr-dashboard-period-month" data-testid="hr-dashboard-period-month" data-active="true" style={periodBtn("month", "This Month")}>This Month</button>
+              <button id="hr-dashboard-period-today" data-testid="hr-dashboard-period-today" data-active={period === "today" ? "true" : "false"} style={periodBtn("today", "Today")} onClick={() => setPeriod("today")}>Today</button>
+              <button id="hr-dashboard-period-week" data-testid="hr-dashboard-period-week" data-active={period === "week" ? "true" : "false"} style={periodBtn("week", "This Week")} onClick={() => setPeriod("week")}>This Week</button>
+              <button id="hr-dashboard-period-month" data-testid="hr-dashboard-period-month" data-active={period === "month" ? "true" : "false"} style={periodBtn("month", "This Month")} onClick={() => setPeriod("month")}>This Month</button>
             </div>
           </div>
         </div>
@@ -119,7 +156,7 @@ export default function Dashboard() {
         {/* KPI CARDS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
           {kpis.map((k) => (
-            <div key={k.label} id={`hr-dashboard-kpi-${k.label.toLowerCase().replace(/\s+/g, "-")}`} data-testid={`hr-dashboard-kpi-${k.label.toLowerCase().replace(/\s+/g, "-")}`} onClick={k.onClick} style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: 20, position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", cursor: "pointer" }}>
+            <div key={k.id} id={`hr-dashboard-kpi-${k.id}`} data-testid={`hr-dashboard-kpi-${k.id}`} onClick={k.onClick} style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: 20, position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", cursor: "pointer" }}>
               <div style={{ position: "absolute", right: 0, top: 0, width: 100, height: 100, background: k.bg, pointerEvents: "none" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, position: "relative", zIndex: 1 }}>
                 <span style={{ padding: 8, background: "rgba(241,245,249,0.5)", border: "1px solid #f1f5f9", borderRadius: 12, display: "flex" }}>{k.icon}</span>
@@ -142,12 +179,12 @@ export default function Dashboard() {
           {/* ATTENDANCE TREND */}
           <div id="hr-dashboard-attendance-trend" data-testid="hr-dashboard-attendance-trend" style={{ ...card, position: "relative" }}>
             <h3 style={cardTitle}>Attendance Trend</h3>
-            <p style={cardSub}>Daily active workforce vs scheduled leaves.</p>
+            <p style={cardSub}>{trendConfig.sub}</p>
             <svg viewBox="0 0 600 180" style={{ width: "100%", height: 220, marginTop: 16 }}>
-              <polyline fill="none" stroke="#115E59" strokeWidth="3" points="0,120 100,100 200,110 300,80 400,90 500,60 600,70" />
-              <polygon fill="rgba(17,94,89,0.08)" points="0,120 100,100 200,110 300,80 400,90 500,60 600,70 600,220 0,220" />
+              <polyline fill="none" stroke="#115E59" strokeWidth="3" points={trendConfig.points} />
+              <polygon fill="rgba(17,94,89,0.08)" points={trendConfig.poly} />
               
-              <polyline fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="5,5" points="0,180 100,170 200,160 300,175 400,160 500,180 600,165" />
+              <polyline fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="5,5" points={trendConfig.dash} />
             </svg>
           </div>
 

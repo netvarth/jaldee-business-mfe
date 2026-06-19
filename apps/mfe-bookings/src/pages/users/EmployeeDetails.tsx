@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button, PageHeader, Tabs } from '@jaldee/design-system';
 import { Employee } from './mockData';
 
 interface EmployeeDetailsProps {
@@ -25,15 +26,12 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
   return (
     <div className="space-y-6 md:space-y-10 pb-10 w-full px-6 lg:px-10 py-8 overflow-y-auto flex-1">
       {/* Header */}
-      <div className="flex items-center gap-3 md:gap-4 mb-2">
-          <button onClick={onBack} className="h-8 w-8 rounded-full hover:bg-slate-100 hover:text-slate-900 transition-all flex items-center justify-center shrink-0 text-slate-500">
-              <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          </button>
-          <div className="space-y-1">
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-[#1e293b] leading-tight">Employee Profile</h1>
-              <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Detailed view of <span className="text-slate-900">{employee.name.split(' ')[0]}</span>'s information</p>
-          </div>
-      </div>
+      <PageHeader
+        title="Employee Profile"
+        subtitle={`Detailed view of ${employee.name}'s information.`}
+        back={{ label: "Back to staff", href: "/staff" }}
+        onNavigate={onBack}
+      />
 
       <div className="grid gap-6 md:gap-8 md:grid-cols-[300px_1fr]">
         {/* Left Sidebar Profile Card */}
@@ -59,14 +57,14 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
             </div>
             
             <div className="w-full space-y-3">
-                <button className="w-full h-10 rounded-xl border border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50 font-bold text-[11px] flex items-center justify-center gap-2 transition-colors">
+                <Button variant="outline" fullWidth className="h-10 rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50">
                     <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 5h14v14H5z"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
                     Enroll Face ID
-                </button>
-                <button className="w-full h-10 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-[11px] flex items-center justify-center gap-2 transition-colors">
+                </Button>
+                <Button variant="outline" fullWidth className="h-10 rounded-xl">
                     <svg className="w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     Edit Profile
-                </button>
+                </Button>
             </div>
           </div>
 
@@ -104,21 +102,14 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
         {/* Right Side Content */}
         <div className="space-y-6 md:space-y-8 min-w-0">
           {/* Tabs */}
-          <div className="flex h-14 w-full items-center justify-start gap-8 px-4 overflow-x-auto scrollbar-hide border-b border-transparent">
-            {['overview', 'attendance', 'leaves', 'payroll', 'documents', 'lifecycle'].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex items-center justify-center font-black text-[10px] uppercase tracking-[0.15em] transition-colors whitespace-nowrap ${
-                  activeTab === tab 
-                    ? 'text-[#0f172a] before:content-["["] before:mr-3 before:opacity-80 before:font-light before:text-base after:content-["]"] after:ml-3 after:opacity-80 after:font-light after:text-base' 
-                    : 'text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            items={['overview', 'attendance', 'leaves', 'payroll', 'documents', 'lifecycle'].map((tab) => ({
+              value: tab,
+              label: tab.charAt(0).toUpperCase() + tab.slice(1),
+            }))}
+            value={activeTab}
+            onValueChange={setActiveTab}
+          />
 
           {/* Content Areas */}
           {activeTab === 'overview' && (

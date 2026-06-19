@@ -1,16 +1,18 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { PageErrorBoundary } from "@jaldee/design-system";
-import PlaceholderPage from "./pages/PlaceholderPage";
-import CustomersPage from "./pages/CustomersPage";
-import StoresPage from "./pages/StoresPage";
-import DrivePage from "./pages/DrivePage";
-import ReportsPage from "./pages/ReportsPage";
-import OrdersPage from "./pages/OrdersPage";
-import UsersPage from "./pages/UsersPage";
-import LeadsPage from "./pages/LeadsPage";
-import MembershipPage from "./pages/MembershipPage";
-import FinancePage from "./pages/FinancePage";
-import InventoryNewPage from "./inventorynew/InventoryNewPage";
+
+const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
+const CustomersPage = lazy(() => import("./pages/CustomersPage"));
+const StoresPage = lazy(() => import("./pages/StoresPage"));
+const DrivePage = lazy(() => import("./pages/DrivePage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const OrdersPage = lazy(() => import("./pages/OrdersPage"));
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const LeadsPage = lazy(() => import("./pages/LeadsPage"));
+const MembershipPage = lazy(() => import("./pages/MembershipPage"));
+const FinancePage = lazy(() => import("./pages/FinancePage"));
+const InventoryNewPage = lazy(() => import("./inventorynew/InventoryNewPage"));
 
 export default function App() {
   const placeholderRoutes = [
@@ -26,6 +28,7 @@ export default function App() {
   ];
 
   return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading Karty...</div>}>
     <Routes>
       <Route
         path=""
@@ -548,5 +551,6 @@ export default function App() {
       ))}
       <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
+    </Suspense>
   );
 }

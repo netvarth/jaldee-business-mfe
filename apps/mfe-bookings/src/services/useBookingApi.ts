@@ -15,7 +15,16 @@ import { apiClient } from "@jaldee/api-client";
  * All responses are wrapped in `ApiResponse<T> = { status, data, timestamp }`,
  * so we unwrap `.data` here and hand callers the raw payload.
  */
-const BASE = "/booking-service";
+const BASE_PATH = "/booking-service/v1/api/tenant";
+
+function buildBookingServiceUrl(endpoint: string) {
+  const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  return new URL(`${BASE_PATH}${normalizedEndpoint}`, window.location.origin).toString();
+}
+
+interface BookingRequestOptions {
+  params?: Record<string, string | number | boolean | undefined>;
+}
 
 export function useBookingApi() {
   const { authToken } = useMFEProps();
@@ -29,13 +38,15 @@ export function useBookingApi() {
     async function request<T>(
       endpoint: string,
       method: "GET" | "POST" | "PUT" | "DELETE",
-      body?: any
+      body?: any,
+      options?: BookingRequestOptions,
     ): Promise<T> {
       try {
         const res = await apiClient.request<any>({
-          url: `${BASE}${endpoint}`,
+          url: buildBookingServiceUrl(endpoint),
           method,
           data: body,
+          params: options?.params,
           timeout: TIMEOUT,
         });
 
@@ -65,8 +76,8 @@ export function useBookingApi() {
       get<T>(endpoint: string): Promise<T> {
         return request<T>(endpoint, "GET");
       },
-      post<T>(endpoint: string, data: unknown): Promise<T> {
-        return request<T>(endpoint, "POST", data);
+      post<T>(endpoint: string, data: unknown, options?: BookingRequestOptions): Promise<T> {
+        return request<T>(endpoint, "POST", data, options);
       },
       put<T>(endpoint: string, data: unknown): Promise<T> {
         return request<T>(endpoint, "PUT", data);
@@ -74,4 +85,3 @@ export function useBookingApi() {
     };
   }, [authToken]);
 }
-

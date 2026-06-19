@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
-import type { Calendar } from "../types";
+import type { Calendar, CalendarSettingsRequest } from "../types";
 import { useToast } from "../contexts/ToastContext";
+import { unwrapList } from "./response";
 
 export const useCalendars = () => {
   const api = useBookingApi();
@@ -14,8 +15,12 @@ export const useCalendars = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<Calendar[]>("/calendars");
-      setCalendars(data ?? []);
+      const data = await api.post<unknown>(
+        "/calendars/search",
+        {},
+        { params: { page: 0, size: 100 } },
+      );
+      setCalendars(unwrapList<Calendar>(data));
     } catch (e) {
       // No mock fallback — surface the failure and leave the list empty.
       const msg = e instanceof Error ? e.message : "Failed to load calendars.";
@@ -40,9 +45,36 @@ export const useCalendars = () => {
     return newCalendar;
   };
 
+  const getCalendar = useCallback(
+    (uid: string) => api.get<Calendar>(`/calendars/${uid}`),
+    [api],
+  );
+
+  const updateCalendarSettings = async (
+    uid: string,
+    settings: CalendarSettingsRequest,
+  ) => {
+    const updated = await api.put<Calendar>(`/calendars/${uid}/settings`, settings);
+    setCalendars((prev) =>
+      prev.map((calendar) =>
+        calendar.uid === uid ? { ...calendar, ...updated } : calendar,
+      ),
+    );
+    showToast("Calendar settings saved", "success");
+    return updated;
+  };
+
   useEffect(() => {
     fetchCalendars();
   }, [fetchCalendars]);
 
-  return { calendars, loading, error, createCalendar, refresh: fetchCalendars };
+  return {
+    calendars,
+    loading,
+    error,
+    createCalendar,
+    getCalendar,
+    updateCalendarSettings,
+    refresh: fetchCalendars,
+  };
 };

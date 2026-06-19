@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  BarChart,
-  Button,
-  ChartTooltip,
-  DataTable,
-  DataTableToolbar,
-  EmptyState,
-  PageHeader,
-  PieChart,
-  SectionCard,
-  Select,
-} from "@jaldee/design-system";
-import type { ColumnDef } from "@jaldee/design-system";
+import { BarChart } from "../../../../design-system/src/components/BarChart/BarChart";
+import { Button } from "../../../../design-system/src/components/Button/Button";
+import { ChartTooltip } from "../../../../design-system/src/components/ChartTooltip/ChartTooltip";
+import { DataTable, DataTableToolbar } from "../../../../design-system/src/components/DataTable/DataTable";
+import type { ColumnDef } from "../../../../design-system/src/components/DataTable/DataTable";
+import { EmptyState } from "../../../../design-system/src/components/EmptyState/EmptyState";
+import { PageHeader } from "../../../../design-system/src/components/PageHeader/PageHeader";
+import { PieChart } from "../../../../design-system/src/components/PieChart/PieChart";
+import { SectionCard } from "../../../../design-system/src/components/SectionCard/SectionCard";
+import { Select } from "../../../../design-system/src/components/Select/Select";
 import { useSharedModulesContext } from "../../context";
 import { useUrlPagination } from "../../useUrlPagination";
 import {

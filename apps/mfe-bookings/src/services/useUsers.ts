@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { createdUsers, type BookingUser } from "../data/sessionStore";
+import { unwrapList } from "./response";
 
 interface UserDto {
   userUid?: string;
@@ -36,8 +37,12 @@ export function useUsers() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<UserDto[]>("/users");
-      setUsers([...createdUsers, ...(data ?? []).map(toUser)]);
+      const data = await api.post<unknown>(
+        "/users/search",
+        {},
+        { params: { page: 0, size: 100 } },
+      );
+      setUsers([...createdUsers, ...unwrapList<UserDto>(data).map(toUser)]);
     } catch (e) {
       // No sample fallback — show only real (session) users on failure.
       setError(e instanceof Error ? e.message : "Failed to load users.");

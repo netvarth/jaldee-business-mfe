@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { useToast } from "../contexts/ToastContext";
 import type { Customer } from "../types";
+import { unwrapList } from "./response";
 
 export const useCustomers = () => {
   const api = useBookingApi();
@@ -14,8 +15,12 @@ export const useCustomers = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<Customer[]>("/customers");
-      setCustomers(data ?? []);
+      const data = await api.post<unknown>(
+        "/customers/search",
+        {},
+        { params: { page: 0, size: 100 } },
+      );
+      setCustomers(unwrapList<Customer>(data));
     } catch (e) {
       // No sample fallback — real/empty data only so a backend gap is visible.
       setError(e instanceof Error ? e.message : "Failed to load customers.");

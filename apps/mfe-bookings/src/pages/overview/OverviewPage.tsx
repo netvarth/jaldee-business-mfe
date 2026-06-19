@@ -1,8 +1,9 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
+import { Button, PageHeader } from "@jaldee/design-system";
 import { useBookingAnalytics, AVG_PRICE, type Period } from "../../services/useBookingAnalytics";
 
 /**
- * Faithful port of the vanilla #page-home "Bookings Analytics" overview.
+ * Bookings analytics overview.
  * Numbers are computed live from GET /bookings/range for the selected period
  * (useBookingAnalytics), falling back to sample data when the backend is down.
  */
@@ -78,27 +79,22 @@ export default function OverviewPage() {
   return (
     <section id="page-home" className="page-section active" style={{ overflowY: "auto", background: "#f8fafc" }}>
       <div style={{ padding: "24px 28px" }}>
-        {/* HEADER */}
-        <div style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: "20px 24px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <div style={{ padding: 8, background: "rgba(85,52,154,0.05)", borderRadius: 12 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55349A" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-              </div>
-              <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0f172a", margin: 0, letterSpacing: "-0.3px" }}>Bookings Analytics</h1>
-              <span style={{ fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 8, marginLeft: 4, color: live ? "#065f46" : "#92400e", background: live ? "#d1fae5" : "#fef3c7" }}>
-                {loading ? "Loading…" : live ? "● Live" : "Sample data"}
-              </span>
-            </div>
-            <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500, margin: 0 }}>Real-time visual diagnostic reports of clinical booking quotas, active schedules, and doctor utilization rates.</p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <PageHeader
+          title="Bookings Analytics"
+          subtitle="Real-time reports for booking quotas, active schedules, and provider utilization."
+          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>}
+          actions={
             <div style={{ display: "flex", background: "#f8fafc", border: "1px solid rgba(226,232,240,0.5)", borderRadius: 12, padding: 4 }}>
-              <button style={periodBtn("today", "Today")} onClick={() => setPeriod("today")}>Today</button>
-              <button style={periodBtn("week", "This Week")} onClick={() => setPeriod("week")}>This Week</button>
-              <button style={periodBtn("month", "All Time")} onClick={() => setPeriod("month")}>All Time</button>
+              <Button variant="ghost" size="sm" style={periodBtn("today", "Today")} onClick={() => setPeriod("today")}>Today</Button>
+              <Button variant="ghost" size="sm" style={periodBtn("week", "This Week")} onClick={() => setPeriod("week")}>This Week</Button>
+              <Button variant="ghost" size="sm" style={periodBtn("month", "All Time")} onClick={() => setPeriod("month")}>All Time</Button>
             </div>
-          </div>
+          }
+        />
+        <div className="mb-4">
+          <span style={{ fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 8, color: live ? "#065f46" : "#92400e", background: live ? "#d1fae5" : "#fef3c7" }}>
+            {loading ? "Loading…" : live ? "● Live" : "Sample data"}
+          </span>
         </div>
 
         {/* KPI CARDS */}

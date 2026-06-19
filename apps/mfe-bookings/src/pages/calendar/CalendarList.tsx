@@ -1,123 +1,181 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Button,
+  DataTable,
+  EmptyState,
+  Input,
+  PageHeader,
+  type ColumnDef,
+} from "@jaldee/design-system";
 import { useCalendars } from "../../services/useCalendars";
+import type { Calendar } from "../../types";
 
-interface CalRow {
-  uid?: string;
-  id?: string;
-  name: string;
-  description?: string;
-  status?: string;
-  location?: string;
-  color?: string;
-  channels?: string[];
+function statusClass(status?: string) {
+  if (status === "Draft") return "bg-slate-100 text-slate-600";
+  if (status === "Inactive") return "bg-amber-100 text-amber-800";
+  return "bg-emerald-100 text-emerald-700";
 }
 
-const CHANNEL_ICON: Record<string, string> = { Online: "🖥️", "Walk-in": "📍", "Phone-in": "📞" };
-
-function badgeClass(status?: string) {
-  if (status === "Draft") return "badge badge-draft";
-  if (status === "Inactive") return "badge badge-inactive";
-  return "badge badge-active";
-}
-
-/** Faithful port of vanilla #page-calendars (data-table, not cards). */
 export default function CalendarList() {
   const { calendars, loading } = useCalendars();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
 
-  const rows = calendars as unknown as CalRow[];
-  const filtered = rows.filter(
-    (c) =>
-      c.name.toLowerCase().includes(query.toLowerCase()) ||
-      (c.description ?? "").toLowerCase().includes(query.toLowerCase())
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return calendars;
+    return calendars.filter(
+      (calendar) =>
+        calendar.name.toLowerCase().includes(normalized) ||
+        (calendar.description ?? "").toLowerCase().includes(normalized),
+    );
+  }, [calendars, query]);
+
+  const columns = useMemo<ColumnDef<Calendar>[]>(
+    () => [
+      {
+        key: "name",
+        header: "Calendar name",
+        sortable: true,
+        width: "32%",
+        render: (calendar) => (
+          <div className="flex items-center gap-3">
+            <span
+              className="h-3.5 w-3.5 shrink-0 rounded"
+              style={{ backgroundColor: calendar.color || "#9333ea" }}
+            />
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-slate-900">{calendar.name}</p>
+              <p className="mt-0.5 truncate text-xs text-slate-500">
+                {calendar.description || "No description"}
+              </p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "locationName",
+        header: "Location",
+        sortable: true,
+        render: (calendar) => calendar.locationName || "-",
+      },
+      {
+        key: "bookingChannels",
+        header: "Booking channels",
+        render: (calendar) => (
+          <div className="flex flex-wrap gap-1.5">
+            {(calendar.bookingChannels ?? []).length ? (
+              calendar.bookingChannels?.map((channel) => (
+                <span
+                  key={channel}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
+                >
+                  {channel}
+                </span>
+              ))
+            ) : (
+              <span className="text-slate-400">-</span>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        sortable: true,
+        render: (calendar) => (
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(calendar.status)}`}>
+            {calendar.status || "Active"}
+          </span>
+        ),
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        sticky: "right",
+        width: 100,
+        render: (calendar) => (
+          <Button
+            variant="outline"
+            size="sm"
+            id={`bookings-calendar-edit-${calendar.uid}`}
+            data-testid={`bookings-calendar-edit-${calendar.uid}`}
+            type="button"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate("/calendars/edit", { state: { calendar } });
+            }}
+          >
+            Edit
+          </Button>
+        ),
+      },
+    ],
+    [navigate],
   );
 
   return (
-    <section id="page-calendars" data-testid="bookings-calendar-list-page" className="page-section active" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Toolbar */}
-      <div className="calendars-list-toolbar">
-        <div className="search-input-wrapper">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
-          <input id="bookings-calendar-list-search" data-testid="bookings-calendar-list-search" type="text" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
-        <div className="filters-wrapper">
-          <select id="bookings-calendar-list-users-filter" data-testid="bookings-calendar-list-users-filter" className="custom-select"><option value="">Users</option></select>
-          <select id="bookings-calendar-list-location-filter" data-testid="bookings-calendar-list-location-filter" className="custom-select"><option value="">All Location</option></select>
-          <button id="bookings-calendar-list-create" data-testid="bookings-calendar-list-create" className="btn btn-primary" onClick={() => navigate("/calendars/create")}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" /></svg>
+    <section
+      id="page-calendars"
+      data-testid="bookings-calendar-list-page"
+      className="flex h-full flex-col gap-4 overflow-y-auto bg-slate-50 p-4 md:p-6"
+    >
+      <PageHeader
+        title="Calendars"
+        subtitle="Manage appointment calendars, channels, and assigned teams."
+        actions={
+          <Button
+            id="bookings-calendar-list-create"
+            data-testid="bookings-calendar-list-create"
+            onClick={() => navigate("/calendars/create")}
+          >
             Create Calendar
-          </button>
-        </div>
+          </Button>
+        }
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          id="bookings-calendar-list-search"
+          data-testid="bookings-calendar-list-search"
+          type="search"
+          placeholder="Search calendars"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+          containerClassName="sm:max-w-sm"
+        />
       </div>
 
-      {/* Table */}
-      <div className="table-container">
-        <table className="data-table" id="calendars-table" data-testid="bookings-calendars-table">
-          <thead>
-            <tr>
-              <th>Calendar Name</th>
-              <th>Location</th>
-              <th>Booking Channel</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={5} className="text-center py-6" style={{ color: "#64748B", textAlign: "center", padding: 24 }}>Loading…</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} style={{ color: "#64748B", textAlign: "center", padding: 24 }}>No calendars match the search criteria.</td></tr>
-            ) : (
-              filtered.map((c) => {
-                const channels = c.channels && c.channels.length ? c.channels : ["Online", "Walk-in"];
-                return (
-                  <tr key={c.uid || c.id} data-testid={`bookings-calendar-row-${c.uid || c.id}`} style={{ cursor: "pointer" }} onClick={() => navigate("/calendars/details")}>
-                    <td className="bold">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 14, height: 14, borderRadius: 4, backgroundColor: c.color || "#9333EA" }} />
-                        <div>
-                          <span>{c.name}</span>
-                          <div style={{ fontSize: 11, fontWeight: "normal", color: "#64748B", marginTop: 2 }}>{c.description || "No description"}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{c.location || "Thrissur"}</td>
-                    <td>
-                      <div className="channel-chips-row">
-                        {channels.map((ch) => (
-                          <span key={ch} className="channel-chip">{CHANNEL_ICON[ch] ?? "🖥️"} {ch}</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td><span className={badgeClass(c.status)}>{c.status || "Active"}</span></td>
-                    <td>
-                      <button
-                        id={`bookings-calendar-edit-${c.uid || c.id}`}
-                        data-testid={`bookings-calendar-edit-${c.uid || c.id}`}
-                        className="btn btn-secondary btn-xs"
-                        onClick={(e) => { e.stopPropagation(); navigate("/calendars/edit"); }}
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="pagination">
-        <button id="bookings-calendar-list-prev" data-testid="bookings-calendar-list-prev" className="page-nav-btn" disabled>Prev</button>
-        <button id="bookings-calendar-list-page-1" data-testid="bookings-calendar-list-page-1" data-active="true" className="page-num active">1</button>
-        <button id="bookings-calendar-list-page-2" data-testid="bookings-calendar-list-page-2" data-active="false" className="page-num">2</button>
-        <button id="bookings-calendar-list-page-3" data-testid="bookings-calendar-list-page-3" data-active="false" className="page-num">3</button>
-        <button id="bookings-calendar-list-next" data-testid="bookings-calendar-list-next" className="page-nav-btn">Next</button>
-      </div>
+      <DataTable
+        data={filtered}
+        columns={columns}
+        getRowId={(calendar) => calendar.uid}
+        loading={loading}
+        onRowClick={(calendar) =>
+          navigate("/calendars/details", { state: { calendar } })
+        }
+        pagination={{
+          page,
+          pageSize: 10,
+          total: filtered.length,
+          mode: "client",
+          onChange: setPage,
+        }}
+        emptyState={
+          <EmptyState
+            title="No calendars found"
+            description="No calendars match the current search."
+          />
+        }
+        data-testid="bookings-calendar"
+      />
     </section>
   );
 }

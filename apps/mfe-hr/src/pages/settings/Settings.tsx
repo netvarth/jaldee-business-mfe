@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X } from "lucide-react";
-import { PageHeader, Dialog, Select } from "@jaldee/design-system";
+import { useNavigate, useParams } from "react-router-dom";
+import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
+import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, TimePicker, Popover, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import {
   useDepartments, useDesignations, useBranchesAdmin, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
 } from "../../services/useSettingsData";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -35,9 +37,16 @@ function buildPayload(fields: Field[], form: Row): Row {
 function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: unknown; onChange: (v: unknown) => void; automationKey: string }) {
   if (f.type === "checkbox") {
     return (
-      <label htmlFor={automationKey} style={{ display: "flex", alignItems: "center", gap: 10, height: 44, fontSize: 14, fontWeight: 700, color: "var(--dark-text)", cursor: "pointer" }}>
-        <input id={automationKey} data-testid={automationKey} data-active={value ? "true" : "false"} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} style={{ width: 18, height: 18 }} /> {f.label}
-      </label>
+      <div style={{ display: "flex", alignItems: "center", height: 44 }}>
+        <Checkbox
+          id={automationKey}
+          data-testid={automationKey}
+          checked={!!value}
+          onChange={(e) => onChange(e.target.checked)}
+          label={f.label}
+          className="!h-4 !w-4"
+        />
+      </div>
     );
   }
   if (f.type === "select") {
@@ -55,13 +64,71 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
     );
   }
   if (f.type === "textarea") {
-    return <textarea id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={{ ...field, height: 80, padding: 12, resize: "vertical" }} />;
+    return (
+      <Textarea
+        id={automationKey}
+        data-testid={automationKey}
+        value={(value as string) ?? ""}
+        placeholder={f.placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-xl !py-2.5"
+        rows={3}
+      />
+    );
   }
   if (f.type === "color") {
-    return <div style={{ display: "flex", gap: 8, alignItems: "center" }}><input id={`${automationKey}-picker`} data-testid={`${automationKey}-picker`} type="color" value={(value as string) || "#115E59"} onChange={(e) => onChange(e.target.value)} style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--border-color)", padding: 2, background: "var(--surface-bg)" }} /><input id={automationKey} data-testid={automationKey} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="#115E59" style={field} /></div>;
+    return (
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          id={`${automationKey}-picker`}
+          data-testid={`${automationKey}-picker`}
+          type="color"
+          value={(value as string) || "#115E59"}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            border: "1px solid var(--border-color)",
+            padding: 2,
+            background: "var(--surface-bg)",
+            cursor: "pointer",
+          }}
+        />
+        <Input
+          id={automationKey}
+          data-testid={automationKey}
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#115E59"
+          className="rounded-xl !h-11"
+        />
+      </div>
+    );
   }
-  const tv = f.type === "time" && typeof value === "string" ? value.slice(0, 5) : value;
-  return <input id={automationKey} data-testid={automationKey} type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"} value={(tv as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} style={field} />;
+  if (f.type === "time") {
+    const tv = typeof value === "string" ? value.slice(0, 5) : "";
+    return (
+      <TimePicker
+        id={automationKey}
+        data-testid={automationKey}
+        value={tv}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-xl !h-11"
+      />
+    );
+  }
+  return (
+    <Input
+      id={automationKey}
+      data-testid={automationKey}
+      type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+      value={(value as string) ?? ""}
+      placeholder={f.placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-xl !h-11"
+    />
+  );
 }
 
 /* ---- Google Places location picker ---- */
@@ -109,10 +176,14 @@ function LocationPicker({ onPick, automationKey }: { onPick: (p: PickedPlace) =>
   }, [onPick]);
   return (
     <div>
-      <div style={{ position: "relative" }}>
-        <MapPin size={16} style={{ position: "absolute", left: 12, top: 14, color: "var(--light-text)" }} />
-        <input id={automationKey} data-testid={automationKey} ref={inputRef} placeholder="Search a place on Google… (auto-fills address & coordinates)" style={{ ...field, paddingLeft: 36 }} />
-      </div>
+      <Input
+        id={automationKey}
+        data-testid={automationKey}
+        ref={inputRef}
+        placeholder="Search a place on Google… (auto-fills address & coordinates)"
+        icon={<MapPin size={16} />}
+        className="rounded-xl !h-11"
+      />
       {err && <div data-testid={`${automationKey}-error`} data-state="error" style={{ marginTop: 6, fontSize: 12, color: err.includes("VITE_GOOGLE") ? "var(--light-text)" : "#e11d48" }}>{err}</div>}
     </div>
   );
@@ -124,16 +195,29 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
   data: Row | null; loading: boolean; error: string | null; onSave: (p: Row) => Promise<void>;
   automationScope: string;
 }) {
+  const { eventBus } = useMFEProps();
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => { if (data) setForm({ ...data }); }, [data]);
 
   const save = async () => {
-    setSaving(true); setMsg(null);
-    try { await onSave(buildPayload(fields, form)); setMsg("Saved."); }
-    catch (e) { setMsg(e instanceof Error ? e.message : "Save failed."); }
-    finally { setSaving(false); }
+    setSaving(true);
+    try {
+      await onSave(buildPayload(fields, form));
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: title,
+        message: "Settings saved successfully.",
+      });
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: title,
+        message: e instanceof Error ? e.message : "Save failed.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -141,9 +225,18 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
       <PanelHeader title={title} subtitle={subtitle} icon={icon} />
       {error && <ErrorBar text={error} />}
       <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={{ ...card, padding: 24 }}>
-        {loading ? <Center><Loader2 size={22} className="animate-spin" /></Center> : (
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] animate-pulse">
+            {fields.map((f) => (
+              <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }} className="space-y-2">
+                {f.type !== "checkbox" && <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />}
+                <Skeleton height={44} className="rounded-xl w-full bg-[var(--border-color)] opacity-60" />
+              </div>
+            ))}
+          </div>
+        ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px]">
               {fields.map((f) => (
                 <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
                   {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
@@ -152,7 +245,6 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
               ))}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14, marginTop: 22 }}>
-              {msg && <span style={{ fontSize: 13, color: msg === "Saved." ? "#059669" : "#e11d48", fontWeight: 600 }}>{msg}</span>}
               <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes</button>
             </div>
           </>
@@ -170,49 +262,85 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
   locationPicker?: boolean;
   automationScope: string;
 }) {
+  const { eventBus } = useMFEProps();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
 
-  const openAdd = () => { setEditing(null); setForm({}); setMsg(null); setOpen(true); };
-  const openEdit = (r: Row & { id: string }) => { setEditing(r); setForm({ ...r }); setMsg(null); setOpen(true); };
+  const openAdd = () => { setEditing(null); setForm({}); setOpen(true); };
+  const openEdit = (r: Row & { id: string }) => { setEditing(r); setForm({ ...r }); setOpen(true); };
 
   const save = async () => {
-    setSaving(true); setMsg(null);
+    setSaving(true);
     try {
       const payload = buildPayload(fields, form);
       if (editing) await hook.update(editing.id, payload); else await hook.create(payload);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: title,
+        message: `${editing ? "Updated" : "Created"} successfully.`,
+      });
       setOpen(false);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Save failed."); }
-    finally { setSaving(false); }
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: title,
+        message: e instanceof Error ? e.message : "Save failed.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this record?")) return;
+    try {
+      await hook.remove(id);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: title,
+        message: "Deleted successfully.",
+      });
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: title,
+        message: e instanceof Error ? e.message : "Delete failed.",
+      });
+    }
   };
 
   return (
     <div>
       <PanelHeader title={title} subtitle={subtitle} icon={icon} action={<button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} onClick={openAdd} style={primaryBtn}><Plus size={16} /> {addLabel}</button>} />
       {hook.error && <ErrorBar text={hook.error} />}
-      <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={card}>
-        <table id={`${automationScope}-table`} data-testid={`${automationScope}-table`} style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr>{columns.map((c) => <th key={c.label} style={{ ...th, textAlign: c.align || "left" }}>{c.label}</th>)}<th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
-          <tbody>
-            {hook.loading ? (
-              <tr><td colSpan={columns.length + 1} style={{ ...tdc, textAlign: "center", padding: "36px 0" }}><Loader2 size={20} className="animate-spin" style={{ display: "inline" }} /></td></tr>
-            ) : hook.data.length === 0 ? (
-              <tr><td colSpan={columns.length + 1} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No records yet.</td></tr>
-            ) : hook.data.map((r) => (
-              <tr key={r.id} id={`${automationScope}-row-${r.id}`} data-testid={`${automationScope}-row-${r.id}`}>
-                {columns.map((c) => <td key={c.label} style={{ ...tdc, textAlign: c.align || "left" }}>{c.render(r)}</td>)}
-                <td style={{ ...tdc, textAlign: "right" }}>
-                  <button id={`${automationScope}-edit-${r.id}`} data-testid={`${automationScope}-edit-${r.id}`} onClick={() => openEdit(r)} title="Edit" aria-label={`Edit ${title} record`} style={iconAction}><Pencil size={15} /></button>
-                  <button id={`${automationScope}-delete-${r.id}`} data-testid={`${automationScope}-delete-${r.id}`} onClick={() => { if (confirm("Delete this record?")) hook.remove(r.id); }} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {hook.loading ? (
+        <div style={{ ...card, padding: 20 }}>
+          <SkeletonTable rows={4} columns={columns.length + 1} />
+        </div>
+      ) : (
+        <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={card}>
+          <div className="overflow-x-auto w-full">
+            <table id={`${automationScope}-table`} data-testid={`${automationScope}-table`} style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>{columns.map((c) => <th key={c.label} style={{ ...th, textAlign: c.align || "left" }}>{c.label}</th>)}<th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
+              <tbody>
+                {hook.data.length === 0 ? (
+                  <tr><td colSpan={columns.length + 1} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No records yet.</td></tr>
+                ) : hook.data.map((r) => (
+                  <tr key={r.id} id={`${automationScope}-row-${r.id}`} data-testid={`${automationScope}-row-${r.id}`}>
+                    {columns.map((c) => <td key={c.label} style={{ ...tdc, textAlign: c.align || "left" }}>{c.render(r)}</td>)}
+                    <td style={{ ...tdc, textAlign: "right" }}>
+                      <button id={`${automationScope}-edit-${r.id}`} data-testid={`${automationScope}-edit-${r.id}`} onClick={() => openEdit(r)} title="Edit" aria-label={`Edit ${title} record`} style={iconAction}><Pencil size={15} /></button>
+                      <button id={`${automationScope}-delete-${r.id}`} data-testid={`${automationScope}-delete-${r.id}`} onClick={() => handleDelete(r.id)} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <Dialog
         open={open}
@@ -225,7 +353,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
           <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
           <button id={`${automationScope}-modal-close`} data-testid={`${automationScope}-modal-close`} onClick={() => setOpen(false)} aria-label={`Close ${title} dialog`} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
         </div>
-        <div style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxHeight: "62vh", overflowY: "auto" }}>
+        <div style={{ padding: 24, maxHeight: "62vh", overflowY: "auto" }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {locationPicker && (
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Search location (Google)</label>
@@ -245,7 +373,6 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
             </div>
           ))}
         </div>
-        {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <button id={`${automationScope}-cancel`} data-testid={`${automationScope}-cancel`} onClick={() => setOpen(false)} style={ghostBtn}>Cancel</button>
           <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editing ? "Update" : "Create"}</button>
@@ -283,7 +410,11 @@ const SECTIONS = [
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export default function Settings() {
-  const [section, setSection] = useState<SectionKey>("company");
+  const { section: routeSection } = useParams<{ section?: string }>();
+  const navigate = useNavigate();
+  const section = (routeSection as SectionKey) || "company";
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const departments = useDepartments();
   const designations = useDesignations();
   const branches = useBranchesAdmin();
@@ -295,14 +426,69 @@ export default function Settings() {
   const payroll = usePayrollSettings();
 
   return (
-    <section id="hr-settings-page" data-testid="hr-settings-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
-      <PageHeader title="Settings" subtitle="Organization configuration and HR policy control" />
+    <section id="hr-settings-page" data-testid="hr-settings-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, overflow: "visible" }}>
+      {/* HEADER WITH MOBILE INLINE 3-DOT MENU */}
+      <div className="mb-6 flex flex-row items-center justify-between gap-4 relative z-50">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h1 className="m-0 max-w-full text-2xl font-bold leading-tight text-gray-900">
+            Settings
+          </h1>
+          <p className="m-0 max-w-full text-sm leading-5 text-gray-500">
+            Organization configuration and HR policy control
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* MOBILE NAV SWITCHER */}
+          <div className="flex md:hidden items-center">
+            <Popover
+              portal
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              placement="bottom"
+              align="end"
+              contentClassName="!w-56 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+              trigger={
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  style={{ background: "none", border: "none", cursor: "pointer" }}
+                  className="p-2 hover:bg-[rgba(0,0,0,0.04)] rounded-full transition-colors flex items-center justify-center text-[var(--light-text)]"
+                  aria-label="Toggle settings menu"
+                >
+                  <MoreVertical size={20} />
+                </button>
+              }
+            >
+              <div className="flex flex-col w-full">
+                {SECTIONS.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => {
+                      navigate(`/settings/${s.key}`);
+                      setMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-[rgba(17,94,89,0.04)]"
+                    style={{
+                      color: section === s.key ? TEAL : "var(--dark-text)",
+                      background: section === s.key ? "rgba(17,94,89,0.04)" : "transparent",
+                      border: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <span style={{ color: section === s.key ? TEAL : "var(--light-text)" }}>{s.icon}</span>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </Popover>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 28, alignItems: "start" }}>
+      <div style={{ alignItems: "start" }} className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-7">
         {/* LEFT NAV */}
-        <nav id="hr-settings-sections" data-testid="hr-settings-sections" style={{ ...card, padding: 8, position: "sticky", top: 0 }}>
+        <nav id="hr-settings-sections" data-testid="hr-settings-sections" style={{ ...card, padding: 8, position: "sticky", top: 0 }} className="hidden md:block">
           {SECTIONS.map((s) => (
-            <button key={s.key} id={`hr-settings-section-${s.key}`} data-testid={`hr-settings-section-${s.key}`} data-active={section === s.key ? "true" : "false"} onClick={() => setSection(s.key)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, border: "none", cursor: "pointer", textAlign: "left", marginBottom: 2, background: section === s.key ? "rgba(17,94,89,0.08)" : "transparent", color: section === s.key ? TEAL : "var(--dark-text)", fontWeight: section === s.key ? 800 : 600, fontSize: 13.5 }}>
+            <button key={s.key} id={`hr-settings-section-${s.key}`} data-testid={`hr-settings-section-${s.key}`} data-active={section === s.key ? "true" : "false"} onClick={() => navigate(`/settings/${s.key}`)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, border: "none", cursor: "pointer", textAlign: "left", marginBottom: 2, background: section === s.key ? "rgba(17,94,89,0.08)" : "transparent", color: section === s.key ? TEAL : "var(--dark-text)", fontWeight: section === s.key ? 800 : 600, fontSize: 13.5 }}>
               <span style={{ color: section === s.key ? TEAL : "var(--light-text)" }}>{s.icon}</span> {s.label}
             </button>
           ))}

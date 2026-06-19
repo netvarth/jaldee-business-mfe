@@ -7,4 +7,4 @@ export {
   buildProviderUrl,
   isTokenAuth,
   isTokenAuthMode,
-} from "@jaldee/shared-modules";
+} from "../../../../packages/shared-modules/src/serviceUrls";

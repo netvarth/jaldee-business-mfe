@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
+import { Dialog } from "@jaldee/design-system";
 
 interface ModalContextType {
   isOpen: boolean;
@@ -26,25 +27,17 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <ModalContext.Provider value={{ isOpen, modalContent, openModal, closeModal }}>
       {children}
-      {isOpen && (
-        <div
-          id="bookings-global-modal-backdrop"
-          data-testid="bookings-global-modal-backdrop"
-          data-state={isOpen ? "open" : "closed"}
-          className="bk-modal-backdrop"
-          onClick={closeModal}
-        >
-          <div
-            id="bookings-global-modal-content"
-            data-testid="bookings-global-modal-content"
-            data-state={isOpen ? "open" : "closed"}
-            className="bk-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {modalContent}
-          </div>
-        </div>
-      )}
+      <Dialog
+        open={isOpen}
+        onClose={closeModal}
+        testId="bookings-global-modal"
+        size="lg"
+        hideHeader
+        showCloseButton={false}
+        contentClassName="max-h-[92vh] overflow-y-auto p-0"
+      >
+        {modalContent}
+      </Dialog>
     </ModalContext.Provider>
   );
 };

@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { Download, Play, Plus, History as HistoryIcon, Loader2, UserPlus, X } from "lucide-react";
-import { PageHeader, Select, Dialog, MonthPicker } from "@jaldee/design-system";
+import { PageHeader, Select, Dialog, MonthPicker, SkeletonTable } from "@jaldee/design-system";
 import { useEmployees } from "../../services/useEmployees";
 import { usePayslips, usePayrollRuns, usePayrollPlans, type Payslip } from "../../services/usePayrollData";
 import { formatCurrency, formatDate, exportToCSV } from "../../lib/utils";
@@ -166,6 +166,7 @@ export default function Payroll() {
   const fieldStyle: CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 10, fontSize: 14, background: "var(--surface-bg)", color: "var(--dark-text)" };
   const thStyle: CSSProperties = { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--light-text)", borderBottom: "1px solid var(--border-color)" };
   const tdStyle: CSSProperties = { padding: "14px 16px", fontSize: 14, color: "var(--dark-text)", borderBottom: "1px solid var(--border-color)" };
+  const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)", display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
   return (
     <section id="hr-payroll-page" data-testid="hr-payroll-page" className="page-section active" style={{ background: "var(--app-bg)", flexGrow: 1, minWidth: 0 }}>
@@ -174,10 +175,10 @@ export default function Payroll() {
         subtitle="Financial operations"
         actions={
           <>
-          <button id="hr-payroll-run" data-testid="hr-payroll-run" className="btn btn-secondary" onClick={handleRunPayroll} disabled={busy} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button id="hr-payroll-run" data-testid="hr-payroll-run" className="btn btn-secondary" onClick={handleRunPayroll} disabled={busy} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 12 }}>
             <Play size={16} /> Run Payroll
           </button>
-          <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 12 }}>
             <Download size={16} /> Export
           </button>
           </>
@@ -192,7 +193,7 @@ export default function Payroll() {
       </div>
 
       {/* STAGE CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StageCard stage="STAGE 1" label="Total Payout" value={inr(stats.totalPayout)} pill={`${payslips.data.length} Payslips`} dark />
         <StageCard stage="STAGE 2" label="Avg Salary" value={inr(stats.avgSalary)} pill={`${employees.length} Employees`} />
         <StageCard stage="STAGE 3" label="Pending" value={String(stats.pending)} />
@@ -201,7 +202,7 @@ export default function Payroll() {
 
       {/* TAB BODY */}
       {tab === "overview" && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(280px,1fr)", gap: 24, alignItems: "start" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 items-start">
           {/* Recent payslips */}
           <div id="hr-payroll-recent-payslips" data-testid="hr-payroll-recent-payslips" className="modal-card" style={{ position: "relative", transform: "none", left: 0, top: 0, width: "100%", maxHeight: "none", boxShadow: "var(--shadow-sm)" }}>
             <div className="modal-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px" }}>
@@ -211,26 +212,30 @@ export default function Payroll() {
               </div>
               <HistoryIcon size={18} stroke="var(--light-text)" />
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table id="hr-payroll-payslips-table" data-testid="hr-payroll-payslips-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr><th style={thStyle}>Employee</th><th style={thStyle}>Month</th><th style={thStyle}>Net Pay</th><th style={thStyle}>Status</th><th style={{ ...thStyle, textAlign: "right" }}>Action</th></tr></thead>
-                <tbody>
-                  {payslips.loading ? (
-                    <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)" }}><Loader2 size={16} className="animate-spin" style={{ verticalAlign: "middle" }} /> Loading…</td></tr>
-                  ) : payslips.data.length === 0 ? (
-                    <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)", padding: "48px 16px" }}>No records found</td></tr>
-                  ) : payslips.data.map((p) => (
-                    <tr key={p.id} id={`hr-payroll-payslip-row-${p.id}`} data-testid={`hr-payroll-payslip-row-${p.id}`}>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{empName(p.employeeUid)}</td>
-                      <td style={{ ...tdStyle, color: "var(--light-text)" }}>{p.month || "—"}</td>
-                      <td style={{ ...tdStyle, fontWeight: 700 }}>{p.netPay != null ? inr(p.netPay) : "—"}</td>
-                      <td style={tdStyle}><span className="badge" style={{ background: "var(--success-bg)", color: "var(--success-color)", padding: "4px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>{p.status || "—"}</span></td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}><button id={`hr-payroll-payslip-view-${p.id}`} data-testid={`hr-payroll-payslip-view-${p.id}`} className="btn-grid-action" onClick={() => setViewSlip(p)}>View</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {payslips.loading ? (
+              <div className="p-4">
+                <SkeletonTable rows={4} columns={5} />
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table id="hr-payroll-payslips-table" data-testid="hr-payroll-payslips-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr><th style={thStyle}>Employee</th><th style={thStyle}>Month</th><th style={thStyle}>Net Pay</th><th style={thStyle}>Status</th><th style={{ ...thStyle, textAlign: "right" }}>Action</th></tr></thead>
+                  <tbody>
+                    {payslips.data.length === 0 ? (
+                      <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)", padding: "48px 16px" }}>No records found</td></tr>
+                    ) : payslips.data.map((p) => (
+                      <tr key={p.id} id={`hr-payroll-payslip-row-${p.id}`} data-testid={`hr-payroll-payslip-row-${p.id}`}>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{empName(p.employeeUid)}</td>
+                        <td style={{ ...tdStyle, color: "var(--light-text)" }}>{p.month || "—"}</td>
+                        <td style={{ ...tdStyle, fontWeight: 700 }}>{p.netPay != null ? inr(p.netPay) : "—"}</td>
+                        <td style={tdStyle}><span className="badge" style={{ background: "var(--success-bg)", color: "var(--success-color)", padding: "4px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>{p.status || "—"}</span></td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}><button id={`hr-payroll-payslip-view-${p.id}`} data-testid={`hr-payroll-payslip-view-${p.id}`} className="btn-grid-action" onClick={() => setViewSlip(p)} style={{ borderRadius: 12 }}>View</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Quick create */}
@@ -253,7 +258,7 @@ export default function Payroll() {
                 value={genMonth}
                 onChange={(e) => setGenMonth(e.target.value)}
               />
-              <button id="hr-payroll-generate-submit" data-testid="hr-payroll-generate-submit" className="btn btn-primary" onClick={handleGenerate} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--primary-color)", border: "none", color: "white" }}>
+              <button id="hr-payroll-generate-submit" data-testid="hr-payroll-generate-submit" className="btn btn-primary" onClick={handleGenerate} disabled={busy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}>
                 {busy ? <><Loader2 size={16} className="animate-spin" /> Working…</> : "Generate Payslip"}
               </button>
               {msg && <div style={{ fontSize: 12, color: "var(--light-text)", textAlign: "center" }}>{msg}</div>}
@@ -265,26 +270,30 @@ export default function Payroll() {
       {tab === "structure" && (
         <div className="modal-card" style={{ position: "relative", transform: "none", left: 0, top: 0, width: "100%", maxHeight: "none", boxShadow: "var(--shadow-sm)" }}>
           <div className="modal-header" style={{ padding: "20px 24px" }}><h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Salary Structures</h3></div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={thStyle}>Plan</th><th style={thStyle}>Basic</th><th style={thStyle}>HRA</th><th style={thStyle}>Allowance</th><th style={thStyle}>Deductions</th></tr></thead>
-              <tbody>
-                {plans.loading ? (
-                  <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)" }}>Loading…</td></tr>
-                ) : plans.data.length === 0 ? (
-                  <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)", padding: "48px 16px" }}>No salary plans configured.</td></tr>
-                ) : plans.data.map((p) => (
-                  <tr key={p.id}>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.name || "—"}</td>
-                    <td style={tdStyle}>{p.basic != null ? inr(p.basic) : "—"}</td>
-                    <td style={tdStyle}>{p.hra != null ? inr(p.hra) : "—"}</td>
-                    <td style={tdStyle}>{p.allowance != null ? inr(p.allowance) : "—"}</td>
-                    <td style={tdStyle}>{p.otherDeductions != null ? inr(p.otherDeductions) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {plans.loading ? (
+            <div className="p-4">
+              <SkeletonTable rows={4} columns={5} />
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={thStyle}>Plan</th><th style={thStyle}>Basic</th><th style={thStyle}>HRA</th><th style={thStyle}>Allowance</th><th style={thStyle}>Deductions</th></tr></thead>
+                <tbody>
+                  {plans.data.length === 0 ? (
+                    <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "var(--light-text)", padding: "48px 16px" }}>No salary plans configured.</td></tr>
+                  ) : plans.data.map((p) => (
+                    <tr key={p.id}>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>{p.name || "—"}</td>
+                      <td style={tdStyle}>{p.basic != null ? inr(p.basic) : "—"}</td>
+                      <td style={tdStyle}>{p.hra != null ? inr(p.hra) : "—"}</td>
+                      <td style={tdStyle}>{p.allowance != null ? inr(p.allowance) : "—"}</td>
+                      <td style={tdStyle}>{p.otherDeductions != null ? inr(p.otherDeductions) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -293,8 +302,8 @@ export default function Payroll() {
           <div className="modal-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px" }}>
             <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Create &amp; Assign Plans</h3>
             <div style={{ display: "flex", gap: 10 }}>
-              <button id="hr-payroll-assign-open" data-testid="hr-payroll-assign-open" className="btn btn-secondary" onClick={() => openAssign()} style={{ display: "flex", alignItems: "center", gap: 6 }}><UserPlus size={16} /> Assign to Employee</button>
-              <button id="hr-payroll-plan-toggle" data-testid="hr-payroll-plan-toggle" data-state={planOpen ? "open" : "closed"} className="btn btn-primary" onClick={() => setPlanOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--primary-color)", border: "none", color: "white" }}><Plus size={16} /> New Plan</button>
+              <button id="hr-payroll-assign-open" data-testid="hr-payroll-assign-open" className="btn btn-secondary" onClick={() => openAssign()} style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 12 }}><UserPlus size={16} /> Assign to Employee</button>
+              <button id="hr-payroll-plan-toggle" data-testid="hr-payroll-plan-toggle" data-state={planOpen ? "open" : "closed"} className="btn btn-primary" onClick={() => setPlanOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}><Plus size={16} /> New Plan</button>
             </div>
           </div>
           {planOpen && (
@@ -303,7 +312,7 @@ export default function Payroll() {
               {COMP_GROUPS.map((g) => (
                 <div key={g.title} style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)", marginBottom: 8 }}>{g.title}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
                     {g.keys.map((k) => (
                       <div className="form-group" key={k} style={{ margin: 0 }}>
                         <label>{COMP_LABEL[k]}</label>
@@ -314,7 +323,7 @@ export default function Payroll() {
                 </div>
               ))}
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <button id="hr-payroll-plan-save" data-testid="hr-payroll-plan-save" className="btn btn-primary" onClick={submitPlan} disabled={!plan.name} style={{ background: "var(--primary-color)", border: "none", color: "white" }}>Save Plan</button>
+                <button id="hr-payroll-plan-save" data-testid="hr-payroll-plan-save" className="btn btn-primary" onClick={submitPlan} disabled={!plan.name} style={{ background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}>Save Plan</button>
               </div>
             </div>
           )}
@@ -331,7 +340,7 @@ export default function Payroll() {
                     <td style={tdStyle}>{inr(p.hra)}</td>
                     <td style={tdStyle}>{inr(p.allowance)}</td>
                     <td style={tdStyle}>{inr(p.otherDeductions)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}><button id={`hr-payroll-plan-assign-${p.id}`} data-testid={`hr-payroll-plan-assign-${p.id}`} className="btn-grid-action" onClick={() => openAssign(p.id)}>Assign</button></td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}><button id={`hr-payroll-plan-assign-${p.id}`} data-testid={`hr-payroll-plan-assign-${p.id}`} className="btn-grid-action" onClick={() => openAssign(p.id)} style={{ borderRadius: 12 }}>Assign</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -392,7 +401,7 @@ export default function Payroll() {
                   <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Payslip — {empName(viewSlip.employeeUid)}</h3>
                   <p className="modal-subtitle" style={{ margin: "2px 0 0" }}>{viewSlip.month || "—"} · {viewSlip.status || "—"} · {formatDate(viewSlip.generatedAt)}</p>
                 </div>
-                <button id="hr-payroll-payslip-modal-close" data-testid="hr-payroll-payslip-modal-close" className="btn-grid-action" onClick={() => setViewSlip(null)} aria-label="Close">✕</button>
+                <button id="hr-payroll-payslip-modal-close" data-testid="hr-payroll-payslip-modal-close" onClick={() => setViewSlip(null)} style={iconBtn} aria-label="Close"><X size={20} /></button>
               </div>
               <div style={{ padding: 24 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)", marginBottom: 4 }}>Earnings</div>
@@ -431,10 +440,10 @@ export default function Payroll() {
             <h3 className="modal-title" style={{ fontSize: 16, margin: 0 }}>Assign Salary Structure</h3>
             <p className="modal-subtitle" style={{ margin: "2px 0 0" }}>Pick an employee, optionally apply a plan, then edit & save</p>
           </div>
-          <button id="hr-payroll-assign-modal-close" data-testid="hr-payroll-assign-modal-close" className="btn-grid-action" onClick={() => setAssignOpen(false)} aria-label="Close"><X size={16} /></button>
+          <button id="hr-payroll-assign-modal-close" data-testid="hr-payroll-assign-modal-close" onClick={() => setAssignOpen(false)} style={iconBtn} aria-label="Close"><X size={20} /></button>
         </div>
         <div style={{ padding: 24 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <Select
               id="hr-payroll-assign-employee"
               testId="hr-payroll-assign-employee"
@@ -458,7 +467,7 @@ export default function Payroll() {
           {COMP_GROUPS.map((g) => (
             <div key={g.title} style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)", marginBottom: 8 }}>{g.title}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {g.keys.map((k) => (
                   <div className="form-group" key={k} style={{ margin: 0 }}>
                     <label>{COMP_LABEL[k]}</label>
@@ -476,8 +485,8 @@ export default function Payroll() {
         </div>
         <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14 }}>
           {assignMsg && <span style={{ fontSize: 13, fontWeight: 600, color: assignMsg.includes("saved") ? "#059669" : "#e11d48" }}>{assignMsg}</span>}
-          <button id="hr-payroll-assign-cancel" data-testid="hr-payroll-assign-cancel" className="btn btn-secondary" onClick={() => setAssignOpen(false)}>Cancel</button>
-          <button id="hr-payroll-assign-save" data-testid="hr-payroll-assign-save" className="btn btn-primary" onClick={saveAssign} disabled={assignBusy || !assignEmpId} style={{ background: "var(--primary-color)", border: "none", color: "white" }}>{assignBusy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
+          <button id="hr-payroll-assign-cancel" data-testid="hr-payroll-assign-cancel" className="btn btn-secondary" onClick={() => setAssignOpen(false)} style={{ borderRadius: 12 }}>Cancel</button>
+          <button id="hr-payroll-assign-save" data-testid="hr-payroll-assign-save" className="btn btn-primary" onClick={saveAssign} disabled={assignBusy || !assignEmpId} style={{ background: "var(--primary-color)", border: "none", color: "white", borderRadius: 12 }}>{assignBusy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
         </div>
       </Dialog>
     </section>

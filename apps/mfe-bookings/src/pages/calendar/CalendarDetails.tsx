@@ -1,103 +1,195 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from "react-router-dom";
+import { Badge, Button, PageHeader } from "@jaldee/design-system";
+import type { Calendar } from "../../types";
+
+const channelIcon: Record<string, string> = {
+  Online: "Online",
+  "Walk-in": "Walk-in",
+  "Phone-in": "Phone-in",
+};
 
 export default function CalendarDetails() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const calendar = (location.state as { calendar?: Calendar } | null)?.calendar;
+
+  if (!calendar) {
+    return (
+      <main
+        id="bookings-calendar-details-page"
+        data-testid="bookings-calendar-details-page"
+        data-state="empty"
+        className="flex h-full flex-col bg-slate-50"
+      >
+        <DetailsHeader title="Calendar Details" onBack={() => navigate("/calendars")} />
+        <div className="flex flex-1 items-center justify-center p-6 text-center text-sm font-medium text-slate-500">
+          Select a calendar from the calendar list to view its details.
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div id="bookings-calendar-details-page" data-testid="bookings-calendar-details-page" className="flex flex-col h-full bg-slate-50">
-      {/* Back header */}
-      <div className="flex items-center p-4 border-b border-slate-200 bg-white">
-        <button
-          id="bookings-calendar-details-back"
-          data-testid="bookings-calendar-details-back"
-          onClick={() => navigate('/calendars')}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-semibold text-sm transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" x2="5" y1="12" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          <span>Calendars</span>
-        </button>
-      </div>
+    <main
+      id="bookings-calendar-details-page"
+      data-testid="bookings-calendar-details-page"
+      data-state="ready"
+      className="flex h-full flex-col bg-slate-50"
+    >
+      <DetailsHeader
+        title={calendar.name}
+        subtitle={calendar.description || "Calendar configuration and assignments."}
+        onBack={() => navigate("/calendars")}
+      />
 
-      <div className="flex h-full overflow-hidden">
-        {/* Main details content */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div id="bookings-calendar-details-summary" data-testid="bookings-calendar-details-summary" className="flex items-start gap-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-blue-500 shrink-0"></div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-slate-900">Calendar 1</h2>
-                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">Active</span>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <div className="flex-1 p-4 md:p-6 lg:overflow-y-auto">
+          <section
+            id="bookings-calendar-details-summary"
+            data-testid="bookings-calendar-details-summary"
+            className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-start md:p-6"
+          >
+            <div
+              className="h-12 w-12 shrink-0 rounded-xl"
+              style={{ backgroundColor: calendar.color || "#3b82f6" }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-lg font-bold text-slate-900">Calendar overview</h2>
+                <Badge variant="success">{calendar.status || "Active"}</Badge>
               </div>
-              <p className="text-sm text-slate-500 mt-1.5">Main cardiology consultation calendar for all heart-related appointments</p>
-              <div className="flex items-center gap-1.5 text-slate-500 text-sm mt-3 font-medium">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <span>Thrissur</span>
-              </div>
+              <p className="mt-1.5 text-sm text-slate-500">
+                {calendar.description || "No description"}
+              </p>
+              {calendar.locationName && (
+                <p className="mt-3 text-sm font-medium text-slate-500">
+                  {calendar.locationName}
+                </p>
+              )}
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <button id="bookings-calendar-details-edit" data-testid="bookings-calendar-details-edit" onClick={() => navigate('/calendars/edit')} className="h-10 px-4 rounded-xl font-bold bg-white border border-slate-200 text-slate-700 text-sm hover:bg-slate-50 transition-colors shadow-sm">Edit Calendar</button>
-              <button id="bookings-calendar-details-customize" data-testid="bookings-calendar-details-customize" onClick={() => navigate('/calendars/customize')} className="h-10 px-4 rounded-xl font-bold bg-white border border-slate-200 text-slate-700 text-sm hover:bg-slate-50 transition-colors shadow-sm">Customize</button>
-              <button id="bookings-calendar-details-settings" data-testid="bookings-calendar-details-settings" onClick={() => navigate('/calendars/customize')} className="h-10 px-4 rounded-xl font-bold bg-[#0f172a] text-white text-sm hover:bg-slate-800 transition-colors shadow-sm">Calendar Settings</button>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <ActionButton
+                id="edit"
+                label="Edit Calendar"
+                onClick={() => navigate("/calendars/edit", { state: { calendar } })}
+              />
+              <ActionButton
+                id="customize"
+                label="Customize"
+                onClick={() => navigate("/calendars/customize", { state: { calendar } })}
+              />
+              <Button
+                id="bookings-calendar-details-settings"
+                data-testid="bookings-calendar-details-settings"
+                onClick={() => navigate("/calendars/customize", { state: { calendar } })}
+              >
+                Calendar Settings
+              </Button>
             </div>
-          </div>
-
-          {/* Schedules List */}
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Schedules</h3>
-              <button id="bookings-calendar-details-add-schedule" data-testid="bookings-calendar-details-add-schedule" onClick={() => navigate('/calendars/edit-schedule')} className="h-9 px-3 rounded-lg font-bold bg-white border border-slate-200 text-slate-700 text-xs hover:bg-slate-50 transition-colors shadow-sm">+ Add Schedule</button>
-            </div>
-
-            <div id="bookings-calendar-details-schedules" data-testid="bookings-calendar-details-schedules" className="grid gap-4">
-              {/* Dummy Schedule Card */}
-              <div id="bookings-calendar-schedule-morning-shift" data-testid="bookings-calendar-schedule-morning-shift" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-slate-900">Morning Shift</h4>
-                    <p className="text-sm text-slate-500 mt-1">Mon, Tue, Wed • 09:00 AM - 01:00 PM</p>
-                  </div>
-                  <button id="bookings-calendar-schedule-edit-morning-shift" data-testid="bookings-calendar-schedule-edit-morning-shift" onClick={() => navigate('/calendars/edit-schedule')} className="text-sm font-semibold text-blue-600 hover:text-blue-700">Edit</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          </section>
         </div>
 
-        {/* Sidebar details content */}
-        <aside id="bookings-calendar-details-sidebar" data-testid="bookings-calendar-details-sidebar" className="w-72 bg-white border-l border-slate-200 p-6 overflow-y-auto flex flex-col gap-8 shrink-0">
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Services</h4>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-medium px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">Consultation</span>
+        <aside
+          id="bookings-calendar-details-sidebar"
+          data-testid="bookings-calendar-details-sidebar"
+          className="grid gap-6 border-t border-slate-200 bg-white p-5 sm:grid-cols-2 lg:w-72 lg:shrink-0 lg:grid-cols-1 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-6"
+        >
+          <ChipGroup title="Services" items={calendar.services ?? []} empty="No services assigned" />
+          <ChipGroup title="Users" items={calendar.users ?? []} empty="No users assigned" />
+          <ChipGroup
+            title="Channels"
+            items={(calendar.bookingChannels ?? []).map(
+              (channel) => channelIcon[channel] ?? channel,
+            )}
+            empty="No channels configured"
+          />
+          <ChipGroup title="Labels" items={calendar.tags ?? []} empty="No labels" />
+          {typeof calendar.capacityOverride === "number" && (
+            <div>
+              <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Capacity override
+              </h2>
+              <p className="text-sm font-semibold text-slate-800">
+                {calendar.capacityOverride}
+              </p>
             </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Users</h4>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-medium px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">Dr. Smith</span>
-            </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Channels</h4>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-medium px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">Online</span>
-              <span className="text-xs font-medium px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">Walk-in</span>
-            </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Labels</h4>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-medium px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">VIP</span>
-            </div>
-          </div>
+          )}
         </aside>
+      </div>
+    </main>
+  );
+}
+
+function DetailsHeader({
+  title,
+  subtitle,
+  onBack,
+}: {
+  title: string;
+  subtitle?: string;
+  onBack: () => void;
+}) {
+  return (
+    <header className="border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        back={{ label: "Back to calendars", href: "/calendars" }}
+        onNavigate={onBack}
+        className="mb-4"
+      />
+    </header>
+  );
+}
+
+function ActionButton({
+  id,
+  label,
+  onClick,
+}: {
+  id: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      id={`bookings-calendar-details-${id}`}
+      data-testid={`bookings-calendar-details-${id}`}
+      onClick={onClick}
+      variant="secondary"
+    >
+      {label}
+    </Button>
+  );
+}
+
+function ChipGroup({
+  title,
+  items,
+  empty,
+}: {
+  title: string;
+  items: string[];
+  empty: string;
+}) {
+  return (
+    <div>
+      <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+        {title}
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        {items.length ? (
+          items.map((item) => (
+            <span
+              key={item}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
+            >
+              {item}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-slate-400">{empty}</span>
+        )}
       </div>
     </div>
   );

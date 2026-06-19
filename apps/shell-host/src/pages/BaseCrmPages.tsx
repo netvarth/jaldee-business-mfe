@@ -1,20 +1,49 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, lazy, Suspense } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { normalizeAccountContext, type ProductKey } from "@jaldee/auth-context";
 import { apiClient } from "@jaldee/api-client";
-import { EmptyState, SectionCard } from "@jaldee/design-system";
-import {
-  CustomersModule,
-  DriveModule,
-  LeadsModule,
-  MembershipsModule,
-  ReportsModule,
-  SharedModulesProvider,
-  TasksModule,
-  UsersModule,
-} from "@jaldee/shared-modules";
+import { EmptyState } from "../../../../packages/design-system/src/components/EmptyState/EmptyState";
+import { SectionCard } from "../../../../packages/design-system/src/components/SectionCard/SectionCard";
+import { SharedModulesProvider } from "../../../../packages/shared-modules/src/context";
 import { useShellStore } from "../store/shellStore";
+import PageLoadingSkeleton from "../layout/PageLoadingSkeleton";
+
+const CustomersModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/customers").then((m) => ({
+    default: m.CustomersModule,
+  }))
+);
+const DriveModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/drive").then((m) => ({
+    default: m.DriveModule,
+  }))
+);
+const LeadsModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/leads").then((m) => ({
+    default: m.LeadsModule,
+  }))
+);
+const MembershipsModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/memberships").then((m) => ({
+    default: m.MembershipsModule,
+  }))
+);
+const ReportsModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/reports").then((m) => ({
+    default: m.ReportsModule,
+  }))
+);
+const TasksModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/tasks").then((m) => ({
+    default: m.TasksModule,
+  }))
+);
+const UsersModule = lazy(() =>
+  import("../../../../packages/shared-modules/src/users").then((m) => ({
+    default: m.UsersModule,
+  }))
+);
 
 function useSharedQueryClient() {
   return useState(
@@ -169,7 +198,9 @@ export function ShellCustomersPage() {
             },
           }}
         >
-          <CustomersModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <CustomersModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>
@@ -223,7 +254,7 @@ export function ShellUsersPage() {
 
     return {
       view: "detail",
-      subview: "personal-details",
+      subview: routeSegments[1] ?? "view",
       recordId: firstSegment,
       tab: "settings",
     };
@@ -256,7 +287,9 @@ export function ShellUsersPage() {
             },
           }}
         >
-          <UsersModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <UsersModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>
@@ -295,7 +328,9 @@ export function ShellDrivePage() {
             },
           }}
         >
-          <DriveModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <DriveModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>
@@ -357,7 +392,9 @@ export function ShellTasksPage() {
             },
           }}
         >
-          <TasksModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <TasksModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>
@@ -399,7 +436,9 @@ export function ShellMembershipPage() {
             },
           }}
         >
-          <MembershipsModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <MembershipsModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>
@@ -438,7 +477,9 @@ export function ShellReportsPage() {
             },
           }}
         >
-          <ReportsModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <ReportsModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>
@@ -479,7 +520,9 @@ export function ShellAuditLogPage() {
             },
           }}
         >
-          <LeadsModule />
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <LeadsModule />
+          </Suspense>
         </SharedModulesProvider>
       </div>
     </QueryClientProvider>

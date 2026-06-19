@@ -1,21 +1,22 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Avatar,
   Button,
-  Checkbox,
   DatePicker,
+  DescriptionList,
+  Dialog,
+  DialogFooter,
   Divider,
   EmptyState,
+  FormSection,
   Input,
   PhoneInput,
-  RadioGroup,
-  SectionCard,
-  Select,
   SkeletonCard,
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
-import { useUserDepartments, useUserDetail } from "../queries/users";
-import { UserAvatar, UsersPageShell } from "./shared";
+import { useUserDetail } from "../queries/users";
+import { UserStatusBadge, UsersPageShell } from "./shared";
 
 type UserDetailFormState = {
   firstName: string;
@@ -37,13 +38,6 @@ type UserDetailFormState = {
   dob: string;
   bookingColor: string;
 };
-
-const USER_TYPE_OPTIONS = [
-  { value: "PROVIDER", label: "Doctor" },
-  { value: "ASSISTANT", label: "Assistant" },
-  { value: "ADMIN", label: "Admin" },
-  { value: "USER", label: "User" },
-];
 
 function normalizeDateInput(value?: string) {
   if (!value) return "";
@@ -107,26 +101,6 @@ function buildInitialFormState(detail?: {
   };
 }
 
-function FormSection({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-        {description && <p className="text-xs text-slate-500">{description}</p>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export function UserDetailView({
   userId,
   standalone = false,
@@ -134,296 +108,293 @@ export function UserDetailView({
   userId: string;
   section?: string | null;
   standalone?: boolean;
+  /** @deprecated edit is now a modal — this prop is ignored */
+  mode?: "view" | "edit";
 }) {
   const { basePath } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const detailQuery = useUserDetail(userId);
-  const departmentsQuery = useUserDepartments();
   const detail = detailQuery.data;
+
   const [formState, setFormState] = useState<UserDetailFormState>(() => buildInitialFormState());
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
-    if (detail) {
-      setFormState(buildInitialFormState(detail));
-    }
+    if (detail) setFormState(buildInitialFormState(detail));
   }, [detail]);
 
-  const departmentOptions = useMemo(
-    () => [
-      { value: "", label: "Select Department" },
-      ...(departmentsQuery.data ?? []).map((department) => ({
-        value: department.id,
-        label: department.name,
-      })),
-    ],
-    [departmentsQuery.data]
-  );
+  function openEdit() {
+    if (detail) setFormState(buildInitialFormState(detail));
+    setEditOpen(true);
+  }
 
-  const bookingColorPreviewStyle = useMemo(
-    () => ({
-      backgroundColor: formState.bookingColor || "#33009C",
-    }),
-    [formState.bookingColor]
-  );
+  function saveEdit() {
+    // TODO: wire to save mutation
+    setEditOpen(false);
+  }
 
-  const privilegeItems = useMemo(
-    () =>
-      [
-        {
-          key: "adminPrivilege",
-          label: "Admin Privileges",
-          description: "This privilege allows the user to create new user, modify existing user etc.",
-        },
-        {
-          key: "showPatientsList",
-          label: "Show Patients List",
-          description: "This privilege allows the user to see patients data based.",
-        },
-        {
-          key: "showBusinessProfile",
-          label: "Allow Business Profile",
-          description: "This privilege will allow the user to create their own profile.",
-        },
-        {
-          key: "showFinanceManager",
-          label: "Show Finance Manager",
-          description: "This privilege will allow the user to see finance manager.",
-        },
-        {
-          key: "showInventoryManager",
-          label: "Show Inventory Manager",
-          description: "This privilege will allow the user to see inventory manager.",
-        },
-      ] as const,
-    []
-  );
-
-  const pageTitle = standalone ? "User Details" : "Users";
-  const pageSubtitle = standalone
-    ? ""
-    : detail?.name
-      ? `Manage ${detail.name}`
-      : "Manage user details and feature access";
+  const pageTitle = standalone ? "User Details" : detail?.name || "User Details";
+  const pageSubtitle = standalone ? "" : "User profile and details";
 
   return (
-    <UsersPageShell title={pageTitle} subtitle={pageSubtitle} onBack={() => navigate(basePath)}>
+    <UsersPageShell
+      title={pageTitle}
+      subtitle={pageSubtitle}
+      onBack={() => navigate(basePath)}
+      actions={
+        detail ? (
+          <Button
+            variant="secondary"
+            id="btnEditUser_SM_Users"
+            data-testid="btnEditUser_SM_Users"
+            onClick={openEdit}
+          >
+            Edit
+          </Button>
+        ) : undefined
+      }
+    >
+      {/* Loading */}
       {detailQuery.isLoading && <SkeletonCard />}
+
+      {/* Error */}
       {detailQuery.isError && (
-        <SectionCard className="border-slate-200 shadow-none">
+        <div className="bg-white rounded-2xl shadow-sm border-0 p-8 flex items-center justify-center">
           <EmptyState
             title="User details could not load"
             description="The live user detail API returned an error."
-            action={<Button onClick={() => detailQuery.refetch()}>Retry</Button>}
+            action={
+              <Button
+                id="btnRetryUserDetail_SM_Users"
+                data-testid="btnRetryUserDetail_SM_Users"
+                onClick={() => detailQuery.refetch()}
+              >
+                Retry
+              </Button>
+            }
           />
-        </SectionCard>
+        </div>
       )}
 
+      {/* Detail View */}
       {!detailQuery.isLoading && !detailQuery.isError && detail && (
-        <div className="space-y-5">
-          {/* Profile Header Card */}
-          <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
-            <div className="flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:gap-6">
-              <div className="shrink-0">
-                <UserAvatar name={detail.name} subtitle={detail.roleName || detail.userType} size="lg" prominent />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xl font-semibold text-slate-900">{detail.name}</div>
-                {detail.roleName || detail.userType ? (
-                  <div className="mt-0.5 text-sm text-slate-500">{detail.roleName || detail.userType}</div>
-                ) : null}
-                {detail.email ? (
-                  <div className="mt-1 text-sm text-slate-400">{detail.email}</div>
-                ) : null}
-              </div>
-              {detail.digitalSignatureUrl && (
-                <div className="shrink-0">
+        <div className="w-full animate-fade-in" data-testid="user-detail-container">
+          <div className="grid gap-6 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
+
+            {/* Left — Profile card + Org */}
+            <div className="space-y-6">
+              <div
+                data-testid="user-profile-card"
+                className="bg-white rounded-2xl shadow-sm border-0 p-6 flex flex-col items-center text-center space-y-4"
+              >
+                <Avatar name={detail.name} size="lg" />
+                <div className="space-y-1">
+                  <h2
+                    className="text-lg font-bold text-slate-800 leading-tight"
+                    data-testid="user-detail-name"
+                  >
+                    {detail.name}
+                  </h2>
+                  <p
+                    className="text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                    data-testid="user-detail-role"
+                  >
+                    {detail.roleName || detail.userType || "User"}
+                  </p>
+                </div>
+                <div className="pt-1" data-testid="user-detail-status">
+                  <UserStatusBadge status={detail.status} />
+                </div>
+                {detail.digitalSignatureUrl && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(detail.digitalSignatureUrl, "_blank", "noopener,noreferrer")}
+                    className="w-full mt-2"
+                    id="btnViewDigitalSignature_SM_Users"
+                    data-testid="btnViewDigitalSignature_SM_Users"
+                    onClick={() =>
+                      window.open(detail.digitalSignatureUrl, "_blank", "noopener,noreferrer")
+                    }
                   >
                     View Digital Signature
                   </Button>
-                </div>
-              )}
-            </div>
-          </SectionCard>
+                )}
+              </div>
 
-          {/* Personal Details Form */}
-          <SectionCard className="border-slate-200 bg-white shadow-none" padding={false}>
-            <div className="border-b border-slate-100 px-6 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Personal Details</h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                Profile information, communication channels, department assignment, and user privileges.
-              </p>
-            </div>
-
-            <div className="space-y-8 p-6">
-              {/* Identity */}
-              <FormSection title="Identity" description="Basic identification and role information.">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="First Name *"
-                    value={formState.firstName}
-                    onChange={(event) => setFormState((current) => ({ ...current, firstName: event.target.value }))}
-                  />
-                  <Input
-                    label="Last Name *"
-                    value={formState.lastName}
-                    onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))}
-                  />
-                  <Input
-                    label="Employee ID"
-                    value={formState.employeeId}
-                    onChange={(event) => setFormState((current) => ({ ...current, employeeId: event.target.value }))}
-                  />
-                  <Input
-                    label="PIN Code"
-                    value={formState.pinCode}
-                    onChange={(event) => setFormState((current) => ({ ...current, pinCode: event.target.value }))}
-                  />
-                </div>
-              </FormSection>
-
-              <Divider />
-
-              {/* Contact */}
-              <FormSection title="Contact" description="Communication channels for this user.">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="Email"
-                    value={formState.email}
-                    onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
-                  />
-                  <DatePicker
-                    label="Date of Birth"
-                    value={formState.dob}
-                    onChange={(event) => setFormState((current) => ({ ...current, dob: event.target.value }))}
-                  />
-                  <PhoneInput
-                    label="Phone Number"
-                    value={formState.phoneNumber}
-                    onChange={(value) => setFormState((current) => ({ ...current, phoneNumber: value }))}
-                  />
-                  <PhoneInput
-                    label="WhatsApp Number"
-                    value={formState.whatsappNumber}
-                    onChange={(value) => setFormState((current) => ({ ...current, whatsappNumber: value }))}
-                  />
-                  <PhoneInput
-                    label="Telegram Number"
-                    value={formState.telegramNumber}
-                    onChange={(value) => setFormState((current) => ({ ...current, telegramNumber: value }))}
-                  />
-                </div>
-              </FormSection>
-
-              <Divider />
-
-              {/* Role & Department */}
-              <FormSection title="Role & Department" description="Organisational assignment and booking preferences.">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Select
-                    label="User Type"
-                    value={formState.userType}
-                    onChange={(event) => setFormState((current) => ({ ...current, userType: event.target.value }))}
-                    options={USER_TYPE_OPTIONS}
-                  />
-                  <Select
-                    label="Department"
-                    value={formState.departmentId}
-                    onChange={(event) => setFormState((current) => ({ ...current, departmentId: event.target.value }))}
-                    options={departmentOptions}
-                  />
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  {/* Gender */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <RadioGroup
-                      label="Gender"
-                      name="user-gender"
-                      value={formState.gender}
-                      onChange={(value) => setFormState((current) => ({ ...current, gender: value }))}
-                      options={[
-                        { value: "Male", label: "Male" },
-                        { value: "Female", label: "Female" },
-                        { value: "Other", label: "Other" },
-                      ]}
-                      className="gap-3"
-                      optionClassName="flex-row items-center"
-                    />
-                  </div>
-
-                  {/* Booking Color */}
-                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-sm font-semibold text-slate-900">Booking Color</div>
-                    <p className="text-xs text-slate-500">Color used for this user's booking presence.</p>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={formState.bookingColor}
-                        onChange={(event) => setFormState((current) => ({ ...current, bookingColor: event.target.value }))}
-                        className="h-9 w-12 cursor-pointer rounded border border-slate-200 bg-white p-1"
-                      />
-                      <span
-                        className="inline-flex rounded-md px-3 py-2 text-xs font-semibold text-white"
-                        style={bookingColorPreviewStyle}
-                      >
-                        Preview
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </FormSection>
-
-              <Divider />
-
-              {/* Access Controls */}
-              <FormSection
-                title="Access Controls"
-                description="Toggle the privileges and visibility options assigned to this user."
+              <div
+                data-testid="user-org-info-card"
+                className="bg-white rounded-2xl shadow-sm border-0 p-6 space-y-4"
               >
-                <div className="grid gap-4 md:grid-cols-2">
-                  {privilegeItems.map((item) => (
-                    <Checkbox
-                      key={item.key}
-                      checked={formState[item.key]}
-                      onChange={(event) =>
-                        setFormState((current) => ({
-                          ...current,
-                          [item.key]: event.target.checked,
-                        }))
-                      }
-                      label={item.label}
-                      description={item.description}
-                      labelClassName="text-sm font-medium text-slate-800"
-                    />
-                  ))}
-                </div>
-              </FormSection>
-
-              <Divider />
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    standalone ? navigate(basePath) : setFormState(buildInitialFormState(detail))
-                  }
-                >
-                  Cancel
-                </Button>
-                <Button type="button" variant="primary" size="sm" onClick={() => {}}>
-                  Save Changes
-                </Button>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Organization
+                </h3>
+                <DescriptionList
+                  columns={1}
+                  items={[
+                    { label: "User Type", value: detail.userType || "—" },
+                    { label: "Employee ID", value: formState.employeeId || "—" },
+                    { label: "PIN Code", value: formState.pinCode || "—" },
+                  ]}
+                />
               </div>
             </div>
-          </SectionCard>
+
+            {/* Right — Personal + Contact */}
+            <div className="bg-white rounded-2xl shadow-sm border-0 p-8 space-y-8">
+              <div className="space-y-4" data-testid="user-personal-details-section">
+                <h3 className="text-sm font-semibold text-slate-800">Personal Details</h3>
+                <DescriptionList
+                  columns={2}
+                  items={[
+                    { label: "First Name", value: formState.firstName || "—" },
+                    { label: "Last Name", value: formState.lastName || "—" },
+                    { label: "Date of Birth", value: formState.dob || "—" },
+                  ]}
+                />
+              </div>
+
+              <Divider />
+
+              <div className="space-y-4" data-testid="user-contact-details-section">
+                <h3 className="text-sm font-semibold text-slate-800">Contact Information</h3>
+                <DescriptionList
+                  columns={2}
+                  items={[
+                    { label: "Email Address", value: formState.email || "—" },
+                    {
+                      label: "Phone Number",
+                      value: formState.phoneNumber.number
+                        ? `${formState.phoneNumber.countryCode} ${formState.phoneNumber.number}`.trim()
+                        : "—",
+                    },
+                    {
+                      label: "WhatsApp Number",
+                      value: formState.whatsappNumber.number
+                        ? `${formState.whatsappNumber.countryCode} ${formState.whatsappNumber.number}`.trim()
+                        : "—",
+                    },
+                    {
+                      label: "Telegram Number",
+                      value: formState.telegramNumber.number
+                        ? `${formState.telegramNumber.countryCode} ${formState.telegramNumber.number}`.trim()
+                        : "—",
+                    },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Edit Modal */}
+          <Dialog
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            testId="dlgEditUser_SM_Users"
+            title="Edit User"
+            description="Update identification and contact details."
+            size="lg"
+          >
+            <div className="space-y-6">
+              {/* Identity section — uses design system FormSection */}
+              <FormSection
+                title="Identity"
+                description="Name, date of birth, and workplace identifiers."
+              >
+                <Input
+                  label="First Name *"
+                  id="txtFirstName_SM_Users"
+                  data-testid="txtFirstName_SM_Users"
+                  value={formState.firstName}
+                  onChange={(e) => setFormState((s) => ({ ...s, firstName: e.target.value }))}
+                />
+                <Input
+                  label="Last Name *"
+                  id="txtLastName_SM_Users"
+                  data-testid="txtLastName_SM_Users"
+                  value={formState.lastName}
+                  onChange={(e) => setFormState((s) => ({ ...s, lastName: e.target.value }))}
+                />
+                <DatePicker
+                  label="Date of Birth"
+                  id="dpDob_SM_Users"
+                  data-testid="dpDob_SM_Users"
+                  value={formState.dob}
+                  onChange={(e) => setFormState((s) => ({ ...s, dob: e.target.value }))}
+                />
+                <Input
+                  label="Employee ID"
+                  id="txtEmployeeId_SM_Users"
+                  data-testid="txtEmployeeId_SM_Users"
+                  value={formState.employeeId}
+                  onChange={(e) => setFormState((s) => ({ ...s, employeeId: e.target.value }))}
+                />
+                <Input
+                  label="PIN Code"
+                  id="txtPinCode_SM_Users"
+                  data-testid="txtPinCode_SM_Users"
+                  value={formState.pinCode}
+                  onChange={(e) => setFormState((s) => ({ ...s, pinCode: e.target.value }))}
+                />
+              </FormSection>
+
+              {/* Contact section */}
+              <FormSection
+                title="Contact"
+                description="Email address and phone numbers."
+              >
+                <Input
+                  label="Email"
+                  id="txtEmail_SM_Users"
+                  data-testid="txtEmail_SM_Users"
+                  value={formState.email}
+                  onChange={(e) => setFormState((s) => ({ ...s, email: e.target.value }))}
+                />
+                <PhoneInput
+                  label="Phone Number"
+                  id="phonePhone_SM_Users"
+                  data-testid="phonePhone_SM_Users"
+                  value={formState.phoneNumber}
+                  onChange={(v) => setFormState((s) => ({ ...s, phoneNumber: v }))}
+                />
+                <PhoneInput
+                  label="WhatsApp Number"
+                  id="phoneWhatsapp_SM_Users"
+                  data-testid="phoneWhatsapp_SM_Users"
+                  value={formState.whatsappNumber}
+                  onChange={(v) => setFormState((s) => ({ ...s, whatsappNumber: v }))}
+                />
+                <PhoneInput
+                  label="Telegram Number"
+                  id="phoneTelegram_SM_Users"
+                  data-testid="phoneTelegram_SM_Users"
+                  value={formState.telegramNumber}
+                  onChange={(v) => setFormState((s) => ({ ...s, telegramNumber: v }))}
+                />
+              </FormSection>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                id="btnCancelEditUser_SM_Users"
+                data-testid="btnCancelEditUser_SM_Users"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                id="btnSaveUser_SM_Users"
+                data-testid="btnSaveUser_SM_Users"
+                onClick={saveEdit}
+              >
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </Dialog>
         </div>
       )}
     </UsersPageShell>

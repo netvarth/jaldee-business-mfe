@@ -3,7 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { normalizeAccountContext, type ProductKey } from "@jaldee/auth-context";
 import { apiClient } from "@jaldee/api-client";
 import { EmptyState, SectionCard } from "@jaldee/design-system";
-import { LeadsModule, SharedModulesProvider } from "@jaldee/shared-modules";
+import { SharedModulesProvider } from "@jaldee/shared-modules";
+import { LeadsModule } from "../../../../packages/shared-modules/src/leads";
 import { useShellStore } from "../store/shellStore";
 import { eventBus } from "../eventBus/eventBus";
 

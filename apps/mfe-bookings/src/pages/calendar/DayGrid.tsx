@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Calendar as CalendarType, Booking, Service } from '../../../types';
 import { format } from 'date-fns';
+import { Button } from '@jaldee/design-system';
 
 interface DayGridProps {
     date: Date;
@@ -149,7 +150,15 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                 <div className="appt-title">{bk.patientName || bk.customerName}</div>
                                                 <div className="appt-time-row">
                                                     <span>{timeStr} {service ? `(${service.name})` : ''}</span>
-                                                    <button className="appt-menu-btn">⋮</button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        iconOnly
+                                                        icon={<span aria-hidden="true">⋮</span>}
+                                                        className="appt-menu-btn"
+                                                        aria-label={`Open actions for ${bk.patientName || bk.customerName || 'booking'}`}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                    />
                                                 </div>
                                             </div>
                                         );

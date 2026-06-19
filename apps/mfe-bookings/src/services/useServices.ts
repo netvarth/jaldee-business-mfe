@@ -3,6 +3,7 @@ import { useBookingApi } from "../services/useBookingApi";
 import { useToast } from "../contexts/ToastContext";
 import type { ServiceItem } from "../types";
 import { createdServices } from "../data/sessionStore";
+import { unwrapList } from "./response";
 
 export const useServices = () => {
   const api = useBookingApi();
@@ -18,8 +19,12 @@ export const useServices = () => {
       // NOTE: booking-service has no /services endpoint yet (catalog lives in
       // another service). No mock fallback — an empty/error state here makes the
       // missing wiring visible instead of masking it with sample data.
-      const data = await api.get<ServiceItem[]>("/services");
-      setServices([...createdServices, ...(data ?? [])]);
+      const data = await api.post<unknown>(
+        "/services/search",
+        {},
+        { params: { page: 0, size: 100 } },
+      );
+      setServices([...createdServices, ...unwrapList<ServiceItem>(data)]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load services.");
       setServices([...createdServices]);

@@ -4,6 +4,7 @@ import federation       from "@originjs/vite-plugin-federation";
 import path             from "path";
 
 export default defineConfig({
+  base: "./",
   plugins: [
     react(),
     federation({
@@ -26,7 +27,7 @@ export default defineConfig({
   build: {
     target:       "esnext",
     minify:       "esbuild",
-    cssCodeSplit: false,
+    cssCodeSplit: true,
   },
   server: {
     port: 4008,

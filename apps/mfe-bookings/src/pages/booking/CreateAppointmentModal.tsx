@@ -1,4 +1,12 @@
 import { useEffect, useState } from "react";
+import {
+  Button,
+  DialogFooter,
+  FormSection,
+  Input,
+  Select,
+  Textarea,
+} from "@jaldee/design-system";
 import { useModal } from "../../contexts/ModalContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useCalendars } from "../../services/useCalendars";
@@ -19,7 +27,7 @@ function fmtSlot(t: string): string {
   return t.split(":").slice(0, 2).join(":");
 }
 
-/** Faithful port of the vanilla #modal-create-booking ("Create Appointment Booking"). */
+/** Create Appointment Booking modal. */
 export default function CreateAppointmentModal() {
   const { closeModal } = useModal();
   const { showToast } = useToast();
@@ -91,70 +99,26 @@ export default function CreateAppointmentModal() {
   };
 
   return (
-    <div className="modal-card modal-lg" data-testid="bookings-create-appointment-modal" data-state={submitting ? "submitting" : "idle"} style={{ maxWidth: 900, width: "95%" }}>
-      <div className="modal-header" data-testid="bookings-create-appointment-modal-header">
-        <div>
-          <h3 className="modal-title">Create Appointment Booking</h3>
-          <p className="modal-subtitle">Add a new booking details manually</p>
-        </div>
-        <button id="bookings-create-appointment-close" data-testid="bookings-create-appointment-close" className="modal-close-btn" onClick={closeModal} aria-label="Close appointment booking">&times;</button>
-      </div>
-
-      <form data-testid="bookings-create-appointment-form" onSubmit={handleConfirm}>
-        <div className="modal-body bg-light" data-testid="bookings-create-appointment-body" style={{ padding: 24, maxHeight: "80vh", overflowY: "auto" }}>
+    <form data-testid="bookings-create-appointment-form" onSubmit={handleConfirm} className="p-6">
+      <header className="mb-6">
+        <h2 className="text-lg font-bold text-slate-900">Create Appointment Booking</h2>
+        <p className="mt-1 text-sm text-slate-500">Add booking details manually.</p>
+      </header>
+        <div className="max-h-[72vh] space-y-6 overflow-y-auto pr-1" data-testid="bookings-create-appointment-body">
           {/* Patient details */}
-          <div style={{ marginBottom: 24, padding: 16, background: "#F8FAFC", borderRadius: 8, border: "1px solid var(--border-color)" }}>
-            <h4 style={{ margin: "0 0 16px 0", fontSize: 14, color: "var(--dark-text)" }}>Patient Details</h4>
-            <div className="form-group mb-2">
-              <label htmlFor="bk-patient-name">Patient Name <span className="required">*</span></label>
-              <input type="text" id="bk-patient-name" data-testid="bookings-create-appointment-patient-name-input" placeholder="Patient full name" required value={patientName} onChange={(e) => setPatientName(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="bk-phone">Phone Number <span className="required">*</span></label>
-                <input type="text" id="bk-phone" data-testid="bookings-create-appointment-phone-input" placeholder="+91 98765 43210" required value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="bk-email">Email Address</label>
-                <input type="email" id="bk-email" data-testid="bookings-create-appointment-email-input" placeholder="patient@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-            </div>
-          </div>
+          <FormSection title="Patient details">
+            <Input id="bk-patient-name" data-testid="bookings-create-appointment-patient-name-input" label="Patient name" required value={patientName} onChange={(e) => setPatientName(e.target.value)} />
+            <Input id="bk-phone" data-testid="bookings-create-appointment-phone-input" label="Phone number" required value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input id="bk-email" data-testid="bookings-create-appointment-email-input" type="email" label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </FormSection>
 
           {/* Booking details */}
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="bk-calendar">Calendar <span className="required">*</span></label>
-              <select id="bk-calendar" data-testid="bookings-create-appointment-calendar-select" className="custom-select" required value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)}>
-                <option value="">Select Calendar</option>
-                {calendars.map((c) => <option key={c.uid} value={c.uid}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="bk-service">Service <span className="required">*</span></label>
-              <select id="bk-service" data-testid="bookings-create-appointment-service-select" className="custom-select" required value={serviceUid} onChange={(e) => setServiceUid(e.target.value)}>
-                <option value="">Select Service</option>
-                {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="form-row mb-4">
-            <div className="form-group">
-              <label htmlFor="bk-doctor">Assigned Professional <span className="required">*</span></label>
-              <select id="bk-doctor" data-testid="bookings-create-appointment-doctor-select" className="custom-select" required value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)}>
-                <option value="">Select Professional</option>
-                {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="bk-channel">Booking Channel</label>
-              <select id="bk-channel" data-testid="bookings-create-appointment-channel-select" className="custom-select" value={channel} onChange={(e) => setChannel(e.target.value as BookingChannel)}>
-                <option value="Online">Online</option>
-                <option value="Walk-in">Walk-in</option>
-                <option value="Phone-in">Phone-in</option>
-              </select>
-            </div>
-          </div>
+          <FormSection title="Booking details">
+            <Select id="bk-calendar" testId="bookings-create-appointment-calendar-select" label="Calendar" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
+            <Select id="bk-service" testId="bookings-create-appointment-service-select" label="Service" required placeholder="Select service" value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={services.map((s) => ({ value: s.id, label: s.name }))} />
+            <Select id="bk-doctor" testId="bookings-create-appointment-doctor-select" label="Assigned professional" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providers.map((p) => ({ value: p.id, label: p.name }))} />
+            <Select id="bk-channel" testId="bookings-create-appointment-channel-select" label="Booking channel" value={channel} onChange={(e) => setChannel(e.target.value as BookingChannel)} options={["Online", "Walk-in", "Phone-in"].map((value) => ({ value, label: value }))} />
+          </FormSection>
 
           {selectedDate && (
             <div className="info-banner mb-4" data-testid="bookings-create-appointment-selected-date" style={{ background: "#F8FAFC", border: "1px solid var(--border-color)", padding: 12, borderRadius: 8, textAlign: "center", fontWeight: 500, color: "var(--dark-text)" }}>
@@ -170,8 +134,8 @@ export default function CreateAppointmentModal() {
                 <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div style={{ fontWeight: 600, color: "var(--primary-color)" }}>{MONTHS[month.getMonth()]} {month.getFullYear()}</div>
                   <div className="calendar-nav">
-                    <button type="button" id="bookings-create-appointment-prev-month" data-testid="bookings-create-appointment-prev-month" className="btn-icon" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">&lt;</button>
-                    <button type="button" id="bookings-create-appointment-next-month" data-testid="bookings-create-appointment-next-month" className="btn-icon" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">&gt;</button>
+                    <Button variant="ghost" size="sm" id="bookings-create-appointment-prev-month" data-testid="bookings-create-appointment-prev-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">&lt;</Button>
+                    <Button variant="ghost" size="sm" id="bookings-create-appointment-next-month" data-testid="bookings-create-appointment-next-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">&gt;</Button>
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", textAlign: "center", fontSize: 12, color: "var(--light-text)", marginBottom: 8 }}>
@@ -202,13 +166,7 @@ export default function CreateAppointmentModal() {
 
             {/* Schedule + slots */}
             <div className="slots-section">
-              <div className="form-group mb-4">
-                <label htmlFor="bk-schedule">Select Schedule <span className="required">*</span></label>
-                <select id="bk-schedule" data-testid="bookings-create-appointment-schedule-select" className="custom-select" required value={scheduleUid} onChange={(e) => setScheduleUid(e.target.value)}>
-                  <option value="sch-1">Morning Clinic</option>
-                  <option value="sch-2">Evening Clinic</option>
-                </select>
-              </div>
+              <Select id="bk-schedule" testId="bookings-create-appointment-schedule-select" label="Select schedule" required value={scheduleUid} onChange={(e) => setScheduleUid(e.target.value)} options={[{ value: "sch-1", label: "Morning Clinic" }, { value: "sch-2", label: "Evening Clinic" }]} />
 
               <label>Select Slots <span className="required">*</span></label>
               <div className="slots-grid mt-2" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, maxHeight: 360, overflowY: "auto", paddingRight: 8 }}>
@@ -243,19 +201,13 @@ export default function CreateAppointmentModal() {
             </div>
           </div>
 
-          <div className="form-group mt-4">
-            <label htmlFor="bk-notes">Staff Notes</label>
-            <textarea id="bk-notes" data-testid="bookings-create-appointment-notes-textarea" rows={3} placeholder="Enter notes here..." value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
+          <Textarea id="bk-notes" data-testid="bookings-create-appointment-notes-textarea" label="Staff notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: "flex-end", gap: 16 }}>
-          <button type="button" id="bookings-create-appointment-cancel" data-testid="bookings-create-appointment-cancel" className="btn btn-secondary" style={{ width: 120 }} onClick={closeModal}>CANCEL</button>
-          <button type="submit" id="bookings-create-appointment-confirm" data-testid="bookings-create-appointment-confirm" className="btn btn-primary" style={{ width: 120, background: "#3B0764", borderColor: "#3B0764" }} disabled={submitting} data-state={submitting ? "submitting" : "idle"}>
-            {submitting ? "…" : "CONFIRM"}
-          </button>
-        </div>
+        <DialogFooter>
+          <Button variant="secondary" id="bookings-create-appointment-cancel" data-testid="bookings-create-appointment-cancel" onClick={closeModal}>Cancel</Button>
+          <Button type="submit" id="bookings-create-appointment-confirm" data-testid="bookings-create-appointment-confirm" loading={submitting}>Confirm</Button>
+        </DialogFooter>
       </form>
-    </div>
   );
 }

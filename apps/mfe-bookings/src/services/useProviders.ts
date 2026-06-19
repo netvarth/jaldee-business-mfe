@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
+import { unwrapList } from "./response";
 
-/** Raw user row from GET /users (UserDto). */
+/** Raw user row from POST /users/search (UserDto). */
 interface UserDto {
   userUid?: string;
   title?: string;
@@ -41,8 +42,12 @@ export function useProviders() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<UserDto[]>("/users");
-      setProviders((data ?? []).map(toCalendarUser));
+      const data = await api.post<unknown>(
+        "/users/search",
+        {},
+        { params: { page: 0, size: 100 } },
+      );
+      setProviders(unwrapList<UserDto>(data).map(toCalendarUser));
     } catch (e) {
       // No mock fallback — empty provider column instead of fake staff.
       setError(e instanceof Error ? e.message : "Failed to load providers.");

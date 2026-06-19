@@ -16,7 +16,7 @@ import { useSharedNavigate } from "../../useSharedNavigate";
 import { useUrlPagination } from "../../useUrlPagination";
 import { useUserDepartments, useUsersList, useUserLocations } from "../queries/users";
 import type { UserSummary } from "../types";
-import { FunnelGlyph, MoreGlyph, PlusGlyph, UserAvatar, UsersPageShell } from "./shared";
+import { FunnelGlyph, MoreGlyph, PlusGlyph, UserAvatar, UserStatusBadge, UsersPageShell } from "./shared";
 import { AssignLocationsDialog, ChangeLoginIdDialog, CreateUserDialog } from "./UserCreateDialogs";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -28,6 +28,8 @@ function canOpenSettings(row: UserSummary) {
 
 type UserAdvancedFilters = {
   keyword: string;
+  status: string;
+  userType: string;
   departmentId: string;
   locationId: string;
   firstName: string;
@@ -42,6 +44,8 @@ type UserAdvancedFilters = {
 
 const EMPTY_ADVANCED_FILTERS: UserAdvancedFilters = {
   keyword: "",
+  status: "ACTIVE",
+  userType: "all",
   departmentId: "all",
   locationId: "all",
   firstName: "",
@@ -57,12 +61,10 @@ const EMPTY_ADVANCED_FILTERS: UserAdvancedFilters = {
 export function UsersList() {
   const { basePath } = useSharedModulesContext();
   const navigate = useSharedNavigate();
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
-  const [typeFilter, setTypeFilter] = useState("all");
   const [advancedFilters, setAdvancedFilters] = useState<UserAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
   const [draftFilters, setDraftFilters] = useState<UserAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [assignLocationsUser, setAssignLocationsUser] = useState<UserSummary | null>(null);
   const [changeLoginIdUser, setChangeLoginIdUser] = useState<UserSummary | null>(null);
@@ -71,8 +73,8 @@ export function UsersList() {
     namespace: "users",
     defaultPageSize: DEFAULT_PAGE_SIZE,
     resetDeps: [
-      statusFilter,
-      typeFilter,
+      advancedFilters.status,
+      advancedFilters.userType,
       advancedFilters.keyword,
       advancedFilters.departmentId,
       advancedFilters.locationId,
@@ -91,11 +93,9 @@ export function UsersList() {
     () => ({
       page,
       pageSize,
-      status: statusFilter,
-      userType: typeFilter,
       ...advancedFilters,
     }),
-    [page, pageSize, statusFilter, typeFilter, advancedFilters]
+    [page, pageSize, advancedFilters]
   );
 
   const listQuery = useUsersList(filters);
@@ -120,17 +120,22 @@ export function UsersList() {
           render: (row) => (
             <UserAvatar
               name={row.name}
-              subtitle={row.email || row.mobile || row.employeeId || row.roleName || row.userType}
-              size="lg"
-              prominent
+              subtitle={row.employeeId || row.roleName || row.userType}
+              size="md"
             />
           ),
         },
         {
-          key: "locations",
-          header: "Business Locations",
+          key: "email",
+          header: "Email",
           headerClassName: "font-semibold text-slate-900",
-          render: (row) => (row.locations.length ? row.locations.join(", ") : "-"),
+          render: (row) => row.email || "—",
+        },
+        {
+          key: "mobile",
+          header: "Phone",
+          headerClassName: "font-semibold text-slate-900",
+          render: (row) => row.mobile || "—",
         },
       ];
 
@@ -139,7 +144,7 @@ export function UsersList() {
           key: "departmentName",
           header: "Department",
           headerClassName: "font-semibold text-slate-900",
-          render: (row) => row.departmentName || departmentNameMap.get(String(row.departmentId ?? "")) || "-",
+          render: (row) => row.departmentName || departmentNameMap.get(String(row.departmentId ?? "")) || "—",
         });
       }
 
@@ -156,6 +161,8 @@ export function UsersList() {
                 <button
                   type="button"
                   aria-label={`More actions for ${row.name}`}
+                  id={`btnUserActions_${row.id}_SM_Users`}
+                  data-testid={`btnUserActions_${row.id}_SM_Users`}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-700 transition-colors hover:bg-slate-100"
                 >
                   <MoreGlyph />
@@ -164,6 +171,7 @@ export function UsersList() {
             >
               <PopoverSection className="space-y-1">
                 <UserMenuAction
+                  testId={`btnUserSettings_${row.id}_SM_Users`}
                   label={canOpenSettings(row) ? "Settings" : "Personal Details"}
                   onClick={() =>
                     navigate(
@@ -171,9 +179,10 @@ export function UsersList() {
                     )
                   }
                 />
-                <UserMenuAction label="Assign to Locations" onClick={() => setAssignLocationsUser(row)} muted />
-                <UserMenuAction label="Change Login ID" onClick={() => setChangeLoginIdUser(row)} muted />
+                <UserMenuAction testId={`btnUserAssignLocations_${row.id}_SM_Users`} label="Assign to Locations" onClick={() => setAssignLocationsUser(row)} muted />
+                <UserMenuAction testId={`btnUserChangeLoginId_${row.id}_SM_Users`} label="Change Login ID" onClick={() => setChangeLoginIdUser(row)} muted />
                 <UserMenuAction
+                  testId={`btnUserToggleStatus_${row.id}_SM_Users`}
                   label={row.status === "ACTIVE" ? "Disable" : "Enable"}
                   onClick={() => {}}
                   muted
@@ -215,16 +224,14 @@ export function UsersList() {
   const appliedAdvancedFilterCount = useMemo(() => {
     let count = 0;
     if (advancedFilters.keyword) count++;
+    if (advancedFilters.status && advancedFilters.status !== "ACTIVE") count++;
+    if (advancedFilters.userType && advancedFilters.userType !== "all") count++;
     if (advancedFilters.departmentId && advancedFilters.departmentId !== "all") count++;
-    if (advancedFilters.locationId && advancedFilters.locationId !== "all") count++;
     if (advancedFilters.firstName) count++;
     if (advancedFilters.lastName) count++;
-    if (advancedFilters.userDisplayName) count++;
     if (advancedFilters.primaryPhoneNumber) count++;
     if (advancedFilters.email) count++;
-    if (advancedFilters.gender && advancedFilters.gender !== "all") count++;
     if (advancedFilters.employeeId) count++;
-    if (advancedFilters.availableStatus && advancedFilters.availableStatus !== "all") count++;
     return count;
   }, [advancedFilters]);
 
@@ -239,6 +246,8 @@ export function UsersList() {
             variant="primary"
             size="md"
             icon={<PlusGlyph />}
+            id="btnCreateUser_SM_Users"
+            data-testid="btnCreateUser_SM_Users"
             onClick={() => setCreateDialogOpen(true)}
           >
             Create User
@@ -247,38 +256,7 @@ export function UsersList() {
       >
 
         <div className="space-y-8 py-5 px-0">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="w-56">
-                <Select
-                  value={statusFilter}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value);
-                    setPage(1);
-                  }}
-                  options={[
-                    { value: "ACTIVE", label: "Active Users" },
-                    { value: "INACTIVE", label: "Inactive Users" },
-                    { value: "all", label: "All Users" },
-                  ]}
-                />
-              </div>
-              <div className="w-56">
-                <Select
-                  value={typeFilter}
-                  onChange={(event) => {
-                    setTypeFilter(event.target.value);
-                    setPage(1);
-                  }}
-                  options={[
-                    { value: "all", label: "All Types" },
-                    { value: "PROVIDER", label: "Provider" },
-                    { value: "ASSISTANT", label: "Assistant" },
-                    { value: "ADMIN", label: "Admin" },
-                  ]}
-                />
-              </div>
-            </div>
+          <div className="flex justify-end">
             <Button
               type="button"
               variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
@@ -293,6 +271,8 @@ export function UsersList() {
                 setDrawerOpen(true);
               }}
               id="btnUserDrawerFilters_SM_Users"
+              data-testid="btnUserDrawerFilters_SM_Users"
+              data-state={appliedAdvancedFilterCount > 0 ? "active" : "default"}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -322,10 +302,6 @@ export function UsersList() {
               columns={columns}
               loading={listQuery.isLoading}
               onRowClick={(row) => navigate(`${basePath}/${row.id}`)}
-              selection={{
-                selectedRowKeys,
-                onChange: setSelectedRowKeys,
-              }}
               pagination={{
                 page,
                 pageSize,
@@ -335,8 +311,9 @@ export function UsersList() {
                 mode: "server",
               }}
               className="rounded-xl border-0 shadow-none"
-              tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-4"
+              tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-4 [&_tbody_tr:last-child]:border-b-0"
               emptyState={<EmptyState title="No users found" description="Try adjusting the active filters." />}
+              data-testid="tblUsersList_SM_Users"
             />
           </div>
         </div>
@@ -351,8 +328,36 @@ export function UsersList() {
       >
         <div className="flex flex-col flex-1 overflow-hidden h-full">
           <div className="space-y-5 flex-1 overflow-y-auto p-5">
+            <Select
+              label="Status"
+              testId="selectUserStatus_SM_Users"
+              value={draftFilters.status}
+              onChange={(event) =>
+                setDraftFilters((prev) => ({ ...prev, status: event.target.value }))
+              }
+              options={[
+                { value: "ACTIVE", label: "Active Users" },
+                { value: "INACTIVE", label: "Inactive Users" },
+                { value: "all", label: "All Users" },
+              ]}
+            />
+            <Select
+              label="User Type"
+              testId="selectUserType_SM_Users"
+              value={draftFilters.userType}
+              onChange={(event) =>
+                setDraftFilters((prev) => ({ ...prev, userType: event.target.value }))
+              }
+              options={[
+                { value: "all", label: "All Types" },
+                { value: "PROVIDER", label: "Provider" },
+                { value: "ASSISTANT", label: "Assistant" },
+                { value: "ADMIN", label: "Admin" },
+              ]}
+            />
             <Input
               id="txtUserKeyword_SM_Users"
+              data-testid="txtUserKeyword_SM_Users"
               label="Keyword"
               placeholder="Enter name, email, etc."
               value={draftFilters.keyword}
@@ -363,6 +368,7 @@ export function UsersList() {
             <div className="grid grid-cols-2 gap-3">
               <Input
                 id="txtUserFirstName_SM_Users"
+                data-testid="txtUserFirstName_SM_Users"
                 label="First Name"
                 placeholder="First Name"
                 value={draftFilters.firstName}
@@ -372,6 +378,7 @@ export function UsersList() {
               />
               <Input
                 id="txtUserLastName_SM_Users"
+                data-testid="txtUserLastName_SM_Users"
                 label="Last Name"
                 placeholder="Last Name"
                 value={draftFilters.lastName}
@@ -381,16 +388,8 @@ export function UsersList() {
               />
             </div>
             <Input
-              id="txtUserDisplayName_SM_Users"
-              label="Display Name"
-              placeholder="Display Name"
-              value={draftFilters.userDisplayName}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, userDisplayName: event.target.value }))
-              }
-            />
-            <Input
               id="txtUserPhone_SM_Users"
+              data-testid="txtUserPhone_SM_Users"
               label="Primary Phone Number"
               placeholder="Phone Number"
               value={draftFilters.primaryPhoneNumber}
@@ -400,6 +399,7 @@ export function UsersList() {
             />
             <Input
               id="txtUserEmail_SM_Users"
+              data-testid="txtUserEmail_SM_Users"
               label="Email Address"
               placeholder="email@example.com"
               value={draftFilters.email}
@@ -409,6 +409,7 @@ export function UsersList() {
             />
             <Input
               id="txtUserEmployeeId_SM_Users"
+              data-testid="txtUserEmployeeId_SM_Users"
               label="Employee ID"
               placeholder="Employee ID"
               value={draftFilters.employeeId}
@@ -419,6 +420,7 @@ export function UsersList() {
             {departmentsQuery.data && departmentsQuery.data.length > 0 && (
               <Select
                 label="Department"
+                testId="selectUserDepartment_SM_Users"
                 value={draftFilters.departmentId}
                 onChange={(event) =>
                   setDraftFilters((prev) => ({ ...prev, departmentId: event.target.value }))
@@ -426,39 +428,6 @@ export function UsersList() {
                 options={departmentOptions}
               />
             )}
-            <Select
-              label="Location"
-              value={draftFilters.locationId}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, locationId: event.target.value }))
-              }
-              options={locationOptions}
-            />
-            <Select
-              label="Gender"
-              value={draftFilters.gender}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, gender: event.target.value }))
-              }
-              options={[
-                { value: "all", label: "All Genders" },
-                { value: "MALE", label: "Male" },
-                { value: "FEMALE", label: "Female" },
-                { value: "OTHER", label: "Other" },
-              ]}
-            />
-            <Select
-              label="Availability Status"
-              value={draftFilters.availableStatus}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, availableStatus: event.target.value }))
-              }
-              options={[
-                { value: "all", label: "All Availability" },
-                { value: "AVAILABLE", label: "Available" },
-                { value: "NOT_AVAILABLE", label: "Not Available" },
-              ]}
-            />
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-slate-200 p-5 bg-white shrink-0">
@@ -472,6 +441,7 @@ export function UsersList() {
                 setDrawerOpen(false);
               }}
               id="btnResetAdvancedFilters_Drawer_Users"
+              data-testid="btnResetAdvancedFilters_Drawer_Users"
             >
               Reset All
             </Button>
@@ -484,6 +454,7 @@ export function UsersList() {
                 setDrawerOpen(false);
               }}
               id="btnApplyAdvancedFilters_Drawer_Users"
+              data-testid="btnApplyAdvancedFilters_Drawer_Users"
             >
               Apply Filters
             </Button>
@@ -517,15 +488,19 @@ function UserMenuAction({
   onClick,
   muted = false,
   destructive = false,
+  testId,
 }: {
   label: string;
   onClick: () => void;
   muted?: boolean;
   destructive?: boolean;
+  testId?: string;
 }) {
   return (
     <button
       type="button"
+      id={testId}
+      data-testid={testId}
       className={cn(
         "flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-50",
         destructive ? "text-rose-600" : muted ? "text-slate-700" : "text-slate-900"

@@ -1,47 +1,34 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from "react-router-dom";
+import { Button, FormSection, Input, PageHeader, Textarea } from "@jaldee/design-system";
+import type { Calendar } from "../../types";
 
 export default function EditCalendar() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const calendar = (location.state as { calendar?: Calendar } | null)?.calendar;
 
   return (
-    <section id="page-edit-calendar" className="page-section active h-full flex flex-col relative overflow-hidden bg-white" style={{ display: 'flex' }}>
-      {/* Back header */}
-      <div className="details-header-nav">
-        <button 
-          className="back-nav-btn" 
-          id="btn-edit-calendar-back"
-          onClick={() => navigate(-1)}
+    <main data-testid="bookings-edit-calendar-page" className="h-full overflow-y-auto bg-slate-50 p-4 md:p-6">
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Edit Calendar" subtitle="Update the calendar name and description." />
+        <form
+          data-testid="bookings-edit-calendar-form"
+          className="mt-6 rounded-xl border border-slate-200 bg-white p-5 md:p-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            navigate(-1);
+          }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          <span>Calendar Details</span>
-        </button>
+          <FormSection title="Calendar details">
+            <Input id="edit-calendar-name" data-testid="bookings-edit-calendar-name" label="Calendar name" required defaultValue={calendar?.name ?? ""} />
+            <Textarea id="edit-calendar-desc" data-testid="bookings-edit-calendar-description" label="Calendar description" defaultValue={calendar?.description ?? ""} className="md:col-span-2" />
+          </FormSection>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => navigate(-1)}>Discard</Button>
+            <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
       </div>
-
-      <div className="wizard-content-container">
-        <div className="wizard-step-panel active">
-          <h2 className="section-title">Edit Calendar</h2>
-          
-          <form id="form-edit-calendar" className="wizard-form" onSubmit={(e) => { e.preventDefault(); navigate(-1); }}>
-            <input type="hidden" id="edit-calendar-id" />
-            
-            <div className="form-group">
-              <label htmlFor="edit-calendar-name">Calendar Name <span className="required">*</span></label>
-              <input type="text" id="edit-calendar-name" required placeholder="e.g. Morning Shift" defaultValue="Morning Shift" />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="edit-calendar-desc">Calendar Description</label>
-              <textarea id="edit-calendar-desc" rows={4} placeholder="Brief description of this calendar" defaultValue="Description here"></textarea>
-            </div>
-
-            <div className="wizard-footer-actions">
-              <button type="button" className="btn btn-secondary btn-wizard-discard" id="btn-edit-calendar-discard" onClick={() => navigate(-1)}>Discard</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </section>
+    </main>
   );
 }

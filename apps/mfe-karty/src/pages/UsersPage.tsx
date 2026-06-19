@@ -95,7 +95,7 @@ export default function UsersPage() {
 
     return {
       view: "detail",
-      subview: "personal-details",
+      subview: params.subview ?? routeSegments[1] ?? "view",
       recordId: firstSegment,
       tab: "settings",
     };

@@ -5,6 +5,7 @@ import { useShellStore } from "../store/shellStore";
 import type { ProductKey } from "../store/shellStore";
 import { SETTINGS_MENU_GROUPS } from "./sidebarConfig";
 import { themeService } from "../theme/ThemeService";
+import { preloadMFE } from "../mfes/preloadMFE";
 
 const PRODUCT_CONFIG: Record<ProductKey, { label: string; icon: ReactNode }> = {
   health: { label: "Health", icon: <ShieldMedicalIcon /> },
@@ -176,6 +177,7 @@ export default function IconRail({
             label={config.label}
             active={isActive(key)}
             onClick={() => handleNavigate(key)}
+            onIntent={() => preloadMFE(key)}
           />
         );
       })}
@@ -219,9 +221,10 @@ interface RailItemProps {
   label: string;
   active: boolean;
   onClick: () => void;
+  onIntent?: () => void;
 }
 
-function RailItem({ id, product, icon, label, active, onClick }: RailItemProps) {
+function RailItem({ id, product, icon, label, active, onClick, onIntent }: RailItemProps) {
   return (
     <div
       id={id}
@@ -229,8 +232,18 @@ function RailItem({ id, product, icon, label, active, onClick }: RailItemProps) 
       data-product={product}
       data-active={active}
       onClick={onClick}
+      onMouseEnter={onIntent}
+      onFocus={onIntent}
       title={label}
       className="icon-rail-item"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       <span className="icon-rail-item-icon">{icon}</span>
       <span className="icon-rail-item-label" data-active={active}>

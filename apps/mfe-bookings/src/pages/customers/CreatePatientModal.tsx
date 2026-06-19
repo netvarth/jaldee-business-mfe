@@ -1,19 +1,20 @@
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
+import {
+  Button,
+  DialogFooter,
+  FormSection,
+  Input,
+  Select,
+} from "@jaldee/design-system";
 import { useModal } from "../../contexts/ModalContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useCreateCustomer, buildOptimisticCustomer } from "../../services/useCreateCustomer";
 import type { Customer } from "../../types";
 
-/**
- * Faithful port of the vanilla `#modal-create-patient` form (modal-card, form-row,
- * form-group, custom-select, btn-primary/secondary). Posts to /customers and
- * hands the new record back so the list updates immediately.
- */
-export default function CreatePatientModal({ onCreated }: { onCreated: (c: Customer) => void }) {
+export default function CreatePatientModal({ onCreated }: { onCreated: (customer: Customer) => void }) {
   const { closeModal } = useModal();
   const { showToast } = useToast();
   const { createCustomer } = useCreateCustomer();
-
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -22,15 +23,13 @@ export default function CreatePatientModal({ onCreated }: { onCreated: (c: Custo
   const [dob, setDob] = useState("");
   const [address, setAddress] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
     if (!firstName || !lastName || !phone) {
       showToast("Please fill First Name, Last Name and Phone.", "error");
       return;
     }
     const input = { firstName, lastName, phoneNumber: phone, email, gender, dob, address };
-    // Optimistic: show the record instantly, then persist in the background so
-    // the UI never blocks on the network (and still works with no backend).
     onCreated(buildOptimisticCustomer(input));
     showToast("Patient record created", "success");
     closeModal();
@@ -38,60 +37,24 @@ export default function CreatePatientModal({ onCreated }: { onCreated: (c: Custo
   };
 
   return (
-    <div className="modal-card">
-      <div className="modal-header">
-        <div>
-          <h3 className="modal-title">Create Patient Record</h3>
-          <p className="modal-subtitle">Save a new patient info to basic crm</p>
-        </div>
-        <button className="modal-close-btn" onClick={closeModal}>&times;</button>
-      </div>
-      <form onSubmit={handleSubmit}>
-        <div className="modal-body">
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="pat-first-name">First Name <span className="required">*</span></label>
-              <input type="text" id="pat-first-name" required placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="pat-last-name">Last Name <span className="required">*</span></label>
-              <input type="text" id="pat-last-name" required placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="pat-phone">Phone Number <span className="required">*</span></label>
-              <input type="text" id="pat-phone" required placeholder="9876543210" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="pat-email">Email Address</label>
-              <input type="email" id="pat-email" placeholder="john.doe@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="pat-gender">Gender</label>
-              <select id="pat-gender" className="custom-select" value={gender} onChange={(e) => setGender(e.target.value)}>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="pat-dob">Date of Birth</label>
-              <input type="date" id="pat-dob" value={dob} onChange={(e) => setDob(e.target.value)} />
-            </div>
-          </div>
-          <div className="form-group">
-            <label htmlFor="pat-address">Address</label>
-            <input type="text" id="pat-address" placeholder="123 Street Name, Town" value={address} onChange={(e) => setAddress(e.target.value)} />
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-          <button type="submit" className="btn btn-primary">Save Record</button>
-        </div>
-      </form>
-    </div>
+    <form data-testid="bookings-create-customer-form" onSubmit={handleSubmit} className="p-6">
+      <header className="mb-6">
+        <h2 className="text-lg font-bold text-slate-900">Create Patient Record</h2>
+        <p className="mt-1 text-sm text-slate-500">Save a new patient to the base CRM.</p>
+      </header>
+      <FormSection title="Patient details">
+        <Input id="pat-first-name" data-testid="bookings-create-customer-first-name" label="First name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        <Input id="pat-last-name" data-testid="bookings-create-customer-last-name" label="Last name" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        <Input id="pat-phone" data-testid="bookings-create-customer-phone" label="Phone number" required value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <Input id="pat-email" data-testid="bookings-create-customer-email" type="email" label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Select id="pat-gender" testId="bookings-create-customer-gender" label="Gender" value={gender} onChange={(e) => setGender(e.target.value)} options={["Male", "Female", "Other"].map((value) => ({ value, label: value }))} />
+        <Input id="pat-dob" data-testid="bookings-create-customer-dob" type="date" label="Date of birth" value={dob} onChange={(e) => setDob(e.target.value)} />
+        <Input id="pat-address" data-testid="bookings-create-customer-address" label="Address" value={address} onChange={(e) => setAddress(e.target.value)} containerClassName="md:col-span-2" />
+      </FormSection>
+      <DialogFooter>
+        <Button variant="secondary" onClick={closeModal}>Cancel</Button>
+        <Button type="submit">Save Record</Button>
+      </DialogFooter>
+    </form>
   );
 }

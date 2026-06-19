@@ -172,6 +172,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "bookings-services", label: "Services", icon: sidebarIcon(Wrench), path: "/bookings/services" },
     { id: "bookings-customers", label: "Customers", icon: sidebarIcon(Users), path: "/bookings/customers" },
     { id: "bookings-users", label: "Users", icon: sidebarIcon(Users), path: "/bookings/users" },
+    { id: "bookings-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/bookings/settings" },
   ],
   golderp: [
     { id: "golderp-overview", label: "Overview", icon: "\u25A6", path: "/golderp" },

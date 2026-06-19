@@ -9,8 +9,7 @@ import {
   createMembership,
   updateMembership,
   deleteMembership,
-  // Gallery/Attachments
-  updateGallery,
+  // Attachments
   uploadFilesToS3,
   videoaudioS3Upload,
   videoaudioS3UploadStatusUpdate,
@@ -94,7 +93,7 @@ export function useMembershipsList(filters: MembershipFilters & { page: number; 
   const scopedApi = useApiScope();
 
   return useQuery({
-    queryKey: buildScopedListQueryKey("memberships", scopedApi.apiScope, scopedApi.locationId, filters as unknown as Record<string, unknown>),
+    queryKey: buildScopedListQueryKey("memberships", scopedApi.apiScope, null, filters as unknown as Record<string, unknown>),
     queryFn: () => getMemberships(scopedApi, filters),
   });
 }
@@ -103,7 +102,7 @@ export function useMembershipsCount(filters: MembershipFilters) {
   const scopedApi = useApiScope();
 
   return useQuery({
-    queryKey: ["memberships-count", scopedApi.apiScope, scopedApi.locationId, filters],
+    queryKey: ["memberships-count", scopedApi.apiScope, null, filters],
     queryFn: () => getMembershipsCount(scopedApi, filters),
   });
 }
@@ -112,7 +111,7 @@ export function useMembershipDetail(membershipId: string) {
   const scopedApi = useApiScope();
 
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("memberships", scopedApi.apiScope, scopedApi.locationId, membershipId),
+    queryKey: buildScopedDetailQueryKey("memberships", scopedApi.apiScope, null, membershipId),
     queryFn: () => getMembership(scopedApi, membershipId),
     enabled: !!membershipId,
   });
@@ -154,14 +153,7 @@ export function useDeleteMembership() {
   });
 }
 
-// Gallery/Attachments
-export function useUpdateGallery() {
-  const scopedApi = useApiScope();
-  return useMutation({
-    mutationFn: (payload: {}) => updateGallery(scopedApi, payload),
-  });
-}
-
+// Attachments
 export function useUploadFilesToS3() {
   const scopedApi = useApiScope();
   return useMutation({
@@ -187,7 +179,7 @@ export function useVideoaudioS3UploadStatusUpdate() {
 export function useProviderLocations(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("provider-locations", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("provider-locations", scopedApi.apiScope, null, filter),
     queryFn: () => getProviderLocations(scopedApi, filter),
   });
 }
@@ -218,7 +210,7 @@ export function useUpdateSubType() {
 export function useMemberTypes(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("member-types", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("member-types", scopedApi.apiScope, null, filter),
     queryFn: () => getMemberTypes(scopedApi, filter),
   });
 }
@@ -226,7 +218,7 @@ export function useMemberTypes(filter: {} = {}) {
 export function useMemberTypeByUid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("member-types", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("member-types", scopedApi.apiScope, null, uid),
     queryFn: () => getMemberTypeByUid(scopedApi, uid),
     enabled: !!uid,
   });
@@ -235,7 +227,7 @@ export function useMemberTypeByUid(uid: string) {
 export function useMemberTypeCount(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["member-type-count", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["member-type-count", scopedApi.apiScope, null, filter],
     queryFn: () => getMemberTypeCount(scopedApi, filter),
   });
 }
@@ -273,7 +265,7 @@ export function useCreateMember() {
 export function useMembers(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("members", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("members", scopedApi.apiScope, null, filter),
     queryFn: () => getMembers(scopedApi, filter),
     placeholderData: undefined,
   });
@@ -282,7 +274,7 @@ export function useMembers(filter: {} = {}) {
 export function useMemberCount(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["member-count", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["member-count", scopedApi.apiScope, null, filter],
     queryFn: () => getMemberCount(scopedApi, filter),
     placeholderData: undefined,
   });
@@ -291,7 +283,7 @@ export function useMemberCount(filter: {} = {}) {
 export function useMemberDetailsByUid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("members", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("members", scopedApi.apiScope, null, uid),
     queryFn: () => getMemberDetailsByUid(scopedApi, uid),
     enabled: !!uid,
   });
@@ -347,7 +339,7 @@ export function useResubmitQuestionnaire() {
 export function useMemberServiceQuestionaire(serviceId: string, channel: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["member-service-questionnaire", scopedApi.apiScope, scopedApi.locationId, serviceId, channel],
+    queryKey: ["member-service-questionnaire", scopedApi.apiScope, null, serviceId, channel],
     queryFn: () => getMemberServiceQuestionaire(scopedApi, serviceId, channel),
     enabled: !!serviceId && !!channel,
   });
@@ -368,7 +360,7 @@ export function useCreateServiceType() {
 export function useServiceTypes(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("service-types", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("service-types", scopedApi.apiScope, null, filter),
     queryFn: () => getServiceTypes(scopedApi, filter),
   });
 }
@@ -376,7 +368,7 @@ export function useServiceTypes(filter: {} = {}) {
 export function useServiceTypeCount(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["service-type-count", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["service-type-count", scopedApi.apiScope, null, filter],
     queryFn: () => getServiceTypeCount(scopedApi, filter),
   });
 }
@@ -384,7 +376,7 @@ export function useServiceTypeCount(filter: {} = {}) {
 export function useServiceTypeByUid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("service-types", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("service-types", scopedApi.apiScope, null, uid),
     queryFn: () => getServiceTypeByUid(scopedApi, uid),
     enabled: !!uid,
   });
@@ -416,7 +408,7 @@ export function useChangeServiceTypeStatus() {
 export function useMemberSubscriptionByUid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("member-subscriptions", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("member-subscriptions", scopedApi.apiScope, null, uid),
     queryFn: () => getMemberSubscriptionByUid(scopedApi, uid),
     enabled: !!uid,
   });
@@ -425,7 +417,7 @@ export function useMemberSubscriptionByUid(uid: string) {
 export function useAllMemberSubscriptions(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("all-member-subscriptions", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("all-member-subscriptions", scopedApi.apiScope, null, filter),
     queryFn: () => getAllMemberSubscriptions(scopedApi, filter),
   });
 }
@@ -433,7 +425,7 @@ export function useAllMemberSubscriptions(filter: {} = {}) {
 export function useAllMemberSubscriptionsCount(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["all-member-subscriptions-count", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["all-member-subscriptions-count", scopedApi.apiScope, null, filter],
     queryFn: () => getAllMemberSubscriptionsCount(scopedApi, filter),
   });
 }
@@ -441,7 +433,7 @@ export function useAllMemberSubscriptionsCount(filter: {} = {}) {
 export function useAllMemberSubscriptionByuid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("all-member-subscription", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("all-member-subscription", scopedApi.apiScope, null, uid),
     queryFn: () => getAllMemberSubscriptionByuid(scopedApi, uid),
     enabled: !!uid,
   });
@@ -477,7 +469,7 @@ export function usePaymentlink() {
 export function useTemplates(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("templates", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("templates", scopedApi.apiScope, null, filter),
     queryFn: () => getTemplates(scopedApi, filter),
   });
 }
@@ -485,7 +477,7 @@ export function useTemplates(filter: {} = {}) {
 export function useTemplatesByuuid(tempUid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("templates", scopedApi.apiScope, scopedApi.locationId, tempUid),
+    queryKey: buildScopedDetailQueryKey("templates", scopedApi.apiScope, null, tempUid),
     queryFn: () => getTemplatesByuuid(scopedApi, tempUid),
     enabled: !!tempUid,
   });
@@ -494,7 +486,7 @@ export function useTemplatesByuuid(tempUid: string) {
 export function useMemberTemplatesByuuid(tempUid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("member-templates", scopedApi.apiScope, scopedApi.locationId, tempUid),
+    queryKey: buildScopedDetailQueryKey("member-templates", scopedApi.apiScope, null, tempUid),
     queryFn: () => getMemberTemplatesByuuid(scopedApi, tempUid),
     enabled: !!tempUid,
   });
@@ -515,7 +507,7 @@ export function useCreateService() {
 export function useServices(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("services", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("services", scopedApi.apiScope, null, filter),
     queryFn: () => getServices(scopedApi, filter),
     placeholderData: undefined,
   });
@@ -546,7 +538,7 @@ export function useUpdateService() {
 export function useServiceCount(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["service-count", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["service-count", scopedApi.apiScope, null, filter],
     queryFn: () => getServiceCount(scopedApi, filter),
     placeholderData: undefined,
   });
@@ -555,7 +547,7 @@ export function useServiceCount(filter: {} = {}) {
 export function useServiceByUid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("services", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("services", scopedApi.apiScope, null, uid),
     queryFn: () => getServiceByUid(scopedApi, uid),
     enabled: !!uid,
   });
@@ -593,7 +585,7 @@ export function useAssignGroupToService() {
 export function useAllMemberServices(id: string, from: number, count: number) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["member-services", scopedApi.apiScope, scopedApi.locationId, id, from, count],
+    queryKey: ["member-services", scopedApi.apiScope, null, id, from, count],
     queryFn: () => getAllMemberServices(scopedApi, id, from, count),
     enabled: !!id,
   });
@@ -602,7 +594,7 @@ export function useAllMemberServices(id: string, from: number, count: number) {
 export function useAllMemberServicesCount(id: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["member-services-count", scopedApi.apiScope, scopedApi.locationId, id],
+    queryKey: ["member-services-count", scopedApi.apiScope, null, id],
     queryFn: () => getAllMemberServicesCount(scopedApi, id),
     enabled: !!id,
   });
@@ -611,7 +603,7 @@ export function useAllMemberServicesCount(id: string) {
 export function useAllServiceMembers(id: string, from: number, count: number) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["service-members", scopedApi.apiScope, scopedApi.locationId, id, from, count],
+    queryKey: ["service-members", scopedApi.apiScope, null, id, from, count],
     queryFn: () => getAllServiceMembers(scopedApi, id, from, count),
     enabled: !!id,
   });
@@ -620,7 +612,7 @@ export function useAllServiceMembers(id: string, from: number, count: number) {
 export function useAllServiceMembersCount(id: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["service-members-count", scopedApi.apiScope, scopedApi.locationId, id],
+    queryKey: ["service-members-count", scopedApi.apiScope, null, id],
     queryFn: () => getAllServiceMembersCount(scopedApi, id),
     enabled: !!id,
   });
@@ -638,7 +630,7 @@ export function useChangeAssignedServiceStatus() {
 export function useLabelList() {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["label-list", scopedApi.apiScope, scopedApi.locationId],
+    queryKey: ["label-list", scopedApi.apiScope, null],
     queryFn: () => getLabelList(scopedApi),
   });
 }
@@ -647,7 +639,7 @@ export function useLabelList() {
 export function useAnalytics(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["analytics", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["analytics", scopedApi.apiScope, null, filter],
     queryFn: () => getAnalytics(scopedApi, filter),
   });
 }
@@ -655,7 +647,7 @@ export function useAnalytics(filter: {} = {}) {
 export function useGraphAnalyticsData(payload: any[]) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["analytics-graph", scopedApi.apiScope, scopedApi.locationId, payload],
+    queryKey: ["analytics-graph", scopedApi.apiScope, null, payload],
     queryFn: () => getGraphAnalyticsData(scopedApi, payload),
     enabled: payload.length > 0,
   });
@@ -688,7 +680,7 @@ export function useUpdateMemberGroup() {
 export function useMemberGroup(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedListQueryKey("member-groups", scopedApi.apiScope, scopedApi.locationId, filter),
+    queryKey: buildScopedListQueryKey("member-groups", scopedApi.apiScope, null, filter),
     queryFn: () => getMemberGroup(scopedApi, filter),
   });
 }
@@ -696,7 +688,7 @@ export function useMemberGroup(filter: {} = {}) {
 export function useMemberGroupCount(filter: {} = {}) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: ["member-group-count", scopedApi.apiScope, scopedApi.locationId, filter],
+    queryKey: ["member-group-count", scopedApi.apiScope, null, filter],
     queryFn: () => getMemberGroupCount(scopedApi, filter),
   });
 }
@@ -723,7 +715,7 @@ export function useAddMemberToGroup() {
 export function useGroupByUid(uid: string) {
   const scopedApi = useApiScope();
   return useQuery({
-    queryKey: buildScopedDetailQueryKey("member-groups", scopedApi.apiScope, scopedApi.locationId, uid),
+    queryKey: buildScopedDetailQueryKey("member-groups", scopedApi.apiScope, null, uid),
     queryFn: () => getGroupByUid(scopedApi, uid),
     enabled: !!uid,
   });

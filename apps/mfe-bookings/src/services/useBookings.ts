@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { createdBookings } from "../data/sessionStore";
+import { unwrapList } from "./response";
 
-/** Raw booking row from GET /bookings?date (BookingDto). */
+/** Raw booking row from POST /bookings/search (BookingDto). */
 interface BookingDto {
   uid?: string;
   calendarUid?: string;
@@ -66,8 +67,12 @@ export function useBookings(date: string) {
     // Bookings created in this session are real user actions — always shown.
     const sessionForDate = createdBookings.filter((b) => b.bookingDate === date) as never[];
     try {
-      const data = await api.get<BookingDto[]>(`/bookings?date=${date}`);
-      const live = (data ?? []).map(toCalendarBooking) as never[];
+      const data = await api.post<unknown>(
+        "/bookings/search",
+        { date },
+        { params: { page: 0, size: 100 } },
+      );
+      const live = unwrapList<BookingDto>(data).map(toCalendarBooking) as never[];
       setBookings([...sessionForDate, ...live]);
     } catch (e) {
       // No sample/mock fallback — surface the failure and show only real

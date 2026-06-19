@@ -5,8 +5,8 @@ import path from "path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const authServiceProxyTarget = env.VITE_AUTH_SERVICE_PROXY_TARGET || "http://192.168.29.87:8080";
-  const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET || authServiceProxyTarget;
+  const authServiceProxyTarget = env.VITE_AUTH_SERVICE_PROXY_TARGET;
+  const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET;
 
   return {
     base: "/shell/",
@@ -45,36 +45,30 @@ export default defineConfig(({ mode }) => {
             from: "vite",
             externalType: "url",
           },
+          mfe_hr: {
+            external: `${env.VITE_HR_URL}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          }
         },
       }),
     ],
     resolve: {
       alias: {
-        "@jaldee/design-system": path.resolve(__dirname, "../../packages/design-system/src/index.ts"),
-        "@jaldee/auth-context": path.resolve(__dirname, "../../packages/auth-context/src/index.ts"),
+        "@jaldee/design-system": path.resolve(__dirname, "../../packages/design-system"),
+        "@jaldee/auth-context": path.resolve(__dirname, "../../packages/auth-context"),
         "@jaldee/event-bus": path.resolve(__dirname, "../../packages/event-bus/src/index.ts"),
-        "@jaldee/api-client": path.resolve(__dirname, "../../packages/api-client/src/index.ts"),
+        "@jaldee/api-client": path.resolve(__dirname, "../../packages/api-client"),
       },
     },
     build: {
       target: "esnext",
       minify: "esbuild",
+      cssCodeSplit: false,
     },
     server: {
       port: 3000,
       proxy: {
-        "/api": {
-          target: "https://scale.jaldee.com",
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/api/, "/v1/rest"),
-        },
-        "/superadmin-api": {
-          target: "https://sascale.jaldee.com",
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/superadmin-api/, "/superadmin/rest/mgmt"),
-        },
         "/auth-service": {
           target: authServiceProxyTarget,
           changeOrigin: true,
@@ -85,23 +79,26 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/platform-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/hr-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/booking-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        }
       },
     },
     preview: {
       port: 3000,
       proxy: {
-        "/api": {
-          target: "https://scale.jaldee.com",
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/api/, "/v1/rest"),
-        },
-        "/superadmin-api": {
-          target: "https://sascale.jaldee.com",
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/superadmin-api/, "/superadmin/rest/mgmt"),
-        },
         "/auth-service": {
           target: authServiceProxyTarget,
           changeOrigin: true,
@@ -112,6 +109,21 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/platform-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/hr-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/booking-service": {
+          target: baseServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        }
       },
     },
   };

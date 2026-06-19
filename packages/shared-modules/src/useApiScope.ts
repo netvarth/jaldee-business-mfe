@@ -27,6 +27,23 @@ function buildScopedUrl(path: string, apiScope: ScopeAwareRequestConfig["apiScop
   return `${normalizedPath}${separator}locationId=${encodeURIComponent(locationId)}`;
 }
 
+/**
+ * Set _skipLocationParam: true so the api-client request interceptor does NOT
+ * inject ?location=<id> into the query string for tenant-wide requests
+ * (e.g. membership, where data is not location-scoped).
+ */
+function withSkipLocation(config?: unknown): unknown {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return { _skipLocationParam: true };
+  }
+  const c = config as Record<string, unknown>;
+  const { skipLocationScope, ...rest } = c;
+  return {
+    ...rest,
+    _skipLocationParam: true,
+  };
+}
+
 export function useApiScope() {
   const { api, apiScope, location } = useSharedModulesContext();
 
@@ -41,6 +58,9 @@ export function useApiScope() {
     };
     const isScopedRequestConfig = (config: unknown): config is ScopedRequestConfig =>
       Boolean(config) && typeof config === "object" && !Array.isArray(config);
+    const shouldSkip = (config: unknown) =>
+      isScopedRequestConfig(config) && Boolean((config as ScopedRequestConfig).skipLocationScope);
+
     const preparePostRequest = (path: string, config?: unknown) => {
       if (!isScopedRequestConfig(config) || !config.skipLocationScope) {
         return {
@@ -52,7 +72,7 @@ export function useApiScope() {
       const { skipLocationScope, ...requestConfig } = config;
       return {
         url: normalizePath(path),
-        config: requestConfig,
+        config: { ...requestConfig, _skipLocationParam: true },
       };
     };
 
@@ -60,14 +80,26 @@ export function useApiScope() {
       apiScope,
       locationId,
       buildUrl: (path: string) => buildScopedUrl(path, apiScope, locationId),
-      get: <T>(path: string, config?: unknown) => api.get<T>(normalizePath(path), config),
+      get: <T>(path: string, config?: unknown) => {
+        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        return api.get<T>(normalizePath(path), cfg);
+      },
       post: <T>(path: string, data?: unknown, config?: unknown) => {
         const request = preparePostRequest(path, config);
         return api.post<T>(request.url, data, request.config);
       },
-      put: <T>(path: string, data?: unknown, config?: unknown) => api.put<T>(normalizePath(path), data, config),
-      patch: <T>(path: string, data?: unknown, config?: unknown) => api.patch<T>(normalizePath(path), data, config),
-      delete: <T>(path: string, config?: unknown) => api.delete<T>(normalizePath(path), config),
+      put: <T>(path: string, data?: unknown, config?: unknown) => {
+        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        return api.put<T>(normalizePath(path), data, cfg);
+      },
+      patch: <T>(path: string, data?: unknown, config?: unknown) => {
+        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        return api.patch<T>(normalizePath(path), data, cfg);
+      },
+      delete: <T>(path: string, config?: unknown) => {
+        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        return api.delete<T>(normalizePath(path), cfg);
+      },
     };
   }, [api, apiScope, location]);
 }

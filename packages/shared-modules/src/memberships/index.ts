@@ -30,8 +30,7 @@ export {
   useCreateMembership,
   useUpdateMembership,
   useDeleteMembership,
-  // Gallery/Attachments
-  useUpdateGallery,
+  // Attachments
   useUploadFilesToS3,
   useVideoaudioS3Upload,
   useVideoaudioS3UploadStatusUpdate,

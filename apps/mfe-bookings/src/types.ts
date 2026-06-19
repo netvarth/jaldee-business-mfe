@@ -34,6 +34,21 @@ export interface Calendar {
   name: string;
   description: string;
   status: string;
+  color?: string;
+  locationName?: string;
+  services?: string[];
+  users?: string[];
+  bookingChannels?: string[];
+  capacityOverride?: number | null;
+  tags?: string[];
+}
+
+export interface CalendarSettingsRequest {
+  color?: string | null;
+  users?: string[];
+  bookingChannels?: string[];
+  capacityOverride?: number | null;
+  tags?: string[];
 }
 
 export interface Schedule {

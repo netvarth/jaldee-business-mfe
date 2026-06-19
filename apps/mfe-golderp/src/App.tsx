@@ -1,23 +1,25 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Button, EmptyState, PageErrorBoundary, PageHeader, SectionCard } from "@jaldee/design-system";
-import AuditPage from "./pages/AuditPage";
-import CataloguePage from "./pages/CataloguePage";
-import DashboardPage from "./pages/DashboardPage";
-import GrnPage from "./pages/GrnPage";
-import InventoryPage from "./pages/InventoryPage";
-import IndependentGrnPage from "./pages/IndependentGrnPage";
-import MasterDataPage from "./pages/MasterDataPage";
-import MetalRatesPage from "./pages/MetalRatesPage";
-import OnlineOrdersPage from "./pages/OnlineOrdersPage";
-import OldGoldPage from "./pages/OldGoldPage";
-import PurchasePage from "./pages/PurchasePage";
-import PurchaseWorkspacePage from "./pages/PurchaseWorkspacePage";
-import ReportsPage from "./pages/ReportsPage";
-import SalesInvoicePage from "./pages/SalesInvoicePage";
-import SalesPage from "./pages/SalesPage";
-import SalesOrderCreatePage from "./pages/SalesOrderCreatePage";
-import TagsPage from "./pages/TagsPage";
-import DrivePage from "./pages/DrivePage";
+
+const AuditPage = lazy(() => import("./pages/AuditPage"));
+const CataloguePage = lazy(() => import("./pages/CataloguePage"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const GrnPage = lazy(() => import("./pages/GrnPage"));
+const InventoryPage = lazy(() => import("./pages/InventoryPage"));
+const IndependentGrnPage = lazy(() => import("./pages/IndependentGrnPage"));
+const MasterDataPage = lazy(() => import("./pages/MasterDataPage"));
+const MetalRatesPage = lazy(() => import("./pages/MetalRatesPage"));
+const OnlineOrdersPage = lazy(() => import("./pages/OnlineOrdersPage"));
+const OldGoldPage = lazy(() => import("./pages/OldGoldPage"));
+const PurchasePage = lazy(() => import("./pages/PurchasePage"));
+const PurchaseWorkspacePage = lazy(() => import("./pages/PurchaseWorkspacePage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const SalesInvoicePage = lazy(() => import("./pages/SalesInvoicePage"));
+const SalesPage = lazy(() => import("./pages/SalesPage"));
+const SalesOrderCreatePage = lazy(() => import("./pages/SalesOrderCreatePage"));
+const TagsPage = lazy(() => import("./pages/TagsPage"));
+const DrivePage = lazy(() => import("./pages/DrivePage"));
 
 const sectionLabels: Record<string, string> = {
   audit: "Audit Log",
@@ -70,6 +72,7 @@ function PurchaseAliasRedirect() {
 
 export default function App() {
   return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading Gold ERP...</div>}>
     <Routes>
       <Route
         path=""
@@ -261,5 +264,6 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
+    </Suspense>
   );
 }

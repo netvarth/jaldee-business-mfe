@@ -1,4 +1,5 @@
 import type { Membership, MembershipFilters, MembershipFormValues } from "../types";
+import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../../serviceUrls";
 
 interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
@@ -13,8 +14,9 @@ export interface MembershipListResponse {
   total: number;
 }
 
-const MEMBERSHIP_BASE = "/base-service/v1/api/tenant/membership";
-const MEMBERSHIP_SERVICE_BASE = `${MEMBERSHIP_BASE}/service/api/membership`;
+const MEMBERSHIP_BASE = buildBaseServiceUrl("/base-service/v1/api/tenant/membership");
+const MEMBERSHIP_SERVICE_BASE = `${MEMBERSHIP_BASE}/service/api`;
+const FILE_UPLOAD_BASE = buildBaseServiceUrl("/base-service/v1/api/provider/fileShare/upload");
 const MEMBERSHIP_REQUEST_CONFIG = { skipLocationScope: true } as const;
 
 const membershipEndpoints = {
@@ -118,13 +120,9 @@ function postMembership<T = any>(scopedApi: ScopedApi, path: string, data?: unkn
   return scopedApi.post<T>(path, data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
-// Gallery/Attachments
-export async function updateGallery(scopedApi: ScopedApi, payload: {}): Promise<any> {
-  return scopedApi.put("provider/spitem/attachments", payload);
-}
-
+// Attachments
 export async function uploadFilesToS3(scopedApi: ScopedApi, data: any): Promise<any> {
-  return scopedApi.post("provider/fileShare/upload", data);
+  return scopedApi.post(FILE_UPLOAD_BASE, data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function videoaudioS3Upload(scopedApi: ScopedApi, file: any, url: string): Promise<any> {
@@ -132,12 +130,19 @@ export async function videoaudioS3Upload(scopedApi: ScopedApi, file: any, url: s
 }
 
 export async function videoaudioS3UploadStatusUpdate(scopedApi: ScopedApi, status: string, id: string): Promise<any> {
-  return scopedApi.put(`provider/fileShare/upload/${status}/${id}`, null);
+  return scopedApi.put(
+    `${FILE_UPLOAD_BASE}/${encodeURIComponent(status)}/${encodeURIComponent(id)}`,
+    null,
+    MEMBERSHIP_REQUEST_CONFIG
+  );
 }
 
 // Locations
 export async function getProviderLocations(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get("provider/locations", { params: filter });
+  return scopedApi.get(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.search),
+    { params: filter, ...MEMBERSHIP_REQUEST_CONFIG }
+  );
 }
 
 // Member Types (Subscription Types)
@@ -146,7 +151,7 @@ export async function createSubType(scopedApi: ScopedApi, data: any): Promise<an
 }
 
 export async function updateSubType(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.subscriptionTypes.update(id), data);
+  return scopedApi.put(membershipEndpoints.subscriptionTypes.update(id), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getMemberTypes(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
@@ -154,7 +159,7 @@ export async function getMemberTypes(scopedApi: ScopedApi, filter: {} = {}): Pro
 }
 
 export async function getMemberTypeByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.subscriptionTypes.detail(uid));
+  return scopedApi.get(membershipEndpoints.subscriptionTypes.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getMemberTypeCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
@@ -162,11 +167,11 @@ export async function getMemberTypeCount(scopedApi: ScopedApi, filter: {} = {}):
 }
 
 export async function addLabeltoTypes(scopedApi: ScopedApi, uid: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.subscriptionTypes.update(uid), data);
+  return scopedApi.put(membershipEndpoints.subscriptionTypes.update(uid), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function changeMemberTypeStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.subscriptionTypes.status(uid, statusId), null);
+  return scopedApi.patch(membershipEndpoints.subscriptionTypes.status(uid, statusId), null, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 // Members
@@ -183,19 +188,19 @@ export async function getMemberCount(scopedApi: ScopedApi, filter: {} = {}): Pro
 }
 
 export async function getMemberDetailsByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.members.detail(uid));
+  return scopedApi.get(membershipEndpoints.members.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function updateMembers(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.members.update(id), data);
+  return scopedApi.put(membershipEndpoints.members.update(id), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function changeMemberStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.members.status(uid, statusId), null);
+  return scopedApi.patch(membershipEndpoints.members.status(uid, statusId), null, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function changeMemberSubscriptionStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.subscriptions.status(uid, statusId), null);
+  return scopedApi.patch(membershipEndpoints.subscriptions.status(uid, statusId), null, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function submitQuestionnaire(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
@@ -207,7 +212,10 @@ export async function resubmitQuestionnaire(scopedApi: ScopedApi, id: string, da
 }
 
 export async function getMemberServiceQuestionaire(scopedApi: ScopedApi, serviceId: string, channel: string): Promise<any> {
-  return scopedApi.get(`provider/questionnaire/memberservice/${serviceId}/${channel}`);
+  return scopedApi.get(
+    `${MEMBERSHIP_BASE}/questionnaire/memberservice/${encodeURIComponent(serviceId)}/${encodeURIComponent(channel)}`,
+    MEMBERSHIP_REQUEST_CONFIG
+  );
 }
 
 // Service Types
@@ -224,20 +232,20 @@ export async function getServiceTypeCount(scopedApi: ScopedApi, filter: {} = {})
 }
 
 export async function getServiceTypeByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.serviceCategories.detail(uid));
+  return scopedApi.get(membershipEndpoints.serviceCategories.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function updateServiceType(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.serviceCategories.update(id), data);
+  return scopedApi.put(membershipEndpoints.serviceCategories.update(id), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function changeServiceTypeStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.serviceCategories.status(uid, statusId), null);
+  return scopedApi.patch(membershipEndpoints.serviceCategories.status(uid, statusId), null, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 // Subscriptions
 export async function getMemberSubscriptionByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.subscriptions.detail(uid));
+  return scopedApi.get(membershipEndpoints.subscriptions.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getAllMemberSubscriptions(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
@@ -249,7 +257,7 @@ export async function getAllMemberSubscriptionsCount(scopedApi: ScopedApi, filte
 }
 
 export async function getAllMemberSubscriptionByuid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.subscriptions.detail(uid));
+  return scopedApi.get(membershipEndpoints.subscriptions.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function addNewServiceType(scopedApi: ScopedApi, data: any): Promise<any> {
@@ -290,11 +298,11 @@ export async function getServices(scopedApi: ScopedApi, filter: {} = {}): Promis
 }
 
 export async function changeServiceStatus(scopedApi: ScopedApi, uid: string, statusId: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.services.status(uid, statusId), null);
+  return scopedApi.patch(membershipEndpoints.services.status(uid, statusId), null, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function updateService(scopedApi: ScopedApi, id: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.services.update(id), data);
+  return scopedApi.put(membershipEndpoints.services.update(id), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getServiceCount(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
@@ -302,12 +310,12 @@ export async function getServiceCount(scopedApi: ScopedApi, filter: {} = {}): Pr
 }
 
 export async function getServiceByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.services.detail(uid));
+  return scopedApi.get(membershipEndpoints.services.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 // Renewals/Assignments
 export async function getPaymentRenewByUid(scopedApi: ScopedApi, uid: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.subscriptions.detail(uid), data);
+  return scopedApi.put(membershipEndpoints.subscriptions.detail(uid), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function assignService(scopedApi: ScopedApi, data: any): Promise<any> {
@@ -326,11 +334,11 @@ export async function assignGroupToService(scopedApi: ScopedApi, data: any): Pro
 }
 
 export async function getAllMemberServices(scopedApi: ScopedApi, id: string, from: number, count: number): Promise<any> {
-  return scopedApi.get(membershipEndpoints.memberServices.services(id), { params: withPagination({}, from, count) });
+  return scopedApi.get(membershipEndpoints.memberServices.services(id), { params: withPagination({}, from, count), ...MEMBERSHIP_REQUEST_CONFIG });
 }
 
 export async function getAllMemberServicesCount(scopedApi: ScopedApi, id: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.memberServices.servicesCount(id));
+  return scopedApi.get(membershipEndpoints.memberServices.servicesCount(id), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getAllServiceMembers(scopedApi: ScopedApi, id: string, from: number, count: number): Promise<any> {
@@ -338,27 +346,30 @@ export async function getAllServiceMembers(scopedApi: ScopedApi, id: string, fro
 }
 
 export async function getAllServiceMembersCount(scopedApi: ScopedApi, id: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.services.membersCount(id));
+  return scopedApi.get(membershipEndpoints.services.membersCount(id), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function changeAssignedServiceStatus(scopedApi: ScopedApi, memberId: string, uid: string, status: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.serviceTransactions.status(uid, status), { memberUid: memberId });
+  return scopedApi.patch(membershipEndpoints.serviceTransactions.status(uid, status), { memberUid: memberId }, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 // Labels
 export async function getLabelList(scopedApi: ScopedApi): Promise<any> {
-  return scopedApi.get("provider/waitlist/label");
+  return scopedApi.get(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantLabels.tenant),
+    MEMBERSHIP_REQUEST_CONFIG
+  );
 }
 
 // Analytics
 export async function getAnalytics(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
-  return scopedApi.get(`${MEMBERSHIP_BASE}/analytics`, { params: filter });
+  return scopedApi.get(`${MEMBERSHIP_BASE}/analytics`, { params: filter, ...MEMBERSHIP_REQUEST_CONFIG });
 }
 
 export async function getGraphAnalyticsData(scopedApi: ScopedApi, data: any[]): Promise<any[]> {
   return Promise.all(
     data.map((item) =>
-      scopedApi.put(`${MEMBERSHIP_BASE}/analytics/graph`, item).then((response) => response.data)
+      scopedApi.put(`${MEMBERSHIP_BASE}/analytics/graph`, item, MEMBERSHIP_REQUEST_CONFIG).then((response) => response.data)
     )
   );
 }
@@ -369,7 +380,7 @@ export async function createMemberGroup(scopedApi: ScopedApi, data: any): Promis
 }
 
 export async function updateMemberGroup(scopedApi: ScopedApi, memberGroupUid: string, data: any): Promise<any> {
-  return scopedApi.put(membershipEndpoints.groups.update(memberGroupUid), data);
+  return scopedApi.put(membershipEndpoints.groups.update(memberGroupUid), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getMemberGroup(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
@@ -381,16 +392,16 @@ export async function getMemberGroupCount(scopedApi: ScopedApi, filter: {} = {})
 }
 
 export async function changeMemberGroupStatus(scopedApi: ScopedApi, groupId: string, statusId: string): Promise<any> {
-  return scopedApi.patch(membershipEndpoints.groups.status(groupId, statusId), null);
+  return scopedApi.patch(membershipEndpoints.groups.status(groupId, statusId), null, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function addMemberToGroup(scopedApi: ScopedApi, data: any): Promise<any> {
   const memberUid = String(data?.memberUid ?? data?.memberId ?? data?.uid ?? "");
-  return scopedApi.put(membershipEndpoints.members.update(memberUid), data);
+  return scopedApi.put(membershipEndpoints.members.update(memberUid), data, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function getGroupByUid(scopedApi: ScopedApi, uid: string): Promise<any> {
-  return scopedApi.get(membershipEndpoints.groups.detail(uid));
+  return scopedApi.get(membershipEndpoints.groups.detail(uid), MEMBERSHIP_REQUEST_CONFIG);
 }
 
 export async function createGroupMemberId(scopedApi: ScopedApi, body: any): Promise<any> {
@@ -399,7 +410,7 @@ export async function createGroupMemberId(scopedApi: ScopedApi, body: any): Prom
 
 export async function updateGroupMemberId(scopedApi: ScopedApi, body: any): Promise<any> {
   const groupUid = String(body?.groupUid ?? body?.groupId ?? body?.uid ?? "");
-  return scopedApi.put(membershipEndpoints.groups.update(groupUid), body);
+  return scopedApi.put(membershipEndpoints.groups.update(groupUid), body, MEMBERSHIP_REQUEST_CONFIG);
 }
 
 // Original membership CRUD (keeping for compatibility)
@@ -441,7 +452,7 @@ export async function getMembershipsCount(
 }
 
 export async function getMembership(scopedApi: ScopedApi, id: string): Promise<Membership> {
-  return scopedApi.get<Membership>(membershipEndpoints.members.detail(id)).then(res => res.data);
+  return scopedApi.get<Membership>(membershipEndpoints.members.detail(id), MEMBERSHIP_REQUEST_CONFIG).then(res => res.data);
 }
 
 export async function createMembership(scopedApi: ScopedApi, data: MembershipFormValues): Promise<Membership> {
@@ -449,9 +460,9 @@ export async function createMembership(scopedApi: ScopedApi, data: MembershipFor
 }
 
 export async function updateMembership(scopedApi: ScopedApi, id: string, data: MembershipFormValues): Promise<Membership> {
-  return scopedApi.put<Membership>(membershipEndpoints.members.update(id), data).then(res => res.data);
+  return scopedApi.put<Membership>(membershipEndpoints.members.update(id), data, MEMBERSHIP_REQUEST_CONFIG).then(res => res.data);
 }
 
 export async function deleteMembership(scopedApi: ScopedApi, id: string): Promise<void> {
-  return scopedApi.patch(membershipEndpoints.members.status(id, "INACTIVE"), null).then(() => undefined);
+  return scopedApi.patch(membershipEndpoints.members.status(id, "INACTIVE"), null, MEMBERSHIP_REQUEST_CONFIG).then(() => undefined);
 }

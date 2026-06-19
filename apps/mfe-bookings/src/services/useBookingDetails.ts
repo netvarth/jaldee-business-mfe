@@ -5,6 +5,7 @@ import type {
   TimelineEvent,
   AllowedAction,
 } from "../types";
+import { unwrapList } from "./response";
 
 export interface ActionExtra {
   reason?: string;
@@ -58,8 +59,8 @@ export function useBookingDetails() {
   const refreshTimeline = useCallback(
     async (uid: string) => {
       try {
-        const t = await api.get<TimelineEvent[]>(`/bookings/${uid}/timeline`);
-        setTimeline(t ?? []);
+        const response = await api.get<unknown>(`/bookings/${uid}/timeline`);
+        setTimeline(unwrapList<TimelineEvent>(response));
       } catch {
         /* timeline optional */
       }

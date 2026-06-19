@@ -10,6 +10,7 @@ export function UsersModule() {
   const { routeParams } = useSharedModulesContext();
   const view = routeParams?.view ?? "overview";
   const recordId = routeParams?.recordId ?? null;
+  const subview = routeParams?.subview ?? null;
   const tab = routeParams?.tab ?? null;
 
   if (!access.allowed) {
@@ -34,6 +35,7 @@ export function UsersModule() {
       <UserDetailView
         userId={recordId}
         standalone={tab === "standalone"}
+        mode={subview === "edit" ? "edit" : "view"}
       />
     );
   }
