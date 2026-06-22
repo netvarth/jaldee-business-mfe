@@ -4,19 +4,21 @@ const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"))
 import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
-  Download, Trash2, Plus,
+  Download, Trash2, Plus, ChevronDown,
 } from "lucide-react";
-import { PageHeader, Select, DatePicker } from "@jaldee/design-system";
+import { PageHeader, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
+import type { PhoneInputValue } from "@jaldee/design-system";
+import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployee } from "../../services/useEmployee";
 import { useEmployees } from "../../services/useEmployees";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import { useHrApi } from "../../services/useHrApi";
-import { useBranches } from "../../services/useBranches";
 import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
 import { usePayslips } from "../../services/usePayrollData";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import type { Employee } from "../../types";
+import "./employees.css";
 
 type Tab = "overview" | "attendance" | "leaves" | "payroll" | "documents";
 
@@ -28,6 +30,13 @@ const td: CSSProperties = { padding: "12px", fontSize: 13, color: "var(--dark-te
 const field = "h-11 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none";
 
 function initial(n?: string) { return n?.charAt(0)?.toUpperCase() || "?"; }
+function toPhoneInputValue(value?: string | null): PhoneInputValue {
+  const normalized = String(value ?? "").trim();
+  const match = normalized.match(/^(\+\d{1,3})(\d+)$/);
+  return match
+    ? { countryCode: match[1], number: match[2], e164Number: normalized }
+    : { countryCode: "+91", number: normalized.replace(/\D/g, ""), e164Number: "" };
+}
 function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
 
 function Panel({ icon, title, sub, action, children, full }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode; children: React.ReactNode; full?: boolean }) {
@@ -80,41 +89,48 @@ function StatusPill({ s }: { s?: string }) {
 export default function EmployeeDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
+  const routeLocation = useLocation();
+  const { location: activeLocation, eventBus } = useMFEProps();
   const api = useHrApi();
   const { data: employee, loading, error, reload } = useEmployee(id);
   const { data: allEmployees } = useEmployees();
   const { data: designations } = useDesignations();
   const { data: departments } = useDepartments();
-  const { data: branches } = useBranches();
   const { data: allAttendance } = useAttendance();
   const { data: allLeaves } = useLeaves();
   const { data: allPayslips } = usePayslips();
 
-  const isEditing = new URLSearchParams(location.search).get("edit") === "true";
+  const isEditing = new URLSearchParams(routeLocation.search).get("edit") === "true";
   const [tab, setTab] = useState<Tab>("overview");
   const [editTab, setEditTab] = useState<"personal" | "employment" | "bank">("personal");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Employee>>({});
+  const [contactNumber, setContactNumber] = useState<PhoneInputValue>({
+    countryCode: "+91",
+    number: "",
+    e164Number: "",
+  });
   const [faceOpen, setFaceOpen] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
 
   useEffect(() => {
-    if (employee) setForm({
-      name: employee.name, email: employee.email, contactNumber: employee.contactNumber,
+    if (employee) {
+      setForm({
+      name: employee.name, email: employee.email,
       gender: employee.gender, dob: employee.dob, doj: employee.doj, department: employee.department,
       designation: employee.designation, status: employee.status, employmentType: employee.employmentType,
-      reportingManagerUid: employee.reportingManagerUid ?? undefined, branchUid: employee.branchUid ?? undefined,
+      reportingManagerUid: employee.reportingManagerUid ?? undefined,
       pan: (employee as Record<string, unknown>).pan as string | undefined,
       uan: (employee as Record<string, unknown>).uan as string | undefined,
       bankDetails: employee.bankDetails ?? { accountNumber: "", bankName: "", ifscCode: "" },
       salaryStructure: employee.salaryStructure ?? {},
-    });
+      });
+      setContactNumber(toPhoneInputValue(employee.contactNumber));
+    }
   }, [employee]);
 
   const managerName = useMemo(() => allEmployees.find((e) => e.id === employee?.reportingManagerUid)?.name, [employee, allEmployees]);
-  const branchName = useMemo(() => branches.find((b) => b.id === employee?.branchUid)?.name, [branches, employee]);
   const myAttendance = useMemo(() => allAttendance.filter((a) => a.employeeUid === employee?.id), [allAttendance, employee]);
   const myLeaves = useMemo(() => allLeaves.filter((l) => l.employeeUid === employee?.id), [allLeaves, employee]);
   const myPayslips = useMemo(() => allPayslips.filter((p) => p.employeeUid === employee?.id), [allPayslips, employee]);
@@ -139,20 +155,49 @@ export default function EmployeeDetails() {
   const setF = (k: keyof Employee) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((p) => ({ ...p, [k]: e.target.value }));
   const handleSave = async () => {
     if (!employee) return;
+    if (!form.name || !form.email || !contactNumber.number) {
+      const message = "Name, email, and contact number are required.";
+      setSaveError(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Employee update",
+        message,
+      });
+      setEditTab("personal");
+      return;
+    }
     setSaving(true); setSaveError(null);
     try {
       const payload: Record<string, unknown> = {
-        employeeId: employee.employeeId, name: form.name, email: form.email, contactNumber: form.contactNumber || null,
+        employeeId: employee.employeeId, name: form.name, email: form.email,
+        contactNumber: contactNumber.e164Number || `${contactNumber.countryCode}${contactNumber.number}`,
         gender: form.gender || null, dob: form.dob || null, doj: form.doj || null, department: form.department || null,
         designation: form.designation || null, employmentType: form.employmentType || null, role: employee.role || "employee",
-        status: form.status || "Active", pan: form.pan || null, uan: form.uan || null, bankDetails: form.bankDetails, salaryStructure: form.salaryStructure,
+        status: form.status || "Active", locationUid: activeLocation.id,
+        pan: form.pan || null, uan: form.uan || null, bankDetails: form.bankDetails, salaryStructure: form.salaryStructure,
       };
       if (form.reportingManagerUid) payload.reportingManagerUid = form.reportingManagerUid;
-      if (form.branchUid) payload.branchUid = form.branchUid;
       const desigLevel = designations.find((d) => d.name === form.designation)?.level;
       if (desigLevel != null) payload.hierarchyLevel = desigLevel;
-      await api.put(`/employees/${employee.id}`, payload); await reload(); navigate(`/employees/${employee.id}`);
-    } catch (e) { setSaveError(e instanceof Error ? e.message : "Failed to save."); } finally { setSaving(false); }
+      await api.put(`/employees/${employee.id}`, payload);
+      await reload();
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Employee updated",
+        message: `${form.name || employee.name} was updated successfully.`,
+      });
+      navigate(`/employees/${employee.id}`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to save.";
+      setSaveError(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Employee update failed",
+        message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const enrollFace = async (descriptor: number[]) => {
@@ -192,9 +237,10 @@ export default function EmployeeDetails() {
     const setSal = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, salaryStructure: { ...(p.salaryStructure ?? {}), [k]: Number(e.target.value) } }));
     return (
       <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <div style={{ width: "100%" }}>
           <PageHeader
             title="Edit Employee Profile"
+            subtitle="Update personal, employment, and payroll information."
             back={{ label: "Back to Profile", href: `/employees/${employee.id}` }}
             onNavigate={(href) => navigate(href)}
           />
@@ -202,11 +248,24 @@ export default function EmployeeDetails() {
           {(() => {
             const groups: Record<string, React.ReactNode> = {
               personal: (<>
-                <div className="form-group"><label>Full Name</label><input className={field} value={form.name ?? ""} onChange={setF("name")} /></div>
-                <div className="form-group"><label>Email</label><input className={field} value={form.email ?? ""} onChange={setF("email")} /></div>
-                <div className="form-group"><label>Contact</label><input className={field} value={form.contactNumber ?? ""} onChange={setF("contactNumber")} /></div>
-                <div className="form-group">
-                  <Select
+                <div className="form-group"><label>Full Name <span className="required">*</span></label><input required className={field} value={form.name ?? ""} onChange={setF("name")} /></div>
+                <div className="employee-edit-email-contact-pair">
+                  <div className="form-group"><label>Email <span className="required">*</span></label><input required type="email" className={field} value={form.email ?? ""} onChange={setF("email")} /></div>
+                  <div className="form-group">
+                    <PhoneInput
+                      id="hr-edit-employee-contact-number"
+                      testId="hr-edit-employee-contact-number"
+                      label="Contact Number"
+                      required
+                      value={contactNumber}
+                      onChange={setContactNumber}
+                      preferredCountries={["in"]}
+                    />
+                  </div>
+                </div>
+                <div className="employee-edit-personal-pair">
+                  <div className="form-group">
+                    <Select
                     id="hr-employee-gender"
                     testId="hr-employee-gender"
                     label="Gender"
@@ -214,26 +273,30 @@ export default function EmployeeDetails() {
                     onChange={setF("gender")}
                     options={[
                       { value: "", label: "—" },
-                      { value: "Male", label: "Male" },
-                      { value: "Female", label: "Female" },
-                      { value: "Other", label: "Other" }
+                      { value: "OTHER", label: "Other" },
+                      { value: "FEMALE", label: "Female" },
+                      { value: "MALE", label: "Male" }
                     ]}
-                  />
-                </div>
-                <div className="form-group">
-                  <DatePicker
+                    />
+                  </div>
+                  <div className="form-group">
+                    <DatePicker
                     id="hr-employee-dob"
                     label="Date of Birth"
                     value={form.dob ?? ""}
                     onChange={setF("dob")}
-                  />
+                    />
+                  </div>
                 </div>
-                <div className="form-group"><label>PAN</label><input className={field} value={form.pan ?? ""} onChange={setF("pan")} /></div>
-                <div className="form-group"><label>UAN</label><input className={field} value={form.uan ?? ""} onChange={setF("uan")} /></div>
+                <div className="employee-edit-field-pair">
+                  <div className="form-group"><label>PAN</label><input className={field} value={form.pan ?? ""} onChange={setF("pan")} /></div>
+                  <div className="form-group"><label>UAN</label><input className={field} value={form.uan ?? ""} onChange={setF("uan")} /></div>
+                </div>
               </>),
               employment: (<>
-                <div className="form-group">
-                  <Select
+                <div className="employee-edit-field-pair">
+                  <div className="form-group">
+                    <Select
                     id="hr-employee-designation"
                     testId="hr-employee-designation"
                     label="Role / Designation"
@@ -244,10 +307,10 @@ export default function EmployeeDetails() {
                       ...designations.map((d) => ({ value: d.name, label: `${d.name}${d.level != null ? ` · L${d.level}` : ""}` })),
                       ...(form.designation && !designations.some((d) => d.name === form.designation) ? [{ value: form.designation, label: form.designation }] : [])
                     ]}
-                  />
-                </div>
-                <div className="form-group">
-                  <Select
+                    />
+                  </div>
+                  <div className="form-group">
+                    <Select
                     id="hr-employee-department"
                     testId="hr-employee-department"
                     label="Department"
@@ -258,18 +321,20 @@ export default function EmployeeDetails() {
                       ...departments.map((d) => ({ value: d.name, label: d.name })),
                       ...(form.department && !departments.some((d) => d.name === form.department) ? [{ value: form.department, label: form.department }] : [])
                     ]}
-                  />
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <DatePicker
+                <div className="employee-edit-field-pair">
+                  <div className="form-group">
+                    <DatePicker
                     id="hr-employee-doj"
                     label="Date of Joining"
                     value={form.doj ?? ""}
                     onChange={setF("doj")}
-                  />
-                </div>
-                <div className="form-group">
-                  <Select
+                    />
+                  </div>
+                  <div className="form-group">
+                    <Select
                     id="hr-employee-employment-type"
                     testId="hr-employee-employment-type"
                     label="Employment Type"
@@ -277,16 +342,20 @@ export default function EmployeeDetails() {
                     onChange={setF("employmentType")}
                     options={[
                       { value: "", label: "—" },
-                      { value: "Full-time", label: "Full-time" },
-                      { value: "Contract", label: "Contract" },
-                      { value: "Daily Wage", label: "Daily Wage" },
+                      { value: "FullTime", label: "Full-time" },
+                      { value: "PartTime", label: "Part-time" },
                       { value: "Hourly", label: "Hourly" },
-                      { value: "Intern", label: "Intern" }
+                      { value: "Intern", label: "Intern" },
+                      { value: "Consultant", label: "Consultant" },
+                      { value: "DailyWage", label: "Daily wage" },
+                      { value: "Contract", label: "Contract" },
                     ]}
-                  />
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <Select
+                <div className="employee-edit-field-pair">
+                  <div className="form-group">
+                    <Select
                     id="hr-employee-status"
                     testId="hr-employee-status"
                     label="Status"
@@ -300,23 +369,10 @@ export default function EmployeeDetails() {
                       { value: "Inactive", label: "Inactive" },
                       { value: "Left", label: "Left" }
                     ]}
-                  />
-                </div>
-                <div className="form-group">
-                  <Select
-                    id="hr-employee-branch"
-                    testId="hr-employee-branch"
-                    label="Branch"
-                    value={form.branchUid ?? ""}
-                    onChange={setF("branchUid")}
-                    options={[
-                      { value: "", label: "No Branch" },
-                      ...branches.map((b) => ({ value: b.id, label: b.name }))
-                    ]}
-                  />
-                </div>
-                <div className="form-group">
-                  <Select
+                    />
+                  </div>
+                  <div className="form-group">
+                    <Select
                     id="hr-employee-manager"
                     testId="hr-employee-manager"
                     label="Reporting Manager"
@@ -326,27 +382,89 @@ export default function EmployeeDetails() {
                       { value: "", label: "—" },
                       ...allEmployees.filter((e) => e.id !== employee.id).map((e) => ({ value: e.id, label: `${e.name}${e.designation ? ` (${e.designation})` : ""}` }))
                     ]}
-                  />
+                    />
+                  </div>
                 </div>
               </>),
               bank: (<>
-                <div className="form-group"><label>Bank Name</label><input className={field} value={bank.bankName ?? ""} onChange={setBank("bankName")} /></div>
-                <div className="form-group"><label>Account Number</label><input className={field} value={bank.accountNumber ?? ""} onChange={setBank("accountNumber")} /></div>
-                <div className="form-group"><label>IFSC Code</label><input className={field} value={bank.ifscCode ?? ""} onChange={setBank("ifscCode")} /></div>
-                <div className="form-group"><label>Basic</label><input type="number" className={field} value={sal.basic ?? ""} onChange={setSal("basic")} /></div>
-                <div className="form-group"><label>HRA</label><input type="number" className={field} value={sal.hra ?? ""} onChange={setSal("hra")} /></div>
-                <div className="form-group"><label>Allowance</label><input type="number" className={field} value={sal.allowance ?? ""} onChange={setSal("allowance")} /></div>
+                <div className="employee-edit-field-pair">
+                  <div className="form-group"><label>Bank Name</label><input className={field} value={bank.bankName ?? ""} onChange={setBank("bankName")} /></div>
+                  <div className="form-group"><label>Account Number</label><input className={field} value={bank.accountNumber ?? ""} onChange={setBank("accountNumber")} /></div>
+                </div>
+                <div className="employee-edit-field-pair">
+                  <div className="form-group"><label>IFSC Code</label><input className={field} value={bank.ifscCode ?? ""} onChange={setBank("ifscCode")} /></div>
+                  <div className="form-group"><label>Basic</label><input type="number" className={field} value={sal.basic ?? ""} onChange={setSal("basic")} /></div>
+                </div>
+                <div className="employee-edit-field-pair">
+                  <div className="form-group"><label>HRA</label><input type="number" className={field} value={sal.hra ?? ""} onChange={setSal("hra")} /></div>
+                  <div className="form-group"><label>Allowance</label><input type="number" className={field} value={sal.allowance ?? ""} onChange={setSal("allowance")} /></div>
+                </div>
               </>),
             };
-            const editTabs: [typeof editTab, string][] = [["personal", "Personal Info"], ["employment", "Employment Info"], ["bank", "Bank Details"]];
+            const editSections: Array<{
+              key: typeof editTab;
+              title: string;
+              description: string;
+              icon: React.ReactNode;
+              note: string;
+            }> = [
+              {
+                key: "personal",
+                title: "Personal Info",
+                description: "Identity, contact, and statutory details.",
+                icon: <UserCircle2 size={24} />,
+                note: "Keep contact and statutory information current for employee communication and compliance.",
+              },
+              {
+                key: "employment",
+                title: "Employment Info",
+                description: "Role, department, status, and reporting line.",
+                icon: <Briefcase size={24} />,
+                note: "Employment settings determine reporting structure, workforce status, and HR workflows.",
+              },
+              {
+                key: "bank",
+                title: "Bank Details",
+                description: "Bank account and salary structure.",
+                icon: <CreditCard size={24} />,
+                note: "Verify banking and salary information carefully before the next payroll cycle.",
+              },
+            ];
             return (
-              <div style={{ ...card, padding: 0, marginBottom: 20, overflow: "hidden" }}>
-                <div style={{ display: "flex", gap: 4, padding: 8, background: "rgba(100,116,139,0.06)", borderBottom: "1px solid var(--border-color)" }}>
-                  {editTabs.map(([k, lab]) => (
-                    <button key={k} type="button" onClick={() => setEditTab(k)} style={{ flex: 1, height: 40, borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, background: editTab === k ? "var(--surface-bg)" : "transparent", color: editTab === k ? "var(--dark-text)" : "var(--light-text)", boxShadow: editTab === k ? "var(--shadow-sm)" : "none" }}>{lab}</button>
-                  ))}
-                </div>
-                <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>{groups[editTab]}</div>
+              <div className="employee-edit-accordion">
+                {editSections.map((section) => {
+                  const isOpen = editTab === section.key;
+                  return (
+                    <div key={section.key} className={`employee-edit-accordion__item${isOpen ? " is-open" : ""}`}>
+                      <button
+                        type="button"
+                        className="employee-edit-accordion__trigger"
+                        aria-expanded={isOpen}
+                        onClick={() => setEditTab(section.key)}
+                      >
+                        <span>
+                          <strong>{section.title}</strong>
+                          <small>{section.description}</small>
+                        </span>
+                        <ChevronDown size={18} aria-hidden="true" />
+                      </button>
+                      {isOpen && (
+                        <div className={`employee-edit-form employee-edit-form--${section.key}`}>
+                          <div className="employee-edit-form__fields">
+                            {groups[section.key]}
+                          </div>
+                          <aside className="employee-edit-context">
+                            <div className="employee-edit-context__icon">{section.icon}</div>
+                            <p className="employee-edit-context__eyebrow">Profile guidance</p>
+                            <h3>{section.title}</h3>
+                            <p>{section.note}</p>
+                            <span>Changes are applied when you save the employee profile.</span>
+                          </aside>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
@@ -427,7 +545,7 @@ export default function EmployeeDetails() {
                     <Field k="Joining Date" v={formatDate(employee.doj)} /><Field k="System Role" v={employee.role} />
                     <Field k="Employment Type" v={employee.employmentType || "Full-Time"} /><Field k="Reporting Manager" v={managerName || "No Manager Assigned"} />
                     <Field k="PAN" v={emp.pan as string} mono /><Field k="UAN" v={emp.uan as string} mono />
-                    <Field k="Work Site / Branch" v={branchName || "Remote / Not Assigned"} />
+                    <Field k="Work Site / Branch" v={employee.branchUid || "Remote / Not Assigned"} />
                   </div>
                 </Panel>
                 <Panel icon={<CreditCard size={20} />} title="Bank Details (Active Account)" sub="Registered information for monthly pay disbursements" full>

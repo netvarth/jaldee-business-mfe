@@ -14,7 +14,12 @@ import { apiClient } from "@jaldee/api-client";
  * All responses are wrapped in `ApiResponse<T> = { status, data, timestamp }`,
  * so we unwrap `.data` here and hand callers the raw payload.
  */
-const BASE = "/hr-service/v1/api/tenant";
+const GATEWAY_PREFIX = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX
+  ? `/${import.meta.env.VITE_SERVICE_GATEWAY_PREFIX.replace(/^\/+|\/+$/g, "")}`
+  : "";
+const BASE =
+  import.meta.env.VITE_HR_API_BASE_PATH ||
+  `${GATEWAY_PREFIX}/hr-service/v1/api/tenant`;
 
 type Json = Record<string, unknown> | unknown[];
 
@@ -22,6 +27,13 @@ function buildHrServiceUrl(endpoint: string) {
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   return new URL(`${BASE}${normalizedEndpoint}`, window.location.origin).toString();
 }
+
+interface CacheEntry {
+  promise: Promise<any>;
+  timestamp: number;
+}
+const getCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 2000; // 2 seconds cache
 
 export function useHrApi() {
   const { authToken } = useMFEProps();
@@ -33,6 +45,55 @@ export function useHrApi() {
       body?: Json
     ): Promise<T> {
       const timeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
+
+      if (method === "GET") {
+        const cacheKey = buildHrServiceUrl(endpoint);
+        const cached = getCache.get(cacheKey);
+        const now = Date.now();
+
+        if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+          return cached.promise as Promise<T>;
+        }
+
+        const promise = (async () => {
+          try {
+            const res = await apiClient.request<any>({
+              url: cacheKey,
+              method,
+              data: body,
+              timeout,
+              _skipLocationParam: true,
+            });
+
+            const parsed = res.data;
+            return parsed && typeof parsed === "object" && "data" in parsed
+              ? (parsed as { data: T }).data
+              : (parsed as T);
+          } catch (err: any) {
+            getCache.delete(cacheKey);
+            if (err.code === "ECONNABORTED") {
+              throw new Error(`Request timed out after ${timeout}ms. Ensure the backend is running and reachable.`);
+            }
+            const status = err.response?.status;
+            const statusText = err.response?.statusText || "";
+            const data = err.response?.data;
+            let detail = "";
+            if (data) {
+              detail = data.message || data.error || data.detail || (typeof data === "string" ? data : "");
+            }
+            throw new Error(
+              `HR API ${status || "Error"} ${statusText}${detail ? ` — ${detail}` : err.message ? ` — ${err.message}` : ""}`
+            );
+          }
+        })();
+
+        getCache.set(cacheKey, { promise, timestamp: now });
+        return promise;
+      }
+
+      // If mutating (POST, PUT, DELETE), invalidate cache to load fresh values next time
+      getCache.clear();
+
       try {
         const res = await apiClient.request<any>({
           url: buildHrServiceUrl(endpoint),

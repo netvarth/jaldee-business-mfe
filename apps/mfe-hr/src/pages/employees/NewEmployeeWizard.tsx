@@ -7,6 +7,7 @@ import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "../../services/useHrApi";
 import { useEmployees } from "../../services/useEmployees";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
+import "./employees.css";
 
 export default function NewEmployeeWizard() {
   const navigate = useNavigate();
