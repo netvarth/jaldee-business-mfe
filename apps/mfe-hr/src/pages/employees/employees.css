@@ -1,0 +1,230 @@
+/* ==================== EMPLOYEE PROFILE EDIT ACCORDION ==================== */
+.employee-edit-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.employee-edit-accordion__item {
+    background: var(--surface-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.employee-edit-accordion__item:hover {
+    border-color: var(--color-border-strong, #cbd5e1);
+    box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1));
+}
+
+.employee-edit-accordion__item.is-open {
+    border-color: var(--color-border-strong, #cbd5e1);
+    box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1));
+}
+
+.employee-edit-accordion__trigger {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    outline: none;
+    transition: background-color 0.2s ease;
+}
+
+.employee-edit-accordion__trigger:hover {
+    background-color: var(--app-bg, #f8fafc);
+}
+
+.employee-edit-accordion__trigger span {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.employee-edit-accordion__trigger strong {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--dark-text, #1e293b);
+}
+
+.employee-edit-accordion__trigger small {
+    font-size: 12px;
+    color: var(--light-text, #64748b);
+    font-weight: 500;
+}
+
+.employee-edit-accordion__trigger svg {
+    color: var(--light-text, #64748b);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.employee-edit-accordion__item.is-open .employee-edit-accordion__trigger svg {
+    transform: rotate(180deg);
+    color: var(--primary-color, #115e59);
+}
+
+.employee-edit-form {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 32px;
+    padding: 24px;
+    background: var(--surface-bg, #ffffff);
+}
+
+.employee-edit-form__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.employee-edit-context {
+    border-left: 1px solid var(--border-color, #e2e8f0);
+    padding: 0 0 0 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+@media (max-width: 1366px) {
+    .employee-edit-form {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    .employee-edit-context {
+        display: none;
+    }
+}
+
+.employee-edit-context__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--primary-light, #ecfdf5);
+    color: var(--primary-color, #115e59);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+
+.employee-edit-context__eyebrow {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--light-text, #64748b);
+    margin: 0 !important;
+}
+
+.employee-edit-context h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--dark-text, #1e293b);
+    margin: 0 !important;
+}
+
+.employee-edit-context p {
+    font-size: 12px;
+    color: var(--light-text, #64748b);
+    line-height: 1.5;
+    margin: 0 !important;
+}
+
+.employee-edit-context span {
+    font-size: 11px;
+    color: var(--light-text, #64748b);
+    font-style: italic;
+    margin-top: 6px;
+    display: block;
+}
+
+/* ==================== FIELD LAYOUT COLUMN PAIRS ==================== */
+.employee-edit-email-contact-pair,
+.employee-edit-personal-pair,
+.employee-edit-field-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 1024px) {
+    .employee-edit-email-contact-pair,
+    .employee-edit-personal-pair,
+    .employee-edit-field-pair {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
+/* ==================== EMPLOYEE CREATION WIZARD ==================== */
+.employee-creation-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.employee-contact-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.employee-contact-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.employee-personal-pair-wide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.employee-personal-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+}
+
+.employee-aadhaar-field {
+    max-width: 320px;
+}
+
+.employee-employment-type-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.employee-base-salary-field {
+    width: 100%;
+}
+
+@media (max-width: 1024px) {
+    .employee-contact-row,
+    .employee-employment-type-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .employee-personal-pair-wide,
+    .employee-personal-pair {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .employee-aadhaar-field {
+        max-width: 100%;
+    }
+}

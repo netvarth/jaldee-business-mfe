@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const authServiceProxyTarget = env.VITE_AUTH_SERVICE_PROXY_TARGET;
   const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET;
+  const platformServiceProxyTarget = env.VITE_PLATFORM_SERVICE_PROXY_TARGET;
+  const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET;
+  const bookingServiceProxyTarget = env.VITE_BOOKING_SERVICE_PROXY_TARGET;
 
   return {
     base: "/",
@@ -80,17 +83,17 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
         "/platform-service": {
-          target: baseServiceProxyTarget,
+          target: platformServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         },
         "/hr-service": {
-          target: baseServiceProxyTarget,
+          target: hrServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         },
         "/booking-service": {
-          target: baseServiceProxyTarget,
+          target: bookingServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         }
@@ -110,17 +113,17 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
         "/platform-service": {
-          target: baseServiceProxyTarget,
+          target: platformServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         },
         "/hr-service": {
-          target: baseServiceProxyTarget,
+          target: hrServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         },
         "/booking-service": {
-          target: baseServiceProxyTarget,
+          target: bookingServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         }

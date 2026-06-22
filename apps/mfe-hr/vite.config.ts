@@ -28,7 +28,7 @@ export default defineConfig({
   build: {
     target:       "esnext",
     minify:       "esbuild",
-    cssCodeSplit: true,
+    cssCodeSplit: false,
   },
   server: {
     port: 4008,

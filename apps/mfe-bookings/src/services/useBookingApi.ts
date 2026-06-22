@@ -15,7 +15,12 @@ import { apiClient } from "@jaldee/api-client";
  * All responses are wrapped in `ApiResponse<T> = { status, data, timestamp }`,
  * so we unwrap `.data` here and hand callers the raw payload.
  */
-const BASE_PATH = "/booking-service/v1/api/tenant";
+const GATEWAY_PREFIX = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX
+  ? `/${import.meta.env.VITE_SERVICE_GATEWAY_PREFIX.replace(/^\/+|\/+$/g, "")}`
+  : "";
+const BASE_PATH =
+  import.meta.env.VITE_BOOKINGS_API_BASE_PATH ||
+  `${GATEWAY_PREFIX}/booking-service/v1/api/tenant`;
 
 function buildBookingServiceUrl(endpoint: string) {
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;

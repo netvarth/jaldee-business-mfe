@@ -365,6 +365,12 @@ function getConfiguredBaseServiceBaseUrl() {
   return import.meta.env.VITE_BASE_SERVICE_BASE_URL?.trim().replace(/\/$/, "") || "";
 }
 
+function getServiceGatewayPrefix() {
+  const prefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
+  if (!prefix || prefix === "/") return "";
+  return `/${prefix.replace(/^\/+|\/+$/g, "")}`;
+}
+
 export function isTokenAuthMode() {
   return (
     (typeof window !== "undefined" && (window as any).__JALDEE_AUTH_MODE__ === "token") ||
@@ -376,10 +382,14 @@ export const isTokenAuth = isTokenAuthMode();
 
 function buildServiceUrl(path: string, baseUrl: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  if (!baseUrl) {
+  const configuredBase = baseUrl || getServiceGatewayPrefix();
+  if (!configuredBase) {
     return typeof window !== "undefined" ? `${window.location.origin}${normalizedPath}` : normalizedPath;
   }
-  return `${baseUrl}${normalizedPath}`;
+  const combinedPath = `${configuredBase}${normalizedPath}`;
+  return typeof window !== "undefined" && configuredBase.startsWith("/")
+    ? new URL(combinedPath, window.location.origin).toString()
+    : combinedPath;
 }
 
 export function buildAuthServiceUrl(path: string) {

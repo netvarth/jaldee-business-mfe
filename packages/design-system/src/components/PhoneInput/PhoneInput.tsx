@@ -219,7 +219,7 @@ export function PhoneInput({
       {label ? (
         <label htmlFor={`${fieldId}-number`} className="ds-form-label">
           {label}
-          {required ? <span aria-hidden="true"> *</span> : null}
+          {required ? <span className="ds-phone-input__required" aria-hidden="true"> *</span> : null}
         </label>
       ) : null}
 
