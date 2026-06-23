@@ -44,16 +44,11 @@ function sanitizePhonePart(value?: string) {
 }
 
 function normalizeParkingType(value: string) {
-  switch (value) {
-    case "street":
-      return "STREET";
-    case "private":
-      return "PRIVATE";
-    case "valet":
-      return "VALET";
-    default:
-      return "NONE";
-  }
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "PRIVATE") return "PRIVATE_LOT";
+  return ["VALET", "STREET", "PRIVATE_LOT", "NONE", "PAID", "FREE"].includes(normalized)
+    ? normalized
+    : "NONE";
 }
 
 function isRealEmail(value?: string) {

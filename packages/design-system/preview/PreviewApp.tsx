@@ -313,6 +313,13 @@ export default function PreviewApp() {
           }
         />
 
+        <PageHeader
+          variant="navigation"
+          title="Inventory Catalogs"
+          back={{ href: "#", label: "Back to inventory" }}
+          onNavigate={() => undefined}
+        />
+
         <div className="grid gap-4 lg:grid-cols-[1.6fr,0.9fr]">
           <SectionCard
             title="Preview workspace"

@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { PageHeader, Select } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Drawer, EmptyState, PageHeader, Select, cn } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
@@ -19,6 +20,15 @@ export default function EmployeeMaster() {
   const { data: employees, loading, error, remove } = useEmployees();
   const [searchTerm, setSearchTerm] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [draftDeptFilter, setDraftDeptFilter] = useState("all");
+  const [draftStatusFilter, setDraftStatusFilter] = useState("all");
+  const [draftTypeFilter, setDraftTypeFilter] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -26,6 +36,15 @@ export default function EmployeeMaster() {
     () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[],
     [employees]
   );
+  const statuses = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.status).filter(Boolean))) as string[],
+    [employees]
+  );
+  const employmentTypes = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.employmentType).filter(Boolean))) as string[],
+    [employees]
+  );
+  const appliedFilterCount = [deptFilter, statusFilter, typeFilter].filter((value) => value !== "all").length;
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -36,9 +55,37 @@ export default function EmployeeMaster() {
         e.email?.toLowerCase().includes(q) ||
         e.designation?.toLowerCase().includes(q);
       const matchesDept = deptFilter === "all" || e.department === deptFilter;
-      return matchesQ && matchesDept;
+      const matchesStatus = statusFilter === "all" || e.status === statusFilter;
+      const matchesType = typeFilter === "all" || e.employmentType === typeFilter;
+      return matchesQ && matchesDept && matchesStatus && matchesType;
     });
-  }, [employees, searchTerm, deptFilter]);
+  }, [employees, searchTerm, deptFilter, statusFilter, typeFilter]);
+
+  const openFilters = () => {
+    setDraftDeptFilter(deptFilter);
+    setDraftStatusFilter(statusFilter);
+    setDraftTypeFilter(typeFilter);
+    setFiltersOpen(true);
+  };
+
+  const resetFilters = () => {
+    setDraftDeptFilter("all");
+    setDraftStatusFilter("all");
+    setDraftTypeFilter("all");
+    setDeptFilter("all");
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setPage(1);
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setDeptFilter(draftDeptFilter);
+    setStatusFilter(draftStatusFilter);
+    setTypeFilter(draftTypeFilter);
+    setPage(1);
+    setFiltersOpen(false);
+  };
 
   const handleExport = () => {
     exportToCSV(
@@ -153,6 +200,116 @@ export default function EmployeeMaster() {
     }
   };
 
+  const columns: ColumnDef<Employee>[] = [
+    {
+      key: "name",
+      header: "Employee & ID",
+      width: "28%",
+      sortable: true,
+      render: (employee) => (
+        <div className="flex min-w-0 items-center gap-3">
+          {employee.photoUrl ? (
+            <img src={employee.photoUrl} alt={employee.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-semibold text-white">
+              {initials(employee.name)}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{employee.name || "Unknown"}</div>
+            <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "department",
+      header: "Department / Designation",
+      width: "25%",
+      sortable: true,
+      render: (employee) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium">{employee.department || "—"}</div>
+          <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.designation || "—"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      width: "13%",
+      filter: {
+        value: statusFilter,
+        allValue: "all",
+        searchable: true,
+        searchPlaceholder: "Search status...",
+        testId: "hr-employees-inline-status-filter",
+        options: [
+          { value: "all", label: "All Statuses" },
+          ...statuses.map((status) => ({ value: status, label: status })),
+        ],
+        onChange: (value) => {
+          setStatusFilter(value);
+          setDraftStatusFilter(value);
+          setPage(1);
+        },
+      },
+      render: (employee) => (
+        <Badge
+          variant={
+            employee.status === "Active"
+              ? "success"
+              : employee.status === "Inactive" || employee.status === "Left"
+                ? "neutral"
+                : "warning"
+          }
+          dot
+        >
+          {employee.status || "Unknown"}
+        </Badge>
+      ),
+    },
+    {
+      key: "employmentType",
+      header: "Type",
+      width: "14%",
+      sortable: true,
+      render: (employee) => employee.employmentType || "—",
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      width: "20%",
+      align: "right",
+      render: (employee) => (
+        <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+          <Button size="sm" variant="outline" className="!h-8 !px-3 text-xs" data-testid={`hr-employee-view-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}`)}>
+            View
+          </Button>
+          <Button size="sm" variant="outline" className="!h-8 !px-3 text-xs" data-testid={`hr-employee-edit-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}?edit=true`)}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            iconOnly
+            className="!h-8 !w-8 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
+            aria-label={`Delete ${employee.name}`}
+            data-testid={`hr-employee-delete-${employee.id}`}
+            onClick={() => handleDelete(employee)}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              </svg>
+            }
+          />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section
       id="page-employees"
@@ -163,29 +320,46 @@ export default function EmployeeMaster() {
       <PageHeader
         title="Employee Master"
         subtitle="Manage employee profiles, departments, roles, and workforce status."
+        actions={
+          <div className="employee-master-header-actions">
+            <button
+              id="hr-employees-import-button"
+              data-testid="hr-employees-import-button"
+              className="btn-grid-action"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {importing ? "Importing..." : "Import CSV"}
+            </button>
+            <button
+              id="hr-employees-export-button"
+              data-testid="hr-employees-export-button"
+              className="btn-grid-action"
+              onClick={handleExport}
+            >
+              Export CSV
+            </button>
+            <button
+              id="hr-employees-create-button"
+              data-testid="hr-employees-create-button"
+              className="btn btn-primary"
+              onClick={() => navigate("/employees/new")}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" /></svg>
+              New Employee
+            </button>
+          </div>
+        }
       />
-      <div className="customers-header">
-        <div className="customers-tabs">
+      <div className="customers-header employee-master-header">
+        <div className="customers-tabs employee-master-tabs">
           <div className="customer-tab active" id="hr-employees-tab" data-testid="hr-employees-tab" data-active="true">Employees ({employees.length})</div>
           <div className="customer-tab" id="hr-contractors-tab" data-testid="hr-contractors-tab" data-active="false">Contractors</div>
         </div>
       </div>
 
-      <div className="customers-toolbar" data-testid="hr-employees-toolbar">
-        <div style={{ display: "flex", gap: 12, flex: 1, alignItems: "center" }}>
-          <Select
-            id="hr-employees-department-filter"
-            testId="hr-employees-department-filter"
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            containerClassName="w-[160px]"
-            fullWidth={false}
-            options={[
-              { value: "all", label: "All Depts" },
-              ...departments.map((d) => ({ value: d, label: d }))
-            ]}
-          />
-          <div className="c-search-bar" style={{ flex: 1, maxWidth: 320 }}>
+      <div className="customers-toolbar employee-master-toolbar" data-testid="hr-employees-toolbar">
+        <div className="employee-master-filters">
+          <div className="c-search-bar employee-master-search">
             <input
               id="hr-employees-search"
               data-testid="hr-employees-search"
@@ -193,112 +367,149 @@ export default function EmployeeMaster() {
               placeholder="Enter name, email or ID"
               className="c-search-input"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
             />
             <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
           </div>
-          <div className="c-filter-btn" id="hr-employees-filter-indicator" data-testid="hr-employees-filter-indicator">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="var(--primary-color)" stroke="none"><path d="M3 4c0-1.1.9-2 2-2h14a2 2 0 0 1 2 2v2.5c0 .6-.2 1.1-.6 1.5L14 14.2V21c0 .8-.5 1.4-1.2 1.8l-2 1c-1 .5-2.2-.2-2.2-1.3v-8.3L3.6 8A2.2 2.2 0 0 1 3 6.5V4z" /></svg>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button
-            id="hr-employees-import-button"
-            data-testid="hr-employees-import-button"
-            className="btn-grid-action"
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "8px", fontWeight: 600 }}
-            onClick={() => fileInputRef.current?.click()}
+          <Button
+            type="button"
+            id="hr-employees-filter-indicator"
+            data-testid="hr-employees-filter-indicator"
+            variant={appliedFilterCount > 0 ? "primary" : "outline"}
+            className={cn(
+              "ml-auto flex shrink-0 items-center gap-2 rounded-md px-4 py-2 font-semibold",
+              appliedFilterCount > 0
+                ? ""
+                : "border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
+            )}
+            aria-label="Open employee filters"
+            onClick={openFilters}
           >
-            {importing ? "Importing..." : "Import CSV"}
-          </button>
-          <button
-            id="hr-employees-export-button"
-            data-testid="hr-employees-export-button"
-            className="btn-grid-action"
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "8px", fontWeight: 600 }}
-            onClick={handleExport}
-          >
-            Export CSV
-          </button>
-          <button
-            id="hr-employees-create-button"
-            data-testid="hr-employees-create-button"
-            className="btn btn-primary"
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "var(--primary-color)", color: "white", cursor: "pointer", fontWeight: 600 }}
-            onClick={() => navigate("/employees/new")}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" /></svg>
-            New Employee
-          </button>
+            <FilterIcon />
+            <span>Filter</span>
+            {appliedFilterCount > 0 ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[var(--color-primary)]">
+                {appliedFilterCount}
+              </span>
+            ) : null}
+          </Button>
         </div>
       </div>
 
-      <div className="customers-table-container" data-testid="hr-employees-table-container">
-        {error ? (
-          <div style={{ textAlign: "center", padding: "32px", color: "var(--danger-color)" }}>Could not load employees.</div>
-        ) : (
-          <table className="data-grid" data-testid="hr-employees-table">
-            <thead>
-              <tr>
-                <th style={{ width: 48, textAlign: "center" }}><input id="hr-employees-select-all" data-testid="hr-employees-select-all" type="checkbox" /></th>
-                <th>Employee &amp; ID</th>
-                <th>Department / Designation</th>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="employees-table-body">
-              {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--light-text)" }}>Loading…</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--light-text)" }}>No matching employees.</td></tr>
-              ) : (
-                filtered.map((e) => (
-                  <tr key={e.id} data-testid={`hr-employee-row-${e.id}`} onClick={() => navigate(`/employees/${e.id}`)} style={{ cursor: "pointer" }}>
-                    <td style={{ textAlign: "center" }} onClick={(ev) => ev.stopPropagation()}><input id={`hr-employee-select-${e.id}`} data-testid={`hr-employee-select-${e.id}`} type="checkbox" /></td>
-                    <td>
-                      <div className="customer-name-cell">
-                        {e.photoUrl ? (
-                          <img src={e.photoUrl} alt={e.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                        ) : (
-                          <div className="customer-avatar" style={{ backgroundColor: "var(--primary-color)", color: "white" }}>
-                            {initials(e.name)}
-                          </div>
-                        )}
-                        <div>
-                          <span className="c-name">{e.name || "Unknown"}</span>
-                          <span className="c-id">{e.employeeId || "-"}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{e.department || "-"}</div>
-                      <div style={{ fontSize: 12, color: "var(--light-text)" }}>{e.designation || "-"}</div>
-                    </td>
-                    <td>
-                      <span className="badge" style={{ backgroundColor: e.status === "Active" ? "var(--success-bg)" : "var(--warning-bg)", color: e.status === "Active" ? "var(--success-color)" : "var(--warning-color)", padding: "4px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>{e.status || "-"}</span>
-                    </td>
-                    <td>{e.employmentType || "-"}</td>
-                    <td onClick={(ev) => ev.stopPropagation()}>
-                      <div className="c-actions">
-                        <button className="btn-grid-action" id={`hr-employee-view-${e.id}`} data-testid={`hr-employee-view-${e.id}`} onClick={() => navigate(`/employees/${e.id}`)}>View</button>
-                        <button className="btn-grid-action" id={`hr-employee-edit-${e.id}`} data-testid={`hr-employee-edit-${e.id}`} onClick={() => navigate(`/employees/${e.id}?edit=true`)}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                          Edit
-                        </button>
-                        <button className="btn-grid-action" id={`hr-employee-delete-${e.id}`} data-testid={`hr-employee-delete-${e.id}`} onClick={() => handleDelete(e)} style={{ color: "var(--danger-color)" }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        )}
+      <div className="customers-table-container employee-master-table-container" data-testid="hr-employees-table-container">
+        <DataTable
+          data-testid="hr-employees-table"
+          data={error ? [] : filtered}
+          columns={columns}
+          getRowId={(employee) => employee.id}
+          loading={loading}
+          onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
+          selection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
+          pagination={{
+            page,
+            pageSize,
+            total: filtered.length,
+            mode: "client",
+            onChange: setPage,
+            onPageSizeChange: (size) => {
+              setPageSize(size);
+              setPage(1);
+            },
+          }}
+          className="rounded-none border-0 shadow-none"
+          tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+          emptyState={
+            <EmptyState
+              title={error ? "Could not load employees" : "No matching employees"}
+              description={error ? "Please retry after checking the HR service connection." : "Adjust the search or filters to find an employee."}
+            />
+          }
+        />
       </div>
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Advanced Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-employees-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <Select
+              id="hr-employees-department-filter"
+              testId="hr-employees-department-filter"
+              label="Department"
+              value={draftDeptFilter}
+              onChange={(e) => setDraftDeptFilter(e.target.value)}
+              options={[
+                { value: "all", label: "All Departments" },
+                ...departments.map((d) => ({ value: d, label: d }))
+              ]}
+            />
+            <Select
+              id="hr-employees-status-filter"
+              testId="hr-employees-status-filter"
+              label="Status"
+              value={draftStatusFilter}
+              onChange={(e) => setDraftStatusFilter(e.target.value)}
+              options={[
+                { value: "all", label: "All Statuses" },
+                ...statuses.map((status) => ({ value: status, label: status }))
+              ]}
+            />
+            <Select
+              id="hr-employees-type-filter"
+              testId="hr-employees-type-filter"
+              label="Employment Type"
+              value={draftTypeFilter}
+              onChange={(e) => setDraftTypeFilter(e.target.value)}
+              options={[
+                { value: "all", label: "All Employment Types" },
+                ...employmentTypes.map((type) => ({ value: type, label: type }))
+              ]}
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="hr-employees-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="hr-employees-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </section>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+    </svg>
   );
 }

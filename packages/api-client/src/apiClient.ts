@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import { enrichApiError } from "./apiError";
 
 interface RequestConfigWithMeta extends InternalAxiosRequestConfig {
   metadata?: {
@@ -211,7 +212,7 @@ export function createApiClient(baseURL: string): AxiosInstance {
         notifySessionExpired();
       }
 
-      return Promise.reject(error);
+      return Promise.reject(enrichApiError(error));
     }
   );
 

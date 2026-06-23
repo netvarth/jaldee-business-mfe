@@ -1,3 +1,4 @@
+import { getReadableApiError } from "@jaldee/api-client";
 import type {
   TaskFilters,
   TaskFormValues,
@@ -116,26 +117,7 @@ export function normalizeTenantTask(raw: unknown): TaskRow {
 }
 
 export function extractErrorMessage(err: any): string {
-  if (!err) return "An unexpected error occurred.";
-
-  const responseData = err.response?.data || err.data || err;
-  if (responseData) {
-    if (responseData.details?.fieldErrors && Array.isArray(responseData.details.fieldErrors)) {
-      const fieldMsgs = responseData.details.fieldErrors
-        .map((f: any) => f.message || `${f.field} is invalid`)
-        .join(", ");
-      return `${responseData.message || "Validation failed"}: ${fieldMsgs}`;
-    }
-    if (responseData.message) {
-      return responseData.message;
-    }
-  }
-
-  if (err.message) {
-    return err.message;
-  }
-
-  return String(err);
+  return getReadableApiError(err, "An unexpected error occurred.").message;
 }
 
 export function normalizeCrmStageTask(raw: unknown): TaskRow {

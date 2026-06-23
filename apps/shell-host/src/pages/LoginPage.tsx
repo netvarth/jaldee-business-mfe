@@ -8,8 +8,8 @@ import { getPreferredLandingPath } from "../utils/landing";
 import "./LoginPage.css";
 
 export default function LoginPage() {
-  const [loginId, setLoginId] = useState("manikandan.velayudhan@jaldee.com");
-  const [password, setPassword] = useState("netvarth");
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpLength, setOtpLength] = useState(4);
@@ -291,9 +291,9 @@ function getErrorMessage(error: unknown): string {
     if (typeof payload === "object" && payload !== null) {
       const details = "details" in payload && typeof payload.details === "object" && payload.details !== null
         ? (payload.details as {
-            fieldErrors?: Array<{ field?: string; message?: string }>;
-            globalErrors?: Array<{ message?: string } | string>;
-          })
+          fieldErrors?: Array<{ field?: string; message?: string }>;
+          globalErrors?: Array<{ message?: string } | string>;
+        })
         : null;
 
       const fieldMessages =

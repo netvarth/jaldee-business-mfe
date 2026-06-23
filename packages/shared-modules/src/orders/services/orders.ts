@@ -1,4 +1,5 @@
 import type { ProductKey } from "@jaldee/auth-context";
+import { getReadableApiError } from "@jaldee/api-client";
 import type {
   OrdersAction,
   OrdersBillAdjustmentKind,
@@ -1365,32 +1366,8 @@ export async function getOrdersCreditSystemSettings(scopedApi: ScopedApi): Promi
 }
 
 function toReadableApiError(error: unknown, fallbackMessage: string): Error {
-  if (error instanceof Error) {
-    const maybeAxios = error as any;
-    const status = maybeAxios?.response?.status;
-    const statusText = maybeAxios?.response?.statusText;
-    const url = maybeAxios?.config?.url;
-    const serverMessage =
-      typeof maybeAxios?.response?.data?.message === "string"
-        ? maybeAxios.response.data.message
-        : typeof maybeAxios?.response?.data?.error === "string"
-          ? maybeAxios.response.data.error
-          : typeof maybeAxios?.response?.data === "string"
-            ? maybeAxios.response.data
-            : null;
-
-    const parts = [
-      fallbackMessage,
-      status ? `HTTP ${status}${statusText ? ` ${statusText}` : ""}` : null,
-      url ? `url: ${url}` : null,
-      serverMessage ? `message: ${serverMessage}` : null,
-      !status && !serverMessage ? error.message : null,
-    ].filter(Boolean);
-
-    return new Error(parts.join(" | "));
-  }
-
-  return new Error(fallbackMessage);
+  const readable = getReadableApiError(error, fallbackMessage);
+  return Object.assign(new Error(readable.message), readable);
 }
 
 function readInvoiceUidFromInvoiceLookupPayload(payload: any): string {

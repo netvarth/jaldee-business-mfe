@@ -17,6 +17,7 @@ export interface PageHeaderProps {
   subtitle?: string;
   icon?: ReactNode;
   actions?: ReactNode;
+  variant?: "default" | "navigation";
   loading?: boolean;
   back?: { label: string; href: string };
   breadcrumbs?: BreadcrumbItem[];
@@ -31,6 +32,7 @@ export function PageHeader({
   subtitle,
   icon,
   actions,
+  variant = "default",
   loading,
   back,
   breadcrumbs,
@@ -41,14 +43,84 @@ export function PageHeader({
 }: PageHeaderProps) {
   if (hidden) return null;
 
+  const navigateBack = () => {
+    if (!back) return;
+    if (onNavigate) {
+      onNavigate(back.href);
+      return;
+    }
+    if (typeof window !== "undefined") window.location.assign(back.href);
+  };
+
+  if (variant === "navigation") {
+    return (
+      <div
+        data-testid="page-header"
+        data-variant="navigation"
+        className={cn(
+          "-mx-4 mb-6 flex min-h-16 flex-wrap items-center justify-between gap-3 bg-[var(--surface-bg)] px-4 py-3 shadow-[var(--shadow-sm)] sm:-mx-6 sm:flex-nowrap sm:px-6",
+          className
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {back && (
+            <button
+              type="button"
+              data-testid="page-header-back"
+              onClick={navigateBack}
+              aria-label={back.label}
+              title={back.label}
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--surface-bg)] p-0 text-[var(--dark-text)] shadow-sm transition-colors hover:bg-[var(--app-bg)]"
+            >
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+          )}
+
+          {loading ? (
+            <div data-testid="page-header-title-skeleton" className="h-5 w-44 animate-pulse rounded bg-[var(--border-color)]" />
+          ) : (
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2.5">
+                {icon && (
+                  <div data-testid="page-header-icon" className="flex shrink-0 items-center justify-center text-[var(--primary-color)]">
+                    {icon}
+                  </div>
+                )}
+                <h1
+                  data-testid="page-header-title"
+                  className="m-0 truncate text-base font-bold leading-6 text-[var(--dark-text)] sm:text-lg"
+                >
+                  {title}
+                </h1>
+              </div>
+              {subtitle && <p className="m-0 truncate text-xs text-[var(--light-text)]">{subtitle}</p>}
+            </div>
+          )}
+        </div>
+
+        {actions && (
+          <div
+            data-testid="page-header-actions"
+            className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0 sm:flex-nowrap"
+          >
+            {actions}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div data-testid="page-header" className={cn("mb-6", className)}>
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {back && (
             <button
+              type="button"
               data-testid="page-header-back"
-              onClick={() => onNavigate?.(back.href)}
+              onClick={navigateBack}
               className="mb-1 flex w-fit items-center gap-1 border-0 bg-transparent p-0 text-xs text-gray-500 transition-colors hover:text-indigo-600"
             >
               ← {back.label}
@@ -65,6 +137,7 @@ export function PageHeader({
                   {i > 0 && <span>/</span>}
                   {crumb.href ? (
                     <button
+                      type="button"
                       onClick={() => crumb.href && onNavigate?.(crumb.href)}
                       className="cursor-pointer border-0 bg-transparent p-0 transition-colors hover:text-indigo-600"
                     >

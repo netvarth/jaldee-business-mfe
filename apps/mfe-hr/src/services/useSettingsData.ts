@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useHrApi } from "../services/useHrApi";
 
 export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; level?: number; description?: string; }
-export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; weeklyOffDays?: string; }
+export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; }
 export interface Consent { id: string; uid?: string; employeeUid?: string; purpose?: string; status?: string; policyVersion?: string; grantedAt?: string; }
-export interface BranchRow { id: string; uid?: string; name?: string; code?: string; address?: string; latitude?: number; longitude?: number; radius?: number; }
 export interface Department { id: string; uid?: string; name?: string; code?: string; headEmployeeUid?: string; }
 export interface LeaveType { id: string; uid?: string; name?: string; annualQuota?: number; carryForward?: boolean; carryForwardMax?: number; accrualType?: string; paid?: boolean; colorHex?: string; }
-export interface Holiday { id: string; uid?: string; name?: string; date?: string; type?: string; recurring?: boolean; }
+export interface Holiday { id: string; uid?: string; name?: string; date?: string; type?: string; }
 
 export interface CompanyProfile {
   uid?: string; name?: string; legalName?: string; logoUrl?: string; email?: string; phone?: string;
@@ -73,7 +72,6 @@ function useSingleton<T extends object>(endpoint: string) {
 
 export const useDesignations = () => useCrud<Designation>("/designations");
 export const useShifts = () => useCrud<Shift>("/shifts");
-export const useBranchesAdmin = () => useCrud<BranchRow>("/branches");
 export const useDepartments = () => useCrud<Department>("/departments");
 export const useLeaveTypes = () => useCrud<LeaveType>("/leave-types");
 export const useHolidays = () => useCrud<Holiday>("/holidays");

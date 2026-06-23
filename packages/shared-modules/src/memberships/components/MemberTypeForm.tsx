@@ -220,10 +220,11 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
   }
 
   const locationOptions = useMemo(
-    () => locations.map((item: any) => ({
-      value: String(item.id ?? item.uid ?? ""),
-      label: String(item.place ?? item.locationName ?? item.name ?? `Location ${item.id ?? ""}`),
-    })),
+    () => locations.flatMap((item: any) => {
+      const value = String(item.id ?? item.uid ?? "").trim();
+      const label = String(item.place ?? item.locationName ?? item.name ?? "").trim();
+      return value && label ? [{ value, label }] : [];
+    }),
     [locations]
   );
 

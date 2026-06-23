@@ -23,11 +23,12 @@ export function useBuildMFEProps(
     () => (account ? normalizeAccountContext(account) : null),
     [account]
   );
-  console.log("[useBuildMFEProps]", { 
+  console.log("[useBuildMFEProps] store state:", { 
     user: !!user, 
     account: !!account, 
-    activeLocation: !!activeLocation,
-    resolvedLocation: !!resolvedLocation,
+    activeLocation,
+    availableLocations,
+    resolvedLocation,
   });
   const superadminBaseUrl = import.meta.env.VITE_SUPERADMIN_API_BASE_URL?.trim();
 

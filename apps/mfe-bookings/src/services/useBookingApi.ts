@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
-import { apiClient } from "@jaldee/api-client";
+import { apiClient, getReadableApiError } from "@jaldee/api-client";
 
 /**
  * Booking service client using apiClient.
@@ -64,16 +64,8 @@ export function useBookingApi() {
         if (err.code === "ECONNABORTED") {
           throw new Error(`Request timed out after ${TIMEOUT}ms. Ensure the backend is running and reachable.`);
         }
-        const status = err.response?.status;
-        const statusText = err.response?.statusText || "";
-        const data = err.response?.data;
-        let detail = "";
-        if (data) {
-          detail = data.message || data.error || data.detail || (typeof data === "string" ? data : "");
-        }
-        throw new Error(
-          `Booking API error ${status || "Error"} ${statusText}${detail ? ` — ${detail}` : err.message ? ` — ${err.message}` : ""}`
-        );
+        const readable = getReadableApiError(err, "Booking request failed.");
+        throw Object.assign(new Error(readable.message), readable);
       }
     }
 

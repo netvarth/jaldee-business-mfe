@@ -79,7 +79,7 @@ const EMPTY_LOCATION_FORM: LocationFormState = {
   pincode: "",
   longitude: "76.2183557",
   latitude: "10.4414775",
-  parking: "none",
+  parking: "NONE",
   alwaysOpen: true,
   googleMapUrl: "https://www.google.com/maps?q=10.4414775,76.2183557",
 };
@@ -97,10 +97,12 @@ const INDIA_COUNTRY = {
 } as const;
 
 const PARKING_OPTIONS = [
-  { value: "none", label: "None" },
-  { value: "street", label: "Street Parking" },
-  { value: "private", label: "Private Parking" },
-  { value: "valet", label: "Valet" },
+  { value: "NONE", label: "None" },
+  { value: "FREE", label: "Free Parking" },
+  { value: "PAID", label: "Paid Parking" },
+  { value: "STREET", label: "Street Parking" },
+  { value: "PRIVATE_LOT", label: "Private Lot" },
+  { value: "VALET", label: "Valet" },
 ];
 
 const GOOGLE_MAPS_SCRIPT_ID = "jaldee-google-maps-script";
@@ -348,16 +350,11 @@ function readProductFlag(settings: TenantSettingsRecord, id: string, fallback: b
 }
 
 function normalizeParkingType(value: string) {
-  switch (value) {
-    case "street":
-      return "STREET";
-    case "private":
-      return "PRIVATE";
-    case "valet":
-      return "VALET";
-    default:
-      return "NONE";
-  }
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "PRIVATE") return "PRIVATE_LOT";
+  return ["VALET", "STREET", "PRIVATE_LOT", "NONE", "PAID", "FREE"].includes(normalized)
+    ? normalized
+    : "NONE";
 }
 
 function readGoogleAddressComponent(place: any, ...types: string[]) {
@@ -428,12 +425,14 @@ function extractCollection(input: unknown): unknown[] {
 }
 
 function normalizeLocations(input: unknown): LocationRow[] {
-  return extractCollection(input).map((value, index) => {
+  return extractCollection(input).flatMap((value, index) => {
     if (typeof value === "string") {
+      const normalized = value.trim();
+      if (!normalized) return [];
       return {
-        id: value,
-        name: value,
-        code: value,
+        id: normalized,
+        name: normalized,
+        code: normalized,
         address: "",
         status: "Enabled",
         timezone: "",
@@ -442,16 +441,19 @@ function normalizeLocations(input: unknown): LocationRow[] {
     }
 
     const record = toRecord(value);
-    const id = readString(record.uid, record.locationUid, record.id, record.locationId) || `loc-${index + 1}`;
-    return {
+    const id = readString(record.uid, record.locationUid, record.id, record.locationId);
+    const name = readString(record.place, record.name, record.locationName, record.branchName, record.displayName);
+    if (!id || !name) return [];
+
+    return [{
       id,
-      name: readString(record.place, record.name, record.locationName, record.branchName, record.displayName) || `Location ${index + 1}`,
-      code: readString(record.code, record.locationCode, record.branchCode, record.shortName) || `LOC${index + 1}`,
+      name,
+      code: readString(record.code, record.locationCode, record.branchCode, record.shortName),
       address: readString(record.address, record.displayAddress, record.formattedAddress),
       status: readString(record.status, record.locationStatus) || "Enabled",
       timezone: readString(record.timezone, record.defaultTimezone),
       isBase: readBoolean(record.baseLocation, false) || readBoolean(record.isBase, false),
-    };
+    }];
   });
 }
 

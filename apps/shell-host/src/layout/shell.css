@@ -420,18 +420,14 @@
 }
 
 .sidebar-location-select {
-  width: 100%;
-  min-height: 38px;
-  padding: 9px 12px;
-  border: 1px solid #dfe7f1;
+  height: 40px;
   border-radius: 10px;
   font-size: 13px;
-  color: #50627f;
-  background: var(--color-surface);
-  cursor: pointer;
-  outline: none;
   font-weight: 700;
-  box-shadow: none;
+}
+
+.sidebar-location-select-field {
+  gap: 0;
 }
 
 .sidebar-toggle {

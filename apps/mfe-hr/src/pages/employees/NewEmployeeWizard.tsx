@@ -337,7 +337,7 @@ export default function NewEmployeeWizard() {
                 </button>
               ) : (
                 <>
-                  <button type="button" className="btn btn-secondary" onClick={() => setStep(1)} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button type="button" className="btn btn-secondary" onClick={(e) => { e.preventDefault(); console.log("[NewEmployeeWizard] Back button clicked, setting step to 1"); setStep(1); }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <ChevronLeft size={16} /> Back
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={saving} style={{ display: "flex", alignItems: "center", gap: 8 }}>

@@ -6,7 +6,7 @@ import {
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus, ChevronDown,
 } from "lucide-react";
-import { PageHeader, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployee } from "../../services/useEmployee";
@@ -239,6 +239,7 @@ export default function EmployeeDetails() {
       <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
         <div style={{ width: "100%" }}>
           <PageHeader
+            variant="navigation"
             title="Edit Employee Profile"
             subtitle="Update personal, employment, and payroll information."
             back={{ label: "Back to Profile", href: `/employees/${employee.id}` }}
@@ -469,8 +470,16 @@ export default function EmployeeDetails() {
             );
           })()}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-            <button className="btn btn-secondary" onClick={() => navigate(`/employees/${employee.id}`)} style={{ display: "flex", alignItems: "center", gap: 8 }}><X size={16} /> Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--primary-color)", border: "none", color: "white" }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : <><Save size={16} /> Save Changes</>}</button>
+            <Button variant="secondary" size="lg" icon={<X size={16} />} onClick={() => navigate(`/employees/${employee.id}`)}>Cancel</Button>
+            <Button
+              variant="primary"
+              size="lg"
+              icon={saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save Changes"}
+            </Button>
           </div>
         </div>
       </section>
@@ -486,6 +495,7 @@ export default function EmployeeDetails() {
         </Suspense>
       )}
       <PageHeader
+        variant="navigation"
         title="Employee Profile"
         subtitle={`Detailed view of ${employee.name}'s information`}
         back={{ label: "Employees", href: "/employees" }}
@@ -545,7 +555,6 @@ export default function EmployeeDetails() {
                     <Field k="Joining Date" v={formatDate(employee.doj)} /><Field k="System Role" v={employee.role} />
                     <Field k="Employment Type" v={employee.employmentType || "Full-Time"} /><Field k="Reporting Manager" v={managerName || "No Manager Assigned"} />
                     <Field k="PAN" v={emp.pan as string} mono /><Field k="UAN" v={emp.uan as string} mono />
-                    <Field k="Work Site / Branch" v={employee.branchUid || "Remote / Not Assigned"} />
                   </div>
                 </Panel>
                 <Panel icon={<CreditCard size={20} />} title="Bank Details (Active Account)" sub="Registered information for monthly pay disbursements" full>

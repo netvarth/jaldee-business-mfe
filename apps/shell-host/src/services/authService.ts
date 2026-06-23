@@ -468,30 +468,38 @@ function normalizeRoles(input: unknown): UserContext["roles"] {
 
 function normalizeLocations(input: unknown): BranchLocation[] {
   if (Array.isArray(input) && input.length > 0) {
-    return input.map((location, index) => {
+    return input.flatMap((location) => {
       if (typeof location === "string") {
+        const value = location.trim();
+        if (!value) return [];
         return {
-          id: location,
-          name: location,
-          code: location,
+          id: value,
+          name: value,
+          code: value,
         };
       }
 
       const candidate = (typeof location === "object" && location !== null
         ? location
         : {}) as Record<string, unknown>;
+      const id = candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId;
+      const name = candidate.place ?? candidate.name ?? candidate.locationName ?? candidate.branchName;
 
-      return {
-        id: String(candidate.id ?? candidate.locationId ?? `loc-${index + 1}`),
+      if (id == null || name == null || !String(id).trim() || !String(name).trim()) {
+        return [];
+      }
+
+      return [{
+        id: String(id),
         locationId: candidate.id ?? candidate.locationId,
-        uid: String(candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId ?? `loc-${index + 1}`),
-        name: String(candidate.place ?? candidate.name ?? candidate.locationName ?? candidate.branchName ?? `Location ${index + 1}`),
-        code: String(candidate.code ?? candidate.branchCode ?? `LOC${index + 1}`),
-      } as any;
+        uid: String(id),
+        name: String(name),
+        code: String(candidate.code ?? candidate.locationCode ?? candidate.branchCode ?? candidate.shortName ?? id),
+      } as any];
     });
   }
 
-  return [{ id: "loc-default", name: "Default Location", code: "DEF" }];
+  return [];
 }
 
 async function fetchProviderLocations(): Promise<BranchLocation[]> {

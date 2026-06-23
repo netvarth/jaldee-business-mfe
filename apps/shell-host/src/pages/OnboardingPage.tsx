@@ -21,10 +21,12 @@ type BusinessType = {
 
 const COUNTRY_OPTIONS = [{ value: "india", label: "India" }];
 const PARKING_OPTIONS = [
-  { value: "none", label: "None" },
-  { value: "street", label: "Street Parking" },
-  { value: "private", label: "Private Parking" },
-  { value: "valet", label: "Valet" },
+  { value: "NONE", label: "None" },
+  { value: "FREE", label: "Free Parking" },
+  { value: "PAID", label: "Paid Parking" },
+  { value: "STREET", label: "Street Parking" },
+  { value: "PRIVATE_LOT", label: "Private Lot" },
+  { value: "VALET", label: "Valet" },
 ];
 
 const BUSINESS_TYPES: BusinessType[] = [
@@ -148,7 +150,7 @@ export default function OnboardingPage() {
   const [googleMapUrl, setGoogleMapUrl] = useState("");
   const [latitude, setLatitude] = useState("10.4414775");
   const [longitude, setLongitude] = useState("76.2183557");
-  const [parking, setParking] = useState("none");
+  const [parking, setParking] = useState("NONE");
   const [alwaysOpen, setAlwaysOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);

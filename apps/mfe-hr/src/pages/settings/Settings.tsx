@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
-import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, TimePicker, Popover, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
+import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, TimePicker, Popover, Skeleton, SkeletonTable, MultiCombobox } from "@jaldee/design-system";
 import {
-  useDepartments, useDesignations, useBranchesAdmin, useShifts, useLeaveTypes, useHolidays,
+  useDepartments, useDesignations, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
 } from "../../services/useSettingsData";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
@@ -15,8 +15,18 @@ const tdc: CSSProperties = { padding: "13px 16px", fontSize: 13, color: "var(--d
 const field: CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 14, fontWeight: 600, color: "var(--dark-text)" };
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, overflow: "hidden" };
 
-type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "color" | "textarea";
-interface Field { key: string; label: string; type?: FieldType; options?: string[]; full?: boolean; placeholder?: string; }
+type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
+interface Field {
+  key: string;
+  label: string;
+  type?: FieldType;
+  options?: string[];
+  full?: boolean;
+  placeholder?: string;
+  defaultValue?: unknown;
+  sourceKey?: string;
+  optional?: boolean;
+}
 type Row = Record<string, unknown>;
 
 function slugify(value: string) {
@@ -26,9 +36,16 @@ function slugify(value: string) {
 function buildPayload(fields: Field[], form: Row): Row {
   const out: Row = {};
   fields.forEach((f) => {
-    const v = form[f.key];
+    const v = form[f.key] ?? f.defaultValue;
     if (f.type === "number") out[f.key] = v === "" || v == null ? null : Number(v);
     else if (f.type === "checkbox") out[f.key] = !!v;
+    else if (f.type === "multiselect") {
+      out[f.key] = Array.isArray(v)
+        ? v.map(String)
+        : typeof v === "string"
+          ? v.split(",").map((item) => item.trim()).filter(Boolean)
+          : [];
+    }
     else out[f.key] = v === "" || v == null ? null : v;
   });
   return out;
@@ -50,6 +67,10 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
     );
   }
   if (f.type === "select") {
+    const opts = f.options!.map((o) => ({ value: o, label: o }));
+    if (f.optional) {
+      opts.unshift({ value: "", label: "None" });
+    }
     return (
       <Select
         id={automationKey}
@@ -57,9 +78,31 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder="—"
-        options={f.options!.map((o) => ({ value: o, label: o }))}
+        options={opts}
         fullWidth
         className="!h-11 rounded-xl"
+      />
+    );
+  }
+  if (f.type === "multiselect") {
+    const selected = Array.isArray(value)
+      ? value.map(String)
+      : typeof value === "string"
+        ? value.split(",").map((item) => item.trim()).filter(Boolean)
+        : [];
+    return (
+      <MultiCombobox
+        id={automationKey}
+        data-testid={automationKey}
+        value={selected}
+        onValueChange={onChange}
+        placeholder="Select days"
+        searchPlaceholder="Search weekdays..."
+        options={(f.options ?? []).map((option) => ({
+          value: option,
+          label: option.charAt(0) + option.slice(1).toLowerCase(),
+        }))}
+        maxDisplay={3}
       />
     );
   }
@@ -131,64 +174,6 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
   );
 }
 
-/* ---- Google Places location picker ---- */
-const GMAPS_KEY = (import.meta as unknown as { env: Record<string, string | undefined> }).env.VITE_GOOGLE_MAPS_API_KEY;
-let gmapsPromise: Promise<void> | null = null;
-function loadGoogleMaps(): Promise<void> {
-  const w = window as unknown as { google?: { maps?: { places?: unknown } } };
-  if (w.google?.maps?.places) return Promise.resolve();
-  if (gmapsPromise) return gmapsPromise;
-  gmapsPromise = new Promise<void>((resolve, reject) => {
-    if (!GMAPS_KEY) { reject(new Error("no-key")); return; }
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&libraries=places`;
-    s.async = true; s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Google Maps."));
-    document.head.appendChild(s);
-  });
-  return gmapsPromise;
-}
-
-export interface PickedPlace { address: string; latitude: number; longitude: number; name?: string; }
-function LocationPicker({ onPick, automationKey }: { onPick: (p: PickedPlace) => void; automationKey: string }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    let ac: any;
-    loadGoogleMaps().then(() => {
-      const g = (window as any).google;
-      if (!inputRef.current || !g?.maps?.places) { setErr("Google Maps unavailable."); return; }
-      ac = new g.maps.places.Autocomplete(inputRef.current, { fields: ["formatted_address", "geometry", "name"] });
-      ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
-        const loc = place?.geometry?.location;
-        if (!loc) { setErr("No location data for that place. Pick a suggestion from the list."); return; }
-        setErr(null);
-        onPick({ address: place.formatted_address ?? place.name ?? "", latitude: loc.lat(), longitude: loc.lng(), name: place.name });
-      });
-    }).catch((e) => setErr(e.message === "no-key"
-      ? "Set VITE_GOOGLE_MAPS_API_KEY in apps/mfe-hr/.env to enable Google location search."
-      : (e instanceof Error ? e.message : "Failed to load Google Maps.")));
-    return () => { const g = (window as any).google; if (ac && g) g.maps.event.clearInstanceListeners(ac); };
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-  }, [onPick]);
-  return (
-    <div>
-      <Input
-        id={automationKey}
-        data-testid={automationKey}
-        ref={inputRef}
-        placeholder="Search a place on Google… (auto-fills address & coordinates)"
-        icon={<MapPin size={16} />}
-        className="rounded-xl !h-11"
-      />
-      {err && <div data-testid={`${automationKey}-error`} data-state="error" style={{ marginTop: 6, fontSize: 12, color: err.includes("VITE_GOOGLE") ? "var(--light-text)" : "#e11d48" }}>{err}</div>}
-    </div>
-  );
-}
-
 /* ---- Singleton config form ---- */
 function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSave, automationScope }: {
   title: string; subtitle: string; icon: ReactNode; fields: Field[];
@@ -256,10 +241,9 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
 
 /* ---- Generic list CRUD panel ---- */
 interface Crud { data: (Row & { id: string })[]; loading: boolean; error: string | null; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
-function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, automationScope }: {
+function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, automationScope }: {
   title: string; subtitle: string; icon: ReactNode; addLabel: string; fields: Field[];
   columns: { label: string; render: (r: Row) => ReactNode; align?: "right" }[]; hook: Crud;
-  locationPicker?: boolean;
   automationScope: string;
 }) {
   const { eventBus } = useMFEProps();
@@ -268,8 +252,22 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
 
-  const openAdd = () => { setEditing(null); setForm({}); setOpen(true); };
-  const openEdit = (r: Row & { id: string }) => { setEditing(r); setForm({ ...r }); setOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm(Object.fromEntries(fields.filter((f) => f.defaultValue !== undefined).map((f) => [f.key, f.defaultValue])));
+    setOpen(true);
+  };
+  const openEdit = (r: Row & { id: string }) => {
+    const next = { ...r };
+    fields.forEach((f) => {
+      if (next[f.key] === undefined && f.sourceKey && r[f.sourceKey] !== undefined) {
+        next[f.key] = r[f.sourceKey];
+      }
+    });
+    setEditing(r);
+    setForm(next);
+    setOpen(true);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -347,25 +345,13 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, loc
         onClose={() => setOpen(false)}
         testId={`${automationScope}-modal`}
         hideHeader
-        contentClassName="max-w-[560px] p-0 overflow-hidden"
+        contentClassName="max-w-[560px] p-0 overflow-visible"
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
           <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
           <button id={`${automationScope}-modal-close`} data-testid={`${automationScope}-modal-close`} onClick={() => setOpen(false)} aria-label={`Close ${title} dialog`} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
         </div>
-        <div style={{ padding: 24, maxHeight: "62vh", overflowY: "auto" }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {locationPicker && (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Search location (Google)</label>
-              <LocationPicker automationKey={`${automationScope}-location-search`} onPick={(p) => setForm((prev) => ({
-                ...prev,
-                address: p.address,
-                latitude: p.latitude,
-                longitude: p.longitude,
-                name: (prev.name as string) || p.name || "",
-              }))} />
-            </div>
-          )}
+        <div style={{ padding: 24 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {fields.map((f) => (
             <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
               {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
@@ -400,7 +386,6 @@ const SECTIONS = [
   { key: "company", label: "Company Profile", icon: <Building2 size={18} /> },
   { key: "departments", label: "Departments", icon: <Users2 size={18} /> },
   { key: "designations", label: "Roles & Designations", icon: <BadgeCheck size={18} /> },
-  { key: "branches", label: "Branches & Geofence", icon: <MapPin size={18} /> },
   { key: "shifts", label: "Shifts", icon: <Clock size={18} /> },
   { key: "leavetypes", label: "Leave Policy", icon: <Plane size={18} /> },
   { key: "holidays", label: "Holiday Calendar", icon: <CalendarDays size={18} /> },
@@ -417,7 +402,6 @@ export default function Settings() {
 
   const departments = useDepartments();
   const designations = useDesignations();
-  const branches = useBranchesAdmin();
   const shifts = useShifts();
   const leaveTypes = useLeaveTypes();
   const holidays = useHolidays();
@@ -520,7 +504,7 @@ export default function Settings() {
             <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={designations} automationScope="hr-settings-designations"
               fields={[
                 { key: "name", label: "Role / Designation" }, { key: "code", label: "Code" },
-                { key: "department", label: "Department", type: "select", options: departments.data.map((d) => (d.name as string)).filter(Boolean) },
+                { key: "department", label: "Department", type: "select", options: departments.data.map((d) => (d.name as string)).filter(Boolean), optional: true },
                 { key: "level", label: "Level / Band", type: "number" },
                 { key: "description", label: "Description", type: "textarea", full: true },
               ]}
@@ -531,34 +515,32 @@ export default function Settings() {
                 { label: "Level", render: (r) => r.level != null ? `L${r.level}` : "—" },
               ]} />
           )}
-          {section === "branches" && (
-            <CrudPanel title="Branches & Geofence" subtitle="Office locations & attendance perimeter" icon={<MapPin size={20} />} addLabel="Add Branch" hook={branches} locationPicker automationScope="hr-settings-branches"
-              fields={[
-                { key: "name", label: "Branch Name" }, { key: "code", label: "Code" },
-                { key: "address", label: "Address", full: true },
-                { key: "latitude", label: "Latitude", type: "number" }, { key: "longitude", label: "Longitude", type: "number" },
-                { key: "radius", label: "Geofence Radius (m)", type: "number" },
-              ]}
-              columns={[
-                { label: "Name", render: (r) => <b>{r.name as string}</b> },
-                { label: "Code", render: (r) => (r.code as string) || "—" },
-                { label: "Address", render: (r) => (r.address as string) || "—" },
-                { label: "Geofence", render: (r) => r.latitude != null ? `${r.latitude}, ${r.longitude} · ${r.radius ?? "—"}m` : "—" },
-              ]} />
-          )}
           {section === "shifts" && (
             <CrudPanel title="Shifts" subtitle="Working hours & weekly off" icon={<Clock size={20} />} addLabel="Add Shift" hook={shifts} automationScope="hr-settings-shifts"
               fields={[
                 { key: "name", label: "Shift Name" },
                 { key: "startTime", label: "Start Time", type: "time" }, { key: "endTime", label: "End Time", type: "time" },
                 { key: "graceMinutes", label: "Grace (min)", type: "number" }, { key: "halfDayThresholdMinutes", label: "Half-Day Threshold (min)", type: "number" },
-                { key: "weeklyOffDays", label: "Weekly Off (comma)", placeholder: "SATURDAY,SUNDAY", full: true },
+                { key: "breakMinutes", sourceKey: "break_minutes", label: "Break Minutes", type: "number", defaultValue: 0 },
+                {
+                  key: "weeklyOffDays",
+                  label: "Weekly Off",
+                  type: "multiselect",
+                  options: ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
+                  full: true,
+                },
               ]}
               columns={[
                 { label: "Name", render: (r) => <b>{r.name as string}</b> },
                 { label: "Timing", render: (r) => `${((r.startTime as string) || "—").slice(0, 5)} – ${((r.endTime as string) || "—").slice(0, 5)}` },
                 { label: "Grace", render: (r) => r.graceMinutes != null ? `${r.graceMinutes}m` : "—" },
-                { label: "Weekly Off", render: (r) => (r.weeklyOffDays as string) || "—" },
+                { label: "Break", render: (r) => r.break_minutes != null || r.breakMinutes != null ? `${r.break_minutes ?? r.breakMinutes}m` : "—" },
+                {
+                  label: "Weekly Off",
+                  render: (r) => Array.isArray(r.weeklyOffDays)
+                    ? r.weeklyOffDays.join(", ")
+                    : (r.weeklyOffDays as string) || "—",
+                },
               ]} />
           )}
           {section === "leavetypes" && (
@@ -584,13 +566,11 @@ export default function Settings() {
               fields={[
                 { key: "name", label: "Holiday Name" }, { key: "date", label: "Date", type: "date" },
                 { key: "type", label: "Type", type: "select", options: ["Public", "Optional", "Restricted"] },
-                { key: "recurring", label: "Recurs Annually", type: "checkbox" },
               ]}
               columns={[
                 { label: "Holiday", render: (r) => <b>{r.name as string}</b> },
                 { label: "Date", render: (r) => (r.date as string) || "—" },
                 { label: "Type", render: (r) => (r.type as string) || "—" },
-                { label: "Recurring", render: (r) => yesNo(r.recurring) },
               ]} />
           )}
           {section === "attendance" && (

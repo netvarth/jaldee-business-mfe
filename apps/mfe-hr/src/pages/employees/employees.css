@@ -181,6 +181,7 @@
 .employee-contact-field {
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 .employee-personal-pair-wide {
@@ -194,6 +195,10 @@
     grid-template-columns: 1fr 1fr;
     gap: 16px;
     width: 100%;
+}
+
+.employee-gender-dob-pair {
+    grid-template-columns: 2fr 3fr;
 }
 
 .employee-aadhaar-field {
@@ -226,5 +231,9 @@
     
     .employee-aadhaar-field {
         max-width: 100%;
+    }
+
+    .employee-contact-field {
+        width: 100%;
     }
 }

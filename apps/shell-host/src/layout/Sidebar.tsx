@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Select } from "@jaldee/design-system";
 import { useShellStore } from "../store/shellStore";
 import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
@@ -241,8 +242,9 @@ function LocationSwitcher() {
 
   return (
     <div data-testid="sidebar-location-switcher" className="sidebar-location-switcher">
-      <select
-        data-testid="sidebar-location-select"
+      <Select
+        id="sidebar-location-select"
+        testId="sidebar-location-select"
         value={activeLocation?.id ?? ""}
         onChange={(e) => {
           const location = availableLocations.find((item) => item.id === e.target.value);
@@ -250,18 +252,16 @@ function LocationSwitcher() {
             setLocation(location);
           }
         }}
+        placeholder={availableLocations.length ? "Select location" : "No locations available"}
+        options={availableLocations.map((location) => ({
+          value: location.id,
+          label: location.name,
+        }))}
+        disabled={!availableLocations.length}
+        fullWidth
+        containerClassName="sidebar-location-select-field"
         className="sidebar-location-select"
-      >
-        {availableLocations.map((location) => (
-          <option
-            key={location.id}
-            value={location.id}
-            data-testid={`sidebar-location-option-${location.code.toLowerCase()}`}
-          >
-            {location.name}
-          </option>
-        ))}
-      </select>
+      />
     </div>
   );
 }

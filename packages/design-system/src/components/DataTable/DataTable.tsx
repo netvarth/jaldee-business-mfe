@@ -3,10 +3,21 @@ import type { ReactNode } from "react";
 import { cn } from "../../utils";
 import { Skeleton } from "../Skeleton/Skeleton";
 import { EmptyState } from "../EmptyState/EmptyState";
+import { Popover } from "../Popover/Popover";
+
+export interface DataTableColumnFilter {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allValue?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  testId?: string;
+}
 
 export interface ColumnDef<T> {
   key: keyof T | string;
-  header: string;
+  header: ReactNode;
   sortable?: boolean;
   sticky?: "left" | "right";
   width?: number | string;
@@ -17,6 +28,7 @@ export interface ColumnDef<T> {
   render?: (row: T) => ReactNode;
   footer?: () => ReactNode;
   sortFn?: (a: T, b: T) => number;
+  filter?: DataTableColumnFilter;
 }
 
 export interface DataTableProps<T> {
@@ -377,7 +389,11 @@ export function DataTable<T extends object>({
                         col.align === "right" && "justify-end w-full"
                       )}
                     >
-                      {col.header}
+                      {col.filter ? (
+                        <ColumnFilterHeader header={col.header} filter={col.filter} />
+                      ) : (
+                        col.header
+                      )}
                       {col.sortable && (
                         <span aria-hidden="true">
                           {isSorted ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
@@ -501,6 +517,88 @@ export function DataTable<T extends object>({
 
       {showBottomPagination && renderPagination("bottom")}
     </div>
+  );
+}
+
+function ColumnFilterHeader({
+  header,
+  filter,
+}: {
+  header: ReactNode;
+  filter: DataTableColumnFilter;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const allValue = filter.allValue ?? "all";
+  const active = filter.value !== allValue;
+  const query = search.trim().toLowerCase();
+  const options = query
+    ? filter.options.filter((option) => option.label.toLowerCase().includes(query))
+    : filter.options;
+
+  return (
+    <Popover
+      portal
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+      placement="bottom"
+      align="start"
+      data-testid={filter.testId ?? "data-table-column-filter"}
+      contentClassName="!min-w-[210px] !p-2"
+      trigger={
+        <button
+          type="button"
+          onClick={(event) => event.stopPropagation()}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md border-0 bg-transparent p-0 text-inherit",
+            active && "text-[var(--color-primary)]"
+          )}
+        >
+          {header}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+            <path d="m7 10 5 5 5-5" />
+          </svg>
+        </button>
+      }
+    >
+      {filter.searchable && (
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={filter.searchPlaceholder ?? "Search options..."}
+          className="mb-2 h-9 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-3 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
+        />
+      )}
+      <div className="max-h-64 space-y-1 overflow-y-auto">
+        {options.map((option) => {
+          const selected = filter.value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              data-selected={selected ? "true" : "false"}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg border-0 px-3 py-2 text-left text-sm transition-colors",
+                selected
+                  ? "bg-[var(--color-primary-subtle)] font-semibold text-[var(--color-primary)]"
+                  : "bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--color-surface-alt)]"
+              )}
+              onClick={() => {
+                filter.onChange(option.value);
+                setOpen(false);
+                setSearch("");
+              }}
+            >
+              {option.label}
+              {selected && <span aria-hidden="true">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    </Popover>
   );
 }
 

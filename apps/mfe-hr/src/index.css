@@ -554,6 +554,139 @@ a:hover {
     padding: 0 24px 24px 24px;
 }
 
+#page-employees {
+    width: 100%;
+    overflow: hidden;
+}
+
+.employee-master-toolbar {
+    gap: 16px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 42%, white);
+}
+
+.employee-master-filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 420px;
+    min-width: 0;
+}
+
+.employee-master-search {
+    flex: 1 1 240px;
+    width: auto;
+    max-width: 448px;
+    min-width: 180px;
+    min-height: 42px;
+    border-radius: 12px;
+}
+
+.employee-master-search .c-search-input {
+    min-height: 40px;
+    padding-left: 14px;
+}
+
+.employee-master-table-container {
+    padding-top: 0;
+}
+
+.employee-master-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.employee-master-header-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.employee-master-header-actions .btn-primary {
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    cursor: pointer;
+}
+
+@media (max-width: 1180px) {
+    .employee-master-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .employee-master-filters {
+        flex-basis: auto;
+        width: 100%;
+    }
+
+    .employee-master-search {
+        max-width: none;
+    }
+
+}
+
+@media (max-width: 700px) {
+    .employee-master-header,
+    .employee-master-toolbar,
+    .employee-master-table-container {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .employee-master-tabs {
+        gap: 24px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .employee-master-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .customer-tab {
+        flex: 0 0 auto;
+    }
+
+    .employee-master-filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+    }
+
+    .employee-master-search {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .employee-master-header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .employee-master-header-actions button {
+        width: 100%;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    .employee-master-header-actions #hr-employees-create-button {
+        grid-column: 1 / -1;
+    }
+
+}
+
 .data-grid {
     width: 100%;
     border-collapse: collapse;

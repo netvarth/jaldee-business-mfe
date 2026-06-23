@@ -3,7 +3,6 @@ import { Clock, MapPin, ScanFace, History, Loader2 } from "lucide-react";
 import { PageHeader, Select, SkeletonTable } from "@jaldee/design-system";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
-import { useBranches } from "../../services/useBranches";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs } from "../../services/useAttendanceData";
 import { formatDate } from "../../lib/utils";
 
@@ -29,7 +28,6 @@ function StatCard({ k, t, v, dot, dotColor }: { k: string; t: string; v: string;
 
 export default function Attendance() {
   const { data: employees, loading: empLoading, error: empError } = useEmployees();
-  const { data: branches } = useBranches();
   const attendance = useAttendance();
   const onduty = useOnDuty();
   const compoffs = useCompOffs();
@@ -38,7 +36,6 @@ export default function Attendance() {
 
   const [actor, setActor] = useState("");
   const [mode, setMode] = useState("Office");
-  const [branch, setBranch] = useState("");
   const [face, setFace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -50,7 +47,6 @@ export default function Attendance() {
   const [autoTrack, setAutoTrack] = useState(false);
 
   useEffect(() => { if (!actor && employees.length) setActor(employees[0].id); }, [employees, actor]);
-  useEffect(() => { if (!branch && branches.length) setBranch(branches[0].id); }, [branches, branch]);
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
 
   const empName = useMemo(() => { const m = new Map(employees.map((e) => [e.id, e.name] as const)); return (uid?: string) => (uid ? m.get(uid) ?? uid : "—"); }, [employees]);
@@ -64,7 +60,6 @@ export default function Attendance() {
     const since = new Date(); since.setDate(since.getDate() - 7);
     return attendance.data.filter((a) => a.employeeUid === actor && a.dateStr && new Date(a.dateStr) >= since).reduce((t, a) => t + (a.workedHours ?? 0), 0);
   }, [attendance.data, actor, today]);
-  const branchName = branches.find((b) => b.id === branch)?.name || "—";
   const todayLogs = useMemo(() => attendance.data.filter((a) => a.employeeUid === actor && a.dateStr === today), [attendance.data, actor, today]);
 
   const actorEmp = useMemo(() => employees.find((e) => e.id === actor), [employees, actor]);
@@ -76,7 +71,7 @@ export default function Attendance() {
         await attendance.punchOut(open.id, { clockOut: new Date().toISOString(), status: "Present" });
         setMsg("Clocked out.");
       } else {
-        await attendance.punchIn({ employeeUid: actor, dateStr: today, clockIn: new Date().toISOString(), clockInType: mode, status: "Present", wfhStatus: mode === "Office" ? null : "Pending", branchUid: branch || null, branchName, securedCheck: secured });
+        await attendance.punchIn({ employeeUid: actor, dateStr: today, clockIn: new Date().toISOString(), clockInType: mode, status: "Present", wfhStatus: mode === "Office" ? null : "Pending", securedCheck: secured });
         setMsg(secured ? "Face verified — clocked in." : "Clocked in.");
       }
     } catch (e) {
@@ -161,7 +156,7 @@ export default function Attendance() {
       <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
         <StatCard k="Status" t="Attendance" v={clockedIn ? "CLOCKED IN" : "CLOCKED OUT"} dot={clockedIn ? "On Duty" : "Off"} dotColor={clockedIn ? "#10b981" : "#94a3b8"} />
         <StatCard k="Cumulative" t="Work Hours" v={`${weekHours.toFixed(1)}h`} dot="This Week" dotColor="#3b82f6" />
-        <StatCard k="Location" t="Last Known" v={branchName} dot="Office" dotColor="#10b981" />
+        <StatCard k="Work Mode" t="Current Selection" v={mode} dot="Attendance" dotColor="#10b981" />
       </div>
 
       {/* console + timeline */}
@@ -171,7 +166,7 @@ export default function Attendance() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
             <div style={{ width: 160, height: 160, borderRadius: "50%", border: "2px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--light-text)" }}><Clock size={56} strokeWidth={1.2} /></div>
             <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "2px", color: "var(--dark-text)", fontFamily: "monospace" }}>{clockText}</div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, border: "1px solid var(--border-color)", fontSize: 11, fontWeight: 800, color: "var(--primary-color)" }}><MapPin size={12} /> {branchName}</div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, border: "1px solid var(--border-color)", fontSize: 11, fontWeight: 800, color: "var(--primary-color)" }}>{mode}</div>
           </div>
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
             <Select
@@ -189,14 +184,6 @@ export default function Attendance() {
               value={mode}
               onChange={(e) => setMode(e.target.value)}
               options={[{ value: "Office", label: "Office" }, { value: "WFH", label: "WFH" }, { value: "On-Field", label: "On-Field" }]}
-            />
-            <Select
-              id="hr-attendance-branch"
-              testId="hr-attendance-branch"
-              label="Branch Geofence"
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              options={branches.map((b) => ({ value: b.id, label: b.code || b.name }))}
             />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
               <div><div style={{ fontSize: 12, fontWeight: 800, color: "var(--dark-text)" }}>FACE RECOGNITION SCAN</div><div style={{ fontSize: 10, color: "var(--light-text)" }}>Verify check-in with your camera feed</div></div>
@@ -240,9 +227,9 @@ export default function Attendance() {
           <>
             {subtab === "logs" && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Type / Branch Geo</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
+            <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Work Type</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
             <tbody>{attendance.data.length === 0 ? <tr><td colSpan={6} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No attendance logs.</td></tr> : attendance.data.map((a) => (
-              <tr key={a.id}><td style={{ ...tdc, fontWeight: 600 }}>{empName(a.employeeUid)}</td><td style={tdc}>{formatDate(a.dateStr)}</td><td style={{ ...tdc, color: "var(--light-text)" }}>{a.clockInType || "—"}{a.branchName ? ` · ${a.branchName}` : ""}</td><td style={tdc}>{fmtTime(a.clockIn)}</td><td style={tdc}>{fmtTime(a.clockOut)}</td><td style={{ ...tdc, textAlign: "right" }}><span style={{ ...lbl, color: "var(--success-color)" }}>{a.status || "—"}</span></td></tr>
+              <tr key={a.id}><td style={{ ...tdc, fontWeight: 600 }}>{empName(a.employeeUid)}</td><td style={tdc}>{formatDate(a.dateStr)}</td><td style={{ ...tdc, color: "var(--light-text)" }}>{a.clockInType || "—"}</td><td style={tdc}>{fmtTime(a.clockIn)}</td><td style={tdc}>{fmtTime(a.clockOut)}</td><td style={{ ...tdc, textAlign: "right" }}><span style={{ ...lbl, color: "var(--success-color)" }}>{a.status || "—"}</span></td></tr>
             ))}</tbody>
           </table>
         )}

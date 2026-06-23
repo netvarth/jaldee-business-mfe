@@ -135,7 +135,7 @@ export { Skeleton, SkeletonTable, SkeletonCard } from "./components/Skeleton/Ske
 
 // Layer 5 — Data Display
 export { DataTable, DataTableToolbar }  from "./components/DataTable/DataTable";
-export type { DataTableProps, ColumnDef } from "./components/DataTable/DataTable";
+export type { DataTableProps, ColumnDef, DataTableColumnFilter } from "./components/DataTable/DataTable";
 
 
 export { DescriptionList }                from "./components/DescriptionList/DescriptionList";

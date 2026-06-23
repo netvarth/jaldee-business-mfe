@@ -4,7 +4,7 @@ import { useHrApi } from "../services/useHrApi";
 export interface AttendanceRecord {
   id: string; uid?: string; employeeUid?: string; dateStr?: string;
   clockIn?: string; clockOut?: string; clockInType?: string; status?: string;
-  wfhStatus?: string; workedHours?: number; branchUid?: string; branchName?: string;
+  wfhStatus?: string; workedHours?: number;
   verifiedByUid?: string; verifiedAt?: string;
   totalBreakMinutes?: number; breaks?: import("../types").AttendanceBreak[];
 }

@@ -71,15 +71,15 @@ function normalizeLocations(value: unknown): UserLocation[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((entry, index) => {
+    .map((entry) => {
       const raw = typeof entry === "object" && entry !== null ? (entry as RawRecord) : {};
       return {
         id: String(raw.uid ?? raw.locationUid ?? raw.id ?? raw.locationId ?? raw.branchId ?? raw.encId ?? ""),
-        name: asString(raw.place) || asString(raw.name) || asString(raw.locationName) || asString(raw.branchName) || asString(raw.displayName) || `Location ${index + 1}`,
+        name: asString(raw.place) || asString(raw.name) || asString(raw.locationName) || asString(raw.branchName) || asString(raw.displayName),
         status: asString(raw.status) || undefined,
       };
     })
-    .filter((entry) => entry.id);
+    .filter((entry) => entry.id && entry.name);
 }
 
 function normalizeLocationIds(value: unknown): string[] {
@@ -565,12 +565,12 @@ export async function listUserLocations(api: ScopedApi): Promise<UserLocation[]>
           : [];
 
     return rows
-      .map((entry: any, index: number) => ({
+      .map((entry: any) => ({
         id: String(entry.uid ?? entry.locationUid ?? entry.id ?? entry.locationId ?? entry.encId ?? ""),
-        name: asString(entry.place) || asString(entry.name) || asString(entry.locationName) || asString(entry.branchName) || asString(entry.displayName) || `Location ${index + 1}`,
+        name: asString(entry.place) || asString(entry.name) || asString(entry.locationName) || asString(entry.branchName) || asString(entry.displayName),
         status: asString(entry.status) || undefined,
       }))
-      .filter((entry: any) => entry.id);
+      .filter((entry: any) => entry.id && entry.name);
   } catch {
     return [];
   }

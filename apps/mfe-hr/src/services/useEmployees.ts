@@ -73,7 +73,6 @@ export function useEmployees() {
         salaryStructure: structure,
       };
       if (emp.reportingManagerUid) payload.reportingManagerUid = emp.reportingManagerUid;
-      if (emp.branchUid) payload.branchUid = emp.branchUid;
       await api.put(`/employees/${emp.id}`, payload);
       await load();
     },

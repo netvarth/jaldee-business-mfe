@@ -59,7 +59,6 @@ export interface Employee {
   salaryStructure?: SalaryStructure | null;
   documents?: EmployeeDocument[];
   faceDescriptor?: string | null;
-  branchUid?: string | null;
   shiftUid?: string | null;
 }
 

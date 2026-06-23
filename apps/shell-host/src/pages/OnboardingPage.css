@@ -1,9 +1,11 @@
 .onboarding-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 40px 20px;
+  overflow-y: auto;
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 32%),
     linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
@@ -391,6 +393,18 @@
 }
 
 @media (max-width: 720px) {
+  .onboarding-page {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .onboarding-card {
+    min-height: 100vh;
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
   .onboarding-body {
     padding: 20px 16px 24px;
   }
@@ -410,6 +424,7 @@
   .onboarding-footer {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
 
   .onboarding-body--location {

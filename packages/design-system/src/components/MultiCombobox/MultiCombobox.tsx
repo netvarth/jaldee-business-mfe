@@ -209,7 +209,7 @@ export function MultiCombobox({
             role="listbox"
             aria-multiselectable="true"
             data-testid={`${testId}-menu`}
-            className="absolute z-[160] mt-1.5 w-full rounded-xl border border-gray-200 bg-white shadow-lg"
+            className="absolute z-[300] mt-1.5 w-full rounded-xl border border-gray-200 bg-white shadow-lg"
           >
             {/* Search bar */}
             <div className="border-b border-gray-100 p-2">

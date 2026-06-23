@@ -142,11 +142,28 @@ export const useShellStore = create<ShellStore>()(
           activeProduct: null,
         }),
 
-      setLocation: (location) =>
-        set({ activeLocation: location }),
+      setLocation: (location) => {
+        console.log("[shellStore] setLocation called with:", location);
+        set({ activeLocation: location });
+      },
 
-      setAvailableLocations: (locations) =>
-        set({ availableLocations: locations }),
+      setAvailableLocations: (locations) => {
+        console.log("[shellStore] setAvailableLocations called with:", locations);
+        set((state) => {
+          const nextActiveLocation =
+            locations.find((location) => location.id === state.activeLocation?.id) ??
+            locations[0] ??
+            null;
+          console.log("[shellStore] setAvailableLocations updating state with:", {
+            availableLocations: locations,
+            activeLocation: nextActiveLocation,
+          });
+          return {
+            availableLocations: locations,
+            activeLocation: nextActiveLocation,
+          };
+        });
+      },
 
       setActiveProduct: (product) =>
         set({ activeProduct: product }),
@@ -190,9 +207,8 @@ export const useShellStore = create<ShellStore>()(
           account: normalizeAccountContext(
             persisted.account ?? currentState.account
           ),
-          availableLocations:
-            persisted.availableLocations ?? currentState.availableLocations,
-          activeLocation: persisted.activeLocation ?? currentState.activeLocation,
+          availableLocations: [],
+          activeLocation: null,
           onboardingStatus: persisted.onboardingStatus ?? "complete",
           userPreferences: persisted.userPreferences ?? currentState.userPreferences,
         };

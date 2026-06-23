@@ -234,12 +234,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     authService.getProviderLocations()
       .then((locations) => {
-        if (cancelled || !locations.length) {
+        console.log("[AuthProvider] getProviderLocations returned:", locations);
+        console.log("[AuthProvider] setAvailableLocations reference:", setAvailableLocations);
+        if (cancelled) {
+          return;
+        }
+
+        if (!locations.length) {
+          setAvailableLocations([]);
           hasFetchedLocationsRef.current = true;
           return;
         }
 
+        console.log("[AuthProvider] calling setAvailableLocations now with:", locations);
         setAvailableLocations(locations);
+        console.log("[AuthProvider] called setAvailableLocations successfully!");
 
         const nextActiveLocation =
           activeLocation
@@ -251,9 +260,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         hasFetchedLocationsRef.current = true;
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("[AuthProvider] failed to fetch provider locations:", error);
         hasFetchedLocationsRef.current = false;
-        // Keep the current fallback locations if the live fetch fails.
+        setAvailableLocations([]);
       })
       .finally(() => {
         locationsRequestInFlightRef.current = false;
@@ -261,6 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      locationsRequestInFlightRef.current = false;
     };
   }, [activeLocation, availableLocations.length, hasHydrated, isAuthenticated, setAvailableLocations, setLocation]);
 
