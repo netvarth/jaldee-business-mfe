@@ -47,6 +47,8 @@ export interface Employee {
   dob?: string;
   department?: string;
   designation?: string;
+  hrDepartmentUid?: string | null;
+  designationUid?: string | null;
   doj?: string;
   reportingManagerUid?: string | null;
   hierarchyLevel?: number;

@@ -76,7 +76,7 @@ function toRow(item: any, index: number): MemberTypeRow {
   return {
     uid: String(item.uid ?? item.id ?? index),
     name: String(item.name ?? `Subscription Type ${index + 1}`),
-    subscriptionType: String(item.subscriptionType ?? "ONETIME"),
+    subscriptionType: String(item.subscriptionType ?? "ONE_TIME"),
     subscriptionAmount: Number(item.subscriptionAmount ?? 0),
     labels: activeLabels,
     status: String(item.subtypeStatus ?? item.status ?? "Disabled"),
@@ -322,7 +322,7 @@ export function MemberTypeList() {
                   className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
                 >
                   <option value="all">All</option>
-                  <option value="ONETIME">Onetime</option>
+                  <option value="ONE_TIME">Onetime</option>
                   <option value="RECURRING">Renewal</option>
                 </select>
               </div>

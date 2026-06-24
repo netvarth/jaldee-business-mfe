@@ -16,6 +16,12 @@ import {
   useProviderLocations,
   useUpdateSubType,
 } from "../queries/memberships";
+import {
+  getLocationValue,
+  normalizeMembershipLocations,
+  toLocationOptions,
+  unwrapPayload,
+} from "./serviceShared";
 
 interface MemberTypeFormProps {
   source?: string;
@@ -27,7 +33,7 @@ type FormState = {
   location: string;
   subscriptionRequired: boolean;
   subscriptionAmount: string;
-  subscriptionType: "ONETIME" | "RECURRING";
+  subscriptionType: "ONE_TIME" | "RECURRING";
   renewalDuration: string;
   renewalPeriodtype: string;
   renewalsubscriptionRequired: boolean;
@@ -54,7 +60,7 @@ const EMPTY_FORM: FormState = {
   location: "",
   subscriptionRequired: false,
   subscriptionAmount: "0",
-  subscriptionType: "ONETIME",
+  subscriptionType: "ONE_TIME",
   renewalDuration: "1",
   renewalPeriodtype: "InYears",
   renewalsubscriptionRequired: false,
@@ -65,46 +71,28 @@ const EMPTY_FORM: FormState = {
   allowLogin: false,
 };
 
-function unwrapPayload<T>(value: T): any {
-  const maybeWrapped = value as any;
-
-  if (maybeWrapped?.data?.data !== undefined) {
-    return maybeWrapped.data.data;
-  }
-
-  if (maybeWrapped?.data !== undefined) {
-    return maybeWrapped.data;
-  }
-
-  return maybeWrapped;
-}
-
-function unwrapList(value: unknown): any[] {
-  const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
-}
-
 function toNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
-  const { basePath } = useSharedModulesContext();
+  const { availableLocations, basePath } = useSharedModulesContext();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
   const isUpdate = source === "update" && Boolean(memberTypeUid);
 
-  const locationsQuery = useProviderLocations();
+  const hasContextLocations = Array.isArray(availableLocations);
+  const locationsQuery = useProviderLocations({}, !hasContextLocations);
   const memberTypeDetailsQuery = useMemberTypeByUid(memberTypeUid ?? "");
   const createMutation = useCreateSubType();
   const updateMutation = useUpdateSubType();
 
   const locations = useMemo(
-    () => unwrapList(locationsQuery.data).filter((location: any) => String(location?.status ?? "").toUpperCase() === "ACTIVE"),
-    [locationsQuery.data]
+    () => normalizeMembershipLocations(hasContextLocations ? availableLocations : locationsQuery.data),
+    [availableLocations, hasContextLocations, locationsQuery.data]
   );
   const memberTypeDetails = useMemo(
     () => unwrapPayload(memberTypeDetailsQuery.data),
@@ -114,7 +102,7 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
   useEffect(() => {
     if (form.location || locations.length !== 1 || isUpdate) return;
 
-    setForm((current) => ({ ...current, location: String(locations[0].id ?? "") }));
+    setForm((current) => ({ ...current, location: getLocationValue(locations[0]) }));
   }, [form.location, isUpdate, locations]);
 
   useEffect(() => {
@@ -125,7 +113,7 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
       location: String(memberTypeDetails.location ?? memberTypeDetails.locationId ?? ""),
       subscriptionRequired: Boolean(memberTypeDetails.subscriptionRequired),
       subscriptionAmount: String(memberTypeDetails.subscriptionAmount ?? 0),
-      subscriptionType: String(memberTypeDetails.subscriptionType ?? "ONETIME").toUpperCase() === "RECURRING" ? "RECURRING" : "ONETIME",
+      subscriptionType: String(memberTypeDetails.subscriptionType ?? "ONE_TIME").toUpperCase() === "RECURRING" ? "RECURRING" : "ONE_TIME",
       renewalDuration: String(memberTypeDetails.renewalPeriod?.renewalDuration ?? 1),
       renewalPeriodtype: String(memberTypeDetails.renewalPeriod?.renewalPeriodtype ?? "InYears"),
       renewalsubscriptionRequired: Boolean(memberTypeDetails.renewalsubscriptionRequired),
@@ -220,11 +208,7 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
   }
 
   const locationOptions = useMemo(
-    () => locations.flatMap((item: any) => {
-      const value = String(item.id ?? item.uid ?? "").trim();
-      const label = String(item.place ?? item.locationName ?? item.name ?? "").trim();
-      return value && label ? [{ value, label }] : [];
-    }),
+    () => toLocationOptions(locations),
     [locations]
   );
 
@@ -293,7 +277,7 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
             value={form.subscriptionType}
             onChange={(value) => setField("subscriptionType", value as FormState["subscriptionType"])}
             options={[
-              { value: "ONETIME", label: "Onetime" },
+              { value: "ONE_TIME", label: "Onetime" },
               { value: "RECURRING", label: "Renewal" },
             ]}
           />

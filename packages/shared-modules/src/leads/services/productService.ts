@@ -80,6 +80,7 @@ function toProduct(raw: any): Product {
     productType: raw?.productType ?? raw?.type,
     productTypeEnum: raw?.productTypeEnum,
     conversionMapping: raw?.conversionMapping as ConversionMapping | undefined,
+    attachments: Array.isArray(raw?.attachments) ? raw.attachments : [],
   };
 }
 
@@ -131,6 +132,7 @@ function toProductPayload(product: Partial<Product>, options: { includeUid?: boo
     status,
     defaultPipelineUid,
     defaultPipelineName: product.defaultPipelineName || undefined,
+    attachments: product.attachments,
   };
 }
 

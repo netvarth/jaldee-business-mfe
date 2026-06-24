@@ -5,6 +5,7 @@ import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
+import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import { exportToCSV } from "../../lib/utils";
 import type { Employee } from "../../types";
 
@@ -18,6 +19,8 @@ export default function EmployeeMaster() {
   const { eventBus } = useMFEProps();
   const api = useHrApi();
   const { data: employees, loading, error, remove } = useEmployees();
+  const { data: allDepartments } = useDepartments();
+  const { data: allDesignations } = useDesignations();
   const [searchTerm, setSearchTerm] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -149,13 +152,18 @@ export default function EmployeeMaster() {
           const name = nameIdx >= 0 ? cols[nameIdx] : undefined;
           if (!name) continue; // Skip invalid rows without a name
 
+          const deptVal = (deptIdx >= 0 && cols[deptIdx]) ? cols[deptIdx] : null;
+          const desigVal = (desigIdx >= 0 && cols[desigIdx]) ? cols[desigIdx] : null;
+          const deptObj = allDepartments.find(d => d.name?.toLowerCase() === deptVal?.toLowerCase());
+          const desigObj = allDesignations.find(d => d.name?.toLowerCase() === desigVal?.toLowerCase());
+
           const payload: Record<string, unknown> = {
             employeeId: (idIdx >= 0 && cols[idIdx]) ? cols[idIdx] : `EMP${Math.floor(1000 + Math.random() * 9000)}`,
             name: name,
             email: (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx] : `${name.replace(/\s+/g, '.').toLowerCase()}@company.com`,
             contactNumber: (phoneIdx >= 0 && cols[phoneIdx]) ? cols[phoneIdx] : null,
-            department: (deptIdx >= 0 && cols[deptIdx]) ? cols[deptIdx] : null,
-            designation: (desigIdx >= 0 && cols[desigIdx]) ? cols[desigIdx] : null,
+            hrDepartmentUid: deptObj?.id || null,
+            designationUid: desigObj?.id || null,
             employmentType: (typeIdx >= 0 && cols[typeIdx]) ? cols[typeIdx] : "Full-time",
             status: (statusIdx >= 0 && cols[statusIdx]) ? cols[statusIdx] : "Active",
             gender: (genderIdx >= 0 && cols[genderIdx]) ? cols[genderIdx] : null,

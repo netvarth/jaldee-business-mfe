@@ -19,7 +19,16 @@ import {
   useVideoaudioS3Upload,
   useVideoaudioS3UploadStatusUpdate,
 } from "../queries/memberships";
-import { getFileExtension, getServiceImageUrl, toInputDate, unwrapList, unwrapPayload } from "./serviceShared";
+import {
+  getFileExtension,
+  getLocationValue,
+  getServiceImageUrl,
+  normalizeMembershipLocations,
+  toInputDate,
+  toLocationOptions,
+  unwrapList,
+  unwrapPayload,
+} from "./serviceShared";
 
 interface ServiceFormProps {
   source?: string;
@@ -57,7 +66,7 @@ function ErrorBanner({ message }: { message: string }) {
 }
 
 export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
-  const { account, basePath } = useSharedModulesContext();
+  const { account, availableLocations, basePath } = useSharedModulesContext();
   const [form, setForm] = useState<ServiceFormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -66,7 +75,8 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
 
   const isUpdate = source === "update" && Boolean(serviceUid);
 
-  const locationsQuery = useProviderLocations();
+  const hasContextLocations = Array.isArray(availableLocations);
+  const locationsQuery = useProviderLocations({}, !hasContextLocations);
   const serviceTypesQuery = useServiceTypes({ "status-eq": "Enabled" });
   const serviceDetailsQuery = useServiceByUid(serviceUid ?? "");
 
@@ -77,8 +87,8 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
   const uploadStatusMutation = useVideoaudioS3UploadStatusUpdate();
 
   const locations = useMemo(
-    () => unwrapList(locationsQuery.data).filter((location: any) => String(location?.status ?? "").toUpperCase() === "ACTIVE"),
-    [locationsQuery.data]
+    () => normalizeMembershipLocations(hasContextLocations ? availableLocations : locationsQuery.data),
+    [availableLocations, hasContextLocations, locationsQuery.data]
   );
   const serviceTypes = useMemo(() => unwrapList(serviceTypesQuery.data), [serviceTypesQuery.data]);
   const serviceDetails = useMemo(() => unwrapPayload(serviceDetailsQuery.data), [serviceDetailsQuery.data]);
@@ -105,7 +115,7 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
   useEffect(() => {
     if (form.location || locations.length !== 1) return;
 
-    setForm((current) => ({ ...current, location: String(locations[0].id ?? "") }));
+    setForm((current) => ({ ...current, location: getLocationValue(locations[0]) }));
   }, [form.location, locations]);
 
   useEffect(() => {
@@ -227,11 +237,7 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
   );
 
   const locationOptions = useMemo(
-    () => locations.flatMap((item: any) => {
-      const value = String(item.id ?? item.uid ?? "").trim();
-      const label = String(item.place ?? item.locationName ?? item.name ?? "").trim();
-      return value && label ? [{ value, label }] : [];
-    }),
+    () => toLocationOptions(locations),
     [locations]
   );
 

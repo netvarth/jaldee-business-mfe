@@ -40,8 +40,13 @@ function useCrud<T extends { uid?: string; id?: string }>(endpoint: string) {
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>(endpoint);
+      console.log(`[useCrud] Loaded endpoint ${endpoint}:`, res);
       setData(Array.isArray(res) ? res.map((r) => withId<T>(r)) : []);
-    } catch (e) { setError(e instanceof Error ? e.message : `Failed to load ${endpoint}`); setData([]); }
+    } catch (e) {
+      console.error(`[useCrud] Failed to load endpoint ${endpoint}:`, e);
+      setError(e instanceof Error ? e.message : `Failed to load ${endpoint}`);
+      setData([]);
+    }
     finally { setLoading(false); }
   }, [api, endpoint]);
   useEffect(() => { void load(); }, [load]);

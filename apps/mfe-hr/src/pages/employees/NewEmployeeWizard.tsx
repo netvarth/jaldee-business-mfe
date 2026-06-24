@@ -16,6 +16,7 @@ export default function NewEmployeeWizard() {
   const { data: employees } = useEmployees();
   const { data: designations } = useDesignations();
   const { data: departments } = useDepartments();
+  console.log("[NewEmployeeWizard] designations data:", designations, "departments data:", departments);
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -56,6 +57,9 @@ export default function NewEmployeeWizard() {
     }
     setSaving(true);
     setError(null);
+    const deptObj = departments.find((d) => d.name === employment.department);
+    const desigObj = designations.find((d) => d.name === employment.designation);
+
     try {
       const payload: Record<string, unknown> = {
         employeeId: `EMP${Math.floor(1000 + Math.random() * 9000)}`,
@@ -65,8 +69,8 @@ export default function NewEmployeeWizard() {
         gender: personal.gender || null,
         dob: personal.dob || null,
         doj: new Date().toISOString().slice(0, 10),
-        department: employment.department || null,
-        designation: employment.designation || null,
+        hrDepartmentUid: deptObj?.id || null,
+        designationUid: desigObj?.id || null,
         employmentType: employment.employmentType,
         locationUid: location.id,
         role: "employee",

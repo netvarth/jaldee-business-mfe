@@ -230,15 +230,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     locationsRequestInFlightRef.current = true;
-    let cancelled = false;
 
     authService.getProviderLocations()
       .then((locations) => {
         console.log("[AuthProvider] getProviderLocations returned:", locations);
         console.log("[AuthProvider] setAvailableLocations reference:", setAvailableLocations);
-        if (cancelled) {
-          return;
-        }
 
         if (!locations.length) {
           setAvailableLocations([]);
@@ -270,8 +266,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     return () => {
-      cancelled = true;
-      locationsRequestInFlightRef.current = false;
+      // Keep the in-flight flag intact during React dev StrictMode effect replay.
+      // The request's finally block clears it after the original request settles.
     };
   }, [activeLocation, availableLocations.length, hasHydrated, isAuthenticated, setAvailableLocations, setLocation]);
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
-import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, TimePicker, Popover, Skeleton, SkeletonTable, MultiCombobox } from "@jaldee/design-system";
+import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker } from "@jaldee/design-system";
 import {
   useDepartments, useDesignations, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
@@ -20,14 +20,44 @@ interface Field {
   key: string;
   label: string;
   type?: FieldType;
+  serialize?: "time12" | "csv";
   options?: string[];
   full?: boolean;
   placeholder?: string;
   defaultValue?: unknown;
   sourceKey?: string;
   optional?: boolean;
+  is12Hour?: boolean;
 }
 type Row = Record<string, unknown>;
+
+function toTimeInputValue(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const time = value.trim();
+  const twentyFourHour = time.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (twentyFourHour) return time;
+
+  const twelveHour = time.match(/^(\d{1,2})[.:](\d{2})\s*([AP]M)$/i);
+  if (!twelveHour) return "";
+
+  let hour = Number(twelveHour[1]);
+  const minute = twelveHour[2];
+  const period = twelveHour[3].toUpperCase();
+  if (hour < 1 || hour > 12) return "";
+  if (period === "AM" && hour === 12) hour = 0;
+  if (period === "PM" && hour !== 12) hour += 12;
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function toBackendTime(value: unknown): string | null {
+  const time = toTimeInputValue(value);
+  if (!time) return null;
+  const [hourText, minute] = time.split(":");
+  const hour24 = Number(hourText);
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  return `${String(hour12).padStart(2, "0")}:${minute} ${period}`;
+}
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -37,7 +67,15 @@ function buildPayload(fields: Field[], form: Row): Row {
   const out: Row = {};
   fields.forEach((f) => {
     const v = form[f.key] ?? f.defaultValue;
-    if (f.type === "number") out[f.key] = v === "" || v == null ? null : Number(v);
+    if (f.serialize === "time12") out[f.key] = toBackendTime(v);
+    else if (f.serialize === "csv") {
+      out[f.key] = Array.isArray(v)
+        ? v.map(String).filter(Boolean).join(",")
+        : typeof v === "string"
+          ? v.split(",").map((item) => item.trim()).filter(Boolean).join(",")
+          : "";
+    }
+    else if (f.type === "number") out[f.key] = v === "" || v == null ? null : Number(v);
     else if (f.type === "checkbox") out[f.key] = !!v;
     else if (f.type === "multiselect") {
       out[f.key] = Array.isArray(v)
@@ -150,7 +188,7 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
     );
   }
   if (f.type === "time") {
-    const tv = typeof value === "string" ? value.slice(0, 5) : "";
+    const tv = toTimeInputValue(value);
     return (
       <TimePicker
         id={automationKey}
@@ -158,6 +196,7 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
         value={tv}
         onChange={(e) => onChange(e.target.value)}
         className="rounded-xl !h-11"
+        use12Hour={!!f.is12Hour}
       />
     );
   }
@@ -519,7 +558,8 @@ export default function Settings() {
             <CrudPanel title="Shifts" subtitle="Working hours & weekly off" icon={<Clock size={20} />} addLabel="Add Shift" hook={shifts} automationScope="hr-settings-shifts"
               fields={[
                 { key: "name", label: "Shift Name" },
-                { key: "startTime", label: "Start Time", type: "time" }, { key: "endTime", label: "End Time", type: "time" },
+                { key: "startTime", label: "Start Time", type: "time", serialize: "time12", is12Hour: true },
+                { key: "endTime", label: "End Time", type: "time", serialize: "time12", is12Hour: true },
                 { key: "graceMinutes", label: "Grace (min)", type: "number" }, { key: "halfDayThresholdMinutes", label: "Half-Day Threshold (min)", type: "number" },
                 { key: "breakMinutes", sourceKey: "break_minutes", label: "Break Minutes", type: "number", defaultValue: 0 },
                 {
@@ -532,7 +572,7 @@ export default function Settings() {
               ]}
               columns={[
                 { label: "Name", render: (r) => <b>{r.name as string}</b> },
-                { label: "Timing", render: (r) => `${((r.startTime as string) || "—").slice(0, 5)} – ${((r.endTime as string) || "—").slice(0, 5)}` },
+                { label: "Timing", render: (r) => `${(r.startTime as string) || "—"} – ${(r.endTime as string) || "—"}` },
                 { label: "Grace", render: (r) => r.graceMinutes != null ? `${r.graceMinutes}m` : "—" },
                 { label: "Break", render: (r) => r.break_minutes != null || r.breakMinutes != null ? `${r.break_minutes ?? r.breakMinutes}m` : "—" },
                 {

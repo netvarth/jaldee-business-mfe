@@ -4,6 +4,7 @@ import { useHrApi } from "../services/useHrApi";
 export interface Announcement {
   id: string; uid?: string; title?: string; description?: string; type?: string;
   startDate?: string; endDate?: string; isPinned?: boolean; acknowledgedBy?: string[];
+  status?: string;
 }
 export interface TicketResponse { message?: string; respondedBy?: string; respondedAt?: string; }
 export interface Ticket {
@@ -32,8 +33,18 @@ export function useAnnouncements() {
   }, [api]);
   useEffect(() => { void load(); }, [load]);
   const create = useCallback(async (payload: Record<string, unknown>) => { await api.post("/announcements", payload); await load(); }, [api, load]);
-  const acknowledge = useCallback(async (uid: string) => { await api.post(`/announcements/${uid}/acknowledge`); await load(); }, [api, load]);
-  return { data, loading, error, reload: load, create, acknowledge };
+  const acknowledge = useCallback(async (uid: string, employeeUid?: string) => {
+    const url = employeeUid
+      ? `/announcements/${uid}/acknowledge?employeeUid=${encodeURIComponent(employeeUid)}`
+      : `/announcements/${uid}/acknowledge`;
+    await api.post(url);
+    await load();
+  }, [api, load]);
+  const updateStatus = useCallback(async (uid: string, status: string) => {
+    await api.patch(`/announcements/${uid}/status`, { status });
+    await load();
+  }, [api, load]);
+  return { data, loading, error, reload: load, create, acknowledge, updateStatus };
 }
 
 export function useTickets() {

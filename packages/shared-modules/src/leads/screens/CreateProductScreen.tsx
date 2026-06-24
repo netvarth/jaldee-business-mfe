@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
 import { mockForms } from '../mockData';
@@ -6,6 +6,16 @@ import { Product, Channel, FormTemplate } from '../types';
 import { Button, Input, Select, Textarea } from '@jaldee/design-system';
 import { useJaldeeLeadsContext } from '../lib/sharedContext';
 import { emitLeadSuccessToast } from '../lib/errorEvents';
+import { useSharedModulesContext } from '../../context';
+import { buildBaseServiceUrl } from '../../serviceUrls';
+
+interface UploadedFileItem {
+  name: string;
+  size: number;
+  status: 'uploading' | 'success' | 'error';
+  error?: string;
+  attachmentData?: any;
+}
 
 interface CreateProductScreenProps {
   onBack: () => void;
@@ -35,6 +45,167 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const { api } = useSharedModulesContext();
+  const { user, account } = useJaldeeLeadsContext();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const [filesList, setFilesList] = useState<UploadedFileItem[]>(() => {
+    if (initialProduct?.attachments && Array.isArray(initialProduct.attachments)) {
+      return initialProduct.attachments.map(att => ({
+        name: att.fileName || 'Attachment',
+        size: att.fileSize || 0,
+        status: 'success',
+        attachmentData: att
+      }));
+    }
+    return [];
+  });
+
+  const resolveFileType = (file: File) => {
+    if (file.type.includes("/")) {
+      return file.type.split("/")[1];
+    }
+    const segments = file.name.split(".");
+    return segments.length > 1 ? segments.pop() ?? "file" : "file";
+  };
+
+  const uploadFileWorkflow = async (file: File, indexInState: number) => {
+    try {
+      const initiatePayload = {
+        fileName: file.name,
+        fileType: file.type || resolveFileType(file),
+        fileSize: file.size,
+        ownerType: "TenantUser",
+        uploadedBy: user.id || "",
+        uploadedByName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+        owner: user.id || "",
+        ownerName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+        caption: file.name,
+        contextType: "CRM_LEAD_CHANNEL",
+        sharedType: "secureShare",
+        tenantUid: account.id || "",
+        action: "ADD",
+        featureServiceName: "BASE_CRM",
+        featureModuleName: "CRM_LEAD"
+      };
+
+      const initiateRes = await api.post<any>(
+        buildBaseServiceUrl("/platform-service/v1/api/drive/initiate-upload"),
+        initiatePayload,
+        { _skipLocationParam: true } as any
+      );
+      const initiateData = initiateRes.data;
+      const { fileUid, uploadUrl, filePath, jaldeeDriveId } = initiateData;
+
+      if (!uploadUrl) {
+        throw new Error("No upload URL returned");
+      }
+
+      const s3Res = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: file.type ? { "Content-Type": file.type } : undefined,
+      });
+
+      if (!s3Res.ok) {
+        throw new Error("AWS S3 upload failed");
+      }
+
+      await api.patch(
+        buildBaseServiceUrl(`/platform-service/v1/api/drive/${fileUid}/status?status=COMPLETE`),
+        null,
+        { _skipLocationParam: true } as any
+      );
+
+      const attachmentObj = {
+        fileName: file.name,
+        fileType: file.type || resolveFileType(file),
+        fileSize: file.size,
+        ownerType: "TenantUser",
+        filePath: filePath,
+        driveId: fileUid,
+        uploadedBy: user.id || "",
+        uploadedByName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+        owner: user.id || "",
+        ownerName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+        caption: file.name,
+        contextType: "CRM_LEAD_CHANNEL",
+        sharedType: "secureShare",
+        tenantUid: account.id || "",
+        action: "ADD",
+        jaldeeDriveId: jaldeeDriveId,
+        featureServiceName: "BASE_CRM",
+        featureModuleName: "CRM_LEAD"
+      };
+
+      setFilesList(prev => prev.map((item, idx) =>
+        idx === indexInState
+          ? { ...item, status: 'success', attachmentData: attachmentObj }
+          : item
+      ));
+    } catch (err) {
+      console.error("Upload workflow error for file:", file.name, err);
+      setFilesList(prev => prev.map((item, idx) =>
+        idx === indexInState
+          ? { ...item, status: 'error', error: err instanceof Error ? err.message : "Upload failed" }
+          : item
+      ));
+    }
+  };
+
+  const handleFileSelection = (selectedFiles: File[]) => {
+    const newItems: UploadedFileItem[] = selectedFiles.map(file => ({
+      name: file.name,
+      size: file.size,
+      status: 'uploading'
+    }));
+
+    setFilesList(prev => {
+      const startIdx = prev.length;
+      selectedFiles.forEach((file, idx) => {
+        uploadFileWorkflow(file, startIdx + idx);
+      });
+      return [...prev, ...newItems];
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      handleFileSelection(Array.from(e.target.files));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files) {
+      handleFileSelection(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  const handleRemoveFile = (indexToRemove: number) => {
+    setFilesList(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       setSaveError('Product Name is required.');
@@ -58,6 +229,9 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
       productType: formData.productType || 'PREMIUM SERVICE OFFERING',
       productTypeEnum: formData.productType || undefined,
       status: initialProduct?.status || 'ACTIVE',
+      attachments: filesList
+        .filter(f => f.status === 'success' && f.attachmentData)
+        .map(f => f.attachmentData)
     };
 
     try {
@@ -227,8 +401,33 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
             {/* Associated Media / SLA Documents */}
             <div className="col-span-1 md:col-span-2 space-y-2">
               <label className="text-sm font-semibold text-slate-700 block">Associated Media / SLA Documents</label>
-              <div className="border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer">
-                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-all shadow-sm">
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+              />
+
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  "border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-3 group transition-all cursor-pointer",
+                  isDragging
+                    ? "border-indigo-500 bg-indigo-50/50 shadow-inner"
+                    : "border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/30"
+                )}
+              >
+                <div className={cn(
+                  "w-10 h-10 rounded-xl bg-white border flex items-center justify-center transition-all shadow-sm",
+                  isDragging
+                    ? "text-indigo-600 border-indigo-200 scale-110"
+                    : "text-slate-400 border-slate-200 group-hover:text-indigo-600 group-hover:border-indigo-200"
+                )}>
                   <ICONS.DOWNLOAD className="w-5 h-5" />
                 </div>
                 <div className="text-center">
@@ -236,6 +435,62 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
                   <p className="text-xs text-slate-400 mt-0.5">Drag and drop assets or click to browse local storage</p>
                 </div>
               </div>
+
+              {/* Uploaded Files List */}
+              {filesList.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  {filesList.map((file, idx) => (
+                    <div
+                      key={`${file.name}-${idx}`}
+                      className="group/file flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                          {file.status === 'uploading' ? (
+                            <div className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                          ) : (
+                            <ICONS.DOCUMENT className="w-4 h-4 text-slate-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-800 truncate" title={file.name}>
+                            {file.name}
+                          </p>
+                          {file.status === 'error' ? (
+                            <p className="text-[10px] text-rose-500 font-semibold mt-0.5 truncate" title={file.error}>
+                              {file.error || 'Upload failed'}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {formatFileSize(file.size)}
+                              {file.status === 'uploading' && ' • Uploading...'}
+                              {file.status === 'success' && ' • Uploaded'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {file.status === 'success' && (
+                          <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xs" title="Uploaded successfully">
+                            ✓
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFile(idx);
+                          }}
+                          className="w-7 h-7 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
+                          title="Remove file"
+                        >
+                          <ICONS.CLOSE className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

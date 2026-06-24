@@ -404,6 +404,7 @@ export function ShellTasksPage() {
 export function ShellMembershipPage() {
   const user = useShellStore((s) => s.user);
   const account = useShellStore((s) => s.account);
+  const availableLocations = useShellStore((s) => s.availableLocations);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
   const navigateWithinModule = useModuleNavigate("/membership");
@@ -426,6 +427,7 @@ export function ShellMembershipPage() {
             user,
             account: normalizeAccountContext(account),
             location: null,
+            availableLocations,
             api: apiClient,
             routeParams: {
               locationId: null,

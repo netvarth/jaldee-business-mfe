@@ -96,6 +96,7 @@ export default function EmployeeDetails() {
   const { data: allEmployees } = useEmployees();
   const { data: designations } = useDesignations();
   const { data: departments } = useDepartments();
+  console.log("[EmployeeDetails] designations data:", designations, "departments data:", departments);
   const { data: allAttendance } = useAttendance();
   const { data: allLeaves } = useLeaves();
   const { data: allPayslips } = usePayslips();
@@ -168,11 +169,16 @@ export default function EmployeeDetails() {
     }
     setSaving(true); setSaveError(null);
     try {
+      const deptObj = departments.find((d) => d.name === form.department);
+      const desigObj = designations.find((d) => d.name === form.designation);
+
       const payload: Record<string, unknown> = {
         employeeId: employee.employeeId, name: form.name, email: form.email,
         contactNumber: contactNumber.e164Number || `${contactNumber.countryCode}${contactNumber.number}`,
-        gender: form.gender || null, dob: form.dob || null, doj: form.doj || null, department: form.department || null,
-        designation: form.designation || null, employmentType: form.employmentType || null, role: employee.role || "employee",
+        gender: form.gender || null, dob: form.dob || null, doj: form.doj || null,
+        hrDepartmentUid: deptObj?.id || null,
+        designationUid: desigObj?.id || null,
+        employmentType: form.employmentType || null, role: employee.role || "employee",
         status: form.status || "Active", locationUid: activeLocation.id,
         pan: form.pan || null, uan: form.uan || null, bankDetails: form.bankDetails, salaryStructure: form.salaryStructure,
       };

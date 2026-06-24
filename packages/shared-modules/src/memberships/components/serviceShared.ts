@@ -38,6 +38,36 @@ export function unwrapList(value: unknown): any[] {
   return [];
 }
 
+export function getLocationValue(location: any) {
+  return String(location?.uid ?? location?.locationUid ?? location?.id ?? location?.locationId ?? location?.encId ?? "").trim();
+}
+
+export function getLocationLabel(location: any) {
+  return String(
+    location?.place ??
+      location?.locationName ??
+      location?.name ??
+      location?.branchName ??
+      location?.displayName ??
+      ""
+  ).trim();
+}
+
+export function normalizeMembershipLocations(value: unknown): any[] {
+  return unwrapList(value).filter((location: any) => {
+    const status = String(location?.status ?? "").trim().toUpperCase();
+    const isInactive = status === "INACTIVE" || status === "DISABLED";
+    return !isInactive && getLocationValue(location) && getLocationLabel(location);
+  });
+}
+
+export function toLocationOptions(locations: any[]) {
+  return locations.map((location: any) => ({
+    value: getLocationValue(location),
+    label: getLocationLabel(location),
+  }));
+}
+
 export function unwrapCount(value: unknown) {
   const payload = unwrapPayload(value);
 

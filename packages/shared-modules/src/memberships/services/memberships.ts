@@ -141,7 +141,7 @@ export async function videoaudioS3UploadStatusUpdate(scopedApi: ScopedApi, statu
 export async function getProviderLocations(scopedApi: ScopedApi, filter: {} = {}): Promise<any> {
   return scopedApi.get(
     buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.search),
-    { params: filter, ...MEMBERSHIP_REQUEST_CONFIG }
+    { params: { page: 0, size: 100, ...filter }, ...MEMBERSHIP_REQUEST_CONFIG }
   );
 }
 

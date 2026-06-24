@@ -23,6 +23,13 @@ import {
   useVideoaudioS3Upload,
   useVideoaudioS3UploadStatusUpdate,
 } from "../queries/memberships";
+import {
+  getLocationValue,
+  normalizeMembershipLocations,
+  toLocationOptions,
+  unwrapList,
+  unwrapPayload,
+} from "./serviceShared";
 
 interface CreateMemberProps {
   source?: string;
@@ -69,25 +76,6 @@ const EMPTY_FORM: MemberFormState = {
   templateSchemaId: "",
 };
 
-function unwrapPayload<T>(value: T): any {
-  const maybeWrapped = value as any;
-
-  if (maybeWrapped?.data?.data !== undefined) {
-    return maybeWrapped.data.data;
-  }
-
-  if (maybeWrapped?.data !== undefined) {
-    return maybeWrapped.data;
-  }
-
-  return maybeWrapped;
-}
-
-function unwrapList(value: unknown): any[] {
-  const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
-}
-
 function trimPhone(value: string) {
   return value.replace(/[^\d]/g, "");
 }
@@ -110,7 +98,7 @@ function buildLeadReturnPath(basePath: string, leadUid: string) {
 }
 
 export function CreateMember({ source, memberId }: CreateMemberProps) {
-  const { basePath, account } = useSharedModulesContext();
+  const { availableLocations, basePath, account } = useSharedModulesContext();
   const isUpdate = source === "update" && Boolean(memberId);
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const leadUid = useMemo(() => (!isUpdate ? readLeadUid(searchParams) : ""), [isUpdate, searchParams]);
@@ -134,7 +122,8 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
   const memberDetailsQuery = useMemberDetailsByUid(memberId ?? "");
   const leadDetailsQuery = useLeadByUid(leadUid);
-  const locationsQuery = useProviderLocations();
+  const hasContextLocations = Array.isArray(availableLocations);
+  const locationsQuery = useProviderLocations({}, !hasContextLocations);
   const memberTypesQuery = useMemberTypes(memberTypeFilters);
   const templatesQuery = useTemplates(templateFilters);
   const selectedTemplateQuery = useMemberTemplatesByuuid(form.templateSchemaId);
@@ -146,8 +135,8 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
   const uploadStatusMutation = useVideoaudioS3UploadStatusUpdate();
 
   const locations = useMemo(
-    () => unwrapList(locationsQuery.data).filter((location: any) => location?.status === "ACTIVE"),
-    [locationsQuery.data]
+    () => normalizeMembershipLocations(hasContextLocations ? availableLocations : locationsQuery.data),
+    [availableLocations, hasContextLocations, locationsQuery.data]
   );
   const memberTypes = useMemo(() => unwrapList(memberTypesQuery.data), [memberTypesQuery.data]);
   const templates = useMemo(() => unwrapList(templatesQuery.data), [templatesQuery.data]);
@@ -212,7 +201,7 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
     setForm((current) => ({
       ...current,
-      location: String(locations[0].id ?? ""),
+      location: getLocationValue(locations[0]),
     }));
   }, [form.location, locations]);
 
@@ -361,10 +350,7 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
   const locationOptions = [
     { value: "", label: "Select Location", disabled: true },
-    ...locations.map((location: any) => ({
-      value: String(location.id),
-      label: String(location.place ?? location.name ?? location.id),
-    })),
+    ...toLocationOptions(locations),
   ];
 
   const memberTypeOptions = [

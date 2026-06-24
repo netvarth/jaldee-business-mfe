@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone } from "lucide-react";
-import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard } from "@jaldee/design-system";
+import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical } from "lucide-react";
+import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
+import { useMyProfile } from "../../services/useEss";
 
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
@@ -19,10 +20,17 @@ function typeColor(t?: string): string {
   }
 }
 
+const getTodayDateString = (): string => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 export default function Announcements() {
   const { eventBus } = useMFEProps();
   const { data: employees } = useEmployees();
   const ann = useAnnouncements();
+  const { data: myProfile } = useMyProfile();
 
   useEffect(() => {
     if (ann.error) {
@@ -39,7 +47,7 @@ export default function Announcements() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [tracking, setTracking] = useState<Announcement | null>(null);
-  const [form, setForm] = useState({ title: "", type: "General", endDate: "", isPinned: false, description: "" });
+  const [form, setForm] = useState({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -50,15 +58,103 @@ export default function Announcements() {
       .slice().sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
   }, [ann.data, search]);
 
+  const toLocalISOString = (date: Date): string => {
+    const tzOffset = -date.getTimezoneOffset();
+    const diff = tzOffset >= 0 ? "+" : "-";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const seconds = pad(date.getSeconds());
+    
+    const absOffsetHour = pad(Math.floor(Math.abs(tzOffset) / 60));
+    const absOffsetMin = pad(Math.abs(tzOffset) % 60);
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${diff}${absOffsetHour}:${absOffsetMin}`;
+  };
+
   const post = async () => {
     if (!form.title || !form.description) { setMsg("Title and content are required."); return; }
     setSaving(true); setMsg(null);
     try {
-      await ann.create({ title: form.title, description: form.description, type: form.type, startDate: new Date().toISOString(), endDate: form.endDate || null, isPinned: form.isPinned, acknowledgedBy: [] });
-      setForm({ title: "", type: "General", endDate: "", isPinned: false, description: "" });
+      const start = form.startDate
+        ? (() => {
+            const [y, m, d] = form.startDate.split("-").map(Number);
+            const now = new Date();
+            return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+          })()
+        : new Date();
+      const end = form.endDate 
+        ? (() => {
+            const [y, m, d] = form.endDate.split("-").map(Number);
+            return new Date(y, m - 1, d, 23, 59, 59);
+          })()
+        : (() => {
+            const d = new Date(start);
+            d.setMonth(d.getMonth() + 1);
+            return d;
+          })();
+
+      await ann.create({
+        title: form.title,
+        description: form.description,
+        type: form.type,
+        status: "Enabled",
+        startDate: toLocalISOString(start),
+        endDate: toLocalISOString(end),
+        isPinned: form.isPinned,
+        acknowledgedBy: []
+      });
+      setForm({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
       setAddOpen(false);
     } catch (e) { setMsg(e instanceof Error ? e.message : "Failed to post."); }
     finally { setSaving(false); }
+  };
+
+  const handleAcknowledge = async (id: string) => {
+    if (!myProfile?.id) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "StaffSpace",
+        message: "Employee profile not loaded.",
+      });
+      return;
+    }
+    try {
+      await ann.acknowledge(id, myProfile.id);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "StaffSpace",
+        message: "Announcement acknowledged successfully.",
+      });
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "StaffSpace",
+        message: e instanceof Error ? e.message : "Failed to acknowledge announcement.",
+      });
+    }
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "Disabled" ? "Enabled" : "Disabled";
+    try {
+      await ann.updateStatus(id, nextStatus);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "StaffSpace",
+        message: `Announcement ${nextStatus.toLowerCase()} successfully.`,
+      });
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "StaffSpace",
+        message: e instanceof Error ? e.message : "Failed to update status.",
+      });
+    }
   };
 
   return (
@@ -103,14 +199,41 @@ export default function Announcements() {
             return (
               <div key={a.id} style={{ background: a.isPinned ? "rgba(17,94,89,0.02)" : "var(--surface-bg)", borderRadius: 36, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.05)", border: a.isPinned ? "2px solid rgba(17,94,89,0.2)" : "1px solid transparent", display: "flex" }}>
                 <div style={{ width: 8, background: color, flexShrink: 0 }} />
-                <div style={{ flex: 1, padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div style={{ flex: 1, padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative" }}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10, paddingRight: 32 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
                         {a.isPinned && <div style={{ background: "rgba(17,94,89,0.1)", padding: 8, borderRadius: 12, display: "flex" }}><Pin size={16} color={TEAL} fill={TEAL} /></div>}
                         <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: color }}>{a.type || "General"}</span>
+                        <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: a.status === "Disabled" ? "#374151" : "#065f46", background: a.status === "Disabled" ? "#f3f4f6" : "#d1fae5" }}>{a.status || "Enabled"}</span>
                         <span style={{ ...lbl, display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={12} /> {a.startDate ? new Date(a.startDate).toLocaleDateString() : "Recently"}</span>
                       </div>
+                    </div>
+                    <div style={{ position: "absolute", top: 32, right: 36 }}>
+                      <Popover
+                        data-testid={`announcement-action-${a.id}`}
+                        align="end"
+                        contentClassName="min-w-[140px] p-2"
+                        trigger={
+                          <button
+                            type="button"
+                            aria-label="More actions"
+                            style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 4 }}
+                          >
+                            <MoreVertical size={20} />
+                          </button>
+                        }
+                      >
+                        <PopoverSection>
+                          <button
+                            type="button"
+                            className="flex w-full items-center rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)]"
+                            onClick={() => handleToggleStatus(a.id, a.status || "Enabled")}
+                          >
+                            {a.status === "Disabled" ? "Enable" : "Disable"}
+                          </button>
+                        </PopoverSection>
+                      </Popover>
                     </div>
                     <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 16px" }}>{a.title}</h2>
                     <p style={{ fontSize: 15, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
@@ -125,7 +248,7 @@ export default function Announcements() {
                         <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
                         <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
                       </div>
-                      <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => ann.acknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
+                      <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
                     </div>
                   </div>
                 </div>
@@ -150,31 +273,55 @@ export default function Announcements() {
             <button id="hr-announcements-create-close" data-testid="hr-announcements-create-close" onClick={() => setAddOpen(false)} aria-label="Close create announcement modal" style={iconBtn}><X size={20} /></button>
           </div>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: 24 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div><label style={lbl}>Title</label><input id="hr-announcements-title" data-testid="hr-announcements-title" placeholder="Enter a catchy title…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={{ ...field, marginTop: 6, fontSize: 17 }} /></div>
+            <Input
+              id="hr-announcements-title"
+              data-testid="hr-announcements-title"
+              label="Title"
+              placeholder="Enter a catchy title…"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+            <Select
+              id="hr-announcements-category"
+              testId="hr-announcements-category"
+              label="Category"
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              options={TYPES.map((t) => ({ value: t, label: t }))}
+            />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Select
-                id="hr-announcements-category"
-                testId="hr-announcements-category"
-                label="Category"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                options={TYPES.map((t) => ({ value: t, label: t }))}
+              <DatePicker
+                id="hr-announcements-start-date"
+                label="Start Date"
+                value={form.startDate}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
               />
               <DatePicker
                 id="hr-announcements-end-date"
-                label="Validity (Optional)"
+                label="End Date (Optional)"
                 value={form.endDate}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               />
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4 }}>
-              <button id="hr-announcements-attachment" data-testid="hr-announcements-attachment" type="button" style={{ height: 44, padding: "0 18px", borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}><Paperclip size={16} /> Add Attachment</button>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: "10px 16px", borderRadius: 12, cursor: "pointer" }}>
-                <input id="hr-announcements-pin-top" data-testid="hr-announcements-pin-top" type="checkbox" checked={form.isPinned} onChange={(e) => setForm({ ...form, isPinned: e.target.checked })} style={{ width: 18, height: 18 }} />
-                <span style={lbl}>Pin to top</span>
-              </label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 24, paddingTop: 4 }}>
+              <Button
+                id="hr-announcements-attachment"
+                data-testid="hr-announcements-attachment"
+                type="button"
+                variant="outline"
+                icon={<Paperclip size={16} />}
+              >
+                Add Attachment
+              </Button>
+              <Checkbox
+                id="hr-announcements-pin-top"
+                data-testid="hr-announcements-pin-top"
+                label="Pin to top"
+                checked={form.isPinned}
+                onChange={(e) => setForm({ ...form, isPinned: e.target.checked })}
+              />
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -191,8 +338,23 @@ export default function Announcements() {
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button id="hr-announcements-cancel" data-testid="hr-announcements-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-          <button id="hr-announcements-submit" data-testid="hr-announcements-submit" onClick={post} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Posting…</> : "Post Announcement"}</button>
+          <Button
+            id="hr-announcements-cancel"
+            data-testid="hr-announcements-cancel"
+            variant="outline"
+            onClick={() => setAddOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            id="hr-announcements-submit"
+            data-testid="hr-announcements-submit"
+            variant="primary"
+            onClick={post}
+            loading={saving}
+          >
+            Post Announcement
+          </Button>
         </div>
       </Dialog>
 

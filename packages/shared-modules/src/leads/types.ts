@@ -226,4 +226,5 @@ export interface Product {
   productType?: string;
   productTypeEnum?: string;
   conversionMapping?: ConversionMapping;
+  attachments?: any[];
 }

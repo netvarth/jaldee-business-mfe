@@ -41,7 +41,7 @@ export function useHrApi() {
   return useMemo(() => {
     async function request<T>(
       endpoint: string,
-      method: "GET" | "POST" | "PUT" | "DELETE",
+      method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
       body?: Json
     ): Promise<T> {
       const timeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
@@ -113,6 +113,7 @@ export function useHrApi() {
       get: <T>(endpoint: string) => request<T>(endpoint, "GET"),
       post: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "POST", body),
       put: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "PUT", body),
+      patch: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "PATCH", body),
       del: <T>(endpoint: string) => request<T>(endpoint, "DELETE"),
     };
   }, [authToken]);

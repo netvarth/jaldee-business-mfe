@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { buildScopedDetailQueryKey, buildScopedListQueryKey } from "../../queryKeys";
 import { useApiScope } from "../../useApiScope";
+import { useSharedModulesContext } from "../../context";
 import {
   // Original membership CRUD
   getMemberships,
@@ -176,11 +177,14 @@ export function useVideoaudioS3UploadStatusUpdate() {
 }
 
 // Locations
-export function useProviderLocations(filter: {} = {}) {
+export function useProviderLocations(filter: {} = {}, enabled = true) {
   const scopedApi = useApiScope();
+  const { availableLocations } = useSharedModulesContext();
   return useQuery({
     queryKey: buildScopedListQueryKey("provider-locations", scopedApi.apiScope, null, filter),
     queryFn: () => getProviderLocations(scopedApi, filter),
+    enabled,
+    initialData: availableLocations?.length ? availableLocations : undefined,
   });
 }
 
