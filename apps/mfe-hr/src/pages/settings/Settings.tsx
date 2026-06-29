@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
 import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker } from "@jaldee/design-system";
@@ -7,6 +7,8 @@ import {
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
 } from "../../services/useSettingsData";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { useEmployees } from "../../services/useEmployees";
+import { useHrApi } from "../../services/useHrApi";
 
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -21,7 +23,7 @@ interface Field {
   label: string;
   type?: FieldType;
   serialize?: "time12" | "csv";
-  options?: string[];
+  options?: (string | { value: string; label: string })[];
   full?: boolean;
   placeholder?: string;
   defaultValue?: unknown;
@@ -105,7 +107,12 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
     );
   }
   if (f.type === "select") {
-    const opts = f.options!.map((o) => ({ value: o, label: o }));
+    const opts = f.options!.map((o) => {
+      if (typeof o === "object" && o !== null && "value" in o) {
+        return o;
+      }
+      return { value: String(o), label: String(o) };
+    });
     if (f.optional) {
       opts.unshift({ value: "", label: "None" });
     }
@@ -407,6 +414,387 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
   );
 }
 
+function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
+  const { eventBus } = useMFEProps();
+  const api = useHrApi();
+  const navigate = useNavigate();
+  const { subsection } = useParams<{ subsection?: string }>();
+  const employees = useEmployees();
+  const view = subsection === "assign" ? "assignment" : "policies";
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
+  const [policyForm, setPolicyForm] = useState<Row>({
+    name: "",
+    category: "Annual",
+    annualQuota: 0,
+    accrualType: "Monthly",
+    paid: true,
+    carryForward: false,
+    carryForwardMax: 0,
+    colorHex: "#115E59",
+  });
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [selectedPolicyUid, setSelectedPolicyUid] = useState("");
+  const [targetMode, setTargetMode] = useState<"all" | "specific">("all");
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [selectedEmployeeUids, setSelectedEmployeeUids] = useState<string[]>([]);
+  const [assigning, setAssigning] = useState(false);
+
+  const activeEmployees = useMemo(
+    () => employees.data.filter((employee) => !employee.status || String(employee.status).toLowerCase() === "active"),
+    [employees.data]
+  );
+  const filteredEmployees = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
+    if (!q) return activeEmployees;
+    return activeEmployees.filter((employee) => (
+      employee.name.toLowerCase().includes(q) ||
+      (employee.employeeId || "").toLowerCase().includes(q) ||
+      (employee.department || "").toLowerCase().includes(q) ||
+      (employee.email || "").toLowerCase().includes(q)
+    ));
+  }, [activeEmployees, employeeSearch]);
+  const selectedPolicy = leaveTypes.data.find((policy) => policy.id === selectedPolicyUid || policy.uid === selectedPolicyUid);
+  const assignmentCount = targetMode === "all" ? activeEmployees.length : selectedEmployeeUids.length;
+  const canAssign = !!selectedPolicyUid && !assigning && !employees.loading && (targetMode === "all" || selectedEmployeeUids.length > 0);
+
+  const openCreatePolicy = () => {
+    setEditing(null);
+    setPolicyForm({
+      name: "",
+      category: "Annual",
+      annualQuota: 0,
+      accrualType: "Monthly",
+      paid: true,
+      carryForward: false,
+      carryForwardMax: 0,
+      colorHex: "#115E59",
+    });
+    setPolicyOpen(true);
+  };
+
+  const openEditPolicy = (policy: Row & { id: string }) => {
+    setEditing(policy);
+    setPolicyForm({
+      name: policy.name || "",
+      category: policy.category || "Annual",
+      annualQuota: policy.annualQuota ?? 0,
+      accrualType: policy.accrualType || "Monthly",
+      paid: policy.paid ?? true,
+      carryForward: policy.carryForward ?? false,
+      carryForwardMax: policy.carryForwardMax ?? 0,
+      colorHex: policy.colorHex || "#115E59",
+    });
+    setPolicyOpen(true);
+  };
+
+  const savePolicy = async () => {
+    if (!policyForm.name) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Policy", message: "Leave type name is required." });
+      return;
+    }
+    setSavingPolicy(true);
+    try {
+      const payload = {
+        name: policyForm.name,
+        category: policyForm.category,
+        annualQuota: Number(policyForm.annualQuota || 0),
+        accrualType: policyForm.accrualType,
+        paid: !!policyForm.paid,
+        carryForward: !!policyForm.carryForward,
+        carryForwardMax: policyForm.carryForward ? Number(policyForm.carryForwardMax || 0) : 0,
+        colorHex: policyForm.colorHex || "#115E59",
+      };
+      if (editing) await leaveTypes.update(editing.id, payload);
+      else await leaveTypes.create(payload);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Leave Policy",
+        message: editing ? "Leave type updated successfully." : "Leave type created successfully.",
+      });
+      setPolicyOpen(false);
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Leave Policy",
+        message: e instanceof Error ? e.message : "Save failed.",
+      });
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
+
+  const deletePolicy = async (policy: Row & { id: string }) => {
+    if (!confirm("Delete this leave type?")) return;
+    try {
+      await leaveTypes.remove(policy.id);
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "success", title: "Leave Policy", message: "Leave type deleted successfully." });
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Policy", message: e instanceof Error ? e.message : "Delete failed." });
+    }
+  };
+
+  const toggleEmployee = (employeeUid: string) => {
+    setSelectedEmployeeUids((current) => current.includes(employeeUid)
+      ? current.filter((uid) => uid !== employeeUid)
+      : [...current, employeeUid]);
+  };
+  const selectVisibleEmployees = () => {
+    setSelectedEmployeeUids((current) => Array.from(new Set([...current, ...filteredEmployees.map((employee) => employee.id)])));
+  };
+  const clearSelectedEmployees = () => setSelectedEmployeeUids([]);
+
+  const confirmAssignment = async () => {
+    if (!selectedPolicyUid) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Select a leave policy before assigning." });
+      return;
+    }
+    if (targetMode === "specific" && selectedEmployeeUids.length === 0) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Select at least one employee." });
+      return;
+    }
+    setAssigning(true);
+    try {
+      await api.post("/leaves/balances/assign-type", {
+        leaveTypeUid: selectedPolicyUid,
+        assignmentMode: targetMode === "all" ? "ALL_ACTIVE_EMPLOYEES" : "SPECIFIC_EMPLOYEES",
+        employeeUids: targetMode === "all" ? [] : selectedEmployeeUids,
+      });
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Leave Assignment",
+        message: targetMode === "all"
+          ? `Leave ledger initialized for ${activeEmployees.length} active employees.`
+          : `Leave ledger initialized for ${selectedEmployeeUids.length} selected employees.`,
+      });
+      setSelectedEmployeeUids([]);
+      setTargetMode("all");
+    } catch (e) {
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Leave Assignment",
+        message: e instanceof Error ? e.message : "Assignment failed.",
+      });
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  return (
+    <div id="hr-settings-leave-policy-dashboard" data-testid="hr-settings-leave-policy-dashboard" style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      <PanelHeader
+        title={view === "assignment" ? "Assign Leave" : "Leave Policy & Assignment Dashboard"}
+        subtitle={view === "assignment" ? "Initialize leave ledgers for all or selected employees" : "Build leave policies and initialize employee ledgers"}
+        icon={<Plane size={20} />}
+        action={view === "assignment"
+          ? <button id="hr-settings-leave-assignment-back" data-testid="hr-settings-leave-assignment-back" onClick={() => navigate("/settings/leavetypes")} style={ghostBtn}>Back to Policies</button>
+          : <button id="hr-settings-leave-assignment-open" data-testid="hr-settings-leave-assignment-open" onClick={() => navigate("/settings/leavetypes/assign")} style={primaryBtn}><Users2 size={16} /> Assign Leave</button>}
+      />
+
+      {view === "policies" && <div style={card}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>Leave Type Configuration</h3>
+            <p style={{ ...lbl, marginTop: 4 }}>Policy builder for quotas, accrual and calendar styling</p>
+          </div>
+          <button id="hr-settings-leave-policy-create" data-testid="hr-settings-leave-policy-create" onClick={openCreatePolicy} style={primaryBtn}><Plus size={16} /> Create New Leave Type</button>
+        </div>
+        {leaveTypes.error && <div style={{ padding: "16px 24px" }}><ErrorBar text={leaveTypes.error} /></div>}
+        {leaveTypes.loading ? (
+          <div style={{ padding: 20 }}><SkeletonTable rows={4} columns={7} /></div>
+        ) : (
+          <div className="overflow-x-auto w-full">
+            <table id="hr-settings-leave-policy-table" data-testid="hr-settings-leave-policy-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><th style={th}>Leave Type</th><th style={th}>Category</th><th style={th}>Quota</th><th style={th}>Accrual</th><th style={th}>Rules</th><th style={th}>Color</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
+              <tbody>
+                {leaveTypes.data.length === 0 ? (
+                  <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No leave types configured.</td></tr>
+                ) : leaveTypes.data.map((policy) => (
+                  <tr key={policy.id}>
+                    <td style={tdc}><b>{policy.name as string}</b></td>
+                    <td style={tdc}>{(policy.category as string) || "Annual"}</td>
+                    <td style={tdc}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</td>
+                    <td style={tdc}>{(policy.accrualType as string) || "—"}</td>
+                    <td style={tdc}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
+                        <span style={miniPill(policy.carryForward ? "#2563eb" : "#64748b")}>{policy.carryForward ? `Carry ${policy.carryForwardMax || 0}d` : "No Carry"}</span>
+                      </div>
+                    </td>
+                    <td style={tdc}><span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ width: 18, height: 18, borderRadius: 6, border: "1px solid var(--border-color)", background: (policy.colorHex as string) || "#cbd5e1" }} />{(policy.colorHex as string) || "—"}</span></td>
+                    <td style={{ ...tdc, textAlign: "right" }}>
+                      <button id={`hr-settings-leave-policy-edit-${policy.id}`} data-testid={`hr-settings-leave-policy-edit-${policy.id}`} onClick={() => openEditPolicy(policy)} title="Edit" aria-label="Edit leave type" style={iconAction}><Pencil size={15} /></button>
+                      <button id={`hr-settings-leave-policy-delete-${policy.id}`} data-testid={`hr-settings-leave-policy-delete-${policy.id}`} onClick={() => deletePolicy(policy)} title="Delete" aria-label="Delete leave type" style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>}
+
+      {view === "assignment" && <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ ...card, padding: 22 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 18, alignItems: "end" }}>
+            <div style={{ minWidth: 0 }}>
+              <label style={{ ...lbl, display: "block", marginBottom: 8 }}>Leave Type</label>
+              <Select
+                id="hr-settings-leave-assignment-policy"
+                testId="hr-settings-leave-assignment-policy"
+                value={selectedPolicyUid}
+                onChange={(e) => setSelectedPolicyUid(e.target.value)}
+                placeholder="Select leave type"
+                options={leaveTypes.data.map((policy) => ({ value: policy.id, label: String(policy.name || policy.id) }))}
+              />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <span style={{ ...lbl, display: "block", marginBottom: 8 }}>Assign To</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button id="hr-settings-leave-assignment-all" data-testid="hr-settings-leave-assignment-all" onClick={() => setTargetMode("all")} style={segmentedButton(targetMode === "all")} type="button">All Active</button>
+                <button id="hr-settings-leave-assignment-specific" data-testid="hr-settings-leave-assignment-specific" onClick={() => setTargetMode("specific")} style={segmentedButton(targetMode === "specific")} type="button">Specific</button>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 320px" }}>
+              <div style={{ height: 40, width: 40, borderRadius: 14, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Users2 size={18} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <span style={{ ...lbl, display: "block", marginBottom: 3 }}>Employees</span>
+                <p style={{ margin: 0, color: "var(--dark-text)", fontSize: 13, fontWeight: 800, overflowWrap: "anywhere" }}>
+                  <strong style={{ color: TEAL }}>{assignmentCount} selected</strong>
+                  <span style={{ color: "var(--light-text)", fontWeight: 700 }}> · {selectedPolicy ? `${selectedPolicy.name} will be assigned to ${assignmentCount} employee${assignmentCount === 1 ? "" : "s"}.` : "Select a leave type to continue."}</span>
+                </p>
+              </div>
+            </div>
+            <button id="hr-settings-leave-assignment-confirm" data-testid="hr-settings-leave-assignment-confirm" onClick={confirmAssignment} disabled={!canAssign} style={{ ...primaryBtn, opacity: canAssign ? 1 : 0.55, flex: "0 0 auto", justifyContent: "center" }}>
+              {assigning ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Confirm Assignment
+            </button>
+          </div>
+        </div>
+
+        {targetMode === "specific" && (
+          <div style={card}>
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: "var(--dark-text)" }}>Select Employees</h3>
+                <p style={{ ...lbl, marginTop: 3 }}>{selectedEmployeeUids.length} selected from {activeEmployees.length} active employees</p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button id="hr-settings-leave-select-visible" data-testid="hr-settings-leave-select-visible" onClick={selectVisibleEmployees} style={ghostBtn} type="button">Select Visible</button>
+                <button id="hr-settings-leave-clear-selected" data-testid="hr-settings-leave-clear-selected" onClick={clearSelectedEmployees} style={ghostBtn} type="button">Clear</button>
+              </div>
+            </div>
+            <div style={{ padding: 16 }}>
+              <Input
+                id="hr-settings-leave-employee-search"
+                data-testid="hr-settings-leave-employee-search"
+                value={employeeSearch}
+                onChange={(e) => setEmployeeSearch(e.target.value)}
+                placeholder="Search by name, ID, department, or email"
+                className="rounded-xl !h-11 mb-3"
+              />
+              {employees.loading ? (
+                <SkeletonTable rows={5} columns={4} />
+              ) : (
+                <div style={{ maxHeight: 420, overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: 14 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr><th style={th}>Select</th><th style={th}>Employee</th><th style={th}>Department</th><th style={th}>Status</th></tr></thead>
+                    <tbody>
+                      {filteredEmployees.length === 0 ? (
+                        <tr><td colSpan={4} style={{ ...tdc, textAlign: "center", ...lbl, padding: "30px 0" }}>No active employees found.</td></tr>
+                      ) : filteredEmployees.map((employee) => (
+                        <tr key={employee.id}>
+                          <td style={tdc}><input id={`hr-settings-leave-employee-${employee.id}`} data-testid={`hr-settings-leave-employee-${employee.id}`} type="checkbox" checked={selectedEmployeeUids.includes(employee.id)} onChange={() => toggleEmployee(employee.id)} /></td>
+                          <td style={tdc}><b>{employee.name}</b><span style={{ display: "block", ...lbl, fontSize: 8 }}>{employee.employeeId}</span></td>
+                          <td style={tdc}>{employee.department || "General"}</td>
+                          <td style={tdc}><span style={miniPill("#059669")}>{employee.status || "Active"}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        <div style={{ ...card, ...assignmentActionRow }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 320px" }}>
+            <div style={{ height: 40, width: 40, borderRadius: 14, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Users2 size={18} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <span style={{ ...lbl, display: "block", marginBottom: 3 }}>Employees</span>
+              <p style={{ margin: 0, color: "var(--dark-text)", fontSize: 13, fontWeight: 800, overflowWrap: "anywhere" }}>
+                <strong style={{ color: TEAL }}>{assignmentCount} selected</strong>
+                <span style={{ color: "var(--light-text)", fontWeight: 700 }}> - {selectedPolicy ? `${selectedPolicy.name} will be assigned to ${assignmentCount} employee${assignmentCount === 1 ? "" : "s"}.` : "Select a leave type to continue."}</span>
+              </p>
+            </div>
+          </div>
+          <button id="hr-settings-leave-assignment-confirm-bottom" data-testid="hr-settings-leave-assignment-confirm-bottom" onClick={confirmAssignment} disabled={!canAssign} style={{ ...primaryBtn, opacity: canAssign ? 1 : 0.55, flex: "0 0 auto", justifyContent: "center" }}>
+            {assigning ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Confirm Assignment
+          </button>
+        </div>
+      </div>}
+
+      <Dialog open={policyOpen} onClose={() => setPolicyOpen(false)} testId="hr-settings-leave-policy-modal" hideHeader contentClassName="max-w-[620px] p-0 overflow-visible">
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit Leave Type" : "Create New Leave Type"}</h3>
+            <p style={{ ...lbl, marginTop: 3 }}>Define quota, accrual, rules and calendar color</p>
+          </div>
+          <button id="hr-settings-leave-policy-modal-close" data-testid="hr-settings-leave-policy-modal-close" onClick={() => setPolicyOpen(false)} style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer" }}><X size={20} /></button>
+        </div>
+        <div style={{ padding: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+          <div>
+            <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Name</label>
+            <Input id="hr-settings-leave-policy-name" data-testid="hr-settings-leave-policy-name" value={(policyForm.name as string) || ""} onChange={(e) => setPolicyForm((f) => ({ ...f, name: e.target.value }))} placeholder="Annual Paid Leave" className="rounded-xl !h-11" />
+          </div>
+          <div>
+            <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Category</label>
+            <Select id="hr-settings-leave-policy-category" testId="hr-settings-leave-policy-category" value={(policyForm.category as string) || "Annual"} onChange={(e) => setPolicyForm((f) => ({ ...f, category: e.target.value }))} options={["Annual", "Sick", "Maternity", "Paternity", "Comp-Off", "Unpaid", "Other"].map((value) => ({ value, label: value }))} />
+          </div>
+          <div>
+            <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Annual Quota</label>
+            <Input id="hr-settings-leave-policy-quota" data-testid="hr-settings-leave-policy-quota" type="number" value={String(policyForm.annualQuota ?? "")} onChange={(e) => setPolicyForm((f) => ({ ...f, annualQuota: e.target.value }))} className="rounded-xl !h-11" />
+          </div>
+          <div>
+            <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Accrual Type</label>
+            <Select id="hr-settings-leave-policy-accrual" testId="hr-settings-leave-policy-accrual" value={(policyForm.accrualType as string) || "Monthly"} onChange={(e) => setPolicyForm((f) => ({ ...f, accrualType: e.target.value }))} options={["Monthly", "Yearly", "Quarterly"].map((value) => ({ value, label: value }))} />
+          </div>
+          <label style={{ ...ruleToggle(!!policyForm.paid), gridColumn: "1 / -1" }}>
+            <input id="hr-settings-leave-policy-paid" data-testid="hr-settings-leave-policy-paid" type="checkbox" checked={!!policyForm.paid} onChange={(e) => setPolicyForm((f) => ({ ...f, paid: e.target.checked }))} />
+            <span><b>Is Paid Leave?</b><small style={{ display: "block", color: "var(--light-text)", marginTop: 2 }}>Approved days remain payable.</small></span>
+          </label>
+          <label style={{ ...ruleToggle(!!policyForm.carryForward), gridColumn: "1 / -1" }}>
+            <input id="hr-settings-leave-policy-carry-forward" data-testid="hr-settings-leave-policy-carry-forward" type="checkbox" checked={!!policyForm.carryForward} onChange={(e) => setPolicyForm((f) => ({ ...f, carryForward: e.target.checked }))} />
+            <span><b>Allow Carry Forward?</b><small style={{ display: "block", color: "var(--light-text)", marginTop: 2 }}>Unused balance can roll into the next cycle.</small></span>
+          </label>
+          {policyForm.carryForward && (
+            <div>
+              <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Max Carry Forward Days</label>
+              <Input id="hr-settings-leave-policy-carry-forward-max" data-testid="hr-settings-leave-policy-carry-forward-max" type="number" value={String(policyForm.carryForwardMax ?? "")} onChange={(e) => setPolicyForm((f) => ({ ...f, carryForwardMax: e.target.value }))} className="rounded-xl !h-11" />
+            </div>
+          )}
+          <div>
+            <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Badge Color</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input id="hr-settings-leave-policy-color-picker" data-testid="hr-settings-leave-policy-color-picker" type="color" value={(policyForm.colorHex as string) || "#115E59"} onChange={(e) => setPolicyForm((f) => ({ ...f, colorHex: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--border-color)", padding: 2, background: "var(--surface-bg)" }} />
+              <Input id="hr-settings-leave-policy-color" data-testid="hr-settings-leave-policy-color" value={(policyForm.colorHex as string) || ""} onChange={(e) => setPolicyForm((f) => ({ ...f, colorHex: e.target.value }))} placeholder="#115E59" className="rounded-xl !h-11" />
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button id="hr-settings-leave-policy-cancel" data-testid="hr-settings-leave-policy-cancel" onClick={() => setPolicyOpen(false)} style={ghostBtn}>Cancel</button>
+          <button id="hr-settings-leave-policy-save" data-testid="hr-settings-leave-policy-save" onClick={savePolicy} disabled={savingPolicy} style={primaryBtn}>{savingPolicy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Leave Type</button>
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
 /* ---- small shared bits ---- */
 const PanelHeader = ({ title, subtitle, icon, action }: { title: string; subtitle: string; icon: ReactNode; action?: ReactNode }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
@@ -543,14 +931,17 @@ export default function Settings() {
             <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={designations} automationScope="hr-settings-designations"
               fields={[
                 { key: "name", label: "Role / Designation" }, { key: "code", label: "Code" },
-                { key: "department", label: "Department", type: "select", options: departments.data.map((d) => (d.name as string)).filter(Boolean), optional: true },
+                { key: "hrDepartmentUid", label: "Department", type: "select", options: departments.data.map((d) => ({ value: d.id, label: d.name as string })), optional: true },
                 { key: "level", label: "Level / Band", type: "number" },
                 { key: "description", label: "Description", type: "textarea", full: true },
               ]}
               columns={[
                 { label: "Role / Designation", render: (r) => <b>{r.name as string}</b> },
                 { label: "Code", render: (r) => (r.code as string) || "—" },
-                { label: "Department", render: (r) => (r.department as string) || "—" },
+                { label: "Department", render: (r) => {
+                  const dept = departments.data.find(d => d.id === r.hrDepartmentUid);
+                  return dept?.name || (r.department as string) || "—";
+                }},
                 { label: "Level", render: (r) => r.level != null ? `L${r.level}` : "—" },
               ]} />
           )}
@@ -583,11 +974,11 @@ export default function Settings() {
                 },
               ]} />
           )}
-          {section === "leavetypes" && (
+          {section === "leavetypes-old" && (
             <CrudPanel title="Leave Policy" subtitle="Leave types, quotas & carry-forward" icon={<Plane size={20} />} addLabel="Add Leave Type" hook={leaveTypes} automationScope="hr-settings-leave-types"
               fields={[
                 { key: "name", label: "Leave Type" }, { key: "annualQuota", label: "Annual Quota (days)", type: "number" },
-                { key: "accrualType", label: "Accrual", type: "select", options: ["Annual", "Monthly", "Quarterly"] },
+                { key: "accrualType", label: "Accrual", type: "select", options: ["Yearly", "Monthly", "Quarterly"] },
                 { key: "carryForwardMax", label: "Carry-Forward Max", type: "number" },
                 { key: "colorHex", label: "Colour", type: "color" },
                 { key: "carryForward", label: "Allow Carry-Forward", type: "checkbox" },
@@ -600,6 +991,9 @@ export default function Settings() {
                 { label: "Carry-Fwd", render: (r) => yesNo(r.carryForward) },
                 { label: "Paid", render: (r) => yesNo(r.paid) },
               ]} />
+          )}
+          {section === "leavetypes" && (
+            <LeavePolicyAssignmentDashboard leaveTypes={leaveTypes} />
           )}
           {section === "holidays" && (
             <CrudPanel title="Holiday Calendar" subtitle="Company holidays & observances" icon={<CalendarDays size={20} />} addLabel="Add Holiday" hook={holidays} automationScope="hr-settings-holidays"
@@ -650,3 +1044,10 @@ const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius:
 const ghostBtn: CSSProperties = { height: 42, padding: "0 20px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
 const primaryBtn: CSSProperties = { height: 42, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };
 const iconAction: CSSProperties = { height: 32, width: 32, borderRadius: 9, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--light-text)", cursor: "pointer", marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center" };
+const wizardStep: CSSProperties = { display: "flex", gap: 14, padding: 16, borderRadius: 16, border: "1px solid var(--border-color)", background: "rgba(100,116,139,0.03)" };
+const stepBadge: CSSProperties = { height: 28, width: 28, borderRadius: 10, background: "rgba(17,94,89,0.1)", color: TEAL, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 };
+const miniPill = (color: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", padding: "3px 8px", borderRadius: 999, background: `${color}12`, color, border: `1px solid ${color}24`, fontSize: 9, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase" });
+const segmentedButton = (active: boolean): CSSProperties => ({ height: 42, borderRadius: 12, border: active ? "1px solid rgba(17,94,89,0.35)" : "1px solid var(--border-color)", background: active ? "rgba(17,94,89,0.08)" : "var(--surface-bg)", color: active ? TEAL : "var(--dark-text)", fontSize: 12, fontWeight: 900, cursor: "pointer" });
+const assignmentActionRow: CSSProperties = { padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" };
+const radioCard = (active: boolean): CSSProperties => ({ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 14, border: active ? "1px solid rgba(17,94,89,0.28)" : "1px solid var(--border-color)", background: active ? "rgba(17,94,89,0.06)" : "var(--surface-bg)", color: "var(--dark-text)", fontSize: 13, cursor: "pointer" });
+const ruleToggle = (active: boolean): CSSProperties => ({ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 14, border: active ? "1px solid rgba(17,94,89,0.28)" : "1px solid var(--border-color)", background: active ? "rgba(17,94,89,0.06)" : "rgba(100,116,139,0.03)", color: "var(--dark-text)", fontSize: 13, cursor: "pointer" });

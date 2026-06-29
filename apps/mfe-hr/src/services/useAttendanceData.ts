@@ -7,6 +7,9 @@ export interface AttendanceRecord {
   wfhStatus?: string; workedHours?: number;
   verifiedByUid?: string; verifiedAt?: string;
   totalBreakMinutes?: number; breaks?: import("../types").AttendanceBreak[];
+  overtimeMinutes?: number; overtimeStatus?: "Pending" | "Approved" | "Rejected" | string;
+  approvedOvertimeMinutes?: number;
+  shiftStartTime?: string; shiftEndTime?: string; systemGenerated?: boolean; generatedBy?: string; source?: string;
 }
 export interface OnDutyRequest {
   id: string; uid?: string; employeeUid?: string; date?: string;
@@ -50,26 +53,25 @@ export function useAttendance() {
   const punchIn = useCallback(async (payload: Record<string, unknown>) => {
     await api.post("/attendance", payload); await reload();
   }, [api, reload]);
-  const punchOut = useCallback(async (uid: string, payload: Record<string, unknown>) => {
-    await api.put(`/attendance/${uid}`, payload); await reload();
+  const punchOut = useCallback(async (uid: string) => {
+    await api.put(`/attendance/${uid}`); await reload();
   }, [api, reload]);
   const verify = useCallback(async (uid: string, wfhStatus: string, verifiedByUid?: string | null) => {
     await api.put(`/attendance/${uid}/verify`, { wfhStatus, verifiedByUid: verifiedByUid || null }); await reload();
   }, [api, reload]);
   const startBreak = useCallback(async (uid: string, breakType: string) => {
-    await api.post(`/attendance/${uid}/breaks`, {
-      breakIn: new Date().toISOString(),
-      breakType,
-    });
+    await api.post(`/attendance/${uid}/breaks`, { breakType });
     await reload();
   }, [api, reload]);
   const endBreak = useCallback(async (uid: string, breakUid: string) => {
-    await api.put(`/attendance/${uid}/breaks/${breakUid}`, {
-      breakOut: new Date().toISOString(),
-    });
+    await api.put(`/attendance/${uid}/breaks/${breakUid}`);
     await reload();
   }, [api, reload]);
-  return { data, loading, error, reload, punchIn, punchOut, verify, startBreak, endBreak };
+  const approveOvertime = useCallback(async (uid: string, approvedMinutes: number) => {
+    await api.put(`/attendance/${uid}/overtime?approvedMinutes=${encodeURIComponent(String(Math.max(0, approvedMinutes)))}`);
+    await reload();
+  }, [api, reload]);
+  return { data, loading, error, reload, punchIn, punchOut, verify, startBreak, endBreak, approveOvertime };
 }
 
 export function useOnDuty() {

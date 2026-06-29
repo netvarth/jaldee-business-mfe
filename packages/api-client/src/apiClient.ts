@@ -212,6 +212,10 @@ export function createApiClient(baseURL: string): AxiosInstance {
         notifySessionExpired();
       }
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("jaldee:api:error", { detail: error }));
+      }
+
       return Promise.reject(enrichApiError(error));
     }
   );

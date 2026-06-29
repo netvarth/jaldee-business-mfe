@@ -5,6 +5,7 @@ import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
 import { useMyProfile } from "../../services/useEss";
+import { useTelemetry } from "../../services/useTelemetry";
 
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
@@ -31,6 +32,7 @@ export default function Announcements() {
   const { data: employees } = useEmployees();
   const ann = useAnnouncements();
   const { data: myProfile } = useMyProfile();
+  const { trackEvent, captureError } = useTelemetry();
 
   useEffect(() => {
     if (ann.error) {
@@ -108,9 +110,17 @@ export default function Announcements() {
         isPinned: form.isPinned,
         acknowledgedBy: []
       });
+      trackEvent("hr.announcement.created", {
+        type: form.type,
+        isPinned: form.isPinned,
+        hasEndDate: !!form.endDate,
+      });
       setForm({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
       setAddOpen(false);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Failed to post."); }
+    } catch (e) {
+      captureError(e instanceof Error ? e : new Error("Announcement create failed"));
+      setMsg(e instanceof Error ? e.message : "Failed to post.");
+    }
     finally { setSaving(false); }
   };
 

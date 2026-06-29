@@ -17,7 +17,7 @@ export default function FaceCaptureModal({
   title: string;
   subtitle?: string;
   busy?: boolean;
-  onCapture: (descriptor: number[]) => void | Promise<void>;
+  onCapture: (descriptor: number[], selfieDataUrl?: string) => void | Promise<void>;
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,7 +50,12 @@ export default function FaceCaptureModal({
     try {
       const desc = await getDescriptor(videoRef.current);
       if (!desc) { setError("No face detected — center your face in the frame and try again."); setStatus("ready"); return; }
-      await onCapture(Array.from(desc));
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth || 480;
+      canvas.height = videoRef.current.videoHeight || 360;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      await onCapture(Array.from(desc), canvas.toDataURL("image/jpeg", 0.82));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Capture failed."); setStatus("ready");
     }

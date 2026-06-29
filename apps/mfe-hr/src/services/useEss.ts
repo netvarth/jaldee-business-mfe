@@ -4,7 +4,14 @@ import type { AttendanceBreak, Employee } from "../types";
 
 function withId<T extends { uid?: string; id?: string }>(value: Record<string, unknown>): T {
   const uid = (value.uid ?? value.id) as string | undefined;
-  return { ...value, id: String(uid ?? ""), uid } as T;
+  const hrDepartment = (value.hrDepartment ?? value.department) as string | undefined;
+  return {
+    ...value,
+    id: String(uid ?? ""),
+    uid,
+    department: hrDepartment,
+    hrDepartment,
+  } as T;
 }
 
 function useEssList<T extends { uid?: string; id?: string }>(endpoint: string) {
@@ -33,6 +40,7 @@ export interface MyAttendance {
   id: string; uid?: string; dateStr?: string; clockIn?: string; clockOut?: string;
   clockInType?: string; status?: string; workedHours?: number; wfhStatus?: string;
   totalBreakMinutes?: number; breaks?: AttendanceBreak[];
+  overtimeMinutes?: number; overtimeStatus?: string; approvedOvertimeMinutes?: number;
 }
 
 export interface MyLeave {
@@ -74,21 +82,16 @@ export function useMyProfile() {
 
 export function useMyAttendance() {
   const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance");
-  const punchIn = useCallback(async (mode: string) => {
-    const now = new Date();
+  const punchIn = useCallback(async (mode: string, selfieDataUrl?: string) => {
     await api.post("/me/attendance/punch-in", {
-      dateStr: now.toISOString().slice(0, 10),
-      clockIn: now.toISOString(),
       clockInType: mode,
       wfhStatus: mode === "Office" ? null : "Pending",
+      selfieDataUrl: selfieDataUrl || null,
     });
     await reload();
   }, [api, reload]);
-  const punchOut = useCallback(async (uid: string, mode: string) => {
-    await api.put(`/me/attendance/${uid}/punch-out`, {
-      clockOut: new Date().toISOString(),
-      clockInType: mode,
-    });
+  const punchOut = useCallback(async (uid: string) => {
+    await api.put(`/me/attendance/${uid}/punch-out`);
     await reload();
   }, [api, reload]);
   return { data, loading, error, reload, punchIn, punchOut };

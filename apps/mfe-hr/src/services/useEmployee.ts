@@ -4,7 +4,18 @@ import type { Employee } from "../types";
 
 function normalize(e: Record<string, unknown>): Employee {
   const uid = (e.uid ?? e.id) as string | undefined;
-  return { ...(e as object), id: String(uid ?? ""), uid } as Employee;
+  const hrDepartment = (e.hrDepartment ?? e.department) as string | undefined;
+  return {
+    ...(e as object),
+    id: String(uid ?? ""),
+    uid,
+    department: hrDepartment,
+    hrDepartment,
+    hrDepartmentUid: (e.hrDepartmentUid ?? null) as string | null,
+    designationUid: (e.designationUid ?? null) as string | null,
+    locationUid: (e.locationUid ?? null) as string | null,
+    locationName: (e.locationName ?? null) as string | null,
+  } as Employee;
 }
 
 /** Loads a single employee from /hr-service/employees/{id}. */

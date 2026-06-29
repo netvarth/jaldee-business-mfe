@@ -11,6 +11,7 @@ import {
   HelpCircle,
   LogOut,
   Megaphone,
+  UserSearch,
   Search,
   Settings,
   Users,
@@ -25,6 +26,7 @@ const NAV = [
   { to: "/payroll", label: "Payroll", icon: CreditCard },
   { to: "/expenses", label: "Expenses", icon: DollarSign },
   { to: "/tickets", label: "Helpdesk", icon: HelpCircle },
+  { to: "/recruitment", label: "Recruitment", icon: UserSearch },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

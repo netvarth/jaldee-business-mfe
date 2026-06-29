@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import { CalendarDays, Clock, Loader2, User, Wallet } from "lucide-react";
+import { lazy, Suspense, useMemo, useState, type CSSProperties } from "react";
+import { CalendarDays, Clock, Loader2, User, Wallet, type LucideIcon } from "lucide-react";
 import { Button, PageHeader, Select } from "@jaldee/design-system";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   useMyAttendance,
   useMyLeaveBalances,
@@ -8,14 +9,64 @@ import {
   useMyPayslips,
   useMyProfile,
 } from "../../services/useEss";
+import { useAttendanceRules } from "../../services/useSettingsData";
 import { formatCurrency, formatDate } from "../../lib/utils";
+const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
 type Section = "profile" | "attendance" | "leave" | "payslips";
 
+const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: LucideIcon }> = [
+  { key: "profile", route: "profile", label: "My Profile", Icon: User },
+  { key: "attendance", route: "attendance", label: "Attendance", Icon: Clock },
+  { key: "leave", route: "leave", label: "Leave", Icon: CalendarDays },
+  { key: "payslips", route: "payslips", label: "Payslips", Icon: Wallet },
+];
+
+function sectionFromPath(pathname: string): Section {
+  const segment = pathname.split("/").filter(Boolean).at(-1);
+  const match = ESS_ROUTES.find((item) => item.route === segment || item.key === segment);
+  return match?.key || "profile";
+}
+
+const buttonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  borderRadius: 8,
+};
+
+const tabBar: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 6,
+  padding: 4,
+  background: "var(--border-color)",
+  borderRadius: 8,
+  marginBottom: 18,
+  width: "fit-content",
+};
+
+const tabButton = (active: boolean): CSSProperties => ({
+  ...buttonStyle,
+  border: "none",
+  padding: "9px 13px",
+  fontWeight: 800,
+  fontSize: 13,
+  background: active ? "var(--surface-bg)" : "transparent",
+  color: active ? "var(--dark-text)" : "var(--light-text)",
+  cursor: "pointer",
+});
+
 export default function EssPortal() {
-  const [section, setSection] = useState<Section>("profile");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const section = sectionFromPath(location.pathname);
   const [mode, setMode] = useState("Office");
+  const [faceOpen, setFaceOpen] = useState(false);
+  const [punchBusy, setPunchBusy] = useState(false);
   const profile = useMyProfile();
+  const attendanceRules = useAttendanceRules();
   const attendance = useMyAttendance();
   const leaves = useMyLeaves();
   const balances = useMyLeaveBalances();
@@ -25,28 +76,38 @@ export default function EssPortal() {
     () => attendance.data.find((item) => item.dateStr === today),
     [attendance.data, today],
   );
-
-  const tabs: Array<{ key: Section; label: string; icon: React.ReactNode }> = [
-    { key: "profile", label: "My Profile", icon: <User size={16} /> },
-    { key: "attendance", label: "Attendance", icon: <Clock size={16} /> },
-    { key: "leave", label: "Leave", icon: <CalendarDays size={16} /> },
-    { key: "payslips", label: "Payslips", icon: <Wallet size={16} /> },
-  ];
+  const faceRequired = !!attendanceRules.data?.faceRecognitionRequired;
+  const punchIn = async (selfieDataUrl?: string) => {
+    setPunchBusy(true);
+    try {
+      await attendance.punchIn(mode, selfieDataUrl);
+      setFaceOpen(false);
+    } finally {
+      setPunchBusy(false);
+    }
+  };
 
   return (
     <section id="hr-ess-page" data-testid="hr-ess-page" className="page-section active p-4 md:p-6">
+      {faceOpen && (
+        <Suspense fallback={null}>
+          <FaceCaptureModal title="Verify Face to Punch In" subtitle={profile.data?.name} busy={punchBusy} onCapture={(_descriptor, selfieDataUrl) => punchIn(selfieDataUrl)} onClose={() => setFaceOpen(false)} />
+        </Suspense>
+      )}
       <PageHeader title="Employee Self-Service" subtitle="Your HR profile, attendance, leave and payroll" />
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {tabs.map((tab) => (
-          <Button
-            key={tab.key}
-            variant={section === tab.key ? "primary" : "secondary"}
-            icon={tab.icon}
-            onClick={() => setSection(tab.key)}
+      <div style={tabBar}>
+        {ESS_ROUTES.map(({ key, route, label, Icon }) => (
+          <button
+            key={key}
+            id={`hr-ess-tab-${key}`}
+            data-testid={`hr-ess-tab-${key}`}
+            data-active={section === key ? "true" : "false"}
+            onClick={() => navigate(`/me/${route}`)}
+            style={tabButton(section === key)}
           >
-            {tab.label}
-          </Button>
+            <Icon size={15} /> {label}
+          </button>
         ))}
       </div>
 
@@ -73,9 +134,9 @@ export default function EssPortal() {
               options={["Office", "WFH", "On Duty"].map((value) => ({ value, label: value }))}
             />
             {!todayAttendance?.clockIn ? (
-              <Button onClick={() => void attendance.punchIn(mode)}>Punch In</Button>
+              <Button onClick={() => faceRequired ? setFaceOpen(true) : void punchIn()} disabled={punchBusy}>Punch In</Button>
             ) : !todayAttendance.clockOut ? (
-              <Button onClick={() => void attendance.punchOut(todayAttendance.id, mode)}>Punch Out</Button>
+              <Button onClick={() => void attendance.punchOut(todayAttendance.id)}>Punch Out</Button>
             ) : null}
           </div>
           <SimpleTable

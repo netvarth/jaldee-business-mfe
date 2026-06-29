@@ -46,6 +46,7 @@ export interface Employee {
   gender?: string;
   dob?: string;
   department?: string;
+  hrDepartment?: string;
   designation?: string;
   hrDepartmentUid?: string | null;
   designationUid?: string | null;
@@ -62,6 +63,8 @@ export interface Employee {
   documents?: EmployeeDocument[];
   faceDescriptor?: string | null;
   shiftUid?: string | null;
+  locationUid?: string | null;
+  locationName?: string | null;
 }
 
 export interface AttendanceBreak {

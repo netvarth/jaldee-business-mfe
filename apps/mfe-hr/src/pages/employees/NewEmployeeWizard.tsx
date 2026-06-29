@@ -7,6 +7,7 @@ import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "../../services/useHrApi";
 import { useEmployees } from "../../services/useEmployees";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
+import { useTelemetry } from "../../services/useTelemetry";
 import "./employees.css";
 
 export default function NewEmployeeWizard() {
@@ -16,6 +17,7 @@ export default function NewEmployeeWizard() {
   const { data: employees } = useEmployees();
   const { data: designations } = useDesignations();
   const { data: departments } = useDepartments();
+  const { trackEvent, captureError } = useTelemetry();
   console.log("[NewEmployeeWizard] designations data:", designations, "departments data:", departments);
 
   const [step, setStep] = useState(1);
@@ -87,6 +89,12 @@ export default function NewEmployeeWizard() {
       if (desigLevel != null) payload.hierarchyLevel = desigLevel;
 
       await api.post("/employees", payload);
+      trackEvent("hr.employee.created", {
+        hrDepartmentUid: payload.hrDepartmentUid ?? null,
+        designationUid: payload.designationUid ?? null,
+        employmentType: payload.employmentType,
+        locationUid: payload.locationUid,
+      });
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
         title: "Employee created",
@@ -95,6 +103,7 @@ export default function NewEmployeeWizard() {
       navigate("/employees");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create employee.";
+      captureError(err instanceof Error ? err : new Error(message));
       setError(message);
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",

@@ -16,6 +16,7 @@ import { useHrApi } from "../../services/useHrApi";
 import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
 import { usePayslips } from "../../services/usePayrollData";
+import { useTelemetry } from "../../services/useTelemetry";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import type { Employee } from "../../types";
 import "./employees.css";
@@ -96,6 +97,7 @@ export default function EmployeeDetails() {
   const { data: allEmployees } = useEmployees();
   const { data: designations } = useDesignations();
   const { data: departments } = useDepartments();
+  const { trackEvent, captureError } = useTelemetry();
   console.log("[EmployeeDetails] designations data:", designations, "departments data:", departments);
   const { data: allAttendance } = useAttendance();
   const { data: allLeaves } = useLeaves();
@@ -187,6 +189,13 @@ export default function EmployeeDetails() {
       if (desigLevel != null) payload.hierarchyLevel = desigLevel;
       await api.put(`/employees/${employee.id}`, payload);
       await reload();
+      trackEvent("hr.employee.updated", {
+        employeeId: employee.id,
+        employeeRef: employee.employeeId,
+        hrDepartmentUid: payload.hrDepartmentUid ?? null,
+        designationUid: payload.designationUid ?? null,
+        status: payload.status,
+      });
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
         title: "Employee updated",
@@ -195,6 +204,7 @@ export default function EmployeeDetails() {
       navigate(`/employees/${employee.id}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to save.";
+      captureError(e instanceof Error ? e : new Error(message), { employeeId: employee?.id });
       setSaveError(message);
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",

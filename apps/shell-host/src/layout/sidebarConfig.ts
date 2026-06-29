@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Megaphone,
   Settings,
+  UserSearch,
   Users,
   Wrench,
 } from "lucide-react";
@@ -302,6 +303,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "hr-payroll", label: "Payroll", icon: sidebarIcon(CreditCard), path: "/hr/payroll" },
     { id: "hr-expenses", label: "Expenses", icon: sidebarIcon(DollarSign), path: "/hr/expenses" },
     { id: "hr-helpdesk", label: "Helpdesk", icon: sidebarIcon(HelpCircle), path: "/hr/tickets" },
+    { id: "hr-recruitment", label: "Recruitment", icon: sidebarIcon(UserSearch), path: "/hr/recruitment" },
     { id: "hr-reports", label: "Reports", icon: sidebarIcon(BarChart3), path: "/hr/reports" },
     { id: "hr-self-service", label: "My HR", icon: sidebarIcon(Users), path: "/hr/me" },
     { id: "hr-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/hr/settings" },

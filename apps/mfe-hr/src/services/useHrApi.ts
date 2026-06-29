@@ -17,13 +17,18 @@ import { apiClient, getReadableApiError } from "@jaldee/api-client";
 const GATEWAY_PREFIX = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX
   ? `/${import.meta.env.VITE_SERVICE_GATEWAY_PREFIX.replace(/^\/+|\/+$/g, "")}`
   : "";
+export const HR_SERVICE_API_ROOT = `${GATEWAY_PREFIX}/hr-service/v1/api`;
 const BASE =
   import.meta.env.VITE_HR_API_BASE_PATH ||
-  `${GATEWAY_PREFIX}/hr-service/v1/api/tenant`;
+  `${HR_SERVICE_API_ROOT}/tenant`;
 
 type Json = Record<string, unknown> | unknown[];
 
 function buildHrServiceUrl(endpoint: string) {
+  if (/^https?:\/\//i.test(endpoint)) return endpoint;
+  if (endpoint.startsWith(`${GATEWAY_PREFIX}/hr-service/`) || endpoint.startsWith("/hr-service/")) {
+    return new URL(endpoint, window.location.origin).toString();
+  }
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   return new URL(`${BASE}${normalizedEndpoint}`, window.location.origin).toString();
 }

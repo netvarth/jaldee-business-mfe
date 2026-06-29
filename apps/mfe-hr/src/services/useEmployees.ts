@@ -5,7 +5,18 @@ import type { Employee, SalaryStructure } from "../types";
 /** Backend returns `uid`; the UI keys on `id`. Normalize once here. */
 function normalize(e: Record<string, unknown>): Employee {
   const uid = (e.uid ?? e.id) as string | undefined;
-  return { ...(e as object), id: String(uid ?? ""), uid: uid } as Employee;
+  const hrDepartment = (e.hrDepartment ?? e.department) as string | undefined;
+  return {
+    ...(e as object),
+    id: String(uid ?? ""),
+    uid,
+    department: hrDepartment,
+    hrDepartment,
+    hrDepartmentUid: (e.hrDepartmentUid ?? null) as string | null,
+    designationUid: (e.designationUid ?? null) as string | null,
+    locationUid: (e.locationUid ?? null) as string | null,
+    locationName: (e.locationName ?? null) as string | null,
+  } as Employee;
 }
 
 /**
@@ -13,13 +24,18 @@ function normalize(e: Record<string, unknown>): Employee {
  * loading + error so the screen can show real states instead of silently
  * falling back. `reload` re-fetches after mutations.
  */
-export function useEmployees() {
+export function useEmployees(options: { enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
   const api = useHrApi();
   const [data, setData] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -31,7 +47,7 @@ export function useEmployees() {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, enabled]);
 
   useEffect(() => {
     void load();

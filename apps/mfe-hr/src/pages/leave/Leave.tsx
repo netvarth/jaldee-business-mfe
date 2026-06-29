@@ -2,10 +2,19 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
 import { PageHeader, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
+import { useLeaveTypes } from "../../services/useSettingsData";
+import { useTelemetry } from "../../services/useTelemetry";
 
 type Tab = "overview" | "balances" | "ledger";
+
+const LEAVE_ROUTES: Array<{ key: Tab; route: string; label: string }> = [
+  { key: "overview", route: "overview", label: "Overview & Approvals" },
+  { key: "balances", route: "balances", label: "Employee Balances" },
+  { key: "ledger", route: "ledger", label: "Company Leave Ledger" },
+];
 
 const TEAL = "var(--primary-color)";
 const LEAVE_QUOTAS = [
@@ -37,6 +46,12 @@ function statusStyle(status?: string): CSSProperties {
 }
 const pill = (s?: string): CSSProperties => ({ ...statusStyle(s), display: "inline-block", padding: "3px 10px", borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" });
 
+function tabFromPath(pathname: string): Tab {
+  const segment = pathname.split("/").filter(Boolean).at(-1);
+  const match = LEAVE_ROUTES.find((item) => item.route === segment || item.key === segment);
+  return match?.key || "overview";
+}
+
 function StatCard({ tag, value, sub, tone, icon, accent }: { tag: string; value: ReactNode; sub: string; tone: string; icon: ReactNode; accent?: boolean }) {
   return (
     <div style={{ ...card, borderRadius: 28, padding: 24, display: "flex", alignItems: "center", justifyContent: "space-between", background: accent ? "rgba(17,94,89,0.04)" : "var(--surface-bg)", borderColor: accent ? "rgba(17,94,89,0.18)" : "var(--border-color)" }}>
@@ -52,14 +67,18 @@ function StatCard({ tag, value, sub, tone, icon, accent }: { tag: string; value:
 
 export default function Leave() {
   const { eventBus } = useMFEProps();
-  const [tab, setTab] = useState<Tab>("overview");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = tabFromPath(location.pathname);
   const { data: employees, loading: empLoading } = useEmployees();
   const leaves = useLeaves();
   const balances = useLeaveBalances();
+  const leaveTypes = useLeaveTypes();
   const isLoading = leaves.loading || balances.loading || empLoading;
+  const { trackEvent, captureError } = useTelemetry();
 
   useEffect(() => {
-    const err = leaves.error || balances.error;
+    const err = leaves.error || balances.error || leaveTypes.error;
     if (err) {
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",
@@ -67,7 +86,7 @@ export default function Leave() {
         message: err,
       });
     }
-  }, [leaves.error, balances.error, eventBus]);
+  }, [leaves.error, balances.error, leaveTypes.error, eventBus]);
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
   const empName = (uid?: string) => (uid ? empMap.get(uid)?.name ?? uid : "—");
@@ -92,7 +111,7 @@ export default function Leave() {
 
   // apply modal
   const [applyOpen, setApplyOpen] = useState(false);
-  const [form, setForm] = useState({ employeeUid: "", type: "Casual Leave", startDate: "", endDate: "", isHalfDay: false, reason: "" });
+  const [form, setForm] = useState({ employeeUid: "", leaveTypeUid: "", type: "", startDate: "", endDate: "", isHalfDay: false, reason: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -105,16 +124,45 @@ export default function Leave() {
   const [search, setSearch] = useState("");
 
   const submitApply = async () => {
-    if (!form.employeeUid || !form.startDate || !form.endDate || !form.reason) { setMsg("Employee, dates and reason are required."); return; }
+    if (!form.employeeUid || !form.leaveTypeUid || !form.startDate || !form.reason) {
+      const validationMessage = "Employee, leave type, start date and reason are required.";
+      setMsg(validationMessage);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Apply leave",
+        message: validationMessage,
+      });
+      return;
+    }
     setSaving(true); setMsg(null);
     try {
+      const selectedLeaveType = leaveTypes.data.find((type) => type.id === form.leaveTypeUid || type.uid === form.leaveTypeUid);
+      const leaveTypeName = selectedLeaveType?.name || form.type;
+      const endDate = form.endDate || form.startDate;
+      const duration = calcDays(form.startDate, endDate, form.isHalfDay);
       await leaves.apply({
-        employeeUid: form.employeeUid, type: form.type, startDate: form.startDate, endDate: form.endDate,
-        isHalfDay: form.isHalfDay, duration: calcDays(form.startDate, form.endDate, form.isHalfDay), reason: form.reason, status: "Pending",
+        employeeUid: form.employeeUid, leaveTypeUid: form.leaveTypeUid, leaveTypeName, type: leaveTypeName, startDate: form.startDate, endDate,
+        isHalfDay: form.isHalfDay, duration, reason: form.reason, status: "Pending",
       });
-      setForm({ employeeUid: "", type: "Casual Leave", startDate: "", endDate: "", isHalfDay: false, reason: "" });
+      trackEvent("hr.leave.applied", {
+        employeeUid: form.employeeUid,
+        leaveTypeUid: form.leaveTypeUid,
+        type: leaveTypeName,
+        duration,
+        isHalfDay: form.isHalfDay,
+      });
+      setForm({ employeeUid: "", leaveTypeUid: "", type: "", startDate: "", endDate: "", isHalfDay: false, reason: "" });
       setApplyOpen(false);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Failed to submit."); }
+    } catch (e) {
+      captureError(e instanceof Error ? e : new Error("Leave apply failed"), { employeeUid: form.employeeUid });
+      const errorMessage = e instanceof Error ? e.message : "Failed to submit.";
+      setMsg(errorMessage);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Apply leave failed",
+        message: errorMessage,
+      });
+    }
     finally { setSaving(false); }
   };
 
@@ -123,8 +171,17 @@ export default function Leave() {
     setActing(true);
     try {
       await leaves.update(selected.id, { status, statusRemarks: remarks || null });
+      trackEvent("hr.leave.status_changed", {
+        leaveId: selected.id,
+        employeeUid: selected.employeeUid,
+        status,
+        type: selected.type,
+      });
       setSelected(null); setRemarks("");
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Action failed."); }
+    } catch (e) {
+      captureError(e instanceof Error ? e : new Error("Leave status update failed"), { leaveId: selected.id });
+      setMsg(e instanceof Error ? e.message : "Action failed.");
+    }
     finally { setActing(false); }
   };
 
@@ -136,12 +193,6 @@ export default function Leave() {
     const q = search.toLowerCase();
     return !q || e.name.toLowerCase().includes(q) || (e.employeeId || "").toLowerCase().includes(q) || (e.department || "").toLowerCase().includes(q);
   }), [employees, search]);
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "overview", label: "Overview & Approvals" },
-    { key: "balances", label: "Employee Balances" },
-    { key: "ledger", label: "Company Leave Ledger" },
-  ];
 
   return (
     <section id="hr-leave-page" data-testid="hr-leave-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
@@ -158,8 +209,8 @@ export default function Leave() {
 
       {/* PILL TABS */}
       <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 12, marginBottom: 28 }}>
-        {tabs.map((t) => (
-          <button id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => setTab(t.key)} style={{ padding: "8px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
+        {LEAVE_ROUTES.map((t) => (
+          <button id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => navigate(`/leave/${t.route}`)} style={{ padding: "8px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
         ))}
       </div>
 
@@ -407,11 +458,20 @@ export default function Leave() {
             <Select
               id="hr-leave-type"
               testId="hr-leave-type"
-              label="Leave Type Profile"
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              options={LEAVE_QUOTAS.map((q) => ({ value: q.type, label: q.type }))}
+              label="Leave Type"
+              value={form.leaveTypeUid}
+              onChange={(e) => {
+                const selectedLeaveType = leaveTypes.data.find((type) => type.id === e.target.value || type.uid === e.target.value);
+                setForm({ ...form, leaveTypeUid: e.target.value, type: selectedLeaveType?.name || "" });
+              }}
+              placeholder={leaveTypes.loading ? "Loading leave types" : "Select leave type"}
+              options={leaveTypes.data.map((type) => ({ value: type.id, label: type.name || type.id }))}
             />
+            {!leaveTypes.loading && leaveTypes.data.length === 0 && (
+              <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)", color: "#b45309", fontSize: 12, fontWeight: 700 }}>
+                No leave types are configured in Settings.
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <DatePicker
                 id="hr-leave-start-date"
@@ -426,15 +486,15 @@ export default function Leave() {
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               />
             </div>
-            {form.startDate && form.startDate === form.endDate && (
+            {form.startDate && (!form.endDate || form.startDate === form.endDate) && (
               <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
                 <input id="hr-leave-half-day" data-testid="hr-leave-half-day" type="checkbox" checked={form.isHalfDay} onChange={(e) => setForm({ ...form, isHalfDay: e.target.checked })} /> Apply as Half Day (0.5 days)
               </label>
             )}
-            {form.startDate && form.endDate && (
+            {form.startDate && (
               <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 16, borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ ...lbl, color: TEAL }}>Total Days Count</span>
-                <span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>{calcDays(form.startDate, form.endDate, form.isHalfDay)} Days</span>
+                <span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>{calcDays(form.startDate, form.endDate || form.startDate, form.isHalfDay)} Days</span>
               </div>
             )}
             <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: 16, display: "flex", gap: 14 }}>
@@ -457,7 +517,7 @@ export default function Leave() {
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" onClick={() => setApplyOpen(false)} style={ghostBtn}>Close</button>
-          <button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" onClick={submitApply} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
+          <button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" onClick={submitApply} disabled={saving || leaveTypes.loading} style={{ ...primaryBtn, opacity: saving || leaveTypes.loading ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
         </div>
       </Dialog>
 

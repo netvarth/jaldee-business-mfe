@@ -2,11 +2,16 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X } from "lucide-react";
 import { PageHeader, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
 import { formatCurrency } from "../../lib/utils";
 
 type Tab = "ledger" | "approvals";
+const EXPENSE_ROUTES: Array<{ key: Tab; route: string; label: string }> = [
+  { key: "ledger", route: "ledger", label: "Company Claims Ledger" },
+  { key: "approvals", route: "verifications", label: "Verifications Control" },
+];
 const TEAL = "var(--primary-color)";
 const CATEGORIES = ["Travel", "Food", "Lodging", "Other"];
 
@@ -17,6 +22,11 @@ const tdc: CSSProperties = { padding: "14px 16px", fontSize: 12.5, color: "var(-
 const field: CSSProperties = { width: "100%", height: 48, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: "0 14px", fontSize: 14, fontWeight: 700, color: "var(--dark-text)" };
 
 function fmtDate(d?: string) { if (!d) return "N/A"; const x = new Date(d); return isNaN(x.getTime()) ? "N/A" : x.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" }); }
+function tabFromPath(pathname: string): Tab {
+  const segment = pathname.split("/").filter(Boolean).at(-1);
+  const match = EXPENSE_ROUTES.find((item) => item.route === segment || item.key === segment);
+  return match?.key || "ledger";
+}
 
 function catStyle(c?: string): CSSProperties {
   switch (c) {
@@ -52,7 +62,9 @@ function StatCard({ tag: t, label, value, sub, tone, icon, accent }: { tag: stri
 
 export default function Expenses() {
   const { eventBus } = useMFEProps();
-  const [tab, setTab] = useState<Tab>("ledger");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = tabFromPath(location.pathname);
   const { data: employees } = useEmployees();
   const expenses = useExpenses();
 
@@ -119,11 +131,6 @@ export default function Expenses() {
     finally { setActing(false); }
   };
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "ledger", label: `Company Claims Ledger (${expenses.data.length})` },
-    { key: "approvals", label: `Verifications Control (${pendingCount} Pending)` },
-  ];
-
   return (
     <section id="hr-expenses-page" data-testid="hr-expenses-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       <PageHeader
@@ -142,9 +149,12 @@ export default function Expenses() {
       {/* TABS + SEARCH */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 999 }}>
-          {tabs.map((t) => (
-            <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} onClick={() => setTab(t.key)} style={{ padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: tab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: tab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: tab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
-          ))}
+          {EXPENSE_ROUTES.map((t) => {
+            const label = t.key === "ledger" ? `${t.label} (${expenses.data.length})` : `${t.label} (${pendingCount} Pending)`;
+            return (
+              <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} onClick={() => navigate(`/expenses/${t.route}`)} style={{ padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: tab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: tab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: tab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
+            );
+          })}
         </div>
         <div style={{ position: "relative", width: 260, maxWidth: "100%" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />

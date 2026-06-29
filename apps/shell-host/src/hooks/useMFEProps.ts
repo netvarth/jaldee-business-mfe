@@ -5,6 +5,7 @@ import { eventBus } from "../eventBus/eventBus";
 import { apiClient } from "@jaldee/api-client";
 import { normalizeAccountContext } from "@jaldee/auth-context";
 import type { MFEProps } from "@jaldee/auth-context";
+import { telemetryService, identifyUser } from "../services/telemetry";
 
 declare global {
   interface Window {
@@ -61,15 +62,25 @@ export function useBuildMFEProps(
       },
       onError: (error) => {
         console.error(`[${mfeName}] MFE Error:`, error);
+        telemetryService.captureError(
+          new Error(error.message),
+          { mfe: error.mfe, code: error.code, severity: error.severity, ...error.context }
+        );
       },
-      telemetry: {
-        captureError: (error) => console.error("[telemetry]", error),
-        trackEvent: (name, props) => console.debug("[telemetry]", name, props),
-        trackPageView: (path) => console.debug("[telemetry:pageview]", path),
-      },
+      telemetry: telemetryService,
     }),
     [accessToken, basePath, mfeName, navigate, normalizedAccount, resolvedLocation, user]
   );
+
+  // Identify the user in PostHog once the session is established.
+  useMemo(() => {
+    if (user && normalizedAccount) {
+      identifyUser(
+        { id: user.id, name: user.name, email: user.email },
+        normalizedAccount.id
+      );
+    }
+  }, [user, normalizedAccount]);
 
   return mfeProps;
 }

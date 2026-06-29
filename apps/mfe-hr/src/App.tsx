@@ -16,6 +16,7 @@ const Reports = lazy(() => import("./pages/reports/Reports"));
 const Settings = lazy(() => import("./pages/settings/Settings"));
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
 const EssPortal = lazy(() => import("./pages/ess/EssPortal"));
+const Recruitment = lazy(() => import("./pages/recruitment/Recruitment"));
 
 export default function App() {
   return (
@@ -27,15 +28,17 @@ export default function App() {
             <Route path="/employees" element={<EmployeeMaster />} />
             <Route path="/employees/new" element={<NewEmployeeWizard />} />
             <Route path="/employees/:id" element={<EmployeeDetails />} />
-            <Route path="/attendance" element={<Attendance />} />
-            <Route path="/leave" element={<Leave />} />
-            <Route path="/payroll" element={<Payroll />} />
-            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/attendance/*" element={<Attendance />} />
+            <Route path="/leave/*" element={<Leave />} />
+            <Route path="/payroll/*" element={<Payroll />} />
+            <Route path="/expenses/*" element={<Expenses />} />
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/tickets" element={<Tickets />} />
+            <Route path="/recruitment/*" element={<Recruitment />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/:section" element={<Settings />} />
+            <Route path="/settings/:section/:subsection" element={<Settings />} />
             <Route path="/me" element={<EssPortal />} />
             <Route path="/me/*" element={<EssPortal />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No HR screen for this route." />} />
