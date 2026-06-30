@@ -10,7 +10,7 @@ export interface LeaveRequest {
 export interface LeaveBalance {
   id: string; uid?: string; employeeUid?: string; leaveType?: string;
   leaveTypeName?: string; leaveTypeUid?: string;
-  total?: number; used?: number; available?: number;
+  total?: number; used?: number; available?: number; status?: "ACTIVE" | "INACTIVE" | "EXPIRED" | string;
 }
 
 function withId<T extends { uid?: string; id?: string }>(r: Record<string, unknown>): T {
@@ -41,8 +41,11 @@ export function useLeaves() {
   const update = useCallback(async (uid: string, payload: Record<string, unknown>) => {
     await api.put(`/leaves/${uid}`, payload); await load();
   }, [api, load]);
+  const approve = useCallback(async (uid: string, payload: { action: "APPROVE" | "APPROVE_AS_LOSS_OF_PAY" | "REJECT"; statusRemarks?: string | null }) => {
+    await api.post(`/leaves/${uid}/approve`, payload); await load();
+  }, [api, load]);
 
-  return { data, loading, error, reload: load, apply, update };
+  return { data, loading, error, reload: load, apply, update, approve };
 }
 
 export function useLeaveBalances() {
@@ -61,5 +64,8 @@ export function useLeaveBalances() {
     } finally { setLoading(false); }
   }, [api]);
   useEffect(() => { void load(); }, [load]);
-  return { data, loading, error, reload: load };
+  const assign = useCallback(async (payload: Record<string, unknown>) => {
+    await api.post("/leaves/balances/assign", payload); await load();
+  }, [api, load]);
+  return { data, loading, error, reload: load, assign };
 }

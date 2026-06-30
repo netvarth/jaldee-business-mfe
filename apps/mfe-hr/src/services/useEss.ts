@@ -50,7 +50,7 @@ export interface MyLeave {
 
 export interface MyLeaveBalance {
   id: string; uid?: string; leaveTypeName?: string;
-  total?: number; used?: number; available?: number;
+  total?: number; used?: number; available?: number; status?: "ACTIVE" | "INACTIVE" | "EXPIRED" | string;
 }
 
 export interface MyPayslip {

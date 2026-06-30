@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
-import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker } from "@jaldee/design-system";
+import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker } from "@jaldee/design-system";
 import {
   useDepartments, useDesignations, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
@@ -435,7 +435,11 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
   });
   const [savingPolicy, setSavingPolicy] = useState(false);
   const [selectedPolicyUid, setSelectedPolicyUid] = useState("");
+  const [selectedLeaveTypeUids, setSelectedLeaveTypeUids] = useState<string[]>([]);
   const [targetMode, setTargetMode] = useState<"all" | "specific">("all");
+  const [assignAllActive, setAssignAllActive] = useState(true);
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployeeUids, setSelectedEmployeeUids] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
@@ -455,8 +459,9 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
     ));
   }, [activeEmployees, employeeSearch]);
   const selectedPolicy = leaveTypes.data.find((policy) => policy.id === selectedPolicyUid || policy.uid === selectedPolicyUid);
-  const assignmentCount = targetMode === "all" ? activeEmployees.length : selectedEmployeeUids.length;
-  const canAssign = !!selectedPolicyUid && !assigning && !employees.loading && (targetMode === "all" || selectedEmployeeUids.length > 0);
+  const effectiveLeaveTypeUids = selectedLeaveTypeUids.length > 0 ? selectedLeaveTypeUids : selectedPolicyUid ? [selectedPolicyUid] : [];
+  const assignmentCount = assignAllActive ? activeEmployees.length : selectedEmployeeUids.length;
+  const canAssign = effectiveLeaveTypeUids.length > 0 && !!periodStart && !!periodEnd && !assigning && !employees.loading && (assignAllActive || selectedEmployeeUids.length > 0);
 
   const openCreatePolicy = () => {
     setEditing(null);
@@ -545,30 +550,45 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
   const clearSelectedEmployees = () => setSelectedEmployeeUids([]);
 
   const confirmAssignment = async () => {
-    if (!selectedPolicyUid) {
-      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Select a leave policy before assigning." });
+    if (effectiveLeaveTypeUids.length === 0) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Select at least one leave type." });
       return;
     }
-    if (targetMode === "specific" && selectedEmployeeUids.length === 0) {
+    if (!periodStart || !periodEnd) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Period start and end dates are required." });
+      return;
+    }
+    if (periodEnd < periodStart) {
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Period end date must be on or after the start date." });
+      return;
+    }
+    if (!assignAllActive && selectedEmployeeUids.length === 0) {
       eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Assignment", message: "Select at least one employee." });
       return;
     }
     setAssigning(true);
     try {
-      await api.post("/leaves/balances/assign-type", {
-        leaveTypeUid: selectedPolicyUid,
-        assignmentMode: targetMode === "all" ? "ALL_ACTIVE_EMPLOYEES" : "SPECIFIC_EMPLOYEES",
-        employeeUids: targetMode === "all" ? [] : selectedEmployeeUids,
+      await api.post("/leaves/balances/assign", {
+        leaveTypeUids: effectiveLeaveTypeUids,
+        employeeUids: assignAllActive ? [] : selectedEmployeeUids,
+        allEmployees: assignAllActive,
+        periodStart,
+        periodEnd,
       });
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
         title: "Leave Assignment",
-        message: targetMode === "all"
-          ? `Leave ledger initialized for ${activeEmployees.length} active employees.`
-          : `Leave ledger initialized for ${selectedEmployeeUids.length} selected employees.`,
+        message: assignAllActive
+          ? `Leave balances assigned for ${activeEmployees.length} active employees.`
+          : `Leave balances assigned for ${selectedEmployeeUids.length} selected employees.`,
       });
       setSelectedEmployeeUids([]);
-      setTargetMode("all");
+      setSelectedLeaveTypeUids([]);
+      setSelectedPolicyUid("");
+      setAssignAllActive(true);
+      setPeriodStart("");
+      setPeriodEnd("");
+      navigate("/settings/leavetypes");
     } catch (e) {
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",
@@ -583,12 +603,12 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
   return (
     <div id="hr-settings-leave-policy-dashboard" data-testid="hr-settings-leave-policy-dashboard" style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       <PanelHeader
-        title={view === "assignment" ? "Assign Leave" : "Leave Policy & Assignment Dashboard"}
-        subtitle={view === "assignment" ? "Initialize leave ledgers for all or selected employees" : "Build leave policies and initialize employee ledgers"}
+        title={view === "assignment" ? "Assign Leave Balance" : "Leave Types"}
+        subtitle={view === "assignment" ? "Assign explicit balance periods to employees and leave types" : "Define leave types, quotas and carry-forward rules"}
         icon={<Plane size={20} />}
         action={view === "assignment"
-          ? <button id="hr-settings-leave-assignment-back" data-testid="hr-settings-leave-assignment-back" onClick={() => navigate("/settings/leavetypes")} style={ghostBtn}>Back to Policies</button>
-          : <button id="hr-settings-leave-assignment-open" data-testid="hr-settings-leave-assignment-open" onClick={() => navigate("/settings/leavetypes/assign")} style={primaryBtn}><Users2 size={16} /> Assign Leave</button>}
+          ? <button id="hr-settings-leave-assignment-back" data-testid="hr-settings-leave-assignment-back" onClick={() => navigate("/settings/leavetypes")} style={ghostBtn}>Back to Leave Types</button>
+          : <button id="hr-settings-leave-assignment-open" data-testid="hr-settings-leave-assignment-open" onClick={() => navigate("/settings/leavetypes/assign")} style={primaryBtn}><Users2 size={16} /> Assign Balance</button>}
       />
 
       {view === "policies" && <div style={card}>
@@ -635,26 +655,36 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
       </div>}
 
       {view === "assignment" && <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <div style={{ ...card, padding: 22 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 18, alignItems: "end" }}>
+        <div style={{ ...card, overflow: "visible", padding: 22, position: "relative", zIndex: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 18, alignItems: "end" }}>
             <div style={{ minWidth: 0 }}>
-              <label style={{ ...lbl, display: "block", marginBottom: 8 }}>Leave Type</label>
-              <Select
+              <MultiCombobox
                 id="hr-settings-leave-assignment-policy"
-                testId="hr-settings-leave-assignment-policy"
-                value={selectedPolicyUid}
-                onChange={(e) => setSelectedPolicyUid(e.target.value)}
-                placeholder="Select leave type"
+                data-testid="hr-settings-leave-assignment-policy"
+                label="Leave Type Selection"
+                value={effectiveLeaveTypeUids}
+                onValueChange={(value) => {
+                  setSelectedLeaveTypeUids(value);
+                  setSelectedPolicyUid(value[0] || "");
+                }}
+                placeholder="Select leave types"
+                searchPlaceholder="Search leave types..."
                 options={leaveTypes.data.map((policy) => ({ value: policy.id, label: String(policy.name || policy.id) }))}
+                maxDisplay={3}
               />
             </div>
-            <div style={{ minWidth: 0 }}>
-              <span style={{ ...lbl, display: "block", marginBottom: 8 }}>Assign To</span>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <button id="hr-settings-leave-assignment-all" data-testid="hr-settings-leave-assignment-all" onClick={() => setTargetMode("all")} style={segmentedButton(targetMode === "all")} type="button">All Active</button>
-                <button id="hr-settings-leave-assignment-specific" data-testid="hr-settings-leave-assignment-specific" onClick={() => setTargetMode("specific")} style={segmentedButton(targetMode === "specific")} type="button">Specific</button>
-              </div>
-            </div>
+            <DatePicker
+              id="hr-settings-leave-assignment-period-start"
+              label="Period Start Date"
+              value={periodStart}
+              onChange={(event) => setPeriodStart(event.target.value)}
+            />
+            <DatePicker
+              id="hr-settings-leave-assignment-period-end"
+              label="Period End Date"
+              value={periodEnd}
+              onChange={(event) => setPeriodEnd(event.target.value)}
+            />
           </div>
           <div style={{ display: "none" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 320px" }}>
@@ -675,7 +705,18 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
           </div>
         </div>
 
-        {targetMode === "specific" && (
+        <div style={{ ...card, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: 280, maxWidth: "100%" }}>
+            <button id="hr-settings-leave-assignment-all" data-testid="hr-settings-leave-assignment-all" onClick={() => { setTargetMode("all"); setAssignAllActive(true); setSelectedEmployeeUids([]); }} style={segmentedButton(assignAllActive)} type="button">All Active</button>
+            <button id="hr-settings-leave-assignment-specific" data-testid="hr-settings-leave-assignment-specific" onClick={() => { setTargetMode("specific"); setAssignAllActive(false); }} style={segmentedButton(!assignAllActive)} type="button">Specific</button>
+          </div>
+          <p style={{ margin: 0, color: "var(--dark-text)", fontSize: 13, fontWeight: 800, overflowWrap: "anywhere", textAlign: "right", flex: "1 1 320px" }}>
+            <strong style={{ color: TEAL }}>{assignmentCount} selected</strong>
+            <span style={{ color: "var(--light-text)", fontWeight: 700 }}> - {selectedPolicy ? `${selectedPolicy.name} will be assigned to ${assignmentCount} employee${assignmentCount === 1 ? "" : "s"}.` : "Select a leave type to continue."}</span>
+          </p>
+        </div>
+
+        {!assignAllActive && (
           <div style={card}>
             <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
               <div>
@@ -720,19 +761,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
             </div>
           </div>
         )}
-        <div style={{ ...card, ...assignmentActionRow }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 320px" }}>
-            <div style={{ height: 40, width: 40, borderRadius: 14, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Users2 size={18} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <span style={{ ...lbl, display: "block", marginBottom: 3 }}>Employees</span>
-              <p style={{ margin: 0, color: "var(--dark-text)", fontSize: 13, fontWeight: 800, overflowWrap: "anywhere" }}>
-                <strong style={{ color: TEAL }}>{assignmentCount} selected</strong>
-                <span style={{ color: "var(--light-text)", fontWeight: 700 }}> - {selectedPolicy ? `${selectedPolicy.name} will be assigned to ${assignmentCount} employee${assignmentCount === 1 ? "" : "s"}.` : "Select a leave type to continue."}</span>
-              </p>
-            </div>
-          </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button id="hr-settings-leave-assignment-confirm-bottom" data-testid="hr-settings-leave-assignment-confirm-bottom" onClick={confirmAssignment} disabled={!canAssign} style={{ ...primaryBtn, opacity: canAssign ? 1 : 0.55, flex: "0 0 auto", justifyContent: "center" }}>
             {assigning ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Confirm Assignment
           </button>
@@ -918,7 +947,6 @@ export default function Settings() {
                 { key: "city", label: "City" }, { key: "state", label: "State" }, { key: "country", label: "Country" },
                 { key: "gstin", label: "GSTIN" }, { key: "pan", label: "PAN" },
                 { key: "currency", label: "Currency", type: "select", options: ["INR", "USD", "EUR", "GBP", "AED"] },
-                { key: "fiscalYearStart", label: "Fiscal Year Start", type: "select", options: ["January", "April", "July", "October"] },
                 { key: "workingDays", label: "Working Days", placeholder: "e.g. Mon–Fri", full: true },
               ]} />
           )}

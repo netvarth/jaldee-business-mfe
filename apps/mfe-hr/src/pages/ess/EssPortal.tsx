@@ -71,6 +71,14 @@ export default function EssPortal() {
   const leaves = useMyLeaves();
   const balances = useMyLeaveBalances();
   const payslips = useMyPayslips();
+  const activeBalances = useMemo(
+    () => balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() === "ACTIVE"),
+    [balances.data],
+  );
+  const pastBalances = useMemo(
+    () => balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() !== "ACTIVE"),
+    [balances.data],
+  );
   const today = new Date().toISOString().slice(0, 10);
   const todayAttendance = useMemo(
     () => attendance.data.find((item) => item.dateStr === today),
@@ -155,7 +163,7 @@ export default function EssPortal() {
       {section === "leave" && (
         <Panel loading={leaves.loading || balances.loading} error={leaves.error || balances.error}>
           <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {balances.data.map((item) => (
+            {activeBalances.map((item) => (
               <div key={item.id} className="rounded-xl border bg-white p-4">
                 <div className="text-sm text-slate-500">{item.leaveTypeName ?? "Leave"}</div>
                 <div className="mt-1 text-2xl font-bold">{item.available ?? 0}</div>
@@ -163,6 +171,23 @@ export default function EssPortal() {
               </div>
             ))}
           </div>
+          {pastBalances.length > 0 && (
+            <details className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-700">Past/Expired Balances</summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {pastBalances.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 opacity-70">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm text-slate-500">{item.leaveTypeName ?? "Leave"}</div>
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">{item.status ?? "Inactive"}</span>
+                    </div>
+                    <div className="mt-1 text-2xl font-bold text-slate-500">{item.available ?? 0}</div>
+                    <div className="text-xs text-slate-500">available of {item.total ?? 0}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
           <SimpleTable
             headers={["Type", "From", "To", "Duration", "Status"]}
             rows={leaves.data.map((item) => [

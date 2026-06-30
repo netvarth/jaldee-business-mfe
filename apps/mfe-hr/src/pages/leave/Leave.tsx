@@ -41,10 +41,17 @@ function calcDays(start?: string, end?: string, half?: boolean): number {
 function statusStyle(status?: string): CSSProperties {
   const s = (status || "").toLowerCase();
   if (s === "approved") return { background: "rgba(16,185,129,0.06)", color: "#059669", border: "1px solid rgba(16,185,129,0.15)" };
+  if (s === "approved_as_loss_of_pay" || s === "loss_of_pay") return { background: "rgba(99,102,241,0.06)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.15)" };
   if (s === "rejected") return { background: "rgba(244,63,94,0.06)", color: "#e11d48", border: "1px solid rgba(244,63,94,0.15)" };
   return { background: "rgba(245,158,11,0.06)", color: "#d97706", border: "1px solid rgba(245,158,11,0.15)" };
 }
 const pill = (s?: string): CSSProperties => ({ ...statusStyle(s), display: "inline-block", padding: "3px 10px", borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" });
+const balanceStatusPill = (status?: string): CSSProperties => {
+  const s = (status || "ACTIVE").toUpperCase();
+  if (s === "ACTIVE") return { background: "rgba(16,185,129,0.08)", color: "#047857", border: "1px solid rgba(16,185,129,0.18)" };
+  if (s === "EXPIRED") return { background: "rgba(100,116,139,0.08)", color: "#64748b", border: "1px solid rgba(100,116,139,0.18)" };
+  return { background: "rgba(245,158,11,0.08)", color: "#b45309", border: "1px solid rgba(245,158,11,0.18)" };
+};
 
 function tabFromPath(pathname: string): Tab {
   const segment = pathname.split("/").filter(Boolean).at(-1);
@@ -93,6 +100,19 @@ export default function Leave() {
   const empDept = (uid?: string) => (uid ? empMap.get(uid)?.department ?? "General" : "—");
   const empCode = (uid?: string) => (uid ? empMap.get(uid)?.employeeId ?? "—" : "—");
 
+  const balanceTypes = useMemo(() => {
+    if (leaveTypes.data.length > 0) {
+      return leaveTypes.data.map((type, index) => ({
+        type: type.name || type.id,
+        uid: type.id,
+        quota: Number(type.annualQuota ?? 0),
+        color: type.colorHex || LEAVE_QUOTAS[index % LEAVE_QUOTAS.length].color,
+      }));
+    }
+    return LEAVE_QUOTAS;
+  }, [leaveTypes.data]);
+  const maxTotal = useMemo(() => balanceTypes.reduce((sum, item) => sum + (item.quota || 0), 0), [balanceTypes]);
+
   const today = new Date().toISOString().slice(0, 10);
   const pendingLeaves = useMemo(() => leaves.data.filter((l) => (l.status || "").toLowerCase() === "pending"), [leaves.data]);
   const onLeaveToday = useMemo(() => leaves.data.filter((l) => (l.status || "").toLowerCase() === "approved" && l.startDate && l.endDate && l.startDate <= today && l.endDate >= today), [leaves.data, today]);
@@ -103,11 +123,22 @@ export default function Leave() {
     balances.data.forEach((b) => {
       if (!b.employeeUid) return;
       if (!m.has(b.employeeUid)) m.set(b.employeeUid, new Map());
-      m.get(b.employeeUid)!.set((b.leaveTypeName || b.leaveType || "").toLowerCase(), b);
+      const employeeBalances = m.get(b.employeeUid)!;
+      [b.leaveTypeUid, b.leaveTypeName, b.leaveType].filter(Boolean).forEach((key) => {
+        employeeBalances.set(String(key).toLowerCase(), b);
+      });
     });
     return m;
   }, [balances.data]);
-  const balFor = (uid: string, type: string) => balByEmp.get(uid)?.get(type.toLowerCase());
+  const balFor = (uid: string, type: string, leaveTypeUid?: string) => {
+    const employeeBalances = balByEmp.get(uid);
+    if (!employeeBalances) return undefined;
+    if (leaveTypeUid) {
+      const byUid = employeeBalances.get(leaveTypeUid.toLowerCase());
+      if (byUid) return byUid;
+    }
+    return employeeBalances.get(type.toLowerCase());
+  };
 
   // apply modal
   const [applyOpen, setApplyOpen] = useState(false);
@@ -118,10 +149,14 @@ export default function Leave() {
   // detail modal
   const [selected, setSelected] = useState<LeaveRequest | null>(null);
   const [remarks, setRemarks] = useState("");
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const requestedBalance = form.employeeUid && form.type ? balFor(form.employeeUid, form.type) : undefined;
+  const requestedDuration = calcDays(form.startDate, form.endDate || form.startDate, form.isHalfDay);
+  const showInsufficientBalanceWarning = !!form.employeeUid && !!form.leaveTypeUid && requestedDuration > 0 && (requestedBalance?.available ?? 0) < requestedDuration;
 
   const submitApply = async () => {
     if (!form.employeeUid || !form.leaveTypeUid || !form.startDate || !form.reason) {
@@ -166,21 +201,26 @@ export default function Leave() {
     finally { setSaving(false); }
   };
 
-  const act = async (status: "Approved" | "Rejected") => {
+  const act = async (action: "APPROVE" | "APPROVE_AS_LOSS_OF_PAY" | "REJECT") => {
     if (!selected) return;
+    if (action === "REJECT" && !remarks.trim()) {
+      setApprovalError("Remarks are required when rejecting a leave request.");
+      return;
+    }
+    setApprovalError(null);
     setActing(true);
     try {
-      await leaves.update(selected.id, { status, statusRemarks: remarks || null });
+      await leaves.approve(selected.uid || selected.id, { action, statusRemarks: remarks.trim() || null });
       trackEvent("hr.leave.status_changed", {
         leaveId: selected.id,
         employeeUid: selected.employeeUid,
-        status,
+        action,
         type: selected.type,
       });
       setSelected(null); setRemarks("");
     } catch (e) {
       captureError(e instanceof Error ? e : new Error("Leave status update failed"), { leaveId: selected.id });
-      setMsg(e instanceof Error ? e.message : "Action failed.");
+      setApprovalError(e instanceof Error ? e.message : "Action failed.");
     }
     finally { setActing(false); }
   };
@@ -332,14 +372,17 @@ export default function Leave() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
               <th style={th}>Employee Details</th>
-              {LEAVE_QUOTAS.map((q) => <th key={q.type} style={th}>{q.type} ({q.quota}d)</th>)}
+              {balanceTypes.map((q) => <th key={q.type} style={th}>{q.type}{q.quota ? ` (${q.quota}d)` : ""}</th>)}
               <th style={{ ...th, textAlign: "right", color: TEAL }}>Total Left</th>
             </tr></thead>
             <tbody>
               {balanceRows.length === 0 ? (
                 <tr><td colSpan={6} style={{ ...tdc, textAlign: "center", ...lbl, padding: "32px 16px" }}>No employees found.</td></tr>
               ) : balanceRows.map((emp) => {
-                const totalLeft = LEAVE_QUOTAS.reduce((s, q) => s + (balFor(emp.id, q.type)?.available ?? 0), 0);
+                const totalLeft = balanceTypes.reduce((s, q) => {
+                  const balance = balFor(emp.id, q.type);
+                  return (balance?.status || "ACTIVE").toUpperCase() === "ACTIVE" ? s + (balance?.available ?? 0) : s;
+                }, 0);
                 return (
                   <tr key={emp.id}>
                     <td style={tdc}>
@@ -348,20 +391,36 @@ export default function Leave() {
                         <div><div style={{ fontWeight: 800, fontSize: 12.5 }}>{emp.name}</div><div style={{ ...lbl, fontSize: 9 }}>{emp.employeeId} · {emp.department || "General"}</div></div>
                       </div>
                     </td>
-                    {LEAVE_QUOTAS.map((q) => {
-                      const avl = balFor(emp.id, q.type)?.available ?? 0;
+                    {balanceTypes.map((q) => {
+                      const balance = balFor(emp.id, q.type, q.uid);
+                      const hasBalance = !!balance;
+                      const avl = balance?.available ?? 0;
+                      const status = (balance?.status || "ACTIVE").toUpperCase();
+                      const inactive = status !== "ACTIVE";
+                      const percent = q.quota ? Math.min(100, (avl / q.quota) * 100) : 0;
+                      if (!hasBalance) {
+                        return (
+                          <td key={q.type} style={{ ...tdc, background: "rgba(100,116,139,0.025)" }}>
+                            <div style={{ width: 96 }}>
+                              <div style={{ fontSize: 11, fontWeight: 900, color: "var(--light-text)" }}>N/A</div>
+                              <div style={{ ...lbl, fontSize: 8, marginTop: 4, textTransform: "none", letterSpacing: 0 }}>Not assigned</div>
+                            </div>
+                          </td>
+                        );
+                      }
                       return (
-                        <td key={q.type} style={tdc}>
+                        <td key={q.type} style={{ ...tdc, opacity: inactive ? 0.55 : 1, background: inactive ? "rgba(100,116,139,0.03)" : undefined }}>
                           <div style={{ width: 96 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, color: "var(--dark-text)" }}><span>{avl} avl</span><span style={{ color: "var(--light-text)" }}>/ {q.quota}</span></div>
-                            <div style={{ height: 4, background: "rgba(100,116,139,0.15)", borderRadius: 999, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", width: `${Math.min(100, (avl / q.quota) * 100)}%`, background: q.color, borderRadius: 999 }} /></div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, color: "var(--dark-text)" }}><span>{avl} avl</span>{q.quota ? <span style={{ color: "var(--light-text)" }}>/ {q.quota}</span> : null}</div>
+                            <div style={{ height: 4, background: "rgba(100,116,139,0.15)", borderRadius: 999, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", width: `${percent}%`, background: inactive ? "#94a3b8" : q.color, borderRadius: 999 }} /></div>
+                            <span style={{ ...balanceStatusPill(status), display: "inline-block", marginTop: 6, padding: "2px 6px", borderRadius: 7, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em" }}>{status}</span>
                           </div>
                         </td>
                       );
                     })}
                     <td style={{ ...tdc, textAlign: "right" }}>
                       <div style={{ fontSize: 16, fontWeight: 900, color: TEAL }}>{totalLeft}</div>
-                      <div style={{ ...lbl, fontSize: 8 }}>of {MAX_TOTAL}</div>
+                      <div style={{ ...lbl, fontSize: 8 }}>{maxTotal ? `of ${maxTotal}` : "active only"}</div>
                     </td>
                   </tr>
                 );
@@ -497,6 +556,11 @@ export default function Leave() {
                 <span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>{calcDays(form.startDate, form.endDate || form.startDate, form.isHalfDay)} Days</span>
               </div>
             )}
+            {showInsufficientBalanceWarning && (
+              <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", padding: 14, borderRadius: 14, color: "#92400e", fontSize: 12.5, fontWeight: 700, lineHeight: 1.45 }}>
+                You have insufficient balance for this leave type. Your manager may approve this as Loss of Pay or reject it.
+              </div>
+            )}
             <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: 16, display: "flex", gap: 14 }}>
               <div style={{ height: 40, width: 40, borderRadius: 12, background: "rgba(99,102,241,0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Info size={20} /></div>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", lineHeight: 1.5, margin: 0 }}>Leave balances are real-time and auto-deducted once administrators verify and approve your request.</p>
@@ -550,13 +614,26 @@ export default function Leave() {
               <div>
                 <span style={{ ...lbl, marginBottom: 8, display: "block" }}>Applicant Remaining Balance</span>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-                  {LEAVE_QUOTAS.map((q) => {
+                  {balanceTypes.map((q) => {
                     const isReq = q.type.toLowerCase() === (selected.leaveTypeName || selected.type || "").toLowerCase();
-                    const avl = balFor(selected.employeeUid || "", q.type)?.available ?? 0;
+                    const balance = balFor(selected.employeeUid || "", q.type, q.uid);
+                    const hasBalance = !!balance;
+                    const avl = balance?.available ?? 0;
+                    const status = (balance?.status || "ACTIVE").toUpperCase();
                     return (
-                      <div key={q.type} style={{ padding: 10, borderRadius: 12, textAlign: "center", background: isReq ? "rgba(17,94,89,0.08)" : "rgba(100,116,139,0.04)", border: isReq ? "1px solid rgba(17,94,89,0.3)" : "1px solid var(--border-color)" }}>
+                      <div key={q.type} style={{ padding: 10, borderRadius: 12, textAlign: "center", opacity: status === "ACTIVE" ? 1 : 0.55, background: isReq ? "rgba(17,94,89,0.08)" : "rgba(100,116,139,0.04)", border: isReq ? "1px solid rgba(17,94,89,0.3)" : "1px solid var(--border-color)" }}>
                         <span style={{ ...lbl, fontSize: 7.5, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.type}</span>
-                        <span style={{ fontSize: 13, fontWeight: 900, color: isReq ? TEAL : "var(--dark-text)", display: "block", marginTop: 2 }}>{avl} avl</span>
+                        {hasBalance ? (
+                          <>
+                            <span style={{ fontSize: 13, fontWeight: 900, color: isReq ? TEAL : "var(--dark-text)", display: "block", marginTop: 2 }}>{avl} avl</span>
+                            <span style={{ ...balanceStatusPill(status), display: "inline-block", marginTop: 5, padding: "1px 5px", borderRadius: 6, fontSize: 7.5, fontWeight: 800 }}>{status}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 13, fontWeight: 900, color: "var(--light-text)", display: "block", marginTop: 2 }}>N/A</span>
+                            <span style={{ ...lbl, fontSize: 7.5, display: "block", marginTop: 5, textTransform: "none", letterSpacing: 0 }}>Not assigned</span>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -581,9 +658,11 @@ export default function Leave() {
                     rows={3}
                     aria-label="Approval remarks"
                   />
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
-                    <button id="hr-leave-reject" data-testid="hr-leave-reject" onClick={() => act("Rejected")} disabled={acting} style={{ height: 38, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline &amp; Reject</button>
-                    <button id="hr-leave-approve" data-testid="hr-leave-approve" onClick={() => act("Approved")} disabled={acting} style={{ height: 38, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Clear &amp; Approve</button>
+                  {approvalError && <div style={{ marginTop: 10, color: "#e11d48", fontSize: 12, fontWeight: 700 }}>{approvalError}</div>}
+                  <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
+                    <button id="hr-leave-approve-lop" data-testid="hr-leave-approve-lop" onClick={() => act("APPROVE_AS_LOSS_OF_PAY")} disabled={acting} style={{ height: 38, padding: "0 16px", borderRadius: 12, border: "none", background: "#4f46e5", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve as Loss of Pay</button>
+                    <button id="hr-leave-reject" data-testid="hr-leave-reject" onClick={() => act("REJECT")} disabled={acting} style={{ height: 38, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Reject</button>
+                    <button id="hr-leave-approve" data-testid="hr-leave-approve" onClick={() => act("APPROVE")} disabled={acting} style={{ height: 38, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve</button>
                   </div>
                 </div>
               )}
