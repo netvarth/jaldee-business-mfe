@@ -16,6 +16,17 @@ const th: CSSProperties = { textAlign: "left", padding: "11px 16px", fontSize: 9
 const tdc: CSSProperties = { padding: "13px 16px", fontSize: 13, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
 const field: CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 14, fontWeight: 600, color: "var(--dark-text)" };
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, overflow: "hidden" };
+const LEAVE_CATEGORY_OPTIONS = [
+  { value: "CASUAL", label: "Casual" },
+  { value: "SICK", label: "Sick" },
+  { value: "EARNED", label: "Earned" },
+  { value: "MATERNITY", label: "Maternity" },
+  { value: "PATERNITY", label: "Paternity" },
+  { value: "COMP_OFF", label: "Comp Off" },
+  { value: "LOSS_OF_PAY", label: "Loss Of Pay" },
+  { value: "SPECIAL", label: "Special" },
+  { value: "OTHER", label: "Other" },
+] as const;
 
 type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
 interface Field {
@@ -63,6 +74,11 @@ function toBackendTime(value: unknown): string | null {
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function leaveCategoryLabel(value: unknown): string {
+  const normalized = String(value || "").trim().toUpperCase();
+  return LEAVE_CATEGORY_OPTIONS.find((option) => option.value === normalized)?.label || String(value || "—");
 }
 
 function buildPayload(fields: Field[], form: Row): Row {
@@ -425,7 +441,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
   const [policyForm, setPolicyForm] = useState<Row>({
     name: "",
-    category: "Annual",
+    category: "CASUAL",
     annualQuota: 0,
     accrualType: "Monthly",
     paid: true,
@@ -467,7 +483,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
     setEditing(null);
     setPolicyForm({
       name: "",
-      category: "Annual",
+      category: "CASUAL",
       annualQuota: 0,
       accrualType: "Monthly",
       paid: true,
@@ -482,7 +498,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
     setEditing(policy);
     setPolicyForm({
       name: policy.name || "",
-      category: policy.category || "Annual",
+      category: policy.category || "CASUAL",
       annualQuota: policy.annualQuota ?? 0,
       accrualType: policy.accrualType || "Monthly",
       paid: policy.paid ?? true,
@@ -632,7 +648,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
                 ) : leaveTypes.data.map((policy) => (
                   <tr key={policy.id}>
                     <td style={tdc}><b>{policy.name as string}</b></td>
-                    <td style={tdc}>{(policy.category as string) || "Annual"}</td>
+                    <td style={tdc}>{leaveCategoryLabel(policy.category)}</td>
                     <td style={tdc}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</td>
                     <td style={tdc}>{(policy.accrualType as string) || "—"}</td>
                     <td style={tdc}>
@@ -779,11 +795,11 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
         <div style={{ padding: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Name</label>
-            <Input id="hr-settings-leave-policy-name" data-testid="hr-settings-leave-policy-name" value={(policyForm.name as string) || ""} onChange={(e) => setPolicyForm((f) => ({ ...f, name: e.target.value }))} placeholder="Annual Paid Leave" className="rounded-xl !h-11" />
+            <Input id="hr-settings-leave-policy-name" data-testid="hr-settings-leave-policy-name" value={(policyForm.name as string) || ""} onChange={(e) => setPolicyForm((f) => ({ ...f, name: e.target.value }))} placeholder="Casual Leave" className="rounded-xl !h-11" />
           </div>
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Category</label>
-            <Select id="hr-settings-leave-policy-category" testId="hr-settings-leave-policy-category" value={(policyForm.category as string) || "Annual"} onChange={(e) => setPolicyForm((f) => ({ ...f, category: e.target.value }))} options={["Annual", "Sick", "Maternity", "Paternity", "Comp-Off", "Unpaid", "Other"].map((value) => ({ value, label: value }))} />
+            <Select id="hr-settings-leave-policy-category" testId="hr-settings-leave-policy-category" value={(policyForm.category as string) || "CASUAL"} onChange={(e) => setPolicyForm((f) => ({ ...f, category: e.target.value }))} options={LEAVE_CATEGORY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} />
           </div>
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Annual Quota</label>

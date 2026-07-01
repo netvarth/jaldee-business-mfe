@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
+  ArrowLeft,
+  LayoutGrid,
+  Rows3,
   Download,
   FileText,
   Layers3,
@@ -14,9 +17,10 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { DatePicker, Dialog, MonthPicker, PageHeader, Select, SkeletonTable } from "@jaldee/design-system";
+import { Button, DataTable, DataTableToolbar, DatePicker, Dialog, EmptyState, MonthPicker, PageHeader, Select, SkeletonTable } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
+import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
 import { useEmployees } from "../../services/useEmployees";
 import {
   useEmployeePayroll,
@@ -42,6 +46,7 @@ import {
 import { exportToCSV, formatCurrency, formatDate } from "../../lib/utils";
 
 type Tab = "components" | "structures" | "employees" | "runs" | "fields";
+type ViewMode = "table" | "cards";
 
 const PAYROLL_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: LucideIcon }> = [
   { key: "components", route: "components", label: "Components", Icon: Settings2 },
@@ -135,10 +140,21 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Action failed.";
 }
 
-function tabFromPath(pathname: string): Tab {
-  const segment = pathname.split("/").filter(Boolean).at(-1);
-  const match = PAYROLL_ROUTES.find((item) => item.route === segment || item.key === segment);
-  return match?.key || "components";
+function getPreferredViewMode() {
+  if (typeof window === "undefined") return "table" as ViewMode;
+  return window.matchMedia("(max-width: 767px)").matches ? "cards" : "table";
+}
+
+function payrollRouteState(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const payrollIndex = segments.lastIndexOf("payroll");
+  const payrollSegments = payrollIndex >= 0 ? segments.slice(payrollIndex + 1) : segments;
+  const tabSegment = payrollSegments[0];
+  const match = PAYROLL_ROUTES.find((item) => item.route === tabSegment || item.key === tabSegment);
+  const tab = match?.key || "components";
+  const builderStructureUid = tab === "structures" && payrollSegments[2] === "build" ? payrollSegments[1] || null : null;
+  const employeeAssignUid = tab === "employees" && payrollSegments[2] === "assign" ? payrollSegments[1] || null : null;
+  return { tab, builderStructureUid, isStructureBuilder: Boolean(builderStructureUid), employeeAssignUid, isEmployeeAssign: Boolean(employeeAssignUid) };
 }
 
 function ToggleRow({
@@ -212,7 +228,8 @@ export default function Payroll() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
   const navigate = useNavigate();
-  const tab = tabFromPath(location.pathname);
+  const routeState = useMemo(() => payrollRouteState(location.pathname), [location.pathname]);
+  const tab = routeState.tab;
   const needsComponents = tab === "components" || tab === "structures";
   const needsStructures = tab === "structures" || tab === "employees";
   const needsEmployees = tab === "employees" || tab === "runs";
@@ -229,13 +246,14 @@ export default function Payroll() {
   const runs = usePayrollRuns({ enabled: needsRuns });
   const payslips = usePayslips({ enabled: needsPayslips });
   const customFields = usePayrollCustomFields({ enabled: needsCustomFields, targetTypes: customFieldTargets });
-  const { data: employees } = useEmployees({ enabled: needsEmployees });
+  const { data: employees, loading: employeesLoading } = useEmployees({ enabled: needsEmployees });
 
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [runMonth, setRunMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const employeePayroll = useEmployeePayroll(selectedEmployee || null, { enabled: tab === "employees" });
+  const [selectedEmployee, setSelectedEmployee] = useState(routeState.employeeAssignUid || "");
+  const activeEmployeeUid = routeState.employeeAssignUid || selectedEmployee;
+  const employeePayroll = useEmployeePayroll(activeEmployeeUid || null, { enabled: tab === "employees" });
   const [viewSlip, setViewSlip] = useState<Payslip | null>(null);
 
   const [componentOpen, setComponentOpen] = useState(false);
@@ -246,7 +264,14 @@ export default function Payroll() {
   const [editingStructureUid, setEditingStructureUid] = useState<string | null>(null);
   const [structureForm, setStructureForm] = useState<Partial<PayrollStructure>>(emptyStructure);
   const [builderStructureUid, setBuilderStructureUid] = useState("");
+  const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [mappingForm, setMappingForm] = useState<Partial<StructureComponentMapping>>(emptyMapping);
+  const [structuresView, setStructuresView] = useState<ViewMode>(() => getPreferredViewMode());
+  const [builderComponentsView, setBuilderComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
+  const [employeeQuery, setEmployeeQuery] = useState("");
+  const [employeeDepartmentFilter, setEmployeeDepartmentFilter] = useState("all");
+  const [employeeStatusFilter, setEmployeeStatusFilter] = useState("all");
+  const [selectedEmployeeRowKeys, setSelectedEmployeeRowKeys] = useState<string[]>([]);
 
   const [assignmentForm, setAssignmentForm] = useState({
     structureUid: "",
@@ -259,14 +284,16 @@ export default function Payroll() {
   const [fieldOpen, setFieldOpen] = useState(false);
   const [fieldForm, setFieldForm] = useState<Partial<PayrollCustomField>>(emptyField);
 
-  const selectedStructure = useMemo(
-    () => structures.data.find((s) => uidOf(s) === builderStructureUid) ?? structures.data[0],
-    [builderStructureUid, structures.data]
-  );
-  const effectiveBuilderUid = uidOf(selectedStructure);
+  const selectedStructure = useMemo(() => {
+    const activeBuilderUid = routeState.builderStructureUid || builderStructureUid;
+    if (!activeBuilderUid) return structures.data[0];
+    return structures.data.find((s) => uidOf(s) === activeBuilderUid);
+  }, [builderStructureUid, routeState.builderStructureUid, structures.data]);
+  const effectiveBuilderUid = uidOf(selectedStructure) || routeState.builderStructureUid || builderStructureUid;
   const effectiveComponentUid = mappingForm.componentUid || uidOf(components.data[0]);
   const activeStructureUid = employeePayroll.assignment?.structureUid || uidOf(employeePayroll.assignment?.structure);
   const activeStructure = structures.data.find((s) => uidOf(s) === activeStructureUid) || employeePayroll.assignment?.structure;
+  const activeEmployeeRecord = employees.find((employee) => employee.id === activeEmployeeUid);
   const employeeFields = customFields.data.filter((f) => f.targetType === "EMPLOYEE_PAYROLL_STRUCTURE");
   const payslipFields = customFields.data.filter((f) => f.targetType === "PAYSLIP");
   const apiError = components.error || structures.error || runs.error || payslips.error || customFields.error || employeePayroll.error;
@@ -291,11 +318,30 @@ export default function Payroll() {
   }, [message, eventBus]);
 
   useEffect(() => {
-    if (tab !== "structures" || !effectiveBuilderUid) return;
+    if (!routeState.isStructureBuilder || !effectiveBuilderUid) return;
     void structures.loadComponents(effectiveBuilderUid).catch((e) => {
       setMessage(getErrorMessage(e));
     });
-  }, [effectiveBuilderUid, structures.loadComponents, tab]);
+  }, [effectiveBuilderUid, routeState.isStructureBuilder, structures.loadComponents]);
+
+  useEffect(() => {
+    if (routeState.employeeAssignUid) {
+      setSelectedEmployee(routeState.employeeAssignUid);
+    }
+  }, [routeState.employeeAssignUid]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const syncViewModes = () => {
+      const next = media.matches ? "cards" : "table";
+      setStructuresView(next);
+      setBuilderComponentsView(next);
+    };
+    syncViewModes();
+    media.addEventListener("change", syncViewModes);
+    return () => media.removeEventListener("change", syncViewModes);
+  }, []);
 
   const stats = useMemo(() => {
     const totalPayout = payslips.data.reduce((sum, p) => sum + (p.netPay ?? 0), 0);
@@ -353,6 +399,12 @@ export default function Payroll() {
     setStructureOpen(true);
   };
 
+  const openStructureBuilder = (structureUid: string) => {
+    if (!structureUid) return;
+    setBuilderStructureUid(structureUid);
+    navigate(`/payroll/structures/${structureUid}/build`);
+  };
+
   const saveStructure = async () => {
     if (!structureForm.structureName || !structureForm.structureCode) {
       setMessage("Structure name and code are required.");
@@ -384,6 +436,7 @@ export default function Payroll() {
     try {
       await structures.addComponent(effectiveBuilderUid, { ...mappingForm, componentUid: effectiveComponentUid });
       setMappingForm({ ...emptyMapping });
+      setBuilderDialogOpen(false);
       setMessage("Component added to structure.");
     } catch (e) {
       setMessage(getErrorMessage(e));
@@ -393,7 +446,7 @@ export default function Payroll() {
   };
 
   const assignStructure = async () => {
-    if (!selectedEmployee || !assignmentForm.structureUid || !assignmentForm.effectiveFrom) {
+    if (!activeEmployeeUid || !assignmentForm.structureUid || !assignmentForm.effectiveFrom) {
       setMessage("Select an employee, structure, and effective date.");
       return;
     }
@@ -436,7 +489,7 @@ export default function Payroll() {
 
   const saveOverrides = async () => {
     const payload = Object.values(overrideDrafts);
-    if (!selectedEmployee || payload.length === 0) {
+    if (!activeEmployeeUid || payload.length === 0) {
       setMessage("No employee payroll overrides to save.");
       return;
     }
@@ -500,6 +553,261 @@ export default function Payroll() {
       "payroll-payslips.csv"
     );
   };
+
+  const componentLookup = useMemo(() => new Map(components.data.map((component) => [uidOf(component), component] as const)), [components.data]);
+  const structureColumns = useMemo(() => [
+    {
+      key: "structureCode",
+      header: "Code",
+      render: (structure: PayrollStructure) => <span style={{ fontWeight: 800 }}>{structure.structureCode}</span>,
+    },
+    {
+      key: "structureName",
+      header: "Name",
+      render: (structure: PayrollStructure) => structure.structureName,
+    },
+    {
+      key: "payrollFrequency",
+      header: "Frequency",
+      render: (structure: PayrollStructure) => structure.payrollFrequency || "MONTHLY",
+    },
+    {
+      key: "currencyCode",
+      header: "Currency",
+      render: (structure: PayrollStructure) => structure.currencyCode || "INR",
+    },
+    {
+      key: "components",
+      header: "Components",
+      align: "center" as const,
+      render: (structure: PayrollStructure) => String(structure.components?.length ?? 0),
+    },
+    {
+      key: "actions",
+      header: "Action",
+      align: "right" as const,
+      render: (structure: PayrollStructure) => (
+        <div style={{ display: "inline-flex", gap: 8 }}>
+          <button
+            id={`hr-payroll-structure-build-${structure.id}`}
+            data-testid={`hr-payroll-structure-build-${structure.id}`}
+            className="btn-grid-action"
+            onClick={() => openStructureBuilder(uidOf(structure))}
+            style={smallAction}
+          >
+            Build
+          </button>
+          <button
+            id={`hr-payroll-structure-edit-${structure.id}`}
+            data-testid={`hr-payroll-structure-edit-${structure.id}`}
+            className="btn-grid-action"
+            onClick={() => openStructure(structure)}
+            style={smallAction}
+          >
+            <Pencil size={14} /> Edit
+          </button>
+        </div>
+      ),
+    },
+  ], [navigate]);
+
+  const structureComponentColumns = useMemo(() => [
+    {
+      key: "componentName",
+      header: "Component",
+      render: (mapping: StructureComponentMapping) => (
+        <div>
+          <div style={{ fontWeight: 800 }}>{componentName(mapping)}</div>
+          <div style={{ fontSize: 12, color: "var(--light-text)" }}>
+            {(componentLookup.get(mapping.componentUid || mapping.payrollComponentUid || uidOf(mapping.component))?.componentCode) || mapping.componentCode || "-"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "componentType",
+      header: "Type",
+      render: (mapping: StructureComponentMapping) => {
+        const component = componentLookup.get(mapping.componentUid || mapping.payrollComponentUid || uidOf(mapping.component));
+        return labelize(component?.componentType);
+      },
+    },
+    {
+      key: "calculationType",
+      header: "Calculation",
+      render: (mapping: StructureComponentMapping) => labelize(mapping.calculationType),
+    },
+    {
+      key: "defaults",
+      header: "Default",
+      render: (mapping: StructureComponentMapping) => {
+        if (mapping.defaultAmount != null) return money(mapping.defaultAmount);
+        if (mapping.defaultPercentage != null) return `${mapping.defaultPercentage}%`;
+        if (mapping.formulaExpression) return mapping.formulaExpression;
+        if ((mapping.slabConfigJson || []).length > 0) return `${mapping.slabConfigJson?.length || 0} slabs`;
+        return "-";
+      },
+    },
+    {
+      key: "flags",
+      header: "Flags",
+      render: (mapping: StructureComponentMapping) => <FlagList flags={[mapping.isMandatory && "Mandatory", mapping.allowEmployeeOverride && "Override"]} />,
+    },
+  ], [componentLookup]);
+
+  const openAddComponentDialog = () => {
+    setMappingForm((current) => ({
+      ...emptyMapping,
+      ...current,
+      componentUid: current.componentUid || uidOf(components.data[0]),
+      calculationType: current.calculationType || "FIXED_AMOUNT",
+      isMandatory: current.isMandatory ?? true,
+      allowEmployeeOverride: current.allowEmployeeOverride ?? false,
+    }));
+    setBuilderDialogOpen(true);
+  };
+
+  const openEmployeeAssignment = (employeeUid: string) => {
+    if (!employeeUid) return;
+    setSelectedEmployee(employeeUid);
+    setOverrideDrafts({});
+    navigate(`/payroll/employees/${employeeUid}/assign`);
+  };
+
+  const employeeDepartments = useMemo(
+    () => Array.from(new Set(employees.map((employee) => employee.department).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
+    [employees]
+  );
+  const employeeStatuses = useMemo(
+    () => Array.from(new Set(employees.map((employee) => employee.status).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
+    [employees]
+  );
+  const filteredEmployees = useMemo(() => {
+    const query = employeeQuery.trim().toLowerCase();
+    return employees.filter((employee) => {
+      const matchesQuery = !query || [
+        employee.name,
+        employee.email,
+        employee.employeeId,
+        employee.department,
+        employee.designation,
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+      const matchesDepartment = employeeDepartmentFilter === "all" || (employee.department || "") === employeeDepartmentFilter;
+      const matchesStatus = employeeStatusFilter === "all" || (employee.status || "Active") === employeeStatusFilter;
+      return matchesQuery && matchesDepartment && matchesStatus;
+    });
+  }, [employeeDepartmentFilter, employeeQuery, employeeStatusFilter, employees]);
+  const selectedEmployeeCount = selectedEmployeeRowKeys.length;
+
+  const employeeColumns = useMemo(() => [
+    {
+      key: "employeeId",
+      header: "Employee ID",
+      render: (employee: typeof employees[number]) => <span style={{ fontWeight: 800 }}>{employee.employeeId || "-"}</span>,
+    },
+    {
+      key: "name",
+      header: "Employee",
+      render: (employee: typeof employees[number]) => (
+        <div>
+          <div style={{ fontWeight: 800 }}>{employee.name || "-"}</div>
+          <div style={{ fontSize: 12, color: "var(--light-text)" }}>{employee.email || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "department",
+      header: "Department",
+      filter: {
+        value: employeeDepartmentFilter,
+        onChange: setEmployeeDepartmentFilter,
+        allValue: "all",
+        options: employeeDepartments.map((department) => ({ value: department, label: department })),
+        testId: "hr-payroll-employees-filter-department",
+      },
+      render: (employee: typeof employees[number]) => employee.department || "-",
+    },
+    {
+      key: "designation",
+      header: "Designation",
+      render: (employee: typeof employees[number]) => employee.designation || "-",
+    },
+    {
+      key: "status",
+      header: "Status",
+      filter: {
+        value: employeeStatusFilter,
+        onChange: setEmployeeStatusFilter,
+        allValue: "all",
+        options: employeeStatuses.map((status) => ({ value: status, label: status })),
+        testId: "hr-payroll-employees-filter-status",
+      },
+      render: (employee: typeof employees[number]) => employee.status || "Active",
+    },
+  ], [employeeDepartmentFilter, employeeDepartments, employeeStatusFilter, employeeStatuses, employees]);
+
+  const structureCards = structures.data.map((structure) => (
+    <InfoCard
+      key={structure.id}
+      title={structure.structureName || "-"}
+      subtitle={structure.structureCode || "-"}
+      rows={[
+        { label: "Frequency", value: structure.payrollFrequency || "MONTHLY" },
+        { label: "Currency", value: structure.currencyCode || "INR" },
+        { label: "Components", value: String(structure.components?.length ?? 0) },
+      ]}
+      actions={
+        <>
+          <Button
+            id={`hr-payroll-structure-build-card-${structure.id}`}
+            data-testid={`hr-payroll-structure-build-card-${structure.id}`}
+            variant="primary"
+            size="sm"
+            onClick={() => openStructureBuilder(uidOf(structure))}
+          >
+            Build
+          </Button>
+          <Button
+            id={`hr-payroll-structure-edit-card-${structure.id}`}
+            data-testid={`hr-payroll-structure-edit-card-${structure.id}`}
+            variant="outline"
+            size="sm"
+            icon={<Pencil size={14} />}
+            onClick={() => openStructure(structure)}
+          >
+            Edit
+          </Button>
+        </>
+      }
+    />
+  ));
+
+  const structureComponentCards = (selectedStructure?.components || []).map((mapping) => {
+    const component = componentLookup.get(mapping.componentUid || mapping.payrollComponentUid || uidOf(mapping.component));
+    const defaultValue = mapping.defaultAmount != null
+      ? money(mapping.defaultAmount)
+      : mapping.defaultPercentage != null
+        ? `${mapping.defaultPercentage}%`
+        : mapping.formulaExpression
+          ? mapping.formulaExpression
+          : (mapping.slabConfigJson || []).length > 0
+            ? `${mapping.slabConfigJson?.length || 0} slabs`
+            : "-";
+
+    return (
+      <InfoCard
+        key={uidOf(mapping) || mapping.componentUid || mapping.payrollComponentUid || componentName(mapping)}
+        title={componentName(mapping)}
+        subtitle={component?.componentCode || mapping.componentCode || "-"}
+        rows={[
+          { label: "Type", value: labelize(component?.componentType) },
+          { label: "Calculation", value: labelize(mapping.calculationType) },
+          { label: "Default", value: defaultValue },
+        ]}
+        footer={<FlagList flags={[mapping.isMandatory && "Mandatory", mapping.allowEmployeeOverride && "Override"]} />}
+      />
+    );
+  });
 
   return (
     <section id="hr-payroll-page" data-testid="hr-payroll-page" className="page-section active" style={{ background: "var(--app-bg)", flexGrow: 1, minWidth: 0 }}>
@@ -568,178 +876,293 @@ export default function Payroll() {
       )}
 
       {tab === "structures" && (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,7fr)_minmax(360px,3fr)] gap-6 items-start">
+        routeState.isStructureBuilder ? (
+          selectedStructure ? (
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)] gap-6 items-start">
+              <Panel
+                title="Mapped Components"
+                action={
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <ViewToggle value={builderComponentsView} onChange={setBuilderComponentsView} scope="hr-payroll-builder-components-view" />
+                    <Button
+                      id="hr-payroll-structure-builder-back"
+                      data-testid="hr-payroll-structure-builder-back"
+                      variant="outline"
+                      size="md"
+                      icon={<ArrowLeft size={16} />}
+                      onClick={() => navigate("/payroll/structures")}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      id="hr-payroll-structure-builder-open-add"
+                      data-testid="hr-payroll-structure-builder-open-add"
+                      variant="primary"
+                      size="md"
+                      icon={<Plus size={16} />}
+                      onClick={openAddComponentDialog}
+                      disabled={components.data.length === 0}
+                    >
+                      Add Component
+                    </Button>
+                  </div>
+                }
+              >
+                {builderComponentsView === "table" ? (
+                  <DataTable
+                    data-testid="hr-payroll-structure-components-table"
+                    data={selectedStructure.components || []}
+                    columns={structureComponentColumns}
+                    getRowId={(mapping) => uidOf(mapping) || mapping.componentUid || mapping.payrollComponentUid || componentName(mapping)}
+                    loading={structures.loading}
+                    className="rounded-none border-0 shadow-none"
+                    tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+                    emptyState={
+                      <EmptyState
+                        title="No mapped components"
+                        description="Add payroll components to this structure to define how salary lines are built."
+                      />
+                    }
+                  />
+                ) : (
+                  <CardCollection
+                    emptyTitle="No mapped components"
+                    emptyDescription="Add payroll components to this structure to define how salary lines are built."
+                    items={structureComponentCards}
+                  />
+                )}
+              </Panel>
+
+              <Panel title="Structure Details">
+                <div style={{ display: "grid", gap: 14 }}>
+                  <div style={{ border: "1px solid var(--border-color)", borderRadius: 8, padding: 14, background: "var(--app-bg)" }}>
+                    <div style={sectionLabel}>Structure</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedStructure.structureName || "-"}</div>
+                        <div style={{ color: "var(--light-text)", fontSize: 13 }}>{selectedStructure.structureCode || "-"}</div>
+                      </div>
+                      <div style={builderMetricRow}><span>Frequency</span><strong>{selectedStructure.payrollFrequency || "MONTHLY"}</strong></div>
+                      <div style={builderMetricRow}><span>Currency</span><strong>{selectedStructure.currencyCode || "INR"}</strong></div>
+                      <div style={builderMetricRow}><span>Mapped components</span><strong>{selectedStructure.components?.length ?? 0}</strong></div>
+                      <div style={builderMetricRow}><span>Description</span><strong style={{ textAlign: "right" }}>{selectedStructure.description || "-"}</strong></div>
+                    </div>
+                  </div>
+                  <Button
+                    id="hr-payroll-structure-builder-edit"
+                    data-testid="hr-payroll-structure-builder-edit"
+                    variant="outline"
+                    size="md"
+                    icon={<Pencil size={16} />}
+                    onClick={() => openStructure(selectedStructure)}
+                  >
+                    Edit Structure Details
+                  </Button>
+                  <Button
+                    id="hr-payroll-structure-builder-open-add-secondary"
+                    data-testid="hr-payroll-structure-builder-open-add-secondary"
+                    variant="primary"
+                    size="lg"
+                    icon={<Plus size={16} />}
+                    onClick={openAddComponentDialog}
+                    disabled={components.data.length === 0}
+                    fullWidth
+                  >
+                    Add Component
+                  </Button>
+                </div>
+              </Panel>
+            </div>
+          ) : (
+            <Panel title="Structure Builder">
+              <EmptyState
+                title="Structure not found"
+                description="Return to the structures list and open a valid payroll structure builder."
+              />
+            </Panel>
+          )
+        ) : (
           <Panel
             title="Payroll Structures"
-            action={<button id="hr-payroll-structure-new" data-testid="hr-payroll-structure-new" className="btn btn-primary" onClick={() => openStructure()} style={primaryButton}><Plus size={16} /> New Structure</button>}
+            action={
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <ViewToggle value={structuresView} onChange={setStructuresView} scope="hr-payroll-structures-view" />
+                <Button id="hr-payroll-structure-new" data-testid="hr-payroll-structure-new" variant="primary" size="md" icon={<Plus size={16} />} onClick={() => openStructure()}>New Structure</Button>
+              </div>
+            }
           >
-            {structures.loading ? <SkeletonTable rows={5} columns={6} /> : (
-              <Table
-                headers={["Code", "Name", "Frequency", "Currency", "Components", "Action"]}
-                empty={structures.data.length === 0 ? "No payroll structures configured." : null}
-              >
-                {structures.data.map((structure) => (
-                  <tr key={structure.id}>
-                    <td style={tdStrong}>{structure.structureCode}</td>
-                    <td style={tdStyle}>{structure.structureName}</td>
-                    <td style={tdStyle}>{structure.payrollFrequency || "MONTHLY"}</td>
-                    <td style={tdStyle}>{structure.currencyCode || "INR"}</td>
-                    <td style={tdStyle}>{structure.components?.length ?? 0}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: 8 }}>
-                        <button id={`hr-payroll-structure-build-${structure.id}`} data-testid={`hr-payroll-structure-build-${structure.id}`} className="btn-grid-action" onClick={() => { setBuilderStructureUid(uidOf(structure)); }} style={smallAction}>Build</button>
-                        <button id={`hr-payroll-structure-edit-${structure.id}`} data-testid={`hr-payroll-structure-edit-${structure.id}`} className="btn-grid-action" onClick={() => openStructure(structure)} style={smallAction}><Pencil size={14} /> Edit</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
+            {structuresView === "table" ? (
+              <DataTable
+                data-testid="hr-payroll-structures-table"
+                data={structures.data}
+                columns={structureColumns}
+                getRowId={(structure) => structure.id}
+                loading={structures.loading}
+                className="rounded-none border-0 shadow-none"
+                tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+                emptyState={
+                  <EmptyState
+                    title="No payroll structures"
+                    description="Create a salary structure, then open its builder to map payroll components."
+                  />
+                }
+              />
+            ) : (
+              <CardCollection
+                emptyTitle="No payroll structures"
+                emptyDescription="Create a salary structure, then open its builder to map payroll components."
+                items={structureCards}
+              />
             )}
           </Panel>
-
-          <Panel title="Structure Builder">
-            <div style={{ display: "grid", gap: 14 }}>
-              <Select
-                label="Structure"
-                value={effectiveBuilderUid}
-                onChange={(e) => setBuilderStructureUid(e.target.value)}
-                options={structures.data.map((s) => ({ value: uidOf(s), label: `${s.structureName} (${s.structureCode})` }))}
-              />
-              <Select
-                label="Master Component"
-                value={effectiveComponentUid}
-                onChange={(e) => setMappingForm((f) => ({ ...f, componentUid: e.target.value }))}
-                options={components.data.map((c) => ({ value: uidOf(c), label: `${c.componentName} (${c.componentCode})` }))}
-              />
-              <Select
-                label="Calculation Type"
-                value={mappingForm.calculationType || "FIXED_AMOUNT"}
-                onChange={(e) => setMappingForm((f) => ({ ...f, calculationType: e.target.value as CalculationType }))}
-                options={CALC_TYPES.map((v) => ({ value: v, label: labelize(v) }))}
-              />
-              {mappingForm.calculationType === "FIXED_AMOUNT" && (
-                <TextField label="Default Amount" type="number" value={mappingForm.defaultAmount ?? ""} onChange={(v) => setMappingForm((f) => ({ ...f, defaultAmount: numericOrUndefined(v) }))} />
-              )}
-              {mappingForm.calculationType === "PERCENTAGE" && (
-                <TextField label="Default Percentage" type="number" value={mappingForm.defaultPercentage ?? ""} onChange={(v) => setMappingForm((f) => ({ ...f, defaultPercentage: numericOrUndefined(v) }))} />
-              )}
-              {mappingForm.calculationType === "FORMULA" && (
-                <TextAreaField label="Formula Expression" value={mappingForm.formulaExpression} onChange={(v) => setMappingForm((f) => ({ ...f, formulaExpression: v }))} />
-              )}
-              {mappingForm.calculationType === "SLAB_BASED" && (
-                <SlabBuilder value={mappingForm.slabConfigJson || []} onChange={(slabs) => setMappingForm((f) => ({ ...f, slabConfigJson: slabs }))} />
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ToggleRow label="Mandatory" checked={mappingForm.isMandatory} onChange={(v) => setMappingForm((f) => ({ ...f, isMandatory: v }))} />
-                <ToggleRow label="Employee Override" checked={mappingForm.allowEmployeeOverride} onChange={(v) => setMappingForm((f) => ({ ...f, allowEmployeeOverride: v }))} />
-              </div>
-              <button id="hr-payroll-structure-add-component" data-testid="hr-payroll-structure-add-component" className="btn btn-primary" onClick={addStructureComponent} disabled={busy} style={primaryButton}>Add Component</button>
-            </div>
-            <div style={{ marginTop: 20, borderTop: "1px solid var(--border-color)", paddingTop: 16 }}>
-              <div style={sectionLabel}>Mapped Components</div>
-              <div style={{ display: "grid", gap: 10 }}>
-                {(selectedStructure?.components || []).length === 0 ? (
-                  <div style={emptyText}>No components mapped to this structure.</div>
-                ) : selectedStructure?.components?.map((mapping) => (
-                  <div key={uidOf(mapping) || mapping.componentUid} style={mappingCard}>
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{componentName(mapping)}</div>
-                      <div style={{ fontSize: 12, color: "var(--light-text)" }}>{labelize(mapping.calculationType)}</div>
-                    </div>
-                    <FlagList flags={[mapping.isMandatory && "Mandatory", mapping.allowEmployeeOverride && "Override"]} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Panel>
-        </div>
+        )
       )}
 
       {tab === "employees" && (
-        <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
-          <Panel title="Employee Salary Configuration">
-            <div style={{ display: "grid", gap: 14 }}>
-              <Select
-                label="Employee"
-                value={selectedEmployee}
-                onChange={(e) => {
-                  setSelectedEmployee(e.target.value);
-                  setOverrideDrafts({});
-                }}
-                options={employees.map((e) => ({ value: e.id, label: `${e.name} (${e.employeeId})` }))}
-                placeholder="Select employee"
-              />
-              <Select
-                label="Assign Structure"
-                value={assignmentForm.structureUid}
-                onChange={(e) => setAssignmentForm((f) => ({ ...f, structureUid: e.target.value }))}
-                options={structures.data.map((s) => ({ value: uidOf(s), label: `${s.structureName} (${s.structureCode})` }))}
-                placeholder="Select structure"
-              />
-              <DatePicker label="Effective From" value={assignmentForm.effectiveFrom} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
-              <DatePicker label="Effective To" value={assignmentForm.effectiveTo} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveTo: e.target.value }))} />
-              <DynamicFields fields={employeeFields} values={employeeCustomValues} onChange={setEmployeeCustomValues} />
-              <button id="hr-payroll-employee-assign" data-testid="hr-payroll-employee-assign" className="btn btn-primary" onClick={assignStructure} disabled={busy || !selectedEmployee} style={primaryButton}>Assign Structure</button>
-            </div>
-          </Panel>
+        routeState.isEmployeeAssign ? (
+          <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
+            <Panel
+              title="Employee Salary Configuration"
+              action={
+                <Button
+                  id="hr-payroll-employee-assign-back"
+                  data-testid="hr-payroll-employee-assign-back"
+                  variant="outline"
+                  size="md"
+                  icon={<ArrowLeft size={16} />}
+                  onClick={() => navigate("/payroll/employees")}
+                >
+                  Back
+                </Button>
+              }
+            >
+              <div style={{ display: "grid", gap: 14 }}>
+                <div style={{ border: "1px solid var(--border-color)", borderRadius: 8, padding: 14, background: "var(--app-bg)" }}>
+                  <div style={sectionLabel}>Employee</div>
+                  <div style={{ fontWeight: 800, fontSize: 18 }}>{activeEmployeeRecord?.name || "-"}</div>
+                  <div style={{ color: "var(--light-text)", fontSize: 13 }}>
+                    {employees.find((employee) => employee.id === activeEmployeeUid)?.employeeId || "-"} · {employees.find((employee) => employee.id === activeEmployeeUid)?.department || "No department"}
+                  </div>
+                </div>
+                <Select
+                  label="Assign Structure"
+                  value={assignmentForm.structureUid}
+                  onChange={(e) => setAssignmentForm((f) => ({ ...f, structureUid: e.target.value }))}
+                  options={structures.data.map((s) => ({ value: uidOf(s), label: `${s.structureName} (${s.structureCode})` }))}
+                  placeholder="Select structure"
+                />
+                <DatePicker label="Effective From" value={assignmentForm.effectiveFrom} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
+                <DatePicker label="Effective To" value={assignmentForm.effectiveTo} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveTo: e.target.value }))} />
+                <DynamicFields fields={employeeFields} values={employeeCustomValues} onChange={setEmployeeCustomValues} />
+                <button id="hr-payroll-employee-assign" data-testid="hr-payroll-employee-assign" className="btn btn-primary" onClick={assignStructure} disabled={busy || !activeEmployeeUid} style={primaryButton}>Assign Structure</button>
+              </div>
+            </Panel>
 
-          <Panel title="Active Assignment & Overrides">
-            {employeePayroll.loading ? <SkeletonTable rows={4} columns={5} /> : !selectedEmployee ? (
-              <div style={emptyText}>Select an employee to view payroll configuration.</div>
-            ) : (
-              <>
-                <div style={summaryBand}>
-                  <div>
-                    <div style={sectionLabel}>Active Structure</div>
-                    <div style={{ fontWeight: 800, fontSize: 18 }}>{activeStructure?.structureName || "-"}</div>
-                    <div style={{ color: "var(--light-text)", fontSize: 13 }}>
-                      {employeePayroll.assignment?.effectiveFrom || "-"} to {employeePayroll.assignment?.effectiveTo || "Open ended"}
+            <Panel title="Active Assignment & Overrides">
+              {employeePayroll.loading ? <SkeletonTable rows={4} columns={5} /> : !activeEmployeeUid ? (
+                <div style={emptyText}>Select an employee to view payroll configuration.</div>
+              ) : (
+                <>
+                  <div style={summaryBand}>
+                    <div>
+                      <div style={sectionLabel}>Active Structure</div>
+                      <div style={{ fontWeight: 800, fontSize: 18 }}>{activeStructure?.structureName || "-"}</div>
+                      <div style={{ color: "var(--light-text)", fontSize: 13 }}>
+                        {employeePayroll.assignment?.effectiveFrom || "-"} to {employeePayroll.assignment?.effectiveTo || "Open ended"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={sectionLabel}>Status</div>
+                      <div style={{ fontWeight: 800 }}>{employeePayroll.assignment?.status || "Enabled"}</div>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={sectionLabel}>Status</div>
-                    <div style={{ fontWeight: 800 }}>{employeePayroll.assignment?.status || "Enabled"}</div>
-                  </div>
-                </div>
 
-                <Table
-                  headers={["Component", "Type", "Default", "Override", "Applicable"]}
-                  empty={(activeStructure?.components || []).length === 0 ? "No components on the active structure." : null}
-                >
-                  {(activeStructure?.components || []).map((mapping) => {
-                    const key = uidOf(mapping);
-                    const draft = overrideDrafts[key] || seedOverride(mapping);
-                    const canOverride = !!mapping.allowEmployeeOverride;
-                    return (
-                      <tr key={key || mapping.componentUid}>
-                        <td style={tdStrong}>{mapping.componentName || mapping.component?.componentName || mapping.componentCode || mapping.componentUid}</td>
-                        <td style={tdStyle}>{labelize(mapping.calculationType)}</td>
-                        <td style={tdStyle}>{mapping.defaultAmount != null ? money(mapping.defaultAmount) : mapping.defaultPercentage != null ? `${mapping.defaultPercentage}%` : mapping.formulaExpression || "-"}</td>
-                        <td style={tdStyle}>
-                          {canOverride ? (
-                            <OverrideInput mapping={mapping} value={draft} onChange={(patch) => updateOverride(mapping, patch)} />
-                          ) : (
-                            <span style={{ color: "var(--light-text)" }}>Locked</span>
-                          )}
-                        </td>
-                        <td style={tdStyle}>
-                          {mapping.isMandatory ? (
-                            <span style={{ fontWeight: 700 }}>Mandatory</span>
-                          ) : (
-                            <input type="checkbox" checked={draft.isApplicable !== false} onChange={(e) => updateOverride(mapping, { isApplicable: e.target.checked })} />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </Table>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                  <button id="hr-payroll-employee-overrides-save" data-testid="hr-payroll-employee-overrides-save" className="btn btn-primary" onClick={saveOverrides} disabled={busy || Object.keys(overrideDrafts).length === 0} style={primaryButton}>Save Overrides</button>
-                </div>
-              </>
-            )}
+                  <Table
+                    headers={["Component", "Type", "Default", "Override", "Applicable"]}
+                    empty={(activeStructure?.components || []).length === 0 ? "No components on the active structure." : null}
+                  >
+                    {(activeStructure?.components || []).map((mapping) => {
+                      const key = uidOf(mapping);
+                      const draft = overrideDrafts[key] || seedOverride(mapping);
+                      const canOverride = !!mapping.allowEmployeeOverride;
+                      return (
+                        <tr key={key || mapping.componentUid}>
+                          <td style={tdStrong}>{mapping.componentName || mapping.component?.componentName || mapping.componentCode || mapping.componentUid}</td>
+                          <td style={tdStyle}>{labelize(mapping.calculationType)}</td>
+                          <td style={tdStyle}>{mapping.defaultAmount != null ? money(mapping.defaultAmount) : mapping.defaultPercentage != null ? `${mapping.defaultPercentage}%` : mapping.formulaExpression || "-"}</td>
+                          <td style={tdStyle}>
+                            {canOverride ? (
+                              <OverrideInput mapping={mapping} value={draft} onChange={(patch) => updateOverride(mapping, patch)} />
+                            ) : (
+                              <span style={{ color: "var(--light-text)" }}>Locked</span>
+                            )}
+                          </td>
+                          <td style={tdStyle}>
+                            {mapping.isMandatory ? (
+                              <span style={{ fontWeight: 700 }}>Mandatory</span>
+                            ) : (
+                              <input type="checkbox" checked={draft.isApplicable !== false} onChange={(e) => updateOverride(mapping, { isApplicable: e.target.checked })} />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </Table>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+                    <button id="hr-payroll-employee-overrides-save" data-testid="hr-payroll-employee-overrides-save" className="btn btn-primary" onClick={saveOverrides} disabled={busy || Object.keys(overrideDrafts).length === 0} style={primaryButton}>Save Overrides</button>
+                  </div>
+                </>
+              )}
+            </Panel>
+          </div>
+        ) : (
+          <Panel
+            title="Employee Payroll List"
+            action={
+              <Button
+                id="hr-payroll-employees-assign-selected"
+                data-testid="hr-payroll-employees-assign-selected"
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  if (selectedEmployeeCount !== 1) return;
+                  openEmployeeAssignment(selectedEmployeeRowKeys[0]);
+                }}
+                disabled={selectedEmployeeCount !== 1}
+              >
+                Assign to Selected
+              </Button>
+            }
+          >
+            <div style={{ display: "grid", gap: 16 }}>
+              <DataTableToolbar
+                query={employeeQuery}
+                onQueryChange={setEmployeeQuery}
+                searchPlaceholder="Search employee, email, ID, department"
+                recordCount={filteredEmployees.length}
+              />
+              <div style={{ fontSize: 12, color: "var(--light-text)" }}>
+                {selectedEmployeeCount === 0 ? "Select employees with the checkboxes." : `${selectedEmployeeCount} employee${selectedEmployeeCount === 1 ? "" : "s"} selected.`}
+              </div>
+              <DataTable
+                data-testid="hr-payroll-employees-table"
+                data={filteredEmployees}
+                columns={employeeColumns}
+                getRowId={(employee) => employee.id}
+                loading={employeesLoading}
+                selection={{ selectedRowKeys: selectedEmployeeRowKeys, onChange: setSelectedEmployeeRowKeys }}
+                className="rounded-none border-0 shadow-none"
+                tableClassName="min-w-[860px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+                emptyState={
+                  <EmptyState
+                    title="No employees found"
+                    description="Adjust the search or filters, or add employees for payroll assignment."
+                  />
+                }
+              />
+            </div>
           </Panel>
-        </div>
+        )
       )}
 
       {tab === "runs" && (
@@ -831,6 +1254,16 @@ export default function Payroll() {
         onSave={saveStructure}
         onChange={setStructureForm}
       />
+      <StructureBuilderDialog
+        open={builderDialogOpen}
+        busy={busy}
+        form={mappingForm}
+        components={components.data}
+        selectedStructure={selectedStructure || null}
+        onClose={() => setBuilderDialogOpen(false)}
+        onSave={addStructureComponent}
+        onChange={setMappingForm}
+      />
       <CustomFieldDialog
         open={fieldOpen}
         form={fieldForm}
@@ -839,8 +1272,9 @@ export default function Payroll() {
         onSave={saveCustomField}
         onChange={setFieldForm}
       />
-      <PayslipDialog
+      <PayslipStatementDialog
         payslip={viewSlip}
+        employee={activeEmployeeRecord || null}
         fields={payslipFields}
         employeeName={employeeName(viewSlip?.employeeUid)}
         onClose={() => setViewSlip(null)}
@@ -857,6 +1291,91 @@ function Panel({ title, action, children }: { title: string; action?: ReactNode;
         {action}
       </div>
       <div style={{ padding: 20 }}>{children}</div>
+    </div>
+  );
+}
+
+function ViewToggle({
+  value,
+  onChange,
+  scope,
+}: {
+  value: ViewMode;
+  onChange: (value: ViewMode) => void;
+  scope: string;
+}) {
+  return (
+    <div style={viewToggleWrap}>
+      <button
+        id={`${scope}-table`}
+        data-testid={`${scope}-table`}
+        type="button"
+        onClick={() => onChange("table")}
+        style={viewToggleButton(value === "table")}
+        aria-label="Table view"
+        title="Table view"
+      >
+        <Rows3 size={16} />
+      </button>
+      <button
+        id={`${scope}-cards`}
+        data-testid={`${scope}-cards`}
+        type="button"
+        onClick={() => onChange("cards")}
+        style={viewToggleButton(value === "cards")}
+        aria-label="Card view"
+        title="Card view"
+      >
+        <LayoutGrid size={16} />
+      </button>
+    </div>
+  );
+}
+
+function CardCollection({
+  items,
+  emptyTitle,
+  emptyDescription,
+}: {
+  items: ReactNode[];
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  if (items.length === 0) {
+    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+  }
+  return <div style={cardCollection}>{items}</div>;
+}
+
+function InfoCard({
+  title,
+  subtitle,
+  rows,
+  actions,
+  footer,
+}: {
+  title: string;
+  subtitle?: string;
+  rows: Array<{ label: string; value: ReactNode }>;
+  actions?: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <div style={infoCard}>
+      <div style={{ display: "grid", gap: 4 }}>
+        <div style={{ fontWeight: 800, fontSize: 16, color: "var(--dark-text)" }}>{title}</div>
+        {subtitle ? <div style={{ fontSize: 12, color: "var(--light-text)" }}>{subtitle}</div> : null}
+      </div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {rows.map((row) => (
+          <div key={row.label} style={builderMetricRow}>
+            <span style={{ color: "var(--light-text)" }}>{row.label}</span>
+            <strong style={{ textAlign: "right" }}>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+      {footer ? <div style={{ display: "flex", justifyContent: "flex-start" }}>{footer}</div> : null}
+      {actions ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{actions}</div> : null}
     </div>
   );
 }
@@ -1042,6 +1561,88 @@ function StructureDialog({
   );
 }
 
+function StructureBuilderDialog({
+  open,
+  busy,
+  form,
+  components,
+  selectedStructure,
+  onClose,
+  onSave,
+  onChange,
+}: {
+  open: boolean;
+  busy: boolean;
+  form: Partial<StructureComponentMapping>;
+  components: PayrollComponent[];
+  selectedStructure: PayrollStructure | null;
+  onClose: () => void;
+  onSave: () => void;
+  onChange: (form: Partial<StructureComponentMapping>) => void;
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} hideHeader contentClassName="w-[calc(100vw-1.5rem)] max-w-[760px] p-0 overflow-hidden">
+      <DialogHeader title={`Add Component${selectedStructure?.structureName ? ` - ${selectedStructure.structureName}` : ""}`} onClose={onClose} />
+      <div style={dialogBody}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Select
+            id="hr-payroll-structure-builder-component"
+            testId="hr-payroll-structure-builder-component"
+            label="Master Component"
+            value={form.componentUid || uidOf(components[0])}
+            onChange={(e) => onChange({ ...form, componentUid: e.target.value })}
+            options={components.map((component) => ({ value: uidOf(component), label: `${component.componentName} (${component.componentCode})` }))}
+          />
+          <Select
+            id="hr-payroll-structure-builder-calculation"
+            testId="hr-payroll-structure-builder-calculation"
+            label="Calculation Type"
+            value={form.calculationType || "FIXED_AMOUNT"}
+            onChange={(e) => onChange({ ...form, calculationType: e.target.value as CalculationType })}
+            options={CALC_TYPES.map((value) => ({ value, label: labelize(value) }))}
+          />
+        </div>
+        <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
+          {form.calculationType === "FIXED_AMOUNT" && (
+            <TextField
+              label="Default Amount"
+              type="number"
+              value={form.defaultAmount ?? ""}
+              onChange={(value) => onChange({ ...form, defaultAmount: numericOrUndefined(value) })}
+            />
+          )}
+          {form.calculationType === "PERCENTAGE" && (
+            <TextField
+              label="Default Percentage"
+              type="number"
+              value={form.defaultPercentage ?? ""}
+              onChange={(value) => onChange({ ...form, defaultPercentage: numericOrUndefined(value) })}
+            />
+          )}
+          {form.calculationType === "FORMULA" && (
+            <TextAreaField
+              label="Formula Expression"
+              value={form.formulaExpression}
+              onChange={(value) => onChange({ ...form, formulaExpression: value })}
+            />
+          )}
+          {form.calculationType === "SLAB_BASED" && (
+            <SlabBuilder value={form.slabConfigJson || []} onChange={(slabs) => onChange({ ...form, slabConfigJson: slabs })} />
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ToggleRow label="Mandatory" checked={form.isMandatory} onChange={(value) => onChange({ ...form, isMandatory: value })} />
+            <ToggleRow label="Employee Override" checked={form.allowEmployeeOverride} onChange={(value) => onChange({ ...form, allowEmployeeOverride: value })} />
+          </div>
+        </div>
+      </div>
+      <div style={dialogActions}>
+        <Button id="hr-payroll-structure-builder-cancel" data-testid="hr-payroll-structure-builder-cancel" variant="outline" size="md" onClick={onClose}>Cancel</Button>
+        <Button id="hr-payroll-structure-add-component" data-testid="hr-payroll-structure-add-component" variant="primary" size="md" loading={busy} onClick={onSave}>Add Component</Button>
+      </div>
+    </Dialog>
+  );
+}
+
 function CustomFieldDialog({
   open,
   form,
@@ -1072,81 +1673,6 @@ function CustomFieldDialog({
       </div>
       <DialogActions busy={busy} onClose={onClose} onSave={onSave} />
     </Dialog>
-  );
-}
-
-function PayslipDialog({
-  payslip,
-  fields,
-  employeeName,
-  onClose,
-}: {
-  payslip: Payslip | null;
-  fields: PayrollCustomField[];
-  employeeName: string;
-  onClose: () => void;
-}) {
-  const lines = payslip?.lines || payslip?.lineItems || [];
-  return (
-    <Dialog open={!!payslip} onClose={onClose} hideHeader contentClassName="max-w-[760px] p-0 overflow-hidden">
-      {payslip && (
-        <>
-          <DialogHeader title={`Payslip - ${payslip.employeeName || employeeName}`} onClose={onClose} />
-          <div style={dialogBody}>
-            <div style={summaryBand}>
-              <div><div style={sectionLabel}>Month</div><div style={{ fontWeight: 800 }}>{payslip.monthStr || payslip.month || "-"}</div></div>
-              <div><div style={sectionLabel}>Generated</div><div style={{ fontWeight: 800 }}>{formatDate(payslip.generatedAt)}</div></div>
-              <div><div style={sectionLabel}>Net Pay</div><div style={{ fontWeight: 800 }}>{money(payslip.netPay)}</div></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ marginTop: 16 }}>
-              <PayBucket title="Earnings" values={payslip.earnings || {}} />
-              <PayBucket title="Deductions" values={payslip.deductions || {}} />
-            </div>
-            <div style={{ marginTop: 18 }}>
-              <div style={sectionLabel}>Detailed Line Snapshots</div>
-              <Table headers={["Component", "Type", "Calculation", "Amount"]} compact empty={lines.length === 0 ? "No detailed line items returned." : null}>
-                {lines.map((line, index) => (
-                  <tr key={line.uid || line.id || index}>
-                    <td style={tdStrong}>{line.componentName || line.componentCode || "-"}</td>
-                    <td style={tdStyle}>{labelize(line.componentType)}</td>
-                    <td style={tdStyle}>{labelize(line.calculationType)}</td>
-                    <td style={tdStyle}>{money(line.amount)}</td>
-                  </tr>
-                ))}
-              </Table>
-            </div>
-            {fields.length > 0 && (
-              <div style={{ marginTop: 18 }}>
-                <div style={sectionLabel}>Custom Fields</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {fields.map((field) => (
-                    <div key={field.id} style={mappingCard}>
-                      <span style={{ color: "var(--light-text)" }}>{field.fieldLabel}</span>
-                      <strong>{String(payslip.customFieldsJson?.[field.fieldKey] ?? field.defaultValue ?? "-")}</strong>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </Dialog>
-  );
-}
-
-function PayBucket({ title, values }: { title: string; values: Record<string, number> }) {
-  const entries = Object.entries(values || {});
-  return (
-    <div style={{ border: "1px solid var(--border-color)", borderRadius: 8, padding: 14 }}>
-      <div style={sectionLabel}>{title}</div>
-      {entries.length === 0 ? <div style={emptyText}>No {title.toLowerCase()} returned.</div> : entries.map(([key, value]) => (
-        <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--border-color)" }}>
-          <span>{labelize(key)}</span>
-          <strong>{money(value)}</strong>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -1215,6 +1741,23 @@ const buttonStyle: CSSProperties = { display: "inline-flex", alignItems: "center
 const primaryButton: CSSProperties = { ...buttonStyle, background: "var(--primary-color)", border: "none", color: "white" };
 const smallAction: CSSProperties = { ...buttonStyle, padding: "7px 10px" };
 const tabBar: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 6, padding: 4, background: "var(--border-color)", borderRadius: 8, marginBottom: 18, width: "fit-content" };
+const viewToggleWrap: CSSProperties = { display: "inline-flex", alignItems: "center", padding: 2, borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--app-bg)", gap: 2 };
+const viewToggleButton = (active: boolean): CSSProperties => ({
+  border: "none",
+  borderRadius: 8,
+  minWidth: 32,
+  height: 32,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: "pointer",
+  background: active ? "var(--surface-bg)" : "transparent",
+  color: active ? "var(--dark-text)" : "var(--light-text)",
+  boxShadow: active ? "var(--shadow-sm)" : "none",
+});
 const tabButton = (active: boolean): CSSProperties => ({
   ...buttonStyle,
   border: "none",
@@ -1240,7 +1783,10 @@ const chipStyle: CSSProperties = { borderRadius: 999, padding: "3px 8px", backgr
 const toggleStyle: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 13, fontWeight: 700 };
 const sectionLabel: CSSProperties = { fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "var(--light-text)", marginBottom: 8 };
 const emptyText: CSSProperties = { fontSize: 13, color: "var(--light-text)", padding: "10px 0" };
+const cardCollection: CSSProperties = { display: "grid", gap: 14 };
+const infoCard: CSSProperties = { display: "grid", gap: 14, padding: 16, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", boxShadow: "var(--shadow-sm)" };
 const mappingCard: CSSProperties = { border: "1px solid var(--border-color)", borderRadius: 8, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 };
+const builderMetricRow: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", fontSize: 13, color: "var(--dark-text)" };
 const noticeStyle: CSSProperties = { fontSize: 12, lineHeight: 1.5, color: "var(--light-text)", border: "1px solid var(--border-color)", borderRadius: 8, padding: 12, background: "var(--app-bg)" };
 const summaryBand: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 18, padding: 16, borderRadius: 8, background: "var(--app-bg)", marginBottom: 16, flexWrap: "wrap" };
 const dialogHeader: CSSProperties = { padding: "18px 22px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" };

@@ -9,19 +9,21 @@ import {
 import { Button, PageHeader, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
+import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
 import { useEmployee } from "../../services/useEmployee";
 import { useEmployees } from "../../services/useEmployees";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import { useHrApi } from "../../services/useHrApi";
 import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
-import { usePayslips } from "../../services/usePayrollData";
+import { usePayslips, type Payslip } from "../../services/usePayrollData";
 import { useTelemetry } from "../../services/useTelemetry";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import type { Employee } from "../../types";
 import "./employees.css";
 
 type Tab = "overview" | "attendance" | "leaves" | "payroll" | "documents";
+const EMPLOYEE_TABS: Tab[] = ["overview", "attendance", "leaves", "payroll", "documents"];
 
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, boxShadow: "var(--shadow-sm)" };
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -39,6 +41,13 @@ function toPhoneInputValue(value?: string | null): PhoneInputValue {
     : { countryCode: "+91", number: normalized.replace(/\D/g, ""), e164Number: "" };
 }
 function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+
+function employeeTabFromPath(pathname: string): Tab {
+  const segments = pathname.split("/").filter(Boolean);
+  const employeesIndex = segments.lastIndexOf("employees");
+  const candidate = employeesIndex >= 0 ? segments[employeesIndex + 2] : undefined;
+  return EMPLOYEE_TABS.includes(candidate as Tab) ? candidate as Tab : "overview";
+}
 
 function Panel({ icon, title, sub, action, children, full }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode; children: React.ReactNode; full?: boolean }) {
   return (
@@ -87,6 +96,74 @@ function StatusPill({ s }: { s?: string }) {
   return <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", background: bg, color: col }}>{s || "—"}</span>;
 }
 
+function LegacyPayslipStatementDialog({ payslip, onClose }: { payslip: Payslip | null; onClose: () => void }) {
+  const lines = payslip?.lines || payslip?.lineItems || [];
+  return (
+    <Dialog open={!!payslip} onClose={onClose} hideHeader contentClassName="max-w-[760px] p-0 overflow-hidden">
+      {payslip ? (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid var(--border-color)" }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--dark-text)" }}>Payslip Statement</div>
+              <div style={{ fontSize: 12, color: "var(--light-text)" }}>{payslip.monthStr || payslip.month || "-"}</div>
+            </div>
+            <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={18} />
+            </button>
+          </div>
+          <div style={{ padding: 22, display: "grid", gap: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
+              <div style={{ padding: 14, borderRadius: 12, background: "var(--surface-bg)", border: "1px solid var(--border-color)" }}>
+                <div style={lbl}>Gross</div>
+                <div style={{ ...val, fontSize: 16 }}>{formatCurrency(payslip.grossPay ?? 0)}</div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 12, background: "var(--surface-bg)", border: "1px solid var(--border-color)" }}>
+                <div style={lbl}>Deductions</div>
+                <div style={{ ...val, fontSize: 16 }}>{formatCurrency(payslip.totalDeductions ?? 0)}</div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 12, background: "var(--surface-bg)", border: "1px solid var(--border-color)" }}>
+                <div style={lbl}>Net Pay</div>
+                <div style={{ ...val, fontSize: 16 }}>{formatCurrency(payslip.netPay ?? 0)}</div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 12, background: "var(--surface-bg)", border: "1px solid var(--border-color)" }}>
+                <div style={lbl}>Generated</div>
+                <div style={{ ...val, fontSize: 16 }}>{formatDate(payslip.generatedAt)}</div>
+              </div>
+            </div>
+            <div>
+              <div style={{ ...lbl, marginBottom: 10 }}>Line Items</div>
+              {lines.length === 0 ? (
+                <div style={{ padding: "18px 0", color: "var(--light-text)", textAlign: "center" }}>No detailed line items returned.</div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Component</th>
+                      <th style={th}>Type</th>
+                      <th style={th}>Calculation</th>
+                      <th style={{ ...th, textAlign: "right" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((line, index) => (
+                      <tr key={line.uid || line.id || index}>
+                        <td style={{ ...td, fontWeight: 700 }}>{line.componentName || line.componentCode || "â€”"}</td>
+                        <td style={td}>{line.componentType || "â€”"}</td>
+                        <td style={td}>{line.calculationType || "â€”"}</td>
+                        <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{formatCurrency(line.amount ?? 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </>
+      ) : null}
+    </Dialog>
+  );
+}
+
 export default function EmployeeDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -104,7 +181,7 @@ export default function EmployeeDetails() {
   const { data: allPayslips } = usePayslips();
 
   const isEditing = new URLSearchParams(routeLocation.search).get("edit") === "true";
-  const [tab, setTab] = useState<Tab>("overview");
+  const tab = useMemo(() => employeeTabFromPath(routeLocation.pathname), [routeLocation.pathname]);
   const [editTab, setEditTab] = useState<"personal" | "employment" | "bank">("personal");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -114,8 +191,19 @@ export default function EmployeeDetails() {
     number: "",
     e164Number: "",
   });
+  const [viewPayslip, setViewPayslip] = useState<Payslip | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    const segments = routeLocation.pathname.split("/").filter(Boolean);
+    const employeesIndex = segments.lastIndexOf("employees");
+    const hasTabSegment = employeesIndex >= 0 && segments.length > employeesIndex + 2;
+    if (!hasTabSegment) {
+      navigate(`/employees/${id}/overview${routeLocation.search}`, { replace: true });
+    }
+  }, [id, navigate, routeLocation.pathname, routeLocation.search]);
 
   useEffect(() => {
     if (employee) {
@@ -137,6 +225,7 @@ export default function EmployeeDetails() {
   const myAttendance = useMemo(() => allAttendance.filter((a) => a.employeeUid === employee?.id), [allAttendance, employee]);
   const myLeaves = useMemo(() => allLeaves.filter((l) => l.employeeUid === employee?.id), [allLeaves, employee]);
   const myPayslips = useMemo(() => allPayslips.filter((p) => p.employeeUid === employee?.id), [allPayslips, employee]);
+  const employeeTabHref = (employeeId: string, nextTab: Tab, search = "") => `/employees/${employeeId}/${nextTab}${search}`;
 
   // weekly attendance buckets (last 4 weeks) — must stay above any early return (Rules of Hooks)
   const weeks = useMemo(() => {
@@ -258,7 +347,7 @@ export default function EmployeeDetails() {
             variant="navigation"
             title="Edit Employee Profile"
             subtitle="Update personal, employment, and payroll information."
-            back={{ label: "Back to Profile", href: `/employees/${employee.id}` }}
+            back={{ label: "Back to Profile", href: employeeTabHref(employee.id, tab) }}
             onNavigate={(href) => navigate(href)}
           />
           {saveError && <div style={{ marginBottom: 16, padding: "12px 16px", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", borderRadius: 8, fontSize: 14 }}>{saveError}</div>}
@@ -486,7 +575,7 @@ export default function EmployeeDetails() {
             );
           })()}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-            <Button variant="secondary" size="lg" icon={<X size={16} />} onClick={() => navigate(`/employees/${employee.id}`)}>Cancel</Button>
+            <Button variant="secondary" size="lg" icon={<X size={16} />} onClick={() => navigate(employeeTabHref(employee.id, tab))}>Cancel</Button>
             <Button
               variant="primary"
               size="lg"
@@ -502,7 +591,7 @@ export default function EmployeeDetails() {
     );
   }
 
-  const tabs: Tab[] = ["overview", "attendance", "leaves", "payroll", "documents"];
+  const tabs = EMPLOYEE_TABS;
   return (
     <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       {faceOpen && (
@@ -535,7 +624,7 @@ export default function EmployeeDetails() {
               <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }}>{employee.faceDescriptor ? "Face Enrolled" : "No Face ID"}</span>
             </div>
             <button onClick={() => setFaceOpen(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid #c7d2fe", background: "var(--surface-bg)", color: "#4f46e5", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><ScanFace size={15} /> {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}</button>
-            <button onClick={() => navigate(`/employees/${employee.id}?edit=true`)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><Pencil size={15} /> Edit Profile</button>
+            <button onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><Pencil size={15} /> Edit Profile</button>
 
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
               <InfoTile icon={<ShieldCheck size={16} />} k="ID" v={employee.employeeId} />
@@ -550,7 +639,7 @@ export default function EmployeeDetails() {
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
             {tabs.map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{t}</button>
+              <button key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{t}</button>
             ))}
           </div>
 
@@ -650,7 +739,7 @@ export default function EmployeeDetails() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Month</th><th style={th}>Net Pay</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th></tr></thead>
                     <tbody>{myPayslips.map((p) => (
-                      <tr key={p.id}><td style={{ ...td, fontWeight: 700 }}>{p.month || "—"}</td><td style={{ ...td, fontWeight: 700 }}>{p.netPay != null ? formatCurrency(p.netPay) : "—"}</td><td style={td}><StatusPill s={p.status} /></td><td style={{ ...td, textAlign: "right" }}><button className="btn-grid-action">View Statement</button></td></tr>
+                      <tr key={p.id}><td style={{ ...td, fontWeight: 700 }}>{p.month || "—"}</td><td style={{ ...td, fontWeight: 700 }}>{p.netPay != null ? formatCurrency(p.netPay) : "—"}</td><td style={td}><StatusPill s={p.status} /></td><td style={{ ...td, textAlign: "right" }}><button className="btn-grid-action" onClick={() => setViewPayslip(p)}>View Statement</button></td></tr>
                     ))}</tbody>
                   </table>
                 )}
@@ -681,6 +770,15 @@ export default function EmployeeDetails() {
           )}
         </div>
       </div>
+      <PayslipStatementDialog
+        payslip={viewPayslip}
+        employee={employee || null}
+        employeeName={employee?.name}
+        onClose={() => setViewPayslip(null)}
+      />
     </section>
   );
 }
+
+
+
