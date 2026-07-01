@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useHrApi } from "../services/useHrApi";
 
+function normalizeClockInType(value: unknown) {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "wfh" || normalized === "work from home" || normalized === "home") return "Home";
+  if (normalized === "on-field" || normalized === "field" || normalized === "on duty") return "Field";
+  if (normalized === "remote") return "Remote";
+  if (normalized === "office") return "Office";
+  return value;
+}
+
 export interface AttendanceRecord {
   id: string; uid?: string; employeeUid?: string; dateStr?: string;
   clockIn?: string; clockOut?: string; clockInType?: string; status?: string;
@@ -51,7 +61,11 @@ function useList<T extends { uid?: string; id?: string }>(endpoint: string) {
 export function useAttendance() {
   const { api, data, loading, error, reload } = useList<AttendanceRecord>("/attendance");
   const punchIn = useCallback(async (payload: Record<string, unknown>) => {
-    await api.post("/attendance", payload); await reload();
+    await api.post("/attendance", {
+      ...payload,
+      clockInType: normalizeClockInType(payload.clockInType),
+    });
+    await reload();
   }, [api, reload]);
   const punchOut = useCallback(async (uid: string) => {
     await api.put(`/attendance/${uid}`); await reload();

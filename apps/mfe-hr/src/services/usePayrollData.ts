@@ -220,6 +220,14 @@ function normalizePayrollStructure(value: Record<string, unknown>): PayrollStruc
   };
 }
 
+function uidOf(value?: { uid?: string; id?: string } | null) {
+  return value?.uid || value?.id || "";
+}
+
+function employeeComponentsEndpoint(employeeUid: string, structureUid: string) {
+  return `${PAYROLL_ROOT}/employees/${employeeUid}/components?structureUid=${encodeURIComponent(structureUid)}`;
+}
+
 interface PayrollLoadOptions {
   enabled?: boolean;
 }
@@ -358,7 +366,12 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
       const active = await api.get<EmployeeStructureAssignment | null>(`${PAYROLL_ROOT}/employees/${empUid}/structures/active`);
       setAssignment(active);
       try {
-        const values = await api.get<unknown>(`${PAYROLL_ROOT}/employees/${empUid}/component-values`);
+        const structureUid = active?.structureUid || uidOf(active?.structure);
+        if (!structureUid) {
+          setComponentValues([]);
+          return;
+        }
+        const values = await api.get<unknown>(employeeComponentsEndpoint(empUid, structureUid));
         setComponentValues(asList<EmployeeComponentValue>(values));
       } catch {
         setComponentValues([]);
@@ -390,9 +403,11 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
 
   const saveComponentValues = useCallback(async (payload: EmployeeComponentValue[]) => {
     if (!empUid) return;
-    await api.post(`${PAYROLL_ROOT}/employees/${empUid}/component-values`, payload);
+    const structureUid = assignment?.structureUid || uidOf(assignment?.structure);
+    if (!structureUid) throw new Error("Assign an active payroll structure before saving component overrides.");
+    await api.post(employeeComponentsEndpoint(empUid, structureUid), payload);
     await load();
-  }, [api, empUid, load]);
+  }, [api, assignment, empUid, load]);
 
   return { assignment, componentValues, loading, error, reload: load, assignStructure, saveComponentValues };
 }

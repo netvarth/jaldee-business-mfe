@@ -2,6 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useHrApi } from "./useHrApi";
 import type { AttendanceBreak, Employee } from "../types";
 
+function normalizeClockInType(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "wfh" || normalized === "work from home" || normalized === "home") return "Home";
+  if (normalized === "on-field" || normalized === "field" || normalized === "on duty") return "Field";
+  if (normalized === "remote") return "Remote";
+  if (normalized === "office") return "Office";
+  return value;
+}
+
 function withId<T extends { uid?: string; id?: string }>(value: Record<string, unknown>): T {
   const uid = (value.uid ?? value.id) as string | undefined;
   const hrDepartment = (value.hrDepartment ?? value.department) as string | undefined;
@@ -83,9 +92,10 @@ export function useMyProfile() {
 export function useMyAttendance() {
   const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance");
   const punchIn = useCallback(async (mode: string, selfieDataUrl?: string) => {
+    const clockInType = normalizeClockInType(mode);
     await api.post("/me/attendance/punch-in", {
-      clockInType: mode,
-      wfhStatus: mode === "Office" ? null : "Pending",
+      clockInType,
+      wfhStatus: clockInType === "Office" ? null : "Pending",
       selfieDataUrl: selfieDataUrl || null,
     });
     await reload();

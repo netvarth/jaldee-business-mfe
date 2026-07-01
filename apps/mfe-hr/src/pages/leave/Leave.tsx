@@ -119,25 +119,30 @@ export default function Leave() {
 
   // balances grouped by employee
   const balByEmp = useMemo(() => {
-    const m = new Map<string, Map<string, LeaveBalance>>();
+    const m = new Map<string, Map<string, LeaveBalance[]>>();
     balances.data.forEach((b) => {
       if (!b.employeeUid) return;
       if (!m.has(b.employeeUid)) m.set(b.employeeUid, new Map());
       const employeeBalances = m.get(b.employeeUid)!;
       [b.leaveTypeUid, b.leaveTypeName, b.leaveType].filter(Boolean).forEach((key) => {
-        employeeBalances.set(String(key).toLowerCase(), b);
+        const k = String(key).toLowerCase();
+        if (!employeeBalances.has(k)) employeeBalances.set(k, []);
+        const list = employeeBalances.get(k)!;
+        if (!list.some((existing) => existing.id === b.id || existing.uid === b.uid)) {
+          list.push(b);
+        }
       });
     });
     return m;
   }, [balances.data]);
-  const balFor = (uid: string, type: string, leaveTypeUid?: string) => {
+  const balFor = (uid: string, type: string, leaveTypeUid?: string): LeaveBalance[] => {
     const employeeBalances = balByEmp.get(uid);
-    if (!employeeBalances) return undefined;
+    if (!employeeBalances) return [];
     if (leaveTypeUid) {
       const byUid = employeeBalances.get(leaveTypeUid.toLowerCase());
-      if (byUid) return byUid;
+      if (byUid && byUid.length > 0) return byUid;
     }
-    return employeeBalances.get(type.toLowerCase());
+    return employeeBalances.get(type.toLowerCase()) || [];
   };
 
   // apply modal
@@ -154,9 +159,12 @@ export default function Leave() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const requestedBalance = form.employeeUid && form.type ? balFor(form.employeeUid, form.type) : undefined;
+  const requestedBalances = form.employeeUid && form.type ? balFor(form.employeeUid, form.type) : [];
+  const requestedAvailable = requestedBalances
+    .filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE")
+    .reduce((sum, b) => sum + (b.available ?? 0), 0);
   const requestedDuration = calcDays(form.startDate, form.endDate || form.startDate, form.isHalfDay);
-  const showInsufficientBalanceWarning = !!form.employeeUid && !!form.leaveTypeUid && requestedDuration > 0 && (requestedBalance?.available ?? 0) < requestedDuration;
+  const showInsufficientBalanceWarning = !!form.employeeUid && !!form.leaveTypeUid && requestedDuration > 0 && requestedAvailable < requestedDuration;
 
   const submitApply = async () => {
     if (!form.employeeUid || !form.leaveTypeUid || !form.startDate || !form.reason) {
@@ -379,9 +387,15 @@ export default function Leave() {
               {balanceRows.length === 0 ? (
                 <tr><td colSpan={6} style={{ ...tdc, textAlign: "center", ...lbl, padding: "32px 16px" }}>No employees found.</td></tr>
               ) : balanceRows.map((emp) => {
-                const totalLeft = balanceTypes.reduce((s, q) => {
-                  const balance = balFor(emp.id, q.type);
-                  return (balance?.status || "ACTIVE").toUpperCase() === "ACTIVE" ? s + (balance?.available ?? 0) : s;
+                const employeeBalances = balanceTypes
+                  .flatMap((q) => balFor(emp.id, q.type, q.uid));
+                const activeBalances = employeeBalances.filter((balance) => (balance.status || "ACTIVE").toUpperCase() === "ACTIVE");
+                const totalLeft = activeBalances.reduce((s, balance) => s + (balance.available ?? 0), 0);
+                const activeTotalQuota = activeBalances.reduce((s, balance) => {
+                  const typeConfig = balanceTypes.find(
+                    (q) => q.uid === balance.leaveTypeUid || q.type === balance.leaveTypeName || q.type === balance.leaveType
+                  );
+                  return s + (balance.total ?? typeConfig?.quota ?? 0);
                 }, 0);
                 return (
                   <tr key={emp.id}>
@@ -392,12 +406,14 @@ export default function Leave() {
                       </div>
                     </td>
                     {balanceTypes.map((q) => {
-                      const balance = balFor(emp.id, q.type, q.uid);
-                      const hasBalance = !!balance;
-                      const avl = balance?.available ?? 0;
-                      const status = (balance?.status || "ACTIVE").toUpperCase();
+                      const balancesList = balFor(emp.id, q.type, q.uid);
+                      const hasBalance = balancesList.length > 0;
+                      const activeList = balancesList.filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE");
+                      const avl = activeList.reduce((s, b) => s + (b.available ?? 0), 0);
+                      const totalQuota = activeList.reduce((s, b) => s + (b.total ?? 0), 0) || q.quota;
+                      const status = activeList.length > 0 ? "ACTIVE" : (balancesList[0]?.status || "EXPIRED").toUpperCase();
                       const inactive = status !== "ACTIVE";
-                      const percent = q.quota ? Math.min(100, (avl / q.quota) * 100) : 0;
+                      const percent = totalQuota ? Math.min(100, (avl / totalQuota) * 100) : 0;
                       if (!hasBalance) {
                         return (
                           <td key={q.type} style={{ ...tdc, background: "rgba(100,116,139,0.025)" }}>
@@ -411,7 +427,7 @@ export default function Leave() {
                       return (
                         <td key={q.type} style={{ ...tdc, opacity: inactive ? 0.55 : 1, background: inactive ? "rgba(100,116,139,0.03)" : undefined }}>
                           <div style={{ width: 96 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, color: "var(--dark-text)" }}><span>{avl} avl</span>{q.quota ? <span style={{ color: "var(--light-text)" }}>/ {q.quota}</span> : null}</div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, color: "var(--dark-text)" }}><span>{avl} avl</span>{totalQuota ? <span style={{ color: "var(--light-text)" }}>/ {totalQuota}</span> : null}</div>
                             <div style={{ height: 4, background: "rgba(100,116,139,0.15)", borderRadius: 999, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", width: `${percent}%`, background: inactive ? "#94a3b8" : q.color, borderRadius: 999 }} /></div>
                             <span style={{ ...balanceStatusPill(status), display: "inline-block", marginTop: 6, padding: "2px 6px", borderRadius: 7, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em" }}>{status}</span>
                           </div>
@@ -419,8 +435,17 @@ export default function Leave() {
                       );
                     })}
                     <td style={{ ...tdc, textAlign: "right" }}>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: TEAL }}>{totalLeft}</div>
-                      <div style={{ ...lbl, fontSize: 8 }}>{maxTotal ? `of ${maxTotal}` : "active only"}</div>
+                      {employeeBalances.length > 0 ? (
+                        <>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: TEAL }}>{totalLeft}</div>
+                          <div style={{ ...lbl, fontSize: 8 }}>of {activeTotalQuota}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)" }}>N/A</div>
+                          <div style={{ ...lbl, fontSize: 8, textTransform: "none", letterSpacing: 0 }}>Not assigned</div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 );
@@ -616,10 +641,11 @@ export default function Leave() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
                   {balanceTypes.map((q) => {
                     const isReq = q.type.toLowerCase() === (selected.leaveTypeName || selected.type || "").toLowerCase();
-                    const balance = balFor(selected.employeeUid || "", q.type, q.uid);
-                    const hasBalance = !!balance;
-                    const avl = balance?.available ?? 0;
-                    const status = (balance?.status || "ACTIVE").toUpperCase();
+                    const balancesList = balFor(selected.employeeUid || "", q.type, q.uid);
+                    const hasBalance = balancesList.length > 0;
+                    const activeList = balancesList.filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE");
+                    const avl = activeList.reduce((s, b) => s + (b.available ?? 0), 0);
+                    const status = activeList.length > 0 ? "ACTIVE" : (balancesList[0]?.status || "EXPIRED").toUpperCase();
                     return (
                       <div key={q.type} style={{ padding: 10, borderRadius: 12, textAlign: "center", opacity: status === "ACTIVE" ? 1 : 0.55, background: isReq ? "rgba(17,94,89,0.08)" : "rgba(100,116,139,0.04)", border: isReq ? "1px solid rgba(17,94,89,0.3)" : "1px solid var(--border-color)" }}>
                         <span style={{ ...lbl, fontSize: 7.5, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.type}</span>
