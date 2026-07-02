@@ -89,7 +89,7 @@ const membershipEndpoints = {
     detail: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}`,
     update: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}`,
     status: (uid: string, status: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
-    search: `${MEMBERSHIP_SERVICE_BASE}/services/search`,
+    search: `${MEMBERSHIP_BASE}/service/search`,
     autoExpire: `${MEMBERSHIP_SERVICE_BASE}/services/auto-expire`,
     assignGroups: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/assign-groups`,
     assignMembers: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/assign-members`,

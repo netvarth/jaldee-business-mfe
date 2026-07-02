@@ -67,11 +67,37 @@ function unwrapPayload<T>(value: T): any {
 
 function unwrapList(value: unknown): any[] {
   const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.content)) {
+    return payload.content;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  return [];
 }
 
 function unwrapCount(value: unknown) {
-  return Number(unwrapPayload(value)) || 0;
+  const payload = unwrapPayload(value);
+
+  if (typeof payload === "number") {
+    return payload;
+  }
+
+  const total =
+    payload?.page?.totalElements ??
+    payload?.page?.total ??
+    payload?.totalElements ??
+    payload?.total ??
+    payload?.count;
+
+  return Number(total) || 0;
 }
 
 function formatDate(value: unknown) {
@@ -117,15 +143,20 @@ function getSubscriptionStatusLabel(status: string) {
 }
 
 function getSubscriptionStatusOptions(status: string) {
-  const current = getSubscriptionStatusLabel(status);
-  if (current === "Active") return [{ value: "Inactive", label: "Inactive" }];
-  if (current === "Pending") {
+  const normalized = String(status ?? "").trim().toUpperCase();
+
+  if (normalized === "ENABLED" || normalized === "ACTIVE") {
+    return [{ value: "Disabled", label: "Inactive" }];
+  }
+
+  if (normalized === "PENDING") {
     return [
-      { value: "Active", label: "Active" },
-      { value: "Inactive", label: "Inactive" },
+      { value: "Enabled", label: "Active" },
+      { value: "Disabled", label: "Inactive" },
     ];
   }
-  return [{ value: "Active", label: "Active" }];
+
+  return [{ value: "Enabled", label: "Active" }];
 }
 
 function renderInfo(label: string, value: ReactNode) {
@@ -143,6 +174,7 @@ function toSubscriptionRows(data: unknown): SubscriptionRow[] {
   return unwrapList(data).map((subscription: any, index: number) => ({
     uid: String(subscription.uid ?? subscription.id ?? index),
     name: String(
+      subscription.subscriptionTypeName ??
       subscription.subscriptionName ??
         subscription.memberSubscriptionType?.name ??
         subscription.name ??
@@ -160,8 +192,8 @@ function toSubscriptionRows(data: unknown): SubscriptionRow[] {
         subscription.subscriptionAmount ??
         0
     ),
-    validFrom: formatDate(subscription.validFrom ?? subscription.startDate ?? subscription.createdDate),
-    validTo: formatDate(subscription.validTo ?? subscription.expiryDate ?? subscription.endDate),
+    validFrom: formatDate(subscription.validityPeriodFrom ?? subscription.validFrom ?? subscription.startDate ?? subscription.createdDate),
+    validTo: formatDate(subscription.validityPeriodTo ?? subscription.validTo ?? subscription.expiryDate ?? subscription.endDate),
     status: String(subscription.status ?? subscription.memberStatus ?? "Pending"),
   }));
 }
@@ -202,7 +234,18 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
   const changeSubscriptionStatusMutation = useChangeMemberSubscriptionStatus();
   const addSubscriptionMutation = useAddNewServiceType();
   const submitQuestionnaireMutation = useSubmitQuestionnaire();
-  const memberTypesQuery = useMemberTypes({ "status-eq": "Enabled" });
+  const memberDetails = useMemo(() => unwrapPayload(memberDetailsQuery.data), [memberDetailsQuery.data]);
+  const memberInternalId = String(
+    memberDetails?.id ??
+    memberDetails?.memberId ??
+    memberDetails?.member?.id ??
+    memberId ??
+    ""
+  );
+  const memberTypesQuery = useMemberTypes({
+    "status-eq": "Enabled",
+    ...(memberInternalId ? { "member-eq": memberInternalId } : {}),
+  });
 
   const {
     page: subscriptionPage,
@@ -223,7 +266,6 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
   const [addSubscriptionError, setAddSubscriptionError] = useState<string | null>(null);
   const [questionnaireState, setQuestionnaireState] = useState<QuestionnaireFormState | null>(null);
 
-  const memberDetails = useMemo(() => unwrapPayload(memberDetailsQuery.data), [memberDetailsQuery.data]);
   const memberTypes = useMemo(() => unwrapList(memberTypesQuery.data), [memberTypesQuery.data]);
   const selectedSubscriptionType = useMemo(
     () => memberTypes.find((type: any) => String(type.uid) === selectedSubscriptionTypeUid),
@@ -234,8 +276,6 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
     () => unwrapPayload(questionnaireQuery.data) as QuestionnaireDefinition | null,
     [questionnaireQuery.data]
   );
-
-  const memberInternalId = String(memberDetails?.id ?? "");
 
   const subscriptionsQuery = useAllMemberSubscriptions(
     memberInternalId
@@ -387,7 +427,7 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
       setAddSubscriptionError(null);
       const createdSubscription = await addSubscriptionMutation.mutateAsync({
         member: { uid: memberId },
-        memberSubscriptionType: { uid: selectedSubscriptionTypeUid },
+        subscriptionTypeUid: selectedSubscriptionTypeUid,
       });
 
       const createdSubscriptionPayload = unwrapPayload(createdSubscription);
@@ -466,9 +506,10 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
                 )}
                 {renderInfo(
                   "Whatsapp No",
-                  memberDetails?.whatsAppNum?.number
-                    ? `${memberDetails?.whatsAppNum?.countryCode ?? ""}${memberDetails.whatsAppNum.number}`
-                    : undefined
+                  memberDetails?.whatsAppNo ??
+                    (memberDetails?.whatsAppNum?.number
+                      ? `${memberDetails?.whatsAppNum?.countryCode ?? ""}${memberDetails.whatsAppNum.number}`
+                      : undefined)
                 )}
                 {renderInfo("Email", memberDetails?.email)}
                 {renderInfo(

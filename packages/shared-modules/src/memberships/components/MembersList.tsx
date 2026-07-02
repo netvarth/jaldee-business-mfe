@@ -66,11 +66,37 @@ function unwrapPayload<T>(value: T): any {
 
 function unwrapList(value: unknown): any[] {
   const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.content)) {
+    return payload.content;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  return [];
 }
 
 function unwrapCount(value: unknown) {
-  return Number(unwrapPayload(value)) || 0;
+  const payload = unwrapPayload(value);
+
+  if (typeof payload === "number") {
+    return payload;
+  }
+
+  const total =
+    payload?.page?.totalElements ??
+    payload?.page?.total ??
+    payload?.totalElements ??
+    payload?.total ??
+    payload?.count;
+
+  return Number(total) || 0;
 }
 
 function formatDate(value: unknown) {
@@ -122,20 +148,20 @@ function getMemberStatusVariant(status: string): "success" | "danger" | "warning
 }
 
 function getMemberStatusOptions(status: string) {
-  const current = getMemberStatusLabel(status);
+  const normalized = String(status ?? "").trim().toUpperCase();
 
-  if (current === "Active") {
-    return [{ value: "Inactive", label: "Inactive" }];
+  if (normalized === "ENABLED" || normalized === "ACTIVE") {
+    return [{ value: "Disabled", label: "Inactive" }];
   }
 
-  if (current === "Pending") {
+  if (normalized === "PENDING") {
     return [
-      { value: "Active", label: "Active" },
-      { value: "Inactive", label: "Inactive" },
+      { value: "Enabled", label: "Active" },
+      { value: "Disabled", label: "Inactive" },
     ];
   }
 
-  return [{ value: "Active", label: "Active" }];
+  return [{ value: "Enabled", label: "Active" }];
 }
 
 function getGroupStatusLabel(status: string) {
@@ -144,14 +170,14 @@ function getGroupStatusLabel(status: string) {
 
 function toMemberRows(data: unknown): MemberRow[] {
   return unwrapList(data).map((member: any, index: number) => {
-    const phone = [member.countryCode, member.phoneNo].filter(Boolean).join("");
+    const phone = String(member.phoneNo ?? "").trim();
     const email = member.email ? String(member.email) : "";
 
     return {
       uid: String(member.uid ?? member.id ?? index),
-      id: String(member.id ?? member.uid ?? index),
+      id: String(member.memberCustomId ?? member.internalMemberCustomId ?? member.id ?? member.uid ?? index),
       name: getMemberName(member, index),
-      memberSince: formatDate(member.createdDate ?? member.dateOfJoining ?? member.createdAt),
+      memberSince: formatDate(member.validityPeriodFrom ?? member.createdDate ?? member.dateOfJoining ?? member.createdAt),
       contact: [phone, email].filter(Boolean).join(" | ") || "-",
       status: String(member.memberStatus ?? member.status ?? "Pending"),
     };
@@ -202,7 +228,7 @@ export function MembersList() {
 
   const memberFilters = {
     ...(appliedMemberSearchQuery ? { "firstName-like": appliedMemberSearchQuery } : {}),
-    ...(memberStatusFilter !== "all" ? { status: memberStatusFilter } : {}),
+    ...(memberStatusFilter !== "all" ? { "status-eq": memberStatusFilter } : {}),
   };
 
   const membersQuery = useMembers({
@@ -503,9 +529,9 @@ export function MembersList() {
                     className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
                   >
                     <option value="all">All</option>
-                    <option value="ACTIVE">Active</option>
+                    <option value="Enabled">Active</option>
                     <option value="PENDING">Pending</option>
-                    <option value="INACTIVE">Inactive</option>
+                    <option value="Disabled">Inactive</option>
                   </select>
                 </div>
               </div>
