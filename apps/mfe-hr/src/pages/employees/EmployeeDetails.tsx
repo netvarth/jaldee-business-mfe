@@ -4,9 +4,9 @@ const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"))
 import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
-  Download, Trash2, Plus, ChevronDown,
+  Download, Trash2, Plus, ChevronDown, MoreVertical,
 } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
@@ -24,6 +24,13 @@ import "./employees.css";
 
 type Tab = "overview" | "attendance" | "leaves" | "payroll" | "documents";
 const EMPLOYEE_TABS: Tab[] = ["overview", "attendance", "leaves", "payroll", "documents"];
+const EMPLOYEE_TAB_LABELS: Record<Tab, string> = {
+  overview: "Overview",
+  attendance: "Attendance",
+  leaves: "Leaves",
+  payroll: "Payroll",
+  documents: "Documents",
+};
 
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, boxShadow: "var(--shadow-sm)" };
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -194,6 +201,7 @@ export default function EmployeeDetails() {
   const [viewPayslip, setViewPayslip] = useState<Payslip | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
+  const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -612,22 +620,46 @@ export default function EmployeeDetails() {
         <div className="employee-details-sidebar" style={{ ...card, overflow: "hidden", height: "fit-content" }}>
           <div className="employee-details-sidebar-banner" style={{ height: 110, background: "var(--primary-light)" }} />
           <div className="employee-details-sidebar-body" style={{ padding: "0 24px 28px", marginTop: -56, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12 }}>
-            <div className="employee-details-hero">
+            <div className="employee-details-sidebar-top">
+              <div className="employee-details-hero">
             {employee.photoUrl ? <img className="employee-details-avatar" src={employee.photoUrl} alt={employee.name} style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }} />
               : <div className="employee-details-avatar" style={{ width: 112, height: 112, borderRadius: "50%", background: "var(--primary-color)", color: "white", fontSize: 42, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }}>{initial(employee.name)}</div>}
             <div className="employee-details-identity">
               <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>{employee.name}</h2>
+              <div className="employee-details-badges employee-details-badges--inline">
+                <span className="employee-details-status-pill" style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "white", background: employee.status === "Active" ? "#10b981" : "#f59e0b" }}>{employee.status || "Active"}</span>
+                <div className="employee-details-face-pill" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, background: employee.faceDescriptor ? "var(--success-bg)" : "rgba(100,116,139,0.1)", border: `1px solid ${employee.faceDescriptor ? "var(--success-color)" : "var(--border-color)"}` }}>
+                  <ScanFace size={12} style={{ color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }} />
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }}>{employee.faceDescriptor ? "Face Enrolled" : "No Face ID"}</span>
+                </div>
+              </div>
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--light-text)", margin: "4px 0 10px" }}>{employee.designation || "—"}</p>
-              <span style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "white", background: employee.status === "Active" ? "#10b981" : "#f59e0b" }}>{employee.status || "Active"}</span>
             </div>
             </div>
-            <div className="employee-details-face-pill" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, background: employee.faceDescriptor ? "var(--success-bg)" : "rgba(100,116,139,0.1)", border: `1px solid ${employee.faceDescriptor ? "var(--success-color)" : "var(--border-color)"}` }}>
-              <ScanFace size={12} style={{ color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }} />
-              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }}>{employee.faceDescriptor ? "Face Enrolled" : "No Face ID"}</span>
+            <div className="employee-details-sidebar-meta">
+              <div className="employee-details-sidebar-actions">
+              <Button
+                className="employee-details-sidebar-button !rounded-xl !border-2 !border-[#c7d2fe] !text-[#4f46e5] hover:!bg-[color:color-mix(in_srgb,#4f46e5_6%,white)]"
+                variant="outline"
+                size="lg"
+                fullWidth
+                icon={<ScanFace size={15} />}
+                onClick={() => setFaceOpen(true)}
+              >
+                {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}
+              </Button>
+              <Button
+                className="employee-details-sidebar-button !rounded-xl"
+                variant="outline"
+                size="lg"
+                fullWidth
+                icon={<Pencil size={15} />}
+                onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))}
+              >
+                Edit Profile
+              </Button>
+              </div>
             </div>
-            <div className="employee-details-sidebar-actions">
-              <button className="employee-details-sidebar-button" onClick={() => setFaceOpen(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid #c7d2fe", background: "var(--surface-bg)", color: "#4f46e5", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><ScanFace size={15} /> {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}</button>
-              <button className="employee-details-sidebar-button" onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><Pencil size={15} /> Edit Profile</button>
             </div>
 
             <div className="employee-details-info-list" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
@@ -641,9 +673,49 @@ export default function EmployeeDetails() {
 
         {/* RIGHT */}
         <div className="employee-details-main" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <Popover
+            portal
+            open={mobileTabsOpen}
+            onOpenChange={setMobileTabsOpen}
+            placement="bottom"
+            align="end"
+            contentClassName="!w-52 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+            trigger={
+              <button
+                type="button"
+                className="employee-details-tabs-mobile"
+                onClick={() => setMobileTabsOpen((open) => !open)}
+                aria-label="Open employee tabs"
+              >
+                <div className="employee-details-tabs-mobile__active">
+                  <span>{EMPLOYEE_TAB_LABELS[tab]}</span>
+                </div>
+                <span className="employee-details-tabs-mobile__trigger">
+                  <MoreVertical size={18} />
+                </span>
+              </button>
+            }
+          >
+            <div className="employee-details-tabs-mobile__menu">
+              {tabs.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className="employee-details-tabs-mobile__menu-item"
+                  data-active={tab === t}
+                  onClick={() => {
+                    navigate(employeeTabHref(employee.id, t));
+                    setMobileTabsOpen(false);
+                  }}
+                >
+                  {EMPLOYEE_TAB_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </Popover>
           <div className="employee-details-tabs" style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
             {tabs.map((t) => (
-              <button className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{t}</button>
+              <button className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{EMPLOYEE_TAB_LABELS[t]}</button>
             ))}
           </div>
 
@@ -692,7 +764,8 @@ export default function EmployeeDetails() {
               </Panel>
               <Panel icon={<Clock size={20} />} title="Attendance Logs (Last 30 Days)" sub="Check-in detail ledger history logs" full>
                 {myAttendance.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No attendance records.</div> : (
-                  <div className="employee-details-table-wrap">
+                  <>
+                  <div className="employee-details-table-wrap employee-details-desktop-table">
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Date</th><th style={th}>Mode</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={th}>Hours</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
                     <tbody>{myAttendance.slice(0, 30).map((a) => (
@@ -700,6 +773,26 @@ export default function EmployeeDetails() {
                     ))}</tbody>
                   </table>
                   </div>
+                  <div className="employee-details-mobile-list">
+                    {myAttendance.slice(0, 30).map((a) => (
+                      <div key={a.id} className="employee-details-mobile-card">
+                        <div className="employee-details-mobile-card__row">
+                          <div>
+                            <div className="employee-details-mobile-card__label">Date</div>
+                            <div className="employee-details-mobile-card__value">{formatDate(a.dateStr)}</div>
+                          </div>
+                          <StatusPill s={a.status} />
+                        </div>
+                        <div className="employee-details-mobile-card__grid">
+                          <Field k="Mode" v={a.clockInType || "—"} />
+                          <Field k="Hours" v={a.workedHours != null ? `${a.workedHours.toFixed(1)} Hrs` : "—"} />
+                          <Field k="Clock In" v={fmtTime(a.clockIn)} />
+                          <Field k="Clock Out" v={fmtTime(a.clockOut)} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  </>
                 )}
               </Panel>
             </>
@@ -744,7 +837,8 @@ export default function EmployeeDetails() {
               </Panel>
               <Panel icon={<FileText size={20} />} title="Payslip Archive" sub="Available monthly payment breakdowns and receipts" full>
                 {myPayslips.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No payslips generated.</div> : (
-                  <div className="employee-details-table-wrap">
+                  <>
+                  <div className="employee-details-table-wrap employee-details-desktop-table">
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Month</th><th style={th}>Net Pay</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th></tr></thead>
                     <tbody>{myPayslips.map((p) => (
@@ -752,6 +846,26 @@ export default function EmployeeDetails() {
                     ))}</tbody>
                   </table>
                   </div>
+                  <div className="employee-details-mobile-list">
+                    {myPayslips.map((p) => (
+                      <div key={p.id} className="employee-details-mobile-card">
+                        <div className="employee-details-mobile-card__row">
+                          <div>
+                            <div className="employee-details-mobile-card__label">Month</div>
+                            <div className="employee-details-mobile-card__value">{p.month || "—"}</div>
+                          </div>
+                          <StatusPill s={p.status} />
+                        </div>
+                        <div className="employee-details-mobile-card__grid">
+                          <Field k="Net Pay" v={p.netPay != null ? formatCurrency(p.netPay) : "—"} />
+                        </div>
+                        <div className="employee-details-mobile-card__actions">
+                          <button className="btn-grid-action" onClick={() => setViewPayslip(p)}>View Statement</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  </>
                 )}
               </Panel>
             </>
