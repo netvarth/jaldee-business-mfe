@@ -607,26 +607,30 @@ export default function EmployeeDetails() {
         onNavigate={(href) => navigate(href)}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 28, alignItems: "start" }}>
+      <div className="employee-details-layout" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 28, alignItems: "start" }}>
         {/* LEFT PROFILE */}
-        <div style={{ ...card, overflow: "hidden", height: "fit-content" }}>
-          <div style={{ height: 110, background: "var(--primary-light)" }} />
-          <div style={{ padding: "0 24px 28px", marginTop: -56, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12 }}>
-            {employee.photoUrl ? <img src={employee.photoUrl} alt={employee.name} style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }} />
-              : <div style={{ width: 112, height: 112, borderRadius: "50%", background: "var(--primary-color)", color: "white", fontSize: 42, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }}>{initial(employee.name)}</div>}
-            <div>
+        <div className="employee-details-sidebar" style={{ ...card, overflow: "hidden", height: "fit-content" }}>
+          <div className="employee-details-sidebar-banner" style={{ height: 110, background: "var(--primary-light)" }} />
+          <div className="employee-details-sidebar-body" style={{ padding: "0 24px 28px", marginTop: -56, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12 }}>
+            <div className="employee-details-hero">
+            {employee.photoUrl ? <img className="employee-details-avatar" src={employee.photoUrl} alt={employee.name} style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }} />
+              : <div className="employee-details-avatar" style={{ width: 112, height: 112, borderRadius: "50%", background: "var(--primary-color)", color: "white", fontSize: 42, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }}>{initial(employee.name)}</div>}
+            <div className="employee-details-identity">
               <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>{employee.name}</h2>
               <p style={{ fontSize: 13, fontWeight: 700, color: "var(--light-text)", margin: "4px 0 10px" }}>{employee.designation || "—"}</p>
               <span style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "white", background: employee.status === "Active" ? "#10b981" : "#f59e0b" }}>{employee.status || "Active"}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, background: employee.faceDescriptor ? "var(--success-bg)" : "rgba(100,116,139,0.1)", border: `1px solid ${employee.faceDescriptor ? "var(--success-color)" : "var(--border-color)"}` }}>
+            </div>
+            <div className="employee-details-face-pill" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, background: employee.faceDescriptor ? "var(--success-bg)" : "rgba(100,116,139,0.1)", border: `1px solid ${employee.faceDescriptor ? "var(--success-color)" : "var(--border-color)"}` }}>
               <ScanFace size={12} style={{ color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }} />
               <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }}>{employee.faceDescriptor ? "Face Enrolled" : "No Face ID"}</span>
             </div>
-            <button onClick={() => setFaceOpen(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid #c7d2fe", background: "var(--surface-bg)", color: "#4f46e5", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><ScanFace size={15} /> {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}</button>
-            <button onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><Pencil size={15} /> Edit Profile</button>
+            <div className="employee-details-sidebar-actions">
+              <button className="employee-details-sidebar-button" onClick={() => setFaceOpen(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid #c7d2fe", background: "var(--surface-bg)", color: "#4f46e5", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><ScanFace size={15} /> {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}</button>
+              <button className="employee-details-sidebar-button" onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 800, fontSize: 13, cursor: "pointer" }}><Pencil size={15} /> Edit Profile</button>
+            </div>
 
-            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+            <div className="employee-details-info-list" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
               <InfoTile icon={<ShieldCheck size={16} />} k="ID" v={employee.employeeId} />
               <InfoTile icon={<Mail size={16} />} k="Email" v={employee.email} />
               <InfoTile icon={<Phone size={16} />} k="Phone" v={employee.contactNumber} />
@@ -636,27 +640,27 @@ export default function EmployeeDetails() {
         </div>
 
         {/* RIGHT */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
+        <div className="employee-details-main" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div className="employee-details-tabs" style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
             {tabs.map((t) => (
-              <button key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{t}</button>
+              <button className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{t}</button>
             ))}
           </div>
 
           {tab === "overview" && (
             <>
-              <div style={{ display: "flex", gap: 16 }}>
+              <div className="employee-details-stats" style={{ display: "flex", gap: 16 }}>
                 <StatCard l="WORKFORCE" t="TENURE" v={tenure} u="SINCE JOINING" active />
                 <StatCard l="ATTENDANCE" t="ON-TIME" v={onTime} u="THIS MONTH" />
                 <StatCard l="LEAVES" t="AVAILABLE" v={myLeaves.length ? `${myLeaves.length}` : "—"} u="REQUESTS" />
                 <StatCard l="PAYROLL" t="NET SALARY" v={formatCurrency(net)} u="CURRENT" />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div className="employee-details-overview-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
                 <Panel icon={<UserCircle2 size={20} />} title="Personal Information" sub="Identity details and date of birth">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}><Field k="Gender" v={employee.gender} /><Field k="Date of Birth" v={formatDate(employee.dob)} /></div>
+                  <div className="employee-details-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}><Field k="Gender" v={employee.gender} /><Field k="Date of Birth" v={formatDate(employee.dob)} /></div>
                 </Panel>
                 <Panel icon={<Briefcase size={20} />} title="Employment Details" sub="Role level and system configuration">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div className="employee-details-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <Field k="Joining Date" v={formatDate(employee.doj)} /><Field k="System Role" v={employee.role} />
                     <Field k="Employment Type" v={employee.employmentType || "Full-Time"} /><Field k="Reporting Manager" v={managerName || "No Manager Assigned"} />
                     <Field k="PAN" v={emp.pan as string} mono /><Field k="UAN" v={emp.uan as string} mono />
@@ -675,9 +679,9 @@ export default function EmployeeDetails() {
           {tab === "attendance" && (
             <>
               <Panel icon={<BarChart3 size={20} />} title="Weekly Attendance Details (Last Month)" sub="Weekly aggregated work yields and days clocked" full>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 16 }}>
+                <div className="employee-details-week-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 16 }}>
                   {weeks.map((w) => (
-                    <div key={w.label} style={{ border: "1px solid var(--border-color)", borderRadius: 14, padding: 16 }}>
+                    <div className="employee-details-week-card" key={w.label} style={{ border: "1px solid var(--border-color)", borderRadius: 14, padding: 16 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}><span style={{ ...lbl, color: "var(--dark-text)" }}>{w.label}</span><span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--light-text)" }}>{w.range}</span></div>
                       <div style={{ fontSize: 12, color: "var(--light-text)", marginBottom: 4 }}>Days worked: <b style={{ color: "var(--dark-text)", float: "right" }}>{w.days} / 5 Days</b></div>
                       <div style={{ height: 6, borderRadius: 999, background: "var(--border-color)", margin: "6px 0 12px" }}><div style={{ height: "100%", width: `${Math.min(100, (w.days / 5) * 100)}%`, background: "var(--success-color)", borderRadius: 999 }} /></div>
@@ -688,12 +692,14 @@ export default function EmployeeDetails() {
               </Panel>
               <Panel icon={<Clock size={20} />} title="Attendance Logs (Last 30 Days)" sub="Check-in detail ledger history logs" full>
                 {myAttendance.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No attendance records.</div> : (
+                  <div className="employee-details-table-wrap">
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Date</th><th style={th}>Mode</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={th}>Hours</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
                     <tbody>{myAttendance.slice(0, 30).map((a) => (
                       <tr key={a.id}><td style={td}>{formatDate(a.dateStr)}</td><td style={{ ...td, textTransform: "uppercase", fontSize: 11, color: "var(--light-text)" }}>{a.clockInType || "—"}</td><td style={td}>{fmtTime(a.clockIn)}</td><td style={td}>{fmtTime(a.clockOut)}</td><td style={td}>{a.workedHours != null ? `${a.workedHours.toFixed(1)} Hrs` : "—"}</td><td style={{ ...td, textAlign: "right" }}><StatusPill s={a.status} /></td></tr>
                     ))}</tbody>
                   </table>
+                  </div>
                 )}
               </Panel>
             </>
@@ -702,12 +708,14 @@ export default function EmployeeDetails() {
           {tab === "leaves" && (
             <Panel icon={<History size={20} />} title="Leave Applications" sub="History of requested absence records" full>
               {myLeaves.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No leave applications.</div> : (
+                <div className="employee-details-table-wrap">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr><th style={th}>Type</th><th style={th}>Duration</th><th style={th}>Applied At</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
                   <tbody>{myLeaves.map((l) => (
                     <tr key={l.id}><td style={{ ...td, fontWeight: 700 }}>{l.type || "—"}</td><td style={{ ...td, color: "var(--primary-color)", fontWeight: 600 }}>{formatDate(l.startDate)} — {formatDate(l.endDate)}</td><td style={{ ...td, color: "var(--light-text)" }}>{formatDate(l.appliedAt)}</td><td style={{ ...td, textAlign: "right" }}><StatusPill s={l.status} /></td></tr>
                   ))}</tbody>
                 </table>
+                </div>
               )}
             </Panel>
           )}
@@ -715,7 +723,7 @@ export default function EmployeeDetails() {
           {tab === "payroll" && (
             <>
               <Panel icon={<CreditCard size={20} />} title="Salary Structure" sub="Component breakdown of earnings versus safety contributions" full>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 24, alignItems: "stretch" }}>
+                <div className="employee-details-payroll-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 24, alignItems: "stretch" }}>
                   <div>
                     <div style={{ ...lbl, marginBottom: 12 }}>Earnings</div>
                     {[["Basic Salary", s.basic], ["HRA", s.hra], ["Allowances", s.allowance]].map(([k, v]) => (
@@ -728,7 +736,7 @@ export default function EmployeeDetails() {
                       <div key={k as string} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "var(--danger-color)" }}><span style={{ fontWeight: 600 }}>{k}</span><b>{formatCurrency((v as number) ?? 0)}</b></div>
                     ))}
                   </div>
-                  <div style={{ background: "var(--dark-bg)", borderRadius: 16, padding: "24px 32px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 200 }}>
+                  <div className="employee-details-takehome-card" style={{ background: "var(--dark-bg)", borderRadius: 16, padding: "24px 32px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 200 }}>
                     <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>Monthly Take-Home</span>
                     <div style={{ fontSize: 28, fontWeight: 800, color: "white", marginTop: 8 }}>{formatCurrency(net)}</div>
                   </div>
@@ -736,12 +744,14 @@ export default function EmployeeDetails() {
               </Panel>
               <Panel icon={<FileText size={20} />} title="Payslip Archive" sub="Available monthly payment breakdowns and receipts" full>
                 {myPayslips.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No payslips generated.</div> : (
+                  <div className="employee-details-table-wrap">
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Month</th><th style={th}>Net Pay</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th></tr></thead>
                     <tbody>{myPayslips.map((p) => (
                       <tr key={p.id}><td style={{ ...td, fontWeight: 700 }}>{p.month || "—"}</td><td style={{ ...td, fontWeight: 700 }}>{p.netPay != null ? formatCurrency(p.netPay) : "—"}</td><td style={td}><StatusPill s={p.status} /></td><td style={{ ...td, textAlign: "right" }}><button className="btn-grid-action" onClick={() => setViewPayslip(p)}>View Statement</button></td></tr>
                     ))}</tbody>
                   </table>
+                  </div>
                 )}
               </Panel>
             </>
@@ -749,16 +759,16 @@ export default function EmployeeDetails() {
 
           {tab === "documents" && (
             <Panel icon={<FileText size={20} />} title="Employee Documents" sub="Official letters, credentials, and verification sheets" full
-              action={<button className="btn btn-secondary" style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button>}>
+              action={<button className="employee-details-panel-action btn btn-secondary" style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button>}>
               {employee.documents && employee.documents.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
+                <div className="employee-details-documents-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
                   {employee.documents.map((d) => (
-                    <div key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <div className="employee-details-document-card" key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
+                      <div className="employee-details-document-meta" style={{ display: "flex", alignItems: "center", gap: 14 }}>
                         <div style={{ width: 40, height: 40, borderRadius: 8, background: "var(--primary-light)", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center" }}><FileText size={20} /></div>
                         <div><div style={val}>{d.name}</div><div style={{ ...lbl, fontSize: 9 }}>{d.type}</div></div>
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div className="employee-details-document-actions" style={{ display: "flex", gap: 8 }}>
                         <a href={d.url && d.url !== "#" ? d.url : undefined} target="_blank" rel="noreferrer" style={{ color: "var(--light-text)" }}><Download size={16} /></a>
                         <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }}><Trash2 size={16} /></button>
                       </div>

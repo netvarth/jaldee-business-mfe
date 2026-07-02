@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowLeft,
+  CircleCheck,
   LayoutGrid,
   Rows3,
   Download,
@@ -22,6 +23,7 @@ import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
 import { useEmployees } from "../../services/useEmployees";
+import { useHrApi } from "../../services/useHrApi";
 import {
   useEmployeePayroll,
   usePayslips,
@@ -228,6 +230,7 @@ export default function Payroll() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
   const navigate = useNavigate();
+  const api = useHrApi();
   const routeState = useMemo(() => payrollRouteState(location.pathname), [location.pathname]);
   const tab = routeState.tab;
   const needsComponents = tab === "components" || tab === "structures";
@@ -246,7 +249,7 @@ export default function Payroll() {
   const runs = usePayrollRuns({ enabled: needsRuns });
   const payslips = usePayslips({ enabled: needsPayslips });
   const customFields = usePayrollCustomFields({ enabled: needsCustomFields, targetTypes: customFieldTargets });
-  const { data: employees, loading: employeesLoading } = useEmployees({ enabled: needsEmployees });
+  const { data: employees, loading: employeesLoading, reload: reloadEmployees } = useEmployees({ enabled: needsEmployees });
 
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -266,12 +269,12 @@ export default function Payroll() {
   const [builderStructureUid, setBuilderStructureUid] = useState("");
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [mappingForm, setMappingForm] = useState<Partial<StructureComponentMapping>>(emptyMapping);
+  const [componentsView, setComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
   const [structuresView, setStructuresView] = useState<ViewMode>(() => getPreferredViewMode());
   const [builderComponentsView, setBuilderComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [employeeDepartmentFilter, setEmployeeDepartmentFilter] = useState("all");
   const [employeeStatusFilter, setEmployeeStatusFilter] = useState("all");
-  const [selectedEmployeeRowKeys, setSelectedEmployeeRowKeys] = useState<string[]>([]);
 
   const [assignmentForm, setAssignmentForm] = useState({
     structureUid: "",
@@ -325,16 +328,39 @@ export default function Payroll() {
   }, [effectiveBuilderUid, routeState.isStructureBuilder, structures.loadComponents]);
 
   useEffect(() => {
+    if (!routeState.isEmployeeAssign || !activeStructureUid) return;
+    void structures.loadComponents(activeStructureUid).catch((e) => {
+      setMessage(getErrorMessage(e));
+    });
+  }, [activeStructureUid, routeState.isEmployeeAssign, structures.loadComponents]);
+
+  useEffect(() => {
     if (routeState.employeeAssignUid) {
       setSelectedEmployee(routeState.employeeAssignUid);
     }
   }, [routeState.employeeAssignUid]);
 
   useEffect(() => {
+    if (!routeState.isEmployeeAssign || !activeEmployeeUid) return;
+    const structureUid = employeePayroll.assignment?.structureUid || uidOf(employeePayroll.assignment?.structure);
+    setAssignmentForm({
+      structureUid: structureUid || "",
+      effectiveFrom: employeePayroll.assignment?.effectiveFrom || new Date().toISOString().slice(0, 10),
+      effectiveTo: employeePayroll.assignment?.effectiveTo || "",
+    });
+    setEmployeeCustomValues(
+      employeePayroll.assignment?.customFields ||
+      employeePayroll.assignment?.customFieldsJson ||
+      {}
+    );
+  }, [activeEmployeeUid, employeePayroll.assignment, routeState.isEmployeeAssign]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const media = window.matchMedia("(max-width: 767px)");
     const syncViewModes = () => {
       const next = media.matches ? "cards" : "table";
+      setComponentsView(next);
       setStructuresView(next);
       setBuilderComponentsView(next);
     };
@@ -460,6 +486,7 @@ export default function Payroll() {
         status: "Enabled",
         customFields: employeeCustomValues,
       });
+      await reloadEmployees();
       setMessage("Employee payroll structure assigned.");
     } catch (e) {
       setMessage(getErrorMessage(e));
@@ -555,6 +582,60 @@ export default function Payroll() {
   };
 
   const componentLookup = useMemo(() => new Map(components.data.map((component) => [uidOf(component), component] as const)), [components.data]);
+  const componentColumns = useMemo(() => [
+    {
+      key: "componentCode",
+      header: "Code",
+      render: (component: PayrollComponent) => <span style={{ fontWeight: 800 }}>{component.componentCode || "-"}</span>,
+    },
+    {
+      key: "componentName",
+      header: "Name",
+      render: (component: PayrollComponent) => component.componentName || "-",
+    },
+    {
+      key: "componentType",
+      header: "Type",
+      render: (component: PayrollComponent) => labelize(component.componentType),
+    },
+    {
+      key: "componentCategory",
+      header: "Category",
+      render: (component: PayrollComponent) => labelize(component.componentCategory),
+    },
+    {
+      key: "calculationType",
+      header: "Calculation",
+      render: (component: PayrollComponent) => labelize(component.calculationType),
+    },
+    {
+      key: "flags",
+      header: "Flags",
+      render: (component: PayrollComponent) => (
+        <FlagList flags={[
+          component.isStatutory && "Statutory",
+          component.isTaxable && "Taxable",
+          component.visibleInPayslip && "Payslip",
+        ]} />
+      ),
+    },
+    {
+      key: "actions",
+      header: "Action",
+      align: "right" as const,
+      render: (component: PayrollComponent) => (
+        <button
+          id={`hr-payroll-component-edit-${component.id}`}
+          data-testid={`hr-payroll-component-edit-${component.id}`}
+          className="btn-grid-action"
+          onClick={() => openComponent(component)}
+          style={smallAction}
+        >
+          <Pencil size={14} /> Edit
+        </button>
+      ),
+    },
+  ], []);
   const structureColumns = useMemo(() => [
     {
       key: "structureCode",
@@ -674,6 +755,40 @@ export default function Payroll() {
     navigate(`/payroll/employees/${employeeUid}/assign`);
   };
 
+  const employeeHasAssignedStructure = (employee: typeof employees[number]) =>
+    Boolean((employee as unknown as Record<string, unknown>).payrollStructureAssigned);
+
+  const removeEmployeeAssignment = async (employeeUid: string) => {
+    if (!employeeUid) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const activeAssignment = await api.get<{ uid?: string; id?: string; structureUid?: string; structure?: { uid?: string; id?: string }; effectiveFrom?: string; customFields?: Record<string, unknown>; customFieldsJson?: Record<string, unknown> } | null>(`/payroll/employees/${employeeUid}/structures/active`);
+      const structureUid = activeAssignment?.structureUid || uidOf(activeAssignment?.structure);
+      if (!structureUid) {
+        throw new Error("No active payroll structure found for this employee.");
+      }
+      await api.post(`/payroll/employees/${employeeUid}/structures`, {
+        uid: activeAssignment?.uid || activeAssignment?.id,
+        employeeUid,
+        structureUid,
+        effectiveFrom: activeAssignment?.effectiveFrom || new Date().toISOString().slice(0, 10),
+        effectiveTo: new Date().toISOString().slice(0, 10),
+        status: "Disabled",
+        customFields: activeAssignment?.customFields || activeAssignment?.customFieldsJson || {},
+      });
+      await reloadEmployees();
+      if (activeEmployeeUid === employeeUid) {
+        await employeePayroll.reload();
+      }
+      setMessage("Employee payroll structure removed.");
+    } catch (e) {
+      setMessage(getErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const employeeDepartments = useMemo(
     () => Array.from(new Set(employees.map((employee) => employee.department).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
     [employees]
@@ -697,17 +812,27 @@ export default function Payroll() {
       return matchesQuery && matchesDepartment && matchesStatus;
     });
   }, [employeeDepartmentFilter, employeeQuery, employeeStatusFilter, employees]);
-  const selectedEmployeeCount = selectedEmployeeRowKeys.length;
-
   const employeeColumns = useMemo(() => [
     {
       key: "employeeId",
       header: "Employee ID",
-      render: (employee: typeof employees[number]) => <span style={{ fontWeight: 800 }}>{employee.employeeId || "-"}</span>,
+      width: "18%",
+      render: (employee: typeof employees[number]) => (
+        <div style={{ display: "grid", gap: 6 }}>
+          {employeeHasAssignedStructure(employee) ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#059669", fontSize: 12, fontWeight: 700 }}>
+              <CircleCheck size={14} />
+              Assigned
+            </span>
+          ) : null}
+          <span style={{ fontWeight: 800 }}>{employee.employeeId || "-"}</span>
+        </div>
+      ),
     },
     {
       key: "name",
       header: "Employee",
+      width: "28%",
       render: (employee: typeof employees[number]) => (
         <div>
           <div style={{ fontWeight: 800 }}>{employee.name || "-"}</div>
@@ -718,6 +843,7 @@ export default function Payroll() {
     {
       key: "department",
       header: "Department",
+      width: "18%",
       filter: {
         value: employeeDepartmentFilter,
         onChange: setEmployeeDepartmentFilter,
@@ -730,21 +856,37 @@ export default function Payroll() {
     {
       key: "designation",
       header: "Designation",
+      width: "24%",
       render: (employee: typeof employees[number]) => employee.designation || "-",
     },
     {
-      key: "status",
-      header: "Status",
-      filter: {
-        value: employeeStatusFilter,
-        onChange: setEmployeeStatusFilter,
-        allValue: "all",
-        options: employeeStatuses.map((status) => ({ value: status, label: status })),
-        testId: "hr-payroll-employees-filter-status",
-      },
-      render: (employee: typeof employees[number]) => employee.status || "Active",
+      key: "actions",
+      header: "Action",
+      width: "12%",
+      align: "right" as const,
+      render: (employee: typeof employees[number]) => employeeHasAssignedStructure(employee) ? (
+        <button
+          id={`hr-payroll-employee-edit-${employee.id}`}
+          data-testid={`hr-payroll-employee-edit-${employee.id}`}
+          className="btn-grid-action"
+          onClick={() => openEmployeeAssignment(employee.id)}
+          style={employeeActionButton}
+        >
+          Edit Structure
+        </button>
+      ) : (
+        <button
+          id={`hr-payroll-employee-assign-${employee.id}`}
+          data-testid={`hr-payroll-employee-assign-${employee.id}`}
+          className="btn-grid-action"
+          onClick={() => openEmployeeAssignment(employee.id)}
+          style={employeeActionButton}
+        >
+          Assign Structure
+        </button>
+      ),
     },
-  ], [employeeDepartmentFilter, employeeDepartments, employeeStatusFilter, employeeStatuses, employees]);
+  ], [busy, employeeDepartmentFilter, employeeDepartments, employees]);
 
   const structureCards = structures.data.map((structure) => (
     <InfoCard
@@ -778,6 +920,32 @@ export default function Payroll() {
             Edit
           </Button>
         </>
+      }
+    />
+  ));
+
+  const componentCards = components.data.map((component) => (
+    <InfoCard
+      key={component.id}
+      title={component.componentName || "-"}
+      subtitle={component.componentCode || "-"}
+      rows={[
+        { label: "Type", value: labelize(component.componentType) },
+        { label: "Category", value: labelize(component.componentCategory) },
+        { label: "Calculation", value: labelize(component.calculationType) },
+      ]}
+      footer={<FlagList flags={[component.isStatutory && "Statutory", component.isTaxable && "Taxable", component.visibleInPayslip && "Payslip"]} />}
+      actions={
+        <Button
+          id={`hr-payroll-component-edit-card-${component.id}`}
+          data-testid={`hr-payroll-component-edit-card-${component.id}`}
+          variant="outline"
+          size="sm"
+          icon={<Pencil size={14} />}
+          onClick={() => openComponent(component)}
+        >
+          Edit
+        </Button>
       }
     />
   ));
@@ -844,33 +1012,37 @@ export default function Payroll() {
       {tab === "components" && (
         <Panel
           title="Payroll Component Master"
-          action={<button id="hr-payroll-component-new" data-testid="hr-payroll-component-new" className="btn btn-primary" onClick={() => openComponent()} style={primaryButton}><Plus size={16} /> New Component</button>}
+          action={
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <ViewToggle value={componentsView} onChange={setComponentsView} scope="hr-payroll-components-view" />
+              <button id="hr-payroll-component-new" data-testid="hr-payroll-component-new" className="btn btn-primary" onClick={() => openComponent()} style={primaryButton}><Plus size={16} /> New Component</button>
+            </div>
+          }
         >
           {components.loading ? <SkeletonTable rows={5} columns={6} /> : (
-            <Table
-              headers={["Code", "Name", "Type", "Category", "Calculation", "Flags", "Action"]}
-              empty={components.data.length === 0 ? "No payroll components configured." : null}
-            >
-              {components.data.map((component) => (
-                <tr key={component.id}>
-                  <td style={tdStrong}>{component.componentCode}</td>
-                  <td style={tdStyle}>{component.componentName}</td>
-                  <td style={tdStyle}>{labelize(component.componentType)}</td>
-                  <td style={tdStyle}>{labelize(component.componentCategory)}</td>
-                  <td style={tdStyle}>{labelize(component.calculationType)}</td>
-                  <td style={tdStyle}>
-                    <FlagList flags={[
-                      component.isStatutory && "Statutory",
-                      component.isTaxable && "Taxable",
-                      component.visibleInPayslip && "Payslip",
-                    ]} />
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <button id={`hr-payroll-component-edit-${component.id}`} data-testid={`hr-payroll-component-edit-${component.id}`} className="btn-grid-action" onClick={() => openComponent(component)} style={smallAction}><Pencil size={14} /> Edit</button>
-                  </td>
-                </tr>
-              ))}
-            </Table>
+            componentsView === "table" ? (
+              <DataTable
+                data-testid="hr-payroll-components-table"
+                data={components.data}
+                columns={componentColumns}
+                getRowId={(component) => component.id}
+                loading={components.loading}
+                className="rounded-none border-0 shadow-none"
+                tableClassName="min-w-[980px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+                emptyState={
+                  <EmptyState
+                    title="No payroll components"
+                    description="Create payroll components to define earnings, deductions, and employer contribution lines."
+                  />
+                }
+              />
+            ) : (
+              <CardCollection
+                emptyTitle="No payroll components"
+                emptyDescription="Create payroll components to define earnings, deductions, and employer contribution lines."
+                items={componentCards}
+              />
+            )
           )}
         </Panel>
       )}
@@ -1116,41 +1288,19 @@ export default function Payroll() {
             </Panel>
           </div>
         ) : (
-          <Panel
-            title="Employee Payroll List"
-            action={
-              <Button
-                id="hr-payroll-employees-assign-selected"
-                data-testid="hr-payroll-employees-assign-selected"
-                variant="primary"
-                size="md"
-                onClick={() => {
-                  if (selectedEmployeeCount !== 1) return;
-                  openEmployeeAssignment(selectedEmployeeRowKeys[0]);
-                }}
-                disabled={selectedEmployeeCount !== 1}
-              >
-                Assign to Selected
-              </Button>
-            }
-          >
+          <Panel title={`Employee Payroll List (${filteredEmployees.length})`}>
             <div style={{ display: "grid", gap: 16 }}>
               <DataTableToolbar
                 query={employeeQuery}
                 onQueryChange={setEmployeeQuery}
                 searchPlaceholder="Search employee, email, ID, department"
-                recordCount={filteredEmployees.length}
               />
-              <div style={{ fontSize: 12, color: "var(--light-text)" }}>
-                {selectedEmployeeCount === 0 ? "Select employees with the checkboxes." : `${selectedEmployeeCount} employee${selectedEmployeeCount === 1 ? "" : "s"} selected.`}
-              </div>
               <DataTable
                 data-testid="hr-payroll-employees-table"
                 data={filteredEmployees}
                 columns={employeeColumns}
                 getRowId={(employee) => employee.id}
                 loading={employeesLoading}
-                selection={{ selectedRowKeys: selectedEmployeeRowKeys, onChange: setSelectedEmployeeRowKeys }}
                 className="rounded-none border-0 shadow-none"
                 tableClassName="min-w-[860px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
                 emptyState={
@@ -1344,7 +1494,7 @@ function CardCollection({
   if (items.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
-  return <div style={cardCollection}>{items}</div>;
+  return <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" style={cardCollection}>{items}</div>;
 }
 
 function InfoCard({
@@ -1740,6 +1890,7 @@ const tdStrong: CSSProperties = { ...tdStyle, fontWeight: 800 };
 const buttonStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 8 };
 const primaryButton: CSSProperties = { ...buttonStyle, background: "var(--primary-color)", border: "none", color: "white" };
 const smallAction: CSSProperties = { ...buttonStyle, padding: "7px 10px" };
+const employeeActionButton: CSSProperties = { ...smallAction, minWidth: 132 };
 const tabBar: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 6, padding: 4, background: "var(--border-color)", borderRadius: 8, marginBottom: 18, width: "fit-content" };
 const viewToggleWrap: CSSProperties = { display: "inline-flex", alignItems: "center", padding: 2, borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--app-bg)", gap: 2 };
 const viewToggleButton = (active: boolean): CSSProperties => ({

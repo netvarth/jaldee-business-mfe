@@ -237,3 +237,203 @@
         width: 100%;
     }
 }
+
+/* ==================== EMPLOYEE DETAILS RESPONSIVE VIEW ==================== */
+.employee-details-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.employee-details-table-wrap table {
+    min-width: 640px;
+}
+
+.employee-details-documents-grid {
+    min-width: 0;
+}
+
+@media (max-width: 1180px) {
+    .employee-details-layout {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+
+    .employee-details-sidebar {
+        position: static;
+    }
+
+    .employee-details-stats {
+        flex-wrap: wrap;
+    }
+
+    .employee-details-stats > * {
+        min-width: calc(50% - 8px);
+    }
+
+    .employee-details-overview-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .employee-details-payroll-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .employee-details-documents-grid {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .employee-details-hero {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        text-align: left;
+    }
+
+    .employee-details-layout {
+        gap: 16px !important;
+    }
+
+    .employee-details-sidebar {
+        border-radius: 16px !important;
+    }
+
+    .employee-details-sidebar-banner {
+        height: 72px !important;
+    }
+
+    .employee-details-sidebar-body {
+        padding: 0 16px 16px !important;
+        margin-top: -34px !important;
+        gap: 10px !important;
+    }
+
+    .employee-details-avatar {
+        width: 72px !important;
+        height: 72px !important;
+        border-width: 4px !important;
+        font-size: 28px !important;
+    }
+
+    .employee-details-identity h2 {
+        font-size: 18px !important;
+        line-height: 1.2;
+    }
+
+    .employee-details-identity p {
+        margin: 4px 0 8px !important;
+        font-size: 12px !important;
+    }
+
+    .employee-details-identity {
+        text-align: left;
+        min-width: 0;
+    }
+
+    .employee-details-face-pill {
+        padding: 4px 10px !important;
+    }
+
+    .employee-details-sidebar-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .employee-details-sidebar-button {
+        min-width: 0;
+        height: 40px !important;
+        padding: 0 10px !important;
+        font-size: 12px !important;
+    }
+
+    .employee-details-info-list {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px !important;
+        margin-top: 4px !important;
+    }
+
+    .employee-details-main {
+        gap: 18px !important;
+    }
+
+    .employee-details-tabs {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        border-bottom: none !important;
+    }
+
+    .employee-details-tab {
+        flex: none !important;
+        min-width: 0;
+        margin-bottom: 0 !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 12px;
+        background: var(--surface-bg) !important;
+        padding: 10px 8px !important;
+        font-size: 11px !important;
+        letter-spacing: 0.04em !important;
+    }
+
+    .employee-details-two-col {
+        grid-template-columns: 1fr !important;
+    }
+
+    .employee-details-stats > * {
+        min-width: 100%;
+    }
+
+    .employee-details-panel-action {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .employee-details-week-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .employee-details-week-card {
+        padding: 14px !important;
+    }
+
+    .employee-details-takehome-card {
+        min-width: 0 !important;
+        width: 100%;
+        padding: 18px 16px !important;
+    }
+
+    .employee-details-documents-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .employee-details-document-card {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 14px;
+    }
+
+    .employee-details-document-meta {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .employee-details-document-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 520px) {
+    .employee-details-sidebar-actions,
+    .employee-details-info-list,
+    .employee-details-tabs {
+        grid-template-columns: 1fr !important;
+    }
+}

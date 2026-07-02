@@ -1,17 +1,25 @@
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, DataTable, Drawer, EmptyState, PageHeader, Select, cn } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
+import { LayoutGrid, Rows3 } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import { exportToCSV } from "../../lib/utils";
 import type { Employee } from "../../types";
 
+type ViewMode = "table" | "cards";
+
 function initials(name?: string): string {
   if (!name) return "?";
   return name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+}
+
+function getPreferredViewMode() {
+  if (typeof window === "undefined") return "table" as ViewMode;
+  return window.matchMedia("(max-width: 767px)").matches ? "cards" : "table";
 }
 
 export default function EmployeeMaster() {
@@ -32,6 +40,7 @@ export default function EmployeeMaster() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +72,28 @@ export default function EmployeeMaster() {
       return matchesQ && matchesDept && matchesStatus && matchesType;
     });
   }, [employees, searchTerm, deptFilter, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const syncViewMode = () => setViewMode(media.matches ? "cards" : "table");
+    syncViewMode();
+    media.addEventListener("change", syncViewMode);
+    return () => media.removeEventListener("change", syncViewMode);
+  }, []);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [filtered.length, page, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pagedEmployees = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   const openFilters = () => {
     setDraftDeptFilter(deptFilter);
@@ -206,6 +237,12 @@ export default function EmployeeMaster() {
     } catch {
       emitToast("error", "Could not delete employee. Please try again.");
     }
+  };
+
+  const toggleEmployeeSelection = (employeeId: string) => {
+    setSelectedRowKeys((current) =>
+      current.includes(employeeId) ? current.filter((key) => key !== employeeId) : [...current, employeeId]
+    );
   };
 
   const columns: ColumnDef<Employee>[] = [
@@ -404,38 +441,182 @@ export default function EmployeeMaster() {
               </span>
             ) : null}
           </Button>
+          <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
       <div className="customers-table-container employee-master-table-container" data-testid="hr-employees-table-container">
-        <DataTable
-          data-testid="hr-employees-table"
-          data={error ? [] : filtered}
-          columns={columns}
-          getRowId={(employee) => employee.id}
-          loading={loading}
-          onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
-          selection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
-          pagination={{
-            page,
-            pageSize,
-            total: filtered.length,
-            mode: "client",
-            onChange: setPage,
-            onPageSizeChange: (size) => {
-              setPageSize(size);
-              setPage(1);
-            },
-          }}
-          className="rounded-none border-0 shadow-none"
-          tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
-          emptyState={
-            <EmptyState
-              title={error ? "Could not load employees" : "No matching employees"}
-              description={error ? "Please retry after checking the HR service connection." : "Adjust the search or filters to find an employee."}
-            />
-          }
-        />
+        {viewMode === "table" ? (
+          <DataTable
+            data-testid="hr-employees-table"
+            data={error ? [] : filtered}
+            columns={columns}
+            getRowId={(employee) => employee.id}
+            loading={loading}
+            onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
+            selection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
+            pagination={{
+              page,
+              pageSize,
+              total: filtered.length,
+              mode: "client",
+              onChange: setPage,
+              onPageSizeChange: (size) => {
+                setPageSize(size);
+                setPage(1);
+              },
+            }}
+            className="rounded-none border-0 shadow-none"
+            tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+            emptyState={
+              <EmptyState
+                title={error ? "Could not load employees" : "No matching employees"}
+                description={error ? "Please retry after checking the HR service connection." : "Adjust the search or filters to find an employee."}
+              />
+            }
+          />
+        ) : loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-10 w-10 rounded-full bg-[var(--color-surface-secondary)]" />
+                  <div className="h-4 w-1/2 rounded bg-[var(--color-surface-secondary)]" />
+                  <div className="h-3 w-2/3 rounded bg-[var(--color-surface-secondary)]" />
+                  <div className="h-3 w-full rounded bg-[var(--color-surface-secondary)]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error || filtered.length === 0 ? (
+          <EmptyState
+            title={error ? "Could not load employees" : "No matching employees"}
+            description={error ? "Please retry after checking the HR service connection." : "Adjust the search or filters to find an employee."}
+          />
+        ) : (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pagedEmployees.map((employee) => (
+                <article
+                  key={employee.id}
+                  data-testid={`hr-employees-card-${employee.id}`}
+                  className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {employee.photoUrl ? (
+                        <img src={employee.photoUrl} alt={employee.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-semibold text-white">
+                          {initials(employee.name)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{employee.name || "Unknown"}</div>
+                        <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedRowKeys.includes(employee.id)}
+                      onChange={() => toggleEmployeeSelection(employee.id)}
+                      aria-label={`Select ${employee.name || employee.employeeId || "employee"}`}
+                    />
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-[0.02em] text-[var(--color-text-secondary)]">Department</span>
+                      <span className="text-right text-sm font-medium text-[var(--color-text-primary)]">{employee.department || "—"}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-[0.02em] text-[var(--color-text-secondary)]">Designation</span>
+                      <span className="text-right text-sm text-[var(--color-text-primary)]">{employee.designation || "—"}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-[0.02em] text-[var(--color-text-secondary)]">Type</span>
+                      <span className="text-right text-sm text-[var(--color-text-primary)]">{employee.employmentType || "—"}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-[0.02em] text-[var(--color-text-secondary)]">Status</span>
+                      <Badge
+                        variant={
+                          employee.status === "Active"
+                            ? "success"
+                            : employee.status === "Inactive" || employee.status === "Left"
+                              ? "neutral"
+                              : "warning"
+                        }
+                        dot
+                      >
+                        {employee.status || "Unknown"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" className="!h-9 !px-3 text-xs" data-testid={`hr-employee-card-view-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}`)}>
+                      View
+                    </Button>
+                    <Button size="sm" variant="outline" className="!h-9 !px-3 text-xs" data-testid={`hr-employee-card-edit-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}?edit=true`)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      iconOnly
+                      className="!h-9 !w-9 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
+                      aria-label={`Delete ${employee.name}`}
+                      data-testid={`hr-employee-card-delete-${employee.id}`}
+                      onClick={() => handleDelete(employee)}
+                      icon={
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        </svg>
+                      }
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <span className="text-sm text-[var(--color-text-secondary)]">
+                Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length} employees
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  data-testid="hr-employees-cards-page-size"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-sm"
+                  aria-label="Employees per page"
+                >
+                  {[10, 20, 50, 100].map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+                <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage(1)}>
+                  First
+                </Button>
+                <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Prev
+                </Button>
+                <span className="min-w-[88px] text-center text-sm font-medium text-[var(--color-text-primary)]">
+                  Page {page} / {totalPages}
+                </span>
+                <Button size="sm" variant="outline" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                  Next
+                </Button>
+                <Button size="sm" variant="outline" disabled={page === totalPages} onClick={() => setPage(totalPages)}>
+                  Last
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <Drawer
         open={filtersOpen}
@@ -503,6 +684,49 @@ export default function EmployeeMaster() {
         </div>
       </Drawer>
     </section>
+  );
+}
+
+function EmployeeViewToggle({
+  value,
+  onChange,
+}: {
+  value: ViewMode;
+  onChange: (value: ViewMode) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+      <button
+        type="button"
+        data-testid="hr-employees-view-table"
+        onClick={() => onChange("table")}
+        className={cn(
+          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          value === "table"
+            ? "bg-[var(--color-primary)] text-white"
+            : "bg-transparent text-[var(--color-text-secondary)]"
+        )}
+        aria-label="Table view"
+        title="Table view"
+      >
+        <Rows3 size={16} />
+      </button>
+      <button
+        type="button"
+        data-testid="hr-employees-view-cards"
+        onClick={() => onChange("cards")}
+        className={cn(
+          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          value === "cards"
+            ? "bg-[var(--color-primary)] text-white"
+            : "bg-transparent text-[var(--color-text-secondary)]"
+        )}
+        aria-label="Card view"
+        title="Card view"
+      >
+        <LayoutGrid size={16} />
+      </button>
+    </div>
   );
 }
 

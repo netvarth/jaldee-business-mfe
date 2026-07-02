@@ -11,6 +11,22 @@ function normalizeClockInType(value: unknown) {
   return value;
 }
 
+function buildPunchOutPayload<T extends { uid?: string; id?: string; clockInType?: string }>(record: T | undefined, uid: string) {
+  const now = new Date().toISOString();
+  if (!record) {
+    return {
+      uid,
+      clockOut: now,
+    };
+  }
+  return {
+    ...record,
+    uid: record.uid || record.id || uid,
+    clockInType: normalizeClockInType(record.clockInType),
+    clockOut: now,
+  };
+}
+
 export interface AttendanceRecord {
   id: string; uid?: string; employeeUid?: string; dateStr?: string;
   clockIn?: string; clockOut?: string; clockInType?: string; status?: string;
@@ -68,8 +84,10 @@ export function useAttendance() {
     await reload();
   }, [api, reload]);
   const punchOut = useCallback(async (uid: string) => {
-    await api.put(`/attendance/${uid}`); await reload();
-  }, [api, reload]);
+    const record = data.find((item) => item.id === uid || item.uid === uid);
+    await api.put(`/attendance/${uid}/punch-out`, buildPunchOutPayload(record, uid));
+    await reload();
+  }, [api, data, reload]);
   const verify = useCallback(async (uid: string, wfhStatus: string, verifiedByUid?: string | null) => {
     await api.put(`/attendance/${uid}/verify`, { wfhStatus, verifiedByUid: verifiedByUid || null }); await reload();
   }, [api, reload]);

@@ -11,6 +11,22 @@ function normalizeClockInType(value: string) {
   return value;
 }
 
+function buildPunchOutPayload<T extends { uid?: string; id?: string; clockInType?: string }>(record: T | undefined, uid: string) {
+  const now = new Date().toISOString();
+  if (!record) {
+    return {
+      uid,
+      clockOut: now,
+    };
+  }
+  return {
+    ...record,
+    uid: record.uid || record.id || uid,
+    clockInType: record.clockInType ? normalizeClockInType(record.clockInType) : record.clockInType,
+    clockOut: now,
+  };
+}
+
 function withId<T extends { uid?: string; id?: string }>(value: Record<string, unknown>): T {
   const uid = (value.uid ?? value.id) as string | undefined;
   const hrDepartment = (value.hrDepartment ?? value.department) as string | undefined;
@@ -101,9 +117,10 @@ export function useMyAttendance() {
     await reload();
   }, [api, reload]);
   const punchOut = useCallback(async (uid: string) => {
-    await api.put(`/me/attendance/${uid}/punch-out`);
+    const record = data.find((item) => item.id === uid || item.uid === uid);
+    await api.put(`/me/attendance/${uid}/punch-out`, buildPunchOutPayload(record, uid));
     await reload();
-  }, [api, reload]);
+  }, [api, data, reload]);
   return { data, loading, error, reload, punchIn, punchOut };
 }
 

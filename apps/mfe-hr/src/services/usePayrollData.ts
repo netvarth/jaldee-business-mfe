@@ -115,13 +115,19 @@ export interface EmployeeComponentValue {
   id?: string;
   uid?: string;
   employeeUid?: string;
+  employeePayrollStructureUid?: string;
   componentUid?: string;
+  componentName?: string;
+  componentCode?: string;
   structureComponentUid?: string;
   calculationType?: CalculationType;
   overrideAmount?: number;
   overridePercentage?: number;
   formulaExpression?: string;
+  slabConfigJson?: string;
   isApplicable?: boolean;
+  status?: string;
+  customFields?: Record<string, unknown>;
   customFieldsJson?: Record<string, unknown>;
 }
 
@@ -224,8 +230,33 @@ function uidOf(value?: { uid?: string; id?: string } | null) {
   return value?.uid || value?.id || "";
 }
 
+function normalizeEmployeeComponentValue(value: Record<string, unknown>): EmployeeComponentValue {
+  const normalized = withId<EmployeeComponentValue>(value);
+  return {
+    ...normalized,
+    employeePayrollStructureUid: (value.employeePayrollStructureUid ?? normalized.employeePayrollStructureUid) as string | undefined,
+    componentUid: (value.componentUid ?? normalized.componentUid) as string | undefined,
+    componentName: (value.componentName ?? normalized.componentName) as string | undefined,
+    componentCode: (value.componentCode ?? normalized.componentCode) as string | undefined,
+    structureComponentUid: (value.structureComponentUid ?? normalized.structureComponentUid) as string | undefined,
+    calculationType: (value.calculationType ?? normalized.calculationType) as CalculationType | undefined,
+    overrideAmount: (value.overrideAmount ?? value.amount ?? normalized.overrideAmount) as number | undefined,
+    overridePercentage: (value.overridePercentage ?? value.percentage ?? normalized.overridePercentage) as number | undefined,
+    formulaExpression: (value.formulaExpression ?? normalized.formulaExpression) as string | undefined,
+    slabConfigJson: (value.slabConfigJson ?? normalized.slabConfigJson) as string | undefined,
+    isApplicable: (value.isApplicable ?? normalized.isApplicable) as boolean | undefined,
+    status: (value.status ?? normalized.status) as string | undefined,
+    customFields: (value.customFields ?? normalized.customFields) as Record<string, unknown> | undefined,
+    customFieldsJson: (value.customFieldsJson ?? normalized.customFieldsJson) as Record<string, unknown> | undefined,
+  };
+}
+
 function employeeComponentsEndpoint(employeeUid: string, structureUid: string) {
   return `${PAYROLL_ROOT}/employees/${employeeUid}/components?structureUid=${encodeURIComponent(structureUid)}`;
+}
+
+function employeeAssignmentEndpoint(employeeUid: string, assignmentUid: string) {
+  return `${PAYROLL_ROOT}/employees/${employeeUid}/structures/${assignmentUid}`;
 }
 
 interface PayrollLoadOptions {
@@ -372,7 +403,11 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
           return;
         }
         const values = await api.get<unknown>(employeeComponentsEndpoint(empUid, structureUid));
-        setComponentValues(asList<EmployeeComponentValue>(values));
+        setComponentValues(
+          Array.isArray(values)
+            ? values.map((item) => normalizeEmployeeComponentValue(item as Record<string, unknown>))
+            : []
+        );
       } catch {
         setComponentValues([]);
       }
@@ -389,7 +424,8 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
 
   const assignStructure = useCallback(async (payload: Partial<EmployeeStructureAssignment>) => {
     if (!empUid) return;
-    await api.post(`${PAYROLL_ROOT}/employees/${empUid}/structures`, {
+    const assignmentUid = payload.uid || assignment?.uid || assignment?.id;
+    const requestBody = {
       uid: payload.uid,
       employeeUid: empUid,
       structureUid: payload.structureUid,
@@ -397,17 +433,63 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
       effectiveTo: payload.effectiveTo || null,
       status: payload.status || "Enabled",
       customFields: payload.customFields || payload.customFieldsJson || {},
-    });
+    };
+    if (assignmentUid) {
+      await api.put(employeeAssignmentEndpoint(empUid, assignmentUid), requestBody);
+    } else {
+      await api.post(`${PAYROLL_ROOT}/employees/${empUid}/structures`, requestBody);
+    }
     await load();
-  }, [api, empUid, load]);
+  }, [api, assignment, empUid, load]);
 
   const saveComponentValues = useCallback(async (payload: EmployeeComponentValue[]) => {
     if (!empUid) return;
     const structureUid = assignment?.structureUid || uidOf(assignment?.structure);
     if (!structureUid) throw new Error("Assign an active payroll structure before saving component overrides.");
-    await api.post(employeeComponentsEndpoint(empUid, structureUid), payload);
+    const assignmentUid = assignment?.uid || assignment?.id;
+    const currentValues = componentValues.reduce<Record<string, EmployeeComponentValue>>((acc, item) => {
+      const key = item.structureComponentUid || item.componentUid || item.uid || item.id;
+      if (key) acc[key] = item;
+      return acc;
+    }, {});
+    const nextValues = payload.reduce<Record<string, EmployeeComponentValue>>((acc, item) => {
+      const key = item.structureComponentUid || item.componentUid || item.uid || item.id;
+      if (!key) return acc;
+      acc[key] = { ...(acc[key] || {}), ...item };
+      return acc;
+    }, { ...currentValues });
+    const componentsPayload = Object.values(nextValues).map((item) => ({
+      uid: item.uid || item.id,
+      employeePayrollStructureUid: item.employeePayrollStructureUid || assignmentUid,
+      employeeUid: empUid,
+      componentUid: item.componentUid,
+      componentName: item.componentName,
+      componentCode: item.componentCode,
+      calculationType: item.calculationType,
+      amount: item.overrideAmount ?? 0,
+      percentage: item.overridePercentage ?? 0,
+      formulaExpression: item.formulaExpression || "",
+      slabConfigJson: item.slabConfigJson || "[]",
+      isApplicable: item.isApplicable ?? true,
+      status: item.status || "Enabled",
+      customFields: item.customFields || item.customFieldsJson || {},
+    }));
+    if (assignmentUid) {
+      await api.put(employeeAssignmentEndpoint(empUid, assignmentUid), {
+        uid: assignmentUid,
+        employeeUid: empUid,
+        structureUid,
+        effectiveFrom: assignment?.effectiveFrom,
+        effectiveTo: assignment?.effectiveTo || null,
+        status: assignment?.status || "Enabled",
+        customFields: assignment?.customFields || assignment?.customFieldsJson || {},
+        components: componentsPayload,
+      });
+    } else {
+      await api.post(employeeComponentsEndpoint(empUid, structureUid), componentsPayload);
+    }
     await load();
-  }, [api, assignment, empUid, load]);
+  }, [api, assignment, componentValues, empUid, load]);
 
   return { assignment, componentValues, loading, error, reload: load, assignStructure, saveComponentValues };
 }
