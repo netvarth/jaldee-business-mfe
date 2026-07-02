@@ -5,6 +5,7 @@ import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
 import ShellToastHost from "./ShellToastHost";
 import { useShellStore } from "../store/shellStore";
+import { telemetryService } from "../services/telemetry";
 import "./shell.css";
 
 interface Props {
@@ -27,6 +28,10 @@ export default function ShellLayout({ children }: Props) {
     setSidebarVisible(!isSmallScreen);
     setCollapseSubmenuAfterSelection(false);
   }, [isSmallScreen, setSidebarVisible]);
+
+  useEffect(() => {
+    telemetryService.trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
 
   function handleMenuToggle() {
     setCollapseSubmenuAfterSelection(false);

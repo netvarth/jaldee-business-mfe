@@ -60,12 +60,6 @@ export function initTelemetry() {
       api_host: posthogHost,
       // Disable automatic pageview — we send them manually via trackPageView
       capture_pageview: false,
-      // Respect DNT and only track in non-development by default
-      loaded: (ph) => {
-        if (env === "development") {
-          ph.opt_out_capturing();
-        }
-      },
     });
   }
 }
