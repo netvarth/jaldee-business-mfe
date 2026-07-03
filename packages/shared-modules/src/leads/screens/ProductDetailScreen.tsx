@@ -3,10 +3,20 @@ import { Product, CrmLeadDto, CrmLeadPipelineDto, Channel, ConversionTargetType,
 import { ICONS } from "../constants";
 import { cn } from "../lib/utils";
 import { format } from '../lib/dateUtils';
-import { Button, Input, Select, Checkbox, DataTable, EmptyState, PageHeader, Badge } from '@jaldee/design-system';
+import { Button, Input, Select, Checkbox, DataTable, EmptyState, PageHeader, Badge, Dialog } from '@jaldee/design-system';
 import type { ColumnDef } from '@jaldee/design-system';
 import { useJaldeeLeadsContext } from '../lib/sharedContext';
 import { emitLeadSuccessToast } from '../lib/errorEvents';
+
+type ProductAttachment = {
+  caption?: string;
+  fileName?: string;
+  filePath?: string;
+  fileSize?: number;
+  fileType?: string;
+  fileUid?: string;
+  jaldeeDriveId?: string | null;
+};
 
 interface ProductDetailScreenProps {
   product: Product;
@@ -32,6 +42,7 @@ export default function ProductDetailScreen({
   const [stageFilter, setStageFilter] = React.useState('ALL');
   const [isSavingMapping, setIsSavingMapping] = React.useState(false);
   const [mappingError, setMappingError] = React.useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = React.useState<ProductAttachment | null>(null);
 
   const linkedPipelines = pipelines.filter((p) =>
     p.productUids?.includes(product.uid),
@@ -128,6 +139,32 @@ export default function ProductDetailScreen({
   const uniqueStages = Array.from(
     new Set(productLeads.map((l) => l.currentPipelineStageName).filter(Boolean))
   );
+  const productAttachments = Array.isArray(product.attachments)
+    ? (product.attachments as ProductAttachment[])
+    : [];
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return "Size unavailable";
+    const units = ["Bytes", "KB", "MB", "GB"];
+    const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / 1024 ** unitIndex;
+    return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  };
+
+  const isImageAttachment = (attachment: ProductAttachment) => {
+    const type = attachment.fileType?.toLowerCase() ?? "";
+    const path = attachment.filePath?.toLowerCase() ?? "";
+    return type.includes("image") || /\.(png|jpe?g|webp|gif|bmp|jfif|svg)(\?|$)/.test(path);
+  };
+
+  const openAttachment = (attachment: ProductAttachment) => {
+    if (!attachment.filePath || typeof window === "undefined") return;
+    if (isImageAttachment(attachment)) {
+      setPreviewAttachment(attachment);
+      return;
+    }
+    window.open(attachment.filePath, "_blank", "noopener,noreferrer");
+  };
 
   const leadColumns = React.useMemo<ColumnDef<CrmLeadDto>[]>(
     () => [
@@ -660,6 +697,82 @@ export default function ProductDetailScreen({
               )}
             </div>
 
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <div>
+                  <h3 className="text-base md:text-lg font-semibold text-slate-900">
+                    Associated Media / SLA Documents
+                  </h3>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">
+                    Uploaded files linked to this product ({productAttachments.length})
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-indigo-600">
+                  Product Files
+                </span>
+              </div>
+
+              {productAttachments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {productAttachments.map((attachment, index) => {
+                    const fileName = attachment.fileName || attachment.caption || `Attachment ${index + 1}`;
+                    return (
+                      <button
+                        type="button"
+                        key={`${attachment.fileUid || attachment.jaldeeDriveId || fileName}-${index}`}
+                        className="bg-white rounded-[20px] md:rounded-[24px] border border-slate-200 p-4 md:p-5 shadow-sm text-left transition hover:border-indigo-200 hover:shadow-md"
+                        onClick={() => openAttachment(attachment)}
+                        disabled={!attachment.filePath}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0 overflow-hidden">
+                            {attachment.filePath && isImageAttachment(attachment) ? (
+                              <img
+                                src={attachment.filePath}
+                                alt={fileName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <ICONS.DOCUMENT className="w-6 h-6" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900 truncate" title={fileName}>
+                                {fileName}
+                              </p>
+                              <p className="text-xs font-semibold text-slate-400">
+                                {attachment.fileType || "Unknown type"} · {formatFileSize(attachment.fileSize)}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+                              {attachment.jaldeeDriveId ? (
+                                <span className="rounded-full bg-slate-100 text-slate-600 px-2.5 py-1 border border-slate-200">
+                                  Drive ID: {attachment.jaldeeDriveId}
+                                </span>
+                              ) : null}
+                              {!attachment.filePath ? (
+                                <span className="rounded-full bg-amber-50 text-amber-600 px-2.5 py-1 border border-amber-100">
+                                  Preview unavailable
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-white rounded-[24px] md:rounded-[32px] border border-dashed border-slate-200 p-8 text-center">
+                  <p className="text-sm font-semibold text-slate-500">
+                    No files uploaded for this product yet.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Associated Leads Table */}
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
@@ -773,6 +886,42 @@ export default function ProductDetailScreen({
           </div>
         </div>
       </div>
+      <Dialog
+        open={Boolean(previewAttachment)}
+        onClose={() => setPreviewAttachment(null)}
+        size="lg"
+        title={previewAttachment?.fileName || previewAttachment?.caption || "Attachment Preview"}
+        contentClassName="max-w-4xl rounded-2xl"
+      >
+        {previewAttachment && (
+          <div className="space-y-4">
+            <div className="flex max-h-[72vh] items-center justify-center overflow-auto rounded-2xl bg-slate-950 p-4">
+              {previewAttachment.filePath && isImageAttachment(previewAttachment) ? (
+                <img
+                  src={previewAttachment.filePath}
+                  alt={previewAttachment.fileName || previewAttachment.caption || "Attachment preview"}
+                  className="max-h-[66vh] max-w-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-slate-300">
+                  <ICONS.DOCUMENT className="w-12 h-12" />
+                  <p className="text-sm font-semibold">Preview is available only for image files.</p>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={() => setPreviewAttachment(null)}>
+                Close
+              </Button>
+              {previewAttachment.filePath ? (
+                <Button onClick={() => window.open(previewAttachment.filePath, "_blank", "noopener,noreferrer")}>
+                  Open File
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

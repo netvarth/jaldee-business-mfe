@@ -249,13 +249,6 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
               badgeClass: 'bg-white/15 border-white/10 text-white' 
             },
             { 
-              name: 'Bulk Import', 
-              id: 'bulk_import', 
-              icon: ICONS.IMPORT, 
-              btnClass: 'bg-orange-600 hover:bg-orange-700 text-white border-orange-700/10 shadow-[0_6px_20px_rgba(249,115,22,0.25)] hover:shadow-[0_12px_28px_rgba(249,115,22,0.35)]',
-              badgeClass: 'bg-white/15 border-white/10 text-white' 
-            },
-            { 
               name: 'Audit Log', 
               id: 'audit_log', 
               icon: ICONS.HISTORY, 

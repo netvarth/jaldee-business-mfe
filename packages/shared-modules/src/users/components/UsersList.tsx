@@ -155,6 +155,7 @@ export function UsersList() {
         render: (row) => (
           <div onClick={(event) => event.stopPropagation()} className="flex justify-end">
             <Popover
+              portal
               align="end"
               contentClassName="min-w-[220px] p-2"
               trigger={

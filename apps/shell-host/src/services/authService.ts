@@ -773,10 +773,21 @@ function normalizeSessionResponse(raw: unknown): SessionResponse {
       ? (candidate.account as Record<string, unknown>)
       : candidate;
 
+  const resolvedEmailCandidates = [
+    rawUser.email,
+    rawUser.primaryEmail,
+    rawUser.emailId,
+    rawUser.loginId,
+  ];
+  const resolvedEmail =
+    resolvedEmailCandidates
+      .map((value) => String(value ?? "").trim())
+      .find((value) => value.includes("@")) ?? "";
+
   const user: UserContext = {
     id: String(rawUser.id ?? rawUser.userId ?? rawUser.providerId ?? "user-1"),
     name: String(rawUser.name ?? rawUser.userName ?? rawUser.firstName ?? rawUser.businessName ?? "Jaldee User"),
-    email: String(rawUser.email ?? rawUser.loginId ?? rawUser.userId ?? "user@jaldee.com"),
+    email: resolvedEmail,
     avatar: typeof rawUser.avatar === "string" ? rawUser.avatar : undefined,
     roles: normalizeRoles(rawUser.roles),
     permissions: Array.isArray(rawUser.permissions)

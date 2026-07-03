@@ -8,7 +8,6 @@ import ProductsScreen from './screens/ProductsScreen';
 import CreateProductScreen from './screens/CreateProductScreen';
 import ChannelsScreen from './screens/ChannelsScreen';
 import CreateChannelScreen from './screens/CreateChannelScreen';
-import BulkImportScreen from './screens/BulkImportScreen';
 import AuditLogScreen from './screens/AuditLogScreen';
 import TemplateBuilderScreen from './screens/TemplateBuilderScreen';
 import TemplatesScreen from './screens/TemplatesScreen';
@@ -215,11 +214,6 @@ export function LeadsModule() {
       triggerFetchProducts(active);
       triggerFetchPipelines(active);
       triggerFetchTemplates(active);
-    } else if (path.includes('/bulk-import')) {
-      triggerFetchLeads(active);
-      triggerFetchProducts(active);
-      triggerFetchChannels(active);
-      triggerFetchPipelines(active);
     } else {
       triggerFetchLeads(active);
       triggerFetchPipelines(active);
@@ -518,19 +512,6 @@ export function LeadsModule() {
               pipelines={pipelines}
               products={products}
               forms={forms}
-              onNavigate={handleNavigate}
-            />
-          }
-        />
-        <Route
-          path="/bulk-import"
-          element={
-            <BulkImportScreen
-              leads={leads}
-              setLeads={setLeads}
-              products={products}
-              channels={channels}
-              pipelines={pipelines}
               onNavigate={handleNavigate}
             />
           }

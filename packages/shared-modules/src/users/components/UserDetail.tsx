@@ -15,8 +15,10 @@ import {
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useSharedNavigate } from "../../useSharedNavigate";
-import { useUserDetail } from "../queries/users";
+import { useUserDetail, useUpdateTenantUser } from "../queries/users";
 import { UserStatusBadge, UsersPageShell } from "./shared";
+
+const USER_PROFILE_UPDATED_EVENT = "jaldee:user-profile-updated";
 
 type UserDetailFormState = {
   firstName: string;
@@ -111,9 +113,10 @@ export function UserDetailView({
   /** @deprecated edit is now a modal — this prop is ignored */
   mode?: "view" | "edit";
 }) {
-  const { basePath } = useSharedModulesContext();
+  const { basePath, eventBus } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const detailQuery = useUserDetail(userId);
+  const updateUserMutation = useUpdateTenantUser(userId);
   const detail = detailQuery.data;
 
   const [formState, setFormState] = useState<UserDetailFormState>(() => buildInitialFormState());
@@ -128,8 +131,44 @@ export function UserDetailView({
     setEditOpen(true);
   }
 
-  function saveEdit() {
-    // TODO: wire to save mutation
+  async function saveEdit() {
+    const payload = {
+      firstName: formState.firstName.trim() || null,
+      lastName: formState.lastName.trim() || null,
+      email: formState.email.trim() || "",
+      employeeId: formState.employeeId.trim() || null,
+      pinCode: formState.pinCode.trim() || null,
+      dob: formState.dob || null,
+      primaryPhoneNumber: formState.phoneNumber.number.trim()
+        ? {
+            countryCode: formState.phoneNumber.countryCode || "+91",
+            number: formState.phoneNumber.number.trim(),
+          }
+        : null,
+      whatsappNumber: formState.whatsappNumber.number.trim()
+        ? {
+            countryCode: formState.whatsappNumber.countryCode || "+91",
+            number: formState.whatsappNumber.number.trim(),
+          }
+        : null,
+      telegramNumber: formState.telegramNumber.number.trim()
+        ? {
+            countryCode: formState.telegramNumber.countryCode || "+91",
+            number: formState.telegramNumber.number.trim(),
+          }
+        : null,
+    };
+
+    await updateUserMutation.mutateAsync(payload);
+    const firstName = formState.firstName.trim();
+    const lastName = formState.lastName.trim();
+    eventBus?.emit(USER_PROFILE_UPDATED_EVENT, {
+      userId,
+      firstName,
+      lastName,
+      fullName: `${firstName} ${lastName}`.trim(),
+      email: formState.email.trim(),
+    });
     setEditOpen(false);
   }
 
@@ -233,8 +272,8 @@ export function UserDetailView({
                   columns={1}
                   items={[
                     { label: "User Type", value: detail.userType || "—" },
-                    { label: "Employee ID", value: formState.employeeId || "—" },
-                    { label: "PIN Code", value: formState.pinCode || "—" },
+                    { label: "Employee ID", value: detail.employeeId || "—" },
+                    { label: "PIN Code", value: detail.pinCode || "—" },
                   ]}
                 />
               </div>
@@ -247,9 +286,9 @@ export function UserDetailView({
                 <DescriptionList
                   columns={2}
                   items={[
-                    { label: "First Name", value: formState.firstName || "—" },
-                    { label: "Last Name", value: formState.lastName || "—" },
-                    { label: "Date of Birth", value: formState.dob || "—" },
+                    { label: "First Name", value: detail.firstName || "—" },
+                    { label: "Last Name", value: detail.lastName || "—" },
+                    { label: "Date of Birth", value: normalizeDateInput(detail.dob) || "—" },
                   ]}
                 />
               </div>
@@ -261,23 +300,23 @@ export function UserDetailView({
                 <DescriptionList
                   columns={2}
                   items={[
-                    { label: "Email Address", value: formState.email || "—" },
+                    { label: "Email Address", value: detail.email || "—" },
                     {
                       label: "Phone Number",
-                      value: formState.phoneNumber.number
-                        ? `${formState.phoneNumber.countryCode} ${formState.phoneNumber.number}`.trim()
+                      value: detail.mobile
+                        ? `${detail.phoneCountryCode || "+91"} ${detail.mobile}`.trim()
                         : "—",
                     },
                     {
                       label: "WhatsApp Number",
-                      value: formState.whatsappNumber.number
-                        ? `${formState.whatsappNumber.countryCode} ${formState.whatsappNumber.number}`.trim()
+                      value: detail.whatsappNumber
+                        ? `${detail.whatsappCountryCode || "+91"} ${detail.whatsappNumber}`.trim()
                         : "—",
                     },
                     {
                       label: "Telegram Number",
-                      value: formState.telegramNumber.number
-                        ? `${formState.telegramNumber.countryCode} ${formState.telegramNumber.number}`.trim()
+                      value: detail.telegramNumber
+                        ? `${detail.telegramCountryCode || "+91"} ${detail.telegramNumber}`.trim()
                         : "—",
                     },
                   ]}
@@ -390,6 +429,8 @@ export function UserDetailView({
                 id="btnSaveUser_SM_Users"
                 data-testid="btnSaveUser_SM_Users"
                 onClick={saveEdit}
+                loading={updateUserMutation.isPending}
+                disabled={updateUserMutation.isPending}
               >
                 Save Changes
               </Button>

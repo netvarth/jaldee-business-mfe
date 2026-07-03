@@ -8,6 +8,7 @@ import { useJaldeeLeadsContext } from '../lib/sharedContext';
 import { emitLeadSuccessToast } from '../lib/errorEvents';
 import { useSharedModulesContext } from '../../context';
 import { buildBaseServiceUrl } from '../../serviceUrls';
+import { buildCrmLeadAttachmentMetadata, DRIVE_CONTEXT_TYPES } from '../utils/attachmentMetadata';
 
 interface UploadedFileItem {
   name: string;
@@ -71,25 +72,21 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
     return segments.length > 1 ? segments.pop() ?? "file" : "file";
   };
 
+  const resolvedUserName = user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User";
+
   const uploadFileWorkflow = async (file: File, indexInState: number) => {
     try {
-      const initiatePayload = {
-        fileName: file.name,
-        fileType: file.type || resolveFileType(file),
-        fileSize: file.size,
-        ownerType: "TenantUser",
-        uploadedBy: user.id || "",
-        uploadedByName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
-        owner: user.id || "",
-        ownerName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+      const fileType = file.type || resolveFileType(file);
+      const initiatePayload = buildCrmLeadAttachmentMetadata({
         caption: file.name,
-        contextType: "CRM_LEAD_CHANNEL",
-        sharedType: "secureShare",
+        contextType: DRIVE_CONTEXT_TYPES.CRM_LEAD_PRODUCT,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType,
         tenantUid: account.id || "",
-        action: "ADD",
-        featureServiceName: "BASE_CRM",
-        featureModuleName: "CRM_LEAD"
-      };
+        userId: user.id || "",
+        userName: resolvedUserName,
+      });
 
       const initiateRes = await api.post<any>(
         buildBaseServiceUrl("/platform-service/v1/api/drive/initiate-upload"),
@@ -119,26 +116,19 @@ export default function CreateProductScreen({ onBack, onSave, channels, forms, p
         { _skipLocationParam: true } as any
       );
 
-      const attachmentObj = {
-        fileName: file.name,
-        fileType: file.type || resolveFileType(file),
-        fileSize: file.size,
-        ownerType: "TenantUser",
-        filePath: filePath,
-        driveId: fileUid,
-        uploadedBy: user.id || "",
-        uploadedByName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
-        owner: user.id || "",
-        ownerName: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+      const attachmentObj = buildCrmLeadAttachmentMetadata({
         caption: file.name,
-        contextType: "CRM_LEAD_CHANNEL",
-        sharedType: "secureShare",
+        contextType: DRIVE_CONTEXT_TYPES.CRM_LEAD_PRODUCT,
+        fileName: file.name,
+        filePath,
+        fileSize: file.size,
+        fileType,
+        fileUid,
+        jaldeeDriveId,
         tenantUid: account.id || "",
-        action: "ADD",
-        jaldeeDriveId: jaldeeDriveId,
-        featureServiceName: "BASE_CRM",
-        featureModuleName: "CRM_LEAD"
-      };
+        userId: user.id || "",
+        userName: resolvedUserName,
+      });
 
       setFilesList(prev => prev.map((item, idx) =>
         idx === indexInState
