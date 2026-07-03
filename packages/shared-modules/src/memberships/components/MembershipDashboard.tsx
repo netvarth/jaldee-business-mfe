@@ -12,13 +12,12 @@ import { SectionCard } from "../../../../design-system/src/components/SectionCar
 import { Select } from "../../../../design-system/src/components/Select/Select";
 import { useSharedModulesContext } from "../../context";
 import { useUrlPagination } from "../../useUrlPagination";
+import { unwrapCount, unwrapList } from "./serviceShared";
 import {
   useAnalytics,
   useChangeMemberStatus,
   useGraphAnalyticsData,
-  useMemberCount,
   useMembers,
-  useServiceCount,
   useServices,
 } from "../queries/memberships";
 
@@ -220,7 +219,7 @@ function formatDate(value: unknown) {
 }
 
 function toMemberRows(data: any): DashboardMember[] {
-  const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  const rows = unwrapList(data);
 
   return rows.map((member: any, index: number) => {
     const name = [
@@ -245,7 +244,7 @@ function toMemberRows(data: any): DashboardMember[] {
 }
 
 function toServiceRows(data: any): DashboardService[] {
-  const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  const rows = unwrapList(data);
 
   return rows.map((service: any, index: number) => ({
     id: String(service.uid ?? service.id ?? service.serviceId ?? index),
@@ -418,13 +417,11 @@ export function MembershipDashboard() {
     ...(appliedServiceSearchQuery ? { "servicename-like": appliedServiceSearchQuery } : {}),
   };
 
-  const memberCountQuery = useMemberCount(memberFilters);
   const membersQuery = useMembers({
     ...memberFilters,
     from: (membersPage - 1) * pageSize,
     count: pageSize,
   });
-  const serviceCountQuery = useServiceCount(serviceFilters);
   const servicesQuery = useServices({
     ...serviceFilters,
     from: (servicesPage - 1) * pageSize,
@@ -584,8 +581,8 @@ export function MembershipDashboard() {
       return matchesSearch && matchesStatus;
     });
   }, [appliedMemberSearchQuery, memberRows, memberStatusFilter]);
-  const totalMemberCount = readNumericResponse(memberCountQuery.data);
-  const totalServiceCount = readNumericResponse(serviceCountQuery.data);
+  const totalMemberCount = unwrapCount(membersQuery.data) || memberRows.length;
+  const totalServiceCount = unwrapCount(servicesQuery.data) || serviceRows.length;
   const changeMemberStatusMutation = useChangeMemberStatus();
   const isMemberSearchPending = memberSearchQuery.trim() !== appliedMemberSearchQuery;
   const isServiceSearchPending = serviceSearchQuery.trim() !== appliedServiceSearchQuery;
@@ -778,7 +775,7 @@ export function MembershipDashboard() {
           data-testid={`membership-dashboard-service-view-${service.id}`}
           onClick={(event) => {
             event.stopPropagation();
-            window.location.assign(`${basePath}/service`);
+            window.location.assign(`${basePath}/service/servicedetails/${service.id}`);
           }}
         >
           View
@@ -1061,7 +1058,7 @@ export function MembershipDashboard() {
               data={visibleMemberRows}
               columns={memberColumns}
               getRowId={(row) => row.id}
-              loading={membersQuery.isLoading || memberCountQuery.isLoading || shouldClearMemberRows}
+              loading={membersQuery.isLoading || shouldClearMemberRows}
               pagination={{
                 page: membersPage,
                 pageSize,
@@ -1106,7 +1103,7 @@ export function MembershipDashboard() {
               data={visibleServiceRows}
               columns={serviceColumns}
               getRowId={(row) => row.id}
-              loading={servicesQuery.isLoading || serviceCountQuery.isLoading || shouldClearServiceRows}
+              loading={servicesQuery.isLoading || shouldClearServiceRows}
               pagination={{
                 page: servicesPage,
                 pageSize,
@@ -1223,7 +1220,7 @@ function DashboardEmptyGraphic({
 
   return (
     <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl bg-white p-6 text-center">
-      <div className="relative h-[220px] w-full max-w-[360px]">
+      <div className="relative h-[160px] w-full max-w-[360px] origin-center scale-[0.65] sm:scale-75 md:scale-[0.8] mb-4">
         <div className="absolute left-4 top-[80px] h-[44px] w-[84px] rounded-[6px] border border-indigo-300 bg-indigo-50">
           <svg viewBox="0 0 84 44" className="h-full w-full p-3 text-indigo-400">
             <path

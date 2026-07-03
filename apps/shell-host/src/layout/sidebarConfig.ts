@@ -65,6 +65,7 @@ export const BASE_CRM_SIDEBAR_SECTIONS: SidebarSection[] = [
       { id: "basecrm-membership-members", label: "Members", icon: "", path: "/membership/members" },
       { id: "basecrm-membership-services", label: "Services", icon: "", path: "/membership/services" },
       { id: "basecrm-membership-fee-management", label: "Fee Management", icon: "", path: "/membership/fee-management" },
+      { id: "basecrm-membership-templates", label: "Templates", icon: "", path: "/membership/templates" },
     ],
   },
   {

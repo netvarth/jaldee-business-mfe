@@ -12,7 +12,6 @@ import { useSharedModulesContext } from "../../context";
 import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeServiceTypeStatus,
-  useServiceTypeCount,
   useServiceTypes,
 } from "../queries/memberships";
 
@@ -38,7 +37,20 @@ function unwrapPayload<T>(value: T): any {
 
 function unwrapList(value: unknown): any[] {
   const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.content)) {
+    return payload.content;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  return [];
 }
 
 function unwrapCount(value: unknown) {
@@ -85,25 +97,16 @@ export function ServiceTypeList() {
     [appliedSearchQuery, page, pageSize, statusFilter]
   );
 
-  const countFilters = useMemo(
-    () => ({
-      ...(appliedSearchQuery ? { "categoryname-like": appliedSearchQuery } : {}),
-      ...(statusFilter !== "all" ? { "status-eq": statusFilter } : {}),
-    }),
-    [appliedSearchQuery, statusFilter]
-  );
-
   const serviceTypesQuery = useServiceTypes(filters);
-  const serviceTypeCountQuery = useServiceTypeCount(countFilters);
   const changeStatusMutation = useChangeServiceTypeStatus();
 
   const rows = useMemo(() => toRows(serviceTypesQuery.data), [serviceTypesQuery.data]);
-  const total = unwrapCount(serviceTypeCountQuery.data) || rows.length;
+  const total = unwrapCount(serviceTypesQuery.data) || rows.length;
 
   async function handleStatusChange(uid: string, statusId: string) {
     try {
       await changeStatusMutation.mutateAsync({ uid, statusId });
-      await Promise.all([serviceTypesQuery.refetch(), serviceTypeCountQuery.refetch()]);
+      await serviceTypesQuery.refetch();
     } catch {
       // keep the table stable; existing module pattern does not surface toast here
     }
@@ -219,7 +222,7 @@ export function ServiceTypeList() {
             data={rows}
             columns={columns}
             getRowId={(row) => row.uid}
-            loading={serviceTypesQuery.isLoading || serviceTypeCountQuery.isLoading}
+            loading={serviceTypesQuery.isLoading}
             onRowClick={(row) => window.location.assign(`${basePath}/serviceType/update/${row.uid}`)}
             pagination={{
               page,

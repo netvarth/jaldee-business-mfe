@@ -18,7 +18,6 @@ import {
   useAddLabeltoTypes,
   useChangeMemberTypeStatus,
   useLabelList,
-  useMemberTypeCount,
   useMemberTypes,
 } from "../queries/memberships";
 
@@ -52,11 +51,36 @@ function unwrapPayload<T>(value: T): any {
 
 function unwrapList(value: unknown): any[] {
   const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.content)) {
+    return payload.content;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  return [];
 }
 
 function unwrapCount(value: unknown) {
-  return Number(unwrapPayload(value)) || 0;
+  const payload = unwrapPayload(value);
+
+  if (typeof payload === "number") {
+    return payload;
+  }
+
+  const total =
+    payload?.page?.totalElements ??
+    payload?.page?.total ??
+    payload?.totalElements ??
+    payload?.total ??
+    payload?.count;
+
+  return Number(total) || 0;
 }
 
 function getStatusLabel(status: string) {
@@ -64,7 +88,13 @@ function getStatusLabel(status: string) {
 }
 
 function getSubscriptionTypeLabel(value: string) {
-  return String(value).toUpperCase() === "RECURRING" ? "Renewal" : "Onetime";
+  const normalized = String(value).toUpperCase();
+
+  if (normalized === "ONLINE_SUBSCRIPTION") return "Online Subscription";
+  if (normalized === "OFFLINE_SUBSCRIPTION") return "Offline Subscription";
+  if (normalized === "RECURRING") return "Renewal";
+
+  return "Onetime";
 }
 
 function toRow(item: any, index: number): MemberTypeRow {
@@ -75,8 +105,8 @@ function toRow(item: any, index: number): MemberTypeRow {
 
   return {
     uid: String(item.uid ?? item.id ?? index),
-    name: String(item.name ?? `Subscription Type ${index + 1}`),
-    subscriptionType: String(item.subscriptionType ?? "ONE_TIME"),
+    name: String(item.displayName ?? item.name ?? `Subscription Type ${index + 1}`),
+    subscriptionType: String(item.subscriptionType ?? "ONLINE_SUBSCRIPTION"),
     subscriptionAmount: Number(item.subscriptionAmount ?? 0),
     labels: activeLabels,
     status: String(item.subtypeStatus ?? item.status ?? "Disabled"),
@@ -126,17 +156,7 @@ export function MemberTypeList() {
     [appliedSearchQuery, page, pageSize, statusFilter, subscriptionTypeFilter]
   );
 
-  const countFilters = useMemo(
-    () => ({
-      ...(appliedSearchQuery ? { "name-like": appliedSearchQuery } : {}),
-      ...(subscriptionTypeFilter !== "all" ? { "subscriptionType-eq": subscriptionTypeFilter } : {}),
-      ...(statusFilter !== "all" ? { "status-eq": statusFilter } : {}),
-    }),
-    [appliedSearchQuery, statusFilter, subscriptionTypeFilter]
-  );
-
   const memberTypesQuery = useMemberTypes(filters);
-  const memberTypeCountQuery = useMemberTypeCount(countFilters);
   const labelsQuery = useLabelList();
   const changeStatusMutation = useChangeMemberTypeStatus();
   const addLabelsMutation = useAddLabeltoTypes();
@@ -145,7 +165,7 @@ export function MemberTypeList() {
     () => unwrapList(memberTypesQuery.data).map(toRow),
     [memberTypesQuery.data]
   );
-  const total = unwrapCount(memberTypeCountQuery.data) || rows.length;
+  const total = unwrapCount(memberTypesQuery.data) || rows.length;
   const labelOptions = useMemo(() => toLabelOptions(labelsQuery.data), [labelsQuery.data]);
 
   function openLabelDialog(row: MemberTypeRow) {
@@ -163,7 +183,7 @@ export function MemberTypeList() {
   async function handleStatusChange(uid: string, statusId: string) {
     try {
       await changeStatusMutation.mutateAsync({ uid, statusId });
-      await Promise.all([memberTypesQuery.refetch(), memberTypeCountQuery.refetch()]);
+      await memberTypesQuery.refetch();
     } catch {
       // no-op; keep current page stable
     }
@@ -322,8 +342,8 @@ export function MemberTypeList() {
                   className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
                 >
                   <option value="all">All</option>
-                  <option value="ONE_TIME">Onetime</option>
-                  <option value="RECURRING">Renewal</option>
+                  <option value="ONLINE_SUBSCRIPTION">Online Subscription</option>
+                  <option value="OFFLINE_SUBSCRIPTION">Offline Subscription</option>
                 </select>
               </div>
               <div className="flex items-center gap-2">
@@ -350,7 +370,7 @@ export function MemberTypeList() {
             data={rows}
             columns={columns}
             getRowId={(row) => row.uid}
-            loading={memberTypesQuery.isLoading || memberTypeCountQuery.isLoading}
+            loading={memberTypesQuery.isLoading}
             onRowClick={(row) => window.location.assign(`${basePath}/memberType/update/${row.uid}`)}
             pagination={{
               page,

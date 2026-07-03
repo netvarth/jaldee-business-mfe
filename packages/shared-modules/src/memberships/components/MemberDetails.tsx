@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   Alert,
   Button,
+  Checkbox,
   DataTable,
   Dialog,
   DialogFooter,
@@ -24,10 +25,12 @@ import {
   useAllMemberServicesCount,
   useAllMemberSubscriptions,
   useAllMemberSubscriptionsCount,
+  useAssignService,
   useChangeMemberSubscriptionStatus,
   useMemberDetailsByUid,
   useMemberServiceQuestionaire,
   useMemberTypes,
+  useServices,
   useSubmitQuestionnaire,
 } from "../queries/memberships";
 
@@ -67,11 +70,37 @@ function unwrapPayload<T>(value: T): any {
 
 function unwrapList(value: unknown): any[] {
   const payload = unwrapPayload(value);
-  return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.content)) {
+    return payload.content;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  return [];
 }
 
 function unwrapCount(value: unknown) {
-  return Number(unwrapPayload(value)) || 0;
+  const payload = unwrapPayload(value);
+
+  if (typeof payload === "number") {
+    return payload;
+  }
+
+  const total =
+    payload?.page?.totalElements ??
+    payload?.page?.total ??
+    payload?.totalElements ??
+    payload?.total ??
+    payload?.count;
+
+  return Number(total) || 0;
 }
 
 function formatDate(value: unknown) {
@@ -117,15 +146,20 @@ function getSubscriptionStatusLabel(status: string) {
 }
 
 function getSubscriptionStatusOptions(status: string) {
-  const current = getSubscriptionStatusLabel(status);
-  if (current === "Active") return [{ value: "Inactive", label: "Inactive" }];
-  if (current === "Pending") {
+  const normalized = String(status ?? "").trim().toUpperCase();
+
+  if (normalized === "ENABLED" || normalized === "ACTIVE") {
+    return [{ value: "Disabled", label: "Inactive" }];
+  }
+
+  if (normalized === "PENDING") {
     return [
-      { value: "Active", label: "Active" },
-      { value: "Inactive", label: "Inactive" },
+      { value: "Enabled", label: "Active" },
+      { value: "Disabled", label: "Inactive" },
     ];
   }
-  return [{ value: "Active", label: "Active" }];
+
+  return [{ value: "Enabled", label: "Active" }];
 }
 
 function renderInfo(label: string, value: ReactNode) {
@@ -143,6 +177,7 @@ function toSubscriptionRows(data: unknown): SubscriptionRow[] {
   return unwrapList(data).map((subscription: any, index: number) => ({
     uid: String(subscription.uid ?? subscription.id ?? index),
     name: String(
+      subscription.subscriptionTypeName ??
       subscription.subscriptionName ??
         subscription.memberSubscriptionType?.name ??
         subscription.name ??
@@ -160,8 +195,8 @@ function toSubscriptionRows(data: unknown): SubscriptionRow[] {
         subscription.subscriptionAmount ??
         0
     ),
-    validFrom: formatDate(subscription.validFrom ?? subscription.startDate ?? subscription.createdDate),
-    validTo: formatDate(subscription.validTo ?? subscription.expiryDate ?? subscription.endDate),
+    validFrom: formatDate(subscription.validityPeriodFrom ?? subscription.validFrom ?? subscription.startDate ?? subscription.createdDate),
+    validTo: formatDate(subscription.validityPeriodTo ?? subscription.validTo ?? subscription.expiryDate ?? subscription.endDate),
     status: String(subscription.status ?? subscription.memberStatus ?? "Pending"),
   }));
 }
@@ -202,7 +237,18 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
   const changeSubscriptionStatusMutation = useChangeMemberSubscriptionStatus();
   const addSubscriptionMutation = useAddNewServiceType();
   const submitQuestionnaireMutation = useSubmitQuestionnaire();
-  const memberTypesQuery = useMemberTypes({ "status-eq": "Enabled" });
+  const memberDetails = useMemo(() => unwrapPayload(memberDetailsQuery.data), [memberDetailsQuery.data]);
+  const memberInternalId = String(
+    memberDetails?.id ??
+    memberDetails?.memberId ??
+    memberDetails?.member?.id ??
+    memberId ??
+    ""
+  );
+  const memberTypesQuery = useMemberTypes({
+    "status-eq": "Enabled",
+    ...(memberInternalId ? { "member-eq": memberInternalId } : {}),
+  });
 
   const {
     page: subscriptionPage,
@@ -223,7 +269,10 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
   const [addSubscriptionError, setAddSubscriptionError] = useState<string | null>(null);
   const [questionnaireState, setQuestionnaireState] = useState<QuestionnaireFormState | null>(null);
 
-  const memberDetails = useMemo(() => unwrapPayload(memberDetailsQuery.data), [memberDetailsQuery.data]);
+  const [assignServiceOpen, setAssignServiceOpen] = useState(false);
+  const [selectedServiceUids, setSelectedServiceUids] = useState<string[]>([]);
+  const [assignServiceError, setAssignServiceError] = useState<string | null>(null);
+
   const memberTypes = useMemo(() => unwrapList(memberTypesQuery.data), [memberTypesQuery.data]);
   const selectedSubscriptionType = useMemo(
     () => memberTypes.find((type: any) => String(type.uid) === selectedSubscriptionTypeUid),
@@ -234,8 +283,6 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
     () => unwrapPayload(questionnaireQuery.data) as QuestionnaireDefinition | null,
     [questionnaireQuery.data]
   );
-
-  const memberInternalId = String(memberDetails?.id ?? "");
 
   const subscriptionsQuery = useAllMemberSubscriptions(
     memberInternalId
@@ -255,6 +302,29 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
     servicePageSize
   );
   const servicesCountQuery = useAllMemberServicesCount(memberInternalId);
+
+  const assignServiceMutation = useAssignService();
+  const allServicesQuery = useServices({ from: 0, count: 500 });
+  const allAssignedServicesQuery = useAllMemberServices(memberInternalId, 0, 500);
+
+  const assignedServiceUids = useMemo(() => {
+    const list = unwrapList(allAssignedServicesQuery.data);
+    return new Set(list.map((s: any) => String(s.uid ?? s.id ?? "")));
+  }, [allAssignedServicesQuery.data]);
+
+  const serviceOptions = useMemo(() => {
+    const list = unwrapList(allServicesQuery.data);
+    return list
+      .filter((s: any) => {
+        const status = String(s.status ?? "").trim().toUpperCase();
+        return status === "ACTIVE" || status === "ENABLED";
+      })
+      .map((s: any) => ({
+        id: String(s.uid ?? s.id ?? ""),
+        name: String(s.serviceName ?? s.name ?? "Unnamed Service"),
+        description: s.serviceCategory?.categoryName || s.serviceCategory?.name || "",
+      }));
+  }, [allServicesQuery.data]);
 
   const subscriptions = useMemo(() => toSubscriptionRows(subscriptionsQuery.data), [subscriptionsQuery.data]);
   const services = useMemo(() => toServiceRows(servicesQuery.data), [servicesQuery.data]);
@@ -387,7 +457,7 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
       setAddSubscriptionError(null);
       const createdSubscription = await addSubscriptionMutation.mutateAsync({
         member: { uid: memberId },
-        memberSubscriptionType: { uid: selectedSubscriptionTypeUid },
+        subscriptionTypeUid: selectedSubscriptionTypeUid,
       });
 
       const createdSubscriptionPayload = unwrapPayload(createdSubscription);
@@ -409,6 +479,31 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
     } catch (error: any) {
       setAddSubscriptionError(
         typeof error?.message === "string" ? error.message : "Unable to add subscription right now."
+      );
+    }
+  }
+
+  async function handleAssignServices() {
+    if (!selectedServiceUids.length) {
+      setAssignServiceError("Please select at least one service to assign.");
+      return;
+    }
+
+    try {
+      setAssignServiceError(null);
+      await assignServiceMutation.mutateAsync({
+        memberUid: memberInternalId || memberId,
+        serviceUids: selectedServiceUids,
+      });
+
+      await servicesQuery.refetch();
+      await servicesCountQuery.refetch();
+      await allAssignedServicesQuery.refetch();
+      setAssignServiceOpen(false);
+      setSelectedServiceUids([]);
+    } catch (error: any) {
+      setAssignServiceError(
+        typeof error?.message === "string" ? error.message : "Unable to assign services right now."
       );
     }
   }
@@ -466,9 +561,10 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
                 )}
                 {renderInfo(
                   "Whatsapp No",
-                  memberDetails?.whatsAppNum?.number
-                    ? `${memberDetails?.whatsAppNum?.countryCode ?? ""}${memberDetails.whatsAppNum.number}`
-                    : undefined
+                  memberDetails?.whatsAppNo ??
+                    (memberDetails?.whatsAppNum?.number
+                      ? `${memberDetails?.whatsAppNum?.countryCode ?? ""}${memberDetails.whatsAppNum.number}`
+                      : undefined)
                 )}
                 {renderInfo("Email", memberDetails?.email)}
                 {renderInfo(
@@ -526,7 +622,17 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
 
             <TableSection
               title="Assigned Services"
-              actions={<Button>+ Assign</Button>}
+              actions={
+                <Button
+                  onClick={() => {
+                    setAssignServiceOpen(true);
+                    setAssignServiceError(null);
+                    setSelectedServiceUids([]);
+                  }}
+                >
+                  + Assign
+                </Button>
+              }
             >
               <DataTable
                 data={services}
@@ -618,6 +724,85 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
             }
           >
             Add
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={assignServiceOpen}
+        onClose={() => {
+          setAssignServiceOpen(false);
+          setSelectedServiceUids([]);
+          setAssignServiceError(null);
+        }}
+        title="Assign Services"
+        description="Select services to assign to this member."
+        size="md"
+      >
+        <div className="space-y-4">
+          {assignServiceError ? <Alert variant="danger">{assignServiceError}</Alert> : null}
+
+          {allServicesQuery.isLoading ? (
+            <div className="text-sm text-slate-500">Loading services...</div>
+          ) : serviceOptions.length ? (
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              {serviceOptions.map((service) => {
+                const isAssigned = assignedServiceUids.has(service.id);
+                const isChecked = selectedServiceUids.includes(service.id);
+
+                return (
+                  <div key={service.id} className="rounded-xl border border-slate-200 px-4 py-3">
+                    <Checkbox
+                      checked={isAssigned || isChecked}
+                      disabled={isAssigned}
+                      onChange={(event) => {
+                        const nextChecked = event.currentTarget.checked;
+                        setSelectedServiceUids((current) =>
+                          nextChecked
+                            ? [...current, service.id]
+                            : current.filter((id) => id !== service.id)
+                        );
+                      }}
+                      label={
+                        <div>
+                          <div className="font-medium text-slate-900">{service.name}</div>
+                          {service.description ? (
+                            <div className="text-sm text-slate-500">{service.description}</div>
+                          ) : null}
+                          {isAssigned ? (
+                            <div className="text-xs font-medium text-emerald-600">Already assigned</div>
+                          ) : null}
+                        </div>
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              title="No services found"
+              description="No active services are available for assignment."
+            />
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setAssignServiceOpen(false);
+              setSelectedServiceUids([]);
+              setAssignServiceError(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssignServices}
+            loading={assignServiceMutation.isPending}
+            disabled={!selectedServiceUids.length}
+          >
+            Assign
           </Button>
         </DialogFooter>
       </Dialog>

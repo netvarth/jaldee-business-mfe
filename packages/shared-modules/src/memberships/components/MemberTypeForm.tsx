@@ -8,18 +8,19 @@ import {
   SectionCard,
   Select,
   Switch,
+  Textarea,
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import {
   useCreateSubType,
   useMemberTypeByUid,
   useProviderLocations,
+  useTemplates,
   useUpdateSubType,
 } from "../queries/memberships";
 import {
-  getLocationValue,
   normalizeMembershipLocations,
-  toLocationOptions,
+  unwrapList,
   unwrapPayload,
 } from "./serviceShared";
 
@@ -30,50 +31,152 @@ interface MemberTypeFormProps {
 
 type FormState = {
   name: string;
-  location: string;
-  subscriptionRequired: boolean;
-  subscriptionAmount: string;
-  subscriptionType: "ONE_TIME" | "RECURRING";
-  renewalDuration: string;
-  renewalPeriodtype: string;
-  renewalsubscriptionRequired: boolean;
-  renewalsubscriptionAmount: string;
-  autoRenewal: boolean;
-  gracePeriodIndays: string;
-  sendReminder: boolean;
+  displayName: string;
+  description: string;
+  approvalType: "Manual" | "Automatic";
   allowLogin: boolean;
+  status: "Enabled" | "Disabled";
+  templateUid: string;
+  locationId: string;
+  lifetime: boolean;
+  renewalPeriodType: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  renewalPeriodValue: string;
+  subscriptionRequired: boolean;
+  subscriptionType: "ONLINE_SUBSCRIPTION" | "OFFLINE_SUBSCRIPTION";
+  subscriptionAmount: string;
+  invoiceable: boolean;
+  gracePeriodInDays: string;
+  renewalSubscriptionRequired: boolean;
+  renewalSubscriptionAmount: string;
+  autoRenewal: boolean;
+  sendReminder: boolean;
+  remarks: string;
+  labels: Record<string, string>;
+  renewalInDays: string;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
-const DURATION_OPTIONS = [
-  { value: "InYears", label: "Years" },
-  { value: "InMonths", label: "Months" },
-  { value: "InDays", label: "Days" },
-  { value: "calendarYear", label: "Calendar Year" },
-  { value: "calendarMonth", label: "Calendar Month" },
-  { value: "calendarWeek", label: "Calendar Week" },
+const APPROVAL_OPTIONS = [
+  { value: "Automatic", label: "Automatic" },
+  { value: "Manual", label: "Manual" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "Enabled", label: "Enabled" },
+  { value: "Disabled", label: "Disabled" },
+];
+
+const RENEWAL_PERIOD_OPTIONS = [
+  { value: "DAILY", label: "Daily" },
+  { value: "WEEKLY", label: "Weekly" },
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "YEARLY", label: "Yearly" },
+];
+
+const SUBSCRIPTION_MODE_OPTIONS = [
+  { value: "ONLINE_SUBSCRIPTION", label: "Online Subscription" },
+  { value: "OFFLINE_SUBSCRIPTION", label: "Offline Subscription" },
 ];
 
 const EMPTY_FORM: FormState = {
   name: "",
-  location: "",
-  subscriptionRequired: false,
-  subscriptionAmount: "0",
-  subscriptionType: "ONE_TIME",
-  renewalDuration: "1",
-  renewalPeriodtype: "InYears",
-  renewalsubscriptionRequired: false,
-  renewalsubscriptionAmount: "0",
-  autoRenewal: false,
-  gracePeriodIndays: "0",
-  sendReminder: false,
+  displayName: "",
+  description: "",
+  approvalType: "Manual",
   allowLogin: false,
+  status: "Disabled",
+  templateUid: "",
+  locationId: "",
+  lifetime: true,
+  renewalPeriodType: "DAILY",
+  renewalPeriodValue: "1",
+  subscriptionRequired: false,
+  subscriptionType: "ONLINE_SUBSCRIPTION",
+  subscriptionAmount: "0",
+  invoiceable: true,
+  gracePeriodInDays: "0",
+  renewalSubscriptionRequired: false,
+  renewalSubscriptionAmount: "0",
+  autoRenewal: false,
+  sendReminder: false,
+  remarks: "",
+  labels: {},
+  renewalInDays: "0",
 };
 
 function toNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeLocationId(value: unknown) {
+  if (value === undefined || value === null) return "";
+  return String(value).trim();
+}
+
+function toLocationPayloadValue(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+
+  const parsed = Number(trimmed);
+  return Number.isNaN(parsed) ? trimmed : parsed;
+}
+
+function getMemberTypeLocationValue(location: any) {
+  const preferredValue =
+    location?.locationId ??
+    location?.id ??
+    location?.uid ??
+    location?.locationUid ??
+    location?.encId;
+
+  return preferredValue === undefined || preferredValue === null ? "" : String(preferredValue).trim();
+}
+
+function getMemberTypeLocationLabel(location: any) {
+  return String(
+    location?.place ??
+      location?.locationName ??
+      location?.name ??
+      location?.branchName ??
+      location?.displayName ??
+      ""
+  ).trim();
+}
+
+function normalizeStatus(value: unknown): FormState["status"] {
+  return String(value ?? "").trim().toUpperCase() === "ENABLED" ? "Enabled" : "Disabled";
+}
+
+function normalizeApprovalType(value: unknown): FormState["approvalType"] {
+  return String(value ?? "").trim().toUpperCase() === "AUTOMATIC" ? "Automatic" : "Manual";
+}
+
+function normalizeSubscriptionType(value: unknown): FormState["subscriptionType"] {
+  return String(value ?? "").trim().toUpperCase() === "OFFLINE_SUBSCRIPTION"
+    ? "OFFLINE_SUBSCRIPTION"
+    : "ONLINE_SUBSCRIPTION";
+}
+
+function normalizeRenewalPeriodType(value: unknown): FormState["renewalPeriodType"] {
+  const normalized = String(value ?? "").trim().toUpperCase();
+
+  if (
+    normalized === "DAILY" ||
+    normalized === "WEEKLY" ||
+    normalized === "MONTHLY" ||
+    normalized === "YEARLY"
+  ) {
+    return normalized;
+  }
+
+  if (normalized === "INDAYS") return "DAILY";
+  if (normalized === "INMONTHS" || normalized === "CALENDARMONTH") return "MONTHLY";
+  if (normalized === "INYEARS" || normalized === "CALENDARYEAR") return "YEARLY";
+  if (normalized === "CALENDARWEEK") return "WEEKLY";
+
+  return "DAILY";
 }
 
 export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
@@ -86,6 +189,7 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
 
   const hasContextLocations = Array.isArray(availableLocations);
   const locationsQuery = useProviderLocations({}, !hasContextLocations);
+  const templatesQuery = useTemplates({ "status-eq": "Enabled" });
   const memberTypeDetailsQuery = useMemberTypeByUid(memberTypeUid ?? "");
   const createMutation = useCreateSubType();
   const updateMutation = useUpdateSubType();
@@ -94,34 +198,73 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
     () => normalizeMembershipLocations(hasContextLocations ? availableLocations : locationsQuery.data),
     [availableLocations, hasContextLocations, locationsQuery.data]
   );
+  const templates = useMemo(() => unwrapList(templatesQuery.data), [templatesQuery.data]);
   const memberTypeDetails = useMemo(
     () => unwrapPayload(memberTypeDetailsQuery.data),
     [memberTypeDetailsQuery.data]
   );
 
   useEffect(() => {
-    if (form.location || locations.length !== 1 || isUpdate) return;
+    if (form.locationId || locations.length !== 1 || isUpdate) return;
 
-    setForm((current) => ({ ...current, location: getLocationValue(locations[0]) }));
-  }, [form.location, isUpdate, locations]);
+    setForm((current) => ({ ...current, locationId: getMemberTypeLocationValue(locations[0]) }));
+  }, [form.locationId, isUpdate, locations]);
 
   useEffect(() => {
     if (!isUpdate || !memberTypeDetails) return;
 
+    const renewalPeriodValue =
+      memberTypeDetails.renewalPeriodValue ??
+      memberTypeDetails.renewalPeriod?.renewalDuration ??
+      memberTypeDetails.renewalInDays ??
+      1;
+
     setForm({
       name: String(memberTypeDetails.name ?? ""),
-      location: String(memberTypeDetails.location ?? memberTypeDetails.locationId ?? ""),
-      subscriptionRequired: Boolean(memberTypeDetails.subscriptionRequired),
-      subscriptionAmount: String(memberTypeDetails.subscriptionAmount ?? 0),
-      subscriptionType: String(memberTypeDetails.subscriptionType ?? "ONE_TIME").toUpperCase() === "RECURRING" ? "RECURRING" : "ONE_TIME",
-      renewalDuration: String(memberTypeDetails.renewalPeriod?.renewalDuration ?? 1),
-      renewalPeriodtype: String(memberTypeDetails.renewalPeriod?.renewalPeriodtype ?? "InYears"),
-      renewalsubscriptionRequired: Boolean(memberTypeDetails.renewalsubscriptionRequired),
-      renewalsubscriptionAmount: String(memberTypeDetails.renewalsubscriptionAmount ?? 0),
-      autoRenewal: Boolean(memberTypeDetails.autoRenewal),
-      gracePeriodIndays: String(memberTypeDetails.gracePeriodIndays ?? 0),
-      sendReminder: Boolean(memberTypeDetails.sendReminder),
+      displayName: String(memberTypeDetails.displayName ?? memberTypeDetails.name ?? ""),
+      description: String(memberTypeDetails.description ?? ""),
+      approvalType: normalizeApprovalType(memberTypeDetails.approvalType),
       allowLogin: Boolean(memberTypeDetails.allowLogin),
+      status: normalizeStatus(memberTypeDetails.status ?? memberTypeDetails.subtypeStatus),
+      templateUid: String(memberTypeDetails.templateUid ?? ""),
+      locationId: normalizeLocationId(memberTypeDetails.locationId ?? memberTypeDetails.location),
+      lifetime: Boolean(
+        memberTypeDetails.lifetime ??
+        memberTypeDetails.isLifetime ??
+        !memberTypeDetails.renewalPeriod
+      ),
+      renewalPeriodType: normalizeRenewalPeriodType(
+        memberTypeDetails.renewalPeriodType ?? memberTypeDetails.renewalPeriod?.renewalPeriodtype
+      ),
+      renewalPeriodValue: String(renewalPeriodValue),
+      subscriptionRequired: Boolean(memberTypeDetails.subscriptionRequired),
+      subscriptionType: normalizeSubscriptionType(memberTypeDetails.subscriptionType),
+      subscriptionAmount: String(memberTypeDetails.subscriptionAmount ?? 0),
+      invoiceable: Boolean(
+        memberTypeDetails.invoiceable === undefined ? true : memberTypeDetails.invoiceable
+      ),
+      gracePeriodInDays: String(
+        memberTypeDetails.gracePeriodInDays ??
+        memberTypeDetails.gracePeriodIndays ??
+        0
+      ),
+      renewalSubscriptionRequired: Boolean(
+        memberTypeDetails.renewalSubscriptionRequired ??
+        memberTypeDetails.renewalsubscriptionRequired
+      ),
+      renewalSubscriptionAmount: String(
+        memberTypeDetails.renewalSubscriptionAmount ??
+        memberTypeDetails.renewalsubscriptionAmount ??
+        0
+      ),
+      autoRenewal: Boolean(memberTypeDetails.autoRenewal),
+      sendReminder: Boolean(memberTypeDetails.sendReminder),
+      remarks: String(memberTypeDetails.remarks ?? ""),
+      labels:
+        memberTypeDetails.labels && typeof memberTypeDetails.labels === "object"
+          ? memberTypeDetails.labels
+          : {},
+      renewalInDays: String(memberTypeDetails.renewalInDays ?? 0),
     });
   }, [isUpdate, memberTypeDetails]);
 
@@ -135,21 +278,22 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
     const nextErrors: FormErrors = {};
 
     if (!form.name.trim()) nextErrors.name = "Subscription name is required.";
-    if (!form.location) nextErrors.location = "Location is required.";
+    if (!form.displayName.trim()) nextErrors.displayName = "Display name is required.";
+    if (!form.locationId) nextErrors.locationId = "Location is required.";
 
     if (form.subscriptionRequired && toNumber(form.subscriptionAmount) < 0) {
       nextErrors.subscriptionAmount = "Registration fee cannot be negative.";
     }
 
-    if (form.subscriptionType === "RECURRING") {
-      if (toNumber(form.renewalDuration) <= 0) {
-        nextErrors.renewalDuration = "Validity should be greater than zero.";
+    if (!form.lifetime) {
+      if (toNumber(form.renewalPeriodValue) <= 0) {
+        nextErrors.renewalPeriodValue = "Renewal period should be greater than zero.";
       }
-      if (form.renewalsubscriptionRequired && toNumber(form.renewalsubscriptionAmount) < 0) {
-        nextErrors.renewalsubscriptionAmount = "Renewal fee cannot be negative.";
+      if (form.renewalSubscriptionRequired && toNumber(form.renewalSubscriptionAmount) < 0) {
+        nextErrors.renewalSubscriptionAmount = "Renewal fee cannot be negative.";
       }
-      if (toNumber(form.gracePeriodIndays) < 0) {
-        nextErrors.gracePeriodIndays = "Grace period cannot be negative.";
+      if (toNumber(form.gracePeriodInDays) < 0) {
+        nextErrors.gracePeriodInDays = "Grace period cannot be negative.";
       }
     }
 
@@ -162,29 +306,30 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
 
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
-      location: form.location,
-      subscriptionRequired: form.subscriptionRequired,
-      subscriptionAmount: form.subscriptionRequired ? toNumber(form.subscriptionAmount) : 0,
-      subscriptionType: form.subscriptionType,
+      displayName: form.displayName.trim(),
+      description: form.description.trim() || undefined,
+      approvalType: form.approvalType,
       allowLogin: form.allowLogin,
-      subtypeStatus: "Enabled",
-      approvalType: "Automatic",
+      status: form.status,
+      templateUid: form.templateUid || undefined,
+      labels: form.labels,
+      locationId: toLocationPayloadValue(form.locationId),
+      lifetime: form.lifetime,
+      subscriptionRequired: form.subscriptionRequired,
+      subscriptionType: form.subscriptionType,
+      subscriptionAmount: form.subscriptionRequired ? toNumber(form.subscriptionAmount) : 0,
+      invoiceable: form.invoiceable,
+      gracePeriodInDays: form.lifetime ? 0 : toNumber(form.gracePeriodInDays),
+      renewalSubscriptionRequired: form.lifetime ? false : form.renewalSubscriptionRequired,
+      renewalSubscriptionAmount:
+        !form.lifetime && form.renewalSubscriptionRequired ? toNumber(form.renewalSubscriptionAmount) : 0,
+      autoRenewal: form.lifetime ? false : form.autoRenewal,
+      sendReminder: form.lifetime ? false : form.sendReminder,
+      remarks: form.remarks.trim() || undefined,
+      renewalPeriodType: form.lifetime ? undefined : form.renewalPeriodType,
+      renewalPeriodValue: form.lifetime ? 0 : toNumber(form.renewalPeriodValue),
+      renewalInDays: toNumber(form.renewalInDays) || 0,
     };
-
-    if (form.subscriptionType === "RECURRING") {
-      payload.renewalPeriod = {
-        renewalDuration: toNumber(form.renewalDuration) || 0,
-        renewalPeriodtype: form.renewalPeriodtype,
-      };
-      payload.renewalsubscriptionRequired = form.renewalsubscriptionRequired;
-      payload.renewalsubscriptionAmount = form.renewalsubscriptionRequired ? toNumber(form.renewalsubscriptionAmount) : 0;
-      payload.isLifetime = false;
-      payload.autoRenewal = form.autoRenewal;
-      payload.gracePeriodIndays = toNumber(form.gracePeriodIndays) || 0;
-      payload.sendReminder = form.sendReminder;
-    } else {
-      payload.isLifetime = true;
-    }
 
     try {
       setFormError(null);
@@ -208,13 +353,27 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
   }
 
   const locationOptions = useMemo(
-    () => toLocationOptions(locations),
+    () =>
+      locations.map((location: any) => ({
+        value: getMemberTypeLocationValue(location),
+        label: getMemberTypeLocationLabel(location),
+      })),
     [locations]
+  );
+  const templateOptions = useMemo(
+    () => [
+      { value: "", label: "Select template" },
+      ...templates.map((template: any) => ({
+        value: String(template.uid ?? ""),
+        label: String(template.templateName ?? template.name ?? template.uid ?? "Unnamed template"),
+      })),
+    ],
+    [templates]
   );
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
   const isLoadingInitial = isUpdate && memberTypeDetailsQuery.isLoading;
-  const showRenewalInputs = form.subscriptionType === "RECURRING";
+  const showRenewalInputs = !form.lifetime;
 
   return (
     <div className="space-y-6">
@@ -238,15 +397,60 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
               required
             />
 
+            <Input
+              label="Display Name"
+              value={form.displayName}
+              onChange={(event) => setField("displayName", event.target.value)}
+              error={errors.displayName}
+              disabled={isLoadingInitial}
+              required
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <Select
               label="Location"
-              value={form.location}
-              onChange={(event) => setField("location", event.target.value)}
+              value={form.locationId}
+              onChange={(event) => setField("locationId", event.target.value)}
               options={locationOptions}
               placeholder="Select location"
-              error={errors.location}
+              error={errors.locationId}
               disabled={isLoadingInitial || isUpdate}
               required
+            />
+
+            <Select
+              label="Template"
+              value={form.templateUid}
+              onChange={(event) => setField("templateUid", event.target.value)}
+              options={templateOptions}
+              disabled={isLoadingInitial}
+            />
+          </div>
+
+          <Textarea
+            label="Description"
+            rows={4}
+            value={form.description}
+            onChange={(event) => setField("description", event.target.value)}
+            disabled={isLoadingInitial}
+          />
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label="Approval Type"
+              value={form.approvalType}
+              onChange={(event) => setField("approvalType", event.target.value as FormState["approvalType"])}
+              options={APPROVAL_OPTIONS}
+              disabled={isLoadingInitial}
+            />
+
+            <Select
+              label="Status"
+              value={form.status}
+              onChange={(event) => setField("status", event.target.value as FormState["status"])}
+              options={STATUS_OPTIONS}
+              disabled={isLoadingInitial}
             />
           </div>
 
@@ -260,7 +464,7 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
 
             {form.subscriptionRequired ? (
               <Input
-                label="Registration Fee (₹)"
+                label="Registration Fee (Rs)"
                 type="number"
                 min="0"
                 value={form.subscriptionAmount}
@@ -271,37 +475,62 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
             ) : <div />}
           </div>
 
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label="Subscription Mode"
+              value={form.subscriptionType}
+              onChange={(event) => setField("subscriptionType", event.target.value as FormState["subscriptionType"])}
+              options={SUBSCRIPTION_MODE_OPTIONS}
+              disabled={isLoadingInitial}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Switch
+                label="Invoiceable"
+                checked={form.invoiceable}
+                onChange={(checked) => setField("invoiceable", checked)}
+                disabled={isLoadingInitial}
+              />
+              <Switch
+                label="Allow Login"
+                checked={form.allowLogin}
+                onChange={(checked) => setField("allowLogin", checked)}
+                disabled={isLoadingInitial}
+              />
+            </div>
+          </div>
+
           <RadioGroup
-            label="Registration Type"
-            name="subscriptionType"
-            value={form.subscriptionType}
-            onChange={(value) => setField("subscriptionType", value as FormState["subscriptionType"])}
+            label="Membership Duration"
+            name="membershipDuration"
+            value={form.lifetime ? "LIFETIME" : "RENEWAL"}
+            onChange={(value) => setField("lifetime", value === "LIFETIME")}
             options={[
-              { value: "ONE_TIME", label: "Onetime" },
-              { value: "RECURRING", label: "Renewal" },
+              { value: "LIFETIME", label: "Lifetime" },
+              { value: "RENEWAL", label: "Renewal" },
             ]}
           />
 
           {showRenewalInputs ? (
             <div className="space-y-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <div className="text-sm font-semibold text-slate-900">Renew Membership Registration</div>
+              <div className="text-sm font-semibold text-slate-900">Renewal Settings</div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Input
-                  label="Validity"
+                  label="Renewal Period Value"
                   type="number"
                   min="1"
-                  value={form.renewalDuration}
-                  onChange={(event) => setField("renewalDuration", event.target.value)}
-                  error={errors.renewalDuration}
+                  value={form.renewalPeriodValue}
+                  onChange={(event) => setField("renewalPeriodValue", event.target.value)}
+                  error={errors.renewalPeriodValue}
                   disabled={isLoadingInitial}
                 />
 
                 <Select
-                  label="Duration"
-                  value={form.renewalPeriodtype}
-                  onChange={(event) => setField("renewalPeriodtype", event.target.value)}
-                  options={DURATION_OPTIONS}
+                  label="Renewal Period Type"
+                  value={form.renewalPeriodType}
+                  onChange={(event) => setField("renewalPeriodType", event.target.value as FormState["renewalPeriodType"])}
+                  options={RENEWAL_PERIOD_OPTIONS}
                   disabled={isLoadingInitial}
                 />
               </div>
@@ -309,19 +538,19 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
               <div className="grid gap-4 md:grid-cols-2">
                 <Switch
                   label="Renewal Fee Required"
-                  checked={form.renewalsubscriptionRequired}
-                  onChange={(checked) => setField("renewalsubscriptionRequired", checked)}
+                  checked={form.renewalSubscriptionRequired}
+                  onChange={(checked) => setField("renewalSubscriptionRequired", checked)}
                   disabled={isLoadingInitial}
                 />
 
-                {form.renewalsubscriptionRequired ? (
+                {form.renewalSubscriptionRequired ? (
                   <Input
-                    label="Renewal Fee (₹)"
+                    label="Renewal Fee (Rs)"
                     type="number"
                     min="0"
-                    value={form.renewalsubscriptionAmount}
-                    onChange={(event) => setField("renewalsubscriptionAmount", event.target.value)}
-                    error={errors.renewalsubscriptionAmount}
+                    value={form.renewalSubscriptionAmount}
+                    onChange={(event) => setField("renewalSubscriptionAmount", event.target.value)}
+                    error={errors.renewalSubscriptionAmount}
                     disabled={isLoadingInitial}
                   />
                 ) : <div />}
@@ -329,37 +558,47 @@ export function MemberTypeForm({ source, memberTypeUid }: MemberTypeFormProps) {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Input
-                  label="Grace Period (In-days)"
+                  label="Grace Period (Days)"
                   type="number"
                   min="0"
-                  value={form.gracePeriodIndays}
-                  onChange={(event) => setField("gracePeriodIndays", event.target.value)}
-                  error={errors.gracePeriodIndays}
+                  value={form.gracePeriodInDays}
+                  onChange={(event) => setField("gracePeriodInDays", event.target.value)}
+                  error={errors.gracePeriodInDays}
                   disabled={isLoadingInitial}
                 />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Switch
-                    label="Auto Renewal"
-                    checked={form.autoRenewal}
-                    onChange={(checked) => setField("autoRenewal", checked)}
-                    disabled={isLoadingInitial}
-                  />
-                  <Switch
-                    label="Send Reminder"
-                    checked={form.sendReminder}
-                    onChange={(checked) => setField("sendReminder", checked)}
-                    disabled={isLoadingInitial}
-                  />
-                </div>
+                <Input
+                  label="Renewal In Days"
+                  type="number"
+                  min="0"
+                  value={form.renewalInDays}
+                  onChange={(event) => setField("renewalInDays", event.target.value)}
+                  disabled={isLoadingInitial}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Switch
+                  label="Auto Renewal"
+                  checked={form.autoRenewal}
+                  onChange={(checked) => setField("autoRenewal", checked)}
+                  disabled={isLoadingInitial}
+                />
+                <Switch
+                  label="Send Reminder"
+                  checked={form.sendReminder}
+                  onChange={(checked) => setField("sendReminder", checked)}
+                  disabled={isLoadingInitial}
+                />
               </div>
             </div>
           ) : null}
 
-          <Switch
-            label="Allow Login"
-            checked={form.allowLogin}
-            onChange={(checked) => setField("allowLogin", checked)}
+          <Textarea
+            label="Remarks"
+            rows={4}
+            value={form.remarks}
+            onChange={(event) => setField("remarks", event.target.value)}
             disabled={isLoadingInitial}
           />
 

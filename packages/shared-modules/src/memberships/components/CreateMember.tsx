@@ -8,6 +8,7 @@ import {
   PhoneInput,
   SectionCard,
   Select,
+  Textarea,
 } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { useLeadByUid } from "../../leads/queries/leads";
@@ -24,9 +25,8 @@ import {
   useVideoaudioS3UploadStatusUpdate,
 } from "../queries/memberships";
 import {
-  getLocationValue,
   normalizeMembershipLocations,
-  toLocationOptions,
+  toInputDate,
   unwrapList,
   unwrapPayload,
 } from "./serviceShared";
@@ -37,10 +37,17 @@ interface CreateMemberProps {
 }
 
 type MemberFormState = {
+  source: "LEAD" | "WALKIN" | "OTHER";
+  referredBy: string;
   salutation: string;
   firstName: string;
   lastName: string;
   memberCustomId: string;
+  address: string;
+  gender: "Male" | "Female" | "Other" | "";
+  dob: string;
+  state: string;
+  district: string;
   countryCode: string;
   phoneNo: string;
   whatsAppCountryCode: string;
@@ -49,6 +56,10 @@ type MemberFormState = {
   memberSubscriptionType: string;
   location: string;
   templateSchemaId: string;
+  approvalStatus: "Approved" | "Pending" | "Rejected";
+  status: "Enabled" | "Disabled";
+  channel: "Walkin" | "Online" | "Referral";
+  remarks: string;
 };
 
 type FormErrors = Partial<Record<keyof MemberFormState, string>>;
@@ -61,11 +72,48 @@ const SALUTATION_OPTIONS = [
   { value: "Dr", label: "Dr" },
 ];
 
+const GENDER_OPTIONS = [
+  { value: "", label: "Select" },
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" },
+  { value: "Other", label: "Other" },
+];
+
+const SOURCE_OPTIONS = [
+  { value: "LEAD", label: "Lead" },
+  { value: "WALKIN", label: "Walkin" },
+  { value: "OTHER", label: "Other" },
+];
+
+const APPROVAL_STATUS_OPTIONS = [
+  { value: "Pending", label: "Pending" },
+  { value: "Approved", label: "Approved" },
+  { value: "Rejected", label: "Rejected" },
+];
+
+const MEMBER_STATUS_OPTIONS = [
+  { value: "Enabled", label: "Enabled" },
+  { value: "Disabled", label: "Disabled" },
+];
+
+const CHANNEL_OPTIONS = [
+  { value: "Walkin", label: "Walkin" },
+  { value: "Online", label: "Online" },
+  { value: "Referral", label: "Referral" },
+];
+
 const EMPTY_FORM: MemberFormState = {
+  source: "LEAD",
+  referredBy: "",
   salutation: "",
   firstName: "",
   lastName: "",
   memberCustomId: "",
+  address: "",
+  gender: "",
+  dob: "",
+  state: "",
+  district: "",
   countryCode: "+91",
   phoneNo: "",
   whatsAppCountryCode: "+91",
@@ -74,10 +122,50 @@ const EMPTY_FORM: MemberFormState = {
   memberSubscriptionType: "",
   location: "",
   templateSchemaId: "",
+  approvalStatus: "Pending",
+  status: "Disabled",
+  channel: "Walkin",
+  remarks: "",
 };
 
-function trimPhone(value: string) {
-  return value.replace(/[^\d]/g, "");
+function asString(value: unknown) {
+  return typeof value === "string" ? value : String(value ?? "");
+}
+
+function trimPhone(value: unknown) {
+  return asString(value).replace(/[^\d]/g, "");
+}
+
+function formatPhoneWithCountryCode(countryCode: unknown, phoneNo: unknown) {
+  const normalizedCountryCodeValue = asString(countryCode).trim();
+  const normalizedCountryCode = normalizedCountryCodeValue.startsWith("+")
+    ? normalizedCountryCodeValue
+    : `+${trimPhone(normalizedCountryCodeValue)}`;
+
+  return `${normalizedCountryCode}${trimPhone(phoneNo)}`;
+}
+
+function splitPhoneNumber(value: unknown, fallbackCountryCode = "+91") {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return { countryCode: fallbackCountryCode, number: "" };
+  }
+
+  if (!raw.startsWith("+")) {
+    return { countryCode: fallbackCountryCode, number: trimPhone(raw) };
+  }
+
+  const digits = trimPhone(raw);
+  const fallbackDigits = trimPhone(fallbackCountryCode);
+
+  if (fallbackDigits && digits.startsWith(fallbackDigits) && digits.length > fallbackDigits.length) {
+    return {
+      countryCode: fallbackCountryCode.startsWith("+") ? fallbackCountryCode : `+${fallbackDigits}`,
+      number: digits.slice(fallbackDigits.length),
+    };
+  }
+
+  return { countryCode: fallbackCountryCode, number: digits };
 }
 
 function getFileExtension(file: File) {
@@ -95,6 +183,28 @@ function buildLeadReturnPath(basePath: string, leadUid: string) {
   if (!leadUid) return null;
   const leadsBasePath = basePath.replace(/\/memberships$/, "/leads");
   return `${leadsBasePath}/details/${encodeURIComponent(leadUid)}`;
+}
+
+function getMemberLocationValue(location: any) {
+  const preferredValue =
+    location?.locationId ??
+    location?.id ??
+    location?.uid ??
+    location?.locationUid ??
+    location?.encId;
+
+  return preferredValue === undefined || preferredValue === null ? "" : String(preferredValue).trim();
+}
+
+function getMemberLocationLabel(location: any) {
+  return String(
+    location?.place ??
+      location?.locationName ??
+      location?.name ??
+      location?.branchName ??
+      location?.displayName ??
+      ""
+  ).trim();
 }
 
 export function CreateMember({ source, memberId }: CreateMemberProps) {
@@ -156,27 +266,50 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
   useEffect(() => {
     if (!memberId || !isUpdate || !memberDetails) return;
 
+    const primaryPhone = splitPhoneNumber(memberDetails.phoneNo, String(memberDetails.countryCode ?? "+91"));
+    const whatsAppPhone = splitPhoneNumber(
+      memberDetails.whatsAppNo ?? memberDetails.whatsAppNum?.number,
+      String(memberDetails.countryCode ?? "+91")
+    );
+
     setForm({
+      source: String(memberDetails.source ?? "LEAD").toUpperCase() as MemberFormState["source"],
+      referredBy: String(memberDetails.referredBy ?? ""),
       salutation: String(memberDetails.salutation ?? ""),
       firstName: String(memberDetails.firstName ?? ""),
       lastName: String(memberDetails.lastName ?? ""),
       memberCustomId: String(memberDetails.memberCustomId ?? ""),
-      countryCode: String(memberDetails.countryCode ?? "+91"),
-      phoneNo: String(memberDetails.phoneNo ?? ""),
-      whatsAppCountryCode: String(memberDetails.whatsAppNum?.countryCode ?? memberDetails.countryCode ?? "+91"),
-      whatsAppNo: String(memberDetails.whatsAppNum?.number ?? ""),
+      address: String(memberDetails.address ?? ""),
+      gender: String(memberDetails.gender ?? "") as MemberFormState["gender"],
+      dob: toInputDate(memberDetails.dob),
+      state: String(memberDetails.state ?? ""),
+      district: String(memberDetails.district ?? ""),
+      countryCode: primaryPhone.countryCode,
+      phoneNo: primaryPhone.number,
+      whatsAppCountryCode: whatsAppPhone.countryCode,
+      whatsAppNo: whatsAppPhone.number,
       email: String(memberDetails.email ?? ""),
-      memberSubscriptionType: String(memberDetails.memberSubscriptionType?.uid ?? ""),
+      memberSubscriptionType: String(
+        memberDetails.subscriptionTypeUid ??
+        memberDetails.memberSubscriptionType?.uid ??
+        ""
+      ),
       location: String(memberDetails.locationId ?? ""),
       templateSchemaId: String(memberDetails.templateUid ?? ""),
+      approvalStatus: String(memberDetails.approvalStatus ?? "Pending") as MemberFormState["approvalStatus"],
+      status: String(memberDetails.status ?? "Disabled") as MemberFormState["status"],
+      channel: String(memberDetails.channel ?? "Walkin") as MemberFormState["channel"],
+      remarks: String(memberDetails.remarks ?? ""),
     });
 
-    const existingPhoto = Array.isArray(memberDetails.photos)
-      ? memberDetails.photos.find((photo: any) => photo?.s3path)
-      : null;
+    const existingPhoto = Array.isArray(memberDetails.photos) ? memberDetails.photos[0] : null;
+    const existingPhotoUrl =
+      typeof existingPhoto === "string"
+        ? existingPhoto
+        : String(existingPhoto?.s3path ?? "");
 
-    if (existingPhoto?.s3path) {
-      setPhotoPreviewUrl(String(existingPhoto.s3path));
+    if (existingPhotoUrl) {
+      setPhotoPreviewUrl(existingPhotoUrl);
     }
   }, [isUpdate, memberDetails, memberId]);
 
@@ -185,8 +318,11 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
     setForm((current) => ({
       ...current,
+      source: String(leadDetails.source ?? current.source).toUpperCase() as MemberFormState["source"],
+      referredBy: String(leadDetails.referredBy ?? current.referredBy),
       firstName: String(leadDetails.consumerFirstName ?? leadDetails.firstName ?? current.firstName),
       lastName: String(leadDetails.consumerLastName ?? leadDetails.lastName ?? current.lastName),
+      address: String(leadDetails.address ?? current.address),
       countryCode: String(leadDetails.consumerCountryCode ?? current.countryCode),
       phoneNo: String(leadDetails.consumerPhone ?? current.phoneNo),
       email: String(leadDetails.consumerEmail ?? leadDetails.email ?? current.email),
@@ -201,7 +337,7 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
     setForm((current) => ({
       ...current,
-      location: getLocationValue(locations[0]),
+      location: getMemberLocationValue(locations[0]),
     }));
   }, [form.location, locations]);
 
@@ -222,13 +358,13 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
   function validateForm() {
     const nextErrors: FormErrors = {};
 
-    if (!form.firstName.trim()) nextErrors.firstName = "First name is required.";
-    if (!form.lastName.trim()) nextErrors.lastName = "Last name is required.";
+    if (!asString(form.firstName).trim()) nextErrors.firstName = "First name is required.";
+    if (!asString(form.lastName).trim()) nextErrors.lastName = "Last name is required.";
     if (!trimPhone(form.phoneNo)) nextErrors.phoneNo = "Phone number is required.";
     if (!form.memberSubscriptionType) nextErrors.memberSubscriptionType = "Subscription type is required.";
     if (!form.location) nextErrors.location = "Location is required.";
 
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    if (asString(form.email).trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(asString(form.email).trim())) {
       nextErrors.email = "Enter a valid email address.";
     }
 
@@ -277,22 +413,30 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
       setFormError(null);
       const uploadedPhotos = await uploadPhotoIfPresent();
       const payload: Record<string, unknown> = {
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
+        source: form.source,
+        referredBy: asString(form.referredBy).trim() || undefined,
+        firstName: asString(form.firstName).trim(),
+        lastName: asString(form.lastName).trim(),
+        address: asString(form.address).trim() || undefined,
+        gender: form.gender || undefined,
+        dob: form.dob || undefined,
+        state: asString(form.state).trim() || undefined,
+        district: asString(form.district).trim() || undefined,
         countryCode: form.countryCode,
-        phoneNo: trimPhone(form.phoneNo),
-        email: form.email.trim() || undefined,
+        phoneNo: formatPhoneWithCountryCode(form.countryCode, form.phoneNo),
+        email: asString(form.email).trim() || undefined,
         locationId: form.location,
-        memberSubscriptionType: { uid: form.memberSubscriptionType },
+        subscriptionTypeUid: form.memberSubscriptionType,
+        approvalStatus: form.approvalStatus,
+        status: form.status,
+        channel: form.channel,
+        remarks: asString(form.remarks).trim() || undefined,
       };
 
       if (form.salutation) payload.salutation = form.salutation;
-      if (form.memberCustomId.trim()) payload.memberCustomId = form.memberCustomId.trim();
+      if (asString(form.memberCustomId).trim()) payload.memberCustomId = asString(form.memberCustomId).trim();
       if (trimPhone(form.whatsAppNo)) {
-        payload.whatsAppNum = {
-          countryCode: form.whatsAppCountryCode,
-          number: trimPhone(form.whatsAppNo),
-        };
+        payload.whatsAppNo = formatPhoneWithCountryCode(form.whatsAppCountryCode, form.whatsAppNo);
       }
       if (form.templateSchemaId) {
         payload.templateUid = form.templateSchemaId;
@@ -350,7 +494,10 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
   const locationOptions = [
     { value: "", label: "Select Location", disabled: true },
-    ...toLocationOptions(locations),
+    ...locations.map((location: any) => ({
+      value: getMemberLocationValue(location),
+      label: getMemberLocationLabel(location),
+    })),
   ];
 
   const memberTypeOptions = [
@@ -411,92 +558,191 @@ export function CreateMember({ source, memberId }: CreateMemberProps) {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
         <SectionCard title={isUpdate ? "Member Details" : "Register Member"} className="border-slate-200 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Select
-              label="Salutation"
-              value={form.salutation}
-              onChange={(event) => setField("salutation", event.target.value)}
-              options={SALUTATION_OPTIONS}
-            />
-            <div className="hidden md:block" />
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <div>
+                <h3 className="m-0 text-base font-semibold text-slate-900">Basic Details</h3>
+                <p className="mt-1 text-sm text-slate-500">Core member identity and membership assignment.</p>
+              </div>
 
-            <Input
-              label="First Name"
-              value={form.firstName}
-              onChange={(event) => setField("firstName", event.target.value)}
-              error={errors.firstName}
-              required
-            />
-            <Input
-              label="Last Name"
-              value={form.lastName}
-              onChange={(event) => setField("lastName", event.target.value)}
-              error={errors.lastName}
-              required
-            />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Select
+                  label="Source"
+                  value={form.source}
+                  onChange={(event) => setField("source", event.target.value as MemberFormState["source"])}
+                  options={SOURCE_OPTIONS}
+                />
+                <Select
+                  label="Salutation"
+                  value={form.salutation}
+                  onChange={(event) => setField("salutation", event.target.value)}
+                  options={SALUTATION_OPTIONS}
+                />
 
-            <Input
-              label="Member ID"
-              value={form.memberCustomId}
-              onChange={(event) => setField("memberCustomId", event.target.value)}
-              hint="Optional unless your backend enforces manual member IDs."
-            />
+                <Input
+                  label="Referred By"
+                  value={form.referredBy}
+                  onChange={(event) => setField("referredBy", event.target.value)}
+                />
 
-            <PhoneInput
-              label="Phone"
-              value={{ countryCode: form.countryCode, number: form.phoneNo }}
-              onChange={(phone) => {
-                setField("countryCode", phone.countryCode);
-                setField("phoneNo", phone.number);
-              }}
-              error={errors.phoneNo}
-              required
-            />
+                <Input
+                  label="Member ID"
+                  value={form.memberCustomId}
+                  onChange={(event) => setField("memberCustomId", event.target.value)}
+                  hint="Optional unless your backend enforces manual member IDs."
+                />
 
-            <PhoneInput
-              label="WhatsApp"
-              value={{ countryCode: form.whatsAppCountryCode, number: form.whatsAppNo }}
-              onChange={(phone) => {
-                setField("whatsAppCountryCode", phone.countryCode);
-                setField("whatsAppNo", phone.number);
-              }}
-              numberPlaceholder="Enter WhatsApp number"
-            />
+                <Input
+                  label="First Name"
+                  value={form.firstName}
+                  onChange={(event) => setField("firstName", event.target.value)}
+                  error={errors.firstName}
+                  required
+                />
+                <Input
+                  label="Last Name"
+                  value={form.lastName}
+                  onChange={(event) => setField("lastName", event.target.value)}
+                  error={errors.lastName}
+                  required
+                />
 
-            <Input
-              label="Email"
-              type="email"
-              value={form.email}
-              onChange={(event) => setField("email", event.target.value)}
-              error={errors.email}
-            />
+                <Select
+                  label="Gender"
+                  value={form.gender}
+                  onChange={(event) => setField("gender", event.target.value as MemberFormState["gender"])}
+                  options={GENDER_OPTIONS}
+                />
 
-            <Select
-              label="Subscription Type"
-              value={form.memberSubscriptionType}
-              onChange={(event) => setField("memberSubscriptionType", event.target.value)}
-              options={memberTypeOptions}
-              error={errors.memberSubscriptionType}
-              disabled={isUpdate}
-              required
-            />
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  value={form.dob}
+                  onChange={(event) => setField("dob", event.target.value)}
+                />
 
-            <Select
-              label="Location"
-              value={form.location}
-              onChange={(event) => setField("location", event.target.value)}
-              options={locationOptions}
-              error={errors.location}
-              disabled={isUpdate}
-              required
-            />
+                <Select
+                  label="Subscription Type"
+                  value={form.memberSubscriptionType}
+                  onChange={(event) => setField("memberSubscriptionType", event.target.value)}
+                  options={memberTypeOptions}
+                  error={errors.memberSubscriptionType}
+                  disabled={isUpdate}
+                  required
+                />
 
-            <Select
-              label="Membership Form"
-              value={form.templateSchemaId}
-              onChange={(event) => setField("templateSchemaId", event.target.value)}
-              options={templateOptions}
-            />
+                <Select
+                  label="Location"
+                  value={form.location}
+                  onChange={(event) => setField("location", event.target.value)}
+                  options={locationOptions}
+                  error={errors.location}
+                  disabled={isUpdate}
+                  required
+                />
+
+                <Select
+                  label="Membership Form"
+                  value={form.templateSchemaId}
+                  onChange={(event) => setField("templateSchemaId", event.target.value)}
+                  options={templateOptions}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="m-0 text-base font-semibold text-slate-900">Contact Information</h3>
+                <p className="mt-1 text-sm text-slate-500">Primary contact numbers and address details.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <PhoneInput
+                  label="Phone"
+                  value={{ countryCode: form.countryCode, number: form.phoneNo }}
+                  onChange={(phone) => {
+                    setField("countryCode", phone.countryCode);
+                    setField("phoneNo", phone.number);
+                  }}
+                  error={errors.phoneNo}
+                  required
+                />
+
+                <PhoneInput
+                  label="WhatsApp"
+                  value={{ countryCode: form.whatsAppCountryCode, number: form.whatsAppNo }}
+                  onChange={(phone) => {
+                    setField("whatsAppCountryCode", phone.countryCode);
+                    setField("whatsAppNo", phone.number);
+                  }}
+                  numberPlaceholder="Enter WhatsApp number"
+                />
+
+                <Input
+                  label="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setField("email", event.target.value)}
+                  error={errors.email}
+                />
+
+                <Input
+                  label="State"
+                  value={form.state}
+                  onChange={(event) => setField("state", event.target.value)}
+                />
+
+                <Input
+                  label="District"
+                  value={form.district}
+                  onChange={(event) => setField("district", event.target.value)}
+                />
+              </div>
+
+              <Textarea
+                label="Address"
+                rows={3}
+                value={form.address}
+                onChange={(event) => setField("address", event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="m-0 text-base font-semibold text-slate-900">Other Fields</h3>
+                <p className="mt-1 text-sm text-slate-500">Approval, status, channel, and additional notes.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Select
+                  label="Approval Status"
+                  value={form.approvalStatus}
+                  onChange={(event) => setField("approvalStatus", event.target.value as MemberFormState["approvalStatus"])}
+                  options={APPROVAL_STATUS_OPTIONS}
+                />
+
+                <Select
+                  label="Status"
+                  value={form.status}
+                  onChange={(event) => setField("status", event.target.value as MemberFormState["status"])}
+                  options={MEMBER_STATUS_OPTIONS}
+                />
+
+                <Select
+                  label="Channel"
+                  value={form.channel}
+                  onChange={(event) => setField("channel", event.target.value as MemberFormState["channel"])}
+                  options={CHANNEL_OPTIONS}
+                />
+              </div>
+
+              <Textarea
+                label="Remarks"
+                rows={3}
+                value={form.remarks}
+                onChange={(event) => setField("remarks", event.target.value)}
+              />
+            </div>
           </div>
 
           <div className="mt-8 flex gap-3 pt-2">
