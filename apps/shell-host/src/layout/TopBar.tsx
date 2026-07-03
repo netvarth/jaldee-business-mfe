@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Drawer } from "@jaldee/design-system";
+import { apiClient } from "@jaldee/api-client";
 import { useAuth } from "../auth/useAuth";
+import { eventBus } from "../eventBus/eventBus";
+import { buildBaseServiceUrl, BASE_SERVICE_ENDPOINTS } from "../services/serviceUrls";
 import { useShellStore } from "../store/shellStore";
+
+const USER_PROFILE_UPDATED_EVENT = "jaldee:user-profile-updated";
 
 interface TopBarProps {
   showMenuToggle?: boolean;
@@ -23,13 +28,102 @@ export default function TopBar({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [resolvedUserName, setResolvedUserName] = useState(user?.name ?? "");
+  const [resolvedUserEmail, setResolvedUserEmail] = useState(user?.email?.trim() ?? "");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const hasFetchedTenantUserDetailRef = useRef(false);
+  const tenantUserDetailRequestInFlightRef = useRef(false);
 
   useEffect(() => {
     if (isSearchOpen) {
       searchInputRef.current?.focus();
     }
   }, [isSearchOpen]);
+
+  useEffect(() => {
+    return eventBus.on(
+      USER_PROFILE_UPDATED_EVENT,
+      (payload: { userId?: string; fullName?: string; firstName?: string; lastName?: string; email?: string }) => {
+        if (payload.userId && payload.userId !== user?.id) {
+          return;
+        }
+
+        const fullName =
+          payload.fullName?.trim() ||
+          `${payload.firstName?.trim() || ""} ${payload.lastName?.trim() || ""}`.trim();
+        if (fullName) {
+          setResolvedUserName(fullName);
+        }
+
+        const email = payload.email?.trim();
+        if (email) {
+          setResolvedUserEmail(email);
+        }
+      }
+    );
+  }, [user?.id]);
+
+  useEffect(() => {
+    setResolvedUserName(user?.name ?? "");
+    setResolvedUserEmail(user?.email?.trim() ?? "");
+  }, [user?.name, user?.email]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      hasFetchedTenantUserDetailRef.current = false;
+      tenantUserDetailRequestInFlightRef.current = false;
+      return;
+    }
+
+    if (hasFetchedTenantUserDetailRef.current || tenantUserDetailRequestInFlightRef.current) {
+      return;
+    }
+
+    let active = true;
+    tenantUserDetailRequestInFlightRef.current = true;
+
+    async function loadTenantUserDetail() {
+      try {
+        const response = await apiClient.get<Record<string, unknown>>(
+          buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(user.id))
+        );
+        if (!active) return;
+
+        const detail = response.data ?? {};
+        const firstName = typeof detail.firstName === "string" ? detail.firstName.trim() : "";
+        const lastName = typeof detail.lastName === "string" ? detail.lastName.trim() : "";
+        const fullName = `${firstName} ${lastName}`.trim();
+        const fetchedName =
+          fullName ||
+          (typeof detail.name === "string" ? detail.name.trim() : "") ||
+          (typeof detail.userName === "string" ? detail.userName.trim() : "") ||
+          user.name;
+        const fetchedEmailCandidates = [
+          typeof detail.email === "string" ? detail.email.trim() : "",
+          typeof detail.primaryEmail === "string" ? detail.primaryEmail.trim() : "",
+          typeof detail.emailId === "string" ? detail.emailId.trim() : "",
+          user.email?.trim() ?? "",
+        ];
+        const fetchedEmail = fetchedEmailCandidates.find((value) => value.includes("@")) || "";
+
+        setResolvedUserName(fetchedName);
+        setResolvedUserEmail(fetchedEmail);
+        hasFetchedTenantUserDetailRef.current = true;
+      } catch {
+        if (!active) return;
+        setResolvedUserName(user.name);
+        setResolvedUserEmail(user.email?.trim() ?? "");
+      } finally {
+        tenantUserDetailRequestInFlightRef.current = false;
+      }
+    }
+
+    loadTenantUserDetail();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   if (!user || !account) return null;
 
@@ -129,7 +223,7 @@ export default function TopBar({
           title="Open account menu"
         >
           <div data-testid="topbar-user-avatar" className="topbar-user-avatar">
-            {user.name.charAt(0).toUpperCase()}
+            {resolvedUserName.charAt(0).toUpperCase()}
           </div>
 
           <div className="topbar-user-meta">
@@ -137,7 +231,7 @@ export default function TopBar({
               ADMIN
             </div>
             <div data-testid="topbar-user-fullname" className="topbar-user-name">
-              {user.name}
+              {resolvedUserName}
             </div>
           </div>
 
@@ -169,7 +263,6 @@ export default function TopBar({
               {account.name.charAt(0).toUpperCase()}
             </div>
             <h2 className="account-drawer-title">{account.name}</h2>
-            <p className="account-drawer-subtitle">{user.name}</p>
             {activeLocation && (
               <div className="account-drawer-chip">{activeLocation.name}</div>
             )}
@@ -177,11 +270,11 @@ export default function TopBar({
 
           <div className="account-drawer-card">
             <div className="account-drawer-card-avatar">
-              {user.name.charAt(0).toUpperCase()}
+              {resolvedUserName.charAt(0).toUpperCase()}
             </div>
             <div className="account-drawer-card-meta">
-              <div className="account-drawer-card-title">{user.name}</div>
-              <div className="account-drawer-card-subtitle">{user.email}</div>
+              <div className="account-drawer-card-title">{resolvedUserName}</div>
+              {resolvedUserEmail ? <div className="account-drawer-card-subtitle">{resolvedUserEmail}</div> : null}
             </div>
           </div>
 

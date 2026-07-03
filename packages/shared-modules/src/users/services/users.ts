@@ -257,6 +257,12 @@ function normalizeDetail(raw: RawRecord, digitalSignatureUrl?: string): UserDeta
   const primaryPhoneObj = raw.primaryPhoneNumber && typeof raw.primaryPhoneNumber === "object" ? (raw.primaryPhoneNumber as RawRecord) : null;
   const whatsappPhoneObj = raw.whatsappNumber && typeof raw.whatsappNumber === "object" ? (raw.whatsappNumber as RawRecord) : null;
   const telegramPhoneObj = raw.telegramNumber && typeof raw.telegramNumber === "object" ? (raw.telegramNumber as RawRecord) : null;
+  const resolvedDigitalSignatureUrl =
+    digitalSignatureUrl ||
+    asString(raw.digitalSignatureUrl) ||
+    asString(raw.digitalSignUrl) ||
+    asString(raw.signatureUrl) ||
+    asString(raw.signUrl);
 
   return {
     ...base,
@@ -272,7 +278,7 @@ function normalizeDetail(raw: RawRecord, digitalSignatureUrl?: string): UserDeta
     pinCode: asString(raw.pinCode ?? raw.postalCode) || undefined,
     departmentId: String(raw.departmentId ?? raw.deptId ?? ""),
     businessLocations: normalizeLocations(raw.businessLocations ?? raw.locations ?? raw.locationDtos ?? raw.branches),
-    digitalSignatureUrl: digitalSignatureUrl || undefined,
+    digitalSignatureUrl: resolvedDigitalSignatureUrl || undefined,
     bookingColor: asString(raw.userColour ?? raw.bookingColor ?? raw.bookingColour) || "#33009C",
     adminPrivilege: asBoolean(raw.adminPrivilege ?? raw.isadminPrivilege),
     showPatientsList: asBoolean(raw.showPatientsList),
@@ -499,26 +505,13 @@ export async function listUsers(
 
 export async function getUserDetail(api: ScopedApi, userId: string): Promise<UserDetail> {
   const detailUrl = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId));
-
-  const [detailResponse, signatureResponse] = await Promise.allSettled([
-    api.get<RawRecord>(detailUrl),
-    api.get<RawRecord | string>(buildProviderUrl(PROVIDER_ENDPOINTS.digitalSign(userId))),
-  ]);
-
+  const detailResponse = await api.get<RawRecord>(detailUrl);
   const detailRaw =
-    detailResponse.status === "fulfilled" && typeof detailResponse.value.data === "object" && detailResponse.value.data !== null
-      ? (detailResponse.value.data as RawRecord)
+    typeof detailResponse.data === "object" && detailResponse.data !== null
+      ? (detailResponse.data as RawRecord)
       : {};
 
-  const signatureUrl =
-    signatureResponse.status === "fulfilled"
-      ? typeof signatureResponse.value.data === "string"
-        ? signatureResponse.value.data
-        : asString((signatureResponse.value.data as RawRecord)?.s3path) ||
-          asString((signatureResponse.value.data as RawRecord)?.url)
-      : "";
-
-  return normalizeDetail(detailRaw, signatureUrl);
+  return normalizeDetail(detailRaw);
 }
 
 export async function listUserTeams(api: ScopedApi, status = "ACTIVE"): Promise<UserTeam[]> {
