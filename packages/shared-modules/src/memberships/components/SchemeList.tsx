@@ -5,7 +5,6 @@ import { useSharedModulesContext } from "../../context";
 import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeServiceStatus,
-  useServiceCount,
   useServices,
 } from "../queries/memberships";
 import { formatDate, getServiceStatusLabel, unwrapCount, unwrapList } from "./serviceShared";
@@ -99,13 +98,10 @@ export function SchemeList() {
   );
 
   const servicesQuery = useServices(filters);
-  const serviceCountQuery = useServiceCount(
-    appliedSearchQuery ? { "servicename-like": appliedSearchQuery } : {}
-  );
   const changeServiceStatusMutation = useChangeServiceStatus();
 
   const serviceRows = useMemo(() => toServiceRows(servicesQuery.data), [servicesQuery.data]);
-  const totalServices = unwrapCount(serviceCountQuery.data) || serviceRows.length;
+  const totalServices = unwrapCount(servicesQuery.data) || serviceRows.length;
   const noSchemeImage = assetsBaseUrl
     ? `${assetsBaseUrl.replace(/\/+$/, "")}/assets/images/membership/dashboard-actions/noscheme.png`
     : "/assets/images/membership/dashboard-actions/noscheme.png";
@@ -170,7 +166,6 @@ export function SchemeList() {
                       statusId: nextStatus,
                     });
                     await servicesQuery.refetch();
-                    await serviceCountQuery.refetch();
                   } catch (error: any) {
                     setStatusError(
                       typeof error?.message === "string"
@@ -224,7 +219,7 @@ export function SchemeList() {
         ),
       },
     ],
-    [assetsBaseUrl, basePath, changeServiceStatusMutation, noSchemeImage, serviceCountQuery, servicesQuery]
+    [assetsBaseUrl, basePath, changeServiceStatusMutation, noSchemeImage, servicesQuery]
   );
 
   if (!isServiceView) {
@@ -273,7 +268,7 @@ export function SchemeList() {
               data={serviceRows}
               columns={serviceColumns}
               getRowId={(row) => row.uid}
-              loading={servicesQuery.isLoading || serviceCountQuery.isLoading}
+              loading={servicesQuery.isLoading}
               onRowClick={(service) => window.location.assign(`${basePath}/service/servicedetails/${service.uid}`)}
               pagination={{
                 page,

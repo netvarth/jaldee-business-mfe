@@ -78,27 +78,27 @@ const membershipEndpoints = {
     update: `${MEMBERSHIP_BASE}/settings`,
   },
   serviceCategories: {
-    create: `${MEMBERSHIP_SERVICE_BASE}/service-categories`,
-    detail: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/service-categories/${encodeURIComponent(uid)}`,
-    update: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/service-categories/${encodeURIComponent(uid)}`,
-    status: (uid: string, status: string) => `${MEMBERSHIP_SERVICE_BASE}/service-categories/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
-    search: `${MEMBERSHIP_SERVICE_BASE}/service-categories/search`,
+    create: `${MEMBERSHIP_BASE}/service/categories`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/service/categories/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_BASE}/service/categories/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/service/categories/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    search: `${MEMBERSHIP_BASE}/service/categories/search`,
   },
   services: {
-    create: `${MEMBERSHIP_SERVICE_BASE}/services`,
-    detail: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}`,
-    update: (uid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}`,
-    status: (uid: string, status: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
+    create: `${MEMBERSHIP_BASE}/service`,
+    detail: (uid: string) => `${MEMBERSHIP_BASE}/service/${encodeURIComponent(uid)}`,
+    update: (uid: string) => `${MEMBERSHIP_BASE}/service/${encodeURIComponent(uid)}`,
+    status: (uid: string, status: string) => `${MEMBERSHIP_BASE}/service/${encodeURIComponent(uid)}/status/${encodeURIComponent(status)}`,
     search: `${MEMBERSHIP_BASE}/service/search`,
-    autoExpire: `${MEMBERSHIP_SERVICE_BASE}/services/auto-expire`,
-    assignGroups: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/assign-groups`,
-    assignMembers: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/assign-members`,
-    membersCount: (serviceUid: string) => `${MEMBERSHIP_SERVICE_BASE}/services/${encodeURIComponent(serviceUid)}/members/count`,
+    autoExpire: `${MEMBERSHIP_BASE}/service/auto-expire`,
+    assignGroups: (serviceUid: string) => `${MEMBERSHIP_BASE}/service/${encodeURIComponent(serviceUid)}/assign-groups`,
+    assignMembers: (serviceUid: string) => `${MEMBERSHIP_BASE}/service/${encodeURIComponent(serviceUid)}/assign-members`,
+    membersCount: (serviceUid: string) => `${MEMBERSHIP_BASE}/service/${encodeURIComponent(serviceUid)}/members/count`,
   },
   memberServices: {
-    assignServices: (memberUid: string) => `${MEMBERSHIP_SERVICE_BASE}/members/${encodeURIComponent(memberUid)}/assign-services`,
-    services: (memberUid: string) => `${MEMBERSHIP_SERVICE_BASE}/members/${encodeURIComponent(memberUid)}/services`,
-    servicesCount: (memberUid: string) => `${MEMBERSHIP_SERVICE_BASE}/members/${encodeURIComponent(memberUid)}/services/count`,
+    assignServices: (memberUid: string) => `${MEMBERSHIP_BASE}/service/members/${encodeURIComponent(memberUid)}/assign-services`,
+    services: (memberUid: string) => `${MEMBERSHIP_BASE}/service/members/${encodeURIComponent(memberUid)}/services`,
+    servicesCount: (memberUid: string) => `${MEMBERSHIP_BASE}/service/members/${encodeURIComponent(memberUid)}/services/count`,
   },
   serviceTransactions: {
     create: `${MEMBERSHIP_SERVICE_BASE}/service-transactions`,
@@ -320,17 +320,20 @@ export async function getPaymentRenewByUid(scopedApi: ScopedApi, uid: string, da
 
 export async function assignService(scopedApi: ScopedApi, data: any): Promise<any> {
   const memberUid = String(data?.memberUid ?? data?.memberId ?? data?.uid ?? "");
-  return postMembership(scopedApi, membershipEndpoints.memberServices.assignServices(memberUid), data);
+  const payload = Array.isArray(data?.serviceUids) ? data.serviceUids : Array.isArray(data) ? data : [];
+  return postMembership(scopedApi, membershipEndpoints.memberServices.assignServices(memberUid), payload);
 }
 
 export async function assignMember(scopedApi: ScopedApi, data: any): Promise<any> {
-  const serviceUid = String(data?.serviceUid ?? data?.serviceId ?? data?.uid ?? "");
-  return postMembership(scopedApi, membershipEndpoints.services.assignMembers(serviceUid), data);
+  const serviceUid = String(data?.memberService?.uid ?? data?.serviceUid ?? data?.serviceId ?? data?.uid ?? "");
+  const payload = Array.isArray(data?.memberIds) ? data.memberIds : Array.isArray(data) ? data : [];
+  return postMembership(scopedApi, membershipEndpoints.services.assignMembers(serviceUid), payload);
 }
 
 export async function assignGroupToService(scopedApi: ScopedApi, data: any): Promise<any> {
-  const serviceUid = String(data?.serviceUid ?? data?.serviceId ?? data?.uid ?? "");
-  return postMembership(scopedApi, membershipEndpoints.services.assignGroups(serviceUid), data);
+  const serviceUid = String(data?.memberService?.uid ?? data?.serviceUid ?? data?.serviceId ?? data?.uid ?? "");
+  const payload = Array.isArray(data?.groupIds) ? data.groupIds : Array.isArray(data) ? data : [];
+  return postMembership(scopedApi, membershipEndpoints.services.assignGroups(serviceUid), payload);
 }
 
 export async function getAllMemberServices(scopedApi: ScopedApi, id: string, from: number, count: number): Promise<any> {
@@ -417,7 +420,7 @@ export async function updateGroupMemberId(scopedApi: ScopedApi, body: any): Prom
 export async function getMemberships(
   scopedApi: ScopedApi,
   filters: MembershipFilters & { page: number; pageSize: number }
-): Promise<Membership[]> {
+): Promise<any> {
   const params: any = {
     from: (filters.page - 1) * filters.pageSize, // Convert page to from offset
     count: filters.pageSize,
@@ -431,7 +434,7 @@ export async function getMemberships(
     params.status = filters.status;
   }
 
-  return postMembership<Membership[]>(scopedApi, membershipEndpoints.members.search, params).then(res => res.data);
+  return postMembership(scopedApi, membershipEndpoints.members.search, params);
 }
 
 export async function getMembershipsCount(

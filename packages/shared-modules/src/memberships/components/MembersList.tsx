@@ -25,9 +25,7 @@ import {
   useCreateMemberGroup,
   useChangeMemberGroupStatus,
   useChangeMemberStatus,
-  useMemberCount,
   useMemberGroup,
-  useMemberGroupCount,
   useMembers,
 } from "../queries/memberships";
 
@@ -236,17 +234,15 @@ export function MembersList() {
     from: (membersPage - 1) * membersPageSize,
     count: membersPageSize,
   });
-  const memberCountQuery = useMemberCount(memberFilters);
   const groupsQuery = useMemberGroup();
-  const groupCountQuery = useMemberGroupCount();
   const createMemberGroupMutation = useCreateMemberGroup();
   const changeMemberStatusMutation = useChangeMemberStatus();
   const changeMemberGroupStatusMutation = useChangeMemberGroupStatus();
 
   const memberRows = useMemo(() => toMemberRows(membersQuery.data), [membersQuery.data]);
   const groupRows = useMemo(() => toGroupRows(groupsQuery.data), [groupsQuery.data]);
-  const totalMembers = unwrapCount(memberCountQuery.data);
-  const totalGroups = unwrapCount(groupCountQuery.data) || groupRows.length;
+  const totalMembers = unwrapCount(membersQuery.data) || memberRows.length;
+  const totalGroups = unwrapCount(groupsQuery.data) || groupRows.length;
 
   const visibleGroupRows = useMemo(() => {
     const start = (groupsPage - 1) * groupsPageSize;
@@ -540,7 +536,7 @@ export function MembersList() {
                 data={memberRows}
                 columns={memberColumns}
                 getRowId={(row) => row.uid}
-                loading={membersQuery.isLoading || memberCountQuery.isLoading}
+                loading={membersQuery.isLoading}
                 onRowClick={(member) => navigate(`${basePath}/members/memberdetails/${member.uid}`)}
                 pagination={{
                   page: membersPage,
@@ -574,7 +570,7 @@ export function MembersList() {
                 data={visibleGroupRows}
                 columns={groupColumns}
                 getRowId={(row) => row.uid}
-                loading={groupsQuery.isLoading || groupCountQuery.isLoading}
+                loading={groupsQuery.isLoading}
                 onRowClick={(group) => navigate(`${basePath}/members/groupdetails/${group.uid}`)}
                 pagination={{
                   page: groupsPage,

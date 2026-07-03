@@ -21,3 +21,18 @@ export interface MembershipFormValues {
   duration: number;
   status: 'active' | 'inactive';
 }
+
+export interface FormField {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string[];
+}
+
+export interface FormTemplate {
+  uid: string;
+  name: string;
+  fields: FormField[];
+  templateSchema?: unknown;
+}

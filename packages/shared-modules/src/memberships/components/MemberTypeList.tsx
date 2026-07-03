@@ -18,7 +18,6 @@ import {
   useAddLabeltoTypes,
   useChangeMemberTypeStatus,
   useLabelList,
-  useMemberTypeCount,
   useMemberTypes,
 } from "../queries/memberships";
 
@@ -157,17 +156,7 @@ export function MemberTypeList() {
     [appliedSearchQuery, page, pageSize, statusFilter, subscriptionTypeFilter]
   );
 
-  const countFilters = useMemo(
-    () => ({
-      ...(appliedSearchQuery ? { "name-like": appliedSearchQuery } : {}),
-      ...(subscriptionTypeFilter !== "all" ? { "subscriptionType-eq": subscriptionTypeFilter } : {}),
-      ...(statusFilter !== "all" ? { "status-eq": statusFilter } : {}),
-    }),
-    [appliedSearchQuery, statusFilter, subscriptionTypeFilter]
-  );
-
   const memberTypesQuery = useMemberTypes(filters);
-  const memberTypeCountQuery = useMemberTypeCount(countFilters);
   const labelsQuery = useLabelList();
   const changeStatusMutation = useChangeMemberTypeStatus();
   const addLabelsMutation = useAddLabeltoTypes();
@@ -176,7 +165,7 @@ export function MemberTypeList() {
     () => unwrapList(memberTypesQuery.data).map(toRow),
     [memberTypesQuery.data]
   );
-  const total = unwrapCount(memberTypeCountQuery.data) || rows.length;
+  const total = unwrapCount(memberTypesQuery.data) || rows.length;
   const labelOptions = useMemo(() => toLabelOptions(labelsQuery.data), [labelsQuery.data]);
 
   function openLabelDialog(row: MemberTypeRow) {
@@ -194,7 +183,7 @@ export function MemberTypeList() {
   async function handleStatusChange(uid: string, statusId: string) {
     try {
       await changeStatusMutation.mutateAsync({ uid, statusId });
-      await Promise.all([memberTypesQuery.refetch(), memberTypeCountQuery.refetch()]);
+      await memberTypesQuery.refetch();
     } catch {
       // no-op; keep current page stable
     }
@@ -381,7 +370,7 @@ export function MemberTypeList() {
             data={rows}
             columns={columns}
             getRowId={(row) => row.uid}
-            loading={memberTypesQuery.isLoading || memberTypeCountQuery.isLoading}
+            loading={memberTypesQuery.isLoading}
             onRowClick={(row) => window.location.assign(`${basePath}/memberType/update/${row.uid}`)}
             pagination={{
               page,

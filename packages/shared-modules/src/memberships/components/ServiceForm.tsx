@@ -13,6 +13,7 @@ import {
   useCreateService,
   useProviderLocations,
   useServiceByUid,
+  useServiceTypeByUid,
   useServiceTypes,
   useUpdateService,
   useUploadFilesToS3,
@@ -79,6 +80,7 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
   const locationsQuery = useProviderLocations({}, !hasContextLocations);
   const serviceTypesQuery = useServiceTypes({ "status-eq": "Enabled" });
   const serviceDetailsQuery = useServiceByUid(serviceUid ?? "");
+  const selectedCategoryQuery = useServiceTypeByUid(form.serviceCategory);
 
   const createServiceMutation = useCreateService();
   const updateServiceMutation = useUpdateService();
@@ -92,6 +94,7 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
   );
   const serviceTypes = useMemo(() => unwrapList(serviceTypesQuery.data), [serviceTypesQuery.data]);
   const serviceDetails = useMemo(() => unwrapPayload(serviceDetailsQuery.data), [serviceDetailsQuery.data]);
+  const selectedCategoryDetails = useMemo(() => unwrapPayload(selectedCategoryQuery.data), [selectedCategoryQuery.data]);
 
   useEffect(() => {
     if (!isUpdate || !serviceDetails) return;
@@ -102,8 +105,8 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
       validityStartDate: toInputDate(serviceDetails.validityStartDate ?? serviceDetails.validFrom ?? serviceDetails.startDate),
       validityEndDate: toInputDate(serviceDetails.validityEndDate ?? serviceDetails.validTo ?? serviceDetails.endDate),
       remarks: String(serviceDetails.remarks ?? ""),
-      location: String(serviceDetails.location?.id ?? serviceDetails.locationId ?? serviceDetails.location ?? ""),
-      serviceCategory: String(serviceDetails.serviceCategory?.uid ?? serviceDetails.serviceCategoryId ?? ""),
+      location: String(serviceDetails.locationUid ?? serviceDetails.location?.id ?? serviceDetails.locationId ?? serviceDetails.location ?? ""),
+      serviceCategory: String(serviceDetails.serviceCategoryUid ?? serviceDetails.serviceCategory?.uid ?? serviceDetails.serviceCategoryId ?? ""),
     });
 
     const existingImageUrl = getServiceImageUrl(serviceDetails);
@@ -194,20 +197,34 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
       setFormError(null);
 
       const uploadedImages = await uploadImageIfPresent();
+      const selectedCategory = serviceTypes.find(
+        (type: any) => String(type.uid ?? type.id ?? "") === form.serviceCategory
+      );
+
       const payload: Record<string, unknown> = {
         serviceName: form.serviceName.trim(),
         description: form.description.trim() || undefined,
-        validityStartDate: form.validityStartDate,
-        validityEndDate: form.validityEndDate,
+        validityStartDate: new Date(form.validityStartDate).toISOString(),
+        validityEndDate: new Date(form.validityEndDate).toISOString(),
+        serviceCategoryUid: form.serviceCategory,
+        serviceCategoryName: selectedCategory?.categoryName ?? selectedCategory?.name ?? "",
+        locationUid: form.location,
+        status: isUpdate ? (serviceDetails?.status ?? "Active") : "Active",
+        templateSchemaUid: selectedCategoryDetails?.templateSchemaId?.uid ??
+                           selectedCategoryDetails?.templateSchemaId ??
+                           selectedCategoryDetails?.templateSchemaUid ??
+                           selectedCategory?.templateSchemaId?.uid ??
+                           selectedCategory?.templateSchemaId ??
+                           "",
+        allSubscriptionTypesAllowed: serviceDetails?.allSubscriptionTypesAllowed ?? true,
+        subscriptionTypesAllowed: serviceDetails?.subscriptionTypesAllowed ?? [],
         remarks: form.remarks.trim() || undefined,
-        location: form.location,
-        serviceCategory: {
-          uid: form.serviceCategory,
-        },
+        groupIds: serviceDetails?.groupIds ?? [],
       };
 
       if (uploadedImages?.length) {
         payload.serviceImage = uploadedImages;
+        payload.serviceImages = uploadedImages.map((img: any) => String(img.driveId ?? ""));
       }
 
       if (isUpdate && serviceUid) {
@@ -298,18 +315,7 @@ export function ServiceForm({ source, serviceUid }: ServiceFormProps) {
               error={errors.location}
               disabled={isLoadingInitial}
             />
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-medium text-slate-900">Service Image</div>
-              {imagePreviewUrl ? (
-                <img
-                  src={imagePreviewUrl}
-                  alt=""
-                  className="mt-3 h-24 w-24 rounded-xl border border-slate-200 object-cover"
-                />
-              ) : (
-                <div className="mt-3 text-sm text-slate-500">No image selected.</div>
-              )}
-            </div>
+
           </div>
 
           <Textarea

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   Alert,
   Button,
+  Checkbox,
   DataTable,
   Dialog,
   DialogFooter,
@@ -24,10 +25,12 @@ import {
   useAllMemberServicesCount,
   useAllMemberSubscriptions,
   useAllMemberSubscriptionsCount,
+  useAssignService,
   useChangeMemberSubscriptionStatus,
   useMemberDetailsByUid,
   useMemberServiceQuestionaire,
   useMemberTypes,
+  useServices,
   useSubmitQuestionnaire,
 } from "../queries/memberships";
 
@@ -266,6 +269,10 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
   const [addSubscriptionError, setAddSubscriptionError] = useState<string | null>(null);
   const [questionnaireState, setQuestionnaireState] = useState<QuestionnaireFormState | null>(null);
 
+  const [assignServiceOpen, setAssignServiceOpen] = useState(false);
+  const [selectedServiceUids, setSelectedServiceUids] = useState<string[]>([]);
+  const [assignServiceError, setAssignServiceError] = useState<string | null>(null);
+
   const memberTypes = useMemo(() => unwrapList(memberTypesQuery.data), [memberTypesQuery.data]);
   const selectedSubscriptionType = useMemo(
     () => memberTypes.find((type: any) => String(type.uid) === selectedSubscriptionTypeUid),
@@ -295,6 +302,29 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
     servicePageSize
   );
   const servicesCountQuery = useAllMemberServicesCount(memberInternalId);
+
+  const assignServiceMutation = useAssignService();
+  const allServicesQuery = useServices({ from: 0, count: 500 });
+  const allAssignedServicesQuery = useAllMemberServices(memberInternalId, 0, 500);
+
+  const assignedServiceUids = useMemo(() => {
+    const list = unwrapList(allAssignedServicesQuery.data);
+    return new Set(list.map((s: any) => String(s.uid ?? s.id ?? "")));
+  }, [allAssignedServicesQuery.data]);
+
+  const serviceOptions = useMemo(() => {
+    const list = unwrapList(allServicesQuery.data);
+    return list
+      .filter((s: any) => {
+        const status = String(s.status ?? "").trim().toUpperCase();
+        return status === "ACTIVE" || status === "ENABLED";
+      })
+      .map((s: any) => ({
+        id: String(s.uid ?? s.id ?? ""),
+        name: String(s.serviceName ?? s.name ?? "Unnamed Service"),
+        description: s.serviceCategory?.categoryName || s.serviceCategory?.name || "",
+      }));
+  }, [allServicesQuery.data]);
 
   const subscriptions = useMemo(() => toSubscriptionRows(subscriptionsQuery.data), [subscriptionsQuery.data]);
   const services = useMemo(() => toServiceRows(servicesQuery.data), [servicesQuery.data]);
@@ -453,6 +483,31 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
     }
   }
 
+  async function handleAssignServices() {
+    if (!selectedServiceUids.length) {
+      setAssignServiceError("Please select at least one service to assign.");
+      return;
+    }
+
+    try {
+      setAssignServiceError(null);
+      await assignServiceMutation.mutateAsync({
+        memberUid: memberInternalId || memberId,
+        serviceUids: selectedServiceUids,
+      });
+
+      await servicesQuery.refetch();
+      await servicesCountQuery.refetch();
+      await allAssignedServicesQuery.refetch();
+      setAssignServiceOpen(false);
+      setSelectedServiceUids([]);
+    } catch (error: any) {
+      setAssignServiceError(
+        typeof error?.message === "string" ? error.message : "Unable to assign services right now."
+      );
+    }
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -567,7 +622,17 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
 
             <TableSection
               title="Assigned Services"
-              actions={<Button>+ Assign</Button>}
+              actions={
+                <Button
+                  onClick={() => {
+                    setAssignServiceOpen(true);
+                    setAssignServiceError(null);
+                    setSelectedServiceUids([]);
+                  }}
+                >
+                  + Assign
+                </Button>
+              }
             >
               <DataTable
                 data={services}
@@ -659,6 +724,85 @@ export function MemberDetails({ memberId }: MemberDetailsProps) {
             }
           >
             Add
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={assignServiceOpen}
+        onClose={() => {
+          setAssignServiceOpen(false);
+          setSelectedServiceUids([]);
+          setAssignServiceError(null);
+        }}
+        title="Assign Services"
+        description="Select services to assign to this member."
+        size="md"
+      >
+        <div className="space-y-4">
+          {assignServiceError ? <Alert variant="danger">{assignServiceError}</Alert> : null}
+
+          {allServicesQuery.isLoading ? (
+            <div className="text-sm text-slate-500">Loading services...</div>
+          ) : serviceOptions.length ? (
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              {serviceOptions.map((service) => {
+                const isAssigned = assignedServiceUids.has(service.id);
+                const isChecked = selectedServiceUids.includes(service.id);
+
+                return (
+                  <div key={service.id} className="rounded-xl border border-slate-200 px-4 py-3">
+                    <Checkbox
+                      checked={isAssigned || isChecked}
+                      disabled={isAssigned}
+                      onChange={(event) => {
+                        const nextChecked = event.currentTarget.checked;
+                        setSelectedServiceUids((current) =>
+                          nextChecked
+                            ? [...current, service.id]
+                            : current.filter((id) => id !== service.id)
+                        );
+                      }}
+                      label={
+                        <div>
+                          <div className="font-medium text-slate-900">{service.name}</div>
+                          {service.description ? (
+                            <div className="text-sm text-slate-500">{service.description}</div>
+                          ) : null}
+                          {isAssigned ? (
+                            <div className="text-xs font-medium text-emerald-600">Already assigned</div>
+                          ) : null}
+                        </div>
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              title="No services found"
+              description="No active services are available for assignment."
+            />
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setAssignServiceOpen(false);
+              setSelectedServiceUids([]);
+              setAssignServiceError(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssignServices}
+            loading={assignServiceMutation.isPending}
+            disabled={!selectedServiceUids.length}
+          >
+            Assign
           </Button>
         </DialogFooter>
       </Dialog>

@@ -13,7 +13,6 @@ import { useSharedModulesContext } from "../../context";
 import { useUrlPagination } from "../../useUrlPagination";
 import {
   useAllMemberSubscriptions,
-  useAllMemberSubscriptionsCount,
 } from "../queries/memberships";
 
 type PaymentRow = {
@@ -139,20 +138,10 @@ export function PaymentInfoList() {
     [appliedSearchQuery, page, pageSize, paymentStatusFilter]
   );
 
-  const countFilters = useMemo(
-    () => ({
-      "subscriptionAmountToPay-neq": 0,
-      ...(appliedSearchQuery ? { "memberName-like": appliedSearchQuery } : {}),
-      ...(paymentStatusFilter !== "all" ? { "paymentStatus-eq": paymentStatusFilter } : {}),
-    }),
-    [appliedSearchQuery, paymentStatusFilter]
-  );
-
   const paymentsQuery = useAllMemberSubscriptions(filters);
-  const paymentsCountQuery = useAllMemberSubscriptionsCount(countFilters);
 
   const paymentRows = useMemo(() => toPaymentRows(paymentsQuery.data), [paymentsQuery.data]);
-  const totalPayments = unwrapCount(paymentsCountQuery.data) || paymentRows.length;
+  const totalPayments = unwrapCount(paymentsQuery.data) || paymentRows.length;
 
   const paymentColumns = useMemo<ColumnDef<PaymentRow>[]>(
     () => [
@@ -268,7 +257,7 @@ export function PaymentInfoList() {
             data={paymentRows}
             columns={paymentColumns}
             getRowId={(row) => row.uid}
-            loading={paymentsQuery.isLoading || paymentsCountQuery.isLoading}
+            loading={paymentsQuery.isLoading}
             onRowClick={(payment) => {
               const nextUrl = new URL(`${window.location.origin}${basePath}/members/paymentdetails/${payment.memberUid}`);
               nextUrl.searchParams.set("subUid", payment.uid);

@@ -20,6 +20,8 @@ const MemberGroupDetails = lazy(() => import("./components/MemberGroupDetails").
 const ServiceForm = lazy(() => import("./components/ServiceForm").then(m => ({ default: m.ServiceForm })));
 const ServiceDetails = lazy(() => import("./components/ServiceDetails").then(m => ({ default: m.ServiceDetails })));
 const ServiceAssign = lazy(() => import("./components/ServiceAssign").then(m => ({ default: m.ServiceAssign })));
+const TemplatesScreen = lazy(() => import("./components/TemplatesScreen").then(m => ({ default: m.TemplatesScreen })));
+const TemplateBuilderScreen = lazy(() => import("./components/TemplateBuilderScreen").then(m => ({ default: m.TemplateBuilderScreen })));
 
 export function MembershipsModule() {
   const access = useModuleAccess("membership");
@@ -131,6 +133,16 @@ export function MembershipsModule() {
         return <ServiceDetails serviceUid={membershipId} />;
       }
       return <SchemeList />;
+    }
+
+    if (view === "templates") {
+      if (subview === "create") {
+        return <TemplateBuilderScreen />;
+      }
+      if (membershipId === "edit" && subview) {
+        return <TemplateBuilderScreen initialTemplateUid={subview} />;
+      }
+      return <TemplatesScreen />;
     }
 
     // Default view - membership dashboard

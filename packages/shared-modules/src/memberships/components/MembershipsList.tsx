@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button, Badge, DataTable, EmptyState } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useUrlPagination } from "../../useUrlPagination";
-import { useMembershipsList, useMembershipsCount } from "../queries/memberships";
+import { useMembershipsList } from "../queries/memberships";
 import type { Membership } from "../types";
 import { MembershipFormDialog } from "./MembershipFormDialog";
+import { unwrapCount, unwrapList } from "./serviceShared";
 
 interface MembershipsListProps {
   onSelectMembership: (membership: Membership) => void;
@@ -14,7 +15,9 @@ export function MembershipsList({ onSelectMembership }: MembershipsListProps) {
   const { page, setPage, pageSize, setPageSize } = useUrlPagination({ namespace: "membershipsList" });
   const [openCreate, setOpenCreate] = useState(false);
   const membershipsQuery = useMembershipsList({ page, pageSize });
-  const countQuery = useMembershipsCount({});
+
+  const rows = unwrapList(membershipsQuery.data);
+  const total = unwrapCount(membershipsQuery.data) || rows.length;
 
   const columns: ColumnDef<Membership>[] = [
     {
@@ -64,14 +67,14 @@ export function MembershipsList({ onSelectMembership }: MembershipsListProps) {
         <Button onClick={() => setOpenCreate(true)}>Create Membership</Button>
       </div>
       <DataTable
-        data={membershipsQuery.data || []}
+        data={rows}
         columns={columns}
         getRowId={(row) => row.id}
         loading={membershipsQuery.isLoading}
         onRowClick={onSelectMembership}
         pagination={{
           pageSize,
-          total: countQuery.data || 0,
+          total,
           page,
           onChange: setPage,
           onPageSizeChange: setPageSize,
