@@ -2,9 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { unwrapList } from "./response";
 
+const TENANT_USERS_ENDPOINT = "/base-service/v1/api/tenant/users";
+
 /** Raw user row from POST /users/search (UserDto). */
 interface UserDto {
   userUid?: string;
+  uid?: string;
+  id?: string;
   title?: string;
   firstName?: string;
   lastName?: string;
@@ -18,12 +22,22 @@ function initials(name: string): string {
   return name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
 
+function resolveUserUid(user: UserDto): string | undefined {
+  for (const candidate of [user.userUid, user.uid, user.id]) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return undefined;
+}
+
 /** Map a live UserDto into the column shape the calendar grid expects (mock-compatible). */
 function toCalendarUser(d: UserDto, i: number) {
   const name = d.displayName || `${d.firstName ?? ""} ${d.lastName ?? ""}`.trim() || "User";
+  const uid = resolveUserUid(d);
   return {
-    id: d.userUid,
-    uid: d.userUid,
+    id: uid ?? "",
+    uid: uid ?? "",
     name,
     code: initials(name),
     color: AVATAR_COLORS[i % AVATAR_COLORS.length],
@@ -42,11 +56,10 @@ export function useProviders() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.post<unknown>(
-        "/users/search",
-        {},
-        { params: { page: 0, size: 100 } },
-      );
+      const data = await api.get<unknown>(TENANT_USERS_ENDPOINT, {
+        params: { page: 0, size: 10, userStatus: "ACTIVE" },
+        _skipLocationParam: true,
+      });
       setProviders(unwrapList<UserDto>(data).map(toCalendarUser));
     } catch (e) {
       // No mock fallback — empty provider column instead of fake staff.

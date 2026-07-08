@@ -159,7 +159,7 @@ export default function CalendarList() {
         getRowId={(calendar) => calendar.uid}
         loading={loading}
         onRowClick={(calendar) =>
-          navigate("/calendars/details", { state: { calendar } })
+          navigate(`/calendars/${calendar.uid}/details`, { state: { calendar } })
         }
         pagination={{
           page,

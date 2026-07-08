@@ -24,11 +24,20 @@ const BASE_PATH =
 
 function buildBookingServiceUrl(endpoint: string) {
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  if (
+    normalizedEndpoint.startsWith("/base-service/") ||
+    normalizedEndpoint.startsWith("/booking-service/") ||
+    normalizedEndpoint.startsWith("/platform-service/")
+  ) {
+    return new URL(normalizedEndpoint, window.location.origin).toString();
+  }
   return new URL(`${BASE_PATH}${normalizedEndpoint}`, window.location.origin).toString();
 }
 
 interface BookingRequestOptions {
   params?: Record<string, string | number | boolean | undefined>;
+  _skipLocationParam?: boolean;
+  signal?: AbortSignal;
 }
 
 export function useBookingApi() {
@@ -52,6 +61,8 @@ export function useBookingApi() {
           method,
           data: body,
           params: options?.params,
+          _skipLocationParam: options?._skipLocationParam,
+          signal: options?.signal,
           timeout: TIMEOUT,
         });
 
@@ -70,8 +81,8 @@ export function useBookingApi() {
     }
 
     return {
-      get<T>(endpoint: string): Promise<T> {
-        return request<T>(endpoint, "GET");
+      get<T>(endpoint: string, options?: BookingRequestOptions): Promise<T> {
+        return request<T>(endpoint, "GET", undefined, options);
       },
       post<T>(endpoint: string, data: unknown, options?: BookingRequestOptions): Promise<T> {
         return request<T>(endpoint, "POST", data, options);

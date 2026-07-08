@@ -1,6 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCalendars } from '../../services/useCalendars';
+import {
+    useCalendars,
+    type CreateCalendarPayload,
+    type CreateSchedulePayload,
+} from '../../services/useCalendars';
+import { useServices } from '../../services/useServices';
+import { useUsers } from '../../services/useUsers';
 import { X } from 'lucide-react';
 import {
     Button,
@@ -17,25 +23,29 @@ import {
 import DualListServicesModal, { Service } from './components/DualListServicesModal';
 import DualListUsersModal, { User } from './components/DualListUsersModal';
 
-// Mock Data
-const MOCK_SERVICES: Service[] = [
-  { id: 's1', name: 'General Consultation', code: 'GEN-01' },
-  { id: 's2', name: 'Dental Cleaning', code: 'DEN-02' },
-  { id: 's3', name: 'Eye Checkup', code: 'EYE-01' },
-  { id: 's4', name: 'Physical Therapy', code: 'PHY-04' },
-  { id: 's5', name: 'Vaccination', code: 'VAC-01' }
-];
+const LOCATION_OPTIONS = [
+    { value: 'Thrissur', label: 'Thrissur', id: 1 },
+    { value: 'Kochi', label: 'Kochi', id: 2 },
+    { value: 'Bangalore', label: 'Bangalore', id: 3 },
+] as const;
 
-const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Dr. John Doe', role: 'Chief Medical Officer', avatarUrl: 'https://i.pravatar.cc/150?u=u1' },
-  { id: 'u2', name: 'Dr. Jane Smith', role: 'Senior Dentist', avatarUrl: 'https://i.pravatar.cc/150?u=u2' },
-  { id: 'u3', name: 'Alice Johnson', role: 'Physiotherapist', avatarUrl: 'https://i.pravatar.cc/150?u=u3' },
-  { id: 'u4', name: 'Bob Williams', role: 'Optometrist', avatarUrl: 'https://i.pravatar.cc/150?u=u4' }
-];
+function toBookingChannels(channels: { online: boolean; walkin: boolean; phonein: boolean }) {
+    const values: string[] = [];
+    if (channels.online) values.push('ONLINE');
+    if (channels.walkin) values.push('WALK_IN');
+    if (channels.phonein) values.push('PHONE_IN');
+    return values;
+}
+
+function withSeconds(value: string) {
+    return value.split(':').length === 2 ? `${value}:00` : value;
+}
 
 export default function CalendarWizard() {
     const navigate = useNavigate();
-    const { createCalendar } = useCalendars();
+    const { createCalendar, createSchedule } = useCalendars();
+    const { services } = useServices();
+    const { users, loading: usersLoading, error: usersError } = useUsers();
     
     const [step, setStep] = useState(1);
     
@@ -79,14 +89,91 @@ export default function CalendarWizard() {
 
     const [submitting, setSubmitting] = useState(false);
 
+    const availableServices = useMemo<Service[]>(
+        () => services.map((service) => ({
+            id: service.uid ?? service.id,
+            uid: service.uid ?? service.id,
+            name: service.name,
+            code: service.serviceType,
+        })),
+        [services],
+    );
+
+    const availableUsers = useMemo<User[]>(
+        () =>
+            users.map((user) => ({
+                id: user.userUid,
+                name: user.displayName,
+                role: user.title || user.status,
+            })),
+        [users],
+    );
+
     const handleNext = () => setStep(s => Math.min(3, s + 1));
     const handlePrev = () => setStep(s => Math.max(1, s - 1));
 
     const handleCreate = async () => {
         setSubmitting(true);
         try {
-            await createCalendar(name, description);
-            // In a real flow, we would also save the mapped services and schedules here.
+            const locationOption = LOCATION_OPTIONS.find((option) => option.value === location);
+            const bookingChannels = toBookingChannels(channels);
+            const assignedUsers = Array.from(
+                new Set(
+                    Object.values(serviceUsers)
+                        .flat()
+                        .map((user) => user.id),
+                ),
+            );
+            const payload: CreateCalendarPayload = {
+                name,
+                description,
+                locationId: locationOption?.id ?? 0,
+                locationName: locationOption?.label ?? location,
+                services: selectedServices.map((service) => service.uid ?? service.id),
+                users: assignedUsers,
+                channel: bookingChannels[0] ?? 'ONLINE',
+                label: [],
+                qrLinkRequired: true,
+                feature: 'BASE_CRM',
+                status: 'Enabled',
+                color: '#0f172a',
+                bookingChannels,
+                capacityOverride: 0,
+                tags: [],
+            };
+            const createdCalendar = await createCalendar(payload);
+            const calendarUid = createdCalendar.uid;
+            const calendarName = createdCalendar.name ?? name;
+
+            for (const schedule of schedules) {
+                const schedulePayload: CreateSchedulePayload = {
+                    name: schedule.name,
+                    description: description || schedule.name,
+                    calendarUid,
+                    calendarName,
+                    startDate: schedule.startDate,
+                    endDate: schedule.endDate || schedule.startDate,
+                    slotCapacity: Math.max(
+                        ...schedule.timeWindows.map((timeWindow: any) => Number(timeWindow.capacity) || 0),
+                        0,
+                    ),
+                    qrLinkRequired: true,
+                    timeWindows: schedule.timeWindows.map((timeWindow: any) => ({
+                        calendarUid,
+                        calendarName,
+                        scheduleName: schedule.name,
+                        weekDays: timeWindow.weekDays,
+                        startTime: withSeconds(timeWindow.startTime),
+                        endTime: withSeconds(timeWindow.endTime),
+                        slotDuration: Number(timeWindow.duration) || 0,
+                        slotCapacity: Number(timeWindow.capacity) || 0,
+                        channel: bookingChannels[0] ?? 'ONLINE',
+                        label: [],
+                        qrLinkRequired: true,
+                    })),
+                };
+                await createSchedule(calendarUid, schedulePayload);
+            }
             navigate('/calendars');
         } catch (error) {
             console.error(error);
@@ -193,9 +280,7 @@ export default function CalendarWizard() {
                                     value={location}
                                     placeholder="Select Location"
                                     options={[
-                                        { value: 'Thrissur', label: 'Thrissur' },
-                                        { value: 'Kochi', label: 'Kochi' },
-                                        { value: 'Bangalore', label: 'Bangalore' },
+                                        ...LOCATION_OPTIONS,
                                     ]}
                                     onChange={(e) => setLocation(e.target.value)}
                                 />
@@ -407,6 +492,7 @@ export default function CalendarWizard() {
                                                                 return (
                                                                     <Checkbox
                                                                         key={d}
+                                                                        id={`calendar-wizard-weekday-${sIdx}-${twIdx}-${d}`}
                                                                         className="weekday-pill-input wiz-day-pill-input"
                                                                         containerClassName="mr-1"
                                                                         labelClassName="weekday-pill-label"
@@ -524,7 +610,7 @@ export default function CalendarWizard() {
             <DualListServicesModal 
                 isOpen={isServicesModalOpen}
                 onClose={() => setIsServicesModalOpen(false)}
-                allServices={MOCK_SERVICES}
+                allServices={availableServices}
                 initialSelectedServices={selectedServices}
                 onSave={setSelectedServices}
             />
@@ -534,8 +620,10 @@ export default function CalendarWizard() {
                     isOpen={true}
                     onClose={() => setUsersModalServiceId(null)}
                     serviceName={selectedServices.find(s => s.id === usersModalServiceId)?.name || ''}
-                    allUsers={MOCK_USERS}
+                    allUsers={availableUsers}
                     initialSelectedUsers={serviceUsers[usersModalServiceId] || []}
+                    loading={usersLoading}
+                    error={usersError}
                     onSave={(users) => setServiceUsers(prev => ({ ...prev, [usersModalServiceId]: users }))}
                 />
             )}

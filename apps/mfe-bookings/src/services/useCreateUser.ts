@@ -2,17 +2,23 @@ import { useState } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { addCreatedUser, type BookingUser } from "../data/sessionStore";
 
+const TENANT_USERS_CREATE_ENDPOINT = "/base-service/v1/api/tenant/users";
+
 export interface NewUserInput {
   firstName: string;
   lastName: string;
   title: string;
-  status: string;
+  status: BookingUser["status"];
   email?: string;
   phoneNumber?: string;
   connectToCrm: boolean;
 }
 
 interface UserDtoLike { userUid?: string }
+
+function toApiStatus(status: BookingUser["status"]): "Enabled" | "Disabled" {
+  return status === "Active" ? "Enabled" : "Disabled";
+}
 
 export function useCreateUser() {
   const api = useBookingApi();
@@ -26,7 +32,7 @@ export function useCreateUser() {
       lastName: input.lastName,
       displayName,
       title: input.title,
-      status: input.status,
+      status: toApiStatus(input.status),
       email: input.email ?? "",
       phoneNumber: input.phoneNumber ?? "",
       connectToCrm: input.connectToCrm, // backend gates login provisioning on this
@@ -43,7 +49,7 @@ export function useCreateUser() {
       hasLogin: input.connectToCrm, // login only when connected to base CRM
     });
     try {
-      const dto = await api.post<UserDtoLike>("/users", payload);
+      const dto = await api.post<UserDtoLike>(TENANT_USERS_CREATE_ENDPOINT, payload);
       const user = build(dto?.userUid);
       addCreatedUser(user);
       return user;

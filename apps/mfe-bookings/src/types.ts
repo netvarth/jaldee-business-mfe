@@ -34,10 +34,15 @@ export interface Calendar {
   name: string;
   description: string;
   status: string;
+  locationId?: number;
   color?: string;
   locationName?: string;
   services?: string[];
   users?: string[];
+  channel?: string;
+  label?: string[];
+  qrLinkRequired?: boolean;
+  feature?: string;
   bookingChannels?: string[];
   capacityOverride?: number | null;
   tags?: string[];
@@ -49,6 +54,7 @@ export interface CalendarSettingsRequest {
   bookingChannels?: string[];
   capacityOverride?: number | null;
   tags?: string[];
+  status?: string;
 }
 
 export interface Schedule {
@@ -61,6 +67,7 @@ export interface Schedule {
   endDate: string | null;
   slotCapacity: number;
   qrLinkRequired: boolean;
+  timeWindows?: TimeWindow[];
 }
 
 export interface Provider {
@@ -74,13 +81,16 @@ export interface Provider {
 export interface TimeWindow {
   uid: string;
   calendarUid: string;
+  calendarName?: string;
   scheduleUid: string;
+  scheduleName?: string;
   weekDays: number[];
   startTime: string;
   endTime: string;
   slotDuration: number;
   slotCapacity: number;
   channel: string;
+  label?: string[];
   qrLinkRequired: boolean;
 }
 
@@ -96,8 +106,34 @@ export interface Customer {
   status?: string;
 }
 
+export interface CustomerSearchResult {
+  uid: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  status?: string;
+  lastVisitDate?: string;
+  totalBookings?: number;
+  createdAt?: string;
+  exactMatch?: boolean;
+}
+
+export interface BookingCustomerDetails {
+  uid?: string;
+  firstName?: string;
+  lastName?: string;
+  primaryNumber?: string;
+  email?: string;
+  gender?: string;
+  dob?: string;
+}
+
 export interface ServiceItem {
   id: string;
+  uid?: string;
   name: string;
   department: string;
   description?: string;
@@ -178,6 +214,7 @@ export interface CreateBookingInput {
   email?: string;
   channel: BookingChannel;
   notes?: string;
+  customerDetails?: BookingCustomerDetails;
 }
 
 export interface TimeWindowDetails {

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { createdBookings } from "../data/sessionStore";
 import { unwrapList } from "./response";
+import { useBookingPreferences } from "./useBookingPreferences";
+import { formatIsoTime } from "../utils/dateTime";
 
 /** Raw booking row from POST /bookings/search (BookingDto). */
 interface BookingDto {
@@ -27,15 +29,9 @@ const STATUS_MAP: Record<string, string> = {
   NO_SHOW: "Cancelled",
 };
 
-function hhmm(iso?: string): string {
-  if (!iso) return "09:00";
-  const m = iso.match(/T(\d{2}:\d{2})/);
-  return m ? m[1] : "09:00";
-}
-
 /** Map a live BookingDto into the shape the calendar grid expects (mock-compatible). */
-function toCalendarBooking(d: BookingDto) {
-  const start = hhmm(d.startTime);
+function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
+  const start = formatIsoTime(d.startTime, timeZone);
   return {
     id: d.uid,
     uid: d.uid,
@@ -49,7 +45,7 @@ function toCalendarBooking(d: BookingDto) {
     patientName: d.customerName,
     customerName: d.customerName,
     startTime: start,
-    endTime: hhmm(d.endTime),
+    endTime: formatIsoTime(d.endTime, timeZone),
     time: start,
     status: d.status ? STATUS_MAP[d.status] ?? d.status : "Confirmed",
   };
@@ -57,6 +53,7 @@ function toCalendarBooking(d: BookingDto) {
 
 export function useBookings(date: string) {
   const api = useBookingApi();
+  const { preference } = useBookingPreferences();
   const [bookings, setBookings] = useState<ReturnType<typeof toCalendarBooking>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +69,7 @@ export function useBookings(date: string) {
         { date },
         { params: { page: 0, size: 100 } },
       );
-      const live = unwrapList<BookingDto>(data).map(toCalendarBooking) as never[];
+      const live = unwrapList<BookingDto>(data).map((booking) => toCalendarBooking(booking, preference?.timezone)) as never[];
       setBookings([...sessionForDate, ...live]);
     } catch (e) {
       // No sample/mock fallback — surface the failure and show only real
@@ -82,7 +79,7 @@ export function useBookings(date: string) {
     } finally {
       setLoading(false);
     }
-  }, [api, date]);
+  }, [api, date, preference?.timezone]);
 
   useEffect(() => {
     fetchBookings();

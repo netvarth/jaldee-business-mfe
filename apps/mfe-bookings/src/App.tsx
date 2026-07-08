@@ -11,6 +11,7 @@ const CalendarList = lazy(() => import("./pages/calendar/CalendarList"));
 const CalendarWizard = lazy(() => import("./pages/calendar/CalendarWizard"));
 const CalendarDetails = lazy(() => import("./pages/calendar/CalendarDetails"));
 const CustomizeCalendar = lazy(() => import("./pages/calendar/CustomizeCalendar"));
+const CalendarSettings = lazy(() => import("./pages/calendar/CalendarSettings"));
 const EditCalendar = lazy(() => import("./pages/calendar/EditCalendar"));
 const EditSchedule = lazy(() => import("./pages/calendar/EditSchedule"));
 const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
@@ -52,9 +53,15 @@ export default function App() {
             <Route path="/calendars" element={<CalendarList />} />
             <Route path="/calendars/create" element={<CalendarWizard />} />
             <Route path="/calendars/details" element={<CalendarDetails />} />
+            <Route path="/calendars/:uid/details" element={<CalendarDetails />} />
             <Route path="/calendars/customize" element={<CustomizeCalendar />} />
+            <Route path="/calendars/:uid/customize" element={<CustomizeCalendar />} />
+            <Route path="/calendars/:uid/settings" element={<CalendarSettings />} />
+            <Route path="/calendar/:uid/settings" element={<CalendarSettings />} />
             <Route path="/calendars/edit" element={<EditCalendar />} />
             <Route path="/calendars/edit-schedule" element={<EditSchedule />} />
+            <Route path="/calendars/:calendarUid/schedules/:scheduleUid/edit" element={<EditSchedule />} />
+            <Route path="/calendar/:calendarUid/schedules/:scheduleUid/edit" element={<EditSchedule />} />
             <Route path="/dashboard" element={<OverviewPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/services" element={<div className="p-4 md:p-6 h-full"><ServicesPage /></div>} />

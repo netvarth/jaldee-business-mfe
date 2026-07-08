@@ -6,7 +6,6 @@ import type { ServiceItem } from "../types";
 export interface ServiceFormInput {
   name: string;
   displayOrder: number;
-  department: string;
   description: string;
   serviceContext: string;
   serviceType: "Onsite Service" | "Teleservice";
@@ -32,6 +31,9 @@ export interface ServiceFormInput {
 function buildPayload(f: ServiceFormInput) {
   const totalDuration = f.durHrs * 60 + f.durMins;
   const displayServiceType = f.serviceType === "Onsite Service" ? "Onsite Consultation" : "Tele-Consultation";
+  const serviceMode = f.serviceType === "Onsite Service" ? "ONSITE" : "TELESERVICE";
+  const serviceCategory = f.serviceCategory === "Main Service" ? "MAIN_SERVICE" : "SUB_SERVICE";
+  const bookingMode = f.apptType === "Booking" ? "BOOKING" : "REQUEST";
   const labels = ["OPD"];
   labels.push(f.hasPricing ? `Price: ₹${f.price}` : "Free/No-Charge");
   if (f.serviceType === "Teleservice") labels.push("Teleservice");
@@ -52,18 +54,17 @@ function buildPayload(f: ServiceFormInput) {
   return {
     name: f.name.trim(),
     displayOrder: f.displayOrder,
-    department: f.department,
     description: f.description.trim() ? f.description.trim() : JSON.stringify(additionalSettings),
     serviceType: displayServiceType,
     appointmentType: f.apptType,
     duration: totalDuration || 30,
     price: f.hasPricing ? f.price : 0,
-    status: "Active",
+    status: "Enabled",
     labels,
     additionalSettings,
-    category: f.serviceCategory || f.department,
-    serviceMode: displayServiceType,
-    bookingMode: f.apptType,
+    category: serviceCategory,
+    serviceMode,
+    bookingMode,
     isDefaultService: false,
     currencyCode: "INR",
     userIds: [] as string[],
@@ -74,7 +75,7 @@ function toServiceItem(f: ServiceFormInput, id?: string): ServiceItem {
   return {
     id: id ?? `srv-${Date.now()}`,
     name: f.name.trim(),
-    department: f.department,
+    department: "",
     description: f.description.trim(),
     duration: f.durHrs * 60 + f.durMins || 30,
     price: f.hasPricing ? f.price : 0,

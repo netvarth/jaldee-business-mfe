@@ -11,7 +11,6 @@ export default function CreateServicePage() {
 
   const [name, setName] = useState("");
   const [displayOrder, setDisplayOrder] = useState(0);
-  const [department, setDepartment] = useState("General Medicine");
   const [description, setDescription] = useState("");
   const [serviceContext, setServiceContext] = useState<ServiceFormInput["serviceContext"]>("General Service");
   const [serviceType, setServiceType] = useState<ServiceFormInput["serviceType"]>("Onsite Service");
@@ -38,7 +37,7 @@ export default function CreateServicePage() {
     e.preventDefault();
     if (!name.trim()) { showToast("Service name is required", "error"); return; }
     await createService({
-      name, displayOrder, department, description, serviceContext, serviceType, apptType, serviceCategory,
+      name, displayOrder, description, serviceContext, serviceType, apptType, serviceCategory,
       durHrs, durMins, numResources, maxBookings, showDuration, leadDays, leadHrs, leadMins,
       safeSlots, hasPricing, price, taxApplicable, hsnCode, customIntake,
     });
@@ -91,19 +90,6 @@ export default function CreateServicePage() {
                 type="number"
                 value={displayOrder}
                 onChange={(e) => setDisplayOrder(Number(e.target.value))}
-              />
-              <Select
-                id="bookings-create-service-department"
-                data-testid="bookings-create-service-department"
-                label="Department"
-                required
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                options={[
-                  { value: "General Medicine", label: "General Medicine" },
-                  { value: "Cardiology", label: "Cardiology" },
-                  { value: "Pediatrics", label: "Pediatrics" },
-                ]}
               />
               <div className="md:col-span-2">
                 <Input

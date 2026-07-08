@@ -19,7 +19,7 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [title, setTitle] = useState("Dr.");
-  const [status, setStatus] = useState("Active");
+  const [status, setStatus] = useState<BookingUser["status"]>("Active");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [connectToCrm, setConnectToCrm] = useState(false);

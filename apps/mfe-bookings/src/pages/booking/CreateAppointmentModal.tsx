@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  Combobox,
+  EmptyState,
   DialogFooter,
   FormSection,
   Input,
@@ -14,11 +16,13 @@ import { useServices } from "../../services/useServices";
 import { useProviders } from "../../services/useProviders";
 import { useSlots } from "../../services/useSlots";
 import { useCreateBooking } from "../../services/useCreateBooking";
+import { useCustomerSearch } from "../../services/useCustomerSearch";
 import { addCreatedBooking } from "../../data/sessionStore";
-import type { BookingChannel, Slot } from "../../types";
+import type { BookingChannel, CustomerSearchResult, Slot } from "../../types";
 
 const WEEK = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -27,41 +31,185 @@ function fmtSlot(t: string): string {
   return t.split(":").slice(0, 2).join(":");
 }
 
+function buildCustomerLabel(customer: CustomerSearchResult): string {
+  const fullName = `${customer.firstName ?? ""} ${customer.lastName ?? ""}`.trim();
+  return fullName || customer.phone || customer.email || "Customer";
+}
+
+function buildCustomerDescription(customer: CustomerSearchResult): string {
+  return [
+    customer.phone,
+    customer.email,
+    customer.gender,
+    customer.dateOfBirth,
+  ].filter(Boolean).join(" · ");
+}
+
+function mapCustomerDetails(customer: CustomerSearchResult) {
+  return {
+    uid: customer.uid,
+    firstName: customer.firstName,
+    lastName: customer.lastName,
+    primaryNumber: customer.phone,
+    email: customer.email,
+    gender: customer.gender,
+    dob: customer.dateOfBirth,
+  };
+}
+
 /** Create Appointment Booking modal. */
 export default function CreateAppointmentModal() {
   const { closeModal } = useModal();
   const { showToast } = useToast();
-  const { calendars } = useCalendars();
+  const { calendars, searchSchedules } = useCalendars();
   const { services } = useServices();
   const { providers } = useProviders();
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { createBooking, submitting } = useCreateBooking();
+  const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, searchCustomers, clearResults } = useCustomerSearch();
 
   const [patientName, setPatientName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [selectedCustomerUid, setSelectedCustomerUid] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(null);
   const [calendarUid, setCalendarUid] = useState("");
   const [serviceUid, setServiceUid] = useState("");
   const [doctorUid, setDoctorUid] = useState("");
   const [channel, setChannel] = useState<BookingChannel>("Online");
-  const [scheduleUid, setScheduleUid] = useState("sch-1");
+  const [scheduleUid, setScheduleUid] = useState("");
   const [notes, setNotes] = useState("");
+  const [scheduleOptions, setScheduleOptions] = useState<{ value: string; label: string }[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
 
   const [month, setMonth] = useState(() => new Date(2026, 4, 1)); // May 2026
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
 
   const dateStr = selectedDate ? iso(selectedDate) : "";
+  const resolvedPatientName = patientName.trim() || (selectedCustomer ? buildCustomerLabel(selectedCustomer) : "");
+  const resolvedPhone = phone.trim() || selectedCustomer?.phone || "";
+  const resolvedEmail = email.trim() || selectedCustomer?.email || "";
+  const selectedCalendar = useMemo(
+    () => calendars.find((calendar) => calendar.uid === calendarUid),
+    [calendarUid, calendars],
+  );
+  const selectedProviderUid = useMemo(() => {
+    const matchedProvider = providers.find((provider) =>
+      provider.uid === doctorUid || provider.id === doctorUid || provider.name === doctorUid,
+    );
+    const resolved = matchedProvider?.uid ?? matchedProvider?.id ?? doctorUid;
+    return UUID_PATTERN.test(resolved) ? resolved : "";
+  }, [doctorUid, providers]);
+  const availableServices = useMemo(() => {
+    const assignedServices = new Set(selectedCalendar?.services ?? []);
+    if (assignedServices.size === 0) {
+      return calendarUid ? [] : services;
+    }
+
+    return services.filter((service) =>
+      assignedServices.has(service.uid ?? service.id) || assignedServices.has(service.id),
+    );
+  }, [calendarUid, selectedCalendar?.services, services]);
+  const serviceOptions = useMemo(
+    () => availableServices.map((service) => ({ value: service.uid ?? service.id, label: service.name })),
+    [availableServices],
+  );
+  const customerOptions = useMemo(
+    () =>
+      customerResults.map((customer) => ({
+        value: customer.uid,
+        label: buildCustomerLabel(customer),
+        description: buildCustomerDescription(customer),
+      })),
+    [customerResults],
+  );
+
+  useEffect(() => {
+    const trimmedQuery = customerQuery.trim();
+    if (!trimmedQuery || selectedCustomer) {
+      if (!trimmedQuery) {
+        clearResults();
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      void searchCustomers(trimmedQuery, controller.signal);
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [clearResults, customerQuery, searchCustomers, selectedCustomer]);
+
+  const applySelectedCustomer = (customer: CustomerSearchResult | null) => {
+    setSelectedCustomer(customer);
+    setSelectedCustomerUid(customer?.uid ?? "");
+    setCustomerQuery(customer ? buildCustomerLabel(customer) : "");
+    setPatientName(customer ? buildCustomerLabel(customer) : "");
+    setPhone(customer?.phone ?? "");
+    setEmail(customer?.email ?? "");
+  };
 
   // Fetch slots when service + schedule + date are chosen.
   useEffect(() => {
     setSlot(null);
     if (serviceUid && scheduleUid && dateStr) {
-      fetchSlots({ serviceUid, scheduleUid, providerUid: doctorUid, date: dateStr });
+      fetchSlots({ serviceUid, scheduleUid, date: dateStr });
     } else {
       clearSlots();
     }
-  }, [serviceUid, scheduleUid, doctorUid, dateStr, fetchSlots, clearSlots]);
+  }, [serviceUid, scheduleUid, dateStr, fetchSlots, clearSlots]);
+
+  useEffect(() => {
+    setServiceUid("");
+    setScheduleUid("");
+    setSlot(null);
+    clearSlots();
+
+    if (!calendarUid) {
+      setScheduleOptions([]);
+      setSchedulesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSchedules() {
+      setSchedulesLoading(true);
+      try {
+        const schedules = await searchSchedules(calendarUid);
+        if (cancelled) return;
+        setScheduleOptions(
+          schedules.map((schedule) => ({ value: schedule.uid, label: schedule.name })),
+        );
+      } catch {
+        if (cancelled) return;
+        setScheduleOptions([]);
+      } finally {
+        if (!cancelled) {
+          setSchedulesLoading(false);
+        }
+      }
+    }
+
+    loadSchedules();
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarUid, clearSlots, searchSchedules]);
+
+  useEffect(() => {
+    if (serviceUid && !serviceOptions.some((service) => service.value === serviceUid)) {
+      setServiceUid("");
+      setSlot(null);
+      clearSlots();
+    }
+  }, [clearSlots, serviceOptions, serviceUid]);
 
   // Build the month grid (Monday-first).
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -73,23 +221,24 @@ export default function CreateAppointmentModal() {
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName || !phone) { showToast("Patient name and phone are required", "error"); return; }
-    if (!calendarUid || !serviceUid || !doctorUid || !scheduleUid || !selectedDate || !slot) {
+    if (!resolvedPatientName) { showToast("Patient name is required", "error"); return; }
+    if (!calendarUid || !serviceUid || !selectedProviderUid || !scheduleUid || !selectedDate || !slot) {
       showToast("Please complete calendar, service, professional, date and slot", "error");
       return;
     }
     await createBooking({
-      calendarUid, serviceUid, providerUid: doctorUid, scheduleUid,
+      calendarUid, serviceUid, providerUid: selectedProviderUid, scheduleUid,
       date: dateStr, startTime: slot.startTime, endTime: slot.endTime,
-      patientName, phone, email, channel, notes,
+      patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel, notes,
+      customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
     });
     // Show it on the calendar immediately.
     addCreatedBooking({
       id: `bk-${Date.now()}`, uid: `bk-${Date.now()}`,
       calendarId: calendarUid, calendarUid,
       serviceId: serviceUid, serviceUid,
-      userId: doctorUid, userUid: doctorUid, providerId: doctorUid,
-      patientName, customerName: patientName,
+      userId: selectedProviderUid, userUid: selectedProviderUid, providerId: selectedProviderUid,
+      patientName: resolvedPatientName, customerName: resolvedPatientName,
       startTime: fmtSlot(slot.startTime), endTime: fmtSlot(slot.endTime), time: fmtSlot(slot.startTime),
       status: channel === "Walk-in" ? "Checked-in" : "Confirmed",
       bookingDate: dateStr,
@@ -107,16 +256,45 @@ export default function CreateAppointmentModal() {
         <div className="max-h-[72vh] space-y-6 overflow-y-auto pr-1" data-testid="bookings-create-appointment-body">
           {/* Patient details */}
           <FormSection title="Patient details">
-            <Input id="bk-patient-name" data-testid="bookings-create-appointment-patient-name-input" label="Patient name" required value={patientName} onChange={(e) => setPatientName(e.target.value)} />
-            <Input id="bk-phone" data-testid="bookings-create-appointment-phone-input" label="Phone number" required value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Input id="bk-email" data-testid="bookings-create-appointment-email-input" type="email" label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <div className="col-span-full">
+              <Combobox
+                id="bk-customer-search"
+                data-testid="bookings-create-appointment-customer-search"
+                label="Search existing customer"
+                placeholder="Search customer"
+                searchPlaceholder="Search by name, phone, or email"
+                emptyMessage={customerSearchError ? customerSearchError : "No customers found"}
+                options={customerOptions}
+                value={selectedCustomerUid}
+                searchValue={customerQuery}
+                loading={customerSearchLoading}
+                onSearchChange={(value) => {
+                  setCustomerQuery(value);
+                  if (!value.trim()) {
+                    applySelectedCustomer(null);
+                    clearResults();
+                  }
+                }}
+                onValueChange={(value) => {
+                  const customer = customerResults.find((item) => item.uid === value) ?? null;
+                  applySelectedCustomer(customer);
+                }}
+                hint={selectedCustomer ? "Existing customer selected. Details are locked from the record." : "Search by customer name, phone number, or email."}
+              />
+            </div>
+            <Input id="bk-patient-name" data-testid="bookings-create-appointment-patient-name-input" label="Patient name" required value={patientName} readOnly={Boolean(selectedCustomer)} onChange={(e) => setPatientName(e.target.value)} />
+            <Input id="bk-phone" data-testid="bookings-create-appointment-phone-input" label="Phone number" value={phone} readOnly={Boolean(selectedCustomer)} onChange={(e) => setPhone(e.target.value)} />
+            <Input id="bk-email" data-testid="bookings-create-appointment-email-input" type="email" label="Email address" value={email} readOnly={Boolean(selectedCustomer)} onChange={(e) => setEmail(e.target.value)} />
           </FormSection>
+          {customerQuery.trim() && !selectedCustomer && !customerSearchLoading && customerOptions.length === 0 ? (
+            <EmptyState title="No customers found" description="Try another name, phone number, or email address." />
+          ) : null}
 
           {/* Booking details */}
           <FormSection title="Booking details">
             <Select id="bk-calendar" testId="bookings-create-appointment-calendar-select" label="Calendar" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
-            <Select id="bk-service" testId="bookings-create-appointment-service-select" label="Service" required placeholder="Select service" value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={services.map((s) => ({ value: s.id, label: s.name }))} />
-            <Select id="bk-doctor" testId="bookings-create-appointment-doctor-select" label="Assigned professional" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providers.map((p) => ({ value: p.id, label: p.name }))} />
+            <Select id="bk-service" testId="bookings-create-appointment-service-select" label="Service" required placeholder={calendarUid ? "Select service" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
+            <Select id="bk-doctor" testId="bookings-create-appointment-doctor-select" label="Assigned professional" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providers.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") }))} />
             <Select id="bk-channel" testId="bookings-create-appointment-channel-select" label="Booking channel" value={channel} onChange={(e) => setChannel(e.target.value as BookingChannel)} options={["Online", "Walk-in", "Phone-in"].map((value) => ({ value, label: value }))} />
           </FormSection>
 
@@ -166,11 +344,13 @@ export default function CreateAppointmentModal() {
 
             {/* Schedule + slots */}
             <div className="slots-section">
-              <Select id="bk-schedule" testId="bookings-create-appointment-schedule-select" label="Select schedule" required value={scheduleUid} onChange={(e) => setScheduleUid(e.target.value)} options={[{ value: "sch-1", label: "Morning Clinic" }, { value: "sch-2", label: "Evening Clinic" }]} />
+              <Select id="bk-schedule" testId="bookings-create-appointment-schedule-select" label="Select schedule" required placeholder={calendarUid ? (schedulesLoading ? "Loading schedules..." : "Select schedule") : "Select calendar first"} value={scheduleUid} onChange={(e) => setScheduleUid(e.target.value)} options={scheduleOptions} />
 
               <label>Select Slots <span className="required">*</span></label>
               <div className="slots-grid mt-2" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, maxHeight: 360, overflowY: "auto", paddingRight: 8 }}>
-                {!serviceUid || !selectedDate ? (
+                {!calendarUid ? (
+                  <div className="text-sm text-gray" style={{ gridColumn: "span 4" }}>Please select a calendar to load services and schedules.</div>
+                ) : !serviceUid || !scheduleUid || !selectedDate ? (
                   <div className="text-sm text-gray" style={{ gridColumn: "span 4" }}>Please select a date, service, and schedule to view slots.</div>
                 ) : slotsLoading ? (
                   <div className="text-sm text-gray" style={{ gridColumn: "span 4" }}>Loading slots…</div>

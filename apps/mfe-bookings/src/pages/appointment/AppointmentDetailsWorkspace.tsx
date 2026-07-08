@@ -4,7 +4,9 @@ import {
   X, Calendar, Clock, User, CheckCircle, RotateCw, Ban, CreditCard, Play, FileText,
 } from "../../components/icons";
 import { useBookingDetails, type ActionExtra } from "../../services/useBookingDetails";
+import { useBookingPreferences } from "../../services/useBookingPreferences";
 import type { AllowedAction, BookingStatus } from "../../types";
+import { buildOffsetDateTime, formatIsoTime } from "../../utils/dateTime";
 
 interface Props {
   bookingId: string | null;
@@ -50,12 +52,6 @@ const TONE: Record<string, string> = {
   slate:   "hover:bg-slate-100 hover:border-slate-300 hover:text-slate-700",
 };
 
-function fmtTime(iso?: string): string {
-  if (!iso) return "—";
-  const m = iso.match(/T(\d{2}:\d{2})/);
-  return m ? m[1] : iso;
-}
-
 function fmtDate(d?: string): string {
   if (!d) return "—";
   const date = new Date(d);
@@ -74,6 +70,7 @@ function testToken(value?: string): string {
 
 export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Props) {
   const { details, timeline, loading, acting, load, act } = useBookingDetails();
+  const { preference } = useBookingPreferences();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [reschedOpen, setReschedOpen] = useState(false);
@@ -101,9 +98,15 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
 
   const submitReschedule = () => {
     if (!newDate) return;
-    const start = `${newDate}T${newStart}:00+05:30`;
+    const start = buildOffsetDateTime(newDate, newStart, preference?.timezone);
     const [h, m] = newStart.split(":").map(Number);
-    const end = `${newDate}T${String(h).padStart(2, "0")}:${String(m + 30 >= 60 ? m + 30 - 60 : m + 30).padStart(2, "0")}:00+05:30`;
+    const endHour = h + Math.floor((m + 30) / 60);
+    const endMinute = (m + 30) % 60;
+    const end = buildOffsetDateTime(
+      newDate,
+      `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}:00`,
+      preference?.timezone,
+    );
     const extra: ActionExtra = { newDate, newStartTime: start, newEndTime: end };
     act("RESCHEDULE", extra);
     setReschedOpen(false);
@@ -168,7 +171,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
               </div>
               <div className="flex items-center gap-3 text-slate-700">
                 <Clock size={18} className="text-slate-400" />
-                <span className="font-medium">{fmtTime(details.startTime)} – {fmtTime(details.endTime)}</span>
+                <span className="font-medium">{formatIsoTime(details.startTime, preference?.timezone, "—")} – {formatIsoTime(details.endTime, preference?.timezone, "—")}</span>
               </div>
               <div className="flex items-center gap-3 text-slate-700">
                 <User size={18} className="text-slate-400" />

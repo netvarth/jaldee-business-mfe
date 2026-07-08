@@ -5,7 +5,6 @@ import type { Slot } from "../types";
 interface SlotQuery {
   scheduleUid: string;
   serviceUid: string;
-  providerUid?: string;
   date: string;
 }
 
@@ -23,7 +22,7 @@ export function useSlots() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchSlots = useCallback(
-    async ({ scheduleUid, serviceUid, providerUid, date }: SlotQuery) => {
+    async ({ scheduleUid, serviceUid, date }: SlotQuery) => {
       if (!scheduleUid || !serviceUid || !date) {
         setSlots([]);
         return;
@@ -31,8 +30,7 @@ export function useSlots() {
       setLoading(true);
       setError(null);
       try {
-        let url = `/bookings/availability?date=${date}&scheduleUid=${scheduleUid}&serviceUid=${serviceUid}`;
-        if (providerUid) url += `&providerUid=${providerUid}`;
+        const url = `/bookings/availability?date=${date}&scheduleUid=${scheduleUid}&serviceUid=${serviceUid}`;
         const body = await api.get<unknown>(url);
         // Real availability only — no generated sample slots. An empty result
         // correctly means "no slots", never fabricated openings.

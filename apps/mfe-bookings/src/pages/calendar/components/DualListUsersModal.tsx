@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Checkbox, Dialog, DialogFooter, Input } from '@jaldee/design-system';
+import { Button, Checkbox, Dialog, DialogFooter, EmptyState, Input } from '@jaldee/design-system';
 
 export interface User {
   id: string;
@@ -15,6 +15,8 @@ interface DualListUsersModalProps {
   allUsers: User[];
   initialSelectedUsers: User[];
   onSave: (selected: User[]) => void;
+  loading?: boolean;
+  error?: string | null;
 }
 
 export default function DualListUsersModal({
@@ -23,7 +25,9 @@ export default function DualListUsersModal({
   serviceName,
   allUsers,
   initialSelectedUsers,
-  onSave
+  onSave,
+  loading = false,
+  error = null,
 }: DualListUsersModalProps) {
   const [available, setAvailable] = useState<User[]>([]);
   const [added, setAdded] = useState<User[]>([]);
@@ -104,11 +108,22 @@ export default function DualListUsersModal({
                         <Input type="search" placeholder="Search Users..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} />
                     </div>
                     <div className="panel-list user-panel-list">
-                        {filteredAvailable.map(user => renderUserLabel(user, leftChecked.has(user.id), (c) => {
+                        {loading ? (
+                          <div className="p-4 text-sm text-slate-500">Loading users...</div>
+                        ) : error ? (
+                          <div className="p-4 text-sm text-rose-600">{error}</div>
+                        ) : filteredAvailable.length ? (
+                          filteredAvailable.map(user => renderUserLabel(user, leftChecked.has(user.id), (c) => {
                           const next = new Set(leftChecked);
                           if (c) next.add(user.id); else next.delete(user.id);
                           setLeftChecked(next);
-                        }))}
+                        }))
+                        ) : (
+                          <EmptyState
+                            title="No users available"
+                            description="No active tenant users were found for assignment."
+                          />
+                        )}
                     </div>
                     <div className="panel-footer">
                         <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set(filteredAvailable.map(u => u.id)))}>Select All</Button>

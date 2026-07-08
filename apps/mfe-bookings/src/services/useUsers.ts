@@ -3,6 +3,8 @@ import { useBookingApi } from "../services/useBookingApi";
 import { createdUsers, type BookingUser } from "../data/sessionStore";
 import { unwrapList } from "./response";
 
+const TENANT_USERS_ENDPOINT = "/base-service/v1/api/tenant/users";
+
 interface UserDto {
   userUid?: string;
   title?: string;
@@ -10,6 +12,10 @@ interface UserDto {
   lastName?: string;
   displayName?: string;
   status?: string;
+}
+
+function toUiStatus(status?: string): BookingUser["status"] {
+  return String(status ?? "").toUpperCase() === "DISABLED" ? "Inactive" : "Active";
 }
 
 function toUser(d: UserDto): BookingUser {
@@ -22,7 +28,7 @@ function toUser(d: UserDto): BookingUser {
     firstName: first,
     lastName: last,
     displayName: display,
-    status: d.status ?? "Active",
+    status: toUiStatus(d.status),
     hasLogin: true, // live users came from the central provisioning
   };
 }
@@ -37,11 +43,10 @@ export function useUsers() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.post<unknown>(
-        "/users/search",
-        {},
-        { params: { page: 0, size: 100 } },
-      );
+      const data = await api.get<unknown>(TENANT_USERS_ENDPOINT, {
+        params: { page: 0, size: 10, userStatus: "ACTIVE" },
+        _skipLocationParam: true,
+      });
       setUsers([...createdUsers, ...unwrapList<UserDto>(data).map(toUser)]);
     } catch (e) {
       // No sample fallback — show only real (session) users on failure.

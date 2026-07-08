@@ -25,7 +25,7 @@ export interface BookingUser {
   displayName: string;
   email?: string;
   phoneNumber?: string;
-  status: string;
+  status: "Active" | "Inactive";
   hasLogin: boolean; // true when connected to base CRM (provisioned login)
 }
 

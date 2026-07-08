@@ -23,6 +23,26 @@ interface CustomerDtoLike {
   email?: string;
 }
 
+function toPhoneNumber(value: string) {
+  const trimmed = value.trim();
+  const normalized = trimmed.replace(/[^\d+]/g, "");
+  if (!normalized) return undefined;
+
+  if (normalized.startsWith("+")) {
+    const digits = normalized.slice(1);
+    const countryCodeLength = digits.length > 10 ? Math.min(3, digits.length - 10) : 2;
+    return {
+      countryCode: `+${digits.slice(0, countryCodeLength) || "91"}`,
+      number: digits.slice(countryCodeLength) || digits,
+    };
+  }
+
+  return {
+    countryCode: "+91",
+    number: normalized,
+  };
+}
+
 function toCustomer(input: NewCustomerInput, dto?: CustomerDtoLike): Customer {
   return {
     id: dto?.id ?? `cust-${Date.now()}`,
@@ -49,7 +69,7 @@ export function useCreateCustomer() {
   /** POSTs to /customers; on no live backend, returns an optimistic local record. */
   const createCustomer = async (input: NewCustomerInput): Promise<Customer> => {
     setSubmitting(true);
-    const payload = { ...input, status: "Active" };
+    const payload = { ...input, phoneNumber: toPhoneNumber(input.phoneNumber), status: "ACTIVE" };
     try {
       const dto = await api.post<CustomerDtoLike>("/customers", payload);
       return toCustomer(input, dto);

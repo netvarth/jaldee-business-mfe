@@ -13,6 +13,25 @@ interface DayGridProps {
     onBookingSelect: (id: string) => void;
 }
 
+function parseTimeValue(value?: string): { hour: number; minute: number } | null {
+    if (!value) return null;
+
+    if (value.includes(' ')) {
+        const [timePart, modifier] = value.split(' ');
+        const [rawHour, rawMinute] = timePart.split(':').map(Number);
+        if (Number.isNaN(rawHour) || Number.isNaN(rawMinute)) return null;
+
+        let hour = rawHour;
+        if (modifier === 'PM' && hour < 12) hour += 12;
+        if (modifier === 'AM' && hour === 12) hour = 0;
+        return { hour, minute: rawMinute };
+    }
+
+    const [hour, minute] = value.split(':').map(Number);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+    return { hour, minute };
+}
+
 export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: DayGridProps) {
     const startHour = 9;
     const endHour = 23;
@@ -120,21 +139,18 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
 
                                 {/* Render Bookings */}
                                 {colBookings.map((bk: any) => {
-                                    // Parse time like "09:00 AM" into 24h, fallback to ISO if needed
-                                    let bkH = startHour, bkM = 0;
                                     const timeStr = bk.time || bk.startTime;
-                                    if (timeStr && timeStr.includes(' ')) {
-                                        const [t, modifier] = timeStr.split(' ');
-                                        const parts = t.split(':').map(Number);
-                                        bkH = parts[0];
-                                        bkM = parts[1];
-                                        if (modifier === 'PM' && bkH < 12) bkH += 12;
-                                        if (modifier === 'AM' && bkH === 12) bkH = 0;
-                                    }
+                                    const start = parseTimeValue(bk.startTime || timeStr);
+                                    const end = parseTimeValue(bk.endTime);
+                                    if (!start) return null;
 
-                                    if (bkH >= startHour && bkH <= endHour) {
-                                        const topPos = Math.floor((((bkH - startHour) * 60) + bkM) / 60 * 80);
-                                        const durationMins = 30; // Hardcoded to 30 for mock
+                                    if (start.hour >= startHour && start.hour <= endHour) {
+                                        const startMinutes = ((start.hour - startHour) * 60) + start.minute;
+                                        const endMinutes = end
+                                            ? ((end.hour - startHour) * 60) + end.minute
+                                            : startMinutes + 30;
+                                        const topPos = Math.floor((startMinutes / 60) * 80);
+                                        const durationMins = Math.max(endMinutes - startMinutes, 30);
                                         const heightPos = Math.floor((durationMins / 60) * 80) - 4;
 
                                         const calColor = calendars.find(c => c.uid === bk.calendarId || c.uid === bk.calendarUid)?.color || "#9333EA";

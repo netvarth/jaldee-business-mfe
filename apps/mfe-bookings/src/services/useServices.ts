@@ -5,6 +5,18 @@ import type { ServiceItem } from "../types";
 import { createdServices } from "../data/sessionStore";
 import { unwrapList } from "./response";
 
+function toApiStatus(status: ServiceItem["status"]): "Enabled" | "Disabled" {
+  return status === "Active" ? "Enabled" : "Disabled";
+}
+
+function toUiStatus(status?: string): ServiceItem["status"] {
+  return String(status ?? "").toUpperCase() === "DISABLED" ? "Inactive" : "Active";
+}
+
+function normalizeService(service: ServiceItem): ServiceItem {
+  return { ...service, status: toUiStatus(service.status) };
+}
+
 export const useServices = () => {
   const api = useBookingApi();
   const { showToast } = useToast();
@@ -24,7 +36,7 @@ export const useServices = () => {
         {},
         { params: { page: 0, size: 100 } },
       );
-      setServices([...createdServices, ...unwrapList<ServiceItem>(data)]);
+      setServices([...createdServices, ...unwrapList<ServiceItem>(data).map(normalizeService)]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load services.");
       setServices([...createdServices]);
@@ -35,8 +47,8 @@ export const useServices = () => {
 
   const createService = async (input: Omit<ServiceItem, "id" | "status">) => {
     try {
-      const created = await api.post<ServiceItem>("/services", { ...input, status: "Active" });
-      setServices((prev) => [created, ...prev]);
+      const created = await api.post<ServiceItem>("/services", { ...input, status: "Enabled" });
+      setServices((prev) => [normalizeService(created), ...prev]);
       showToast("Service created", "success");
     } catch {
       // Offline/no endpoint — append optimistically so the flow is reviewable.
@@ -50,7 +62,7 @@ export const useServices = () => {
     const next: ServiceItem["status"] = service.status === "Active" ? "Inactive" : "Active";
     setServices((prev) => prev.map((s) => (s.id === service.id ? { ...s, status: next } : s)));
     try {
-      await api.put(`/services/${service.id}`, { ...service, status: next });
+      await api.put(`/services/${service.id}`, { ...service, status: toApiStatus(next) });
     } catch {
       // Local-only update is fine for the prototype.
     }
