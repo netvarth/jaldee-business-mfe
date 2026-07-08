@@ -4,6 +4,7 @@ import { useHrApi } from "../services/useHrApi";
 export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; }
 export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; }
 export interface Consent { id: string; uid?: string; employeeUid?: string; purpose?: string; status?: string; policyVersion?: string; grantedAt?: string; }
+export interface BranchRow { id: string; uid?: string; name?: string; code?: string; address?: string; latitude?: number; longitude?: number; radius?: number; }
 export interface Department { id: string; uid?: string; name?: string; code?: string; headEmployeeUid?: string; }
 export interface LeaveType { id: string; uid?: string; name?: string; category?: string; annualQuota?: number; carryForward?: boolean; carryForwardMax?: number; accrualType?: string; paid?: boolean; colorHex?: string; }
 export interface Holiday { id: string; uid?: string; name?: string; date?: string; type?: string; }
@@ -40,10 +41,8 @@ function useCrud<T extends { uid?: string; id?: string }>(endpoint: string) {
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>(endpoint);
-      console.log(`[useCrud] Loaded endpoint ${endpoint}:`, res);
       setData(Array.isArray(res) ? res.map((r) => withId<T>(r)) : []);
     } catch (e) {
-      console.error(`[useCrud] Failed to load endpoint ${endpoint}:`, e);
       setError(e instanceof Error ? e.message : `Failed to load ${endpoint}`);
       setData([]);
     }
@@ -80,6 +79,62 @@ export const useShifts = () => useCrud<Shift>("/shifts");
 export const useDepartments = () => useCrud<Department>("/departments");
 export const useLeaveTypes = () => useCrud<LeaveType>("/leave-types");
 export const useHolidays = () => useCrud<Holiday>("/holidays");
+
+const BRANCHES_READONLY_MSG =
+  "Branches are owned by Jaldee base locations and are read-only in HR. Manage them in the Jaldee business console.";
+
+export function useBranchesAdmin() {
+  const api = useHrApi();
+  const [data, setData] = useState<BranchRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<{ items?: Record<string, unknown>[] }>("/locations?size=200");
+      const items = Array.isArray(res?.items) ? res.items : [];
+      setData(
+        items.map((location) => ({
+          id: String(location.uid ?? ""),
+          uid: location.uid as string | undefined,
+          name:
+            (location.place as string | undefined) ??
+            (location.address as string | undefined) ??
+            "(unnamed location)",
+          address: location.address as string | undefined,
+          latitude: location.latitude != null ? Number(location.latitude) : undefined,
+          longitude: location.longitude != null ? Number(location.longitude) : undefined,
+        }))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load branches");
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const reject = useCallback(async () => {
+    throw new Error(BRANCHES_READONLY_MSG);
+  }, []);
+
+  return {
+    data,
+    loading,
+    error,
+    reload: load,
+    create: reject,
+    update: reject,
+    remove: reject,
+    readOnlyNote: BRANCHES_READONLY_MSG,
+  };
+}
 
 export const useCompanyProfile = () => useSingleton<CompanyProfile>("/company-profile");
 export const useAttendanceRules = () => useSingleton<AttendanceRule>("/attendance-rules");

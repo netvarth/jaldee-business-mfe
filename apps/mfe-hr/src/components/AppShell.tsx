@@ -2,33 +2,30 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import {
-  BarChart3,
   BriefcaseBusiness,
-  Calendar,
-  CreditCard,
-  DollarSign,
-  Grid2X2,
-  HelpCircle,
   LogOut,
-  Megaphone,
-  UserSearch,
   Search,
-  Settings,
-  Users,
 } from "lucide-react";
+import { Icon, type IconName } from "@jaldee/design-system";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: Grid2X2, end: true },
-  { to: "/employees", label: "Employee Master", icon: Users },
-  { to: "/attendance", label: "Attendance", icon: Calendar },
-  { to: "/leave", label: "Leave", icon: Calendar },
-  { to: "/announcements", label: "StaffSpace", icon: Megaphone },
-  { to: "/payroll", label: "Payroll", icon: CreditCard },
-  { to: "/expenses", label: "Expenses", icon: DollarSign },
-  { to: "/tickets", label: "Helpdesk", icon: HelpCircle },
-  { to: "/recruitment", label: "Recruitment", icon: UserSearch },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: "Dashboard", iconName: "layers", end: true },
+  { to: "/employees", label: "Employee Master", iconName: "list" },
+  { to: "/org", label: "Organization", iconName: "warehouse" },
+  { to: "/separation", label: "Separation", iconName: "history" },
+  { to: "/assets", label: "Assets", iconName: "box" },
+  { to: "/attendance", label: "Attendance", iconName: "calendar" },
+  { to: "/leave", label: "Leave", iconName: "calendar" },
+  { to: "/announcements", label: "StaffSpace", iconName: "alert" },
+  { to: "/payroll", label: "Payroll", iconName: "database" },
+  { to: "/expenses", label: "Expenses", iconName: "cart" },
+  { to: "/tickets", label: "Helpdesk", iconName: "alert" },
+  { to: "/grievances", label: "Grievances", iconName: "alert" },
+  { to: "/posh", label: "POSH", iconName: "alert" },
+  { to: "/recruitment", label: "Recruitment", iconName: "search" },
+  { to: "/recruitment/careers", label: "Careers", iconName: "globe" },
+  { to: "/reports", label: "Reports", iconName: "chart" },
+  { to: "/settings", label: "Settings", iconName: "filter" },
 ];
 
 const navClass = (isActive: boolean) =>
@@ -59,7 +56,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
         <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {NAV.map((item) => {
-            const Icon = item.icon;
             return (
               <NavLink
                 key={item.to}
@@ -69,7 +65,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               >
                 {({ isActive }) => (
                   <div data-testid={`hr-sidebar-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`} data-active={isActive ? "true" : "false"} className="contents">
-                    <Icon size={18} />
+                    <NavIcon item={item} />
                     <span>{item.label}</span>
                   </div>
                 )}
@@ -121,6 +117,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </main>
     </div>
   );
+}
+
+function NavIcon({ item }: { item: (typeof NAV)[number] }) {
+  return <Icon name={item.iconName as IconName} className="h-[18px] w-[18px]" aria-hidden="true" />;
 }
 
 function getInitials(value: string) {
