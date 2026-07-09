@@ -371,10 +371,11 @@ export default function CreateServicePage() {
 
                 {needsMeetingLink ? (
                   <div className="mt-5">
-                    <Input
+
+                    <Input   
                       id={isAudioMode ? "bookings-create-service-meeting-link" : "bookings-create-service-meeting-id"}
                       data-testid={isAudioMode ? "bookings-create-service-meeting-link" : "bookings-create-service-meeting-id"}
-                      label={isAudioMode ? "Meeting Link *" : "Meeting ID / Setup Link *"}
+                      label = {isAudioMode ? "Meeting Link *" : "Meeting ID / Setup Link *"}
                       placeholder={isAudioMode ? "https://meet.google.com/xxx-xxxx-xxx" : "https://zoom.us/j/123456789"}
                       value={meetingLink}
                       onChange={(e) => {
