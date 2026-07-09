@@ -659,6 +659,7 @@ a:hover {
 .app-body {
     display: flex;
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
@@ -798,6 +799,7 @@ a:hover {
 /* Main Content Area */
 .main-content {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
