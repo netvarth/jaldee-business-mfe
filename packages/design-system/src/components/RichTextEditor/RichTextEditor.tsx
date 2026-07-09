@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
+import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { cn } from "../../utils";
 
 export interface RichTextEditorProps {
@@ -17,7 +17,9 @@ export interface RichTextEditorProps {
   allowImageUpload?: boolean;
 }
 
-type MenuKey = "align" | "list" | "insert" | null;
+type MenuKey = "align" | "list" | "insert" | "textColor" | "highlightColor" | null;
+type ResponsiveViewport = "full" | "desktop" | "tablet" | "mobile";
+type ImagePlacement = "left" | "center" | "right";
 type AlignmentCommand = "justifyLeft" | "justifyCenter" | "justifyRight" | "justifyFull";
 type ActiveMarks = {
   bold: boolean;
@@ -66,6 +68,20 @@ const LINE_HEIGHTS = [
   { label: "2.0", value: "2" },
 ];
 
+const RESPONSIVE_VIEWPORTS: Array<{ label: string; value: ResponsiveViewport; maxWidth: string }> = [
+  { label: "Full", value: "full", maxWidth: "100%" },
+  { label: "Desktop", value: "desktop", maxWidth: "920px" },
+  { label: "Tablet", value: "tablet", maxWidth: "768px" },
+  { label: "Mobile", value: "mobile", maxWidth: "390px" },
+];
+
+const IMAGE_WIDTH_OPTIONS = ["25%", "50%", "75%", "100%"];
+const IMAGE_PLACEMENTS: Array<{ label: string; value: ImagePlacement }> = [
+  { label: "Left", value: "left" },
+  { label: "Center", value: "center" },
+  { label: "Right", value: "right" },
+];
+
 const ALIGNMENT_ACTIONS: Array<ToolbarAction & { command: AlignmentCommand; icon: ReactNode; text: string }> = [
   { icon: <AlignLeftIcon />, text: "Left", label: <MenuLabel icon={<AlignLeftIcon />} text="Left" />, command: "justifyLeft", title: "Align left" },
   { icon: <AlignCenterIcon />, text: "Center", label: <MenuLabel icon={<AlignCenterIcon />} text="Center" />, command: "justifyCenter", title: "Align center" },
@@ -88,6 +104,19 @@ function normalizeHtml(value: string) {
   }
 
   return trimmed;
+}
+
+function serializeEditorHtml(editor: HTMLElement) {
+  const clone = editor.cloneNode(true) as HTMLElement;
+
+  clone.querySelectorAll(".rte-selected-image").forEach((element) => {
+    element.classList.remove("rte-selected-image");
+    if (!element.getAttribute("class")) {
+      element.removeAttribute("class");
+    }
+  });
+
+  return normalizeHtml(clone.innerHTML);
 }
 
 function buttonClass(active = false) {
@@ -124,6 +153,7 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const generatedId = useId();
   const editorId = id ?? label?.toLowerCase().replace(/\s+/g, "-") ?? `rich-text-editor-${generatedId}`;
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectionRef = useRef<Range | null>(null);
@@ -137,6 +167,10 @@ export function RichTextEditor({
   const [textColor, setTextColor] = useState("#000000");
   const [highlightColor, setHighlightColor] = useState("#fff2a8");
   const [zoom, setZoom] = useState("100%");
+  const [responsiveViewport, setResponsiveViewport] = useState<ResponsiveViewport>("desktop");
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [selectedImageWidth, setSelectedImageWidth] = useState("auto");
+  const [selectedImagePlacement, setSelectedImagePlacement] = useState<ImagePlacement>("left");
   const [activeMarks, setActiveMarks] = useState<ActiveMarks>({
     bold: false,
     italic: false,
@@ -146,6 +180,7 @@ export function RichTextEditor({
   });
 
   const selectedAlignmentAction = ALIGNMENT_ACTIONS.find((action) => action.command === selectedAlignment) ?? ALIGNMENT_ACTIONS[0];
+  const selectedResponsiveViewport = RESPONSIVE_VIEWPORTS.find((viewport) => viewport.value === responsiveViewport) ?? RESPONSIVE_VIEWPORTS[1];
 
   useEffect(() => {
     document.execCommand("styleWithCSS", false, "true");
@@ -157,14 +192,28 @@ export function RichTextEditor({
   }, []);
 
   useEffect(() => {
+    function handleOutsidePointerDown(event: globalThis.MouseEvent) {
+      const root = rootRef.current;
+      if (!root || root.contains(event.target as Node)) return;
+      setOpenMenu(null);
+    }
+
+    document.addEventListener("mousedown", handleOutsidePointerDown);
+    return () => document.removeEventListener("mousedown", handleOutsidePointerDown);
+  }, []);
+
+  useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
 
     const normalizedValue = normalizeHtml(value);
-    const currentValue = normalizeHtml(editor.innerHTML);
+    const currentValue = serializeEditorHtml(editor);
 
     if (currentValue !== normalizedValue) {
       editor.innerHTML = normalizedValue;
+      setSelectedImage(null);
+      setSelectedImageWidth("auto");
+      setSelectedImagePlacement("left");
     }
   }, [value]);
 
@@ -201,7 +250,7 @@ export function RichTextEditor({
   function emitChange() {
     const editor = editorRef.current;
     if (!editor) return;
-    onChange(normalizeHtml(editor.innerHTML));
+    onChange(serializeEditorHtml(editor));
   }
 
   function runCommand(command: string, commandValue?: string) {
@@ -236,20 +285,24 @@ export function RichTextEditor({
     syncToolbarState();
   }
 
-  function applyInlineStyle(style: Partial<CSSStyleDeclaration>) {
+  function applyInlineStyle(style: Partial<CSSStyleDeclaration>, options: { closeMenu?: boolean } = {}) {
     if (disabled) return;
 
-    setOpenMenu(null);
+    const { closeMenu = true } = options;
+    if (closeMenu) {
+      setOpenMenu(null);
+    }
     restoreSelection();
 
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
+    const hadSelection = Boolean(range.toString());
     const span = document.createElement("span");
     Object.assign(span.style, style);
 
-    if (range.toString()) {
+    if (hadSelection) {
       span.appendChild(range.extractContents());
       range.insertNode(span);
     } else {
@@ -260,7 +313,9 @@ export function RichTextEditor({
     selection.removeAllRanges();
     const nextRange = document.createRange();
     nextRange.selectNodeContents(span);
-    nextRange.collapse(false);
+    if (!hadSelection) {
+      nextRange.collapse(false);
+    }
     selection.addRange(nextRange);
     saveSelection();
     emitChange();
@@ -292,15 +347,137 @@ export function RichTextEditor({
 
   function applyTextColor(nextColor: string) {
     setTextColor(nextColor);
-    restoreSelection();
-    runCommand("foreColor", nextColor);
+    applyInlineStyle({ color: nextColor }, { closeMenu: false });
   }
 
   function applyHighlightColor(nextColor: string) {
     setHighlightColor(nextColor);
-    restoreSelection();
-    runCommand("hiliteColor", nextColor);
-    runCommand("backColor", nextColor);
+    applyInlineStyle({ backgroundColor: nextColor }, { closeMenu: false });
+  }
+
+  function handleToolbarMouseDown(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement;
+    if (target.closest("select,input")) return;
+    event.preventDefault();
+    saveSelection();
+  }
+
+  function selectImage(image: HTMLImageElement | null) {
+    setSelectedImage((current) => {
+      if (current && current !== image) {
+        current.classList.remove("rte-selected-image");
+      }
+
+      if (image) {
+        image.classList.add("rte-selected-image");
+        setSelectedImageWidth(image.style.width || "auto");
+        setSelectedImagePlacement(getImagePlacement(image));
+      } else {
+        setSelectedImageWidth("auto");
+        setSelectedImagePlacement("left");
+      }
+
+      return image;
+    });
+  }
+
+  function applyImageWidth(width: string) {
+    if (!selectedImage || disabled) return;
+
+    if (width === "auto") {
+      selectedImage.style.removeProperty("width");
+    } else {
+      selectedImage.style.width = width;
+    }
+
+    selectedImage.style.maxWidth = "100%";
+    selectedImage.style.height = "auto";
+    selectedImage.style.display = "block";
+    setSelectedImageWidth(width);
+    emitChange();
+  }
+
+  function getImagePlacement(image: HTMLImageElement): ImagePlacement {
+    const marginLeft = image.style.marginLeft;
+    const marginRight = image.style.marginRight;
+
+    if (marginLeft === "auto" && marginRight === "auto") return "center";
+    if (marginLeft === "auto") return "right";
+    return "left";
+  }
+
+  function applyImagePlacement(placement: ImagePlacement) {
+    if (!selectedImage || disabled) return;
+
+    selectedImage.style.display = "block";
+    selectedImage.style.maxWidth = "100%";
+    selectedImage.style.height = "auto";
+    selectedImage.style.marginTop = "12px";
+    selectedImage.style.marginBottom = "12px";
+
+    if (placement === "center") {
+      selectedImage.style.marginLeft = "auto";
+      selectedImage.style.marginRight = "auto";
+    } else if (placement === "right") {
+      selectedImage.style.marginLeft = "auto";
+      selectedImage.style.marginRight = "0";
+    } else {
+      selectedImage.style.marginLeft = "0";
+      selectedImage.style.marginRight = "auto";
+    }
+
+    setSelectedImagePlacement(placement);
+    emitChange();
+  }
+
+  function getMovableImageNode(image: HTMLImageElement): Node {
+    const editor = editorRef.current;
+    const parent = image.parentElement;
+    const parentText = parent?.textContent?.replace(/\u200B/g, "").trim();
+
+    if (editor && parent && parent !== editor && parent.childElementCount === 1 && !parentText) {
+      return parent;
+    }
+
+    return image;
+  }
+
+  function getAdjacentContentSibling(node: Node, direction: "previous" | "next") {
+    let sibling = direction === "previous" ? node.previousSibling : node.nextSibling;
+
+    while (sibling && sibling.nodeType === Node.TEXT_NODE && !sibling.textContent?.trim()) {
+      sibling = direction === "previous" ? sibling.previousSibling : sibling.nextSibling;
+    }
+
+    return sibling;
+  }
+
+  function moveSelectedImage(direction: "up" | "down") {
+    if (!selectedImage || disabled) return;
+
+    const node = getMovableImageNode(selectedImage);
+    const parent = node.parentNode;
+    if (!parent) return;
+
+    if (direction === "up") {
+      const previous = getAdjacentContentSibling(node, "previous");
+      if (!previous) return;
+      parent.insertBefore(node, previous);
+    } else {
+      const next = getAdjacentContentSibling(node, "next");
+      if (!next) return;
+      parent.insertBefore(next, node);
+    }
+
+    selectedImage.classList.add("rte-selected-image");
+    emitChange();
+  }
+
+  function handleImageWidthInput(nextWidth: string) {
+    setSelectedImageWidth(nextWidth);
+    const trimmedWidth = nextWidth.trim();
+    if (!trimmedWidth) return;
+    applyImageWidth(trimmedWidth);
   }
 
   function syncToolbarState() {
@@ -377,6 +554,94 @@ export function RichTextEditor({
     insertHtml(`<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;"><tbody>${body}</tbody></table><p><br /></p>`);
   }
 
+  function insertResponsiveContainer() {
+    insertHtml(`
+      <div style="width:100%;max-width:960px;margin:0 auto;padding:24px;border:1px solid #CBD5E1;border-radius:16px;background:#FFFFFF;">
+        <h2 style="margin:0 0 8px 0;font-size:24px;line-height:1.25;">Responsive section</h2>
+        <p style="margin:0;color:#475569;line-height:1.6;">Add your content here. This section stays fluid and centered.</p>
+      </div>
+      <p><br /></p>
+    `);
+  }
+
+  function insertTwoColumns() {
+    insertHtml(`
+      <div style="display:flex;flex-wrap:wrap;gap:16px;width:100%;margin:16px 0;align-items:stretch;">
+        <div style="flex:1 1 280px;min-width:0;padding:16px;border:1px solid #CBD5E1;border-radius:14px;background:#FFFFFF;">
+          <h3 style="margin:0 0 8px 0;font-size:18px;line-height:1.3;">Column one</h3>
+          <p style="margin:0;color:#475569;line-height:1.6;">This column stacks on small screens.</p>
+        </div>
+        <div style="flex:1 1 280px;min-width:0;padding:16px;border:1px solid #CBD5E1;border-radius:14px;background:#FFFFFF;">
+          <h3 style="margin:0 0 8px 0;font-size:18px;line-height:1.3;">Column two</h3>
+          <p style="margin:0;color:#475569;line-height:1.6;">This column sits beside the first one on wider screens.</p>
+        </div>
+      </div>
+      <p><br /></p>
+    `);
+  }
+
+  function insertThreeCards() {
+    insertHtml(`
+      <div style="display:flex;flex-wrap:wrap;gap:16px;width:100%;margin:16px 0;">
+        <div style="flex:1 1 220px;min-width:0;padding:16px;border:1px solid #CBD5E1;border-radius:14px;background:#F8FAFC;">
+          <h3 style="margin:0 0 8px 0;font-size:17px;line-height:1.3;">Card one</h3>
+          <p style="margin:0;color:#475569;line-height:1.6;">Short responsive card content.</p>
+        </div>
+        <div style="flex:1 1 220px;min-width:0;padding:16px;border:1px solid #CBD5E1;border-radius:14px;background:#F8FAFC;">
+          <h3 style="margin:0 0 8px 0;font-size:17px;line-height:1.3;">Card two</h3>
+          <p style="margin:0;color:#475569;line-height:1.6;">Cards wrap naturally as width reduces.</p>
+        </div>
+        <div style="flex:1 1 220px;min-width:0;padding:16px;border:1px solid #CBD5E1;border-radius:14px;background:#F8FAFC;">
+          <h3 style="margin:0 0 8px 0;font-size:17px;line-height:1.3;">Card three</h3>
+          <p style="margin:0;color:#475569;line-height:1.6;">Useful for feature or service blocks.</p>
+        </div>
+      </div>
+      <p><br /></p>
+    `);
+  }
+
+  function insertImageTextBlock() {
+    insertHtml(`
+      <div style="display:flex;flex-wrap:wrap;gap:24px;width:100%;margin:16px 0;align-items:center;">
+        <div style="flex:1 1 320px;min-width:0;">
+          <h2 style="margin:0 0 10px 0;font-size:26px;line-height:1.2;">Image and text</h2>
+          <p style="margin:0;color:#475569;line-height:1.7;">Replace this text and image. The image moves below the text on small screens.</p>
+        </div>
+        <div style="flex:1 1 320px;min-width:0;">
+          <div style="width:100%;min-height:180px;border-radius:16px;background:#E2E8F0;display:flex;align-items:center;justify-content:center;color:#64748B;">Image area</div>
+        </div>
+      </div>
+      <p><br /></p>
+    `);
+  }
+
+  function insertHeroSection() {
+    insertHtml(`
+      <div style="display:flex;flex-wrap:wrap;gap:28px;width:100%;margin:16px 0;padding:28px;border-radius:20px;background:#EEF2FF;align-items:center;">
+        <div style="flex:1 1 340px;min-width:0;">
+          <p style="margin:0 0 8px 0;color:#4F46E5;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Hero section</p>
+          <h1 style="margin:0 0 12px 0;font-size:34px;line-height:1.1;color:#0F172A;">Build a responsive page section</h1>
+          <p style="margin:0 0 18px 0;color:#475569;line-height:1.7;">This block uses flex wrap, so it adapts from desktop to mobile with the same HTML.</p>
+          <a href="#" style="display:inline-block;padding:10px 16px;border-radius:999px;background:#2563EB;color:#FFFFFF;text-decoration:none;font-weight:700;">Call to action</a>
+        </div>
+        <div style="flex:1 1 280px;min-width:0;">
+          <div style="width:100%;min-height:220px;border-radius:18px;background:#CBD5E1;display:flex;align-items:center;justify-content:center;color:#475569;">Visual area</div>
+        </div>
+      </div>
+      <p><br /></p>
+    `);
+  }
+
+  function insertButtonRow() {
+    insertHtml(`
+      <div style="display:flex;flex-wrap:wrap;gap:12px;width:100%;margin:16px 0;align-items:center;">
+        <a href="#" style="display:inline-block;padding:10px 16px;border-radius:999px;background:#2563EB;color:#FFFFFF;text-decoration:none;font-weight:700;">Primary action</a>
+        <a href="#" style="display:inline-block;padding:10px 16px;border-radius:999px;border:1px solid #CBD5E1;color:#0F172A;text-decoration:none;font-weight:700;">Secondary action</a>
+      </div>
+      <p><br /></p>
+    `);
+  }
+
   function insertVerticalLine() {
     insertHtml(`<span style="display:inline-block;width:1px;height:1.4em;border-left:2px solid currentColor;margin:0 10px;vertical-align:middle;">&nbsp;</span>`);
   }
@@ -423,7 +688,7 @@ export function RichTextEditor({
   }
 
   return (
-    <div className={cn("flex flex-col gap-1.5", fullWidth && "w-full")} data-testid={testId}>
+    <div ref={rootRef} className={cn("flex flex-col gap-1.5", fullWidth && "w-full")} data-testid={testId}>
       {label ? (
         <label htmlFor={editorId} className="ds-form-label">
           {label}
@@ -432,7 +697,7 @@ export function RichTextEditor({
 
       <div
         className={cn(
-          "overflow-hidden rounded-[var(--radius-control)] border bg-white",
+          "overflow-visible rounded-[var(--radius-control)] border bg-white",
           "border-[color:color-mix(in_srgb,var(--color-border)_78%,white)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
           isFocused && "border-[color:color-mix(in_srgb,var(--color-border-focus)_70%,white)] ring-2 ring-[color:color-mix(in_srgb,var(--color-border-focus)_14%,transparent)]",
           error && "border-[var(--color-danger)] ring-0",
@@ -443,6 +708,7 @@ export function RichTextEditor({
           className="relative z-10 flex flex-wrap items-center gap-0 border-b border-slate-300 bg-slate-100 px-2 py-1"
           onMouseDownCapture={saveSelection}
           onPointerDownCapture={saveSelection}
+          onMouseDown={handleToolbarMouseDown}
         >
           <button type="button" title="Undo" disabled={disabled} onMouseDown={saveSelection} onClick={() => runCommand("undo")} className={buttonClass()}>
             <UndoIcon />
@@ -459,6 +725,20 @@ export function RichTextEditor({
             <option>100%</option>
             <option>125%</option>
             <option>150%</option>
+          </select>
+
+          <select
+            aria-label="Responsive preview"
+            className={selectClass("w-[112px]")}
+            value={responsiveViewport}
+            disabled={disabled}
+            onChange={(event) => setResponsiveViewport(event.target.value as ResponsiveViewport)}
+          >
+            {RESPONSIVE_VIEWPORTS.map((viewport) => (
+              <option key={viewport.value} value={viewport.value}>
+                {viewport.label}
+              </option>
+            ))}
           </select>
 
           <Divider />
@@ -508,44 +788,38 @@ export function RichTextEditor({
           <button type="button" title="Underline" disabled={disabled} onMouseDown={saveSelection} onClick={() => runCommand("underline")} className={buttonClass(activeMarks.underline)}>
             <span className="underline">U</span>
           </button>
-          <label
-            className={cn(buttonClass(), "cursor-pointer gap-1")}
-            onMouseDownCapture={saveSelection}
-            onPointerDownCapture={saveSelection}
-          >
-            A
-            <span className="h-1 w-5" style={{ backgroundColor: textColor }} />
-            <input
-              type="color"
-              aria-label="Text color"
+          <div className="relative">
+            <button
+              type="button"
+              title="Text color"
               disabled={disabled}
-              className="sr-only"
-              value={textColor}
-              onClick={saveSelection}
-              onFocus={saveSelection}
-              onMouseDown={saveSelection}
-              onChange={(event) => applyTextColor(event.target.value)}
-            />
-          </label>
-          <label
-            className={cn(buttonClass(), "cursor-pointer")}
-            onMouseDownCapture={saveSelection}
-            onPointerDownCapture={saveSelection}
-          >
-            <PenIcon />
-            <span className="h-3 w-3 rounded-sm border border-slate-400" style={{ backgroundColor: highlightColor }} />
-            <input
-              type="color"
-              aria-label="Highlight color"
+              className={cn(buttonClass(), "gap-1")}
+              onClick={() => toggleMenu("textColor")}
+            >
+              A
+              <span className="h-1.5 w-6 rounded-sm border border-slate-400" style={{ backgroundColor: textColor }} />
+              <ChevronDownIcon />
+            </button>
+            {openMenu === "textColor" ? (
+              <ColorMenu label="Text color" selectedColor={textColor} onSelect={applyTextColor} />
+            ) : null}
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              title="Highlight color"
               disabled={disabled}
-              className="sr-only"
-              value={highlightColor}
-              onClick={saveSelection}
-              onFocus={saveSelection}
-              onMouseDown={saveSelection}
-              onChange={(event) => applyHighlightColor(event.target.value)}
-            />
-          </label>
+              className={cn(buttonClass(), "gap-1")}
+              onClick={() => toggleMenu("highlightColor")}
+            >
+              <PenIcon />
+              <span className="h-3.5 w-3.5 rounded-sm border border-slate-400" style={{ backgroundColor: highlightColor }} />
+              <ChevronDownIcon />
+            </button>
+            {openMenu === "highlightColor" ? (
+              <ColorMenu label="Highlight color" selectedColor={highlightColor} onSelect={applyHighlightColor} />
+            ) : null}
+          </div>
 
           <Divider />
 
@@ -622,13 +896,20 @@ export function RichTextEditor({
               <ChevronDownIcon />
             </button>
             {openMenu === "insert" ? (
-              <Menu className="w-48">
+              <Menu className="w-56">
                 <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertLink}>Link</MenuItem>
                 <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertImageUrl}>Image URL</MenuItem>
                 {allowImageUpload ? <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={() => { setOpenMenu(null); fileInputRef.current?.click(); }}>Upload image</MenuItem> : null}
                 <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertTable}>Table</MenuItem>
                 <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={() => runCommand("insertHorizontalRule")}>Horizontal line</MenuItem>
                 <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertVerticalLine}>Vertical line</MenuItem>
+                <MenuSeparator />
+                <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertResponsiveContainer}>Responsive container</MenuItem>
+                <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertTwoColumns}>Two columns</MenuItem>
+                <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertThreeCards}>Three cards</MenuItem>
+                <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertImageTextBlock}>Image + text</MenuItem>
+                <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertHeroSection}>Hero section</MenuItem>
+                <MenuItem disabled={disabled} onMouseDown={saveSelection} onClick={insertButtonRow}>Button row</MenuItem>
               </Menu>
             ) : null}
           </div>
@@ -637,6 +918,43 @@ export function RichTextEditor({
             Tx
           </button>
         </div>
+
+        {selectedImage ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 text-sm">
+            <span className="font-semibold text-slate-700">Image size</span>
+            <button type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => applyImageWidth("auto")} className={cn(buttonClass(selectedImageWidth === "auto"), "h-8 min-w-0 text-xs")}>
+              Auto
+            </button>
+            {IMAGE_WIDTH_OPTIONS.map((width) => (
+              <button key={width} type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => applyImageWidth(width)} className={cn(buttonClass(selectedImageWidth === width), "h-8 min-w-0 text-xs")}>
+                {width}
+              </button>
+            ))}
+            <input
+              aria-label="Custom image width"
+              value={selectedImageWidth === "auto" ? "" : selectedImageWidth}
+              disabled={disabled}
+              placeholder="320px or 60%"
+              onMouseDown={(event) => event.preventDefault()}
+              onChange={(event) => handleImageWidthInput(event.target.value)}
+              className="h-8 w-32 rounded border border-slate-300 px-2 text-xs font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]"
+            />
+            <Divider />
+            <span className="font-semibold text-slate-700">Place</span>
+            {IMAGE_PLACEMENTS.map((placement) => (
+              <button key={placement.value} type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => applyImagePlacement(placement.value)} className={cn(buttonClass(selectedImagePlacement === placement.value), "h-8 min-w-0 text-xs")}>
+                {placement.label}
+              </button>
+            ))}
+            <Divider />
+            <button type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => moveSelectedImage("up")} className={cn(buttonClass(), "h-8 min-w-0 text-xs")}>
+              Move up
+            </button>
+            <button type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => moveSelectedImage("down")} className={cn(buttonClass(), "h-8 min-w-0 text-xs")}>
+              Move down
+            </button>
+          </div>
+        ) : null}
 
         <div className="relative overflow-auto bg-slate-100 px-4 py-6 sm:px-8">
           {!normalizeHtml(value) && !isFocused ? (
@@ -659,11 +977,13 @@ export function RichTextEditor({
               "mx-auto w-full max-w-[920px] overflow-auto rounded-sm border border-slate-200 bg-white px-10 py-8 text-sm leading-6 text-[var(--color-text-primary)] shadow-[0_18px_45px_rgba(15,23,42,0.14)] focus:outline-none sm:px-14 sm:py-10",
               "[&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:italic",
               "[&_hr]:my-4 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-slate-300",
+              "[&_img]:cursor-pointer [&_img]:max-w-full [&_.rte-selected-image]:outline [&_.rte-selected-image]:outline-2 [&_.rte-selected-image]:outline-offset-4 [&_.rte-selected-image]:outline-blue-500",
               "[&_ol]:ml-5 [&_ol]:list-decimal [&_ul]:ml-5 [&_ul]:list-disc",
               "[&_pre]:rounded-lg [&_pre]:bg-slate-900 [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-white",
               minHeightClassName
             )}
             style={{
+              maxWidth: selectedResponsiveViewport.maxWidth,
               transform: `scale(${Number.parseInt(zoom, 10) / 100})`,
               transformOrigin: "top center",
               whiteSpace: "pre-wrap",
@@ -693,6 +1013,11 @@ export function RichTextEditor({
               saveSelection();
               syncToolbarState();
             }}
+            onClick={(event) => {
+              const target = event.target as HTMLElement;
+              const image = target.closest("img");
+              selectImage(image && editorRef.current?.contains(image) ? image as HTMLImageElement : null);
+            }}
           />
         </div>
       </div>
@@ -707,6 +1032,43 @@ function Menu({ children, className }: { children: ReactNode; className?: string
   return (
     <div className={cn("absolute left-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl", className)}>
       {children}
+    </div>
+  );
+}
+
+function MenuSeparator() {
+  return <div className="my-1 h-px bg-slate-200" />;
+}
+
+function ColorMenu({
+  label,
+  selectedColor,
+  onSelect,
+}: {
+  label: string;
+  selectedColor: string;
+  onSelect: (color: string) => void;
+}) {
+  return (
+    <div
+      className="absolute left-0 top-full z-30 mt-2 w-32 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <span className="text-xs font-semibold leading-4 text-slate-600">{label}</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] uppercase leading-4 text-slate-500">{selectedColor}</span>
+      </div>
+      <label className="relative block cursor-pointer rounded-md border border-slate-300 bg-white p-1 shadow-sm">
+        <span className="block h-8 rounded-sm" style={{ backgroundColor: selectedColor }} />
+        <input
+          type="color"
+          aria-label={label}
+          value={selectedColor}
+          onMouseDown={(event) => event.preventDefault()}
+          onChange={(event) => onSelect(event.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+      </label>
     </div>
   );
 }

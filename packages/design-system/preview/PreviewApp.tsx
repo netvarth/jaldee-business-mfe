@@ -594,17 +594,18 @@ export default function PreviewApp() {
           title="Rich Text Editor"
           description="Wide authoring surface with grouped controls and a rendered preview of the saved inline HTML."
         >
-          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr),minmax(420px,0.65fr)]">
+          <div className="flex w-full flex-col gap-6">
             <RichTextEditor
               label="Authoring canvas"
               value={richTextValue}
               onChange={setRichTextValue}
               hint="Use the grouped toolbar to format content, insert images, tables, horizontal/vertical lines, and preserve spacing."
               minHeightClassName="min-h-[460px]"
+              fullWidth
               testId="preview-rich-text-editor"
             />
 
-            <div className="flex min-h-[560px] flex-col overflow-hidden rounded-[var(--radius-control)] border border-slate-200 bg-white shadow-sm">
+            <div className="flex min-h-[720px] w-full flex-col overflow-hidden rounded-[var(--radius-control)] border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
                   <p className="m-0 text-sm font-semibold text-slate-900">Rendered Preview</p>
