@@ -134,6 +134,7 @@ export default function EditSchedule() {
     initialSchedule?.timeWindows?.map(toEditableTimeWindow) ?? [],
   );
   const [confirmDelete, setConfirmDelete] = useState<EditableTimeWindow | null>(null);
+  const [overlapError, setOverlapError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!calendarUid || !scheduleUid) {
@@ -258,6 +259,7 @@ export default function EditSchedule() {
     if (!calendar || !calendarUid || !scheduleUid) return;
     if (!validate()) return;
     setSaving(true);
+    setOverlapError(null);
     try {
       const schedulePayload: CreateSchedulePayload = {
         uid: scheduleUid,
@@ -274,7 +276,12 @@ export default function EditSchedule() {
       await updateSchedule(scheduleUid, schedulePayload);
       navigate(`/calendars/${calendarUid}/details`, { replace: true, state: { calendar } });
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Failed to update schedule.", "error");
+      const msg = error instanceof Error ? error.message : "Failed to update schedule.";
+      if (msg.toLowerCase().includes("overlap") || (error as any)?.code === "OVERLAP_ERROR") {
+        setOverlapError(msg);
+      } else {
+        showToast(msg, "error");
+      }
     } finally {
       setSaving(false);
     }
@@ -339,6 +346,11 @@ export default function EditSchedule() {
                   <p className="mt-1 text-sm text-slate-500">Configure weekdays, working hours, and slot duration.</p>
                 </div>
               </div>
+              {overlapError && (
+                <div className="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700 border border-red-200">
+                  <span className="font-semibold">Overlap Error: </span> {overlapError}
+                </div>
+              )}
 
               <div className="mt-6 space-y-4">
                 {timeWindows.length ? (

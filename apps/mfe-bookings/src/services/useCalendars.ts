@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
-import type { Calendar, CalendarSettingsRequest, Schedule } from "../types";
+import type { Calendar, CalendarSettingsRequest, CalendarStatus, Schedule } from "../types";
 import { useToast } from "../contexts/ToastContext";
 import { unwrapList } from "./response";
+
+export interface AccountLocation {
+  id: number;
+  uid?: string;
+  name: string;
+}
 
 export interface CreateCalendarPayload {
   uid?: string;
@@ -16,7 +22,7 @@ export interface CreateCalendarPayload {
   label: string[];
   qrLinkRequired: boolean;
   feature: string;
-  status: string;
+  status: CalendarStatus;
   color: string;
   bookingChannels: string[];
   capacityOverride: number;
@@ -52,6 +58,40 @@ export interface CreateSchedulePayload {
   timeWindows: CreateTimeWindowPayload[];
 }
 
+function normalizeCalendarStatus(status?: string | null): CalendarStatus {
+  switch (String(status ?? "").toUpperCase()) {
+    case "ACTIVE":
+    case "ENABLED":
+      return "ACTIVE";
+    case "INACTIVE":
+    case "DISABLED":
+      return "INACTIVE";
+    default:
+      return "DRAFT";
+  }
+}
+
+function normalizeCalendar(calendar: Calendar): Calendar {
+  return {
+    ...calendar,
+    status: normalizeCalendarStatus(calendar.status),
+  };
+}
+
+function normalizeLocation(raw: Record<string, unknown>): AccountLocation {
+  const idValue = raw.id ?? raw.locationId ?? raw.uid ?? raw.encId;
+  const numericId = typeof idValue === "number" ? idValue : Number(idValue);
+  return {
+    id: Number.isFinite(numericId) ? numericId : 0,
+    uid: typeof raw.uid === "string" ? raw.uid : typeof raw.encId === "string" ? raw.encId : undefined,
+    name:
+      (typeof raw.place === "string" && raw.place) ||
+      (typeof raw.name === "string" && raw.name) ||
+      (typeof raw.displayName === "string" && raw.displayName) ||
+      "Unnamed location",
+  };
+}
+
 export const useCalendars = () => {
   const api = useBookingApi();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
@@ -68,7 +108,7 @@ export const useCalendars = () => {
         {},
         { params: { page: 0, size: 100 } },
       );
-      setCalendars(unwrapList<Calendar>(data));
+      setCalendars(unwrapList<Calendar>(data).map(normalizeCalendar));
     } catch (e) {
       // No mock fallback — surface the failure and leave the list empty.
       const msg = e instanceof Error ? e.message : "Failed to load calendars.";
@@ -83,7 +123,7 @@ export const useCalendars = () => {
   const createCalendar = async (payload: CreateCalendarPayload) => {
     // No mock-create fallback — a failure propagates so the caller never thinks
     // a calendar was persisted when it wasn't.
-    const newCalendar = await api.post<Calendar>("/calendars", payload);
+    const newCalendar = normalizeCalendar(await api.post<Calendar>("/calendars", payload));
     setCalendars((prev) => [...prev, newCalendar]);
     showToast("Calendar created successfully", "success");
     return newCalendar;
@@ -102,9 +142,14 @@ export const useCalendars = () => {
   };
 
   const getCalendar = useCallback(
-    (uid: string) => api.get<Calendar>(`/calendars/${uid}`),
+    async (uid: string) => normalizeCalendar(await api.get<Calendar>(`/calendars/${uid}`)),
     [api],
   );
+
+  const getLocations = useCallback(async () => {
+    const data = await api.get<unknown>("/base-service/v1/api/tenant/locations", { _skipLocationParam: true });
+    return unwrapList<Record<string, unknown>>(data).map(normalizeLocation);
+  }, [api]);
 
   const searchSchedules = useCallback(
     async (calendarUid: string, q = "") => {
@@ -152,7 +197,7 @@ export const useCalendars = () => {
     uid: string,
     settings: CalendarSettingsRequest,
   ) => {
-    const updated = await api.put<Calendar>(`/calendars/${uid}/settings`, settings);
+    const updated = normalizeCalendar(await api.put<Calendar>(`/calendars/${uid}/settings`, settings));
     setCalendars((prev) =>
       prev.map((calendar) =>
         calendar.uid === uid ? { ...calendar, ...updated } : calendar,
@@ -166,7 +211,7 @@ export const useCalendars = () => {
     uid: string,
     payload: CreateCalendarPayload,
   ) => {
-    const updated = await api.put<Calendar>(`/calendars/${uid}`, payload);
+    const updated = normalizeCalendar(await api.put<Calendar>(`/calendars/${uid}`, payload));
     setCalendars((prev) =>
       prev.map((calendar) =>
         calendar.uid === uid ? { ...calendar, ...updated } : calendar,
@@ -180,7 +225,7 @@ export const useCalendars = () => {
     uid: string,
     settings: CalendarSettingsRequest,
   ) => {
-    const updated = await api.put<Calendar>(`/calendars/${uid}/extended-settings`, settings);
+    const updated = normalizeCalendar(await api.put<Calendar>(`/calendars/${uid}/extended-settings`, settings));
     setCalendars((prev) =>
       prev.map((calendar) =>
         calendar.uid === uid ? { ...calendar, ...updated } : calendar,
@@ -201,6 +246,7 @@ export const useCalendars = () => {
     createCalendar,
     createSchedule,
     getCalendar,
+    getLocations,
     getSchedule,
     searchSchedules,
     updateCalendar,
@@ -208,6 +254,7 @@ export const useCalendars = () => {
     updateCalendarExtendedSettings,
     updateSchedule,
     updateTimeWindow,
+    normalizeCalendarStatus,
     refresh: fetchCalendars,
   };
 };

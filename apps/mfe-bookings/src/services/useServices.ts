@@ -5,6 +5,28 @@ import type { ServiceItem } from "../types";
 import { createdServices } from "../data/sessionStore";
 import { unwrapList } from "./response";
 
+interface ServiceSearchDto {
+  id?: string | number;
+  serviceId?: string | number;
+  uid?: string;
+  encId?: string;
+  name?: string;
+  displayName?: string;
+  description?: string;
+  shortDescription?: string;
+  deptName?: string;
+  departmentName?: string;
+  department?: string;
+  serviceDuration?: string | number;
+  duration?: string | number;
+  approxDuration?: string | number;
+  price?: string | number;
+  serviceCharge?: string | number;
+  amount?: string | number;
+  status?: string;
+  serviceType?: string;
+}
+
 function toApiStatus(status: ServiceItem["status"]): "Enabled" | "Disabled" {
   return status === "Active" ? "Enabled" : "Disabled";
 }
@@ -13,8 +35,36 @@ function toUiStatus(status?: string): ServiceItem["status"] {
   return String(status ?? "").toUpperCase() === "DISABLED" ? "Inactive" : "Active";
 }
 
+function toNumber(value: string | number | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
 function normalizeService(service: ServiceItem): ServiceItem {
   return { ...service, status: toUiStatus(service.status) };
+}
+
+function normalizeServiceSearchResult(service: ServiceSearchDto): ServiceItem {
+  const id = service.uid ?? service.id ?? service.serviceId ?? service.encId;
+  return {
+    id: id != null ? String(id) : `srv-${Math.random().toString(36).slice(2, 8)}`,
+    uid: service.uid ?? (id != null ? String(id) : undefined),
+    name: service.name ?? service.displayName ?? "Unnamed service",
+    department: service.deptName ?? service.departmentName ?? service.department ?? "",
+    description: service.description ?? service.shortDescription ?? "",
+    duration: toNumber(service.serviceDuration ?? service.duration ?? service.approxDuration),
+    price: toNumber(service.price ?? service.serviceCharge ?? service.amount),
+    status: toUiStatus(service.status),
+    serviceType: service.serviceType,
+  };
 }
 
 export const useServices = () => {
@@ -28,15 +78,12 @@ export const useServices = () => {
     setLoading(true);
     setError(null);
     try {
-      // NOTE: booking-service has no /services endpoint yet (catalog lives in
-      // another service). No mock fallback — an empty/error state here makes the
-      // missing wiring visible instead of masking it with sample data.
       const data = await api.post<unknown>(
         "/services/search",
         {},
-        { params: { page: 0, size: 100 } },
+        { params: { page: 0, size: 100 }, _skipLocationParam: true },
       );
-      setServices([...createdServices, ...unwrapList<ServiceItem>(data).map(normalizeService)]);
+      setServices([...createdServices, ...unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult)]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load services.");
       setServices([...createdServices]);

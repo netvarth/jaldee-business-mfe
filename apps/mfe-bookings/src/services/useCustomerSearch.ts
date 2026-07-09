@@ -3,6 +3,15 @@ import { useBookingApi } from "./useBookingApi";
 import { unwrapList } from "./response";
 import type { CustomerSearchResult } from "../types";
 
+function pickFirstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
 function normalizeCustomer(result: CustomerSearchResult): CustomerSearchResult {
   return {
     ...result,
@@ -48,8 +57,8 @@ export function useCustomerSearch() {
 
   const searchCustomers = useCallback(
     async (query: string, signal?: AbortSignal) => {
-      const params = resolveQueryParams(query);
-      if (!params) {
+      const resolvedParams = resolveQueryParams(query);
+      if (!resolvedParams) {
         clearResults();
         return [];
       }
@@ -57,9 +66,29 @@ export function useCustomerSearch() {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.get<unknown>("/customers/search", { params, signal });
-        const list = unwrapList<CustomerSearchResult>(data)
-          .map(normalizeCustomer)
+        const data = await api.post<unknown>(
+          "/consumers/search",
+          resolvedParams,
+          {
+            params: { page: 0, size: 10 },
+            signal,
+          },
+        );
+        const list = unwrapList<unknown>(data)
+          .map((item) => {
+            const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+            return normalizeCustomer({
+              uid: String(record.uid ?? record.id ?? record.consumerId ?? record.jaldeeConsumerId ?? "").trim(),
+              firstName: pickFirstString(record.firstName, record.fname, record.givenName),
+              lastName: pickFirstString(record.lastName, record.lname, record.familyName),
+              phone: pickFirstString(record.phoneNumber, record.primaryPhoneNumber, record.phone, record.mobileNumber),
+              email: pickFirstString(record.email, record.emailId),
+              gender: pickFirstString(record.gender, record.sex),
+              dateOfBirth: pickFirstString(record.dateOfBirth, record.dob),
+              status: pickFirstString(record.status),
+              lastVisitDate: pickFirstString(record.lastVisitDate),
+            });
+          })
           .filter((customer) => customer.uid);
         setResults(list);
         return list;

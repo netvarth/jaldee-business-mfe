@@ -1,11 +1,11 @@
 import React from 'react';
 import { User, Calendar as CalendarType, Booking, Service } from '../../../types';
-import { format } from 'date-fns';
+import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
 
-interface DayGridProps {
+interface WeekGridProps {
     date: Date;
     viewBy: 'doctors' | 'calendars';
     users: User[];
@@ -34,30 +34,18 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
     return { hour, minute };
 }
 
-export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: DayGridProps) {
+export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: WeekGridProps) {
     const { openModal } = useModal();
     const startHour = 9;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
-    // Filter columns (mocking active selection for now to all)
-    const columnsList = viewBy === 'doctors' ? users : calendars;
-
-    if (columnsList.length === 0) {
-        return (
-            <div className="day-view-grid">
-                <div className="doctor-columns-wrapper">
-                    <div style={{flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', padding: '40px'}}>
-                        No columns to display. Please check calendars or users checkboxes in the sidebar.
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // Generate 7 days of the week starting from Sunday or Monday (let's use standard startOfWeek)
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 }); // Monday start
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
     // Calculate current time marker position
     const now = new Date();
-    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     const minutesFromStart = ((now.getHours() - startHour) * 60) + now.getMinutes();
     const redLineTop = 60 + Math.floor((minutesFromStart / 60) * 80);
 
@@ -79,61 +67,27 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                 })}
             </div>
 
-            {/* Doctor/Calendar Columns Wrapper */}
+            {/* Days Columns Wrapper */}
             <div className="doctor-columns-wrapper">
-                {columnsList.map((col: any) => {
-                    const id = col.uid || col.id;
-                    const name = col.name;
-                    const subText = col.role || col.location || '';
-                    const color = col.color || '#9333EA';
-                    const code = col.code || '';
-                    const status = col.status || 'active';
-
-                    // Filter bookings for this column
-                    const colBookings = bookings.filter((b: any) => 
-                        (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id) : (b.calendarId === id || b.calendarUid === id))
-                    );
+                {days.map((dayDate) => {
+                    const isToday = isSameDay(dayDate, now);
+                    
+                    // Filter bookings for this day
+                    const dayBookings = bookings.filter((b: any) => {
+                        const bDate = new Date(b.bookingDate || b.date);
+                        return isSameDay(bDate, dayDate);
+                    });
 
                     return (
-                        <div key={id} className="doctor-column">
+                        <div key={dayDate.toISOString()} className="doctor-column relative">
                             {/* Header Cell */}
-                            <div className="doctor-header-cell">
-                                {viewBy === 'doctors' ? (
-                                    <>
-                                        <div className="doc-hdr-meta flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${color.includes('emerald') ? 'bg-emerald-500' : color.includes('purple') ? 'bg-purple-500' : 'bg-blue-500'}`}>
-                                                {code || name.substring(0, 2).toUpperCase()}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="doc-hdr-title text-sm font-semibold text-slate-800">{name}</span>
-                                                <span className="doc-hdr-sub text-[11px] font-medium text-slate-500">{subText || 'Provider'}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            {status === 'leave' && <span className="badge-column-status badge-on-leave text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-semibold border border-red-100">On Leave</span>}
-                                            {colBookings.length > 0 && (
-                                                <span className="badge bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-bold rounded-full border border-slate-200">
-                                                    {colBookings.length} {colBookings.length === 1 ? 'Appt' : 'Appts'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="doc-hdr-meta flex items-center gap-2">
-                                            <div style={{width: '12px', height: '12px', borderRadius: '4px', backgroundColor: color}}></div>
-                                            <div className="flex flex-col">
-                                                <span className="doc-hdr-title text-sm font-semibold text-slate-800">{name}</span>
-                                                <span className="doc-hdr-sub text-[11px] font-medium text-slate-500">{subText || 'Calendar'}</span>
-                                            </div>
-                                        </div>
-                                        {colBookings.length > 0 && (
-                                            <span className="badge bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-bold rounded-full border border-slate-200">
-                                                {colBookings.length} {colBookings.length === 1 ? 'Appt' : 'Appts'}
-                                            </span>
-                                        )}
-                                    </>
-                                )}
+                            <div className={`doctor-header-cell h-16 border-b border-slate-200 flex flex-col items-center justify-center ${isToday ? 'bg-blue-50' : ''}`}>
+                                <span className={`text-xs font-semibold ${isToday ? 'text-blue-600' : 'text-slate-500'}`}>
+                                    {format(dayDate, 'EEE').toUpperCase()}
+                                </span>
+                                <div className={`w-8 h-8 flex items-center justify-center rounded-full mt-1 ${isToday ? 'bg-blue-600 text-white' : 'text-slate-800'}`}>
+                                    <span className="text-lg font-bold">{format(dayDate, 'd')}</span>
+                                </div>
                             </div>
 
                             {/* Cells Area */}
@@ -145,10 +99,8 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                       data-hour={h}
                                       onClick={() => openModal(
                                         <CreateAppointmentModal 
-                                          initialDate={date} 
+                                          initialDate={dayDate} 
                                           initialTime={`${h.toString().padStart(2, '0')}:00`} 
-                                          initialProviderUid={viewBy === 'doctors' ? id : undefined}
-                                          initialCalendarUid={viewBy === 'calendars' ? id : undefined}
                                         />
                                       )}
                                       style={{ cursor: 'pointer' }}
@@ -156,7 +108,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                 ))}
 
                                 {/* Render Bookings */}
-                                {colBookings.map((bk: any) => {
+                                {dayBookings.map((bk: any) => {
                                     const timeStr = bk.time || bk.startTime;
                                     const start = parseTimeValue(bk.startTime || timeStr);
                                     const end = parseTimeValue(bk.endTime);
@@ -205,20 +157,17 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                     return null;
                                 })}
 
-                                {/* Leave Blocker */}
-                                {status === 'leave' && (
-                                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(241, 245, 249, 0.7)', zIndex: 2 }}></div>
+                                {/* Current Time Indicator */}
+                                {isToday && (
+                                    <div className="absolute left-0 right-0 border-t-2 border-red-500 z-20 pointer-events-none" style={{ top: `${Math.floor((minutesFromStart / 60) * 80)}px` }}>
+                                        <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-500 rounded-full"></div>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     );
                 })}
             </div>
-
-            {/* Current Time Indicator */}
-            {isToday && (
-                <div className="current-time-indicator" style={{ top: `${redLineTop}px` }} />
-            )}
         </div>
     );
 }

@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     useCalendars,
+    type AccountLocation,
     type CreateCalendarPayload,
     type CreateSchedulePayload,
 } from '../../services/useCalendars';
@@ -23,17 +24,12 @@ import {
 import DualListServicesModal, { Service } from './components/DualListServicesModal';
 import DualListUsersModal, { User } from './components/DualListUsersModal';
 
-const LOCATION_OPTIONS = [
-    { value: 'Thrissur', label: 'Thrissur', id: 1 },
-    { value: 'Kochi', label: 'Kochi', id: 2 },
-    { value: 'Bangalore', label: 'Bangalore', id: 3 },
-] as const;
-
-function toBookingChannels(channels: { online: boolean; walkin: boolean; phonein: boolean }) {
+function toBookingChannels(channels: { online: boolean; walkin: boolean; phonein: boolean; ivr: boolean }) {
     const values: string[] = [];
     if (channels.online) values.push('ONLINE');
     if (channels.walkin) values.push('WALK_IN');
     if (channels.phonein) values.push('PHONE_IN');
+    if (channels.ivr) values.push('IVR');
     return values;
 }
 
@@ -43,20 +39,26 @@ function withSeconds(value: string) {
 
 export default function CalendarWizard() {
     const navigate = useNavigate();
-    const { createCalendar, createSchedule } = useCalendars();
+    const locationState = useLocation().state as { calendar?: any } | null;
+    const initialCalendar = locationState?.calendar;
+
+    const { createCalendar, updateCalendar, createSchedule, getLocations } = useCalendars();
     const { services } = useServices();
     const { users, loading: usersLoading, error: usersError } = useUsers();
     
     const [step, setStep] = useState(1);
+    const [draftUid, setDraftUid] = useState<string | null>(initialCalendar?.uid || null);
     
     // Step 1 State
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
-    const [location, setLocation] = useState('');
+    const [name, setName] = useState(initialCalendar?.name || '');
+    const [description, setDescription] = useState(initialCalendar?.description || '');
+    const [location, setLocation] = useState(initialCalendar?.locationName || '');
+    const [locations, setLocations] = useState<AccountLocation[]>([]);
     const [channels, setChannels] = useState({
-        online: true,
-        walkin: false,
-        phonein: false
+        online: initialCalendar?.bookingChannels?.includes('ONLINE') ?? true,
+        walkin: initialCalendar?.bookingChannels?.includes('WALK_IN') ?? false,
+        phonein: initialCalendar?.bookingChannels?.includes('PHONE_IN') ?? false,
+        ivr: initialCalendar?.bookingChannels?.includes('IVR') ?? false,
     });
     
     // Step 2 State
@@ -89,6 +91,27 @@ export default function CalendarWizard() {
 
     const [submitting, setSubmitting] = useState(false);
 
+    React.useEffect(() => {
+        let cancelled = false;
+        async function loadLocations() {
+            try {
+                const data = await getLocations();
+                if (!cancelled) setLocations(data);
+            } catch {
+                if (!cancelled) setLocations([]);
+            }
+        }
+        void loadLocations();
+        return () => {
+            cancelled = true;
+        };
+    }, [getLocations]);
+
+    const locationOptions = useMemo(
+        () => locations.map((entry) => ({ value: entry.name, label: entry.name, id: entry.id })),
+        [locations],
+    );
+
     const availableServices = useMemo<Service[]>(
         () => services.map((service) => ({
             id: service.uid ?? service.id,
@@ -112,10 +135,95 @@ export default function CalendarWizard() {
     const handleNext = () => setStep(s => Math.min(3, s + 1));
     const handlePrev = () => setStep(s => Math.max(1, s - 1));
 
-    const handleCreate = async () => {
+    const handleNextStep1 = async () => {
+        setSubmitting(true);
+        const locationOption = locationOptions.find((option) => option.value === location);
+        const bookingChannels = toBookingChannels(channels);
+        const payload: CreateCalendarPayload = {
+            name: name || "Draft Calendar",
+            description,
+            locationId: locationOption?.id ?? 0,
+            locationName: locationOption?.label ?? location,
+            services: [],
+            users: [],
+            channel: bookingChannels[0] ?? 'ONLINE',
+            label: [],
+            qrLinkRequired: true,
+            feature: 'BASE_CRM',
+            status: 'DRAFT',
+            color: '#0f172a',
+            bookingChannels,
+            capacityOverride: 0,
+            tags: [],
+        };
+        try {
+            if (!draftUid) {
+                const created = await createCalendar(payload);
+                if (created.uid) setDraftUid(created.uid);
+            } else {
+                await updateCalendar(draftUid, { ...payload, uid: draftUid });
+            }
+            handleNext();
+        } catch (e) {
+            console.error("Failed to save draft", e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleNextStep2 = async () => {
+        if (!draftUid) return handleNext();
+        setSubmitting(true);
+        const assignedUsers = Array.from(
+            new Set(
+                Object.values(serviceUsers)
+                    .flat()
+                    .map((user) => user.id),
+            ),
+        );
+        const locationOption = locationOptions.find((option) => option.value === location);
+        const bookingChannels = toBookingChannels(channels);
+        
+        const payload: CreateCalendarPayload = {
+            uid: draftUid,
+            name: name || "Draft Calendar",
+            description,
+            locationId: locationOption?.id ?? 0,
+            locationName: locationOption?.label ?? location,
+            services: selectedServices.map((service) => service.uid ?? service.id),
+            users: assignedUsers,
+            channel: bookingChannels[0] ?? 'ONLINE',
+            label: [],
+            qrLinkRequired: true,
+            feature: 'BASE_CRM',
+            status: 'DRAFT',
+            color: '#0f172a',
+            bookingChannels,
+            capacityOverride: 0,
+            tags: [],
+        };
+        try {
+            await updateCalendar(draftUid, payload);
+            handleNext();
+        } catch (e) {
+            console.error("Failed to save services", e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handlePublish = async () => {
+        if (!draftUid) return;
+        const hasServices = selectedServices.length > 0;
+        const hasSchedule = schedules.length > 0;
+        const hasTimeWindows = schedules.some((schedule) => Array.isArray(schedule.timeWindows) && schedule.timeWindows.length > 0);
+        if (!hasServices || !hasSchedule || !hasTimeWindows) {
+            console.error("Calendar is incomplete for publishing");
+            return;
+        }
         setSubmitting(true);
         try {
-            const locationOption = LOCATION_OPTIONS.find((option) => option.value === location);
+            const locationOption = locationOptions.find((option) => option.value === location);
             const bookingChannels = toBookingChannels(channels);
             const assignedUsers = Array.from(
                 new Set(
@@ -124,7 +232,9 @@ export default function CalendarWizard() {
                         .map((user) => user.id),
                 ),
             );
-            const payload: CreateCalendarPayload = {
+            
+            await updateCalendar(draftUid, {
+                uid: draftUid,
                 name,
                 description,
                 locationId: locationOption?.id ?? 0,
@@ -135,22 +245,19 @@ export default function CalendarWizard() {
                 label: [],
                 qrLinkRequired: true,
                 feature: 'BASE_CRM',
-                status: 'Enabled',
+                status: 'ACTIVE',
                 color: '#0f172a',
                 bookingChannels,
                 capacityOverride: 0,
                 tags: [],
-            };
-            const createdCalendar = await createCalendar(payload);
-            const calendarUid = createdCalendar.uid;
-            const calendarName = createdCalendar.name ?? name;
+            });
 
             for (const schedule of schedules) {
                 const schedulePayload: CreateSchedulePayload = {
                     name: schedule.name,
                     description: description || schedule.name,
-                    calendarUid,
-                    calendarName,
+                    calendarUid: draftUid,
+                    calendarName: name,
                     startDate: schedule.startDate,
                     endDate: schedule.endDate || schedule.startDate,
                     slotCapacity: Math.max(
@@ -159,8 +266,8 @@ export default function CalendarWizard() {
                     ),
                     qrLinkRequired: true,
                     timeWindows: schedule.timeWindows.map((timeWindow: any) => ({
-                        calendarUid,
-                        calendarName,
+                        calendarUid: draftUid,
+                        calendarName: name,
                         scheduleName: schedule.name,
                         weekDays: timeWindow.weekDays,
                         startTime: withSeconds(timeWindow.startTime),
@@ -172,7 +279,7 @@ export default function CalendarWizard() {
                         qrLinkRequired: true,
                     })),
                 };
-                await createSchedule(calendarUid, schedulePayload);
+                await createSchedule(draftUid, schedulePayload);
             }
             navigate('/calendars');
         } catch (error) {
@@ -181,6 +288,15 @@ export default function CalendarWizard() {
             setSubmitting(false);
         }
     };
+
+    const publishBlockedReason = useMemo(() => {
+        if (selectedServices.length === 0) return "Add at least one service before publishing.";
+        if (schedules.length === 0) return "Add a schedule before publishing.";
+        if (!schedules.some((schedule) => Array.isArray(schedule.timeWindows) && schedule.timeWindows.length > 0)) {
+            return "Add at least one time window before publishing.";
+        }
+        return "";
+    }, [schedules, selectedServices.length]);
 
     const handleDeleteService = (serviceId: string) => {
         setSelectedServices(prev => prev.filter(s => s.id !== serviceId));
@@ -249,7 +365,7 @@ export default function CalendarWizard() {
                     {/* STEP 1 VIEW */}
                     <div className={`wizard-step-panel ${step === 1 ? 'active' : ''}`} style={{ display: step === 1 ? 'block' : 'none' }}>
                         <h2 className="section-title">Basic Details</h2>
-                        <form className="wizard-form" onSubmit={(e) => { e.preventDefault(); handleNext(); }}>
+                        <form className="wizard-form" onSubmit={(e) => { e.preventDefault(); handleNextStep1(); }}>
                             <div className="form-group">
                                 <Input
                                     type="text" 
@@ -279,9 +395,7 @@ export default function CalendarWizard() {
                                     className="custom-select"
                                     value={location}
                                     placeholder="Select Location"
-                                    options={[
-                                        ...LOCATION_OPTIONS,
-                                    ]}
+                                    options={locationOptions}
                                     onChange={(e) => setLocation(e.target.value)}
                                 />
                             </div>
@@ -323,6 +437,17 @@ export default function CalendarWizard() {
                                         </div>}
                                     />
                                 </div>
+                                <div className="checkbox-channel-card">
+                                    <Checkbox
+                                        checked={channels.ivr}
+                                        onChange={(e) => setChannels({...channels, ivr: e.target.checked})}
+                                        controlClassName="items-start"
+                                        label={<div className="checkbox-desc">
+                                            <span className="chk-label">IVR</span>
+                                            <span className="chk-subtext">Allow bookings initiated through interactive voice response</span>
+                                        </div>}
+                                    />
+                                </div>
                             </div>
 
                             <div className="wizard-labels-section">
@@ -341,7 +466,7 @@ export default function CalendarWizard() {
 
                             <div className="wizard-footer-actions">
                                 <Button variant="secondary" className="btn-wizard-discard" onClick={() => navigate('/calendars')}>Discard</Button>
-                                <Button type="submit">Continue</Button>
+                                <Button type="submit" loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                             </div>
                         </form>
                     </div>
@@ -367,7 +492,7 @@ export default function CalendarWizard() {
 
                         <div className="wizard-footer-actions mt-8">
                             <Button variant="secondary" className="btn-wizard-back" onClick={handlePrev}>Back</Button>
-                            <Button onClick={handleNext}>Continue</Button>
+                            <Button onClick={handleNextStep2} loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                         </div>
                     </div>
 
@@ -598,10 +723,13 @@ export default function CalendarWizard() {
 
                         <div className="wizard-footer-actions mt-8">
                             <Button variant="secondary" className="btn-wizard-back" onClick={handlePrev}>Back</Button>
-                            <Button onClick={handleCreate} loading={submitting}>
-                                {submitting ? 'Creating...' : 'Create Calendar'}
+                            <Button onClick={handlePublish} loading={submitting} disabled={Boolean(publishBlockedReason)}>
+                                {submitting ? 'Publishing...' : 'Activate / Publish'}
                             </Button>
                         </div>
+                        {publishBlockedReason ? (
+                            <p className="mt-3 text-sm text-amber-700">{publishBlockedReason}</p>
+                        ) : null}
                     </div>
                 </div>
             </section>

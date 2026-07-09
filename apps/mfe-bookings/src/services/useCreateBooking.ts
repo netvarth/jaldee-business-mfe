@@ -7,6 +7,7 @@ import { buildOffsetDateTime } from "../utils/dateTime";
 function channelToApi(channel: BookingChannel): string {
   if (channel === "Walk-in") return "WALK_IN";
   if (channel === "Phone-in") return "PHONE_IN";
+  if (channel === "IVR") return "IVR";
   return "ONLINE";
 }
 
@@ -61,6 +62,7 @@ export function useCreateBooking() {
             phoneNumber: toPhoneNumber(input.phone),
             email: input.email ?? "",
           },
+      ...(input.recurringRule && { recurringRule: input.recurringRule }),
     };
     try {
       await api.post("/bookings", payload);

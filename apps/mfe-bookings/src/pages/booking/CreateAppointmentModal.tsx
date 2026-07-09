@@ -8,6 +8,7 @@ import {
   Input,
   Select,
   Textarea,
+  Checkbox,
 } from "@jaldee/design-system";
 import { useModal } from "../../contexts/ModalContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -57,8 +58,20 @@ function mapCustomerDetails(customer: CustomerSearchResult) {
   };
 }
 
+interface CreateAppointmentModalProps {
+  initialDate?: Date;
+  initialTime?: string;
+  initialProviderUid?: string;
+  initialCalendarUid?: string;
+}
+
 /** Create Appointment Booking modal. */
-export default function CreateAppointmentModal() {
+export default function CreateAppointmentModal({
+  initialDate,
+  initialTime,
+  initialProviderUid,
+  initialCalendarUid,
+}: CreateAppointmentModalProps = {}) {
   const { closeModal } = useModal();
   const { showToast } = useToast();
   const { calendars, searchSchedules } = useCalendars();
@@ -74,18 +87,22 @@ export default function CreateAppointmentModal() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [selectedCustomerUid, setSelectedCustomerUid] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(null);
-  const [calendarUid, setCalendarUid] = useState("");
+  const [calendarUid, setCalendarUid] = useState(initialCalendarUid || "");
   const [serviceUid, setServiceUid] = useState("");
-  const [doctorUid, setDoctorUid] = useState("");
+  const [doctorUid, setDoctorUid] = useState(initialProviderUid || "");
   const [channel, setChannel] = useState<BookingChannel>("Online");
   const [scheduleUid, setScheduleUid] = useState("");
   const [notes, setNotes] = useState("");
   const [scheduleOptions, setScheduleOptions] = useState<{ value: string; label: string }[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("WEEKLY");
+  const [interval, setIntervalVal] = useState(1);
+  const [until, setUntil] = useState("");
 
-  const [month, setMonth] = useState(() => new Date(2026, 4, 1)); // May 2026
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [slot, setSlot] = useState<Slot | null>(null);
+  const [month, setMonth] = useState(() => initialDate ? new Date(initialDate.getFullYear(), initialDate.getMonth(), 1) : new Date(2026, 4, 1));
+  const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
+  const [slot, setSlot] = useState<Slot | null>(initialTime ? { startTime: initialTime, endTime: "23:59", availableCount: 1, isAvailable: true } : null);
 
   const dateStr = selectedDate ? iso(selectedDate) : "";
   const resolvedPatientName = patientName.trim() || (selectedCustomer ? buildCustomerLabel(selectedCustomer) : "");
@@ -165,6 +182,17 @@ export default function CreateAppointmentModal() {
     }
   }, [serviceUid, scheduleUid, dateStr, fetchSlots, clearSlots]);
 
+  // Handle Walk-in logic
+  useEffect(() => {
+    if (channel === "Walk-in") {
+      const today = new Date();
+      if (!selectedDate || iso(selectedDate) !== iso(today)) {
+        setSelectedDate(today);
+        setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+      }
+    }
+  }, [channel, selectedDate]);
+
   useEffect(() => {
     setServiceUid("");
     setScheduleUid("");
@@ -231,6 +259,7 @@ export default function CreateAppointmentModal() {
       date: dateStr, startTime: slot.startTime, endTime: slot.endTime,
       patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel, notes,
       customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
+      ...(isRecurring && until ? { recurringRule: { frequency, interval, until } } : {}),
     });
     // Show it on the calendar immediately.
     addCreatedBooking({
@@ -295,7 +324,7 @@ export default function CreateAppointmentModal() {
             <Select id="bk-calendar" testId="bookings-create-appointment-calendar-select" label="Calendar" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
             <Select id="bk-service" testId="bookings-create-appointment-service-select" label="Service" required placeholder={calendarUid ? "Select service" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
             <Select id="bk-doctor" testId="bookings-create-appointment-doctor-select" label="Assigned professional" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providers.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") }))} />
-            <Select id="bk-channel" testId="bookings-create-appointment-channel-select" label="Booking channel" value={channel} onChange={(e) => setChannel(e.target.value as BookingChannel)} options={["Online", "Walk-in", "Phone-in"].map((value) => ({ value, label: value }))} />
+            <Select id="bk-channel" testId="bookings-create-appointment-channel-select" label="Booking channel" value={channel} onChange={(e) => setChannel(e.target.value as BookingChannel)} options={["Online", "Walk-in", "Phone-in", "IVR"].map((value) => ({ value, label: value }))} />
           </FormSection>
 
           {selectedDate && (
@@ -304,43 +333,45 @@ export default function CreateAppointmentModal() {
             </div>
           )}
 
-          <div className="booking-grid" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
+          <div className="booking-grid" style={{ display: "grid", gridTemplateColumns: channel === "Walk-in" ? "1fr" : "300px 1fr", gap: 24 }}>
             {/* Date picker */}
-            <div className="date-picker-section">
-              <label>Appointment Date <span className="required">*</span></label>
-              <div className="calendar-picker mt-2" style={{ background: "white", border: "1px solid var(--border-color)", borderRadius: 8, padding: 16 }}>
-                <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <div style={{ fontWeight: 600, color: "var(--primary-color)" }}>{MONTHS[month.getMonth()]} {month.getFullYear()}</div>
-                  <div className="calendar-nav">
-                    <Button variant="ghost" size="sm" id="bookings-create-appointment-prev-month" data-testid="bookings-create-appointment-prev-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">&lt;</Button>
-                    <Button variant="ghost" size="sm" id="bookings-create-appointment-next-month" data-testid="bookings-create-appointment-next-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">&gt;</Button>
+            {channel !== "Walk-in" && (
+              <div className="date-picker-section">
+                <label>Appointment Date <span className="required">*</span></label>
+                <div className="calendar-picker mt-2" style={{ background: "white", border: "1px solid var(--border-color)", borderRadius: 8, padding: 16 }}>
+                  <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <div style={{ fontWeight: 600, color: "var(--primary-color)" }}>{MONTHS[month.getMonth()]} {month.getFullYear()}</div>
+                    <div className="calendar-nav">
+                      <Button variant="ghost" size="sm" id="bookings-create-appointment-prev-month" data-testid="bookings-create-appointment-prev-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">&lt;</Button>
+                      <Button variant="ghost" size="sm" id="bookings-create-appointment-next-month" data-testid="bookings-create-appointment-next-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">&gt;</Button>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", textAlign: "center", fontSize: 12, color: "var(--light-text)", marginBottom: 8 }}>
+                    {WEEK.map((w) => <div key={w}>{w}</div>)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }}>
+                    {cells.map((d, i) => d === null ? <div key={`empty-${month.getFullYear()}-${month.getMonth()}-${i}`} /> : (
+                      <button
+                        key={iso(d)}
+                        type="button"
+                        id={`bookings-create-appointment-date-${iso(d)}`}
+                        data-testid={`bookings-create-appointment-date-${iso(d)}`}
+                        data-active={selectedDate && iso(selectedDate) === iso(d) ? "true" : "false"}
+                        onClick={() => setSelectedDate(d)}
+                        style={{
+                          padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13,
+                          background: selectedDate && iso(selectedDate) === iso(d) ? "var(--primary-color)" : "transparent",
+                          color: selectedDate && iso(selectedDate) === iso(d) ? "white" : "var(--dark-text)",
+                          fontWeight: selectedDate && iso(selectedDate) === iso(d) ? 700 : 400,
+                        }}
+                      >
+                        {d.getDate()}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", textAlign: "center", fontSize: 12, color: "var(--light-text)", marginBottom: 8 }}>
-                  {WEEK.map((w) => <div key={w}>{w}</div>)}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }}>
-                  {cells.map((d, i) => d === null ? <div key={`empty-${month.getFullYear()}-${month.getMonth()}-${i}`} /> : (
-                    <button
-                      key={iso(d)}
-                      type="button"
-                      id={`bookings-create-appointment-date-${iso(d)}`}
-                      data-testid={`bookings-create-appointment-date-${iso(d)}`}
-                      data-active={selectedDate && iso(selectedDate) === iso(d) ? "true" : "false"}
-                      onClick={() => setSelectedDate(d)}
-                      style={{
-                        padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13,
-                        background: selectedDate && iso(selectedDate) === iso(d) ? "var(--primary-color)" : "transparent",
-                        color: selectedDate && iso(selectedDate) === iso(d) ? "white" : "var(--dark-text)",
-                        fontWeight: selectedDate && iso(selectedDate) === iso(d) ? 700 : 400,
-                      }}
-                    >
-                      {d.getDate()}
-                    </button>
-                  ))}
-                </div>
               </div>
-            </div>
+            )}
 
             {/* Schedule + slots */}
             <div className="slots-section">
@@ -379,6 +410,27 @@ export default function CreateAppointmentModal() {
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mt-4">
+            <Checkbox 
+              label="Repeat Appointment" 
+              checked={isRecurring} 
+              onChange={e => setIsRecurring(e.target.checked)} 
+              id="bk-recurring-toggle" 
+              data-testid="bk-recurring-toggle"
+            />
+            {isRecurring && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <Select label="Frequency" value={frequency} onChange={e => setFrequency(e.target.value as any)} options={[
+                  { value: "DAILY", label: "Daily" },
+                  { value: "WEEKLY", label: "Weekly" },
+                  { value: "MONTHLY", label: "Monthly" }
+                ]} />
+                <Input type="number" min={1} label="Interval" value={interval} onChange={e => setIntervalVal(Number(e.target.value))} />
+                <Input type="date" label="Repeat Until" required value={until} onChange={e => setUntil(e.target.value)} />
+              </div>
+            )}
           </div>
 
           <Textarea id="bk-notes" data-testid="bookings-create-appointment-notes-textarea" label="Staff notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />

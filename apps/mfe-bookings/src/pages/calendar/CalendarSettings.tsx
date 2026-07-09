@@ -86,7 +86,7 @@ export default function CalendarSettings() {
         bookingChannels: calendar?.bookingChannels ?? [],
         capacityOverride: calendar?.capacityOverride ?? 0,
         tags: calendar?.tags ?? tags,
-        status: calendar?.status ?? "Active",
+        status: calendar?.status ?? "ACTIVE",
       });
       navigate(`/calendars/${calendarUid}/details`, { replace: true, state: { calendar: updated } });
     } finally {
@@ -144,7 +144,7 @@ export default function CalendarSettings() {
                     <span className="h-12 w-12 rounded-2xl" style={{ backgroundColor: isHexColor(color) ? color : "#2563EB" }} />
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{calendar?.name ?? "Calendar"}</p>
-                      <p className="text-xs text-slate-500">{calendar?.status ?? "Active"}</p>
+                      <p className="text-xs text-slate-500">{calendar?.status ?? "ACTIVE"}</p>
                     </div>
                   </div>
                 </div>

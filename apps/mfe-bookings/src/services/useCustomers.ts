@@ -4,6 +4,32 @@ import { useToast } from "../contexts/ToastContext";
 import type { Customer } from "../types";
 import { unwrapList } from "./response";
 
+const COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b6d4"];
+
+function pickFirstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function normalizeCustomer(item: unknown, index: number): Customer {
+  const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+  return {
+    id: pickFirstString(record.uid, record.id, record.consumerId, record.jaldeeConsumerId) || `consumer-${index}`,
+    firstName: pickFirstString(record.firstName, record.fname, record.givenName) || "Unknown",
+    lastName: pickFirstString(record.lastName, record.lname, record.familyName),
+    phoneNumber: pickFirstString(record.phoneNumber, record.primaryPhoneNumber, record.phone, record.mobileNumber),
+    email: pickFirstString(record.email, record.emailId),
+    labels: Array.isArray(record.labels) ? record.labels.filter((value): value is string => typeof value === "string") : [],
+    visits: typeof record.totalBookings === "number" ? record.totalBookings : 0,
+    status: pickFirstString(record.status),
+    avatarColor: COLORS[index % COLORS.length],
+  };
+}
+
 export const useCustomers = () => {
   const api = useBookingApi();
   const { showToast } = useToast();
@@ -16,11 +42,11 @@ export const useCustomers = () => {
     setError(null);
     try {
       const data = await api.post<unknown>(
-        "/customers/search",
+        "/consumers/search",
         {},
         { params: { page: 0, size: 100 } },
       );
-      setCustomers(unwrapList<Customer>(data));
+      setCustomers(unwrapList<unknown>(data).map(normalizeCustomer));
     } catch (e) {
       // No sample fallback — real/empty data only so a backend gap is visible.
       setError(e instanceof Error ? e.message : "Failed to load customers.");

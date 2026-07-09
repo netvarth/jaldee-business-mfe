@@ -22,6 +22,11 @@ const channels = [
     title: "Phone-in",
     description: "Accept appointments booked over the phone",
   },
+  {
+    value: "IVR",
+    title: "IVR",
+    description: "Accept appointments initiated through the IVR channel",
+  },
 ];
 
 function normalizeList(values: unknown[] | undefined, fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id"]) {
@@ -163,7 +168,7 @@ export default function CustomizeCalendar() {
         label: normalizeList(calendar.label as unknown[]),
         qrLinkRequired: calendar.qrLinkRequired ?? false,
         feature: calendar.feature ?? "BASE_CRM",
-        status: calendar.status ?? "Disabled",
+        status: calendar.status ?? "INACTIVE",
         color: calendar.color ?? "",
         bookingChannels: selectedChannels,
         capacityOverride: calendar.capacityOverride ?? 0,

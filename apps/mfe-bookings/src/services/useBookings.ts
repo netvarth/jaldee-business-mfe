@@ -27,6 +27,7 @@ const STATUS_MAP: Record<string, string> = {
   COMPLETED: "Confirmed",
   CANCELLED: "Cancelled",
   NO_SHOW: "Cancelled",
+  UNBLOCKED: "Unblocked",
 };
 
 /** Map a live BookingDto into the shape the calendar grid expects (mock-compatible). */
@@ -44,6 +45,8 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
     providerId: d.userUid,
     patientName: d.customerName,
     customerName: d.customerName,
+    bookingDate: d.bookingDate,
+    date: d.bookingDate,
     startTime: start,
     endTime: formatIsoTime(d.endTime, timeZone),
     time: start,
@@ -51,7 +54,7 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
   };
 }
 
-export function useBookings(date: string) {
+export function useBookings(date: string, viewMode: 'DAY' | 'WEEK' | 'MONTH' = 'DAY') {
   const api = useBookingApi();
   const { preference } = useBookingPreferences();
   const [bookings, setBookings] = useState<ReturnType<typeof toCalendarBooking>[]>([]);
@@ -61,25 +64,55 @@ export function useBookings(date: string) {
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    // Calculate date range based on viewMode
+    const currentDate = new Date(date);
+    let fromDate = new Date(currentDate);
+    let toDate = new Date(currentDate);
+
+    if (viewMode === 'WEEK') {
+        const day = currentDate.getDay();
+        const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        fromDate = new Date(currentDate.setDate(diff));
+        toDate = new Date(fromDate);
+        toDate.setDate(fromDate.getDate() + 6);
+    } else if (viewMode === 'MONTH') {
+        fromDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        toDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    }
+
+    const fromDateStr = fromDate.toISOString().split('T')[0];
+    const toDateStr = toDate.toISOString().split('T')[0];
+
+    // For now, if viewMode is DAY, we might just pass `date` to match the old API, 
+    // but typically `fromDate` and `toDate` or `startDate` and `endDate` are supported.
+    // Let's pass `fromDate` and `toDate` to the payload.
+    const payload: any = viewMode === 'DAY' ? { date } : { fromDate: fromDateStr, toDate: toDateStr };
+
     // Bookings created in this session are real user actions — always shown.
-    const sessionForDate = createdBookings.filter((b) => b.bookingDate === date) as never[];
+    const sessionBookings = createdBookings.filter((b) => {
+        if (viewMode === 'DAY') return b.bookingDate === date;
+        const bDate = b.bookingDate ? new Date(b.bookingDate) : new Date();
+        return bDate >= fromDate && bDate <= toDate;
+    }) as never[];
+
     try {
       const data = await api.post<unknown>(
         "/bookings/search",
-        { date },
-        { params: { page: 0, size: 100 } },
+        payload,
+        { params: { page: 0, size: 500 } }, // increase size for week/month
       );
       const live = unwrapList<BookingDto>(data).map((booking) => toCalendarBooking(booking, preference?.timezone)) as never[];
-      setBookings([...sessionForDate, ...live]);
+      setBookings([...sessionBookings, ...live]);
     } catch (e) {
       // No sample/mock fallback — surface the failure and show only real
       // (session) data so empty/error states are never masked by fake bookings.
       setError(e instanceof Error ? e.message : "Failed to load bookings.");
-      setBookings([...sessionForDate]);
+      setBookings([...sessionBookings]);
     } finally {
       setLoading(false);
     }
-  }, [api, date, preference?.timezone]);
+  }, [api, date, viewMode, preference?.timezone]);
 
   useEffect(() => {
     fetchBookings();

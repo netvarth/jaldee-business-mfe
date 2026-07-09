@@ -10,6 +10,7 @@ const channelIcon: Record<string, string> = {
   Online: "Online",
   "Walk-in": "Walk-in",
   "Phone-in": "Phone-in",
+  IVR: "IVR",
   ONLINE: "Online",
   WALK_IN: "Walk-in",
   PHONE_IN: "Phone-in",
@@ -393,8 +394,10 @@ export default function CalendarDetails() {
 }
 
 function resolveStatusLabel(status?: string) {
-  if (!status) return "Active";
-  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  if (!status || status === "ACTIVE") return "Active";
+  if (status === "DRAFT") return "Draft";
+  if (status === "INACTIVE") return "Inactive";
+  return status;
 }
 
 function scheduleStatusLabel(enabled: boolean) {
