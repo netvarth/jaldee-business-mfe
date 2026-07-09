@@ -230,7 +230,9 @@ export default function PreviewApp() {
     e164Number: "+919876543210",
   });
   const [multiComboboxValue, setMultiComboboxValue] = useState(["consult", "lab"]);
-  const [richTextValue, setRichTextValue] = useState("<strong>Initial assessment:</strong> patient is stable.");
+  const [richTextValue, setRichTextValue] = useState(
+    '<h2 style="font-size:24px;">Service announcement</h2><p><strong>Initial assessment:</strong> patient is stable.</p><p style="line-height:1.8;">This block preserves spacing, line height, colors, tables, images, and inline styles in the saved HTML.</p><table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;"><tbody><tr><td style="border:1px solid #CBD5E1;padding:10px;min-width:96px;">Item</td><td style="border:1px solid #CBD5E1;padding:10px;min-width:96px;">Status</td></tr><tr><td style="border:1px solid #CBD5E1;padding:10px;min-width:96px;">Rich editor</td><td style="border:1px solid #CBD5E1;padding:10px;min-width:96px;">Preview ready</td></tr></tbody></table>'
+  );
 
   const columns = useMemo<ColumnDef<PatientRow>[]>(
     () => [
@@ -549,13 +551,6 @@ export default function PreviewApp() {
                 hint="Use this to preview multi-line input styling."
                 defaultValue="Follow-up visit scheduled for review after lab results."
               />
-              <RichTextEditor
-                label="Rich clinical note"
-                value={richTextValue}
-                onChange={setRichTextValue}
-                hint="Formatted text editor preview"
-                minHeightClassName="min-h-[120px]"
-              />
               <FileUpload
                 label="Attachments"
                 accept=".pdf,.png"
@@ -591,6 +586,44 @@ export default function PreviewApp() {
                 ]}
               />
               <Switch label="Enable reminders" checked={notify} onChange={setNotify} />
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Rich Text Editor"
+          description="Wide authoring surface with grouped controls and a rendered preview of the saved inline HTML."
+        >
+          <div className="flex w-full flex-col gap-6">
+            <RichTextEditor
+              label="Authoring canvas"
+              value={richTextValue}
+              onChange={setRichTextValue}
+              hint="Use the grouped toolbar to format content, insert images, tables, horizontal/vertical lines, and preserve spacing."
+              minHeightClassName="min-h-[460px]"
+              fullWidth
+              testId="preview-rich-text-editor"
+            />
+
+            <div className="flex min-h-[720px] w-full flex-col overflow-hidden rounded-[var(--radius-control)] border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <div>
+                  <p className="m-0 text-sm font-semibold text-slate-900">Rendered Preview</p>
+                  <p className="m-0 text-xs text-slate-500">This is how the saved HTML displays.</p>
+                </div>
+                <Badge variant="info">HTML</Badge>
+              </div>
+              <div
+                className="prose max-w-none flex-1 overflow-auto p-6 text-sm leading-6 text-slate-800"
+                style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                dangerouslySetInnerHTML={{ __html: richTextValue || "<p style='color:#94A3B8;'>Preview appears here...</p>" }}
+              />
+              <div className="border-t border-slate-200 bg-slate-950 p-4">
+                <p className="m-0 mb-2 text-xs font-bold uppercase tracking-[0.1em] text-slate-400">Saved HTML</p>
+                <pre className="m-0 max-h-44 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-slate-100">
+                  {richTextValue || "<empty>"}
+                </pre>
+              </div>
             </div>
           </div>
         </SectionCard>
