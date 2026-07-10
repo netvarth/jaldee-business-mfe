@@ -18,21 +18,50 @@ import { apiClient, getReadableApiError } from "@jaldee/api-client";
 const GATEWAY_PREFIX = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX
   ? `/${import.meta.env.VITE_SERVICE_GATEWAY_PREFIX.replace(/^\/+|\/+$/g, "")}`
   : "";
-const BASE_PATH =
-  import.meta.env.VITE_BOOKINGS_API_BASE_PATH ||
-  `${GATEWAY_PREFIX}/booking-service/v1/api/tenant`;
+const DEFAULT_BASE_PATH = import.meta.env.VITE_BOOKINGS_API_BASE_PATH;
 
 function buildBookingServiceUrl(endpoint: string) {
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  return new URL(`${BASE_PATH}${normalizedEndpoint}`, window.location.origin).toString();
+  if (
+    normalizedEndpoint.startsWith("/base-service/") ||
+    normalizedEndpoint.startsWith("/booking-service/") ||
+    normalizedEndpoint.startsWith("/platform-service/")
+  ) {
+    return new URL(normalizedEndpoint, window.location.origin).toString();
+  }
+
+  let basePath = DEFAULT_BASE_PATH || `${GATEWAY_PREFIX}/booking-service/v1/api/tenant`;
+  
+  if (!DEFAULT_BASE_PATH) {
+    if (
+      normalizedEndpoint.startsWith("/users") ||
+      normalizedEndpoint.startsWith("/consumers")
+    ) {
+      basePath = `${GATEWAY_PREFIX}/base-service/v1/api/tenant`;
+    } else if (normalizedEndpoint.startsWith("/customers")) {
+      basePath = `${GATEWAY_PREFIX}/v1/api/tenant`;
+    } else if (
+      normalizedEndpoint.startsWith("/services") ||
+      normalizedEndpoint.startsWith("/bookings") ||
+      normalizedEndpoint.startsWith("/calendars") ||
+      normalizedEndpoint.startsWith("/preferences") ||
+      normalizedEndpoint.startsWith("/booking-preferences")
+    ) {
+      basePath = `${GATEWAY_PREFIX}/booking-service/v1/api/tenant`;
+    }
+  }
+
+  return new URL(`${basePath}${normalizedEndpoint}`, window.location.origin).toString();
 }
 
 interface BookingRequestOptions {
   params?: Record<string, string | number | boolean | undefined>;
+  _skipLocationParam?: boolean;
+  signal?: AbortSignal;
 }
 
 export function useBookingApi() {
-  const { authToken } = useMFEProps();
+  const { authToken, location } = useMFEProps();
 
   return useMemo(() => {
     // Fail fast when the backend/gateway is unreachable (e.g. standalone dev
@@ -47,11 +76,21 @@ export function useBookingApi() {
       options?: BookingRequestOptions,
     ): Promise<T> {
       try {
+        const params =
+          options?._skipLocationParam || options?.params?.location !== undefined
+            ? options?.params
+            : {
+                ...options?.params,
+                ...(location?.id ? { location: location.id } : {}),
+              };
+
         const res = await apiClient.request<any>({
           url: buildBookingServiceUrl(endpoint),
           method,
           data: body,
-          params: options?.params,
+          params,
+          _skipLocationParam: options?._skipLocationParam,
+          signal: options?.signal,
           timeout: TIMEOUT,
         });
 
@@ -70,8 +109,8 @@ export function useBookingApi() {
     }
 
     return {
-      get<T>(endpoint: string): Promise<T> {
-        return request<T>(endpoint, "GET");
+      get<T>(endpoint: string, options?: BookingRequestOptions): Promise<T> {
+        return request<T>(endpoint, "GET", undefined, options);
       },
       post<T>(endpoint: string, data: unknown, options?: BookingRequestOptions): Promise<T> {
         return request<T>(endpoint, "POST", data, options);
@@ -80,5 +119,5 @@ export function useBookingApi() {
         return request<T>(endpoint, "PUT", data);
       },
     };
-  }, [authToken]);
+  }, [authToken, location?.id]);
 }

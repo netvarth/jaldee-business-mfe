@@ -12,9 +12,15 @@ import { useCalendars } from "../../services/useCalendars";
 import type { Calendar } from "../../types";
 
 function statusClass(status?: string) {
-  if (status === "Draft") return "bg-slate-100 text-slate-600";
-  if (status === "Inactive") return "bg-amber-100 text-amber-800";
+  if (status === "DRAFT") return "bg-slate-100 text-slate-600";
+  if (status === "INACTIVE") return "bg-amber-100 text-amber-800";
   return "bg-emerald-100 text-emerald-700";
+}
+
+function statusLabel(status?: string) {
+  if (status === "DRAFT") return "Draft";
+  if (status === "INACTIVE") return "Inactive";
+  return "Active";
 }
 
 export default function CalendarList() {
@@ -87,7 +93,7 @@ export default function CalendarList() {
         sortable: true,
         render: (calendar) => (
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(calendar.status)}`}>
-            {calendar.status || "Active"}
+            {statusLabel(calendar.status)}
           </span>
         ),
       },
@@ -107,7 +113,11 @@ export default function CalendarList() {
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             onClick={(event) => {
               event.stopPropagation();
-              navigate("/calendars/edit", { state: { calendar } });
+              if (calendar.status === "DRAFT") {
+                navigate("/calendars/create", { state: { calendar } });
+              } else {
+                navigate("/calendars/edit", { state: { calendar } });
+              }
             }}
           >
             Edit
@@ -159,7 +169,7 @@ export default function CalendarList() {
         getRowId={(calendar) => calendar.uid}
         loading={loading}
         onRowClick={(calendar) =>
-          navigate("/calendars/details", { state: { calendar } })
+          navigate(`/calendars/${calendar.uid}/details`, { state: { calendar } })
         }
         pagination={{
           page,

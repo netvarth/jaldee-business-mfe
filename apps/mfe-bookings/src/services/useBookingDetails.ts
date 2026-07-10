@@ -13,6 +13,8 @@ export interface ActionExtra {
   newDate?: string;
   newStartTime?: string; // ISO OffsetDateTime
   newEndTime?: string;
+  cancelSeries?: boolean;
+  rescheduleSeries?: boolean;
 }
 
 function actionRequest(
@@ -32,13 +34,26 @@ function actionRequest(
     case "COMPLETE":
       return { path: `/bookings/${uid}/complete`, body: {} };
     case "CANCEL":
-      return { path: `/bookings/${uid}/cancel`, body: { cancelReason: extra?.reason ?? "", cancelledBy: "staff" } };
+      return {
+        path: `/bookings/${uid}/cancel`,
+        body: {
+          cancelReason: extra?.reason ?? "",
+          cancelledBy: "staff",
+          cancelSeries: Boolean(extra?.cancelSeries),
+        },
+      };
     case "NO_SHOW":
       return { path: `/bookings/${uid}/no-show`, body: {} };
     case "RESCHEDULE":
       return {
         path: `/bookings/${uid}/reschedule`,
-        body: { newDate: extra?.newDate, newStartTime: extra?.newStartTime, newEndTime: extra?.newEndTime, notifyPatient: false },
+        body: {
+          newDate: extra?.newDate,
+          newStartTime: extra?.newStartTime,
+          newEndTime: extra?.newEndTime,
+          notifyPatient: false,
+          rescheduleSeries: Boolean(extra?.rescheduleSeries),
+        },
       };
     case "CREATE_INVOICE":
       return { path: `/bookings/${uid}/finance`, body: {} };

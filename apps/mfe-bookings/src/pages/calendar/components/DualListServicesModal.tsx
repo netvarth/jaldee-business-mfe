@@ -3,6 +3,7 @@ import { Button, Checkbox, Dialog, DialogFooter, Input } from '@jaldee/design-sy
 
 export interface Service {
   id: string;
+  uid?: string;
   name: string;
   code?: string;
 }

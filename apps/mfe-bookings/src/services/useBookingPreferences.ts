@@ -29,7 +29,7 @@ export function useBookingPreferences() {
     setLoading(true);
     setError(null);
     try {
-      setPreference((await api.get<BookingPreference>("/preferences")) ?? {});
+      setPreference((await api.get<BookingPreference>("/booking-preferences")) ?? {});
     } catch (cause) {
       const message =
         cause instanceof Error ? cause.message : "Failed to load booking preferences.";
@@ -44,7 +44,7 @@ export function useBookingPreferences() {
   const savePreference = async (value: BookingPreference) => {
     setSaving(true);
     try {
-      const saved = await api.put<BookingPreference>("/preferences", value);
+      const saved = await api.put<BookingPreference>("/booking-preferences", value);
       setPreference(saved ?? value);
       showToast("Booking preferences saved", "success");
       return saved;

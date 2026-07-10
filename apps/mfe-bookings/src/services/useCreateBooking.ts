@@ -1,19 +1,45 @@
 import { useState } from "react";
 import { useBookingApi } from "../services/useBookingApi";
-import type { CreateBookingInput, BookingChannel } from "../types";
+import type { CreateBookingInput, BookingChannel, BookingCustomerDetails } from "../types";
+import { useBookingPreferences } from "./useBookingPreferences";
+import { buildOffsetDateTime } from "../utils/dateTime";
 
 function channelToApi(channel: BookingChannel): string {
   if (channel === "Walk-in") return "WALK_IN";
   if (channel === "Phone-in") return "PHONE_IN";
+  if (channel === "IVR") return "IVR";
   return "ONLINE";
 }
 
-function withSeconds(t: string): string {
-  return t.split(":").length === 2 ? `${t}:00` : t;
+function toPhoneNumber(value: string) {
+  const trimmed = value.trim();
+  const normalized = trimmed.replace(/[^\d+]/g, "");
+  if (!normalized) return undefined;
+
+  if (normalized.startsWith("+")) {
+    const digits = normalized.slice(1);
+    const countryCodeLength = digits.length > 10 ? Math.min(3, digits.length - 10) : 2;
+    return {
+      countryCode: `+${digits.slice(0, countryCodeLength) || "91"}`,
+      number: digits.slice(countryCodeLength) || digits,
+    };
+  }
+
+  return {
+    countryCode: "+91",
+    number: normalized,
+  };
+}
+
+function compactCustomerDetails(customerDetails: BookingCustomerDetails) {
+  return Object.fromEntries(
+    Object.entries(customerDetails).filter(([, value]) => value !== undefined && value !== null && value !== ""),
+  );
 }
 
 export function useCreateBooking() {
   const api = useBookingApi();
+  const { preference } = useBookingPreferences();
   const [submitting, setSubmitting] = useState(false);
 
   /** Returns true if the booking was accepted (live or local fallback). */
@@ -24,16 +50,19 @@ export function useCreateBooking() {
       serviceUid: input.serviceUid,
       userUid: input.providerUid,
       scheduleUid: input.scheduleUid,
-      slotDateTime: `${input.date}T${withSeconds(input.startTime)}+05:30`,
-      slotEndDateTime: `${input.date}T${withSeconds(input.endTime)}+05:30`,
+      slotDateTime: buildOffsetDateTime(input.date, input.startTime, preference?.timezone),
+      slotEndDateTime: buildOffsetDateTime(input.date, input.endTime, preference?.timezone),
       bookingChannel: channelToApi(input.channel),
       notes: input.notes ?? "",
-      customerDetails: {
-        firstName: firstName || "Walk-in",
-        lastName: rest.join(" ") || "Patient",
-        phoneNumber: input.phone,
-        email: input.email ?? "",
-      },
+      customerDetails: input.customerDetails
+        ? compactCustomerDetails(input.customerDetails)
+        : {
+            firstName: firstName || "Walk-in",
+            lastName: rest.join(" ") || "Patient",
+            phoneNumber: toPhoneNumber(input.phone),
+            email: input.email ?? "",
+          },
+      ...(input.recurringRule && { recurringRule: input.recurringRule }),
     };
     try {
       await api.post("/bookings", payload);

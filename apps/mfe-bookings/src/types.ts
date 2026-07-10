@@ -33,14 +33,21 @@ export interface Calendar {
   uid: string;
   name: string;
   description: string;
-  status: string;
+  status: CalendarStatus;
+  locationId?: number;
   color?: string;
   locationName?: string;
   services?: string[];
   users?: string[];
+  channel?: string;
+  label?: string[];
+  qrLinkRequired?: boolean;
+  feature?: string;
   bookingChannels?: string[];
   capacityOverride?: number | null;
   tags?: string[];
+  scheduleCount?: number;
+  timeWindowCount?: number;
 }
 
 export interface CalendarSettingsRequest {
@@ -49,7 +56,10 @@ export interface CalendarSettingsRequest {
   bookingChannels?: string[];
   capacityOverride?: number | null;
   tags?: string[];
+  status?: CalendarStatus;
 }
+
+export type CalendarStatus = "DRAFT" | "ACTIVE" | "INACTIVE";
 
 export interface Schedule {
   uid: string;
@@ -61,6 +71,7 @@ export interface Schedule {
   endDate: string | null;
   slotCapacity: number;
   qrLinkRequired: boolean;
+  timeWindows?: TimeWindow[];
 }
 
 export interface Provider {
@@ -74,13 +85,16 @@ export interface Provider {
 export interface TimeWindow {
   uid: string;
   calendarUid: string;
+  calendarName?: string;
   scheduleUid: string;
+  scheduleName?: string;
   weekDays: number[];
   startTime: string;
   endTime: string;
   slotDuration: number;
   slotCapacity: number;
   channel: string;
+  label?: string[];
   qrLinkRequired: boolean;
 }
 
@@ -96,8 +110,34 @@ export interface Customer {
   status?: string;
 }
 
+export interface CustomerSearchResult {
+  uid: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  status?: string;
+  lastVisitDate?: string;
+  totalBookings?: number;
+  createdAt?: string;
+  exactMatch?: boolean;
+}
+
+export interface BookingCustomerDetails {
+  uid?: string;
+  firstName?: string;
+  lastName?: string;
+  primaryNumber?: string;
+  email?: string;
+  gender?: string;
+  dob?: string;
+}
+
 export interface ServiceItem {
   id: string;
+  uid?: string;
   name: string;
   department: string;
   description?: string;
@@ -110,7 +150,7 @@ export interface ServiceItem {
 
 export type BookingStatus =
   | "REQUESTED" | "CONFIRMED" | "CHECKED_IN" | "WAITING"
-  | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED";
+  | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED" | "UNBLOCKED";
 
 export type AllowedAction =
   | "CONFIRM" | "CHECK_IN" | "MOVE_TO_WAITING" | "START" | "COMPLETE"
@@ -121,6 +161,7 @@ export interface BookingDetails {
   uid: string;
   encId?: string;
   status: BookingStatus;
+  seriesUid?: string | null;
   bookingType?: string;
   bookingChannel?: string;
   bookingMode?: string;
@@ -163,7 +204,7 @@ export interface Slot {
   isAvailable?: boolean;
 }
 
-export type BookingChannel = "Online" | "Walk-in" | "Phone-in";
+export type BookingChannel = "Online" | "Walk-in" | "Phone-in" | "IVR";
 
 export interface CreateBookingInput {
   calendarUid: string;
@@ -178,6 +219,12 @@ export interface CreateBookingInput {
   email?: string;
   channel: BookingChannel;
   notes?: string;
+  customerDetails?: BookingCustomerDetails;
+  recurringRule?: {
+    frequency: "DAILY" | "WEEKLY" | "MONTHLY";
+    interval: number;
+    until: string;
+  };
 }
 
 export interface TimeWindowDetails {
@@ -190,4 +237,26 @@ export interface TimeWindowDetails {
   serviceName: string;
   servicePrice: number;
   currencyCode: string;
+}
+
+export interface ServiceGroupItem {
+  id: string;
+  name: string;
+  description?: string;
+  serviceIds: string[];
+  priceMode: "sum" | "fixed";
+  price?: number;
+  durationMode: "sum" | "override";
+  duration?: number;
+  status: "Active" | "Inactive";
+}
+
+export interface InstantAvailabilitySlot {
+  startTime: string;
+  endTime: string;
+  providerUid?: string;
+  providerName?: string;
+  serviceUid?: string;
+  serviceName?: string;
+  availableCount?: number;
 }

@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCalendars } from '../../services/useCalendars';
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+    useCalendars,
+    type AccountLocation,
+    type CreateCalendarPayload,
+    type CreateSchedulePayload,
+} from '../../services/useCalendars';
+import { useServices } from '../../services/useServices';
+import { useUsers } from '../../services/useUsers';
 import { X } from 'lucide-react';
 import {
     Button,
@@ -17,36 +24,41 @@ import {
 import DualListServicesModal, { Service } from './components/DualListServicesModal';
 import DualListUsersModal, { User } from './components/DualListUsersModal';
 
-// Mock Data
-const MOCK_SERVICES: Service[] = [
-  { id: 's1', name: 'General Consultation', code: 'GEN-01' },
-  { id: 's2', name: 'Dental Cleaning', code: 'DEN-02' },
-  { id: 's3', name: 'Eye Checkup', code: 'EYE-01' },
-  { id: 's4', name: 'Physical Therapy', code: 'PHY-04' },
-  { id: 's5', name: 'Vaccination', code: 'VAC-01' }
-];
+function toBookingChannels(channels: { online: boolean; walkin: boolean; phonein: boolean; ivr: boolean }) {
+    const values: string[] = [];
+    if (channels.online) values.push('ONLINE');
+    if (channels.walkin) values.push('WALK_IN');
+    if (channels.phonein) values.push('PHONE_IN');
+    if (channels.ivr) values.push('IVR');
+    return values;
+}
 
-const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Dr. John Doe', role: 'Chief Medical Officer', avatarUrl: 'https://i.pravatar.cc/150?u=u1' },
-  { id: 'u2', name: 'Dr. Jane Smith', role: 'Senior Dentist', avatarUrl: 'https://i.pravatar.cc/150?u=u2' },
-  { id: 'u3', name: 'Alice Johnson', role: 'Physiotherapist', avatarUrl: 'https://i.pravatar.cc/150?u=u3' },
-  { id: 'u4', name: 'Bob Williams', role: 'Optometrist', avatarUrl: 'https://i.pravatar.cc/150?u=u4' }
-];
+function withSeconds(value: string) {
+    return value.split(':').length === 2 ? `${value}:00` : value;
+}
 
 export default function CalendarWizard() {
     const navigate = useNavigate();
-    const { createCalendar } = useCalendars();
+    const locationState = useLocation().state as { calendar?: any } | null;
+    const initialCalendar = locationState?.calendar;
+
+    const { createCalendar, updateCalendar, createSchedule, getLocations } = useCalendars();
+    const { services } = useServices();
+    const { users, loading: usersLoading, error: usersError } = useUsers();
     
     const [step, setStep] = useState(1);
+    const [draftUid, setDraftUid] = useState<string | null>(initialCalendar?.uid || null);
     
     // Step 1 State
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
-    const [location, setLocation] = useState('');
+    const [name, setName] = useState(initialCalendar?.name || '');
+    const [description, setDescription] = useState(initialCalendar?.description || '');
+    const [location, setLocation] = useState(initialCalendar?.locationName || '');
+    const [locations, setLocations] = useState<AccountLocation[]>([]);
     const [channels, setChannels] = useState({
-        online: true,
-        walkin: false,
-        phonein: false
+        online: initialCalendar?.bookingChannels?.includes('ONLINE') ?? true,
+        walkin: initialCalendar?.bookingChannels?.includes('WALK_IN') ?? false,
+        phonein: initialCalendar?.bookingChannels?.includes('PHONE_IN') ?? false,
+        ivr: initialCalendar?.bookingChannels?.includes('IVR') ?? false,
     });
     
     // Step 2 State
@@ -79,14 +91,196 @@ export default function CalendarWizard() {
 
     const [submitting, setSubmitting] = useState(false);
 
+    React.useEffect(() => {
+        let cancelled = false;
+        async function loadLocations() {
+            try {
+                const data = await getLocations();
+                if (!cancelled) setLocations(data);
+            } catch {
+                if (!cancelled) setLocations([]);
+            }
+        }
+        void loadLocations();
+        return () => {
+            cancelled = true;
+        };
+    }, [getLocations]);
+
+    const locationOptions = useMemo(
+        () => locations.map((entry) => ({ value: entry.name, label: entry.name, id: entry.id })),
+        [locations],
+    );
+
+    const availableServices = useMemo<Service[]>(
+        () => services.map((service) => ({
+            id: service.uid ?? service.id,
+            uid: service.uid ?? service.id,
+            name: service.name,
+            code: service.serviceType,
+        })),
+        [services],
+    );
+
+    const availableUsers = useMemo<User[]>(
+        () =>
+            users.map((user) => ({
+                id: user.userUid,
+                name: user.displayName,
+                role: user.title || user.status,
+            })),
+        [users],
+    );
+
     const handleNext = () => setStep(s => Math.min(3, s + 1));
     const handlePrev = () => setStep(s => Math.max(1, s - 1));
 
-    const handleCreate = async () => {
+    const handleNextStep1 = async () => {
+        setSubmitting(true);
+        const locationOption = locationOptions.find((option) => option.value === location);
+        const bookingChannels = toBookingChannels(channels);
+        const payload: CreateCalendarPayload = {
+            name: name || "Draft Calendar",
+            description,
+            locationId: locationOption?.id ?? 0,
+            locationName: locationOption?.label ?? location,
+            services: [],
+            users: [],
+            channel: bookingChannels[0] ?? 'ONLINE',
+            label: [],
+            qrLinkRequired: true,
+            feature: 'BASE_CRM',
+            status: 'DRAFT',
+            color: '#0f172a',
+            bookingChannels,
+            capacityOverride: 0,
+            tags: [],
+        };
+        try {
+            if (!draftUid) {
+                const created = await createCalendar(payload);
+                if (created.uid) setDraftUid(created.uid);
+            } else {
+                await updateCalendar(draftUid, { ...payload, uid: draftUid });
+            }
+            handleNext();
+        } catch (e) {
+            console.error("Failed to save draft", e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleNextStep2 = async () => {
+        if (!draftUid) return handleNext();
+        setSubmitting(true);
+        const assignedUsers = Array.from(
+            new Set(
+                Object.values(serviceUsers)
+                    .flat()
+                    .map((user) => user.id),
+            ),
+        );
+        const locationOption = locationOptions.find((option) => option.value === location);
+        const bookingChannels = toBookingChannels(channels);
+        
+        const payload: CreateCalendarPayload = {
+            uid: draftUid,
+            name: name || "Draft Calendar",
+            description,
+            locationId: locationOption?.id ?? 0,
+            locationName: locationOption?.label ?? location,
+            services: selectedServices.map((service) => service.uid ?? service.id),
+            users: assignedUsers,
+            channel: bookingChannels[0] ?? 'ONLINE',
+            label: [],
+            qrLinkRequired: true,
+            feature: 'BASE_CRM',
+            status: 'DRAFT',
+            color: '#0f172a',
+            bookingChannels,
+            capacityOverride: 0,
+            tags: [],
+        };
+        try {
+            await updateCalendar(draftUid, payload);
+            handleNext();
+        } catch (e) {
+            console.error("Failed to save services", e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handlePublish = async () => {
+        if (!draftUid) return;
+        const hasServices = selectedServices.length > 0;
+        const hasSchedule = schedules.length > 0;
+        const hasTimeWindows = schedules.some((schedule) => Array.isArray(schedule.timeWindows) && schedule.timeWindows.length > 0);
+        if (!hasServices || !hasSchedule || !hasTimeWindows) {
+            console.error("Calendar is incomplete for publishing");
+            return;
+        }
         setSubmitting(true);
         try {
-            await createCalendar(name, description);
-            // In a real flow, we would also save the mapped services and schedules here.
+            const locationOption = locationOptions.find((option) => option.value === location);
+            const bookingChannels = toBookingChannels(channels);
+            const assignedUsers = Array.from(
+                new Set(
+                    Object.values(serviceUsers)
+                        .flat()
+                        .map((user) => user.id),
+                ),
+            );
+            
+            await updateCalendar(draftUid, {
+                uid: draftUid,
+                name,
+                description,
+                locationId: locationOption?.id ?? 0,
+                locationName: locationOption?.label ?? location,
+                services: selectedServices.map((service) => service.uid ?? service.id),
+                users: assignedUsers,
+                channel: bookingChannels[0] ?? 'ONLINE',
+                label: [],
+                qrLinkRequired: true,
+                feature: 'BASE_CRM',
+                status: 'ACTIVE',
+                color: '#0f172a',
+                bookingChannels,
+                capacityOverride: 0,
+                tags: [],
+            });
+
+            for (const schedule of schedules) {
+                const schedulePayload: CreateSchedulePayload = {
+                    name: schedule.name,
+                    description: description || schedule.name,
+                    calendarUid: draftUid,
+                    calendarName: name,
+                    startDate: schedule.startDate,
+                    endDate: schedule.endDate || schedule.startDate,
+                    slotCapacity: Math.max(
+                        ...schedule.timeWindows.map((timeWindow: any) => Number(timeWindow.capacity) || 0),
+                        0,
+                    ),
+                    qrLinkRequired: true,
+                    timeWindows: schedule.timeWindows.map((timeWindow: any) => ({
+                        calendarUid: draftUid,
+                        calendarName: name,
+                        scheduleName: schedule.name,
+                        weekDays: timeWindow.weekDays,
+                        startTime: withSeconds(timeWindow.startTime),
+                        endTime: withSeconds(timeWindow.endTime),
+                        slotDuration: Number(timeWindow.duration) || 0,
+                        slotCapacity: Number(timeWindow.capacity) || 0,
+                        channel: bookingChannels[0] ?? 'ONLINE',
+                        label: [],
+                        qrLinkRequired: true,
+                    })),
+                };
+                await createSchedule(draftUid, schedulePayload);
+            }
             navigate('/calendars');
         } catch (error) {
             console.error(error);
@@ -94,6 +288,15 @@ export default function CalendarWizard() {
             setSubmitting(false);
         }
     };
+
+    const publishBlockedReason = useMemo(() => {
+        if (selectedServices.length === 0) return "Add at least one service before publishing.";
+        if (schedules.length === 0) return "Add a schedule before publishing.";
+        if (!schedules.some((schedule) => Array.isArray(schedule.timeWindows) && schedule.timeWindows.length > 0)) {
+            return "Add at least one time window before publishing.";
+        }
+        return "";
+    }, [schedules, selectedServices.length]);
 
     const handleDeleteService = (serviceId: string) => {
         setSelectedServices(prev => prev.filter(s => s.id !== serviceId));
@@ -162,7 +365,7 @@ export default function CalendarWizard() {
                     {/* STEP 1 VIEW */}
                     <div className={`wizard-step-panel ${step === 1 ? 'active' : ''}`} style={{ display: step === 1 ? 'block' : 'none' }}>
                         <h2 className="section-title">Basic Details</h2>
-                        <form className="wizard-form" onSubmit={(e) => { e.preventDefault(); handleNext(); }}>
+                        <form className="wizard-form" onSubmit={(e) => { e.preventDefault(); handleNextStep1(); }}>
                             <div className="form-group">
                                 <Input
                                     type="text" 
@@ -192,11 +395,7 @@ export default function CalendarWizard() {
                                     className="custom-select"
                                     value={location}
                                     placeholder="Select Location"
-                                    options={[
-                                        { value: 'Thrissur', label: 'Thrissur' },
-                                        { value: 'Kochi', label: 'Kochi' },
-                                        { value: 'Bangalore', label: 'Bangalore' },
-                                    ]}
+                                    options={locationOptions}
                                     onChange={(e) => setLocation(e.target.value)}
                                 />
                             </div>
@@ -238,6 +437,17 @@ export default function CalendarWizard() {
                                         </div>}
                                     />
                                 </div>
+                                <div className="checkbox-channel-card">
+                                    <Checkbox
+                                        checked={channels.ivr}
+                                        onChange={(e) => setChannels({...channels, ivr: e.target.checked})}
+                                        controlClassName="items-start"
+                                        label={<div className="checkbox-desc">
+                                            <span className="chk-label">IVR</span>
+                                            <span className="chk-subtext">Allow bookings initiated through interactive voice response</span>
+                                        </div>}
+                                    />
+                                </div>
                             </div>
 
                             <div className="wizard-labels-section">
@@ -256,7 +466,7 @@ export default function CalendarWizard() {
 
                             <div className="wizard-footer-actions">
                                 <Button variant="secondary" className="btn-wizard-discard" onClick={() => navigate('/calendars')}>Discard</Button>
-                                <Button type="submit">Continue</Button>
+                                <Button type="submit" loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                             </div>
                         </form>
                     </div>
@@ -282,7 +492,7 @@ export default function CalendarWizard() {
 
                         <div className="wizard-footer-actions mt-8">
                             <Button variant="secondary" className="btn-wizard-back" onClick={handlePrev}>Back</Button>
-                            <Button onClick={handleNext}>Continue</Button>
+                            <Button onClick={handleNextStep2} loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                         </div>
                     </div>
 
@@ -407,6 +617,7 @@ export default function CalendarWizard() {
                                                                 return (
                                                                     <Checkbox
                                                                         key={d}
+                                                                        id={`calendar-wizard-weekday-${sIdx}-${twIdx}-${d}`}
                                                                         className="weekday-pill-input wiz-day-pill-input"
                                                                         containerClassName="mr-1"
                                                                         labelClassName="weekday-pill-label"
@@ -512,10 +723,13 @@ export default function CalendarWizard() {
 
                         <div className="wizard-footer-actions mt-8">
                             <Button variant="secondary" className="btn-wizard-back" onClick={handlePrev}>Back</Button>
-                            <Button onClick={handleCreate} loading={submitting}>
-                                {submitting ? 'Creating...' : 'Create Calendar'}
+                            <Button onClick={handlePublish} loading={submitting} disabled={Boolean(publishBlockedReason)}>
+                                {submitting ? 'Publishing...' : 'Activate / Publish'}
                             </Button>
                         </div>
+                        {publishBlockedReason ? (
+                            <p className="mt-3 text-sm text-amber-700">{publishBlockedReason}</p>
+                        ) : null}
                     </div>
                 </div>
             </section>
@@ -524,7 +738,7 @@ export default function CalendarWizard() {
             <DualListServicesModal 
                 isOpen={isServicesModalOpen}
                 onClose={() => setIsServicesModalOpen(false)}
-                allServices={MOCK_SERVICES}
+                allServices={availableServices}
                 initialSelectedServices={selectedServices}
                 onSave={setSelectedServices}
             />
@@ -534,8 +748,10 @@ export default function CalendarWizard() {
                     isOpen={true}
                     onClose={() => setUsersModalServiceId(null)}
                     serviceName={selectedServices.find(s => s.id === usersModalServiceId)?.name || ''}
-                    allUsers={MOCK_USERS}
+                    allUsers={availableUsers}
                     initialSelectedUsers={serviceUsers[usersModalServiceId] || []}
+                    loading={usersLoading}
+                    error={usersError}
                     onSave={(users) => setServiceUsers(prev => ({ ...prev, [usersModalServiceId]: users }))}
                 />
             )}

@@ -1,4 +1,4 @@
-import { forwardRef }                           from "react";
+import { forwardRef, useId }                    from "react";
 import type { InputHTMLAttributes, ReactNode }  from "react";
 import { cn }                                   from "../../utils";
 
@@ -26,8 +26,9 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     },
     ref
   ) => {
+    const generatedId = useId();
     const checkboxId =
-      id ?? (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+      id ?? (typeof label === "string" ? `${label.toLowerCase().replace(/\s+/g, "-")}-${generatedId}` : generatedId);
 
     return (
       <div className={cn("flex flex-col gap-1", containerClassName)}>
