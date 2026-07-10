@@ -68,8 +68,7 @@ export default function Reports() {
     <section
       id="hr-reports-page"
       data-testid="hr-reports-page"
-      className="page-section active"
-      style={{ background: "var(--app-bg)", minWidth: 0 }}
+      className="page-section active hr-page-shell"
     >
       <PageHeader
         title="Reports & Analytics"

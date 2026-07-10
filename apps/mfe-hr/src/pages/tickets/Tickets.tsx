@@ -97,7 +97,7 @@ export default function Tickets() {
   const liveSelected = selected ? tickets.data.find((t) => t.id === selected.id) ?? selected : null;
 
   return (
-    <section id="hr-tickets-page" data-testid="hr-tickets-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-tickets-page" data-testid="hr-tickets-page" className="page-section active hr-page-shell">
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <PageHeader
           title="HR Helpdesk"

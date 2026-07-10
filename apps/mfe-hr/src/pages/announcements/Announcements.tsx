@@ -168,7 +168,7 @@ export default function Announcements() {
   };
 
   return (
-    <section id="hr-announcements-page" data-testid="hr-announcements-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, display: "flex", flexDirection: "column" }}>
+    <section id="hr-announcements-page" data-testid="hr-announcements-page" className="page-section active hr-page-shell" style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 32, width: "100%" }}>
         <PageHeader
           title="StaffSpace"

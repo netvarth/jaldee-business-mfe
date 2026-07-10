@@ -132,7 +132,7 @@ export default function Expenses() {
   };
 
   return (
-    <section id="hr-expenses-page" data-testid="hr-expenses-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-expenses-page" data-testid="hr-expenses-page" className="page-section active hr-page-shell">
       <PageHeader
         title="Expense Claims & Mileage Ledger"
         subtitle="Reimbursements, travel logs and settlement control"

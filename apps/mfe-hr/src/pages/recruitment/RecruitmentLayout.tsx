@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { PageHeader, Tabs } from "@jaldee/design-system";
+import { MoreVertical } from "lucide-react";
+import { PageHeader, Popover, Tabs } from "@jaldee/design-system";
 import { useTelemetry } from "../../services/useTelemetry";
 
 interface RecruitmentLayoutProps {
@@ -23,6 +24,7 @@ export default function RecruitmentLayout({ title, subtitle, children }: Recruit
   const location = useLocation();
   const navigate = useNavigate();
   const { trackPageView } = useTelemetry();
+  const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
   const currentPath = location.pathname.replace(/\/+$/, "") || "/recruitment";
   const activeTab = TABS.find((tab) => currentPath === tab.path)?.value ?? "dashboard";
 
@@ -34,20 +36,64 @@ export default function RecruitmentLayout({ title, subtitle, children }: Recruit
     <section
       id="hr-recruitment-section"
       data-testid="hr-recruitment-section"
-      className="flex h-full min-h-0 flex-col bg-[var(--app-bg)] text-[var(--color-text-primary)]"
+      className="page-section active hr-page-shell text-[var(--color-text-primary)]"
     >
-      <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-5">
-        <PageHeader title={title} subtitle={subtitle} />
-        <Tabs
-          className="mt-5"
-          value={activeTab}
-          items={TABS.map(({ value, label }) => ({ value, label }))}
-          onValueChange={(value) => {
-            const next = TABS.find((tab) => tab.value === value);
-            if (next) navigate(next.path);
-          }}
-        />
+      <PageHeader title={title} subtitle={subtitle} />
+      <div className="attendance-tabs-mobile" style={{ alignItems: "center", gap: 12, padding: "6px 8px 6px 16px", marginBottom: 16 }}>
+        <div
+          className="attendance-tabs-mobile__active"
+          onClick={() => setMobileTabsOpen(true)}
+          style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
+        >
+          <span>{TABS.find((tab) => tab.value === activeTab)?.label || "Overview"}</span>
+        </div>
+
+        <Popover
+          portal
+          open={mobileTabsOpen}
+          onOpenChange={setMobileTabsOpen}
+          placement="bottom"
+          align="end"
+          contentClassName="!w-56 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+          trigger={
+            <button
+              type="button"
+              className="attendance-tabs-mobile__trigger"
+              onClick={() => setMobileTabsOpen((open) => !open)}
+              aria-label="Open recruitment tabs"
+              style={{ margin: 0 }}
+            >
+              <MoreVertical size={18} />
+            </button>
+          }
+        >
+          <div className="attendance-tabs-mobile__menu">
+            {TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                className="attendance-tabs-mobile__menu-item"
+                data-active={activeTab === tab.value}
+                onClick={() => {
+                  navigate(tab.path);
+                  setMobileTabsOpen(false);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </Popover>
       </div>
+      <Tabs
+        className="attendance-tabs-desktop mb-6"
+        value={activeTab}
+        items={TABS.map(({ value, label }) => ({ value, label }))}
+        onValueChange={(value) => {
+          const next = TABS.find((tab) => tab.value === value);
+          if (next) navigate(next.path);
+        }}
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {children}

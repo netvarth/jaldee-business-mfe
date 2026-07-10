@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "../services/useHrApi";
+import { mapAvailableLocationsToBranches } from "./useBranches";
 
 export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; }
 export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; }
@@ -84,41 +86,18 @@ const BRANCHES_READONLY_MSG =
   "Branches are owned by Jaldee base locations and are read-only in HR. Manage them in the Jaldee business console.";
 
 export function useBranchesAdmin() {
-  const api = useHrApi();
-  const [data, setData] = useState<BranchRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<{ items?: Record<string, unknown>[] }>("/locations?size=200");
-      const items = Array.isArray(res?.items) ? res.items : [];
-      setData(
-        items.map((location) => ({
-          id: String(location.uid ?? ""),
-          uid: location.uid as string | undefined,
-          name:
-            (location.place as string | undefined) ??
-            (location.address as string | undefined) ??
-            "(unnamed location)",
-          address: location.address as string | undefined,
-          latitude: location.latitude != null ? Number(location.latitude) : undefined,
-          longitude: location.longitude != null ? Number(location.longitude) : undefined,
-        }))
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load branches");
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const mfeProps = useMFEProps() as ReturnType<typeof useMFEProps> & {
+    availableLocations?: Array<{
+      id: string;
+      uid?: string;
+      name: string;
+      code?: string;
+      address?: string;
+      latitude?: string | number;
+      longitude?: string | number;
+    }>;
+  };
+  const data = mapAvailableLocationsToBranches(mfeProps.availableLocations) as BranchRow[];
 
   const reject = useCallback(async () => {
     throw new Error(BRANCHES_READONLY_MSG);
@@ -126,9 +105,9 @@ export function useBranchesAdmin() {
 
   return {
     data,
-    loading,
-    error,
-    reload: load,
+    loading: false,
+    error: null,
+    reload: async () => undefined,
     create: reject,
     update: reject,
     remove: reject,

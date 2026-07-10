@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { useHrApi } from "../services/useHrApi";
+import { useMemo } from "react";
+import { useMFEProps } from "@jaldee/auth-context";
+import type { BranchLocation } from "@jaldee/auth-context";
 
 export interface Branch {
   id: string;
@@ -11,66 +12,48 @@ export interface Branch {
   longitude?: number;
 }
 
-/**
- * Branches are owned by core-base-crm-service (locations). feature-hr-service
- * proxies them read-only at GET /locations, returning PageResponse<LocationDto>
- * ({ items, total, page, size }) where the display name field is `place`.
- */
-interface LocationDto {
+type RuntimeLocation = BranchLocation & {
   uid?: string;
-  place?: string;
   address?: string;
-  pincode?: string;
-  latitude?: string;
-  longitude?: string;
-  [key: string]: unknown;
+  latitude?: string | number;
+  longitude?: string | number;
+};
+
+function toNumber(value: unknown) {
+  if (value == null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-interface PageResponse<T> {
-  items?: T[];
-  total?: number;
-  page?: number;
-  size?: number;
+export function mapAvailableLocationsToBranches(locations: RuntimeLocation[] | undefined): Branch[] {
+  if (!Array.isArray(locations)) return [];
+
+  return locations.map((location) => ({
+    id: String(location.uid ?? location.id ?? ""),
+    uid: location.uid ?? location.id,
+    name: location.name || location.code || "(unnamed location)",
+    code: location.code,
+    address: location.address,
+    latitude: toNumber(location.latitude),
+    longitude: toNumber(location.longitude),
+  }));
 }
 
-function toBranch(l: LocationDto): Branch {
-  const lat = l.latitude != null ? Number(l.latitude) : undefined;
-  const lng = l.longitude != null ? Number(l.longitude) : undefined;
-  return {
-    id: String(l.uid ?? ""),
-    uid: l.uid,
-    name: l.place ?? l.address ?? "(unnamed location)",
-    address: l.address,
-    latitude: Number.isFinite(lat) ? lat : undefined,
-    longitude: Number.isFinite(lng) ? lng : undefined,
-  };
-}
-
-/** Loads branches (read-only) from /locations. */
+/** Reads branches from shell-provided availableLocations instead of refetching locations in HR. */
 export function useBranches() {
-  const api = useHrApi();
-  const [data, setData] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const mfeProps = useMFEProps() as ReturnType<typeof useMFEProps> & {
+    availableLocations?: RuntimeLocation[];
+  };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<PageResponse<LocationDto>>("/locations?size=200");
-      const items = Array.isArray(res?.items) ? res.items : [];
-      setData(items.map(toBranch));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load branches");
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
+  const data = useMemo(
+    () => mapAvailableLocationsToBranches(mfeProps.availableLocations),
+    [mfeProps.availableLocations]
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return { data, loading, error, reload: load };
+  return {
+    data,
+    loading: false,
+    error: null,
+    reload: async () => undefined,
+  };
 }

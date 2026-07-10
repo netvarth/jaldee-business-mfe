@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "clean": "node -e \"const fs = require('fs'); ['dist', 'build'].forEach(d => fs.rmSync(d, { recursive: true, force: true }));\"",
-    "dev": "vite --port 4008 --strictPort",
-    "dev:remote": "npm run build && vite preview --port 4008 --strictPort",
+    "dev": "vite --port 3007 --strictPort",
+    "dev:remote": "npm run build && vite preview --port 3007 --strictPort",
     "build": "vite build",
-    "preview": "vite preview --port 4008 --strictPort",
-    "serve": "vite preview --port 4008 --strictPort"
+    "preview": "vite preview --port 3007 --strictPort",
+    "serve": "vite preview --port 3007 --strictPort"
   },
   "dependencies": {
     "@jaldee/api-client": "*",

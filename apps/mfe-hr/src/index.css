@@ -991,9 +991,40 @@ a:hover {
         cursor: pointer;
     }
 
-    .attendance-tabs-mobile__menu-item[data-active="true"] {
+.attendance-tabs-mobile__menu-item[data-active="true"] {
         color: var(--primary-color);
         background: rgba(17, 94, 89, 0.06);
+    }
+
+    .org-chart-toolbar {
+        align-items: stretch !important;
+    }
+
+    .org-chart-search,
+    .org-chart-expand-button {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .org-chart-stats {
+        width: 100%;
+    }
+
+    .org-chart-stats > * {
+        flex: 1 1 calc(50% - 4px);
+        justify-content: center;
+        text-align: center;
+    }
+
+    .org-chart-node-row {
+        flex-wrap: wrap;
+        gap: 8px !important;
+        padding: 12px !important;
+    }
+
+    .org-chart-node-badge,
+    .org-chart-node-level {
+        margin-left: 28px;
     }
 }
 
@@ -1130,6 +1161,12 @@ a:hover {
 
 .page-section.active {
     display: flex;
+}
+
+.hr-page-shell {
+    overflow-y: auto;
+    min-width: 0;
+    background: var(--app-bg);
 }
 
 /* Toolbar Style */

@@ -978,7 +978,7 @@ export default function Payroll() {
   });
 
   return (
-    <section id="hr-payroll-page" data-testid="hr-payroll-page" className="page-section active" style={{ background: "var(--app-bg)", flexGrow: 1, minWidth: 0 }}>
+    <section id="hr-payroll-page" data-testid="hr-payroll-page" className="page-section active hr-page-shell" style={{ flexGrow: 1 }}>
       <PageHeader
         title="Payroll Management"
         subtitle="Configurable components, salary structures, employee overrides, and payroll runs."

@@ -5,12 +5,12 @@ import RecruitmentLayout from "./RecruitmentLayout";
 import { ConvertToEmployeeModal } from "./ConvertToEmployeeModal";
 import { NewOfferModal } from "./NewOfferModal";
 import { OfferDetailsModal } from "./OfferDetailsModal";
+import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "./recruitmentResponsive";
 import type { ColumnDef } from "@jaldee/design-system";
 import type { Offer, Candidate } from "../../types";
 
-/** Case-insensitive offer status check (backend enum is UPPER, UI shows Title). */
-function isStatus(offer: Offer, s: string) {
-  return String(offer.status).toUpperCase() === s.toUpperCase();
+function isStatus(offer: Offer, status: string) {
+  return String(offer.status).toUpperCase() === status.toUpperCase();
 }
 
 export default function Offers() {
@@ -22,23 +22,31 @@ export default function Offers() {
   const [viewing, setViewing] = useState<Offer | null>(null);
   const [newOfferOpen, setNewOfferOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
 
-  // offer.applicationId → application → candidate, for prefill.
   const candidateFor = useMemo(() => {
     return (offer: Offer): { candidate: Candidate | null; applicationId?: string } => {
-      const app = applications.find((a) => a.id === offer.applicationId);
-      const applicationId = app?.id ?? offer.applicationId;
-      // Backend applications carry candidateUid; the UI type uses candidateId — accept either.
-      const candId = app?.candidateId ?? (app as { candidateUid?: string } | undefined)?.candidateUid;
+      const application = applications.find((item) => item.id === offer.applicationId);
+      const applicationId = application?.id ?? offer.applicationId;
+      const candidateId = application?.candidateId ?? (application as { candidateUid?: string } | undefined)?.candidateUid;
       const candidate =
-        app?.candidate ??
-        candidates.find((c) => c.id === candId) ??
+        application?.candidate ??
+        candidates.find((item) => item.id === candidateId) ??
         null;
       return { candidate, applicationId };
     };
   }, [applications, candidates]);
 
-  const candidateName = (offer: Offer) => candidateFor(offer).candidate?.name ?? "—";
+  const candidateName = (offer: Offer) => candidateFor(offer).candidate?.name ?? "-";
+  const offerStatusVariant = (status?: string) => {
+    const value = String(status ?? "").toUpperCase();
+    if (value === "ACCEPTED") return "success";
+    if (value === "DECLINED") return "danger";
+    if (value === "SENT") return "warning";
+    return "neutral";
+  };
+  const salaryLabel = (offer: Offer) =>
+    offer.offeredSalary ? `${offer.currency || "Rs"} ${Number(offer.offeredSalary).toLocaleString()}` : "-";
 
   const handleAccept = async (offer: Offer) => {
     setBusyId(offer.id);
@@ -63,47 +71,38 @@ export default function Offers() {
     {
       header: "Offered Salary",
       key: "offeredSalary",
-      render: (row) =>
-        row.offeredSalary ? `${row.currency || "₹"} ${Number(row.offeredSalary).toLocaleString()}` : "—",
+      render: (row) => salaryLabel(row),
     },
     {
       header: "Joining",
       key: "joiningDate",
-      render: (row) => (row.joiningDate ? new Date(String(row.joiningDate)).toLocaleDateString() : "—"),
+      render: (row) => (row.joiningDate ? new Date(String(row.joiningDate)).toLocaleDateString() : "-"),
     },
     {
       header: "Valid Until",
       key: "validUntil",
-      render: (row) => (row.validUntil ? new Date(String(row.validUntil)).toLocaleDateString() : "—"),
+      render: (row) => (row.validUntil ? new Date(String(row.validUntil)).toLocaleDateString() : "-"),
     },
     {
       header: "Status",
       key: "status",
-      render: (row) => {
-        const v = String(row.status);
-        const variant =
-          v.toUpperCase() === "ACCEPTED"
-            ? "success"
-            : v.toUpperCase() === "DECLINED"
-            ? "danger"
-            : v.toUpperCase() === "SENT"
-            ? "warning"
-            : "neutral";
-        return <Badge variant={variant}>{v}</Badge>;
-      },
+      render: (row) => <Badge variant={offerStatusVariant(row.status)}>{String(row.status || "-")}</Badge>,
     },
     {
       header: "",
       key: "id",
       align: "right",
       render: (row) => (
-        <div className="flex justify-end items-center gap-2 whitespace-nowrap">
-          <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => setViewing(row)}>View</Button>
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+          <Button variant="outline" size="sm" className="whitespace-nowrap" data-testid={`hr-recruitment-offer-view-${row.id}`} onClick={() => setViewing(row)}>
+            View
+          </Button>
           {isStatus(row, "SENT") && (
             <Button
               variant="outline"
               size="sm"
               className="whitespace-nowrap"
+              data-testid={`hr-recruitment-offer-accept-${row.id}`}
               loading={busyId === row.id}
               onClick={() => handleAccept(row)}
             >
@@ -111,7 +110,13 @@ export default function Offers() {
             </Button>
           )}
           {isStatus(row, "ACCEPTED") && (
-            <Button variant="primary" size="sm" className="whitespace-nowrap" onClick={() => setConverting(row)}>
+            <Button
+              variant="primary"
+              size="sm"
+              className="whitespace-nowrap"
+              data-testid={`hr-recruitment-offer-convert-${row.id}`}
+              onClick={() => setConverting(row)}
+            >
               Convert
             </Button>
           )}
@@ -132,18 +137,71 @@ export default function Offers() {
 
   return (
     <RecruitmentLayout title="Offers" subtitle="Track and manage candidate offers.">
-      <div className="p-8">
+      <div className="p-4 md:p-6">
         <div className="rounded-xl border border-gray-200 bg-white">
-          {/* Toolbar */}
-          <div className="flex items-center justify-end border-b border-gray-100 px-6 py-4">
-            <Button variant="primary" onClick={() => setNewOfferOpen(true)}>+ New Offer</Button>
+          <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+            <div className="text-sm text-gray-500">Manage active, accepted, and declined offers.</div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <RecruitmentViewToggle
+                value={viewMode}
+                onChange={setViewMode}
+                tableTestId="hr-recruitment-offers-view-table"
+                cardsTestId="hr-recruitment-offers-view-cards"
+              />
+              <Button variant="primary" data-testid="hr-recruitment-new-offer" onClick={() => setNewOfferOpen(true)}>
+                + New Offer
+              </Button>
+            </div>
           </div>
 
-          {/* Table */}
           <div className="p-0">
             {!loading && data.length === 0 ? (
               <div className="py-12">
                 <EmptyState title="No Offers" description="Create an offer for a candidate to see it here." />
+              </div>
+            ) : viewMode === "cards" ? (
+              <div className="grid gap-4 p-4 md:grid-cols-2">
+                {data.map((offer) => (
+                  <RecruitmentMobileCard
+                    key={offer.id}
+                    title={candidateName(offer)}
+                    rows={[
+                      { label: "Role", value: offer.designation || "-" },
+                      { label: "Salary", value: salaryLabel(offer) },
+                      { label: "Joining", value: offer.joiningDate ? new Date(String(offer.joiningDate)).toLocaleDateString() : "-" },
+                      { label: "Valid Until", value: offer.validUntil ? new Date(String(offer.validUntil)).toLocaleDateString() : "-" },
+                      { label: "Status", value: <Badge variant={offerStatusVariant(offer.status)}>{String(offer.status || "-")}</Badge> },
+                    ]}
+                    footer={
+                      <>
+                        <Button variant="outline" size="sm" data-testid={`hr-recruitment-offer-card-view-${offer.id}`} onClick={() => setViewing(offer)}>
+                          View
+                        </Button>
+                        {isStatus(offer, "SENT") ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid={`hr-recruitment-offer-card-accept-${offer.id}`}
+                            loading={busyId === offer.id}
+                            onClick={() => handleAccept(offer)}
+                          >
+                            Accept
+                          </Button>
+                        ) : null}
+                        {isStatus(offer, "ACCEPTED") ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            data-testid={`hr-recruitment-offer-card-convert-${offer.id}`}
+                            onClick={() => setConverting(offer)}
+                          >
+                            Convert
+                          </Button>
+                        ) : null}
+                      </>
+                    }
+                  />
+                ))}
               </div>
             ) : (
               <DataTable data={data} columns={columns} loading={loading} />

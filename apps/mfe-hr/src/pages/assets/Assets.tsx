@@ -104,7 +104,7 @@ export default function Assets() {
   };
 
   return (
-    <section className="page-section active" style={{ overflowY: "auto", padding: "28px 32px", background: "var(--app-bg)" }}>
+    <section className="page-section active hr-page-shell">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
         <PageHeader title="Assets" subtitle="Registry, allocation & returns — coordinated with Accounts" />
         <Button onClick={openAdd} icon={<Plus size={16} />}>Register Asset</Button>

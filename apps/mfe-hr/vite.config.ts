@@ -31,11 +31,11 @@ export default defineConfig({
     cssCodeSplit: false,
   },
   server: {
-    port: 4008,
-    origin: "http://localhost:4008",
+    port: 3007,
+    origin: "http://localhost:3007",
   },
   preview: {
-    port: 4008,
+    port: 3007,
     strictPort: true,
   },
 });

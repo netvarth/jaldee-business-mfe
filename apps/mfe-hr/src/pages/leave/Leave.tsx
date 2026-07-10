@@ -243,7 +243,7 @@ export default function Leave() {
   }), [employees, search]);
 
   return (
-    <section id="hr-leave-page" data-testid="hr-leave-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-leave-page" data-testid="hr-leave-page" className="page-section active hr-page-shell">
       <PageHeader
         title="Corporate Leave Dashboard"
         subtitle="Administrative leave and attendance control"

@@ -84,7 +84,7 @@ function NodeRow({ node, depth, q, expanded, toggle, onOpen }: {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginLeft: depth * 26, borderRadius: 14, border: `1px solid ${isMatch ? "rgba(17,94,89,0.4)" : "var(--border-color)"}`, background: isMatch ? "rgba(17,94,89,0.05)" : "var(--surface-bg)", marginBottom: 8 }}>
+      <div className="org-chart-node-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginLeft: depth * 26, borderRadius: 14, border: `1px solid ${isMatch ? "rgba(17,94,89,0.4)" : "var(--border-color)"}`, background: isMatch ? "rgba(17,94,89,0.05)" : "var(--surface-bg)", marginBottom: 8 }}>
         <button
           onClick={() => directs && toggle(e.id)}
           style={{ background: "none", border: "none", cursor: directs ? "pointer" : "default", color: "var(--light-text)", width: 18, display: "flex", justifyContent: "center", padding: 0 }}
@@ -109,12 +109,12 @@ function NodeRow({ node, depth, q, expanded, toggle, onOpen }: {
           </div>
         </button>
         {directs > 0 && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: TEAL, background: "rgba(17,94,89,0.06)", border: "1px solid rgba(17,94,89,0.15)", borderRadius: 999, padding: "3px 10px", flexShrink: 0 }}>
+          <span className="org-chart-node-badge" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: TEAL, background: "rgba(17,94,89,0.06)", border: "1px solid rgba(17,94,89,0.15)", borderRadius: 999, padding: "3px 10px", flexShrink: 0 }}>
             <Users2 size={11} /> {directs} direct · {countDescendants(node)} total
           </span>
         )}
         {e.hierarchyLevel != null && (
-          <span style={{ ...lbl, flexShrink: 0, border: "1px solid var(--border-color)", borderRadius: 8, padding: "3px 8px" }}>L{e.hierarchyLevel}</span>
+          <span className="org-chart-node-level" style={{ ...lbl, flexShrink: 0, border: "1px solid var(--border-color)", borderRadius: 8, padding: "3px 8px" }}>L{e.hierarchyLevel}</span>
         )}
       </div>
       {isOpen && node.children.map((c) => (
@@ -147,14 +147,14 @@ export default function OrgChartTab() {
   return (
     <div style={{ height: "100%" }}>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ position: "relative", width: 320, maxWidth: "100%" }}>
+      <div className="org-chart-toolbar" style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="org-chart-search" style={{ position: "relative", width: 320, maxWidth: "100%" }}>
           <Input placeholder="Search name, designation, department, ID…" value={q} onChange={(e) => setQ(e.target.value)} icon={<Search size={16} />} />
         </div>
-        <button onClick={expandedAll ? collapseAll : expandAll} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", fontWeight: 800, fontSize: 12, cursor: "pointer", color: "var(--dark-text)" }}>
+        <button className="org-chart-expand-button" onClick={expandedAll ? collapseAll : expandAll} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", fontWeight: 800, fontSize: 12, cursor: "pointer", color: "var(--dark-text)" }}>
           {expandedAll ? "Collapse all" : "Expand all"}
         </button>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="org-chart-stats" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span style={{ ...lbl, border: "1px solid var(--border-color)", borderRadius: 999, padding: "6px 12px" }}>{employees.length} employees</span>
           <span style={{ ...lbl, border: "1px solid var(--border-color)", borderRadius: 999, padding: "6px 12px" }}>{managers} managers</span>
           <span style={{ ...lbl, border: "1px solid var(--border-color)", borderRadius: 999, padding: "6px 12px" }}>{roots.length} roots</span>

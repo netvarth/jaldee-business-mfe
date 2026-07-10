@@ -301,7 +301,7 @@ export default function Attendance() {
   const clockText = clockedIn ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
 
   return (
-    <section id="hr-attendance-page" data-testid="hr-attendance-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-attendance-page" data-testid="hr-attendance-page" className="page-section active hr-page-shell">
       {faceOpen && (
         <Suspense fallback={null}>
           <FaceCaptureModal title="Verify Face to Clock In" subtitle={actorEmp?.name} busy={busy} onCapture={verifyAndPunch} onClose={() => setFaceOpen(false)} />

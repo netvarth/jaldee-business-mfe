@@ -89,7 +89,7 @@ export default function Separation() {
   const awaitingApproval = (s?: string) => s === "Pending" || s === "Partially_Approved";
 
   return (
-    <section className="page-section active" style={{ overflowY: "auto", padding: "28px 32px", background: "var(--app-bg)" }}>
+    <section className="page-section active hr-page-shell">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
         <PageHeader title="Separation" subtitle="Resignations, terminations, notice & clearance" />
         <Button onClick={() => { setMsg(null); setRaiseOpen(true); }} icon={<Plus size={16} />}>Raise Exit Request</Button>

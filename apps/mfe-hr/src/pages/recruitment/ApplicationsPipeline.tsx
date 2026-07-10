@@ -38,7 +38,7 @@ export default function ApplicationsPipeline() {
     setOnboarding(app);
   };
 
-  const renderCard = (item: any) => {
+  const renderCard = (item: unknown) => {
     const app = item as Application;
     const isHired = app.stage === "HIRED";
 
@@ -61,12 +61,12 @@ export default function ApplicationsPipeline() {
 
   return (
     <RecruitmentLayout title="Applications Pipeline" subtitle="Drag and drop applications across recruitment stages.">
-      <div className="flex-1 overflow-x-auto p-8">
-        <div className="min-w-[1000px] h-full">
+      <div className="flex-1 overflow-x-auto p-4 md:p-6">
+        <div className="h-full min-w-[1000px]">
           {loading ? (
             <div className="flex gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-[400px] w-[260px] rounded-xl" />
+              {[1, 2, 3, 4].map((item) => (
+                <Skeleton key={item} className="h-[400px] w-[260px] rounded-xl" />
               ))}
             </div>
           ) : data.length === 0 ? (

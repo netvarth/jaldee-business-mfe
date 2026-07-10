@@ -268,7 +268,7 @@ export default function Recruitment() {
   const currentRoute = ROUTES.find((item) => item.key === tab) || ROUTES[0];
 
   return (
-    <section id="hr-recruitment-page" data-testid="hr-recruitment-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-recruitment-page" data-testid="hr-recruitment-page" className="page-section active hr-page-shell">
       <PageHeader
         title="Recruitment"
         subtitle="Requisitions, candidates, interviews and offers"

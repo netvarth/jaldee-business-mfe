@@ -6,6 +6,7 @@ import { usePostings } from "../../services/useCareers";
 import { useShellErrorToast, useShellFeedback } from "../../services/useShellFeedback";
 import { NewRequisitionModal } from "./NewRequisitionModal";
 import RecruitmentLayout from "./RecruitmentLayout";
+import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "./recruitmentResponsive";
 import type { ColumnDef } from "@jaldee/design-system";
 import type { JobRequisition } from "../../types";
 
@@ -17,12 +18,21 @@ export default function JobRequisitions() {
   const { data: postings } = usePostings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
 
   const filtered = search
-    ? data.filter(r => r.title?.toLowerCase().includes(search.toLowerCase()))
+    ? data.filter((requisition) => requisition.title?.toLowerCase().includes(search.toLowerCase()))
     : data;
 
-  const postingFor = (reqId: string) => postings.find((p) => p.requisitionUid === reqId);
+  const postingFor = (reqId: string) => postings.find((posting) => posting.requisitionUid === reqId);
+  const statusVariant = (status?: string) => {
+    const value = String(status ?? "").toUpperCase();
+    if (value === "OPEN") return "success";
+    if (value === "CLOSED" || value === "FILLED") return "danger";
+    if (value === "ON_HOLD") return "warning";
+    return "neutral";
+  };
+  const statusLabel = (status?: string) => String(status ?? "").toUpperCase() || "-";
 
   const columns: ColumnDef<JobRequisition>[] = [
     { header: "Title", key: "title" },
@@ -31,19 +41,15 @@ export default function JobRequisitions() {
     {
       header: "Status",
       key: "status",
-      render: (row) => {
-        const v = String(row.status ?? "").toUpperCase();
-        const variant = v === "OPEN" ? "success" : v === "CLOSED" || v === "FILLED" ? "danger" : v === "ON_HOLD" ? "warning" : "neutral";
-        return <Badge variant={variant}>{v || "—"}</Badge>;
-      },
+      render: (row) => <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>,
     },
     {
       header: "Careers",
       key: "id",
       render: (row) => {
-        const p = postingFor(row.id);
-        if (p?.status === "PUBLISHED") return <Badge variant="info">● Live</Badge>;
-        if (p) return <Badge variant="neutral">Draft</Badge>;
+        const posting = postingFor(row.id);
+        if (posting?.status === "PUBLISHED") return <Badge variant="info">Live</Badge>;
+        if (posting) return <Badge variant="neutral">Draft</Badge>;
         return <span className="text-xs text-gray-400">Not published</span>;
       },
     },
@@ -54,8 +60,11 @@ export default function JobRequisitions() {
       render: (row) => {
         const published = postingFor(row.id)?.status === "PUBLISHED";
         return (
-          <Button variant={published ? "outline" : "primary"} size="sm"
-            onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}>
+          <Button
+            variant={published ? "outline" : "primary"}
+            size="sm"
+            onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
+          >
             {published ? "Edit careers page" : "Publish to careers"}
           </Button>
         );
@@ -73,43 +82,74 @@ export default function JobRequisitions() {
 
   return (
     <RecruitmentLayout title="Job Requisitions" subtitle="Manage open roles and headcount requests.">
-      <div className="p-8">
+      <div className="p-4 md:p-6">
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <Input
               id="hr-recruitment-requisitions-search"
               data-testid="hr-recruitment-requisitions-search"
               placeholder="Search requisitions..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              containerClassName="max-w-xs"
+              containerClassName="w-full md:max-w-xs"
               icon={<SearchIcon />}
             />
-            <Button
-              variant="primary"
-              data-testid="hr-recruitment-new-requisition"
-              onClick={() => {
-                track("create_opened");
-                setIsModalOpen(true);
-              }}
-            >
-              + New Requisition
-            </Button>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <RecruitmentViewToggle
+                value={viewMode}
+                onChange={setViewMode}
+                tableTestId="hr-recruitment-requisitions-view-table"
+                cardsTestId="hr-recruitment-requisitions-view-cards"
+              />
+              <Button
+                variant="primary"
+                data-testid="hr-recruitment-new-requisition"
+                onClick={() => {
+                  track("create_opened");
+                  setIsModalOpen(true);
+                }}
+              >
+                + New Requisition
+              </Button>
+            </div>
           </div>
 
-          {/* Table */}
           <div className="p-0">
             {!loading && filtered.length === 0 ? (
               <div className="py-12">
                 <EmptyState title="No Requisitions" description="Create a job requisition to start hiring." />
               </div>
+            ) : viewMode === "cards" ? (
+              <div className="grid gap-4 p-4 md:grid-cols-2">
+                {filtered.map((row) => {
+                  const posting = postingFor(row.id);
+                  const published = posting?.status === "PUBLISHED";
+                  return (
+                    <RecruitmentMobileCard
+                      key={row.id}
+                      title={row.title}
+                      rows={[
+                        { label: "Type", value: row.employmentType || "-" },
+                        { label: "Openings", value: row.openings ?? "-" },
+                        { label: "Status", value: <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge> },
+                        { label: "Careers", value: published ? <Badge variant="info">Live</Badge> : posting ? <Badge variant="neutral">Draft</Badge> : "Not published" },
+                      ]}
+                      footer={
+                        <Button
+                          variant={published ? "outline" : "primary"}
+                          size="sm"
+                          data-testid={`hr-recruitment-publish-card-${row.id}`}
+                          onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
+                        >
+                          {published ? "Edit careers page" : "Publish to careers"}
+                        </Button>
+                      }
+                    />
+                  );
+                })}
+              </div>
             ) : (
-              <DataTable
-                data={filtered}
-                columns={columns}
-                loading={loading}
-              />
+              <DataTable data={filtered} columns={columns} loading={loading} />
             )}
           </div>
         </div>
