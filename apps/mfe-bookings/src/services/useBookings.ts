@@ -12,6 +12,9 @@ interface BookingDto {
   serviceUid?: string;
   userUid?: string;
   customerName?: string;
+  customer?: any;
+  patient?: any;
+  patientName?: string;
   bookingDate?: string;
   startTime?: string; // ISO OffsetDateTime
   endTime?: string;
@@ -33,6 +36,7 @@ const STATUS_MAP: Record<string, string> = {
 /** Map a live BookingDto into the shape the calendar grid expects (mock-compatible). */
 function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
   const start = formatIsoTime(d.startTime, timeZone);
+  const derivedCustomerName = d.customerName || d.patientName || d.customer?.firstName || d.customer?.name || d.patient?.firstName || d.patient?.name || d.patient || "Walk-in";
   return {
     id: d.uid,
     uid: d.uid,
@@ -43,8 +47,8 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
     userId: d.userUid,
     userUid: d.userUid,
     providerId: d.userUid,
-    patientName: d.customerName,
-    customerName: d.customerName,
+    patientName: derivedCustomerName,
+    customerName: derivedCustomerName,
     bookingDate: d.bookingDate,
     date: d.bookingDate,
     startTime: start,

@@ -115,6 +115,36 @@ function asStringArray(value: unknown) {
     .filter(Boolean);
 }
 
+function normalizeSchemaFields(value: unknown): SchemaField[] {
+  if (Array.isArray(value)) {
+    return value as SchemaField[];
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([fallbackKey, item], index) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    const rawOptions = Array.isArray(record.options)
+      ? record.options.filter((option): option is string => typeof option === "string")
+      : undefined;
+
+    return [{
+      id: asString(record.id) || `field-${index + 1}`,
+      name: asString(record.name) || fallbackKey,
+      label: asString(record.label) || fallbackKey,
+      type: asString(record.type) || "string",
+      required: toBoolean(record.required),
+      ...(rawOptions?.length ? { options: rawOptions } : {}),
+    }];
+  });
+}
+
 function normalizeStatus(value: unknown) {
   const normalized = asString(value).toUpperCase();
   if (!normalized) return "Active";
@@ -260,8 +290,8 @@ export function toServiceFormPrefill(payload: unknown): ServiceFormPrefill {
     price: toNumber(raw.price ?? raw.serviceCharge ?? raw.amount),
     taxApplicable: toBoolean(raw.taxApplicable),
     hsnCode: asString(raw.hsnCode) || "None",
-    preServiceSchema: Array.isArray(raw.preServiceSchema) ? (raw.preServiceSchema as SchemaField[]) : [],
-    postServiceSchema: Array.isArray(raw.postServiceSchema) ? (raw.postServiceSchema as SchemaField[]) : [],
+    preServiceSchema: normalizeSchemaFields(raw.preServiceSchema),
+    postServiceSchema: normalizeSchemaFields(raw.postServiceSchema),
     currencyCode: asString(raw.currencyCode) || "INR",
     practitionerOverrides,
   };

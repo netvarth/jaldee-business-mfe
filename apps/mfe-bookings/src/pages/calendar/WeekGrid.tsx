@@ -4,6 +4,7 @@ import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import { toRgba } from '../../utils/colors';
 
 interface WeekGridProps {
     date: Date;
@@ -50,123 +51,123 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
     const redLineTop = 60 + Math.floor((minutesFromStart / 60) * 80);
 
     return (
-        <div className="day-view-grid">
-            {/* Time Column */}
-            <div className="time-column w-16 shrink-0 border-r border-slate-200 bg-white">
-                <div className="time-header-cell h-16 border-b border-slate-200 flex items-center justify-center text-[10px] text-slate-500 font-medium text-center">
-                    IST<br/>+05:30
-                </div>
-                {hours.map(h => {
-                    const ampm = h >= 12 ? 'PM' : 'AM';
-                    const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
-                    return (
-                        <div key={h} className="time-cell h-[80px] border-b border-slate-100 flex items-start justify-center pt-2">
-                            <span className="text-[11px] font-medium text-slate-400">{`${displayHour.toString().padStart(2, '0')}:00 ${ampm}`}</span>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Days Columns Wrapper */}
-            <div className="doctor-columns-wrapper">
-                {days.map((dayDate) => {
-                    const isToday = isSameDay(dayDate, now);
-                    
-                    // Filter bookings for this day
-                    const dayBookings = bookings.filter((b: any) => {
-                        const bDate = new Date(b.bookingDate || b.date);
-                        return isSameDay(bDate, dayDate);
-                    });
-
-                    return (
-                        <div key={dayDate.toISOString()} className="doctor-column relative">
-                            {/* Header Cell */}
-                            <div className={`doctor-header-cell h-16 border-b border-slate-200 flex flex-col items-center justify-center ${isToday ? 'bg-blue-50' : ''}`}>
-                                <span className={`text-xs font-semibold ${isToday ? 'text-blue-600' : 'text-slate-500'}`}>
-                                    {format(dayDate, 'EEE').toUpperCase()}
-                                </span>
-                                <div className={`w-8 h-8 flex items-center justify-center rounded-full mt-1 ${isToday ? 'bg-blue-600 text-white' : 'text-slate-800'}`}>
-                                    <span className="text-lg font-bold">{format(dayDate, 'd')}</span>
-                                </div>
+        <div className="calendar-grid week-view w-full h-full">
+            <div className="calendar-grid-content h-full flex flex-col">
+                <div className="calendar-scroll flex-1 custom-scrollbar">
+                    <div className="calendar-grid-inner min-w-[800px]">
+                        {/* Header */}
+                        <div className="calendar-header" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
+                            <div className="calendar-timezone">
+                                <div className="timezone-label">IST<br/>+05:30</div>
                             </div>
-
-                            {/* Cells Area */}
-                            <div className="column-cells-area">
-                                {hours.map(h => (
-                                    <div 
-                                      key={h} 
-                                      className="grid-hour-cell" 
-                                      data-hour={h}
-                                      onClick={() => openModal(
-                                        <CreateAppointmentModal 
-                                          initialDate={dayDate} 
-                                          initialTime={`${h.toString().padStart(2, '0')}:00`} 
-                                        />
-                                      )}
-                                      style={{ cursor: 'pointer' }}
-                                    />
-                                ))}
-
-                                {/* Render Bookings */}
-                                {dayBookings.map((bk: any) => {
-                                    const timeStr = bk.time || bk.startTime;
-                                    const start = parseTimeValue(bk.startTime || timeStr);
-                                    const end = parseTimeValue(bk.endTime);
-                                    if (!start) return null;
-
-                                    if (start.hour >= startHour && start.hour <= endHour) {
-                                        const startMinutes = ((start.hour - startHour) * 60) + start.minute;
-                                        const endMinutes = end
-                                            ? ((end.hour - startHour) * 60) + end.minute
-                                            : startMinutes + 30;
-                                        const topPos = Math.floor((startMinutes / 60) * 80);
-                                        const durationMins = Math.max(endMinutes - startMinutes, 30);
-                                        const heightPos = Math.floor((durationMins / 60) * 80) - 4;
-
-                                        const calColor = calendars.find(c => c.uid === bk.calendarId || c.uid === bk.calendarUid)?.color || "#9333EA";
-                                        const service = services.find(s => s.uid === bk.serviceId || s.uid === bk.serviceUid);
-
-                                        return (
-                                            <div 
-                                                key={bk.id || bk.uid} 
-                                                className="appointment-card absolute left-1 right-1 rounded-md overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow group flex flex-col" 
-                                                style={{ top: `${topPos}px`, height: `${heightPos}px`, zIndex: 10 }}
-                                                onClick={() => onBookingSelect(bk.id || bk.uid)}
-                                            >
-                                                <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: calColor }}></div>
-                                                <div className="flex-1 p-1.5 pl-3 overflow-hidden flex flex-col">
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="text-xs font-semibold text-slate-800 truncate pr-1">{bk.patientName || bk.customerName}</div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            iconOnly
-                                                            icon={<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>}
-                                                            className="appt-menu-btn opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1 h-5 w-5 text-slate-400 hover:text-slate-700"
-                                                            aria-label={`Open actions for ${bk.patientName || bk.customerName || 'booking'}`}
-                                                            onClick={(event) => event.stopPropagation()}
-                                                        />
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                                                        {timeStr} {service ? `· ${service.name}` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })}
-
-                                {/* Current Time Indicator */}
-                                {isToday && (
-                                    <div className="absolute left-0 right-0 border-t-2 border-red-500 z-20 pointer-events-none" style={{ top: `${Math.floor((minutesFromStart / 60) * 80)}px` }}>
-                                        <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-500 rounded-full"></div>
+                            {days.map((dayDate) => {
+                                const isToday = isSameDay(dayDate, now);
+                                return (
+                                    <div key={dayDate.toISOString()} className="weekday-header">
+                                        <div className="weekday-header-top">
+                                            <span className="weekday-label">{format(dayDate, 'EEE')}</span>
+                                            <strong className={`weekday-date ${isToday ? 'text-blue-600' : ''}`}>{format(dayDate, 'd')}</strong>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                );
+                            })}
                         </div>
-                    );
-                })}
+
+                        {/* Body */}
+                        <div className="calendar-body" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
+                            {hours.map((hour) => {
+                                const ampm = hour >= 12 ? 'PM' : 'AM';
+                                const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+                                const timeLabel = `${displayHour.toString().padStart(2, '0')}:00 ${ampm}`;
+
+                                return (
+                                    <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
+                                        <div className="hour-column">{timeLabel}</div>
+                                        {days.map((dayDate) => {
+                                            // Filter bookings for this slot
+                                            const slotBookings = bookings.filter((b: any) => {
+                                                const bDate = new Date(b.bookingDate || b.date);
+                                                if (!isSameDay(bDate, dayDate)) return false;
+                                                
+                                                const timeStr = b.time || b.startTime;
+                                                const start = parseTimeValue(timeStr);
+                                                return start && start.hour === hour;
+                                            });
+
+                                            return (
+                                                <div 
+                                                    key={`${dayDate.toISOString()}-${hour}`} 
+                                                    className="calendar-cell"
+                                                    onClick={() => openModal(
+                                                        <CreateAppointmentModal 
+                                                          initialDate={dayDate} 
+                                                          initialTime={`${hour.toString().padStart(2, '0')}:00`} 
+                                                        />
+                                                    )}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {slotBookings.length > 0 && (
+                                                        <div className="detail-stack w-full pointer-events-none">
+                                                            {viewBy === 'doctors' ? (
+                                                                Object.entries(slotBookings.reduce((acc: any, bk: any) => {
+                                                                    const uid = bk.providerId || bk.userUid || 'unknown';
+                                                                    if (!acc[uid]) acc[uid] = [];
+                                                                    acc[uid].push(bk);
+                                                                    return acc;
+                                                                }, {})).map(([uid, bks]: [string, any[]]) => {
+                                                                    const user = users.find(u => u.uid === uid);
+                                                                    const initials = user ? (user.code || user.name.substring(0, 2).toUpperCase()) : '?';
+                                                                    const color = user?.color || '#9333EA';
+                                                                    return (
+                                                                        <Button
+                                                                            key={uid}
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="week-slot-entry pointer-events-auto"
+                                                                            style={{ borderColor: color, background: '#fff' }}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <span className="week-slot-avatar" style={{ background: color, borderRadius: '4px' }}>{initials}</span>
+                                                                            <span className="week-slot-count text-left flex-1" style={{ fontSize: '11px', color: '#333', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
+                                                                            <span style={{color, fontSize: '14px', lineHeight: 1, fontWeight: 400}}>+</span>
+                                                                        </Button>
+                                                                    );
+                                                                })
+                                                            ) : (
+                                                                Object.entries(slotBookings.reduce((acc: any, bk: any) => {
+                                                                    const uid = bk.calendarId || bk.calendarUid || 'unknown';
+                                                                    if (!acc[uid]) acc[uid] = [];
+                                                                    acc[uid].push(bk);
+                                                                    return acc;
+                                                                }, {})).map(([uid, bks]: [string, any[]]) => {
+                                                                    const cal = calendars.find(c => c.uid === uid);
+                                                                    const rawColor = cal?.color || '#9333EA';
+                                                                    const isTw = rawColor.includes('bg-');
+                                                                    return (
+                                                                        <div
+                                                                            key={uid}
+                                                                            className={`flex items-center gap-1.5 p-1 px-2 rounded-md pointer-events-auto transition-opacity hover:opacity-90 w-full mb-1 ${isTw ? rawColor : ''} ${isTw ? 'bg-opacity-20' : ''}`}
+                                                                            style={isTw ? {} : { backgroundColor: toRgba(rawColor, 0.2), border: 'none' }}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <span className="flex-1 truncate text-left" style={isTw ? { fontSize: '11px', fontWeight: 600 } : { fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
+                                                                            <span style={isTw ? { fontSize: '14px', lineHeight: 1, fontWeight: 400 } : { color: '#1e293b', fontSize: '14px', lineHeight: 1, fontWeight: 400 }}>+</span>
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

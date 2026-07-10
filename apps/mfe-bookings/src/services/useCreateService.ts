@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMFEProps } from "@jaldee/auth-context";
 import { useBookingApi } from "./useBookingApi";
 import { addCreatedService } from "../data/sessionStore";
 import type { ServiceItem } from "../types";
@@ -6,6 +7,7 @@ import { useServiceDetails } from "./useServiceDetails";
 
 export interface SchemaField {
   id: string;
+  name?: string;
   label: string;
   type: string;
   required?: boolean;
@@ -87,6 +89,10 @@ function toApiAppointmentType(value: ServiceFormInput["apptType"]) {
   return value === "Request" ? "REQUEST" : "BOOKING";
 }
 
+function toApiCategory(value: ServiceFormInput["serviceCategory"]) {
+  return value === "Sub Service" ? "SUB_SERVICE" : "MAIN_SERVICE";
+}
+
 function toApiRequestType(value?: ServiceFormInput["requestType"]) {
   if (value === "With Date & Time") return "DATE_TIME";
   if (value === "With Date Only") return "DATE_ONLY";
@@ -109,49 +115,82 @@ function toApiTelePlatform(value?: ServiceFormInput["teleServicePlatform"]) {
   return undefined;
 }
 
-function toApiPayload(input: ServiceFormInput) {
-  const teleService =
-    input.serviceType === "Teleservice"
-      ? {
-          mode: toApiTeleMode(input.teleServiceMode),
-          platform: toApiTelePlatform(input.teleServicePlatform),
-          ...(input.meetingLink?.trim() ? { meetingLink: input.meetingLink.trim() } : {}),
-          ...(input.phoneNumber?.trim() ? { phoneNumber: input.phoneNumber.trim() } : {}),
-        }
-      : undefined;
+function toApiSchema(fields: SchemaField[]) {
+  return fields.reduce<Record<string, unknown>>((schema, field, index) => {
+    const key = field.name?.trim() || field.id?.trim() || `field_${index + 1}`;
+    schema[key] = {
+      id: field.id,
+      name: field.name?.trim() || key,
+      label: field.label,
+      type: field.type,
+      required: Boolean(field.required),
+      ...(field.options?.length ? { options: field.options } : {}),
+    };
+    return schema;
+  }, {});
+}
+
+function toLeadTimeMinutes(input: Pick<ServiceFormInput, "leadDays" | "leadHrs" | "leadMins">) {
+  return Math.max(0, input.leadDays) * 24 * 60 + Math.max(0, input.leadHrs) * 60 + Math.max(0, input.leadMins);
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
+  const userEntries = input.assignUsers
+    ? Object.entries(input.practitionerPrices)
+        .filter(([userUid]) => isUuid(userUid))
+        .map(([userUid, amount]) => ({
+        userUid,
+        price: amount,
+        currencyCode: input.currencyCode,
+      }))
+    : [];
 
   return {
     name: input.name.trim(),
     description: input.description.trim(),
-    displayOrder: input.displayOrder,
-    serviceContext: input.serviceContext,
-    serviceType: toApiServiceType(input.serviceType),
-    appointmentType: toApiAppointmentType(input.apptType),
-    ...(input.apptType === "Request"
-      ? { requestType: toApiRequestType(input.requestType) }
-      : {}),
-    ...(teleService ? { teleService } : {}),
-    apptType: input.apptType,
-    serviceCategory: input.serviceCategory,
     duration: toDurationMinutes(input),
-    durHrs: input.durHrs,
-    durMins: input.durMins,
-    numResources: input.numResources,
-    maxBookings: input.maxBookings,
-    showDuration: input.showDuration,
-    leadDays: input.leadDays,
-    leadHrs: input.leadHrs,
-    leadMins: input.leadMins,
-    safeSlots: input.safeSlots,
-    hasPricing: input.hasPricing,
     price: input.hasPricing ? input.price : 0,
-    taxApplicable: input.taxApplicable,
-    hsnCode: input.hsnCode,
-    currencyCode: input.currencyCode,
-    preServiceSchema: input.preServiceSchema,
-    postServiceSchema: input.postServiceSchema,
-    practitionerPrices: input.assignUsers ? input.practitionerPrices : {},
+    autoGenerateInvoice: false,
+    isDefaultService: false,
     status: "Enabled",
+    currencyCode: input.currencyCode,
+    category: toApiCategory(input.serviceCategory),
+    serviceMode: input.serviceType === "Teleservice" ? "TELESERVICE" : "ONSITE",
+    bookingMode: input.apptType === "Request" ? "REQUEST" : "BOOKING",
+    ...(userEntries.length ? { users: userEntries } : {}),
+    displayOrder: input.displayOrder,
+    maxBookingsPerConsumer: input.maxBookings,
+    prepaymentRequired: false,
+    internationalPriceRequired: false,
+    hsnCode: input.hsnCode === "None" ? "" : input.hsnCode,
+    taxPreference: input.taxApplicable ? "TAXABLE" : "NON_TAXABLE",
+    feature: toApiAppointmentType(input.apptType) === "REQUEST" ? "REQUEST" : "BOOKING",
+    preServiceSchema: toApiSchema(input.preServiceSchema),
+    postServiceSchema: toApiSchema(input.postServiceSchema),
+    notification: true,
+    livetrack: false,
+    preLivetrack: false,
+    preInfoEnabled: input.preServiceSchema.length > 0,
+    postInfoEnabled: input.postServiceSchema.length > 0,
+    consumerNoteMandatory: false,
+    priceDynamic: false,
+    serviceDurationEnabled: input.showDuration,
+    showPrice: input.hasPricing,
+    showOnlyAvailableSlots: input.safeSlots,
+    isFixedAmount: true,
+    channelRestricted: false,
+    supportInternationalConsumer: false,
+    enableMultiCurrency: false,
+    resourcesRequired: input.numResources,
+    leadTime: toLeadTimeMinutes(input),
+    serviceBookingType: "APPOINTMENT",
+    prePaymentType: "NONE",
+    ...(locationId != null ? { location: [String(locationId)] } : {}),
+    ...(input.serviceCategory === "Sub Service" ? { labels: ["SUB_SERVICE"] } : {}),
   };
 }
 
@@ -173,6 +212,7 @@ function toCreatedService(input: ServiceFormInput, dto?: CreateServiceDtoLike): 
 
 export function useCreateService() {
   const api = useBookingApi();
+  const { location } = useMFEProps();
   const { updateService } = useServiceDetails();
   const [submitting, setSubmitting] = useState(false);
 
@@ -180,8 +220,8 @@ export function useCreateService() {
     setSubmitting(true);
     try {
       const dto = serviceId
-        ? await updateService(serviceId, toApiPayload(input))
-        : await api.post<CreateServiceDtoLike>("/services", toApiPayload(input));
+        ? await updateService(serviceId, toApiPayload(input, location?.id))
+        : await api.post<CreateServiceDtoLike>("/services", toApiPayload(input, location?.id));
       const service = toCreatedService(input, dto);
       addCreatedService(service);
       return service;
