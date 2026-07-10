@@ -9,11 +9,14 @@ import { useModal } from '../../contexts/ModalContext';
 import { CalendarSettings } from './CalendarSettings';
 import { CustomizeCalendar } from './CustomizeCalendar';
 import { CalendarDetails } from './CalendarDetails';
-import UpcomingAppointments from './components/UpcomingAppointments';
+
 import WeekGrid from './WeekGrid';
 import MonthGrid from './MonthGrid';
+import ListGrid from './ListGrid';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
 import DayGrid from './DayGrid';
+import './calendar-grid.css';
+import './list-view.css';
 
 interface CalendarDashboardProps {
     onBookingSelect: (bookingId: string) => void;
@@ -24,8 +27,9 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
     const { calendars } = useCalendars();
 
     const [viewMode, setViewMode] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
+    const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
     const [viewBy, setViewBy] = useState<'doctors' | 'calendars' | 'departments'>('doctors');
-    const [date, setDate] = useState(new Date('2026-05-25T09:00:00'));
+    const [date, setDate] = useState(new Date());
 
     // Live data only — no sample fallback (empty states surface real gaps).
     const { bookings: liveBookings } = useBookings(format(date, 'yyyy-MM-dd'), viewMode);
@@ -60,17 +64,26 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
             {/* Toolbar Area */}
             <div className="toolbar shrink-0" data-testid="bookings-calendar-toolbar">
                 <div className="toolbar-left">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        iconOnly
-                        icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>}
-                        className="icon-toggle-btn active"
-                        id="btn-grid-view"
-                        data-testid="bookings-grid-view-toggle"
-                        data-active="true"
-                        aria-label="Grid view"
-                    />
+                    <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 mr-4">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            iconOnly
+                            icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>}
+                            className={`rounded shadow-none ${layoutMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                            onClick={() => setLayoutMode('grid')}
+                            aria-label="Grid view"
+                        />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            iconOnly
+                            icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>}
+                            className={`rounded shadow-none ${layoutMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                            onClick={() => setLayoutMode('list')}
+                            aria-label="List view"
+                        />
+                    </div>
                     <div className="date-navigator">
                         <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>} aria-label="Previous period" id="bookings-prev-period" data-testid="bookings-prev-period" className="nav-arrow-btn" onClick={() => {
                             const newDate = new Date(date);
@@ -257,7 +270,15 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
 
                 {/* Main Grid Container */}
                 <div className="calendar-grid-container" id="calendar-grid-scroll-area" data-testid="bookings-calendar-grid-area" data-view-mode={viewMode}>
-                    {viewMode === 'DAY' ? (
+                    {layoutMode === 'list' ? (
+                        <ListGrid
+                            bookings={liveBookings as any}
+                            calendars={calendars as any}
+                            services={services}
+                            users={liveProviders as any}
+                            onBookingSelect={onBookingSelect}
+                        />
+                    ) : viewMode === 'DAY' ? (
                         <DayGrid
                             date={date}
                             viewBy={viewBy}
@@ -289,16 +310,6 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                         />
                     )}
                 </div>
-
-                {/* Right Sidebar: Upcoming Appointments */}
-                <aside className="dashboard-sidebar-right bg-slate-50 border-l border-slate-200 w-80 shrink-0 hidden lg:flex flex-col overflow-hidden" data-testid="bookings-right-sidebar">
-                    <UpcomingAppointments 
-                        bookings={liveBookings as any} 
-                        users={liveProviders as any} 
-                        date={date} 
-                        viewMode={viewMode}
-                    />
-                </aside>
             </div>
         </section>
     );

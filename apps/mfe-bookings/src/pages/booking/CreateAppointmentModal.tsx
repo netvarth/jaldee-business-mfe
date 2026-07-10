@@ -182,16 +182,7 @@ export default function CreateAppointmentModal({
     }
   }, [serviceUid, scheduleUid, dateStr, fetchSlots, clearSlots]);
 
-  // Handle Walk-in logic
-  useEffect(() => {
-    if (channel === "Walk-in") {
-      const today = new Date();
-      if (!selectedDate || iso(selectedDate) !== iso(today)) {
-        setSelectedDate(today);
-        setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-      }
-    }
-  }, [channel, selectedDate]);
+
 
   useEffect(() => {
     setServiceUid("");

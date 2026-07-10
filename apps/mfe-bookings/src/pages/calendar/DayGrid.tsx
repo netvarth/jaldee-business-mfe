@@ -1,9 +1,10 @@
 import React from 'react';
 import { User, Calendar as CalendarType, Booking, Service } from '../../../types';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import { toRgba } from '../../utils/colors';
 
 interface DayGridProps {
     date: Date;
@@ -62,163 +63,159 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
     const redLineTop = 60 + Math.floor((minutesFromStart / 60) * 80);
 
     return (
-        <div className="day-view-grid">
-            {/* Time Column */}
-            <div className="time-column w-16 shrink-0 border-r border-slate-200 bg-white">
-                <div className="time-header-cell h-16 border-b border-slate-200 flex items-center justify-center text-[10px] text-slate-500 font-medium text-center">
-                    IST<br/>+05:30
-                </div>
-                {hours.map(h => {
-                    const ampm = h >= 12 ? 'PM' : 'AM';
-                    const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
-                    return (
-                        <div key={h} className="time-cell h-[80px] border-b border-slate-100 flex items-start justify-center pt-2">
-                            <span className="text-[11px] font-medium text-slate-400">{`${displayHour.toString().padStart(2, '0')}:00 ${ampm}`}</span>
-                        </div>
-                    );
-                })}
-            </div>
+        <div className="calendar-grid day-view w-full h-full">
+            <div className="calendar-grid-content h-full flex flex-col">
+                <div className="calendar-scroll flex-1 custom-scrollbar">
+                    <div className="calendar-grid-inner min-w-[800px]">
+                        {/* Header */}
+                        <div className="calendar-header" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
+                            <div className="calendar-timezone">
+                                <div className="timezone-label">IST<br/>+05:30</div>
+                            </div>
+                            {columnsList.map((col: any) => {
+                                const id = col.uid || col.id;
+                                const name = col.name;
+                                const subText = col.role || col.location || '';
+                                const color = col.color || '#9333EA';
+                                const code = col.code || '';
+                                const status = col.status || 'active';
 
-            {/* Doctor/Calendar Columns Wrapper */}
-            <div className="doctor-columns-wrapper">
-                {columnsList.map((col: any) => {
-                    const id = col.uid || col.id;
-                    const name = col.name;
-                    const subText = col.role || col.location || '';
-                    const color = col.color || '#9333EA';
-                    const code = col.code || '';
-                    const status = col.status || 'active';
+                                const colBookings = bookings.filter((b: any) => 
+                                    (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id) : (b.calendarId === id || b.calendarUid === id))
+                                );
 
-                    // Filter bookings for this column
-                    const colBookings = bookings.filter((b: any) => 
-                        (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id) : (b.calendarId === id || b.calendarUid === id))
-                    );
-
-                    return (
-                        <div key={id} className="doctor-column">
-                            {/* Header Cell */}
-                            <div className="doctor-header-cell">
-                                {viewBy === 'doctors' ? (
-                                    <>
-                                        <div className="doc-hdr-meta flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${color.includes('emerald') ? 'bg-emerald-500' : color.includes('purple') ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                                return (
+                                    <div key={id} className={`doctor-card ${status === 'leave' ? 'on-leave' : ''}`} style={{ borderColor: color }}>
+                                        <div className="doctor-card-top">
+                                            <div className="doctor-avatar" style={{ backgroundColor: color }}>
                                                 {code || name.substring(0, 2).toUpperCase()}
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="doc-hdr-title text-sm font-semibold text-slate-800">{name}</span>
-                                                <span className="doc-hdr-sub text-[11px] font-medium text-slate-500">{subText || 'Provider'}</span>
+                                            <div className="doctor-info">
+                                                <strong>{name}</strong>
+                                                <span>{colBookings.length} bookings</span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            {status === 'leave' && <span className="badge-column-status badge-on-leave text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-semibold border border-red-100">On Leave</span>}
-                                            {colBookings.length > 0 && (
-                                                <span className="badge bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-bold rounded-full border border-slate-200">
-                                                    {colBookings.length} {colBookings.length === 1 ? 'Appt' : 'Appts'}
-                                                </span>
+                                        <div className="doctor-card-meta">
+                                            {status === 'leave' ? (
+                                                <span className="doctor-badge">On Leave</span>
+                                            ) : (
+                                                <span className="doctor-dot" style={{ background: color }} />
                                             )}
                                         </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="doc-hdr-meta flex items-center gap-2">
-                                            <div style={{width: '12px', height: '12px', borderRadius: '4px', backgroundColor: color}}></div>
-                                            <div className="flex flex-col">
-                                                <span className="doc-hdr-title text-sm font-semibold text-slate-800">{name}</span>
-                                                <span className="doc-hdr-sub text-[11px] font-medium text-slate-500">{subText || 'Calendar'}</span>
-                                            </div>
-                                        </div>
-                                        {colBookings.length > 0 && (
-                                            <span className="badge bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-bold rounded-full border border-slate-200">
-                                                {colBookings.length} {colBookings.length === 1 ? 'Appt' : 'Appts'}
-                                            </span>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Cells Area */}
-                            <div className="column-cells-area">
-                                {hours.map(h => (
-                                    <div 
-                                      key={h} 
-                                      className="grid-hour-cell" 
-                                      data-hour={h}
-                                      onClick={() => openModal(
-                                        <CreateAppointmentModal 
-                                          initialDate={date} 
-                                          initialTime={`${h.toString().padStart(2, '0')}:00`} 
-                                          initialProviderUid={viewBy === 'doctors' ? id : undefined}
-                                          initialCalendarUid={viewBy === 'calendars' ? id : undefined}
-                                        />
-                                      )}
-                                      style={{ cursor: 'pointer' }}
-                                    />
-                                ))}
-
-                                {/* Render Bookings */}
-                                {colBookings.map((bk: any) => {
-                                    const timeStr = bk.time || bk.startTime;
-                                    const start = parseTimeValue(bk.startTime || timeStr);
-                                    const end = parseTimeValue(bk.endTime);
-                                    if (!start) return null;
-
-                                    if (start.hour >= startHour && start.hour <= endHour) {
-                                        const startMinutes = ((start.hour - startHour) * 60) + start.minute;
-                                        const endMinutes = end
-                                            ? ((end.hour - startHour) * 60) + end.minute
-                                            : startMinutes + 30;
-                                        const topPos = Math.floor((startMinutes / 60) * 80);
-                                        const durationMins = Math.max(endMinutes - startMinutes, 30);
-                                        const heightPos = Math.floor((durationMins / 60) * 80) - 4;
-
-                                        const calColor = calendars.find(c => c.uid === bk.calendarId || c.uid === bk.calendarUid)?.color || "#9333EA";
-                                        const service = services.find(s => s.uid === bk.serviceId || s.uid === bk.serviceUid);
-
-                                        return (
-                                            <div 
-                                                key={bk.id || bk.uid} 
-                                                className="appointment-card absolute left-1 right-1 rounded-md overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow group flex flex-col" 
-                                                style={{ top: `${topPos}px`, height: `${heightPos}px`, zIndex: 10 }}
-                                                onClick={() => onBookingSelect(bk.id || bk.uid)}
-                                            >
-                                                <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: calColor }}></div>
-                                                <div className="flex-1 p-1.5 pl-3 overflow-hidden flex flex-col">
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="text-xs font-semibold text-slate-800 truncate pr-1">{bk.patientName || bk.customerName}</div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            iconOnly
-                                                            icon={<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>}
-                                                            className="appt-menu-btn opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1 h-5 w-5 text-slate-400 hover:text-slate-700"
-                                                            aria-label={`Open actions for ${bk.patientName || bk.customerName || 'booking'}`}
-                                                            onClick={(event) => event.stopPropagation()}
-                                                        />
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                                                        {timeStr} {service ? `· ${service.name}` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })}
-
-                                {/* Leave Blocker */}
-                                {status === 'leave' && (
-                                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(241, 245, 249, 0.7)', zIndex: 2 }}></div>
-                                )}
-                            </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    );
-                })}
-            </div>
 
-            {/* Current Time Indicator */}
-            {isToday && (
-                <div className="current-time-indicator" style={{ top: `${redLineTop}px` }} />
-            )}
+                        {/* Body */}
+                        <div className="calendar-body" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
+                            {hours.map((hour) => {
+                                const ampm = hour >= 12 ? 'PM' : 'AM';
+                                const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+                                const timeLabel = `${displayHour.toString().padStart(2, '0')}:00 ${ampm}`;
+
+                                return (
+                                    <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
+                                        <div className="hour-column">{timeLabel}</div>
+                                        {columnsList.map((col: any) => {
+                                            const id = col.uid || col.id;
+                                            const status = col.status || 'active';
+                                            
+                                            // Filter bookings for this slot and column
+                                            const slotBookings = bookings.filter((b: any) => {
+                                                const matchesCol = (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id) : (b.calendarId === id || b.calendarUid === id));
+                                                if (!matchesCol) return false;
+                                                
+                                                const bDate = new Date(b.bookingDate || b.date);
+                                                if (!isSameDay(bDate, date)) return false;
+                                                
+                                                const timeStr = b.time || b.startTime;
+                                                const start = parseTimeValue(timeStr);
+                                                return start && start.hour === hour;
+                                            });
+
+                                            return (
+                                                <div 
+                                                    key={`${id}-${hour}`} 
+                                                    className={`calendar-cell ${status === 'leave' ? 'on-leave' : ''}`}
+                                                    onClick={() => openModal(
+                                                        <CreateAppointmentModal 
+                                                          initialDate={date} 
+                                                          initialTime={`${hour.toString().padStart(2, '0')}:00`} 
+                                                          initialProviderUid={viewBy === 'doctors' ? id : undefined}
+                                                          initialCalendarUid={viewBy === 'calendars' ? id : undefined}
+                                                        />
+                                                    )}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {slotBookings.length > 0 && (
+                                                        <div className="detail-stack w-full pointer-events-none">
+                                                            {viewBy === 'calendars' ? (
+                                                                Object.entries(slotBookings.reduce((acc: any, bk: any) => {
+                                                                    const uid = bk.providerId || bk.userUid || 'unknown';
+                                                                    if (!acc[uid]) acc[uid] = [];
+                                                                    acc[uid].push(bk);
+                                                                    return acc;
+                                                                }, {})).map(([uid, bks]: [string, any[]]) => {
+                                                                    const user = users.find(u => u.uid === uid);
+                                                                    const initials = user ? (user.code || user.name.substring(0, 2).toUpperCase()) : '?';
+                                                                    const rawColor = user?.color || '#9333EA';
+                                                                    const isTw = rawColor.includes('bg-');
+                                                                    
+                                                                    return (
+                                                                        <Button
+                                                                            key={uid}
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="week-slot-entry pointer-events-auto"
+                                                                            style={isTw ? { background: '#fff' } : { borderColor: rawColor, background: '#fff' }}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <span className={`week-slot-avatar ${isTw ? rawColor : 'text-white'}`} style={isTw ? {} : { background: rawColor }}>{initials}</span>
+                                                                            <span className="week-slot-count text-left flex-1" style={{ fontSize: '11px', color: '#333', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
+                                                                        </Button>
+                                                                    );
+                                                                })
+                                                            ) : (
+                                                                slotBookings.map((bk: any) => {
+                                                                    const calColor = calendars.find(c => c.uid === bk.calendarId || c.uid === bk.calendarUid)?.color || "#9333EA";
+                                                                    const timeStr = bk.time || bk.startTime || '';
+                                                                    const shortTime = timeStr.replace(':00', '').replace(' AM', 'am').replace(' PM', 'pm').toLowerCase();
+                                                                    
+                                                                    return (
+                                                                        <Button 
+                                                                            key={bk.id || bk.uid} 
+                                                                            className="detail-card !w-full pointer-events-auto" 
+                                                                            variant="ghost" 
+                                                                            size="sm" 
+                                                                            style={{ borderColor: calColor, backgroundColor: toRgba(calColor, 0.2) }} 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                onBookingSelect(bk.id || bk.uid);
+                                                                            }} 
+                                                                            type="button"
+                                                                        >
+                                                                            <div className="detail-header truncate mb-1 w-full text-left">
+                                                                                <strong style={{ color: '#333' }}>{bk.patientName || bk.customerName || bk.patient || 'Walk-in'}</strong>
+                                                                            </div>
+                                                                            <span className="detail-time block text-xs" style={{ color: calColor }}>{shortTime}</span>
+                                                                        </Button>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
