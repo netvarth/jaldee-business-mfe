@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Button, DataTable, EmptyState, Input, PageHeader, type ColumnDef } from '@jaldee/design-system';
-import { Employee, MOCK_EMPLOYEES } from './mockData';
+import { Employee } from './mockData';
+import { useStaff } from '../../services/useStaff';
 
 interface EmployeeMasterProps {
   onEmployeeClick: (employee: Employee) => void;
@@ -8,14 +9,18 @@ interface EmployeeMasterProps {
 
 export default function EmployeeMaster({ onEmployeeClick }: EmployeeMasterProps) {
   const [searchVal, setSearchVal] = useState('');
+  const { staff, loading, error } = useStaff();
 
-  const filtered = MOCK_EMPLOYEES.filter(emp => {
+  const filtered = staff.filter(emp => {
     if (!searchVal) return true;
     const lowerSearch = searchVal.toLowerCase();
     return (emp.name && emp.name.toLowerCase().includes(lowerSearch)) ||
            (emp.employeeId && emp.employeeId.toLowerCase().includes(lowerSearch)) ||
            (emp.email && emp.email.toLowerCase().includes(lowerSearch));
   });
+
+  const totalCount = staff.length;
+  const activeCount = staff.filter((e) => e.status?.toUpperCase() === 'ACTIVE').length;
 
   const columns = useMemo<ColumnDef<Employee>[]>(() => [
     {
@@ -114,7 +119,7 @@ export default function EmployeeMaster({ onEmployeeClick }: EmployeeMasterProps)
         <div className="flex flex-col min-w-[170px] p-4 rounded-2xl border transition-all cursor-pointer bg-slate-950 border-slate-950 shadow-md text-white">
           <span className="text-[9px] font-black tracking-widest mb-1 uppercase text-slate-400">TOTAL</span>
           <span className="text-[13px] font-black tracking-tight mb-2 uppercase text-slate-400">EMPLOYEES</span>
-          <div className="text-xl font-black tracking-tighter mb-2">{MOCK_EMPLOYEES.length}</div>
+          <div className="text-xl font-black tracking-tighter mb-2">{totalCount}</div>
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg w-fit transition-colors bg-white/10">
             <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
             <span className="text-[9px] font-black tracking-widest uppercase text-white">ALL SYSTEM USERS</span>
@@ -124,7 +129,7 @@ export default function EmployeeMaster({ onEmployeeClick }: EmployeeMasterProps)
         <div className="flex flex-col min-w-[170px] p-4 rounded-2xl border transition-all cursor-pointer bg-white border-slate-200 hover:border-slate-300 text-slate-900">
           <span className="text-[9px] font-black tracking-widest mb-1 uppercase text-slate-400">ACTIVE</span>
           <span className="text-[13px] font-black tracking-tight mb-2 uppercase">ACCOUNTS</span>
-          <div className="text-xl font-black tracking-tighter mb-2">{MOCK_EMPLOYEES.filter(e => e.status === 'ACTIVE').length}</div>
+          <div className="text-xl font-black tracking-tighter mb-2">{activeCount}</div>
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg w-fit transition-colors bg-emerald-50">
             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
             <span className="text-[9px] font-black tracking-widest uppercase text-emerald-700">CURRENTLY ACTIVE</span>
@@ -138,7 +143,12 @@ export default function EmployeeMaster({ onEmployeeClick }: EmployeeMasterProps)
         columns={columns}
         getRowId={(employee) => employee.uid}
         onRowClick={onEmployeeClick}
-        emptyState={<EmptyState title="No employees found" description="Try changing the search." />}
+        emptyState={
+          <EmptyState
+            title={loading ? 'Loading staff…' : error ? 'Could not load staff' : 'No employees found'}
+            description={loading ? 'Fetching your team from the directory.' : error ? error : 'Try changing the search.'}
+          />
+        }
         data-testid="bookings-employees"
       />
     </div>

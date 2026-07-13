@@ -4,7 +4,6 @@ import { format, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
-import { toRgba } from '../../utils/colors';
 
 interface DayGridProps {
     date: Date;
@@ -37,7 +36,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
 
 export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: DayGridProps) {
     const { openModal } = useModal();
-    const startHour = 9;
+    const startHour = 0;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
@@ -69,8 +68,8 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                     <div className="calendar-grid-inner min-w-[800px]">
                         {/* Header */}
                         <div className="calendar-header" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
-                            <div className="calendar-timezone">
-                                <div className="timezone-label">IST<br/>+05:30</div>
+                            <div className="calendar-timezone flex flex-col justify-center items-center">
+                                <div className="timezone-label text-[11px] font-bold text-slate-500 tracking-wide text-center uppercase" style={{ color: '#6B7280' }}>UTC<br/>+05:30</div>
                             </div>
                             {columnsList.map((col: any) => {
                                 const id = col.uid || col.id;
@@ -86,21 +85,21 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
 
                                 return (
                                     <div key={id} className={`doctor-card ${status === 'leave' ? 'on-leave' : ''}`} style={{ borderColor: color }}>
-                                        <div className="doctor-card-top">
-                                            <div className="doctor-avatar" style={{ backgroundColor: color }}>
-                                                {code || name.substring(0, 2).toUpperCase()}
-                                            </div>
-                                            <div className="doctor-info">
-                                                <strong>{name}</strong>
-                                                <span>{colBookings.length} bookings</span>
+                                        <div className="doctor-card-top w-full">
+                                            <div className="flex items-center gap-3 w-full">
+                                                <div className="doctor-avatar w-10 h-10 rounded-xl" style={{ backgroundColor: color }}>
+                                                    {code || name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="doctor-info flex-1">
+                                                    <strong className="text-slate-900 text-[15px]">{name}</strong>
+                                                    <span className="text-slate-500 font-medium">{colBookings.length > 0 ? `${colBookings.length} Bookings` : 'No Bookings'}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="doctor-card-meta">
+                                        <div className="doctor-card-meta absolute top-3 right-3">
                                             {status === 'leave' ? (
-                                                <span className="doctor-badge">On Leave</span>
-                                            ) : (
-                                                <span className="doctor-dot" style={{ background: color }} />
-                                            )}
+                                                <span className="doctor-badge bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full text-xs font-bold">On Leave</span>
+                                            ) : null}
                                         </div>
                                     </div>
                                 );
@@ -116,7 +115,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
 
                                 return (
                                     <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
-                                        <div className="hour-column">{timeLabel}</div>
+                                        <div className="hour-column text-slate-400 font-medium">{displayHour}.00 {ampm}</div>
                                         {columnsList.map((col: any) => {
                                             const id = col.uid || col.id;
                                             const status = col.status || 'active';
@@ -178,28 +177,28 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                     );
                                                                 })
                                                             ) : (
-                                                                slotBookings.map((bk: any) => {
-                                                                    const calColor = calendars.find(c => c.uid === bk.calendarId || c.uid === bk.calendarUid)?.color || "#9333EA";
-                                                                    const timeStr = bk.time || bk.startTime || '';
-                                                                    const shortTime = timeStr.replace(':00', '').replace(' AM', 'am').replace(' PM', 'pm').toLowerCase();
-                                                                    
+                                                                // View by Users: one compact chip per calendar (color + initials + count),
+                                                                // matching the View-by-Calendar chips. Only groups shown that have bookings.
+                                                                Object.entries(slotBookings.reduce((acc: any, bk: any) => {
+                                                                    const calId = bk.calendarId || bk.calendarUid || 'unknown';
+                                                                    (acc[calId] = acc[calId] || []).push(bk);
+                                                                    return acc;
+                                                                }, {})).map(([calId, bks]: [string, any[]]) => {
+                                                                    const cal = calendars.find(c => (c.uid || c.id) === calId);
+                                                                    const calColor = cal?.color || '#9333EA';
+                                                                    const initials = (cal?.name || 'Ca').substring(0, 2).toUpperCase();
                                                                     return (
-                                                                        <Button 
-                                                                            key={bk.id || bk.uid} 
-                                                                            className="detail-card !w-full pointer-events-auto" 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            style={{ borderColor: calColor, backgroundColor: toRgba(calColor, 0.2) }} 
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                onBookingSelect(bk.id || bk.uid);
-                                                                            }} 
+                                                                        <Button
+                                                                            key={calId}
                                                                             type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="week-slot-entry pointer-events-auto"
+                                                                            style={{ borderColor: calColor, background: '#fff' }}
+                                                                            onClick={(e) => { e.stopPropagation(); if (bks.length === 1) onBookingSelect(bks[0].id || bks[0].uid); }}
                                                                         >
-                                                                            <div className="detail-header truncate mb-1 w-full text-left">
-                                                                                <strong style={{ color: '#333' }}>{bk.patientName || bk.customerName || bk.patient || 'Walk-in'}</strong>
-                                                                            </div>
-                                                                            <span className="detail-time block text-xs" style={{ color: calColor }}>{shortTime}</span>
+                                                                            <span className="week-slot-avatar text-white" style={{ background: calColor }}>{initials}</span>
+                                                                            <span className="week-slot-count text-left flex-1" style={{ fontSize: '11px', color: '#333', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
                                                                         </Button>
                                                                     );
                                                                 })
@@ -212,6 +211,19 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                     </div>
                                 );
                             })}
+                            
+                            {/* Current Time Indicator Line */}
+                            {isToday && minutesFromStart >= 0 && minutesFromStart <= (endHour - startHour + 1) * 60 && (
+                                <div className="absolute left-0 right-0 pointer-events-none z-10 flex items-center" style={{ top: `${redLineTop}px` }}>
+                                    <div className="w-[120px] flex justify-end pr-2">
+                                        <div className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">
+                                            {format(now, 'hh:mm')}
+                                        </div>
+                                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 relative -right-[5px] z-20"></div>
+                                    </div>
+                                    <div className="flex-1 h-[2px] bg-red-500 relative z-10"></div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

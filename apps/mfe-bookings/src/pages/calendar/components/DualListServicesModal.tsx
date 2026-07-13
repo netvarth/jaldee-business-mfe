@@ -82,8 +82,11 @@ export default function DualListServicesModal({
                         <span>Available (<span id="avail-services-count">{available.length}</span>)</span>
                         <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set())}>Clear</Button>
                     </div>
-                    <div className="panel-search">
-                        <Input type="search" placeholder="Search Services..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} />
+                    <div className="panel-search flex gap-2">
+                        <Input type="search" placeholder="Search Services..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} className="flex-1" />
+                        <Button variant="outline" size="sm" onClick={() => window.open("/services/create", "_blank")} title="Create new service in a new tab" className="shrink-0 text-indigo-600 hover:text-indigo-700">
+                           + New
+                        </Button>
                     </div>
                     <div className="panel-list">
                         {filteredAvailable.map(service => (

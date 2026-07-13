@@ -168,12 +168,15 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "health-settings", label: "Settings", icon: "\u2699", path: "/health/settings" },
   ],
   bookings: [
-    { id: "bookings-overview", label: "Overview", icon: sidebarIcon(Grid2X2), path: "/bookings/dashboard" },
-    { id: "bookings-list", label: "Bookings", icon: sidebarIcon(Calendar), path: "/bookings" },
+    { id: "bookings-dashboard", label: "Dashboard", icon: sidebarIcon(Grid2X2), path: "/bookings/dashboard" },
+    { id: "bookings-calendar", label: "Calendar", icon: sidebarIcon(Calendar), path: "/bookings" },
     { id: "bookings-calendars", label: "Calendars", icon: sidebarIcon(Calendar), path: "/bookings/calendars" },
     { id: "bookings-services", label: "Services", icon: sidebarIcon(Wrench), path: "/bookings/services" },
     { id: "bookings-customers", label: "Customers", icon: sidebarIcon(Users), path: "/bookings/customers" },
-    { id: "bookings-users", label: "Users", icon: sidebarIcon(Users), path: "/bookings/users" },
+    { id: "bookings-staff", label: "Staff", icon: sidebarIcon(Users), path: "/bookings/staff" },
+    { id: "bookings-holidays", label: "Holidays & Leave", icon: sidebarIcon(Calendar), path: "/bookings/holidays" },
+    { id: "bookings-qr-links", label: "QR Links", icon: sidebarIcon(CreditCard), path: "/bookings/qr-links" },
+    { id: "bookings-customer-labels", label: "Customer Labels", icon: sidebarIcon(UserSearch), path: "/bookings/customer-labels" },
     { id: "bookings-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/bookings/settings" },
   ],
   golderp: [

@@ -4,7 +4,18 @@ import { unwrapList } from "./response";
 
 export type Period = "today" | "week" | "month";
 
-interface BookingDto {
+export interface BookingDto {
+  uid?: string;
+  calendarUid?: string;
+  serviceUid?: string;
+  userUid?: string;
+  customerName?: string;
+  customer?: any;
+  patient?: any;
+  patientName?: string;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
   status?: string;
   bookingChannel?: string;
   amount?: number;
@@ -23,6 +34,7 @@ export interface Analytics {
   revenue: number;
   live: boolean;     // true when numbers came from the backend
   loading: boolean;
+  rawBookings: BookingDto[]; // Export raw bookings for dashboard widgets
 }
 
 function bucket(status: string): "confirmed" | "completed" | "pending" | "cancelled" {
@@ -75,6 +87,7 @@ function compute(bks: BookingDto[], live: boolean, loading: boolean): Analytics 
     online, walkin,
     revenue,
     live, loading,
+    rawBookings: bks,
   };
 }
 

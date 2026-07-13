@@ -31,6 +31,7 @@ const STATUS_MAP: Record<string, string> = {
   CANCELLED: "Cancelled",
   NO_SHOW: "Cancelled",
   UNBLOCKED: "Unblocked",
+  BLOCKED: "Blocked",
 };
 
 /** Map a live BookingDto into the shape the calendar grid expects (mock-compatible). */
@@ -44,6 +45,7 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
     calendarUid: d.calendarUid,
     serviceId: d.serviceUid,
     serviceUid: d.serviceUid,
+    serviceName: (d as any).serviceName || (d as any).service?.name || "Service",
     userId: d.userUid,
     userUid: d.userUid,
     providerId: d.userUid,

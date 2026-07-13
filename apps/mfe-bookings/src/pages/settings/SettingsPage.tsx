@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -20,6 +21,7 @@ const toNumber = (value: string): number | null =>
 export default function SettingsPage() {
   const { preference, loading, saving, error, savePreference } =
     useBookingPreferences();
+  const navigate = useNavigate();
   const [form, setForm] = useState<BookingPreference>({});
 
   useEffect(() => {
@@ -49,6 +51,11 @@ export default function SettingsPage() {
         <PageHeader
           title="Booking Settings"
           subtitle="Tenant-wide preferences applied across booking calendars."
+          actions={
+            <Button variant="outline" onClick={() => navigate("/holidays")} data-testid="bookings-settings-holidays-link">
+              Holidays &amp; Leave
+            </Button>
+          }
         />
 
         {loading ? (

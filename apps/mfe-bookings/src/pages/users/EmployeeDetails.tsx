@@ -19,9 +19,8 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
   const colorIdx = employee.employeeId ? parseInt(employee.employeeId.replace(/[^0-9]/g, '') || '0') % 4 : 0;
   const initials = employee.name ? employee.name.split(' ').map(n=>n[0]).join('').substring(0,1).toUpperCase() : 'E';
 
-  const avatarContent = employee.name === 'Dr. Admin User' 
-      ? <img src={`https://i.pravatar.cc/150?u=${employee.uid}`} className="w-full h-full object-cover" alt={employee.name} />
-      : <div className={`w-full h-full ${colors[colorIdx]} flex items-center justify-center text-3xl font-black ${textColors[colorIdx]}`}>{initials}</div>;
+  const avatarContent = <div className={`w-full h-full ${colors[colorIdx]} flex items-center justify-center text-3xl font-black ${textColors[colorIdx]}`}>{initials}</div>;
+  const dash = (v?: string) => (v && v.trim() ? v : '—');
 
   return (
     <div className="space-y-6 md:space-y-10 pb-10 w-full px-6 lg:px-10 py-8 overflow-y-auto flex-1">
@@ -44,7 +43,7 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
             </div>
             <div className="space-y-2 mb-6">
                 <h2 className="text-xl font-black tracking-tighter text-slate-900 leading-tight">{employee.name}</h2>
-                <p className="text-xs font-bold text-slate-500">{employee.designation}</p>
+                <p className="text-xs font-bold text-slate-500">{dash(employee.department)}</p>
                 <div className="flex items-center justify-center gap-2 mt-2">
                     <span className={`inline-block rounded-full px-3 py-1 font-black text-[9px] uppercase tracking-widest ${badgeClass}`}>
                         {employee.status}
@@ -75,7 +74,7 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
                   </div>
                   <div className="space-y-0.5 min-w-0 flex-1">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">ID</p>
-                      <p className="font-black text-emerald-600 text-[11px] truncate">{employee.employeeId}</p>
+                      <p className="font-black text-emerald-600 text-[11px] truncate">{dash(employee.employeeId)}</p>
                   </div>
               </div>
               <div className="flex items-center gap-4">
@@ -84,7 +83,7 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
                   </div>
                   <div className="space-y-0.5 min-w-0 flex-1">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">EMAIL</p>
-                      <p className="font-black text-slate-700 text-[11px] truncate">{employee.email}</p>
+                      <p className="font-black text-slate-700 text-[11px] truncate">{dash(employee.email)}</p>
                   </div>
               </div>
               <div className="flex items-center gap-4">
@@ -93,7 +92,7 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
                   </div>
                   <div className="space-y-0.5 min-w-0 flex-1">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">PHONE</p>
-                      <p className="font-black text-slate-700 text-[11px]">{employee.phone}</p>
+                      <p className="font-black text-slate-700 text-[11px]">{dash(employee.phone)}</p>
                   </div>
               </div>
           </div>
@@ -114,42 +113,9 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
           {/* Content Areas */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-                  <div className="flex flex-col min-w-[140px] md:min-w-[170px] p-4 rounded-xl md:rounded-2xl border transition-all cursor-pointer bg-slate-950 border-slate-950 shadow-md text-white">
-                      <span className="text-[8px] md:text-[9px] font-black tracking-widest mb-1 uppercase text-slate-400">WORKFORCE</span>
-                      <span className="text-[10px] md:text-xs font-black tracking-tight mb-2 uppercase text-slate-400">TENURE</span>
-                      <div className="text-base md:text-xl font-black tracking-tighter mb-2">2.4 Yrs</div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md w-fit text-[8px] font-black tracking-widest uppercase bg-white/10 text-white">
-                          <div className="h-1 w-1 rounded-full bg-blue-500"></div><span>SINCE JOINING</span>
-                      </div>
-                  </div>
-                  
-                  <div className="flex flex-col min-w-[140px] md:min-w-[170px] p-4 rounded-xl md:rounded-2xl border transition-all cursor-pointer bg-white border-slate-200 text-slate-950">
-                      <span className="text-[8px] md:text-[9px] font-black tracking-widest mb-1 uppercase text-slate-400">ATTENDANCE</span>
-                      <span className="text-[10px] md:text-xs font-black tracking-tight mb-2 uppercase text-slate-400">ON-TIME</span>
-                      <div className="text-base md:text-xl font-black tracking-tighter mb-2">98%</div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md w-fit text-[8px] font-black tracking-widest uppercase bg-[#00605C]/5 text-[#00605C]/70">
-                          <div className="h-1 w-1 rounded-full bg-emerald-500"></div><span>THIS MONTH</span>
-                      </div>
-                  </div>
-
-                  <div className="flex flex-col min-w-[140px] md:min-w-[170px] p-4 rounded-xl md:rounded-2xl border transition-all cursor-pointer bg-white border-slate-200 text-slate-950">
-                      <span className="text-[8px] md:text-[9px] font-black tracking-widest mb-1 uppercase text-slate-400">LEAVES</span>
-                      <span className="text-[10px] md:text-xs font-black tracking-tight mb-2 uppercase text-slate-400">AVAILABLE</span>
-                      <div className="text-base md:text-xl font-black tracking-tighter mb-2">13 Days</div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md w-fit text-[8px] font-black tracking-widest uppercase bg-[#00605C]/5 text-[#00605C]/70">
-                          <div className="h-1 w-1 rounded-full bg-emerald-500"></div><span>CASUAL/SICK</span>
-                      </div>
-                  </div>
-
-                  <div className="flex flex-col min-w-[140px] md:min-w-[170px] p-4 rounded-xl md:rounded-2xl border transition-all cursor-pointer bg-white border-slate-200 text-slate-950">
-                      <span className="text-[8px] md:text-[9px] font-black tracking-widest mb-1 uppercase text-slate-400">PAYROLL</span>
-                      <span className="text-[10px] md:text-xs font-black tracking-tight mb-2 uppercase text-slate-400">NET SALARY</span>
-                      <div className="text-base md:text-xl font-black tracking-tighter mb-2">₹60,800</div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md w-fit text-[8px] font-black tracking-widest uppercase bg-[#00605C]/5 text-[#00605C]/70">
-                          <div className="h-1 w-1 rounded-full bg-blue-500"></div><span>CURRENT</span>
-                      </div>
-                  </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-slate-500">
+                  <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  <p className="text-[11px] font-bold leading-snug">Tenure, attendance, leave and payroll are managed in the HR module and aren’t available here.</p>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
@@ -166,11 +132,11 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
                       <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                           <div className="space-y-0.5">
                               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Gender</p>
-                              <p className="text-xs font-black text-slate-900">{employee.gender}</p>
+                              <p className="text-xs font-black text-slate-900">{dash(employee.gender)}</p>
                           </div>
                           <div className="space-y-0.5">
                               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Date of Birth</p>
-                              <p className="text-xs font-black text-slate-900">{employee.dob}</p>
+                              <p className="text-xs font-black text-slate-900">{dash(employee.dob)}</p>
                           </div>
                       </div>
                   </div>
@@ -188,62 +154,28 @@ export default function EmployeeDetails({ employee, onBack }: EmployeeDetailsPro
                       <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                           <div className="space-y-0.5">
                               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Joining Date</p>
-                              <p className="text-xs font-black text-slate-900">{employee.doj}</p>
+                              <p className="text-xs font-black text-slate-900">{dash(employee.doj)}</p>
                           </div>
                           <div className="space-y-0.5">
                               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">System Role</p>
-                              <p className="text-xs font-black text-slate-900">{employee.role}</p>
+                              <p className="text-xs font-black text-slate-900">{dash(employee.role)}</p>
                           </div>
                           <div className="space-y-0.5">
                               <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Employment Type</p>
-                              <p className="text-xs font-black text-slate-900">{employee.type}</p>
+                              <p className="text-xs font-black text-slate-900">{dash(employee.type)}</p>
                           </div>
                           <div className="space-y-0.5">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Is Active User</p>
-                              <p className="text-xs font-black text-slate-900">Yes, Logins Enabled</p>
-                          </div>
-                          <div className="space-y-0.5">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Reporting Manager</p>
-                              <p className="text-xs font-black text-slate-900">No Manager Assigned</p>
-                          </div>
-                          <div className="space-y-0.5">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Hierarchy Level</p>
-                              <p className="text-xs font-black text-slate-900">Level 1</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Account Status</p>
+                              <p className="text-xs font-black text-slate-900">{employee.status?.toUpperCase() === 'ACTIVE' ? 'Active — logins enabled' : 'Inactive'}</p>
                           </div>
                           <div className="space-y-0.5 col-span-2">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Work Site / Branch</p>
-                              <p className="text-xs font-black text-slate-900">Remote / Not Assigned</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Department</p>
+                              <p className="text-xs font-black text-slate-900">{dash(employee.department)}</p>
                           </div>
                       </div>
                   </div>
               </div>
 
-              {/* Bank Details */}
-              <div className="border border-slate-100 shadow-sm bg-white rounded-[2rem] p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                      <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[#0f172a] shrink-0">
-                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                      </div>
-                      <div>
-                          <h3 className="text-base font-black tracking-tighter text-slate-900">Bank Details (Active Account)</h3>
-                          <p className="text-[11px] font-bold text-slate-500">Registered information for monthly pay disbursements</p>
-                      </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-0.5">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Bank Name</p>
-                          <p className="text-xs font-black text-slate-900">HDFC Bank</p>
-                      </div>
-                      <div className="space-y-0.5">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Account Number</p>
-                          <p className="text-xs font-black text-slate-900">XXXX-XXXX-1234</p>
-                      </div>
-                      <div className="space-y-0.5">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">IFSC Code</p>
-                          <p className="text-xs font-black text-slate-900">HDFC0001234</p>
-                      </div>
-                  </div>
-              </div>
             </div>
           )}
 

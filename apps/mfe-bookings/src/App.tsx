@@ -11,6 +11,7 @@ const CalendarList = lazy(() => import("./pages/calendar/CalendarList"));
 const CalendarWizard = lazy(() => import("./pages/calendar/CalendarWizard"));
 const CalendarDetails = lazy(() => import("./pages/calendar/CalendarDetails"));
 const CustomizeCalendar = lazy(() => import("./pages/calendar/CustomizeCalendar"));
+const CustomizeTimeWindow = lazy(() => import("./pages/calendar/CustomizeTimeWindow"));
 const CalendarSettings = lazy(() => import("./pages/calendar/CalendarSettings"));
 const EditCalendar = lazy(() => import("./pages/calendar/EditCalendar"));
 const EditSchedule = lazy(() => import("./pages/calendar/EditSchedule"));
@@ -26,6 +27,10 @@ const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 const ServiceGroupsPage = lazy(() => import("./pages/services/ServiceGroupsPage"));
 const CreateServiceGroupPage = lazy(() => import("./pages/services/CreateServiceGroupPage"));
 const InstantAvailability = lazy(() => import("./pages/calendar/InstantAvailability"));
+const HolidaysPage = lazy(() => import("./pages/holidays/HolidaysPage"));
+const QrLinksPage = lazy(() => import("./pages/qrlinks/QrLinksPage"));
+const QrLinkDetailsPage = lazy(() => import("./pages/qrlinks/QrLinkDetailsPage"));
+const CustomerLabelsPage = lazy(() => import("./pages/labels/CustomerLabelsPage"));
 
 function CalendarPage() {
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
@@ -35,7 +40,7 @@ function CalendarPage() {
         <CalendarDashboard onBookingSelect={setSelectedBooking} />
       </div>
       {selectedBooking && (
-        <div className="absolute inset-0 z-40 lg:static lg:inset-auto lg:z-auto flex justify-end bg-slate-900/20 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
           <AppointmentDetailsWorkspace
             bookingId={selectedBooking}
             onClose={() => setSelectedBooking(null)}
@@ -66,7 +71,8 @@ export default function App() {
             <Route path="/calendars/edit-schedule" element={<EditSchedule />} />
             <Route path="/calendars/instant" element={<InstantAvailability />} />
             <Route path="/calendars/:calendarUid/schedules/:scheduleUid/edit" element={<EditSchedule />} />
-            <Route path="/calendar/:calendarUid/schedules/:scheduleUid/edit" element={<EditSchedule />} />
+            <Route path="/calendars/:calendarUid/schedules/:scheduleUid/timewindows/:timeWindowUid/customize" element={<CustomizeTimeWindow />} />
+            <Route path="/calendar/:calendarUid/schedules/:scheduleUid/timewindows/:timeWindowUid/customize" element={<CustomizeTimeWindow />} />
             <Route path="/dashboard" element={<OverviewPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/services" element={<div className="p-4 md:p-6 h-full"><ServicesPage /></div>} />
@@ -77,6 +83,11 @@ export default function App() {
             <Route path="/services/groups/create" element={<CreateServiceGroupPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/staff" element={<StaffPage />} />
+            <Route path="/holidays" element={<HolidaysPage />} />
+            <Route path="/qr-links" element={<QrLinksPage />} />
+            <Route path="/qrlinks" element={<QrLinksPage />} />
+            <Route path="/qrlinks/:uid" element={<QrLinkDetailsPage />} />
+            <Route path="/customer-labels" element={<CustomerLabelsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No booking screen for this route." />} />
           </Routes>

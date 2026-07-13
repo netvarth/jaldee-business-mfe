@@ -70,6 +70,9 @@ export default function CreateServicePage() {
   const [price, setPrice] = useState(500);
   const [taxApplicable, setTaxApplicable] = useState(false);
   const [hsnCode, setHsnCode] = useState("None");
+  const [prepaymentRequired, setPrepaymentRequired] = useState(false);
+  const [prepaymentAmount, setPrepaymentAmount] = useState<number | "">("");
+  const [prePaymentType, setPrePaymentType] = useState<"FIXED" | "PERCENTAGE">("FIXED");
   const [preServiceSchema, setPreServiceSchema] = useState<SchemaField[]>([]);
   const [postServiceSchema, setPostServiceSchema] = useState<SchemaField[]>([]);
   const [currencyCode, setCurrencyCode] = useState("INR");
@@ -219,6 +222,7 @@ export default function CreateServicePage() {
       phoneNumber: needsPhoneNumber ? (phoneValue.e164Number || `${phoneValue.countryCode}${phoneValue.number}`) : undefined,
       durHrs, durMins, numResources, maxBookings, showDuration, leadDays, leadHrs, leadMins,
       safeSlots, hasPricing, price, taxApplicable, hsnCode, 
+      prepaymentRequired, prepaymentAmount, prePaymentType,
       preServiceSchema, postServiceSchema, currencyCode, 
       assignUsers,
       practitionerPrices: Object.fromEntries(
@@ -573,6 +577,39 @@ export default function CreateServicePage() {
                     </div>
                   </FormSection>
                 ) : null}
+
+                <FormSection title="Advance Payment" className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-medium text-slate-800 text-sm">Require Advance Payment?</h4>
+                      <p className="text-xs text-slate-500">Force customers to pay an advance amount to confirm their booking.</p>
+                    </div>
+                    <Switch checked={prepaymentRequired} onChange={setPrepaymentRequired} />
+                  </div>
+                  {prepaymentRequired && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Select
+                        label="Advance Payment Type"
+                        value={prePaymentType}
+                        onChange={(e) => setPrePaymentType(e.target.value as "FIXED" | "PERCENTAGE")}
+                        options={[
+                          { value: "FIXED", label: "Fixed Amount" },
+                          { value: "PERCENTAGE", label: "Percentage (%)" },
+                        ]}
+                      />
+                      <Input 
+                        type="number" 
+                        min={0} 
+                        label={prePaymentType === "PERCENTAGE" ? "Advance Percentage" : "Advance Amount"} 
+                        required 
+                        value={prepaymentAmount} 
+                        onChange={(e) => setPrepaymentAmount(Number(e.target.value))} 
+                        prefix={prePaymentType === "FIXED" ? (currencyCode === "INR" ? "₹" : currencyCode === "USD" ? "$" : currencyCode === "EUR" ? "€" : "") : ""}
+                        suffix={prePaymentType === "PERCENTAGE" ? "%" : ""}
+                      />
+                    </div>
+                  )}
+                </FormSection>
               </>
             )}
           </div>

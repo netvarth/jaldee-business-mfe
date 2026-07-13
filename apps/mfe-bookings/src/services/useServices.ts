@@ -81,7 +81,7 @@ export const useServices = () => {
       const data = await api.post<unknown>(
         "/services/search",
         {},
-        { params: { page: 0, size: 100 }, _skipLocationParam: true },
+        { params: { page: 0, size: 100 } },
       );
       setServices([...createdServices, ...unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult)]);
     } catch (e) {

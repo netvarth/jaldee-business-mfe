@@ -115,6 +115,28 @@ function asStringArray(value: unknown) {
     .filter(Boolean);
 }
 
+function toPractitionerOverrides(value: unknown) {
+  if (!Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    value.flatMap((item) => {
+      if (!item || typeof item !== "object") {
+        return [];
+      }
+
+      const record = item as Record<string, unknown>;
+      const userUid = asString(record.userUid ?? record.uid ?? record.id).trim();
+      if (!userUid) {
+        return [];
+      }
+
+      return [[userUid, { enabled: true, price: toNumber(record.price ?? record.serviceCharge ?? record.amount) }]] as const;
+    }),
+  );
+}
+
 function normalizeSchemaFields(value: unknown): SchemaField[] {
   if (Array.isArray(value)) {
     return value as SchemaField[];
@@ -256,12 +278,16 @@ export function toServiceFormPrefill(payload: unknown): ServiceFormPrefill {
   const duration = toNumber(raw.duration ?? raw.serviceDuration ?? raw.approxDuration ?? 30);
   const { durHrs, durMins } = toDurationParts(duration || 30);
   const practitionerPrices = asRecord(raw.practitionerPrices);
-  const practitionerOverrides = Object.fromEntries(
+  const practitionerOverridesFromPrices = Object.fromEntries(
     Object.entries(practitionerPrices).map(([uid, price]) => [
       uid,
       { enabled: true, price: toNumber(price) },
     ]),
   );
+  const practitionerOverridesFromUsers = toPractitionerOverrides(raw.users);
+  const practitionerOverrides = Object.keys(practitionerOverridesFromUsers).length > 0
+    ? practitionerOverridesFromUsers
+    : practitionerOverridesFromPrices;
 
   return {
     name: asString(raw.name ?? raw.displayName),

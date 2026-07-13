@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   background: #fff;
-  border: 1px solid #e2e3ec;
+  border: 1px solid #E5E5EB;
   border-radius: 16px;
   position: relative;
   box-shadow: 0 12px 32px rgba(15, 20, 40, 0.08);
@@ -92,56 +92,69 @@
 
 .calendar-header {
   background: #fff;
-  border-bottom: 1px solid #e8e9f3;
+  border-bottom: 1px solid #D1D5DB;
   padding: 0;
 }
 
 .weekday-header {
-  border-left: 1px solid #eceef6;
-  padding: 8px 6px;
+  border-left: 1px solid #E5E5EB;
+  padding: 10px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
 }
 
+/* Alternating day-column shading (Figma) */
+.weekday-header.alt-col,
+.calendar-cell.alt-col {
+  background: #F4F4F4;
+}
+
 .weekday-header-top {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  align-items: center;
+  flex-direction: row;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: center;
 }
 
 .weekday-label {
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #6c7084;
+  letter-spacing: 0.08em;
+  color: #6B7280;
 }
 
 .weekday-date {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
+  color: #14161D;
+}
+
+.weekday-header.is-today .weekday-label,
+.weekday-header.is-today .weekday-date {
+  color: #6c32ff;
 }
 
 .weekday-count {
   font-size: 0.7rem;
-  color: #6c7084;
+  color: #6B7280;
 }
 
 .calendar-row {
   position: relative;
-  border-bottom: 1px solid #f0f2fb;
+  border-bottom: 1px solid #E5E5EB;
 }
 
 .calendar-timezone {
   padding: 14px 16px;
   font-weight: 700;
-  color: #2c2e3a;
+  color: #14161D;
   text-transform: none;
   letter-spacing: normal;
-  border-right: 1px solid #eceef6;
+  border-right: 1px solid #E5E5EB;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -158,7 +171,7 @@
   gap: 10px;
   text-transform: none;
   letter-spacing: normal;
-  color: #2c2e3a;
+  color: #14161D;
 }
 
 .header-icon {
@@ -193,7 +206,7 @@
 
 .calendar-title {
   font-weight: 700;
-  color: #2c2e3a;
+  color: #14161D;
 }
 
 .timezone-label {
@@ -223,7 +236,7 @@
 
 .doctor-card {
   border: none;
-  border-left: 1px solid #eceef6;
+  border-left: 1px solid #E5E5EB;
   border-radius: 0;
   padding: 10px 6px;
   background: transparent;
@@ -234,16 +247,17 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  border-color: var(--booking-accent, #eceef6);
+  border-color: var(--booking-accent, #E5E5EB);
+  position: relative;
 }
 
 .doctor-card.on-leave {
   background: repeating-linear-gradient(
     -45deg,
-    rgba(108, 50, 255, 0.07),
-    rgba(108, 50, 255, 0.07) 10px,
-    rgba(108, 50, 255, 0.02) 10px,
-    rgba(108, 50, 255, 0.02) 20px
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0.04) 10px,
+    rgba(0, 0, 0, 0.01) 10px,
+    rgba(0, 0, 0, 0.01) 20px
   );
 }
 
@@ -279,7 +293,7 @@
 
 .doctor-info span {
   font-size: 0.72rem;
-  color: #6c7084;
+  color: #6B7280;
 }
 
 .doctor-card-meta {
@@ -287,7 +301,7 @@
   align-items: center;
   justify-content: flex-end;
   font-size: 0.75rem;
-  color: #6c7084;
+  color: #6B7280;
 }
 
 .doctor-badge {
@@ -315,23 +329,24 @@
   left: 0;
   background: #fff;
   padding-left: 14px;
-  border-right: 1px solid #eceef6;
+  border-right: 1px solid #E5E5EB;
   font-size: 0.75rem;
-  color: #8b8f9f;
+  color: #9CA3B0;
   display: flex;
   align-items: center;
-  height: 66px;
+  height: 80px;
   box-shadow: -4px 0 8px rgba(15, 20, 40, 0.08);
   z-index: 5;
+  transform: translateY(-40px);
 }
 
 .calendar-cell {
-  min-height: 60px;
+  min-height: 80px;
   padding: 6px 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-left: 1px solid #f0f2fb;
+  border-left: 1px solid #E5E5EB;
 }
 
 .week-view-cell {
@@ -354,10 +369,10 @@
 .calendar-cell.on-leave {
   background: repeating-linear-gradient(
     -45deg,
-    rgba(108, 50, 255, 0.05),
-    rgba(108, 50, 255, 0.05) 10px,
-    rgba(108, 50, 255, 0.015) 10px,
-    rgba(108, 50, 255, 0.015) 20px
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0.04) 10px,
+    rgba(0, 0, 0, 0.01) 10px,
+    rgba(0, 0, 0, 0.01) 20px
   );
 }
 
@@ -400,7 +415,7 @@
   align-items: center !important;
   justify-content: center !important;
   gap: 1px !important;
-  color: #2c2e3a;
+  color: #14161D;
   font-size: 0.55rem;
   min-width: 48px;
   width: 48px;
@@ -428,7 +443,7 @@
 }
 .day-summary-label {
   font-size: 0.46rem;
-  color: #5f6274;
+  color: #6B7280;
   text-align: center;
   line-height: 1.05;
   max-width: 100%;
@@ -510,7 +525,7 @@
   gap: 4px;
   cursor: pointer;
   font-size: 0.72rem;
-  color: #2c2e3a;
+  color: #14161D;
   border: 1px solid #e5e7f3 !important;
   border-radius: 10px;
   background: #fff !important;
@@ -562,7 +577,7 @@
 
 .week-slot-count {
   font-size: 0.68rem;
-  color: #5f6274;
+  color: #6B7280;
   line-height: 1.2;
   flex: 1;
   white-space: nowrap;
@@ -585,7 +600,7 @@
   flex: 1;
   text-align: left;
   font-size: 0.8rem;
-  color: #5f6274;
+  color: #6B7280;
 }
 
 .week-chip-action {
@@ -611,7 +626,7 @@
   align-items: flex-start !important;
   justify-content: space-between !important;
   gap: 8px;
-  color: #2c2e3a;
+  color: #14161D;
   font-size: 0.8rem;
   border-color: var(--booking-accent, #dfe2f2);
   background: var(--booking-accent-muted, #fff);
@@ -642,7 +657,7 @@
 
 .booking-chip-time {
   font-size: 0.62rem;
-  color: #5f6274;
+  color: #6B7280;
 }
 
 .kebab {
@@ -662,7 +677,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  color: #2c2e3a;
+  color: #14161D;
 }
 
 .booking-summary strong {
@@ -671,7 +686,7 @@
 
 .booking-summary span {
   font-size: 0.7rem;
-  color: #5f6274;
+  color: #6B7280;
 }
 
 .leave-cell {
@@ -770,7 +785,7 @@
 .detail-time,
 .detail-service {
   font-size: 0.75rem;
-  color: #5f6274;
+  color: #6B7280;
 }
 
 .line-stack {
@@ -794,6 +809,140 @@
 .empty-slot {
   width: 100%;
   min-height: 26px;
+}
+
+/* Slot bookings popover (Figma: click a busy slot) */
+.slot-popover {
+  max-width: 380px;
+  margin: 0 auto;
+  padding: 18px 20px 20px;
+  background: #fff;
+  border-radius: 16px;
+}
+
+.slot-popover-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.slot-popover-date {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slot-popover-day {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #14161D;
+  line-height: 1;
+}
+
+.slot-popover-date-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slot-popover-month {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #14161D;
+}
+
+.slot-popover-weekday {
+  font-size: 0.72rem;
+  color: #6B7280;
+}
+
+.slot-popover-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slot-popover-time-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #14161D;
+  background: #F4F4F4;
+  border: 1px solid #E5E5EB;
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.slot-popover-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #6B7280;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.slot-popover-close:hover {
+  background: #F4F4F4;
+}
+
+.slot-popover-summary {
+  margin-top: 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #14161D;
+}
+
+.slot-popover-rows {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.slot-popover-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.slot-popover-count {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #14161D;
+}
+
+.slot-popover-add {
+  border: none;
+  background: transparent;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
 }
 
 .calendar-datepicker {
@@ -830,7 +979,7 @@
   letter-spacing: 0.05em;
   font-size: 0.65rem;
   font-weight: 600;
-  color: #6c7084;
+  color: #6B7280;
 }
 
 .month-view-header-item {
@@ -844,7 +993,7 @@
 }
 
 .month-day-card {
-  border: 1px solid #eceef6;
+  border: 1px solid #E5E5EB;
   border-radius: 16px;
   padding: 8px 8px 10px;
   min-height: 124px;
@@ -914,7 +1063,7 @@
   min-height: 28px !important;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #2c2e3a;
+  color: #14161D;
   background: #fff;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(15, 20, 40, 0.04);

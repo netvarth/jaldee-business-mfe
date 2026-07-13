@@ -11,6 +11,47 @@ import {
 import { useCalendars } from "../../services/useCalendars";
 import type { Calendar } from "../../types";
 
+import { useServices } from "../../services/useServices";
+import { useUsers } from "../../services/useUsers";
+
+function ChipRow({ label, items }: { label: string; items?: string[] }) {
+  const list = items ?? [];
+  if (list.length === 0) {
+    return <span className="text-xs text-slate-400">{`No ${label.toLowerCase()}`}</span>;
+  }
+  const shown = list.slice(0, 2);
+  const extra = list.length - shown.length;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {shown.map((item) => (
+        <span
+          key={item}
+          className="max-w-[120px] truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+          title={item}
+        >
+          {item}
+        </span>
+      ))}
+      {extra > 0 && <span className="text-xs font-medium text-slate-500">{`+${extra}`}</span>}
+    </div>
+  );
+}
+
+function AssignedCell({ services, users }: { services?: string[]; users?: string[] }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Services</span>
+        <ChipRow label="services" items={services} />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Users</span>
+        <ChipRow label="users" items={users} />
+      </div>
+    </div>
+  );
+}
+
 function statusClass(status?: string) {
   if (status === "DRAFT") return "bg-slate-100 text-slate-600";
   if (status === "INACTIVE") return "bg-amber-100 text-amber-800";
@@ -23,8 +64,65 @@ function statusLabel(status?: string) {
   return "Active";
 }
 
+function resolveAssignedServiceNames(
+  services: Calendar["services"],
+  allServices: Array<{ id?: string; uid?: string; name?: string }>,
+) {
+  return (services ?? [])
+    .map((service) => {
+      if (!service) return null;
+
+      const serviceId =
+        typeof service === "string" ? service : service.uid || service.id || null;
+      const serviceName =
+        typeof service === "object" && "name" in service ? service.name : null;
+
+      if (!serviceId && !serviceName) return null;
+
+      const found = allServices.find((item) => item.id === serviceId || item.uid === serviceId);
+      return found?.name || serviceName || serviceId;
+    })
+    .filter((value): value is string => Boolean(value));
+}
+
+function resolveAssignedUserNames(
+  users: Calendar["users"],
+  allUsers: Array<{
+    id?: string;
+    uid?: string;
+    userUid?: string;
+    displayName?: string;
+    firstName?: string;
+    lastName?: string;
+  }>,
+) {
+  return (users ?? [])
+    .map((user) => {
+      if (!user) return null;
+
+      const userId =
+        typeof user === "string" ? user : user.userUid || user.uid || user.id || null;
+      const userName =
+        typeof user === "object" && (user.displayName || user.firstName)
+          ? user.displayName || `${user.firstName || ""} ${user.lastName || ""}`.trim()
+          : null;
+
+      if (!userId && !userName) return null;
+
+      const found = allUsers.find(
+        (item) => item.userUid === userId || item.uid === userId || item.id === userId,
+      );
+      return found
+        ? found.displayName || `${found.firstName || ""} ${found.lastName || ""}`.trim()
+        : userName || userId;
+    })
+    .filter((value): value is string => Boolean(value));
+}
+
 export default function CalendarList() {
   const { calendars, loading } = useCalendars();
+  const { services: allServices } = useServices();
+  const { users: allUsers } = useUsers();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -88,6 +186,16 @@ export default function CalendarList() {
         ),
       },
       {
+        key: "assigned",
+        header: "Assigned",
+        render: (calendar) => (
+          <AssignedCell
+            services={resolveAssignedServiceNames(calendar.services, allServices)}
+            users={resolveAssignedUserNames(calendar.users, allUsers)}
+          />
+        ),
+      },
+      {
         key: "status",
         header: "Status",
         sortable: true,
@@ -125,7 +233,7 @@ export default function CalendarList() {
         ),
       },
     ],
-    [navigate],
+    [allServices, allUsers, navigate],
   );
 
   return (

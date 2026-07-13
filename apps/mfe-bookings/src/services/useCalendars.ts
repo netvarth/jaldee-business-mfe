@@ -23,6 +23,7 @@ export interface CreateCalendarPayload {
   qrLinkRequired: boolean;
   feature: string;
   status: CalendarStatus;
+  defaultServiceId?: string;
   color: string;
   bookingChannels: string[];
   capacityOverride: number;
@@ -71,9 +72,30 @@ function normalizeCalendarStatus(status?: string | null): CalendarStatus {
   }
 }
 
+// Distinct, readable calendar colors. The create wizard currently persists a
+// single hardcoded color (#0f172a) for every calendar, so we treat that (and
+// empty) as "unset" and assign a stable palette color derived from the uid —
+// this gives every calendar a distinct color that appointments inherit.
+const CALENDAR_PALETTE = [
+  "#9333EA", "#2563EB", "#059669", "#D97706",
+  "#DC2626", "#0891B2", "#DB2777", "#7C3AED",
+];
+
+function resolveCalendarColor(calendar: Calendar): string {
+  const raw = (calendar.color ?? "").trim();
+  if (raw && raw.toLowerCase() !== "#0f172a") return raw;
+  const key = String(calendar.uid ?? calendar.id ?? calendar.name ?? "");
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return CALENDAR_PALETTE[hash % CALENDAR_PALETTE.length];
+}
+
 function normalizeCalendar(calendar: Calendar): Calendar {
   return {
     ...calendar,
+    color: resolveCalendarColor(calendar),
     status: normalizeCalendarStatus(calendar.status),
   };
 }

@@ -63,6 +63,7 @@ export default function CalendarWizard() {
     
     // Step 2 State
     const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+    const [defaultServiceId, setDefaultServiceId] = useState<string>('');
     const [serviceUsers, setServiceUsers] = useState<Record<string, User[]>>({});
     
     // Modals State
@@ -193,6 +194,7 @@ export default function CalendarWizard() {
             services: selectedServices.map((service) => service.uid ?? service.id),
             users: assignedUsers,
             channel: bookingChannels[0] ?? 'ONLINE',
+            defaultServiceId: defaultServiceId || undefined,
             label: [],
             qrLinkRequired: true,
             feature: 'BASE_CRM',
@@ -242,6 +244,7 @@ export default function CalendarWizard() {
                 services: selectedServices.map((service) => service.uid ?? service.id),
                 users: assignedUsers,
                 channel: bookingChannels[0] ?? 'ONLINE',
+                defaultServiceId: defaultServiceId || undefined,
                 label: [],
                 qrLinkRequired: true,
                 feature: 'BASE_CRM',
@@ -488,6 +491,21 @@ export default function CalendarWizard() {
                                 emptyState={<EmptyState title="No services added" description='Click "Add Services" to configure this calendar.' />}
                                 data-testid="bookings-calendar-wizard-services"
                             />
+                            
+                            {selectedServices.length > 0 && (
+                                <div className="mt-6 p-5 bg-slate-50 border border-slate-200 rounded-xl">
+                                    <h3 className="text-sm font-bold text-slate-800 mb-2">Default Service (Optional)</h3>
+                                    <p className="text-xs text-slate-500 mb-4">Select the primary service for this calendar. This service will be pre-selected when booking appointments.</p>
+                                    <Select
+                                        value={defaultServiceId}
+                                        onChange={(e) => setDefaultServiceId(e.target.value)}
+                                        options={[
+                                            { value: '', label: 'No Default Service' },
+                                            ...selectedServices.map(s => ({ value: s.uid ?? s.id, label: s.name }))
+                                        ]}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="wizard-footer-actions mt-8">

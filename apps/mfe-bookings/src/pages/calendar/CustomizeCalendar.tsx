@@ -5,6 +5,7 @@ import { useCalendars } from "../../services/useCalendars";
 import { useServices } from "../../services/useServices";
 import { useUsers } from "../../services/useUsers";
 import type { Calendar, Schedule } from "../../types";
+import DualListServicesModal, { Service } from "./components/DualListServicesModal";
 
 const channels = [
   {
@@ -70,6 +71,7 @@ export default function CustomizeCalendar() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
 
   const serviceMap = useMemo(
     () => new Map(services.map((service) => [service.uid ?? service.id, service.name])),
@@ -81,14 +83,15 @@ export default function CustomizeCalendar() {
   );
 
   const serviceRows = useMemo(() => {
-    const serviceNames = normalizeList(calendar?.services as unknown[]).map((item) => serviceMap.get(item) ?? item);
+    const serviceIds = normalizeList(calendar?.services as unknown[]);
     const userNames = normalizeList(
       calendar?.users as unknown[],
       ["displayName", "name", "label", "title", "userUid", "uid", "id"],
     ).map((item) => userMap.get(item) ?? item);
-    return serviceNames.map((serviceName, index) => ({
-      id: `${serviceName}-${index}`,
-      serviceName,
+    return serviceIds.map((serviceId, index) => ({
+      serviceId,
+      id: `${serviceId}-${index}`,
+      serviceName: serviceMap.get(serviceId) ?? serviceId,
       users: userNames,
     }));
   }, [calendar?.services, calendar?.users, serviceMap, userMap]);
@@ -244,7 +247,7 @@ export default function CustomizeCalendar() {
                   </div>
                   <Button
                     type="button"
-                    onClick={() => navigate("/calendars/edit", { state: { calendar } })}
+                    onClick={() => setIsServicesModalOpen(true)}
                     className="h-10 rounded-lg !bg-[#7c3aed] px-5 !text-white hover:!bg-[#6d28d9] hover:!text-white"
                   >
                     + Add Services
@@ -289,17 +292,17 @@ export default function CustomizeCalendar() {
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   type="button"
-                                  aria-label={`Edit ${row.serviceName}`}
-                                  onClick={() => navigate("/calendars/edit", { state: { calendar } })}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7EBF4] text-slate-500 transition hover:bg-[#f5f3ff] hover:text-[#7c3aed]"
-                                >
-                                  <span aria-hidden="true">✎</span>
-                                </button>
-                                <button
-                                  type="button"
                                   aria-label={`Delete ${row.serviceName}`}
-                                  onClick={() => navigate("/calendars/edit", { state: { calendar } })}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7EBF4] text-slate-500 transition hover:bg-[#f5f3ff] hover:text-[#7c3aed]"
+                                  onClick={() => {
+                                    if (calendar) {
+                                      const newServices = calendar.services?.filter((id: any) => {
+                                        const sId = typeof id === 'string' ? id : id?.uid ?? id?.id;
+                                        return sId !== row.serviceId;
+                                      }) as string[];
+                                      setCalendar({ ...calendar, services: newServices });
+                                    }
+                                  }}
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7EBF4] text-slate-500 transition hover:bg-[#fee2e2] hover:text-[#dc2626]"
                                 >
                                   <span aria-hidden="true">🗑</span>
                                 </button>
@@ -394,7 +397,6 @@ export default function CustomizeCalendar() {
                   </button>
                 </div>
               </section>
-
               <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Button
                   id="bookings-customize-calendar-cancel"
@@ -423,6 +425,20 @@ export default function CustomizeCalendar() {
           )}
         </section>
       </div>
+
+      <DualListServicesModal 
+        isOpen={isServicesModalOpen}
+        onClose={() => setIsServicesModalOpen(false)}
+        allServices={services}
+        initialSelectedServices={services.filter(s => calendar?.services?.includes(s.uid ?? s.id))}
+        onSave={async (added) => {
+          setIsServicesModalOpen(false);
+          if (calendar) {
+            const newCalendar = { ...calendar, services: added.map(s => s.uid ?? s.id) };
+            setCalendar(newCalendar);
+          }
+        }}
+      />
     </main>
   );
 }

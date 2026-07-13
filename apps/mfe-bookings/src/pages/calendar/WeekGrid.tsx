@@ -4,6 +4,7 @@ import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import SlotBookingsPopover from './components/SlotBookingsPopover';
 import { toRgba } from '../../utils/colors';
 
 interface WeekGridProps {
@@ -37,7 +38,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
 
 export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: WeekGridProps) {
     const { openModal } = useModal();
-    const startHour = 9;
+    const startHour = 0;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
@@ -60,13 +61,13 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                             <div className="calendar-timezone">
                                 <div className="timezone-label">IST<br/>+05:30</div>
                             </div>
-                            {days.map((dayDate) => {
+                            {days.map((dayDate, dayIndex) => {
                                 const isToday = isSameDay(dayDate, now);
                                 return (
-                                    <div key={dayDate.toISOString()} className="weekday-header">
+                                    <div key={dayDate.toISOString()} className={`weekday-header${isToday ? ' is-today' : ''}${dayIndex % 2 === 1 ? ' alt-col' : ''}`}>
                                         <div className="weekday-header-top">
                                             <span className="weekday-label">{format(dayDate, 'EEE')}</span>
-                                            <strong className={`weekday-date ${isToday ? 'text-blue-600' : ''}`}>{format(dayDate, 'd')}</strong>
+                                            <strong className="weekday-date">{format(dayDate, 'd')}</strong>
                                         </div>
                                     </div>
                                 );
@@ -83,7 +84,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                 return (
                                     <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
                                         <div className="hour-column">{timeLabel}</div>
-                                        {days.map((dayDate) => {
+                                        {days.map((dayDate, dayIndex) => {
                                             // Filter bookings for this slot
                                             const slotBookings = bookings.filter((b: any) => {
                                                 const bDate = new Date(b.bookingDate || b.date);
@@ -95,14 +96,26 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                             });
 
                                             return (
-                                                <div 
-                                                    key={`${dayDate.toISOString()}-${hour}`} 
-                                                    className="calendar-cell"
+                                                <div
+                                                    key={`${dayDate.toISOString()}-${hour}`}
+                                                    className={`calendar-cell${dayIndex % 2 === 1 ? ' alt-col' : ''}`}
                                                     onClick={() => openModal(
-                                                        <CreateAppointmentModal 
-                                                          initialDate={dayDate} 
-                                                          initialTime={`${hour.toString().padStart(2, '0')}:00`} 
-                                                        />
+                                                        slotBookings.length > 0 ? (
+                                                            <SlotBookingsPopover
+                                                              date={dayDate}
+                                                              hour={hour}
+                                                              viewBy={viewBy}
+                                                              bookings={slotBookings}
+                                                              users={users}
+                                                              calendars={calendars}
+                                                              onBookingSelect={onBookingSelect}
+                                                            />
+                                                        ) : (
+                                                            <CreateAppointmentModal
+                                                              initialDate={dayDate}
+                                                              initialTime={`${hour.toString().padStart(2, '0')}:00`}
+                                                            />
+                                                        )
                                                     )}
                                                     style={{ cursor: 'pointer' }}
                                                 >
@@ -126,7 +139,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                             size="sm"
                                                                             className="week-slot-entry pointer-events-auto"
                                                                             style={{ borderColor: color, background: '#fff' }}
-                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            /* click bubbles to the cell → opens SlotBookingsPopover */
                                                                         >
                                                                             <span className="week-slot-avatar" style={{ background: color, borderRadius: '4px' }}>{initials}</span>
                                                                             <span className="week-slot-count text-left flex-1" style={{ fontSize: '11px', color: '#333', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
@@ -149,7 +162,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                             key={uid}
                                                                             className={`flex items-center gap-1.5 p-1 px-2 rounded-md pointer-events-auto transition-opacity hover:opacity-90 w-full mb-1 ${isTw ? rawColor : ''} ${isTw ? 'bg-opacity-20' : ''}`}
                                                                             style={isTw ? {} : { backgroundColor: toRgba(rawColor, 0.2), border: 'none' }}
-                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            /* click bubbles to the cell → opens SlotBookingsPopover */
                                                                         >
                                                                             <span className="flex-1 truncate text-left" style={isTw ? { fontSize: '11px', fontWeight: 600 } : { fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
                                                                             <span style={isTw ? { fontSize: '14px', lineHeight: 1, fontWeight: 400 } : { color: '#1e293b', fontSize: '14px', lineHeight: 1, fontWeight: 400 }}>+</span>

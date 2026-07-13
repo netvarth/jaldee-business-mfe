@@ -71,7 +71,7 @@ export function useBookingApi() {
 
     async function request<T>(
       endpoint: string,
-      method: "GET" | "POST" | "PUT" | "DELETE",
+      method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
       body?: any,
       options?: BookingRequestOptions,
     ): Promise<T> {
@@ -115,8 +115,14 @@ export function useBookingApi() {
       post<T>(endpoint: string, data: unknown, options?: BookingRequestOptions): Promise<T> {
         return request<T>(endpoint, "POST", data, options);
       },
-      put<T>(endpoint: string, data: unknown): Promise<T> {
-        return request<T>(endpoint, "PUT", data);
+      put<T>(endpoint: string, data: unknown, options?: BookingRequestOptions): Promise<T> {
+        return request<T>(endpoint, "PUT", data, options);
+      },
+      patch<T>(endpoint: string, data?: unknown, options?: BookingRequestOptions): Promise<T> {
+        return request<T>(endpoint, "PATCH", data, options);
+      },
+      del<T>(endpoint: string, options?: BookingRequestOptions): Promise<T> {
+        return request<T>(endpoint, "DELETE", undefined, options);
       },
     };
   }, [authToken, location?.id]);

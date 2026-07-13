@@ -1,9 +1,10 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, PageHeader, Popover, PopoverSection, Switch } from "@jaldee/design-system";
 import { Calendar as CalendarIcon, Clock, FileText, MoreVertical, Plus, Settings, UserCircle, Users } from "../../components/icons";
 import { useCalendars } from "../../services/useCalendars";
 import { useUsers } from "../../services/useUsers";
+import { useServices } from "../../services/useServices";
 import type { Calendar, Schedule } from "../../types";
 
 const channelIcon: Record<string, string> = {
@@ -53,12 +54,20 @@ export default function CalendarDetails() {
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
   const { searchSchedules, getCalendar } = useCalendars();
   const { users } = useUsers();
+  const { services } = useServices();
   const [calendar, setCalendar] = useState<Calendar | null>(initialCalendar ?? null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
   const [scheduleEnabledState, setScheduleEnabledState] = useState<Record<string, boolean>>({});
-  const userNameMap = new Map(users.map((user) => [user.userUid, user.displayName]));
+  const userNameMap = useMemo(
+    () => new Map(users.map((user) => [user.userUid, user.displayName])),
+    [users],
+  );
+  const serviceNameMap = useMemo(
+    () => new Map(services.map((service) => [service.uid ?? service.id, service.name])),
+    [services],
+  );
 
   useEffect(() => {
     if (!calendarUid) {
@@ -134,11 +143,18 @@ export default function CalendarDetails() {
     );
   }
 
-  const serviceItems = asTextList(calendar.services as unknown[]);
-  const userItems = asTextList(
-    calendar.users as unknown[],
-    ["displayName", "name", "label", "title", "userUid", "uid", "id"],
-  ).map((item) => userNameMap.get(item) ?? item);
+  const serviceItems = useMemo(
+    () => asTextList(calendar.services as unknown[]).map((item) => serviceNameMap.get(item) ?? item),
+    [calendar.services, serviceNameMap],
+  );
+  const userItems = useMemo(
+    () =>
+      asTextList(
+        calendar.users as unknown[],
+        ["displayName", "name", "label", "title", "userUid", "uid", "id"],
+      ).map((item) => userNameMap.get(item) ?? item),
+    [calendar.users, userNameMap],
+  );
   const channelItems = asTextList(calendar.bookingChannels as unknown[]);
   const tagItems = asTextList(calendar.tags as unknown[]);
 
@@ -319,16 +335,45 @@ export default function CalendarDetails() {
                         schedule.timeWindows.map((timeWindow) => (
                           <div key={timeWindow.uid} className="detail-sch-timewindow-card">
                             <div className="detail-tw-toprow">
-                              <div className="detail-tw-chip-row">
-                                {timeWindow.weekDays.map((day) => (
-                                  <span key={`${timeWindow.uid}-${day}`} className="detail-tw-weekday-chip">
-                                    {weekdayName[day] ?? String(day)}
+                              <div className="flex items-center justify-between w-full">
+                                <div className="detail-tw-chip-row">
+                                  {timeWindow.weekDays.map((day) => (
+                                    <span key={`${timeWindow.uid}-${day}`} className="detail-tw-weekday-chip">
+                                      {weekdayName[day] ?? String(day)}
+                                    </span>
+                                  ))}
+                                  <span className="detail-tw-channel-chip ml-2">
+                                    {channelIcon[timeWindow.channel] ?? timeWindow.channel}
                                   </span>
-                                ))}
+                                </div>
+                                <Popover
+                                  align="end"
+                                  portal
+                                  data-testid={`bookings-calendar-tw-menu-${timeWindow.uid}`}
+                                  contentClassName="detail-sch-menu"
+                                  trigger={
+                                    <button
+                                      type="button"
+                                      className="detail-sch-more-btn"
+                                      aria-label={`More details for time window`}
+                                      title={`More details for time window`}
+                                    >
+                                      <MoreVertical size={16} />
+                                    </button>
+                                  }
+                                >
+                                  <PopoverSection className="detail-sch-menu-section">
+                                    <button
+                                      type="button"
+                                      className="detail-sch-menu-item"
+                                      onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/timewindows/${timeWindow.uid}/customize`, { state: { calendar, schedule, timeWindow } })}
+                                    >
+                                      <span className="detail-sch-menu-icon"><Settings size={18} /></span>
+                                      <span>Customize</span>
+                                    </button>
+                                  </PopoverSection>
+                                </Popover>
                               </div>
-                              <span className="detail-tw-channel-chip">
-                                {channelIcon[timeWindow.channel] ?? timeWindow.channel}
-                              </span>
                             </div>
 
                             <div className="detail-tw-timerange">

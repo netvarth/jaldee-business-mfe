@@ -14,9 +14,10 @@ interface MonthGridProps {
     bookings: Booking[];
     services: Service[];
     onBookingSelect: (id: string) => void;
+    onDaySelect?: (day: Date) => void;
 }
 
-export default function MonthGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: MonthGridProps) {
+export default function MonthGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onDaySelect }: MonthGridProps) {
     const { openModal } = useModal();
     
     const monthStart = startOfMonth(date);
@@ -61,7 +62,8 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                     return (
                         <div 
                             key={day.toString()} 
-                            className={`month-day-card ${!isCurrentMonth ? 'muted' : ''} ${isToday ? 'today' : ''}`}
+                            className={`month-day-card ${!isCurrentMonth ? 'muted' : ''} ${isToday ? 'today' : ''} cursor-pointer`}
+                            onClick={() => onDaySelect?.(day)}
                         >
                             <div className="month-day-number">
                                 <Button

@@ -7,11 +7,22 @@ const TENANT_USERS_ENDPOINT = "/base-service/v1/api/tenant/users";
 
 interface UserDto {
   userUid?: string;
+  uid?: string;
+  id?: string;
   title?: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
   status?: string;
+}
+
+function resolveUserUid(user: UserDto): string | undefined {
+  for (const candidate of [user.userUid, user.uid, user.id]) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return undefined;
 }
 
 function toUiStatus(status?: string): BookingUser["status"] {
@@ -22,8 +33,9 @@ function toUser(d: UserDto): BookingUser {
   const first = d.firstName ?? "";
   const last = d.lastName ?? "";
   const display = d.displayName || `${first} ${last}`.trim() || "User";
+  const userUid = resolveUserUid(d);
   return {
-    userUid: d.userUid ?? `usr-${Math.random().toString(36).slice(2, 8)}`,
+    userUid: userUid ?? `usr-${Math.random().toString(36).slice(2, 8)}`,
     title: d.title ?? "",
     firstName: first,
     lastName: last,

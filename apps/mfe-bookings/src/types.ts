@@ -150,12 +150,13 @@ export interface ServiceItem {
 
 export type BookingStatus =
   | "REQUESTED" | "CONFIRMED" | "CHECKED_IN" | "WAITING"
-  | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED" | "UNBLOCKED";
+  | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED"
+  | "BLOCKED" | "UNBLOCKED";
 
 export type AllowedAction =
   | "CONFIRM" | "CHECK_IN" | "MOVE_TO_WAITING" | "START" | "COMPLETE"
   | "CANCEL" | "NO_SHOW" | "RESCHEDULE" | "EDIT" | "CREATE_INVOICE"
-  | "VIEW_SUMMARY" | "VIEW_INVOICE" | "CREATE_FOLLOWUP";
+  | "VIEW_SUMMARY" | "VIEW_INVOICE" | "CREATE_FOLLOWUP" | "UNBLOCK";
 
 export interface BookingDetails {
   uid: string;

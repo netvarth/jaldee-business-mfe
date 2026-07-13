@@ -17,6 +17,52 @@ export interface ActionExtra {
   rescheduleSeries?: boolean;
 }
 
+/** Payment modes accepted by feature-finance (mirrors shared PaymentMode enum). */
+export const PAYMENT_MODES = [
+  "Cash", "CC", "DC", "UPI", "NB", "BANK_TRANSFER", "WALLET", "Other",
+] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+
+/** Finance summary for a booking (backend InvoiceAdapterDto). */
+export interface BookingFinance {
+  uid?: string;
+  bookingUid?: string;
+  invoiceNumber?: string;
+  amountDue?: number;
+  amountPaid?: number;
+  paymentStatus?: string;
+}
+
+/** A single payment record (subset of shared PaymentResponseDto). */
+export interface PaymentRecord {
+  uid?: string;
+  amount?: number;
+  currency?: string;
+  mode?: string;
+  acceptedBy?: string;
+  paymentOn?: string;
+  receiptNum?: string;
+  paymentRefId?: string;
+  note?: Array<{ note?: string } | string> | string;
+}
+
+export interface PayInput {
+  amount: number;
+  mode?: PaymentMode;
+  transactionId?: string;
+  note?: string;
+  paymentOn?: string; // ISO OffsetDateTime; defaults to now server-side
+}
+
+export function paymentNoteText(n: PaymentRecord["note"]): string {
+  if (!n) return "";
+  if (typeof n === "string") return n;
+  return n
+    .map((x) => (typeof x === "string" ? x : x?.note ?? ""))
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function actionRequest(
   uid: string,
   action: AllowedAction,
@@ -56,7 +102,8 @@ function actionRequest(
         },
       };
     case "CREATE_INVOICE":
-      return { path: `/bookings/${uid}/finance`, body: {} };
+      // Finance controller is mounted at /finance/{uid}/finance (NOT /bookings).
+      return { path: `/finance/${uid}/finance`, body: {} };
     default:
       return null; // VIEW_* / EDIT / CREATE_FOLLOWUP handled in the UI
   }
@@ -70,6 +117,29 @@ export function useBookingDetails() {
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState<AllowedAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [finance, setFinance] = useState<BookingFinance | null>(null);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [paying, setPaying] = useState(false);
+
+  const refreshFinance = useCallback(
+    async (uid: string) => {
+      // Finance summary is optional (no invoice yet ⇒ 404). Payment history is
+      // best-effort so a missing endpoint never blocks the details panel.
+      try {
+        const f = await api.get<BookingFinance>(`/finance/${uid}/finance`);
+        setFinance(f ?? null);
+      } catch {
+        setFinance(null);
+      }
+      try {
+        const history = await api.get<unknown>(`/finance/${uid}/payment/history`);
+        setPayments(unwrapList<PaymentRecord>(history));
+      } catch {
+        setPayments([]);
+      }
+    },
+    [api]
+  );
 
   const refreshTimeline = useCallback(
     async (uid: string) => {
@@ -90,18 +160,20 @@ export function useBookingDetails() {
       try {
         const d = await api.get<BookingDetails>(`/bookings/${id}/details`);
         setDetails(d);
-        await refreshTimeline(id);
+        await Promise.all([refreshTimeline(id), refreshFinance(id)]);
       } catch (e) {
         // No sample fallback — clear details and surface the error so the UI
         // shows an error state instead of a fabricated booking.
         setError(e instanceof Error ? e.message : "Failed to load booking details.");
         setDetails(null);
         setTimeline([]);
+        setFinance(null);
+        setPayments([]);
       } finally {
         setLoading(false);
       }
     },
-    [api, refreshTimeline]
+    [api, refreshTimeline, refreshFinance]
   );
 
   const act = useCallback(
@@ -122,5 +194,51 @@ export function useBookingDetails() {
     [api, details, refreshTimeline]
   );
 
-  return { details, timeline, loading, acting, error, load, act };
+  /** Create the finance invoice for the current booking (idempotent server-side). */
+  const createInvoice = useCallback(async () => {
+    if (!details) return;
+    setPaying(true);
+    try {
+      await api.post(`/finance/${details.uid}/finance`, {});
+      await Promise.all([load(details.uid), refreshFinance(details.uid)]);
+    } finally {
+      setPaying(false);
+    }
+  }, [api, details, load, refreshFinance]);
+
+  /**
+   * Record an offline payment against the booking. Cash goes through the
+   * dedicated cash endpoint (server defaults mode/acceptedBy); any other mode
+   * uses the generic offline-pay endpoint.
+   */
+  const recordPayment = useCallback(
+    async (input: PayInput) => {
+      if (!details) return;
+      const isCash = !input.mode || input.mode === "Cash";
+      const path = isCash
+        ? `/finance/${details.uid}/pay/cash`
+        : `/finance/${details.uid}/pay`;
+      const body = {
+        amount: input.amount,
+        ...(input.mode ? { mode: input.mode } : {}),
+        ...(input.transactionId ? { transactionId: input.transactionId } : {}),
+        ...(input.note ? { note: input.note } : {}),
+        ...(input.paymentOn ? { paymentOn: input.paymentOn } : {}),
+      };
+      setPaying(true);
+      try {
+        await api.post(path, body);
+        await Promise.all([refreshFinance(details.uid), refreshTimeline(details.uid)]);
+      } finally {
+        setPaying(false);
+      }
+    },
+    [api, details, refreshFinance, refreshTimeline]
+  );
+
+  return {
+    details, timeline, loading, acting, error,
+    finance, payments, paying,
+    load, act, createInvoice, recordPayment,
+  };
 }

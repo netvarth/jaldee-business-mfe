@@ -143,10 +143,10 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     ? Object.entries(input.practitionerPrices)
         .filter(([userUid]) => isUuid(userUid))
         .map(([userUid, amount]) => ({
-        userUid,
-        price: amount,
-        currencyCode: input.currencyCode,
-      }))
+          userUid,
+          price: Number.isFinite(amount) ? amount : 0,
+          currencyCode: input.currencyCode,
+        }))
     : [];
 
   return {
@@ -159,7 +159,7 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     status: "Enabled",
     currencyCode: input.currencyCode,
     category: toApiCategory(input.serviceCategory),
-    serviceMode: input.serviceType === "Teleservice" ? "TELESERVICE" : "ONSITE",
+    serviceMode: toApiServiceType(input.serviceType),
     bookingMode: input.apptType === "Request" ? "REQUEST" : "BOOKING",
     ...(userEntries.length ? { users: userEntries } : {}),
     displayOrder: input.displayOrder,

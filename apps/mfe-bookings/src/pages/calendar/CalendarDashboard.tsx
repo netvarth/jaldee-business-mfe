@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Button, Checkbox, Input, PageHeader, Select } from '@jaldee/design-system';
+import { Button, PageHeader, Select } from '@jaldee/design-system';
 import { useCalendars } from '../../services/useCalendars';
 import { useBookings } from '../../services/useBookings';
 import { useProviders } from '../../services/useProviders';
 import { useServices } from '../../services/useServices';
 import { useModal } from '../../contexts/ModalContext';
-import { CalendarSettings } from './CalendarSettings';
-import { CustomizeCalendar } from './CustomizeCalendar';
-import { CalendarDetails } from './CalendarDetails';
+import SavedFiltersModal from './SavedFiltersModal';
 
 import WeekGrid from './WeekGrid';
 import MonthGrid from './MonthGrid';
 import ListGrid from './ListGrid';
 import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import BlockSlotModal from '../booking/BlockSlotModal';
 import DayGrid from './DayGrid';
 import './calendar-grid.css';
 import './list-view.css';
@@ -28,7 +27,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
 
     const [viewMode, setViewMode] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
     const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
-    const [viewBy, setViewBy] = useState<'doctors' | 'calendars' | 'departments'>('doctors');
+    const [viewBy, setViewBy] = useState<'doctors' | 'calendars'>('doctors');
     const [date, setDate] = useState(new Date());
 
     // Live data only — no sample fallback (empty states surface real gaps).
@@ -42,12 +41,8 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
     const [locationsOpen, setLocationsOpen] = useState(true);
     const [servicesOpen, setServicesOpen] = useState(true);
     const [calendarsOpen, setCalendarsOpen] = useState(true);
+    const [createMenuOpen, setCreateMenuOpen] = useState(false);
     
-    // Extract unique locations from calendars for the filter
-    const uniqueLocations = Array.from(new Set(calendars.map(c => c.locationName).filter(Boolean)));
-
-
-
     return (
         <section
             id="page-dashboard"
@@ -62,27 +57,14 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 />
             </div>
             {/* Toolbar Area */}
-            <div className="toolbar shrink-0" data-testid="bookings-calendar-toolbar">
-                <div className="toolbar-left">
-                    <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 mr-4">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            iconOnly
-                            icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>}
-                            className={`rounded shadow-none ${layoutMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => setLayoutMode('grid')}
-                            aria-label="Grid view"
-                        />
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            iconOnly
-                            icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>}
-                            className={`rounded shadow-none ${layoutMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                            onClick={() => setLayoutMode('list')}
-                            aria-label="List view"
-                        />
+            <div className="toolbar shrink-0 px-4 flex justify-between items-center bg-white border-b border-slate-200" style={{ height: '64px' }} data-testid="bookings-calendar-toolbar">
+                <div className="toolbar-left flex items-center gap-4">
+                    <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>} className="text-slate-600 border-0" aria-label="Menu" />
+                    <div className="flex items-center gap-2 pr-4">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: '#311090' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <span className="font-bold text-slate-900 text-lg">Calendar</span>
                     </div>
                     <div className="date-navigator">
                         <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>} aria-label="Previous period" id="bookings-prev-period" data-testid="bookings-prev-period" className="nav-arrow-btn" onClick={() => {
@@ -90,9 +72,9 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                             newDate.setDate(date.getDate() - (viewMode === 'DAY' ? 1 : 7));
                             setDate(newDate);
                         }} />
-                        <Button variant="ghost" size="sm" id="bookings-current-date" data-testid="bookings-current-date" className="date-picker-trigger font-medium" onClick={() => setDate(new Date())}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="date-icon"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                            <span>{format(date, "MMMM d, yyyy")}{format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? " (Today)" : ""}</span>
+                        <Button variant="ghost" size="sm" id="bookings-current-date" data-testid="bookings-current-date" className="date-picker-trigger font-bold text-slate-800 bg-white border border-slate-200" onClick={() => setDate(new Date())}>
+                            <span>{format(date, "dd MMM yyyy")}{format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? ", Today" : ""}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="date-icon text-purple-600 ml-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                         </Button>
                         <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>} aria-label="Next period" id="bookings-next-period" data-testid="bookings-next-period" className="nav-arrow-btn" onClick={() => {
                             const newDate = new Date(date);
@@ -116,21 +98,55 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                             testId="bookings-group-view-by"
                             value={viewBy}
                             options={[
-                                { value: 'doctors', label: 'View by Doctors' },
-                                { value: 'calendars', label: 'View by Calendars' },
-                                { value: 'departments', label: 'View by Departments' },
+                                { value: 'doctors', label: 'View by Users' },
+                                { value: 'calendars', label: 'View by Calendar' },
                             ]}
                             onChange={(e) => setViewBy(e.target.value as typeof viewBy)}
                         />
                     </div>
-                    <Button variant="secondary" size="sm" className="filter-applied-btn bg-white border-slate-200 font-medium" id="filter-panel-toggle" data-testid="bookings-filter-panel-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    <Button variant="secondary" size="sm" className="filter-applied-btn font-bold px-4" style={{ backgroundColor: '#F3E8FF', color: '#6B21A8', borderColor: '#F3E8FF' }} id="filter-panel-toggle" data-testid="bookings-filter-panel-toggle"
+                        onClick={() => openModal(
+                            <SavedFiltersModal
+                                criteria={{ viewBy }}
+                                onApply={(c) => { if (c.viewBy) setViewBy(c.viewBy as typeof viewBy); }}
+                            />
+                        )}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="10" x2="14" y1="18" y2="18"/></svg>
                         <span id="filter-btn-text">Filter</span>
                     </Button>
-                    <Button id="bookings-create-appointment" data-testid="bookings-create-appointment" onClick={() => openModal(<CreateAppointmentModal initialDate={date} />)} size="sm" className="bg-primary text-white font-medium">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
-                        <span>New Appointment</span>
-                    </Button>
+                    <div className="relative">
+                        <Button id="bookings-create-appointment" data-testid="bookings-create-appointment" onClick={() => setCreateMenuOpen(!createMenuOpen)} size="sm" className="font-bold border-0 px-4" style={{ backgroundColor: '#311090', color: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>+ Create</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: createMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                        </Button>
+                        {createMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setCreateMenuOpen(false)}></div>
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 z-50 overflow-hidden py-1">
+                                    <button 
+                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                        onClick={() => {
+                                            setCreateMenuOpen(false);
+                                            openModal(<CreateAppointmentModal initialDate={date} />);
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
+                                        New Appointment
+                                    </button>
+                                    <button 
+                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                        onClick={() => {
+                                            setCreateMenuOpen(false);
+                                            openModal(<BlockSlotModal initialDate={date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : undefined} />);
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                        Block Slot
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -153,114 +169,80 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                     />
 
                     <div className="sidebar-scrollable-content">
-                        {/* Providers Section */}
-                        <div className={`sidebar-group ${!providersOpen ? 'collapsed' : ''}`} data-testid="bookings-providers-group" data-state={providersOpen ? "open" : "collapsed"}>
-                            <div className="sidebar-group-header">
-                                <span className="group-title font-medium text-slate-700">Providers ({liveProviders.length}/{liveProviders.length})</span>
-                                <div className="group-actions">
-                                    <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>} id="bookings-providers-toggle" data-testid="bookings-providers-toggle" className="sidebar-action-btn toggle-group-collapse" onClick={() => setProvidersOpen(!providersOpen)} data-state={providersOpen ? "open" : "collapsed"} aria-label="Toggle providers" />
+                        {/* Calendars Section */}
+                        <div className={`sidebar-group ${!calendarsOpen ? 'collapsed' : ''}`} data-testid="bookings-calendars-group" data-state={calendarsOpen ? "open" : "collapsed"}>
+                            <div className="sidebar-group-header flex justify-between items-center py-2 px-4 cursor-pointer" onClick={() => setCalendarsOpen(!calendarsOpen)}>
+                                <div className="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                    <span className="group-title font-semibold text-slate-800">Calendars ({calendars.length}/{calendars.length})</span>
+                                </div>
+                                <div className="group-actions flex items-center text-indigo-700 font-bold gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>
                                 </div>
                             </div>
-                            <div className="sidebar-group-body">
-                                <Input
-                                    id="bookings-provider-search"
-                                    data-testid="bookings-provider-search"
-                                    type="search"
-                                    placeholder="Search Provider"
-                                    containerClassName="sidebar-search-box mb-2"
-                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>}
-                                />
-                                <div className="user-checkbox-list flex flex-col gap-2">
-                                    {liveProviders.map(user => (
-                                        <div key={user.id} className="checkbox-item-row flex items-center hover:bg-slate-50 p-1 -ml-1 rounded">
-                                            <Checkbox
-                                                id={`bookings-provider-filter-${user.id}`}
-                                                data-testid={`bookings-provider-filter-${user.id}-checkbox`}
-                                                defaultChecked
-                                                label={
-                                                <div className="user-sidebar-row flex items-center gap-2">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${user.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${user.color.includes('emerald') ? 'bg-emerald-500' : user.color.includes('purple') ? 'bg-purple-500' : 'bg-blue-500'}`}>{user.code || user.name.substring(0, 2).toUpperCase()}</div>
-                                                    <span className="truncate text-sm text-slate-700" style={{maxWidth: '120px'}}>{user.name}</span>
-                                                </div>
-                                                }
-                                            />
+                            <div className="sidebar-group-body px-4 pb-2">
+                                <div className="user-checkbox-list flex flex-col gap-3 mt-1">
+                                    {calendars.map(cal => (
+                                        <div key={cal.uid || cal.id} className="flex items-center gap-2">
+                                            <input type="checkbox" id={`cal-${cal.uid || cal.id}`} className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600" defaultChecked />
+                                            <label htmlFor={`cal-${cal.uid || cal.id}`} className="text-sm text-slate-700 truncate cursor-pointer">{cal.name}</label>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Locations Section */}
-                        {uniqueLocations.length > 0 && (
-                            <div className={`sidebar-group ${!locationsOpen ? 'collapsed' : ''}`} data-testid="bookings-locations-group" data-state={locationsOpen ? "open" : "collapsed"}>
-                                <div className="sidebar-group-header">
-                                    <span className="group-title font-medium text-slate-700">Locations ({uniqueLocations.length})</span>
-                                    <div className="group-actions">
-                                        <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>} id="bookings-locations-toggle" data-testid="bookings-locations-toggle" className="sidebar-action-btn toggle-group-collapse" onClick={() => setLocationsOpen(!locationsOpen)} data-state={locationsOpen ? "open" : "collapsed"} aria-label="Toggle locations" />
-                                    </div>
+                        {/* Users Section */}
+                        <div className={`sidebar-group mt-2 ${!providersOpen ? 'collapsed' : ''}`} data-testid="bookings-providers-group" data-state={providersOpen ? "open" : "collapsed"}>
+                            <div className="sidebar-group-header flex justify-between items-center py-2 px-4 cursor-pointer" onClick={() => setProvidersOpen(!providersOpen)}>
+                                <div className="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                    <span className="group-title font-semibold text-slate-800">Users ({liveProviders.length}/{liveProviders.length})</span>
                                 </div>
-                                <div className="sidebar-group-body">
-                                    <div className="user-checkbox-list flex flex-col gap-2">
-                                        {uniqueLocations.map((loc, idx) => (
-                                            <Checkbox
-                                                key={idx}
-                                                id={`bookings-location-filter-${idx}`}
-                                                data-testid={`bookings-location-filter-${idx}-checkbox`}
-                                                labelClassName="truncate text-sm text-slate-700"
-                                                label={loc}
-                                                defaultChecked
-                                            />
-                                        ))}
-                                    </div>
+                                <div className="group-actions flex items-center text-indigo-700 font-bold gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>
                                 </div>
                             </div>
-                        )}
-
-                        {/* Services Section */}
-                        <div className={`sidebar-group ${!servicesOpen ? 'collapsed' : ''}`} data-testid="bookings-services-group" data-state={servicesOpen ? "open" : "collapsed"}>
-                            <div className="sidebar-group-header">
-                                <span className="group-title font-medium text-slate-700">Services ({services.length})</span>
-                                <div className="group-actions">
-                                    <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>} id="bookings-services-toggle" data-testid="bookings-services-toggle" className="sidebar-action-btn toggle-group-collapse" onClick={() => setServicesOpen(!servicesOpen)} data-state={servicesOpen ? "open" : "collapsed"} aria-label="Toggle services" />
+                            <div className="sidebar-group-body px-4 pb-2">
+                                <div className="relative mb-3 mt-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+                                    <input type="text" placeholder="Search User" className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500" />
                                 </div>
-                            </div>
-                            <div className="sidebar-group-body">
-                                <div className="user-checkbox-list flex flex-col gap-2">
-                                    {services.map(svc => (
-                                        <Checkbox
-                                            key={svc.id}
-                                            id={`bookings-service-filter-${svc.id}`}
-                                            data-testid={`bookings-service-filter-${svc.id}-checkbox`}
-                                            labelClassName="truncate text-sm text-slate-700"
-                                            label={svc.name}
-                                            defaultChecked
-                                        />
+                                <div className="user-checkbox-list flex flex-col gap-3">
+                                    {liveProviders.map(user => (
+                                        <div key={user.id} className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id={`usr-${user.id}`} className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600 shrink-0" defaultChecked />
+                                            <label htmlFor={`usr-${user.id}`} className="flex items-center gap-2 cursor-pointer min-w-0">
+                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${user.color.includes('emerald') ? 'bg-emerald-500' : user.color.includes('purple') ? 'bg-purple-600' : 'bg-blue-500'}`}>{user.code || user.name.substring(0, 2).toUpperCase()}</div>
+                                                <span className="truncate text-sm text-slate-700">{user.name}</span>
+                                            </label>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Calendars Section */}
-                        <div className={`sidebar-group ${!calendarsOpen ? 'collapsed' : ''}`} data-testid="bookings-calendars-group" data-state={calendarsOpen ? "open" : "collapsed"}>
-                            <div className="sidebar-group-header">
-                                <span className="group-title font-medium text-slate-700">Calendars ({calendars.length}/{calendars.length})</span>
-                                <div className="group-actions">
-                                    <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>} id="bookings-calendars-toggle" data-testid="bookings-calendars-toggle" className="sidebar-action-btn toggle-group-collapse" onClick={() => setCalendarsOpen(!calendarsOpen)} data-state={calendarsOpen ? "open" : "collapsed"} aria-label="Toggle calendars" />
+                        {/* Services Section */}
+                        <div className={`sidebar-group mt-2 ${!servicesOpen ? 'collapsed' : ''}`} data-testid="bookings-services-group" data-state={servicesOpen ? "open" : "collapsed"}>
+                            <div className="sidebar-group-header flex justify-between items-center py-2 px-4 cursor-pointer" onClick={() => setServicesOpen(!servicesOpen)}>
+                                <div className="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                    <span className="group-title font-semibold text-slate-800">Services ({services.length})</span>
+                                </div>
+                                <div className="group-actions flex items-center text-indigo-700 font-bold gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>
                                 </div>
                             </div>
-                            <div className="sidebar-group-body">
-                                <div className="user-checkbox-list flex flex-col gap-2">
-                                    {calendars.map(cal => (
-                                        <Checkbox
-                                            key={cal.uid || cal.id}
-                                            id={`bookings-calendar-filter-${cal.uid || cal.id}`}
-                                            data-testid={`bookings-calendar-filter-${cal.uid || cal.id}-checkbox`}
-                                            containerClassName="color-cb-blue"
-                                            labelClassName="truncate text-sm text-slate-700"
-                                            label={cal.name}
-                                            defaultChecked
-                                        />
+                            <div className="sidebar-group-body px-4 pb-2">
+                                <div className="user-checkbox-list flex flex-col gap-3 mt-1">
+                                    {services.map(svc => (
+                                        <div key={svc.id} className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id={`svc-${svc.id}`} className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600 shrink-0" defaultChecked />
+                                            <label htmlFor={`svc-${svc.id}`} className="truncate text-sm text-slate-700 cursor-pointer">{svc.name}</label>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -307,6 +289,10 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                             bookings={liveBookings as any}
                             services={services}
                             onBookingSelect={onBookingSelect}
+                            onDaySelect={(selectedDate) => {
+                                setDate(selectedDate);
+                                setViewMode('DAY');
+                            }}
                         />
                     )}
                 </div>

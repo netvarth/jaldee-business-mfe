@@ -17,6 +17,7 @@ import { useServices } from "../../services/useServices";
 import { useProviders } from "../../services/useProviders";
 import { useSlots } from "../../services/useSlots";
 import { useCreateBooking } from "../../services/useCreateBooking";
+import { useCreateSeriesBooking } from "../../services/useCreateSeriesBooking";
 import { useCustomerSearch } from "../../services/useCustomerSearch";
 import { addCreatedBooking } from "../../data/sessionStore";
 import type { BookingChannel, CustomerSearchResult, Slot } from "../../types";
@@ -79,6 +80,7 @@ export default function CreateAppointmentModal({
   const { providers } = useProviders();
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { createBooking, submitting } = useCreateBooking();
+  const { createSeries, submitting: seriesSubmitting } = useCreateSeriesBooking();
   const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, searchCustomers, clearResults } = useCustomerSearch();
 
   const [patientName, setPatientName] = useState("");
@@ -176,7 +178,7 @@ export default function CreateAppointmentModal({
   useEffect(() => {
     setSlot(null);
     if (serviceUid && scheduleUid && dateStr) {
-      fetchSlots({ serviceUid, scheduleUid, date: dateStr });
+      fetchSlots({ serviceUid, scheduleUid, calendarUid, date: dateStr });
     } else {
       clearSlots();
     }
@@ -245,12 +247,67 @@ export default function CreateAppointmentModal({
       showToast("Please complete calendar, service, professional, date and slot", "error");
       return;
     }
+
+    // --- Recurring series ---
+    if (isRecurring) {
+      if (!until) { showToast("Please pick a 'Repeat Until' date", "error"); return; }
+      // The series endpoint books against an existing customer record only.
+      if (!selectedCustomer?.uid) {
+        showToast("Recurring bookings require an existing customer. Search and select one first.", "error");
+        return;
+      }
+      try {
+        const outcome = await createSeries({
+          customerId: selectedCustomer.uid,
+          serviceUid,
+          scheduleUid,
+          providerUid: selectedProviderUid,
+          channel,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          startDate: dateStr,
+          frequency,
+          interval,
+          until,
+        });
+        const created = outcome.results.filter((r) => r.created);
+        const failed = outcome.results.filter((r) => !r.created);
+        // Reflect the created occurrences on the calendar immediately.
+        created.forEach((r, i) => {
+          addCreatedBooking({
+            id: `bk-${Date.now()}-${i}`, uid: `bk-${Date.now()}-${i}`,
+            calendarId: calendarUid, calendarUid,
+            serviceId: serviceUid, serviceUid,
+            userId: selectedProviderUid, userUid: selectedProviderUid, providerId: selectedProviderUid,
+            patientName: resolvedPatientName, customerName: resolvedPatientName,
+            startTime: fmtSlot(slot.startTime), endTime: fmtSlot(slot.endTime), time: fmtSlot(slot.startTime),
+            status: channel === "Walk-in" ? "Checked-in" : "Confirmed",
+            bookingDate: r.date ?? dateStr,
+          });
+        });
+        if (created.length === 0) {
+          showToast(`No occurrences could be booked${failed[0]?.reason ? `: ${failed[0].reason}` : "."}`, "error");
+          return;
+        }
+        showToast(
+          failed.length === 0
+            ? `Booked ${created.length} recurring appointments`
+            : `Booked ${created.length} of ${outcome.results.length} — ${failed.length} slot(s) unavailable`,
+          failed.length === 0 ? "success" : "info",
+        );
+        closeModal();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Could not create the recurring series", "error");
+      }
+      return;
+    }
+
+    // --- Single booking ---
     await createBooking({
       calendarUid, serviceUid, providerUid: selectedProviderUid, scheduleUid,
       date: dateStr, startTime: slot.startTime, endTime: slot.endTime,
       patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel, notes,
       customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
-      ...(isRecurring && until ? { recurringRule: { frequency, interval, until } } : {}),
     });
     // Show it on the calendar immediately.
     addCreatedBooking({
@@ -324,45 +381,43 @@ export default function CreateAppointmentModal({
             </div>
           )}
 
-          <div className="booking-grid" style={{ display: "grid", gridTemplateColumns: channel === "Walk-in" ? "1fr" : "300px 1fr", gap: 24 }}>
+          <div className="booking-grid" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
             {/* Date picker */}
-            {channel !== "Walk-in" && (
-              <div className="date-picker-section">
-                <label>Appointment Date <span className="required">*</span></label>
-                <div className="calendar-picker mt-2" style={{ background: "white", border: "1px solid var(--border-color)", borderRadius: 8, padding: 16 }}>
-                  <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                    <div style={{ fontWeight: 600, color: "var(--primary-color)" }}>{MONTHS[month.getMonth()]} {month.getFullYear()}</div>
-                    <div className="calendar-nav">
-                      <Button variant="ghost" size="sm" id="bookings-create-appointment-prev-month" data-testid="bookings-create-appointment-prev-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">&lt;</Button>
-                      <Button variant="ghost" size="sm" id="bookings-create-appointment-next-month" data-testid="bookings-create-appointment-next-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">&gt;</Button>
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", textAlign: "center", fontSize: 12, color: "var(--light-text)", marginBottom: 8 }}>
-                    {WEEK.map((w) => <div key={w}>{w}</div>)}
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }}>
-                    {cells.map((d, i) => d === null ? <div key={`empty-${month.getFullYear()}-${month.getMonth()}-${i}`} /> : (
-                      <button
-                        key={iso(d)}
-                        type="button"
-                        id={`bookings-create-appointment-date-${iso(d)}`}
-                        data-testid={`bookings-create-appointment-date-${iso(d)}`}
-                        data-active={selectedDate && iso(selectedDate) === iso(d) ? "true" : "false"}
-                        onClick={() => setSelectedDate(d)}
-                        style={{
-                          padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13,
-                          background: selectedDate && iso(selectedDate) === iso(d) ? "var(--primary-color)" : "transparent",
-                          color: selectedDate && iso(selectedDate) === iso(d) ? "white" : "var(--dark-text)",
-                          fontWeight: selectedDate && iso(selectedDate) === iso(d) ? 700 : 400,
-                        }}
-                      >
-                        {d.getDate()}
-                      </button>
-                    ))}
+            <div className="date-picker-section">
+              <label>Appointment Date <span className="required">*</span></label>
+              <div className="calendar-picker mt-2" style={{ background: "white", border: "1px solid var(--border-color)", borderRadius: 8, padding: 16 }}>
+                <div className="calendar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ fontWeight: 600, color: "var(--primary-color)" }}>{MONTHS[month.getMonth()]} {month.getFullYear()}</div>
+                  <div className="calendar-nav">
+                    <Button variant="ghost" size="sm" id="bookings-create-appointment-prev-month" data-testid="bookings-create-appointment-prev-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">&lt;</Button>
+                    <Button variant="ghost" size="sm" id="bookings-create-appointment-next-month" data-testid="bookings-create-appointment-next-month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">&gt;</Button>
                   </div>
                 </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", textAlign: "center", fontSize: 12, color: "var(--light-text)", marginBottom: 8 }}>
+                  {WEEK.map((w) => <div key={w}>{w}</div>)}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" }}>
+                  {cells.map((d, i) => d === null ? <div key={`empty-${month.getFullYear()}-${month.getMonth()}-${i}`} /> : (
+                    <button
+                      key={iso(d)}
+                      type="button"
+                      id={`bookings-create-appointment-date-${iso(d)}`}
+                      data-testid={`bookings-create-appointment-date-${iso(d)}`}
+                      data-active={selectedDate && iso(selectedDate) === iso(d) ? "true" : "false"}
+                      onClick={() => setSelectedDate(d)}
+                      style={{
+                        padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13,
+                        background: selectedDate && iso(selectedDate) === iso(d) ? "var(--primary-color)" : "transparent",
+                        color: selectedDate && iso(selectedDate) === iso(d) ? "white" : "var(--dark-text)",
+                        fontWeight: selectedDate && iso(selectedDate) === iso(d) ? 700 : 400,
+                      }}
+                    >
+                      {d.getDate()}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
+            </div>
 
             {/* Schedule + slots */}
             <div className="slots-section">
@@ -422,6 +477,11 @@ export default function CreateAppointmentModal({
                 <Input type="date" label="Repeat Until" required value={until} onChange={e => setUntil(e.target.value)} />
               </div>
             )}
+            {isRecurring && !selectedCustomer && (
+              <p className="mt-3 text-xs font-medium text-amber-700">
+                Recurring bookings need an existing customer — search and select one above.
+              </p>
+            )}
           </div>
 
           <Textarea id="bk-notes" data-testid="bookings-create-appointment-notes-textarea" label="Staff notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -429,7 +489,7 @@ export default function CreateAppointmentModal({
 
         <DialogFooter>
           <Button variant="secondary" id="bookings-create-appointment-cancel" data-testid="bookings-create-appointment-cancel" onClick={closeModal}>Cancel</Button>
-          <Button type="submit" id="bookings-create-appointment-confirm" data-testid="bookings-create-appointment-confirm" loading={submitting}>Confirm</Button>
+          <Button type="submit" id="bookings-create-appointment-confirm" data-testid="bookings-create-appointment-confirm" loading={submitting || seriesSubmitting}>Confirm</Button>
         </DialogFooter>
       </form>
   );
