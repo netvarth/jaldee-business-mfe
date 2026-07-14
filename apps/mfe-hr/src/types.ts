@@ -52,6 +52,7 @@ export interface Employee {
   id: string;
   uid?: string;
   employeeId: string;
+  loginId?: string | null;
   salutation?: string;
   name: string;
   email: string;
@@ -69,6 +70,7 @@ export interface Employee {
   status?: EmployeeStatus | string;
   photoUrl?: string;
   isSystemUser?: boolean;
+  password?: string | null;
   role?: string;
   employmentType?: EmploymentType | string;
   bankDetails?: BankDetails | null;

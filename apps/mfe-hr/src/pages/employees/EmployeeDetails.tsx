@@ -6,7 +6,7 @@ import {
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus, ChevronDown, MoreVertical,
 } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
@@ -38,6 +38,13 @@ const val: CSSProperties = { fontSize: 14, fontWeight: 700, color: "var(--dark-t
 const th: CSSProperties = { textAlign: "left", padding: "10px 12px", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)" };
 const td: CSSProperties = { padding: "12px", fontSize: 13, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
 const field = "h-11 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none";
+const loginIdPattern = /^[A-Za-z0-9@_.]{5,45}$/;
+
+function sanitizeLoginId(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return loginIdPattern.test(trimmed) ? trimmed : "";
+}
 
 function initial(n?: string) { return n?.charAt(0)?.toUpperCase() || "?"; }
 function toPhoneInputValue(value?: string | null): PhoneInputValue {
@@ -193,6 +200,11 @@ export default function EmployeeDetails() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Employee>>({});
+  const [credentials, setCredentials] = useState({
+    loginId: "",
+    password: "",
+    confirmPassword: "",
+  });
   const [contactNumber, setContactNumber] = useState<PhoneInputValue>({
     countryCode: "+91",
     number: "",
@@ -202,6 +214,9 @@ export default function EmployeeDetails() {
   const [faceOpen, setFaceOpen] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
   const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [loginSaving, setLoginSaving] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -228,6 +243,30 @@ export default function EmployeeDetails() {
       setContactNumber(toPhoneInputValue(employee.contactNumber));
     }
   }, [employee]);
+
+  useEffect(() => {
+    if (!loginDialogOpen || !employee?.id) return;
+
+    setCredentials({
+      loginId: employee.loginId ?? "",
+      password: "",
+      confirmPassword: "",
+    });
+    setLoginError(null);
+
+    let cancelled = false;
+    void api.get<string>(`provider/login/suggestion/loginId/${employee.id}`)
+      .then((loginId) => {
+        const nextLoginId = sanitizeLoginId(loginId);
+        if (cancelled || !nextLoginId) return;
+        setCredentials((prev) => ({ ...prev, loginId: nextLoginId }));
+      })
+      .catch(() => { });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, employee, loginDialogOpen]);
 
   const managerName = useMemo(() => allEmployees.find((e) => e.id === employee?.reportingManagerUid)?.name, [employee, allEmployees]);
   const myAttendance = useMemo(() => allAttendance.filter((a) => a.employeeUid === employee?.id), [allAttendance, employee]);
@@ -323,6 +362,45 @@ export default function EmployeeDetails() {
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Failed to enroll face.");
     } finally { setFaceBusy(false); }
+  };
+
+  const handleSaveCredentials = async () => {
+    if (!employee) return;
+    if (!credentials.password) {
+      setLoginError("Password is required.");
+      return;
+    }
+    if (credentials.password !== credentials.confirmPassword) {
+      setLoginError("Password and confirm password must match.");
+      return;
+    }
+
+    setLoginSaving(true);
+    setLoginError(null);
+    try {
+      if (sanitizeLoginId(credentials.loginId) || employee.isSystemUser) {
+        await api.put(`/employees/${employee.id}/password`, {
+          password: credentials.password,
+        });
+      } else {
+        await api.post(`/employees/${employee.id}/auth-user`, {
+          password: credentials.password,
+        });
+      }
+      await reload();
+      setLoginDialogOpen(false);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Employee login updated",
+        message: `${employee.name}'s login access was updated successfully.`,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to update employee login.";
+      setLoginError(message);
+      captureError(e instanceof Error ? e : new Error(message), { employeeId: employee.id });
+    } finally {
+      setLoginSaving(false);
+    }
   };
 
   if (loading) return <div className="page-section active" style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--light-text)" }}><Loader2 size={20} className="animate-spin" />&nbsp;Loading…</div>;
@@ -653,6 +731,16 @@ export default function EmployeeDetails() {
                 variant="outline"
                 size="lg"
                 fullWidth
+                icon={<ShieldCheck size={15} />}
+                onClick={() => setLoginDialogOpen(true)}
+              >
+                Manage Login
+              </Button>
+              <Button
+                className="employee-details-sidebar-button !rounded-xl"
+                variant="outline"
+                size="lg"
+                fullWidth
                 icon={<Pencil size={15} />}
                 onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))}
               >
@@ -736,6 +824,12 @@ export default function EmployeeDetails() {
                     <Field k="Joining Date" v={formatDate(employee.doj)} /><Field k="System Role" v={employee.role} />
                     <Field k="Employment Type" v={employee.employmentType || "Full-Time"} /><Field k="Reporting Manager" v={managerName || "No Manager Assigned"} />
                     <Field k="PAN" v={emp.pan as string} mono /><Field k="UAN" v={emp.uan as string} mono />
+                  </div>
+                </Panel>
+                <Panel icon={<ShieldCheck size={20} />} title="Employee Login" sub="Portal access credentials" full>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 24 }}>
+                    <Field k="Access Enabled" v={employee.isSystemUser ? "Yes" : "No"} />
+                    <Field k="Login ID" v={employee.loginId} mono />
                   </div>
                 </Panel>
                 <Panel icon={<CreditCard size={20} />} title="Bank Details (Active Account)" sub="Registered information for monthly pay disbursements" full>
@@ -900,6 +994,59 @@ export default function EmployeeDetails() {
         employeeName={employee?.name}
         onClose={() => setViewPayslip(null)}
       />
+      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} title="Employee Login Access" size="md">
+        <div style={{ display: "grid", gap: 16 }}>
+          {loginError ? (
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
+              {loginError}
+            </div>
+          ) : null}
+          <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.14)", color: "var(--dark-text)", fontSize: 13 }}>
+            {sanitizeLoginId(credentials.loginId) || employee.isSystemUser
+              ? "This employee already has login credentials. Saving here will update the password."
+              : "This employee does not have login credentials yet. Saving here will create them."}
+          </div>
+          <div className="employee-edit-field-pair">
+            <div className="form-group">
+              <label>Login ID</label>
+              <input
+                className={field}
+                value={sanitizeLoginId(credentials.loginId) || "Will be assigned by system"}
+                readOnly
+              />
+            </div>
+            <div className="form-group">
+              <label>{sanitizeLoginId(credentials.loginId) || employee.isSystemUser ? "New Password" : "Password"}</label>
+              <input
+                type="password"
+                className={field}
+                value={credentials.password}
+                onChange={(e) => setCredentials((prev) => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter password"
+              />
+            </div>
+          </div>
+          <div className="employee-edit-field-pair">
+            <div className="form-group">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                className={field}
+                value={credentials.confirmPassword}
+                onChange={(e) => setCredentials((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                placeholder="Re-enter password"
+              />
+            </div>
+            <div className="form-group" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setLoginDialogOpen(false)}>Cancel</Button>
+          <Button variant="primary" onClick={handleSaveCredentials} loading={loginSaving} disabled={loginSaving}>
+            Save Login
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </section>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical } from "lucide-react";
 import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { useLocation } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
 import { useMyProfile } from "../../services/useEss";
@@ -11,6 +12,8 @@ const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const field: CSSProperties = { width: "100%", height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: "0 16px", fontSize: 15, fontWeight: 700, color: "var(--dark-text)" };
+const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 16, boxShadow: "0 12px 30px rgba(15, 23, 42, 0.05)" };
+const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 20, width: "100%" };
 
 function typeColor(t?: string): string {
   switch (t) {
@@ -29,11 +32,13 @@ const getTodayDateString = (): string => {
 
 export default function Announcements() {
   const { eventBus } = useMFEProps();
-  const { data: employees } = useEmployees();
+  const location = useLocation();
+  const isEmployeeView = location.pathname.includes("/me/");
+  const { data: employees } = useEmployees({ enabled: !isEmployeeView });
   const ann = useAnnouncements();
   const { data: myProfile } = useMyProfile();
   const { trackEvent, captureError } = useTelemetry();
-  const isEmployeeLogin = (myProfile?.role || "").toLowerCase() === "employee";
+  const isEmployeeLogin = isEmployeeView || (myProfile?.role || "").toLowerCase() === "employee";
 
   useEffect(() => {
     if (ann.error) {
@@ -171,20 +176,22 @@ export default function Announcements() {
 
   return (
     <section id="hr-announcements-page" data-testid="hr-announcements-page" className="page-section active hr-page-shell" style={{ display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 32, width: "100%" }}>
-        <PageHeader
-          title="StaffSpace"
-          subtitle="Stay updated with the latest company news and policies."
-          actions={<button id="hr-announcements-create-button" data-testid="hr-announcements-create-button" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> New Announcement</button>}
-        />
+      <div style={sectionStack}>
+        {!isEmployeeView ? (
+          <PageHeader
+            title="StaffSpace"
+            subtitle="Stay updated with the latest company news and policies."
+            actions={!isEmployeeLogin ? <button id="hr-announcements-create-button" data-testid="hr-announcements-create-button" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> New Announcement</button> : undefined}
+          />
+        ) : null}
 
         {/* SEARCH */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ ...panel, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ position: "relative", flex: 1 }}>
-            <Search size={20} style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
+            <Search size={18} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
             <input id="hr-announcements-search" data-testid="hr-announcements-search" placeholder="Search announcements…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
           </div>
-          <button id="hr-announcements-filter-button" data-testid="hr-announcements-filter-button" style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
+          <button id="hr-announcements-filter-button" data-testid="hr-announcements-filter-button" style={{ height: 52, width: 52, borderRadius: 14, border: "1px solid rgba(148,163,184,0.16)", background: "#ffffff", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Filter size={18} /></button>
         </div>
 
 
@@ -221,32 +228,34 @@ export default function Announcements() {
                         <span style={{ ...lbl, display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={12} /> {a.startDate ? new Date(a.startDate).toLocaleDateString() : "Recently"}</span>
                       </div>
                     </div>
-                    <div style={{ position: "absolute", top: 32, right: 36 }}>
-                      <Popover
-                        data-testid={`announcement-action-${a.id}`}
-                        align="end"
-                        contentClassName="min-w-[140px] p-2"
-                        trigger={
-                          <button
-                            type="button"
-                            aria-label="More actions"
-                            style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 4 }}
-                          >
-                            <MoreVertical size={20} />
-                          </button>
-                        }
-                      >
-                        <PopoverSection>
-                          <button
-                            type="button"
-                            className="flex w-full items-center rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)]"
-                            onClick={() => handleToggleStatus(a.id, a.status || "Enabled")}
-                          >
-                            {a.status === "Disabled" ? "Enable" : "Disable"}
-                          </button>
-                        </PopoverSection>
-                      </Popover>
-                    </div>
+                    {!isEmployeeLogin ? (
+                      <div style={{ position: "absolute", top: 32, right: 36 }}>
+                        <Popover
+                          data-testid={`announcement-action-${a.id}`}
+                          align="end"
+                          contentClassName="min-w-[140px] p-2"
+                          trigger={
+                            <button
+                              type="button"
+                              aria-label="More actions"
+                              style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 4 }}
+                            >
+                              <MoreVertical size={20} />
+                            </button>
+                          }
+                        >
+                          <PopoverSection>
+                            <button
+                              type="button"
+                              className="flex w-full items-center rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)]"
+                              onClick={() => handleToggleStatus(a.id, a.status || "Enabled")}
+                            >
+                              {a.status === "Disabled" ? "Enable" : "Disable"}
+                            </button>
+                          </PopoverSection>
+                        </Popover>
+                      </div>
+                    ) : null}
                     <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 16px" }}>{a.title}</h2>
                     <p style={{ fontSize: 15, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
                   </div>
@@ -258,7 +267,7 @@ export default function Announcements() {
                     <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
-                        <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
+                        <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={!isEmployeeLogin ? () => setTracking(a) : undefined} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: !isEmployeeLogin ? "pointer" : "default" }}>{a.acknowledgedBy?.length || 0} Staff</span>
                       </div>
                       {isEmployeeLogin ? (
                         <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>

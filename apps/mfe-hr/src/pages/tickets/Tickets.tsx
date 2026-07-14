@@ -2,19 +2,49 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
 import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { useLocation } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
+import { useMyProfile } from "../../services/useEss";
 
 const TEAL = "var(--primary-color)";
 const CATEGORIES = ["Payroll", "IT Support", "HR Policy", "Admin/Facility"];
-const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
-const field: CSSProperties = { width: "100%", height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: "0 16px", fontSize: 15, fontWeight: 700, color: "var(--dark-text)" };
+const lbl: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  color: "var(--light-text)",
+};
+const field: CSSProperties = {
+  width: "100%",
+  height: 52,
+  borderRadius: 16,
+  border: "none",
+  background: "rgba(100,116,139,0.06)",
+  padding: "0 16px",
+  fontSize: 15,
+  fontWeight: 700,
+  color: "var(--dark-text)",
+};
+const panel: CSSProperties = {
+  background: "var(--surface-bg)",
+  border: "1px solid rgba(148,163,184,0.16)",
+  borderRadius: 8,
+  boxShadow: "0 12px 30px rgba(15, 23, 42, 0.05)",
+};
+const sectionStack: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
 
 function statusBar(s?: string): string {
   if (s === "Open") return "#3b82f6";
   if (s === "In Progress") return "#f59e0b";
   return "#10b981";
 }
+
 function statusBadge(s?: string): { bg: string; icon: ReactNode } {
   if (s === "Resolved") return { bg: "#10b981", icon: <CheckCircle2 size={12} /> };
   if (s === "In Progress") return { bg: "#f59e0b", icon: <Clock size={12} /> };
@@ -23,18 +53,35 @@ function statusBadge(s?: string): { bg: string; icon: ReactNode } {
 
 function StatCard({ label, value, tone, icon }: { label: string; value: number; tone: string; icon: ReactNode }) {
   return (
-    <div style={{ background: "var(--surface-bg)", borderRadius: 28, padding: 28, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-      <div style={{ height: 48, width: 48, borderRadius: 16, background: `${tone}1a`, color: tone, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>{icon}</div>
+    <div style={{ ...panel, padding: 22, borderRadius: 8 }}>
+      <div
+        style={{
+          height: 44,
+          width: 44,
+          borderRadius: 6,
+          background: `${tone}18`,
+          color: tone,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 14,
+        }}
+      >
+        {icon}
+      </div>
       <p style={{ ...lbl, marginBottom: 4 }}>{label}</p>
-      <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-1.5px", color: "var(--dark-text)" }}>{value}</div>
+      <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.05, color: "var(--dark-text)" }}>{value}</div>
     </div>
   );
 }
 
 export default function Tickets() {
   const { eventBus } = useMFEProps();
-  const { data: employees } = useEmployees();
+  const location = useLocation();
+  const isEmployeeView = location.pathname.includes("/me/");
+  const { data: employees } = useEmployees({ enabled: !isEmployeeView });
   const tickets = useTickets();
+  const { data: myProfile } = useMyProfile();
 
   useEffect(() => {
     if (tickets.error) {
@@ -45,8 +92,12 @@ export default function Tickets() {
       });
     }
   }, [tickets.error, eventBus]);
+
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
-  const empName = (uid?: string) => (uid ? empMap.get(uid)?.name ?? "Staff" : "Staff");
+  const empName = (uid?: string) => {
+    if (uid && myProfile?.id === uid) return myProfile.name ?? "Employee";
+    return uid ? empMap.get(uid)?.name ?? "Staff" : "Staff";
+  };
 
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -57,75 +108,202 @@ export default function Tickets() {
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
 
-  const counts = useMemo(() => ({
-    open: tickets.data.filter((t) => t.status === "Open").length,
-    progress: tickets.data.filter((t) => t.status === "In Progress").length,
-    resolved: tickets.data.filter((t) => t.status === "Resolved").length,
-    total: tickets.data.length,
-  }), [tickets.data]);
+  const scopedTickets = useMemo(
+    () => (isEmployeeView && myProfile?.id ? tickets.data.filter((t) => t.employeeUid === myProfile.id) : tickets.data),
+    [isEmployeeView, myProfile?.id, tickets.data],
+  );
+
+  const counts = useMemo(
+    () => ({
+      open: scopedTickets.filter((t) => t.status === "Open").length,
+      progress: scopedTickets.filter((t) => t.status === "In Progress").length,
+      resolved: scopedTickets.filter((t) => t.status === "Resolved").length,
+      total: scopedTickets.length,
+    }),
+    [scopedTickets],
+  );
 
   const items = useMemo(() => {
     const q = search.toLowerCase();
-    return tickets.data.filter((t) => !q || (t.title || "").toLowerCase().includes(q) || (t.id || "").toLowerCase().includes(q) || (t.category || "").toLowerCase().includes(q));
-  }, [tickets.data, search]);
+    return scopedTickets.filter(
+      (t) =>
+        !q ||
+        (t.title || "").toLowerCase().includes(q) ||
+        (t.id || "").toLowerCase().includes(q) ||
+        (t.category || "").toLowerCase().includes(q),
+    );
+  }, [scopedTickets, search]);
 
   const raise = async () => {
-    if (!form.employeeUid || !form.title || !form.description) { setMsg("Employee, subject and description are required."); return; }
-    setSaving(true); setMsg(null);
+    const employeeUid = isEmployeeView ? myProfile?.id || "" : form.employeeUid;
+    if (!employeeUid || !form.title || !form.description) {
+      setMsg("Employee, subject and description are required.");
+      return;
+    }
+
+    setSaving(true);
+    setMsg(null);
     try {
-      await tickets.create({ employeeUid: form.employeeUid, title: form.title, category: form.category, description: form.description, department: form.category.toUpperCase(), status: "Open", responses: [] });
+      await tickets.create({
+        employeeUid,
+        title: form.title,
+        category: form.category,
+        description: form.description,
+        department: form.category.toUpperCase(),
+        status: "Open",
+        responses: [],
+      });
       setForm({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "" });
       setAddOpen(false);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Failed to raise ticket."); }
-    finally { setSaving(false); }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to raise ticket.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const sendReply = async () => {
     if (!selected || !replyText.trim()) return;
+
     setReplying(true);
     try {
       await tickets.reply(selected.id, replyText.trim());
       setReplyText("");
-      // refresh selected from reloaded data
       const fresh = tickets.data.find((t) => t.id === selected.id);
       if (fresh) setSelected(fresh);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Reply failed."); }
-    finally { setReplying(false); }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Reply failed.");
+    } finally {
+      setReplying(false);
+    }
   };
 
-  // keep selected in sync after reloads
   const liveSelected = selected ? tickets.data.find((t) => t.id === selected.id) ?? selected : null;
 
   return (
     <section id="hr-tickets-page" data-testid="hr-tickets-page" className="page-section active hr-page-shell">
-      <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-        <PageHeader
-          title="HR Helpdesk"
-          subtitle="Raise and track your HR or admin-related issues."
-          actions={<button id="hr-tickets-create-button" data-testid="hr-tickets-create-button" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Raise New Ticket</button>}
-        />
+      <div style={sectionStack}>
+        {!isEmployeeView ? (
+          <PageHeader
+            title="HR Helpdesk"
+            subtitle="Raise and track your HR or admin-related issues."
+            actions={
+              <button
+                id="hr-tickets-create-button"
+                data-testid="hr-tickets-create-button"
+                onClick={() => {
+                  setMsg(null);
+                  setAddOpen(true);
+                }}
+                style={{
+                  height: 42,
+                  padding: "0 22px",
+                  borderRadius: 4,
+                  border: "none",
+                  cursor: "pointer",
+                  background: TEAL,
+                  color: "white",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <Plus size={16} /> Raise New Ticket
+              </button>
+            }
+          />
+        ) : null}
 
-        {/* STAT CARDS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 24 }}>
-          <StatCard label="Open Tickets" value={counts.open} tone="#3b82f6" icon={<AlertCircle size={24} />} />
-          <StatCard label="In Progress" value={counts.progress} tone="#f59e0b" icon={<Clock size={24} />} />
-          <StatCard label="Resolved (MTD)" value={counts.resolved} tone="#10b981" icon={<CheckCircle2 size={24} />} />
-          <StatCard label="Total Tickets" value={counts.total} tone={TEAL} icon={<Send size={24} />} />
-        </div>
-
-        {/* SEARCH */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ position: "relative", flex: 1 }}>
-            <Search size={20} style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-            <input id="hr-tickets-search" data-testid="hr-tickets-search" placeholder="Search tickets by ID or subject…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
+        {isEmployeeView ? (
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              id="hr-tickets-create-button"
+              data-testid="hr-tickets-create-button"
+              onClick={() => {
+                setMsg(null);
+                setAddOpen(true);
+              }}
+              style={{
+                height: 40,
+                padding: "0 18px",
+                borderRadius: 10,
+                border: "none",
+                cursor: "pointer",
+                background: TEAL,
+                color: "white",
+                fontWeight: 800,
+                fontSize: 12,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
+              <Plus size={15} /> New Ticket
+            </button>
           </div>
-          <button id="hr-tickets-filter-button" data-testid="hr-tickets-filter-button" style={{ height: 64, width: 64, borderRadius: 28, border: "none", background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Filter size={24} /></button>
+        ) : null}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
+          <StatCard label="Open Tickets" value={counts.open} tone="#3b82f6" icon={<AlertCircle size={22} />} />
+          <StatCard label="In Progress" value={counts.progress} tone="#f59e0b" icon={<Clock size={22} />} />
+          <StatCard label="Resolved (MTD)" value={counts.resolved} tone="#10b981" icon={<CheckCircle2 size={22} />} />
+          <StatCard label="Total Tickets" value={counts.total} tone={TEAL} icon={<Send size={22} />} />
         </div>
 
+        <div
+          style={{
+            ...panel,
+            padding: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+            <Search size={18} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
+            <input
+              id="hr-tickets-search"
+              data-testid="hr-tickets-search"
+              placeholder="Search tickets by ID or subject..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                ...field,
+                height: 52,
+                borderRadius: 16,
+                paddingLeft: 46,
+                background: "#ffffff",
+                border: "1px solid rgba(148,163,184,0.16)",
+                boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
+                fontSize: 15,
+              }}
+            />
+          </div>
+          <button
+            id="hr-tickets-filter-button"
+            data-testid="hr-tickets-filter-button"
+            style={{
+              height: 52,
+              width: 52,
+              borderRadius: 16,
+              border: "1px solid rgba(148,163,184,0.16)",
+              background: "#ffffff",
+              color: "var(--light-text)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Filter size={18} />
+          </button>
+        </div>
 
-
-        {/* FEED */}
-        <div style={{ display: "grid", gap: 24 }}>
+        <div style={{ display: "grid", gap: 14 }}>
           {tickets.loading ? (
             <div className="space-y-4">
               <SkeletonCard />
@@ -133,7 +311,7 @@ export default function Tickets() {
               <SkeletonCard />
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+            <div style={{ ...panel, padding: "24px 0" }}>
               <EmptyState
                 icon={<MessageSquare size={40} />}
                 title={search.trim() ? "No matching tickets" : "No helpdesk tickets yet"}
@@ -146,41 +324,142 @@ export default function Tickets() {
                   search.trim() ? (
                     <button className="btn btn-secondary" onClick={() => setSearch("")}>Clear search</button>
                   ) : (
-                    <button className="btn btn-primary" onClick={() => { setMsg(null); setAddOpen(true); }}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setMsg(null);
+                        setAddOpen(true);
+                      }}
+                    >
                       <Plus size={16} /> Raise New Ticket
                     </button>
                   )
                 }
               />
             </div>
-          ) : items.map((t) => {
-            const sb = statusBadge(t.status);
-            return (
-              <div key={t.id} data-testid={`hr-ticket-card-${t.id}`} onClick={() => { setMsg(null); setReplyText(""); setSelected(t); }} style={{ background: "var(--surface-bg)", borderRadius: 36, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.05)", display: "flex", cursor: "pointer" }}>
-                <div style={{ width: 8, background: statusBar(t.status), flexShrink: 0 }} />
-                <div style={{ flex: 1, padding: "30px 36px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
-                  <div style={{ flex: 1, minWidth: 260 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                      <span style={{ ...lbl, color: TEAL, background: "rgba(17,94,89,0.05)", padding: "4px 12px", borderRadius: 10, letterSpacing: "0.08em" }}>{(t.id || "").slice(-6).toUpperCase()}</span>
-                      <span style={{ borderRadius: 999, padding: "4px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "var(--dark-text)", border: "2px solid var(--border-color)" }}>{t.category}</span>
+          ) : (
+            items.map((t) => {
+              const sb = statusBadge(t.status);
+              return (
+                <div
+                  key={t.id}
+                  data-testid={`hr-ticket-card-${t.id}`}
+                  onClick={() => {
+                    setMsg(null);
+                    setReplyText("");
+                    setSelected(t);
+                  }}
+                  style={{ ...panel, borderRadius: 8, overflow: "hidden", display: "flex", cursor: "pointer" }}
+                >
+                  <div style={{ width: 6, background: statusBar(t.status), flexShrink: 0 }} />
+                  <div
+                    style={{
+                      flex: 1,
+                      padding: "22px 24px",
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0,1fr) auto",
+                      alignItems: "center",
+                      gap: 18,
+                    }}
+                    className="max-[980px]:grid-cols-1"
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                        <span
+                          style={{
+                            ...lbl,
+                            color: TEAL,
+                            background: "rgba(17,94,89,0.05)",
+                            padding: "4px 10px",
+                            borderRadius: 4,
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          {(t.id || "").slice(-6).toUpperCase()}
+                        </span>
+                        <span
+                          style={{
+                            borderRadius: 4,
+                            padding: "4px 12px",
+                            fontWeight: 900,
+                            fontSize: 10,
+                            letterSpacing: "-0.1px",
+                            textTransform: "uppercase",
+                            color: "var(--dark-text)",
+                            border: "1px solid rgba(148,163,184,0.2)",
+                            background: "rgba(248,250,252,0.9)",
+                          }}
+                        >
+                          {t.category}
+                        </span>
+                      </div>
+                      <h3 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 6px" }}>{t.title}</h3>
+                      <p
+                        style={{
+                          fontSize: 14,
+                          color: "var(--light-text)",
+                          fontWeight: 500,
+                          lineHeight: 1.55,
+                          margin: 0,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {t.description}
+                      </p>
                     </div>
-                    <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.8px", color: "var(--dark-text)", margin: "0 0 8px" }}>{t.title}</h3>
-                    <p style={{ fontSize: 16, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.5, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{t.description}</p>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 28, background: "rgba(100,116,139,0.04)", padding: "20px 28px", borderRadius: 28 }}>
-                    <div><p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created</p><p style={{ fontSize: 13, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdAtTs ? new Date(t.createdAtTs).toLocaleDateString() : "N/A"}</p></div>
-                    <div><p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Dept</p><p style={{ fontSize: 13, fontWeight: 900, color: "var(--dark-text)" }}>{t.department || "—"}</p></div>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 999, padding: "5px 14px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: sb.bg }}>{sb.icon} {t.status}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--light-text)" }}><MessageSquare size={18} /><span style={{ fontSize: 14, fontWeight: 900 }}>{t.responses?.length || 0}</span></div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 20,
+                        background: "rgba(248,250,252,0.92)",
+                        padding: "14px 18px",
+                        borderRadius: 6,
+                        border: "1px solid rgba(148,163,184,0.14)",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div>
+                        <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created</p>
+                        <p style={{ fontSize: 13, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdAtTs ? new Date(t.createdAtTs).toLocaleDateString() : "N/A"}</p>
+                      </div>
+                      <div>
+                        <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Dept</p>
+                        <p style={{ fontSize: 13, fontWeight: 900, color: "var(--dark-text)" }}>{t.department || "-"}</p>
+                      </div>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          borderRadius: 4,
+                          padding: "5px 14px",
+                          fontWeight: 900,
+                          fontSize: 10,
+                          letterSpacing: "-0.2px",
+                          textTransform: "uppercase",
+                          color: "white",
+                          background: sb.bg,
+                        }}
+                      >
+                        {sb.icon} {t.status}
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--light-text)" }}>
+                        <MessageSquare size={18} />
+                        <span style={{ fontSize: 14, fontWeight: 900 }}>{t.responses?.length || 0}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* ===== RAISE MODAL ===== */}
       <Dialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -189,25 +468,35 @@ export default function Tickets() {
         contentClassName="max-w-[820px] p-0 overflow-hidden"
       >
         <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Raise a Ticket</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Provide details about your issue so we can help you better.</p></div>
+          <div>
+            <h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Raise a Ticket</h3>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Provide details about your issue so we can help you better.</p>
+          </div>
           <button id="hr-tickets-create-close" data-testid="hr-tickets-create-close" onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }} className="max-[820px]:grid-cols-1">
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Select
-              id="hr-tickets-employee"
-              testId="hr-tickets-employee"
-              label="Claimant Employee"
-              value={form.employeeUid}
-              onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
-              placeholder="Select employee"
-              options={employees.map((e) => ({ value: e.id, label: e.name }))}
-            />
+            {!isEmployeeView ? (
+              <Select
+                id="hr-tickets-employee"
+                testId="hr-tickets-employee"
+                label="Claimant Employee"
+                value={form.employeeUid}
+                onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+                placeholder="Select employee"
+                options={employees.map((e) => ({ value: e.id, label: e.name }))}
+              />
+            ) : (
+              <div>
+                <label style={lbl}>Employee</label>
+                <div style={{ ...field, marginTop: 6, display: "flex", alignItems: "center" }}>{myProfile?.name || "Employee"}</div>
+              </div>
+            )}
             <Input
               id="hr-tickets-subject"
               data-testid="hr-tickets-subject"
               label="Subject"
-              placeholder="Brief summary of the issue…"
+              placeholder="Brief summary of the issue..."
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
@@ -236,7 +525,7 @@ export default function Tickets() {
               id="hr-tickets-description"
               data-testid="hr-tickets-description"
               label="Description"
-              placeholder="Provide more details about your issue…"
+              placeholder="Provide more details about your issue..."
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={9}
@@ -246,11 +535,10 @@ export default function Tickets() {
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-          <button id="hr-tickets-submit" data-testid="hr-tickets-submit" onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Ticket"}</button>
+          <button id="hr-tickets-submit" data-testid="hr-tickets-submit" onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting...</> : "Submit Ticket"}</button>
         </div>
       </Dialog>
 
-      {/* ===== DETAIL / THREAD MODAL ===== */}
       <Dialog
         open={!!liveSelected}
         onClose={() => setSelected(null)}
@@ -264,7 +552,10 @@ export default function Tickets() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <span style={{ ...lbl, color: TEAL, background: "rgba(17,94,89,0.08)", padding: "3px 10px", borderRadius: 8 }}>{(liveSelected.id || "").slice(-6).toUpperCase()}</span>
-                  {(() => { const sb = statusBadge(liveSelected.status); return <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 12px", fontWeight: 900, fontSize: 9, textTransform: "uppercase", color: "white", background: sb.bg }}>{sb.icon} {liveSelected.status}</span>; })()}
+                  {(() => {
+                    const sb = statusBadge(liveSelected.status);
+                    return <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "3px 12px", fontWeight: 900, fontSize: 9, textTransform: "uppercase", color: "white", background: sb.bg }}>{sb.icon} {liveSelected.status}</span>;
+                  })()}
                 </div>
                 <h3 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.8px", color: "var(--dark-text)", margin: 0 }}>{liveSelected.title}</h3>
                 <p style={{ ...lbl, marginTop: 4 }}>{liveSelected.category} · {empName(liveSelected.employeeUid)}</p>
@@ -281,23 +572,29 @@ export default function Tickets() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {!liveSelected.responses?.length ? (
                     <p style={{ fontSize: 13, color: "var(--light-text)", fontStyle: "italic", textAlign: "center", padding: "16px 0" }}>No replies yet. Start the conversation below.</p>
-                  ) : liveSelected.responses.map((r) => {
-                    const replyKey = `${r.respondedAt || r.respondedBy || "reply"}-${(r.message || "").slice(0, 24)}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "reply";
-                    return (
-                      <div key={replyKey} data-testid={`hr-ticket-reply-${liveSelected.id}-${replyKey}`} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                          <span style={{ ...lbl, fontSize: 9, color: TEAL }}>{r.respondedBy || "Support Desk"}</span>
-                          <span style={{ ...lbl, fontSize: 8 }}>{r.respondedAt ? new Date(r.respondedAt).toLocaleString() : ""}</span>
+                  ) : (
+                    liveSelected.responses.map((r) => {
+                      const replyKey =
+                        `${r.respondedAt || r.respondedBy || "reply"}-${(r.message || "").slice(0, 24)}`
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/^-+|-+$/g, "") || "reply";
+                      return (
+                        <div key={replyKey} data-testid={`hr-ticket-reply-${liveSelected.id}-${replyKey}`} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                            <span style={{ ...lbl, fontSize: 9, color: TEAL }}>{r.respondedBy || "Support Desk"}</span>
+                            <span style={{ ...lbl, fontSize: 8 }}>{r.respondedAt ? new Date(r.respondedAt).toLocaleString() : ""}</span>
+                          </div>
+                          <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dark-text)", margin: 0 }}>{r.message}</p>
                         </div>
-                        <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dark-text)", margin: 0 }}>{r.message}</p>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
             <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", display: "flex", gap: 10 }}>
-              <input id="hr-tickets-reply-input" data-testid="hr-tickets-reply-input" placeholder="Write a reply…" value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} style={{ ...field, height: 46, borderRadius: 14 }} />
+              <input id="hr-tickets-reply-input" data-testid="hr-tickets-reply-input" placeholder="Write a reply..." value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} style={{ ...field, height: 46, borderRadius: 14 }} />
               <button id="hr-tickets-reply-send" data-testid="hr-tickets-reply-send" onClick={sendReply} disabled={replying || !replyText.trim()} style={{ height: 46, padding: "0 20px", borderRadius: 14, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, opacity: replyText.trim() ? 1 : 0.6 }}>{replying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send</button>
             </div>
             {msg && <div style={{ margin: "0 24px 16px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}

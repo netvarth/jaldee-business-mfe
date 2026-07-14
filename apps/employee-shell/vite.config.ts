@@ -4,6 +4,7 @@ import path from "path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "");
+  const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET;
 
   return {
     base: "/",
@@ -35,6 +36,11 @@ export default defineConfig(({ mode }) => {
         },
         "/platform-service": {
           target: env.VITE_PLATFORM_SERVICE_PROXY_TARGET,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/hr-service": {
+          target: hrServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         },

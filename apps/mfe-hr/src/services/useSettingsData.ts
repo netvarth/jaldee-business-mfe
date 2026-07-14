@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "../services/useHrApi";
-import { mapAvailableLocationsToBranches } from "./useBranches";
+import { useBranches } from "./useBranches";
 import type { ClockType } from "../types";
 
 export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; }
@@ -87,28 +87,17 @@ const BRANCHES_READONLY_MSG =
   "Branches are owned by Jaldee base locations and are read-only in HR. Manage them in the Jaldee business console.";
 
 export function useBranchesAdmin() {
-  const mfeProps = useMFEProps() as ReturnType<typeof useMFEProps> & {
-    availableLocations?: Array<{
-      id: string;
-      uid?: string;
-      name: string;
-      code?: string;
-      address?: string;
-      latitude?: string | number;
-      longitude?: string | number;
-    }>;
-  };
-  const data = mapAvailableLocationsToBranches(mfeProps.availableLocations) as BranchRow[];
+  const branches = useBranches();
 
   const reject = useCallback(async () => {
     throw new Error(BRANCHES_READONLY_MSG);
   }, []);
 
   return {
-    data,
-    loading: false,
-    error: null,
-    reload: async () => undefined,
+    data: branches.data as BranchRow[],
+    loading: branches.loading,
+    error: branches.error,
+    reload: branches.reload,
     create: reject,
     update: reject,
     remove: reject,

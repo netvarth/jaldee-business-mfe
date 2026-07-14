@@ -3,6 +3,7 @@ import type { LoginRequest, SessionResponse, AppUser, AppWorkspace } from "../ty
 
 const audience = "employee";
 const authMode: "session" | "token" = "token";
+const testTenantUid = "532eae3c-67b9-43a0-98d1-26c0873c737e";
 const storageKey = `jaldee-${audience}-session`;
 const credentialsKey = `jaldee-${audience}-credentials`;
 const mUniqueIdKey = "mUniqueId";
@@ -14,7 +15,7 @@ const gcmIvLengthBytes = 12;
 const gcmTagLengthBits = 128;
 
 const TOKEN_AUTH_ENDPOINTS = {
-  encryptedPasswordLogin: "/auth-service/v1/api/auth/login/password/enc",
+  passwordLogin: "/auth-service/v1/api/auth/login/password",
   logout: "/auth-service/v1/api/auth/logout",
   me: "/auth-service/v1/api/auth/me",
   refresh: "/auth-service/v1/api/auth/refresh",
@@ -34,7 +35,7 @@ interface TokenLoginResponse {
 
 function authPath(name: "login" | "me" | "logout" | "refresh") {
   const defaults = {
-    login: TOKEN_AUTH_ENDPOINTS.encryptedPasswordLogin,
+    login: TOKEN_AUTH_ENDPOINTS.passwordLogin,
     me: TOKEN_AUTH_ENDPOINTS.me,
     logout: TOKEN_AUTH_ENDPOINTS.logout,
     refresh: TOKEN_AUTH_ENDPOINTS.refresh,
@@ -230,6 +231,16 @@ async function encryptTokenLogin(payload: LoginRequest): Promise<string> {
   return encodeBase64(concatBytes(nonce, new Uint8Array(encryptedBuffer)));
 }
 
+function buildTokenLoginRequest(payload: LoginRequest) {
+  return {
+    tenantUid: testTenantUid,
+    userType: "TENANT_EMPLOYEE",
+    identifierType: "EMPLOYEE_ID",
+    identifier: payload.loginId,
+    password: payload.password,
+  };
+}
+
 async function decryptTokenLoginResponse(encryptedText: string): Promise<string> {
   const aesKey = await importAesGcmTokenKey();
   const ivKey = getTokenIvKeyBytes();
@@ -308,20 +319,14 @@ async function establishTokenSession(tokens: TokenLoginResponse): Promise<Sessio
 async function login(payload: LoginRequest): Promise<SessionResponse> {
   writeStoredCredentials(payload);
   if (authMode === "token") {
-    const encryptedInput = await encryptTokenLogin(payload);
-    const response = await apiClient.post<string | TokenLoginResponse>(buildAuthServiceUrl(authPath("login")), encryptedInput, {
-      headers: {
-        "Content-Type": "text/plain",
-      },
-      transformRequest: [(data) => data],
-      transformResponse: [(data) => data],
+    const response = await apiClient.post<TokenLoginResponse>(
+      buildAuthServiceUrl(authPath("login")),
+      buildTokenLoginRequest(payload),
+      {
       _skipAuthRefresh: true,
-    } as unknown);
-    const tokens =
-      typeof response.data === "string"
-        ? JSON.parse(await decryptTokenLoginResponse(response.data)) as TokenLoginResponse
-        : response.data;
-    return establishTokenSession(tokens);
+      } as unknown,
+    );
+    return establishTokenSession(response.data);
   }
 
   const encryptedInput = await encryptUsingAES256(payload);

@@ -26,6 +26,9 @@ type Json = Record<string, unknown> | unknown[];
 
 function buildHrServiceUrl(endpoint: string) {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
+  if (/^\/?(provider|base-service|auth-service)\//i.test(endpoint)) {
+    return new URL(endpoint.startsWith("/") ? endpoint : `/${endpoint}`, window.location.origin).toString();
+  }
   if (endpoint.startsWith(`${GATEWAY_PREFIX}/hr-service/`) || endpoint.startsWith("/hr-service/")) {
     return new URL(endpoint, window.location.origin).toString();
   }

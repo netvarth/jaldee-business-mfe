@@ -30,7 +30,13 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/hr" replace /> : <LoginPage />} />
       <Route path="/" element={<Navigate to={isAuthenticated ? "/hr" : "/login"} replace />} />
-      <Route path="/hr" element={<Navigate to="/hr/attendance" replace />} />
+      <Route path="/hr" element={<Navigate to="/hr/me" replace />} />
+      <Route path="/hr/attendance/*" element={<Navigate to="/hr/me/attendance" replace />} />
+      <Route path="/hr/leave/*" element={<Navigate to="/hr/me/leave" replace />} />
+      <Route path="/hr/announcements/*" element={<Navigate to="/hr/me" replace />} />
+      <Route path="/hr/payroll/*" element={<Navigate to="/hr/me/payslips" replace />} />
+      <Route path="/hr/expenses/*" element={<Navigate to="/hr/me" replace />} />
+      <Route path="/hr/tickets/*" element={<Navigate to="/hr/me" replace />} />
       <Route path="/hr/employees/*" element={<Navigate to="/hr" replace />} />
       <Route path="/hr/recruitment/*" element={<Navigate to="/hr" replace />} />
       <Route path="/hr/reports/*" element={<Navigate to="/hr" replace />} />

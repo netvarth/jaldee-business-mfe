@@ -5,6 +5,7 @@ import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
+import { useMyProfile } from "../../services/useEss";
 import { formatCurrency } from "../../lib/utils";
 
 type Tab = "ledger" | "approvals";
@@ -15,11 +16,13 @@ const EXPENSE_ROUTES: Array<{ key: Tab; route: string; label: string }> = [
 const TEAL = "var(--primary-color)";
 const CATEGORIES = ["Travel", "Food", "Lodging", "Other"];
 
-const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 24, overflow: "hidden" };
+const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 8, overflow: "hidden" };
+const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 8, boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)" };
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const th: CSSProperties = { textAlign: "left", padding: "12px 16px", fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)", background: "rgba(100,116,139,0.04)" };
 const tdc: CSSProperties = { padding: "14px 16px", fontSize: 12.5, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
 const field: CSSProperties = { width: "100%", height: 48, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: "0 14px", fontSize: 14, fontWeight: 700, color: "var(--dark-text)" };
+const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 18 };
 
 function fmtDate(d?: string) { if (!d) return "N/A"; const x = new Date(d); return isNaN(x.getTime()) ? "N/A" : x.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" }); }
 function tabFromPath(pathname: string): Tab {
@@ -44,14 +47,14 @@ function statStyle(s?: string): CSSProperties {
     default: return { background: "rgba(245,158,11,0.06)", color: "#d97706", border: "1px solid rgba(245,158,11,0.15)" };
   }
 }
-const tag = (st: CSSProperties): CSSProperties => ({ ...st, display: "inline-block", padding: "3px 10px", borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" });
+const tag = (st: CSSProperties): CSSProperties => ({ ...st, display: "inline-block", padding: "3px 10px", borderRadius: 4, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" });
 
 function StatCard({ tag: t, label, value, sub, tone, icon, accent }: { tag: string; label: string; value: ReactNode; sub: string; tone: string; icon: ReactNode; accent?: boolean }) {
   return (
-    <div style={{ ...card, borderRadius: 28, padding: 24, background: accent ? "rgba(17,94,89,0.04)" : "var(--surface-bg)", borderColor: accent ? "rgba(17,94,89,0.18)" : "var(--border-color)" }}>
+    <div style={{ ...panel, borderRadius: 8, padding: 22, background: accent ? "rgba(17,94,89,0.04)" : "var(--surface-bg)", borderColor: accent ? "rgba(17,94,89,0.18)" : "rgba(148,163,184,0.16)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ height: 48, width: 48, borderRadius: 16, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
-        <span style={{ ...lbl, color: tone, background: `${tone}14`, border: `1px solid ${tone}33`, padding: "4px 10px", borderRadius: 999 }}>{t}</span>
+        <div style={{ height: 48, width: 48, borderRadius: 6, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
+        <span style={{ ...lbl, color: tone, background: `${tone}14`, border: `1px solid ${tone}33`, padding: "4px 10px", borderRadius: 4 }}>{t}</span>
       </div>
       <p style={{ ...lbl, marginBottom: 4 }}>{label}</p>
       <div style={{ fontSize: 28, fontWeight: 900, color: accent ? TEAL : "var(--dark-text)", letterSpacing: "-0.5px" }}>{value}</div>
@@ -64,9 +67,11 @@ export default function Expenses() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
   const navigate = useNavigate();
+  const isEmployeeView = location.pathname.includes("/me/");
   const tab = tabFromPath(location.pathname);
-  const { data: employees } = useEmployees();
+  const { data: employees } = useEmployees({ enabled: !isEmployeeView });
   const expenses = useExpenses();
+  const { data: myProfile } = useMyProfile();
 
   useEffect(() => {
     if (expenses.error) {
@@ -79,20 +84,24 @@ export default function Expenses() {
   }, [expenses.error, eventBus]);
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
-  const empName = (uid?: string) => (uid ? empMap.get(uid)?.name ?? uid : "—");
-  const empDept = (uid?: string) => (uid ? empMap.get(uid)?.department ?? "N/A" : "—");
-  const empCode = (uid?: string) => (uid ? empMap.get(uid)?.employeeId ?? "—" : "—");
+  const empName = (uid?: string) => uid && myProfile?.id === uid ? (myProfile.name ?? uid) : (uid ? empMap.get(uid)?.name ?? uid : "—");
+  const empDept = (uid?: string) => uid && myProfile?.id === uid ? (myProfile.department ?? "N/A") : (uid ? empMap.get(uid)?.department ?? "N/A" : "—");
+  const empCode = (uid?: string) => uid && myProfile?.id === uid ? (myProfile.employeeId ?? "—") : (uid ? empMap.get(uid)?.employeeId ?? "—" : "—");
+  const scopedExpenses = useMemo(() => (
+    isEmployeeView && myProfile?.id ? expenses.data.filter((e) => e.employeeUid === myProfile.id) : expenses.data
+  ), [expenses.data, isEmployeeView, myProfile?.id]);
 
   const [search, setSearch] = useState("");
-  const sumPending = useMemo(() => expenses.data.filter((e) => e.status === "Pending").reduce((a, e) => a + (e.amount || 0), 0), [expenses.data]);
-  const sumSettled = useMemo(() => expenses.data.filter((e) => e.status === "Approved" || e.status === "Reimbursed").reduce((a, e) => a + (e.amount || 0), 0), [expenses.data]);
-  const pendingCount = useMemo(() => expenses.data.filter((e) => e.status === "Pending").length, [expenses.data]);
+  const sumPending = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
+  const sumSettled = useMemo(() => scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
+  const pendingCount = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").length, [scopedExpenses]);
 
   const rows = useMemo(() => {
-    const base = tab === "approvals" ? expenses.data.filter((e) => e.status === "Pending") : expenses.data;
+    const activeTab = isEmployeeView ? "ledger" : tab;
+    const base = activeTab === "approvals" ? scopedExpenses.filter((e) => e.status === "Pending") : scopedExpenses;
     const q = search.toLowerCase();
     return base.filter((e) => !q || (e.category || "").toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q) || empName(e.employeeUid).toLowerCase().includes(q));
-  }, [expenses.data, tab, search, empMap]);
+  }, [empMap, isEmployeeView, scopedExpenses, search, tab]);
 
   // submit modal
   const [addOpen, setAddOpen] = useState(false);
@@ -105,11 +114,12 @@ export default function Expenses() {
   const [acting, setActing] = useState(false);
 
   const submit = async () => {
-    if (!form.employeeUid || !form.amount) { setMsg("Employee and amount are required."); return; }
+    const employeeUid = isEmployeeView ? myProfile?.id || "" : form.employeeUid;
+    if (!employeeUid || !form.amount) { setMsg("Employee and amount are required."); return; }
     setSaving(true); setMsg(null);
     try {
       const payload: Record<string, unknown> = {
-        employeeUid: form.employeeUid, amount: Number(form.amount), category: form.category,
+        employeeUid, amount: Number(form.amount), category: form.category,
         notes: form.notes || null, date: form.date, status: "Pending",
       };
       if (form.category === "Travel") { payload.kms = form.kms ? Number(form.kms) : null; payload.modeOfTransport = form.modeOfTransport || null; }
@@ -133,32 +143,42 @@ export default function Expenses() {
 
   return (
     <section id="hr-expenses-page" data-testid="hr-expenses-page" className="page-section active hr-page-shell">
-      <PageHeader
-        title="Expense Claims & Mileage Ledger"
-        subtitle="Reimbursements, travel logs and settlement control"
-        actions={<button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Submit Expense Claim</button>}
-      />
+      <div style={sectionStack}>
+        {!isEmployeeView ? (
+          <PageHeader
+            title="Expense Claims & Mileage Ledger"
+            subtitle="Reimbursements, travel logs and settlement control"
+            actions={<button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Submit Expense Claim</button>}
+          />
+        ) : null}
+
+        {isEmployeeView ? (
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}><Plus size={15} /> Submit Claim</button>
+          </div>
+        ) : null}
 
       {/* STAT CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
         <StatCard tag="Pending" label="Pending Clearance" value={formatCurrency(sumPending)} sub={`${pendingCount} requests waiting review`} tone="#d97706" icon={<Clock size={24} />} />
-        <StatCard tag="Settled" label="Approved & Paid" value={formatCurrency(sumSettled)} sub={`From ${expenses.data.filter((e) => e.status === "Approved" || e.status === "Reimbursed").length} approved profiles`} tone="#10b981" icon={<CheckCircle2 size={24} />} />
-        <StatCard tag="Total Registers" label="Total Ledger Count" value={`${expenses.data.length} Claims`} sub="Company-wide receipts logged" tone={TEAL} icon={<Receipt size={24} />} accent />
+        <StatCard tag="Settled" label="Approved & Paid" value={formatCurrency(sumSettled)} sub={`From ${scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").length} approved profiles`} tone="#10b981" icon={<CheckCircle2 size={24} />} />
+        <StatCard tag="Total Registers" label="Total Ledger Count" value={`${scopedExpenses.length} Claims`} sub="Expense claims logged" tone={TEAL} icon={<Receipt size={24} />} accent />
       </div>
 
       {/* TABS + SEARCH */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 999 }}>
-          {EXPENSE_ROUTES.map((t) => {
-            const label = t.key === "ledger" ? `${t.label} (${expenses.data.length})` : `${t.label} (${pendingCount} Pending)`;
+      <div style={{ ...panel, padding: 12, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 6, maxWidth: "100%" }}>
+          {(isEmployeeView ? EXPENSE_ROUTES.filter((t) => t.key === "ledger") : EXPENSE_ROUTES).map((t) => {
+            const activeTab = isEmployeeView ? "ledger" : tab;
+            const label = t.key === "ledger" ? `${t.label} (${scopedExpenses.length})` : `${t.label} (${pendingCount} Pending)`;
             return (
-              <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} onClick={() => navigate(`/expenses/${t.route}`)} style={{ padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: tab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: tab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: tab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
+              <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={activeTab === t.key ? "true" : "false"} onClick={() => navigate(isEmployeeView ? "/me/expenses" : `/expenses/${t.route}`)} style={{ padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: activeTab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: activeTab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: activeTab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
             );
           })}
         </div>
-        <div style={{ position: "relative", width: 260, maxWidth: "100%" }}>
+        <div style={{ position: "relative", width: isEmployeeView ? 280 : 260, maxWidth: "100%" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-          <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 38, borderRadius: 999, paddingLeft: 34, fontSize: 12.5, fontWeight: 600 }} />
+          <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 40, borderRadius: 999, paddingLeft: 34, fontSize: 12.5, fontWeight: 600, background: "#ffffff", border: "1px solid rgba(148,163,184,0.14)" }} />
         </div>
       </div>
 
@@ -174,15 +194,15 @@ export default function Expenses() {
         <div data-testid="hr-expenses-table-panel" style={{ ...card }}>
           <table id="hr-expenses-table" data-testid="hr-expenses-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
-              {tab === "approvals" && <th style={th}>Claimant Staff</th>}
+              {!isEmployeeView && tab === "approvals" && <th style={th}>Claimant Staff</th>}
               <th style={th}>Submit Date</th><th style={th}>Voucher Category</th><th style={th}>Claim Amount</th><th style={th}>Travel Summary</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th>
             </tr></thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
+                <tr><td colSpan={isEmployeeView ? 6 : 7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" && !isEmployeeView ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
               ) : rows.map((e) => (
                 <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
-                  {tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 8 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
+                  {!isEmployeeView && tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 8 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
                   <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, color: "var(--light-text)" }}>{fmtDate(e.date)}</td>
                   <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
                   <td style={{ ...tdc, fontWeight: 900 }}>{formatCurrency(e.amount)}</td>
@@ -195,7 +215,7 @@ export default function Expenses() {
                   </td>
                   <td style={tdc}><span style={tag(statStyle(e.status))}>{e.status || "—"}</span></td>
                   <td style={{ ...tdc, textAlign: "right" }}>
-                    <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
+                    <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
                   </td>
                 </tr>
               ))}
@@ -203,6 +223,7 @@ export default function Expenses() {
           </table>
         </div>
       )}
+      </div>
 
       {/* SUBMIT MODAL */}
       <Dialog
@@ -217,15 +238,22 @@ export default function Expenses() {
           <button id="hr-expenses-submit-close" data-testid="hr-expenses-submit-close" onClick={() => setAddOpen(false)} aria-label="Close submit expense claim" style={iconBtn}><X size={20} /></button>
         </div>
         <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-          <Select
-            id="hr-expenses-employee-select"
-            testId="hr-expenses-employee-select"
-            label="Claimant Employee"
-            value={form.employeeUid}
-            onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
-            placeholder="Select employee"
-            options={employees.map((e) => ({ value: e.id, label: e.name }))}
-          />
+          {!isEmployeeView ? (
+            <Select
+              id="hr-expenses-employee-select"
+              testId="hr-expenses-employee-select"
+              label="Claimant Employee"
+              value={form.employeeUid}
+              onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+              placeholder="Select employee"
+              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            />
+          ) : (
+            <div>
+              <label style={{ ...lbl, color: TEAL }}>Claimant Employee</label>
+              <div style={{ ...field, marginTop: 6, display: "flex", alignItems: "center" }}>{myProfile?.name || "Employee"}</div>
+            </div>
+          )}
           <div><label style={{ ...lbl, color: TEAL }}>Reimbursement Amount (INR)</label><input id="hr-expenses-amount-input" data-testid="hr-expenses-amount-input" type="number" min="0" placeholder="0.00" style={{ ...field, marginTop: 6 }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
           <Select
             id="hr-expenses-category-select"
@@ -299,13 +327,13 @@ export default function Expenses() {
               </div>
               <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}><User size={11} style={{ display: "inline", verticalAlign: "-1px" }} /> Claimant</span><span style={{ fontSize: 13, fontWeight: 800, display: "block", marginTop: 4 }}>{empName(selected.employeeUid)} — {empDept(selected.employeeUid)}</span></div>
 
-              {selected.status === "Pending" && (
+              {!isEmployeeView && selected.status === "Pending" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, paddingTop: 4 }}>
                   <button id={`hr-expenses-reject-${selected.id}`} data-testid={`hr-expenses-reject-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reject")} disabled={acting} style={{ height: 40, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline</button>
                   <button id={`hr-expenses-approve-${selected.id}`} data-testid={`hr-expenses-approve-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("approve")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve Claim</button>
                 </div>
               )}
-              {selected.status === "Approved" && (
+              {!isEmployeeView && selected.status === "Approved" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
                   <button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reimburse")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: "#2563eb", color: "white", fontWeight: 900, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Mark Reimbursed</button>
                 </div>
