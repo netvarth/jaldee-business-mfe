@@ -59,6 +59,10 @@ export function useAssets() {
   useEffect(() => { void load(); }, [load]);
 
   const create = useCallback(async (p: Record<string, unknown>) => { await api.post("/assets", p); await load(); }, [api, load]);
+  const getOne = useCallback(async (uid: string) => {
+    const res = await api.get<Record<string, unknown>>(`/assets/${uid}`);
+    return withId<Asset>(res);
+  }, [api]);
   const update = useCallback(async (uid: string, p: Record<string, unknown>) => { await api.put(`/assets/${uid}`, p); await load(); }, [api, load]);
   const remove = useCallback(async (uid: string) => { await api.del(`/assets/${uid}`); await load(); }, [api, load]);
   const allocate = useCallback(async (uid: string, employeeUid: string, condition?: string) => {
@@ -72,7 +76,7 @@ export function useAssets() {
     return Array.isArray(res) ? res.map((r) => withId<AssetAllocation>(r)) : [];
   }, [api]);
 
-  return { data, loading, error, reload: load, create, update, remove, allocate, returnAsset, history };
+  return { data, loading, error, reload: load, create, getOne, update, remove, allocate, returnAsset, history };
 }
 
 /** Assets currently (or historically) held by one employee. */

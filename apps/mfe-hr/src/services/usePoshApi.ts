@@ -31,6 +31,38 @@ function withId<T extends { uid?: string; id?: string }>(r: Record<string, unkno
   return { ...(r as object), id: String(uid ?? ""), uid } as T;
 }
 
+function asPoshList(value: Record<string, unknown>[] | Record<string, unknown> | null | undefined) {
+  if (Array.isArray(value)) return value.map((r) => withId<PoshEntity>(r));
+  if (value && typeof value === "object") return [withId<PoshEntity>(value)];
+  return [];
+}
+
+function usePoshMutations(load: () => Promise<void>) {
+  const api = useHrApi();
+
+  const raise = useCallback(async (p: { employeeUid: string; title: string; description: string; category?: string; fileUrl?: string; accusedEmployeeUid?: string }) => {
+    await api.post("/posh", p);
+    await load();
+  }, [api, load]);
+
+  const reply = useCallback(async (uid: string, message: string) => {
+    await api.post(`/posh/${uid}/responses`, { message });
+    await load();
+  }, [api, load]);
+
+  const updateStatus = useCallback(async (uid: string, status: PoshStatus) => {
+    await api.patch(`/posh/${uid}`, { status });
+    await load();
+  }, [api, load]);
+
+  const getByUid = useCallback(async (uid: string) => {
+    const res = await api.get<Record<string, unknown>>(`/posh/${uid}`);
+    return withId<PoshEntity>(res);
+  }, [api]);
+
+  return { raise, reply, updateStatus, getByUid };
+}
+
 export function usePosh() {
   const api = useHrApi();
   const [data, setData] = useState<PoshEntity[]>([]);
@@ -41,26 +73,13 @@ export function usePosh() {
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>("/posh");
-      setData(Array.isArray(res) ? res.map((r) => withId<PoshEntity>(r)) : []);
+      setData(asPoshList(res));
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load posh grievances"); setData([]); }
     finally { setLoading(false); }
   }, [api]);
   
   useEffect(() => { void load(); }, [load]);
-
-  const raise = useCallback(async (p: { title: string; description: string; category?: string; fileUrl?: string; accusedEmployeeUid?: string }) => {
-    await api.post("/posh", p); await load();
-  }, [api, load]);
-
-  const reply = useCallback(async (uid: string, message: string) => {
-    await api.post(`/posh/${uid}/responses`, { message }); await load();
-  }, [api, load]);
-
-  const updateStatus = useCallback(async (uid: string, status: PoshStatus) => {
-    await api.patch(`/posh/${uid}`, { status }); await load();
-  }, [api, load]);
-
-  return { data, loading, error, reload: load, raise, reply, updateStatus };
+  return { data, loading, error, reload: load, ...usePoshMutations(load) };
 }
 
 export function useMyPosh(employeeUid: string) {
@@ -70,16 +89,20 @@ export function useMyPosh(employeeUid: string) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!employeeUid) return;
+    if (!employeeUid) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true); setError(null);
     try {
-      const res = await api.get<Record<string, unknown>[]>(`/posh/employee/${employeeUid}`);
-      setData(Array.isArray(res) ? res.map((r) => withId<PoshEntity>(r)) : []);
+      const res = await api.get<Record<string, unknown>[] | Record<string, unknown>>(`/posh/employee/${employeeUid}`);
+      setData(asPoshList(res));
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load my posh grievances"); setData([]); }
     finally { setLoading(false); }
   }, [api, employeeUid]);
   
   useEffect(() => { void load(); }, [load]);
 
-  return { data, loading, error, reload: load };
+  return { data, loading, error, reload: load, ...usePoshMutations(load) };
 }

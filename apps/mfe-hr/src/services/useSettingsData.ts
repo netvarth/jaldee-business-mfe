@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "../services/useHrApi";
 import { mapAvailableLocationsToBranches } from "./useBranches";
+import type { ClockType } from "../types";
 
 export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; }
 export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; }
@@ -19,7 +20,7 @@ export interface CompanyProfile {
 export interface AttendanceRule {
   uid?: string; workHoursPerDay?: number; shiftStartTime?: string; graceMinutes?: number; lateThresholdMinutes?: number;
   halfDayThresholdMinutes?: number; fullDayThresholdHours?: number; geofenceRadiusMeters?: number;
-  faceRecognitionRequired?: boolean; allowedWorkModes?: string; autoClockOutMinutes?: number;
+  faceRecognitionRequired?: boolean; allowedWorkModes?: ClockType[] | string[] | string; autoClockOutMinutes?: number;
 }
 export interface PayrollSetting {
   uid?: string; payCycle?: string; payDay?: number; currency?: string; pfEnabled?: boolean; pfRate?: number;

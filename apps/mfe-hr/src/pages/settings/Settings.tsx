@@ -9,6 +9,7 @@ import {
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
+import { CLOCK_TYPE_OPTIONS } from "../../types";
 
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -271,7 +272,7 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
     <div>
       <PanelHeader title={title} subtitle={subtitle} icon={icon} />
       {error && <ErrorBar text={error} />}
-      <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={{ ...card, padding: 24 }}>
+      <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={{ ...card, overflow: "visible", padding: 24, position: "relative", zIndex: 1 }}>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] animate-pulse">
             {fields.map((f) => (
@@ -1059,7 +1060,7 @@ export default function Settings() {
                 { key: "shiftStartTime", label: "Default Shift Start", type: "time" }, { key: "graceMinutes", label: "Grace Period (min)", type: "number" },
                 { key: "lateThresholdMinutes", label: "Late Threshold (min)", type: "number" }, { key: "halfDayThresholdMinutes", label: "Half-Day Threshold (min)", type: "number" },
                 { key: "geofenceRadiusMeters", label: "Geofence Radius (m)", type: "number" }, { key: "autoClockOutMinutes", label: "Auto Clock-Out (min)", type: "number" },
-                { key: "allowedWorkModes", label: "Allowed Work Modes", placeholder: "Office,WFH,On-Field", full: true },
+                { key: "allowedWorkModes", label: "Allowed Work Modes", type: "multiselect", options: CLOCK_TYPE_OPTIONS },
                 { key: "faceRecognitionRequired", label: "Require Face Recognition for Clock-In", type: "checkbox", full: true },
               ]} />
           )}

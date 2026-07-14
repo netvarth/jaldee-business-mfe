@@ -8,6 +8,7 @@ import { useEmployees } from "../../services/useEmployees";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs } from "../../services/useAttendanceData";
 import { useAttendanceRules } from "../../services/useSettingsData";
 import { formatDate } from "../../lib/utils";
+import { CLOCK_TYPE_OPTIONS, ClockType } from "../../types";
 
 type SubTab = "logs" | "pending" | "overtime" | "field" | "compoff" | "onduty" | "kiosk";
 
@@ -159,7 +160,7 @@ export default function Attendance() {
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [actor, setActor] = useState("");
-  const [mode, setMode] = useState("Office");
+  const [mode, setMode] = useState<ClockType>(ClockType.Office);
   const [face, setFace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -395,8 +396,8 @@ export default function Attendance() {
                 testId="hr-attendance-mode"
                 label="Work Mode"
                 value={mode}
-                onChange={(e) => setMode(e.target.value)}
-                options={[{ value: "Office", label: "Office" }, { value: "WFH", label: "WFH" }, { value: "On-Field", label: "On-Field" }]}
+                onChange={(e) => setMode(e.target.value as ClockType)}
+                options={CLOCK_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
               />
               <div className="attendance-face-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", border: "1px solid var(--border-color)", borderRadius: 12, background: "rgba(100,116,139,0.03)" }}>
                 <div>

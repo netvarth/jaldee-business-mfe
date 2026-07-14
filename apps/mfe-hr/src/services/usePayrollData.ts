@@ -121,6 +121,8 @@ export interface EmployeeComponentValue {
   componentCode?: string;
   structureComponentUid?: string;
   calculationType?: CalculationType;
+  previousAmount?: number;
+  previousPercentage?: number;
   overrideAmount?: number;
   overridePercentage?: number;
   formulaExpression?: string;
@@ -240,6 +242,8 @@ function normalizeEmployeeComponentValue(value: Record<string, unknown>): Employ
     componentCode: (value.componentCode ?? normalized.componentCode) as string | undefined,
     structureComponentUid: (value.structureComponentUid ?? normalized.structureComponentUid) as string | undefined,
     calculationType: (value.calculationType ?? normalized.calculationType) as CalculationType | undefined,
+    previousAmount: (value.previousAmount ?? value.defaultAmount) as number | undefined,
+    previousPercentage: (value.previousPercentage ?? value.defaultPercentage) as number | undefined,
     overrideAmount: (value.overrideAmount ?? value.amount ?? normalized.overrideAmount) as number | undefined,
     overridePercentage: (value.overridePercentage ?? value.percentage ?? normalized.overridePercentage) as number | undefined,
     formulaExpression: (value.formulaExpression ?? normalized.formulaExpression) as string | undefined,
@@ -426,7 +430,7 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
     if (!empUid) return;
     const assignmentUid = payload.uid || assignment?.uid || assignment?.id;
     const requestBody = {
-      uid: payload.uid,
+      uid: assignmentUid || payload.uid,
       employeeUid: empUid,
       structureUid: payload.structureUid,
       effectiveFrom: payload.effectiveFrom,
@@ -459,9 +463,10 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
       return acc;
     }, { ...currentValues });
     const componentsPayload = Object.values(nextValues).map((item) => ({
-      uid: item.uid || item.id,
+      uid: item.uid || item.id || item.structureComponentUid || item.componentUid,
       employeePayrollStructureUid: item.employeePayrollStructureUid || assignmentUid,
       employeeUid: empUid,
+      structureComponentUid: item.structureComponentUid,
       componentUid: item.componentUid,
       componentName: item.componentName,
       componentCode: item.componentCode,

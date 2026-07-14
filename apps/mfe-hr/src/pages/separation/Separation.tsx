@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { LogOut, Plus, X, AlertCircle, Loader2, ShieldCheck, Scissors, MessageSquare } from "lucide-react";
-import { PageHeader, Button, Input, Select, Textarea } from "@jaldee/design-system";
+import { PageHeader, Button, EmptyState, Input, Select, Textarea } from "@jaldee/design-system";
 import { useExits, type ExitRequest, type ClearanceStatus } from "../../services/useExits";
 import { useEmployees } from "../../services/useEmployees";
 import { useApprovalSteps } from "../../services/useApprovals";
@@ -105,9 +105,12 @@ export default function Separation() {
         {exits.loading ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={20} className="animate-spin" style={{ display: "inline" }} /></div>
         ) : exits.data.length === 0 ? (
-          <div style={{ padding: "48px 16px", textAlign: "center", color: "var(--light-text)" }}>
-            <LogOut size={40} strokeWidth={1.2} style={{ opacity: 0.3, marginBottom: 10 }} />
-            <div style={lbl}>No exit requests yet</div>
+          <div style={{ padding: 16 }}>
+            <EmptyState
+              icon={<LogOut size={36} strokeWidth={1.5} />}
+              title="No exit requests yet"
+              description="Raised exit requests will appear here for approval, clearance, and final settlement."
+            />
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>

@@ -480,6 +480,7 @@ export default function Payroll() {
     setMessage(null);
     try {
       await employeePayroll.assignStructure({
+        uid: employeePayroll.assignment?.uid || employeePayroll.assignment?.id,
         structureUid: assignmentForm.structureUid,
         effectiveFrom: assignmentForm.effectiveFrom,
         effectiveTo: assignmentForm.effectiveTo || undefined,
@@ -495,22 +496,37 @@ export default function Payroll() {
     }
   };
 
-  const seedOverride = (mapping: StructureComponentMapping) => {
-    const key = uidOf(mapping);
-    const existing = employeePayroll.componentValues.find((v) => v.structureComponentUid === key || v.componentUid === mapping.componentUid);
-    return existing || {
-      structureComponentUid: key,
-      componentUid: mapping.componentUid || mapping.payrollComponentUid,
-      calculationType: mapping.calculationType,
-      isApplicable: true,
-    };
-  };
+  const employeeComponentRows = useMemo(() => (
+    employeePayroll.componentValues.map((value) => ({
+      value,
+      mapping: (activeStructure?.components || []).find((item) => {
+        const mappingUid = uidOf(item);
+        const valueKey = value.structureComponentUid || value.uid || value.id;
+        return (
+          (mappingUid && value.structureComponentUid === mappingUid) ||
+          (valueKey && mappingUid === valueKey) ||
+          (!!value.componentUid && (item.componentUid === value.componentUid || item.payrollComponentUid === value.componentUid))
+        );
+      }),
+    }))
+  ), [activeStructure?.components, employeePayroll.componentValues]);
 
-  const updateOverride = (mapping: StructureComponentMapping, patch: Partial<EmployeeComponentValue>) => {
-    const key = uidOf(mapping);
+  const componentValueKey = (value: EmployeeComponentValue, mapping?: StructureComponentMapping) =>
+    value.structureComponentUid || value.uid || value.id || uidOf(mapping) || value.componentUid || "";
+
+  const seedOverride = (value: EmployeeComponentValue, mapping?: StructureComponentMapping) => ({
+    ...value,
+    structureComponentUid: value.structureComponentUid || uidOf(mapping),
+    componentUid: value.componentUid || mapping?.componentUid || mapping?.payrollComponentUid,
+    calculationType: value.calculationType || mapping?.calculationType,
+    isApplicable: value.isApplicable ?? true,
+  });
+
+  const updateOverride = (value: EmployeeComponentValue, patch: Partial<EmployeeComponentValue>, mapping?: StructureComponentMapping) => {
+    const key = componentValueKey(value, mapping);
     setOverrideDrafts((drafts) => ({
       ...drafts,
-      [key]: { ...seedOverride(mapping), ...(drafts[key] || {}), ...patch },
+      [key]: { ...seedOverride(value, mapping), ...(drafts[key] || {}), ...patch },
     }));
   };
 
@@ -1251,29 +1267,35 @@ export default function Payroll() {
 
                   <Table
                     headers={["Component", "Type", "Default", "Override", "Applicable"]}
-                    empty={(activeStructure?.components || []).length === 0 ? "No components on the active structure." : null}
+                    empty={employeeComponentRows.length === 0 ? "No employee component values found for the active structure." : null}
                   >
-                    {(activeStructure?.components || []).map((mapping) => {
-                      const key = uidOf(mapping);
-                      const draft = overrideDrafts[key] || seedOverride(mapping);
-                      const canOverride = !!mapping.allowEmployeeOverride;
+                    {employeeComponentRows.map(({ value, mapping }) => {
+                      const key = componentValueKey(value, mapping);
+                      const draft = overrideDrafts[key] || seedOverride(value, mapping);
+                      const canOverride = mapping ? !!mapping.allowEmployeeOverride : true;
                       return (
-                        <tr key={key || mapping.componentUid}>
-                          <td style={tdStrong}>{mapping.componentName || mapping.component?.componentName || mapping.componentCode || mapping.componentUid}</td>
-                          <td style={tdStyle}>{labelize(mapping.calculationType)}</td>
-                          <td style={tdStyle}>{mapping.defaultAmount != null ? money(mapping.defaultAmount) : mapping.defaultPercentage != null ? `${mapping.defaultPercentage}%` : mapping.formulaExpression || "-"}</td>
+                        <tr key={key || value.componentUid}>
+                          <td style={tdStrong}>{value.componentName || value.componentCode || mapping?.componentName || mapping?.component?.componentName || mapping?.componentCode || value.componentUid || "-"}</td>
+                          <td style={tdStyle}>{labelize(value.calculationType || mapping?.calculationType)}</td>
+                          <td style={tdStyle}>
+                            {draft.previousAmount != null
+                              ? money(draft.previousAmount)
+                              : draft.previousPercentage != null
+                                ? `${draft.previousPercentage}%`
+                                : "-"}
+                          </td>
                           <td style={tdStyle}>
                             {canOverride ? (
-                              <OverrideInput mapping={mapping} value={draft} onChange={(patch) => updateOverride(mapping, patch)} />
+                              <OverrideInput mapping={mapping} value={draft} onChange={(patch) => updateOverride(value, patch, mapping)} />
                             ) : (
                               <span style={{ color: "var(--light-text)" }}>Locked</span>
                             )}
                           </td>
                           <td style={tdStyle}>
-                            {mapping.isMandatory ? (
+                            {mapping?.isMandatory ? (
                               <span style={{ fontWeight: 700 }}>Mandatory</span>
                             ) : (
-                              <input type="checkbox" checked={draft.isApplicable !== false} onChange={(e) => updateOverride(mapping, { isApplicable: e.target.checked })} />
+                              <input type="checkbox" checked={draft.isApplicable !== false} onChange={(e) => updateOverride(value, { isApplicable: e.target.checked }, mapping)} />
                             )}
                           </td>
                         </tr>
@@ -1592,14 +1614,15 @@ function OverrideInput({
   value,
   onChange,
 }: {
-  mapping: StructureComponentMapping;
+  mapping?: StructureComponentMapping;
   value: EmployeeComponentValue;
   onChange: (patch: Partial<EmployeeComponentValue>) => void;
 }) {
-  if (mapping.calculationType === "FORMULA") {
+  const calculationType = value.calculationType || mapping?.calculationType;
+  if (calculationType === "FORMULA") {
     return <textarea value={value.formulaExpression ?? ""} onChange={(e) => onChange({ formulaExpression: e.target.value })} rows={2} style={{ ...fieldStyle, minWidth: 220 }} />;
   }
-  if (mapping.calculationType === "PERCENTAGE") {
+  if (calculationType === "PERCENTAGE") {
     return <input type="number" value={value.overridePercentage ?? ""} onChange={(e) => onChange({ overridePercentage: numericOrUndefined(e.target.value) })} style={{ ...fieldStyle, minWidth: 150 }} />;
   }
   return <input type="number" value={value.overrideAmount ?? ""} onChange={(e) => onChange({ overrideAmount: numericOrUndefined(e.target.value) })} style={{ ...fieldStyle, minWidth: 150 }} />;

@@ -33,6 +33,7 @@ export default function Announcements() {
   const ann = useAnnouncements();
   const { data: myProfile } = useMyProfile();
   const { trackEvent, captureError } = useTelemetry();
+  const isEmployeeLogin = (myProfile?.role || "").toLowerCase() === "employee";
 
   useEffect(() => {
     if (ann.error) {
@@ -125,6 +126,7 @@ export default function Announcements() {
   };
 
   const handleAcknowledge = async (id: string) => {
+    if (!isEmployeeLogin) return;
     if (!myProfile?.id) {
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",
@@ -258,7 +260,9 @@ export default function Announcements() {
                         <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
                         <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
                       </div>
-                      <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
+                      {isEmployeeLogin ? (
+                        <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
+                      ) : null}
                     </div>
                   </div>
                 </div>

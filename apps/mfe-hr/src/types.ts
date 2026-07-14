@@ -4,6 +4,19 @@
 
 export type EmploymentType = "Full-Time" | "Contract" | "Daily Wage" | "Hourly";
 export type EmployeeStatus = "Active" | "Notice Period" | "Inactive" | "Left" | "Onboarding";
+export enum ClockType {
+  Office = "Office",
+  Home = "Home",
+  Field = "Field",
+  Remote = "Remote",
+}
+
+export const CLOCK_TYPE_OPTIONS: ClockType[] = [
+  ClockType.Office,
+  ClockType.Home,
+  ClockType.Field,
+  ClockType.Remote,
+];
 
 export interface SalaryStructure {
   basic?: number;
