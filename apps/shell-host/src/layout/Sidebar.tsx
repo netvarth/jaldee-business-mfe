@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Select } from "@jaldee/design-system";
 import { useShellStore } from "../store/shellStore";
-import { BASE_CRM_SIDEBAR_SECTIONS, SIDEBAR_CONFIG } from "./sidebarConfig";
+import { BASE_CRM_SIDEBAR_SECTIONS, PRODUCT_SIDEBAR_BEHAVIOR, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
 import type { ProductKey } from "../store/shellStore";
 
@@ -24,6 +24,7 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
     ? SIDEBAR_CONFIG[activeProduct] ?? []
     : filterBaseCrmSections(BASE_CRM_SIDEBAR_SECTIONS, account?.enabledModules);
   const submenuTitle = account?.name ?? "Jaldee Business";
+  const showLocationSwitcher = !isBaseCrm && (activeProduct ? PRODUCT_SIDEBAR_BEHAVIOR[activeProduct]?.showLocationSwitcher ?? true : true);
 
   function toggleExpand(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -50,7 +51,7 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
       className="sidebar"
     >
       <SubmenuHeader title={submenuTitle} />
-      {!isBaseCrm ? <LocationSwitcher /> : null}
+      {showLocationSwitcher ? <LocationSwitcher /> : null}
 
       {isBaseCrm ? (
         <div className="sidebar-spacer">

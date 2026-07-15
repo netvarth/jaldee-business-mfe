@@ -99,7 +99,7 @@ export default function CareersPublishPage() {
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Done</button>
-          <button onClick={() => navigate(`/careers/site/${companySlug}/${publishedSlug}`)} style={btnPrimary}>Open public page →</button>
+          <button onClick={() => window.open(link, "_blank", "noopener,noreferrer")} style={btnPrimary}>Open public page →</button>
         </div>
       </div>
     );

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
-import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker } from "@jaldee/design-system";
+import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, SectionCard, type ColumnDef } from "@jaldee/design-system";
 import {
   useDepartments, useDesignations, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
@@ -372,35 +372,55 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
     }
   };
 
+  const tableColumns: ColumnDef<Row & { id: string }>[] = [
+    ...columns.map((column, index) => ({
+      key: `column-${index}`,
+      header: column.label,
+      align: column.align,
+      render: (row: Row & { id: string }) => column.render(row),
+    })),
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right",
+      width: 112,
+      render: (row: Row & { id: string }) => (
+        <div className="flex items-center justify-end gap-2">
+          <button id={`${automationScope}-edit-${row.id}`} data-testid={`${automationScope}-edit-${row.id}`} onClick={() => openEdit(row)} title="Edit" aria-label={`Edit ${title} record`} style={iconAction}><Pencil size={15} /></button>
+          <button id={`${automationScope}-delete-${row.id}`} data-testid={`${automationScope}-delete-${row.id}`} onClick={() => handleDelete(row.id)} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
       <PanelHeader title={title} subtitle={subtitle} icon={icon} action={<button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} onClick={openAdd} style={primaryBtn}><Plus size={16} /> {addLabel}</button>} />
       {hook.error && <ErrorBar text={hook.error} />}
       {hook.loading ? (
-        <div style={{ ...card, padding: 20 }}>
+        <SectionCard className="border-slate-200 shadow-sm" data-testid={`${automationScope}-panel`}>
+          <div style={{ padding: 4 }}>
           <SkeletonTable rows={4} columns={columns.length + 1} />
-        </div>
-      ) : (
-        <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={card}>
-          <div className="overflow-x-auto w-full">
-            <table id={`${automationScope}-table`} data-testid={`${automationScope}-table`} style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>{columns.map((c) => <th key={c.label} style={{ ...th, textAlign: c.align || "left" }}>{c.label}</th>)}<th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
-              <tbody>
-                {hook.data.length === 0 ? (
-                  <tr><td colSpan={columns.length + 1} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No records yet.</td></tr>
-                ) : hook.data.map((r) => (
-                  <tr key={r.id} id={`${automationScope}-row-${r.id}`} data-testid={`${automationScope}-row-${r.id}`}>
-                    {columns.map((c) => <td key={c.label} style={{ ...tdc, textAlign: c.align || "left" }}>{c.render(r)}</td>)}
-                    <td style={{ ...tdc, textAlign: "right" }}>
-                      <button id={`${automationScope}-edit-${r.id}`} data-testid={`${automationScope}-edit-${r.id}`} onClick={() => openEdit(r)} title="Edit" aria-label={`Edit ${title} record`} style={iconAction}><Pencil size={15} /></button>
-                      <button id={`${automationScope}-delete-${r.id}`} data-testid={`${automationScope}-delete-${r.id}`} onClick={() => handleDelete(r.id)} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </div>
+        </SectionCard>
+      ) : (
+        <SectionCard id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} className="overflow-hidden border-slate-200 shadow-sm" padding={false}>
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] px-5 py-4">
+            <div>
+              <div className="text-sm font-bold text-slate-900">{title}</div>
+              <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{hook.data.length} record{hook.data.length === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+          <DataTable
+            data={hook.data}
+            columns={tableColumns}
+            getRowId={(row) => row.id}
+            data-testid={`${automationScope}-table`}
+            emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">No records yet.</div>}
+            className="rounded-none border-0 shadow-none"
+            tableClassName="[&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em]"
+          />
+        </SectionCard>
       )}
 
       <Dialog
@@ -884,62 +904,56 @@ export default function Settings() {
 
   return (
     <section id="hr-settings-page" data-testid="hr-settings-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0, overflow: "visible" }}>
-      {/* HEADER WITH MOBILE INLINE 3-DOT MENU */}
-      <div className="mb-6 flex flex-row items-center justify-between gap-4 relative z-50">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h1 className="m-0 max-w-full text-2xl font-bold leading-tight text-gray-900">
-            Settings
-          </h1>
-          <p className="m-0 max-w-full text-sm leading-5 text-gray-500">
-            Organization configuration and HR policy control
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* MOBILE NAV SWITCHER */}
-          <div className="flex md:hidden items-center">
-            <Popover
-              portal
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
-              placement="bottom"
-              align="end"
-              contentClassName="!w-56 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
-              trigger={
-                <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  style={{ background: "none", border: "none", cursor: "pointer" }}
-                  className="p-2 hover:bg-[rgba(0,0,0,0.04)] rounded-full transition-colors flex items-center justify-center text-[var(--light-text)]"
-                  aria-label="Toggle settings menu"
-                >
-                  <MoreVertical size={20} />
-                </button>
-              }
-            >
-              <div className="flex flex-col w-full">
-                {SECTIONS.map((s) => (
+      <PageHeader
+        title="Settings"
+        subtitle="Organization configuration and HR policy control"
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="flex md:hidden items-center">
+              <Popover
+                portal
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                placement="bottom"
+                align="end"
+                contentClassName="!w-56 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+                trigger={
                   <button
-                    key={s.key}
-                    onClick={() => {
-                      navigate(`/settings/${s.key}`);
-                      setMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-[rgba(17,94,89,0.04)]"
-                    style={{
-                      color: section === s.key ? TEAL : "var(--dark-text)",
-                      background: section === s.key ? "rgba(17,94,89,0.04)" : "transparent",
-                      border: "none",
-                      cursor: "pointer"
-                    }}
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                    className="p-2 hover:bg-[rgba(0,0,0,0.04)] rounded-full transition-colors flex items-center justify-center text-[var(--light-text)]"
+                    aria-label="Toggle settings menu"
                   >
-                    <span style={{ color: section === s.key ? TEAL : "var(--light-text)" }}>{s.icon}</span>
-                    {s.label}
+                    <MoreVertical size={20} />
                   </button>
-                ))}
-              </div>
-            </Popover>
+                }
+              >
+                <div className="flex flex-col w-full">
+                  {SECTIONS.map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => {
+                        navigate(`/settings/${s.key}`);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-[rgba(17,94,89,0.04)]"
+                      style={{
+                        color: section === s.key ? TEAL : "var(--dark-text)",
+                        background: section === s.key ? "rgba(17,94,89,0.04)" : "transparent",
+                        border: "none",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <span style={{ color: section === s.key ? TEAL : "var(--light-text)" }}>{s.icon}</span>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </Popover>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div style={{ alignItems: "start" }} className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-7">
         {/* LEFT NAV */}

@@ -20,8 +20,9 @@ const NAV = [
   { to: "/payroll", label: "Payroll", iconName: "database" },
   { to: "/expenses", label: "Expenses", iconName: "cart" },
   { to: "/tickets", label: "Helpdesk", iconName: "alert" },
-  { to: "/grievances", label: "Grievances", iconName: "alert" },
-  { to: "/posh", label: "POSH", iconName: "alert" },
+  // Keep routes/pages in place; hide these admin links for now.
+  // { to: "/grievances", label: "Grievances", iconName: "alert" },
+  // { to: "/posh", label: "POSH", iconName: "alert" },
   { to: "/recruitment", label: "Recruitment", iconName: "search" },
   { to: "/recruitment/careers", label: "Careers", iconName: "globe" },
   { to: "/reports", label: "Reports", iconName: "chart" },

@@ -36,6 +36,10 @@ export interface SettingsMenuGroup {
   items: { id: string; label: string; path: string; badge?: string }[];
 }
 
+export interface ProductSidebarBehavior {
+  showLocationSwitcher?: boolean;
+}
+
 const sidebarIcon = (Icon: typeof Grid2X2) =>
   createElement(Icon, { size: 18, strokeWidth: 1.9 });
 
@@ -325,8 +329,9 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "hr-expenses", label: "Expenses", icon: sidebarIcon(DollarSign), path: "/hr/expenses" },
     { id: "hr-staffspace", label: "StaffSpace", icon: sidebarIcon(Megaphone), path: "/hr/announcements" },
     { id: "hr-helpdesk", label: "Helpdesk", icon: sidebarIcon(HelpCircle), path: "/hr/tickets" },
-    { id: "hr-grievances", label: "Grievances", icon: "\u{1F512}", path: "/hr/grievances" },
-    { id: "hr-posh", label: "POSH", icon: "\u{1F6E1}", path: "/hr/posh" },
+    // Keep routes/pages in place; hide these admin links for now.
+    // { id: "hr-grievances", label: "Grievances", icon: "\u{1F512}", path: "/hr/grievances" },
+    // { id: "hr-posh", label: "POSH", icon: "\u{1F6E1}", path: "/hr/posh" },
     { id: "hr-reports", label: "Reports", icon: sidebarIcon(BarChart3), path: "/hr/reports" },
     { id: "hr-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/hr/settings" },
   ],
@@ -336,6 +341,12 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "ai-automation", label: "Automation", icon: "\u2699", path: "/ai/automation" },
     { id: "ai-insights", label: "Insights", icon: "\u{1F4A1}", path: "/ai/insights" },
   ],
+};
+
+export const PRODUCT_SIDEBAR_BEHAVIOR: Partial<Record<ProductKey, ProductSidebarBehavior>> = {
+  hr: {
+    showLocationSwitcher: false,
+  },
 };
 
 export const SETTINGS_MENU_GROUPS: SettingsMenuGroup[] = [

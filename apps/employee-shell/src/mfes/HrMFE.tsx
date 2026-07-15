@@ -18,8 +18,12 @@ const eventBus = {
 };
 
 function loadHrRemote() {
-  const hrUrl = import.meta.env.VITE_HR_URL?.trim() || "http://localhost:4008";
-  return import(/* @vite-ignore */ `${hrUrl}/src/mount.tsx`);
+  if (import.meta.env.DEV) {
+    const hrUrl = import.meta.env.VITE_HR_URL?.trim() || "http://localhost:3007";
+    return import(/* @vite-ignore */ `${hrUrl}/src/mount.tsx`);
+  }
+
+  return import("mfe_hr/mount");
 }
 
 export default function HrMFE() {
@@ -76,10 +80,10 @@ export default function HrMFE() {
         code: workspace.id,
       },
       navigate: (route: string) => {
-        const nextRoute = route.startsWith("/ess")
-          ? route
-          : `/ess${route.startsWith("/") ? route : `/${route}`}`;
-        navigate(nextRoute);
+        const normalizedRoute = route.startsWith("/ess")
+          ? route.slice("/ess".length) || "/"
+          : (route.startsWith("/") ? route : `/${route}`);
+        navigate(normalizedRoute);
       },
       eventBus,
       api: {

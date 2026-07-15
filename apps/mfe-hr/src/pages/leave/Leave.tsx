@@ -7,6 +7,7 @@ import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
 import { useLeaveTypes } from "../../services/useSettingsData";
 import { useTelemetry } from "../../services/useTelemetry";
+import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "../recruitment/recruitmentResponsive";
 
 type Tab = "overview" | "balances" | "ledger";
 
@@ -159,6 +160,7 @@ export default function Leave() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
   const requestedBalances = form.employeeUid && form.type ? balFor(form.employeeUid, form.type) : [];
   const requestedAvailable = requestedBalances
     .filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE")
@@ -242,23 +244,47 @@ export default function Leave() {
     return !q || e.name.toLowerCase().includes(q) || (e.employeeId || "").toLowerCase().includes(q) || (e.department || "").toLowerCase().includes(q);
   }), [employees, search]);
 
+  const pendingCards = pendingLeaves.map((l) => (
+    <RecruitmentMobileCard
+      key={l.id}
+      title={empName(l.employeeUid)}
+      rows={[
+        { label: "Department", value: empDept(l.employeeUid) },
+        { label: "Leave Type", value: l.leaveTypeName || l.type },
+        { label: "Period", value: `${l.startDate} to ${l.endDate}` },
+        { label: "Days", value: `${calcDays(l.startDate, l.endDate, l.isHalfDay)}d` },
+        { label: "Reason", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
+      ]}
+      footer={
+        <button
+          id={`hr-leave-pending-inspect-${l.id}`}
+          data-testid={`hr-leave-pending-inspect-${l.id}`}
+          onClick={() => { setSelected(l); setRemarks(""); }}
+          style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <Eye size={14} /> Inspect
+        </button>
+      }
+    />
+  ));
+
   return (
     <section id="hr-leave-page" data-testid="hr-leave-page" className="page-section active hr-page-shell">
       <PageHeader
         title="Corporate Leave Dashboard"
         subtitle="Administrative leave and attendance control"
         actions={
-          <>
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
           <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 12 }}><UserCheck size={14} /> Corporate Admin Control</span>
           <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
-          </>
+          </div>
         }
       />
 
       {/* PILL TABS */}
-      <div style={{ display: "inline-flex", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 12, marginBottom: 28 }}>
+      <div className="flex w-full flex-wrap gap-2 md:inline-flex" style={{ background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 12, marginBottom: 28 }}>
         {LEAVE_ROUTES.map((t) => (
-          <button id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => navigate(`/leave/${t.route}`)} style={{ padding: "8px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
+          <button className="w-full md:w-auto" id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => navigate(`/leave/${t.route}`)} style={{ padding: "8px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
         ))}
       </div>
 
@@ -326,13 +352,17 @@ export default function Leave() {
 
           {/* pending approvals */}
           <div style={{ ...card }}>
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="flex flex-wrap items-center justify-between gap-4" style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Pending Absence Requests</div>
                 <div style={{ ...lbl, marginTop: 2 }}>Staff submissions requiring immediate clearance</div>
               </div>
-              <span style={{ background: "rgba(245,158,11,0.12)", color: "#b45309", border: "1px solid rgba(245,158,11,0.25)", padding: "4px 10px", borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>{pendingLeaves.length} Pending</span>
+              <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                <span style={{ background: "rgba(245,158,11,0.12)", color: "#b45309", border: "1px solid rgba(245,158,11,0.25)", padding: "4px 10px", borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>{pendingLeaves.length} Pending</span>
+                <RecruitmentViewToggle value={viewMode} onChange={setViewMode} tableTestId="hr-leave-pending-table-view" cardsTestId="hr-leave-pending-card-view" />
+              </div>
             </div>
+            {viewMode === "table" ? (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr><th style={th}>Staff Individual</th><th style={th}>Leave Category</th><th style={th}>Period Range</th><th style={th}>Days</th><th style={th}>Reason</th><th style={{ ...th, textAlign: "right" }}>Clearance</th></tr></thead>
               <tbody>
@@ -352,6 +382,11 @@ export default function Leave() {
                 ))}
               </tbody>
             </table>
+            ) : (
+              <div className="grid gap-4 p-4 sm:p-6">
+                {pendingCards.length > 0 ? pendingCards : <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>Excellent! No pending absence application logs found.</div>}
+              </div>
+            )}
           </div>
           </>
           )}
@@ -372,11 +407,17 @@ export default function Leave() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL }}>Overall Leave Left status for each employee</div>
               <div style={{ ...lbl, marginTop: 2 }}>Remaining balances computed from approved ledger history</div>
             </div>
-            <div style={{ position: "relative", width: 300, maxWidth: "100%" }}>
-              <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-              <input id="hr-leave-balance-search" data-testid="hr-leave-balance-search" placeholder="Search employee or department…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 40, borderRadius: 999, paddingLeft: 38, fontWeight: 600, fontSize: 12.5 }} />
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <div style={{ position: "relative", width: 300, maxWidth: "100%" }}>
+                <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
+                <input id="hr-leave-balance-search" data-testid="hr-leave-balance-search" placeholder="Search employee or department…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 40, borderRadius: 999, paddingLeft: 38, fontWeight: 600, fontSize: 12.5 }} />
+              </div>
+              <div className="flex justify-end">
+                <RecruitmentViewToggle value={viewMode} onChange={setViewMode} tableTestId="hr-leave-balances-table-view" cardsTestId="hr-leave-balances-card-view" />
+              </div>
             </div>
           </div>
+          {viewMode === "table" ? (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
               <th style={th}>Employee Details</th>
@@ -452,6 +493,94 @@ export default function Leave() {
               })}
             </tbody>
           </table>
+          ) : (
+            <div className="grid gap-4 p-4 sm:p-6">
+              {balanceRows.length === 0 ? (
+                <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>No employees found.</div>
+              ) : balanceRows.map((emp) => {
+                const employeeBalances = balanceTypes.flatMap((q) => balFor(emp.id, q.type, q.uid));
+                const activeBalances = employeeBalances.filter((balance) => (balance.status || "ACTIVE").toUpperCase() === "ACTIVE");
+                const totalLeft = activeBalances.reduce((s, balance) => s + (balance.available ?? 0), 0);
+                const activeTotalQuota = activeBalances.reduce((s, balance) => {
+                  const typeConfig = balanceTypes.find((q) => q.uid === balance.leaveTypeUid || q.type === balance.leaveTypeName || q.type === balance.leaveType);
+                  return s + (balance.total ?? typeConfig?.quota ?? 0);
+                }, 0);
+                return (
+                  <div key={emp.id} className="grid gap-4 rounded-xl border border-[var(--border-color)] bg-[var(--surface-bg)] p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-[var(--dark-text)]">{emp.name}</div>
+                        <div style={{ ...lbl, marginTop: 4 }}>{emp.employeeId || "—"} · {emp.department || "General"}</div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-base font-black text-[var(--primary-color)]">{employeeBalances.length > 0 ? totalLeft : "N/A"}</div>
+                        <div style={{ ...lbl, fontSize: 8 }}>{employeeBalances.length > 0 ? `of ${activeTotalQuota}` : "Not assigned"}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {balanceTypes.map((q) => {
+                        const balancesList = balFor(emp.id, q.type, q.uid);
+                        const activeList = balancesList.filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE");
+                        const avl = activeList.reduce((s, b) => s + (b.available ?? 0), 0);
+                        const totalQuota = activeList.reduce((s, b) => s + (b.total ?? 0), 0) || q.quota;
+                        const status = activeList.length > 0 ? "ACTIVE" : (balancesList[0]?.status || "EXPIRED").toUpperCase();
+                        const percent = totalQuota ? Math.min(100, (avl / totalQuota) * 100) : 0;
+                        return (
+                          <div key={q.type} className="grid gap-2 rounded-lg border border-[var(--border-color)] bg-[rgba(100,116,139,0.03)] p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">{q.type}</span>
+                              <span style={{ ...balanceStatusPill(status), display: "inline-block", padding: "2px 6px", borderRadius: 7, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em" }}>
+                                {balancesList.length > 0 ? status : "N/A"}
+                              </span>
+                            </div>
+                            {balancesList.length > 0 ? (
+                              <>
+                                <div className="flex items-baseline justify-between gap-3">
+                                  <span className="text-sm font-semibold text-[var(--dark-text)]">{avl}</span>
+                                  <span className="text-xs font-medium text-[var(--light-text)]">/ {totalQuota || 0}</span>
+                                </div>
+                                <div style={{ height: 4, background: "rgba(100,116,139,0.15)", borderRadius: 999, overflow: "hidden" }}>
+                                  <div style={{ height: "100%", width: `${percent}%`, background: status === "ACTIVE" ? q.color : "#94a3b8", borderRadius: 999 }} />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-xs font-medium text-[var(--color-text-secondary)]">Not assigned</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+                return (
+                  <RecruitmentMobileCard
+                    key={emp.id}
+                    title={emp.name}
+                    rows={[
+                      { label: "Employee", value: `${emp.employeeId || "—"} · ${emp.department || "General"}` },
+                      ...balanceTypes.map((q) => {
+                        const balancesList = balFor(emp.id, q.type, q.uid);
+                        const activeList = balancesList.filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE");
+                        const avl = activeList.reduce((s, b) => s + (b.available ?? 0), 0);
+                        const totalQuota = activeList.reduce((s, b) => s + (b.total ?? 0), 0) || q.quota;
+                        const status = activeList.length > 0 ? "ACTIVE" : (balancesList[0]?.status || "EXPIRED").toUpperCase();
+                        return {
+                          label: q.type,
+                          value: balancesList.length > 0 ? (
+                            <div className="grid gap-1">
+                              <span>{avl} / {totalQuota || 0}</span>
+                              <span style={{ ...balanceStatusPill(status), display: "inline-block", padding: "2px 6px", borderRadius: 7, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em" }}>{status}</span>
+                            </div>
+                          ) : "Not assigned",
+                        };
+                      }),
+                      { label: "Total Left", value: employeeBalances.length > 0 ? `${totalLeft} of ${activeTotalQuota}` : "Not assigned" },
+                    ]}
+                  />
+                );
+              })}
+            </div>
+          )}
             </>
           )}
         </div>
@@ -471,21 +600,27 @@ export default function Leave() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Global Leave Register History</div>
               <div style={{ ...lbl, marginTop: 2 }}>Master record ledger of all submissions</div>
             </div>
-            <Select
-              id="hr-leave-status-filter"
-              testId="hr-leave-status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              containerClassName="w-[170px]"
-              fullWidth={false}
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "approved", label: "Approved" },
-                { value: "pending", label: "Pending" },
-                { value: "rejected", label: "Rejected" },
-              ]}
-            />
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <Select
+                id="hr-leave-status-filter"
+                testId="hr-leave-status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                containerClassName="w-full sm:w-[170px]"
+                fullWidth={false}
+                options={[
+                  { value: "all", label: "All Status" },
+                  { value: "approved", label: "Approved" },
+                  { value: "pending", label: "Pending" },
+                  { value: "rejected", label: "Rejected" },
+                ]}
+              />
+              <div className="flex justify-end">
+                <RecruitmentViewToggle value={viewMode} onChange={setViewMode} tableTestId="hr-leave-ledger-table-view" cardsTestId="hr-leave-ledger-card-view" />
+              </div>
+            </div>
           </div>
+          {viewMode === "table" ? (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={th}>Staff Associate</th><th style={th}>Category</th><th style={th}>Duration</th><th style={th}>Days</th><th style={th}>Statement</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
             <tbody>
@@ -508,6 +643,37 @@ export default function Leave() {
               ))}
             </tbody>
           </table>
+          ) : (
+            <div className="grid gap-4 p-4 sm:p-6">
+              {ledgerRows.length === 0 ? (
+                <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>No records in the ledger.</div>
+              ) : ledgerRows.map((l) => (
+                <RecruitmentMobileCard
+                  key={l.id}
+                  title={empName(l.employeeUid)}
+                  rows={[
+                    { label: "Employee ID", value: empCode(l.employeeUid) },
+                    { label: "Category", value: l.leaveTypeName || l.type },
+                    { label: "Duration", value: `${l.startDate} to ${l.endDate}` },
+                    { label: "Days", value: `${calcDays(l.startDate, l.endDate, l.isHalfDay)}d` },
+                    { label: "Statement", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
+                    { label: "Status", value: <span style={pill(l.status)}>{l.status}</span> },
+                  ]}
+                  footer={
+                    <button
+                      id={`hr-leave-ledger-inspect-${l.id}`}
+                      data-testid={`hr-leave-ledger-inspect-${l.id}`}
+                      onClick={() => { setSelected(l); setRemarks(""); }}
+                      title="Inspect"
+                      style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    >
+                      <Eye size={14} /> Inspect
+                    </button>
+                  }
+                />
+              ))}
+            </div>
+          )}
             </>
           )}
         </div>

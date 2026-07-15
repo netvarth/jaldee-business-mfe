@@ -5,8 +5,11 @@ import { useHrApi } from "./useHrApi";
 
 export interface Position {
   id: string; uid?: string;
-  designationUid?: string; departmentUid?: string; shiftUid?: string;
-  locationUid?: string; sanctionedCount?: number;
+  code?: string; name?: string;
+  designationUid?: string; designationName?: string;
+  departmentUid?: string; departmentName?: string;
+  locationUid?: string; locationName?: string;
+  sanctionedCount?: number;
 }
 export interface HierarchyLevel {
   id: string; uid?: string; levelNo?: number; label?: string;

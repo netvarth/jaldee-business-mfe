@@ -53,26 +53,28 @@ export default function Candidates() {
       <div className="p-4 md:p-6">
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+            <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">
+              <Button variant="primary" data-testid="hr-recruitment-new-candidate" onClick={() => setIsModalOpen(true)}>
+                + Add Candidate
+              </Button>
+              <div className="ml-auto shrink-0">
+                <RecruitmentViewToggle
+                  value={viewMode}
+                  onChange={setViewMode}
+                  tableTestId="hr-recruitment-candidates-view-table"
+                  cardsTestId="hr-recruitment-candidates-view-cards"
+                />
+              </div>
+            </div>
             <Input
               id="hr-recruitment-candidates-search"
               data-testid="hr-recruitment-candidates-search"
               placeholder="Search candidates by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              containerClassName="w-full md:max-w-xs"
+              containerClassName="w-full md:order-1 md:max-w-xs"
               icon={<SearchIcon />}
             />
-            <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <RecruitmentViewToggle
-                value={viewMode}
-                onChange={setViewMode}
-                tableTestId="hr-recruitment-candidates-view-table"
-                cardsTestId="hr-recruitment-candidates-view-cards"
-              />
-              <Button variant="primary" data-testid="hr-recruitment-new-candidate" onClick={() => setIsModalOpen(true)}>
-                + Add Candidate
-              </Button>
-            </div>
           </div>
 
           <div className="p-0">

@@ -23,6 +23,7 @@ const FinanceMFE = lazy(() => import("./mfes/FinanceMFE").then(m => ({ default: 
 const KartyMFE = lazy(() => import("./mfes/KartyMFE").then(m => ({ default: m.KartyMFE })));
 const LendingMFE = lazy(() => import("./mfes/LendingMFE").then(m => ({ default: m.LendingMFE })));
 const HrMFE = lazy(() => import("./mfes/HrMFE").then(m => ({ default: m.HrMFE })));
+const PublicCareersMFE = lazy(() => import("./mfes/PublicCareersMFE").then(m => ({ default: m.PublicCareersMFE })));
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ShellLayout from "./layout/ShellLayout";
 import { useShellStore } from "./store/shellStore";
@@ -84,6 +85,14 @@ export default function App() {
           ) : (
             <Navigate to={landingPath} replace />
           )
+        }
+      />
+      <Route
+        path="/careers/*"
+        element={
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <PublicCareersMFE />
+          </Suspense>
         }
       />
       <Route

@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import federation from "@originjs/vite-plugin-federation";
 import path from "path";
 
 export default defineConfig(({ mode }) => {
@@ -7,8 +8,20 @@ export default defineConfig(({ mode }) => {
   const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET;
 
   return {
-    base: "/",
-    plugins: [react()],
+    base: "/ess/",
+    plugins: [
+      react(),
+      federation({
+        name: "employee_shell",
+        remotes: {
+          mfe_hr: {
+            external: `${env.VITE_HR_URL}/assets/remoteEntry.js`,
+            from: "vite",
+            externalType: "url",
+          },
+        },
+      }),
+    ],
     resolve: {
       alias: {
         "@jaldee/api-client": path.resolve(__dirname, "../../packages/api-client"),

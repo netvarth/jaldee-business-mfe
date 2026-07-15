@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash } from "lucide-react";
-import { Button, Input, Select, Checkbox, Textarea, PageHeader } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Rows3, LayoutGrid } from "lucide-react";
+import { Button, Input, Select, Checkbox, Textarea, DataTable, SectionCard, type ColumnDef } from "@jaldee/design-system";
 
 export const TEAL = "var(--primary-color)";
 export const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -10,6 +10,19 @@ export const field: CSSProperties = { width: "100%", height: 44, borderRadius: 1
 export const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, overflow: "hidden" };
 export const chip: CSSProperties = { height: 38, padding: "0 16px", borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };
 export const chipOn: CSSProperties = { border: `1px solid ${TEAL}`, background: "rgba(17,94,89,0.08)", color: TEAL };
+const viewToggleWrap: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 3, padding: 3, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)" };
+const viewToggleButton = (active: boolean): CSSProperties => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  height: 32,
+  width: 32,
+  borderRadius: 7,
+  border: "none",
+  cursor: "pointer",
+  background: active ? "var(--primary-color)" : "transparent",
+  color: active ? "#fff" : "var(--light-text)",
+});
 
 export type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
 export interface Field { key: string; label: string; type?: FieldType; options?: string[]; full?: boolean; placeholder?: string; }
@@ -170,12 +183,22 @@ const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius:
 // data typed loosely so specific hook interfaces (Shift, ShiftRotation, LeaveType…) satisfy it
 // (TS interfaces aren't assignable to Record<string, unknown> without an index signature).
 export interface Crud { data: any[]; loading: boolean; error: string | null; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
-export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, readOnly }: {
+type CrudViewMode = "table" | "cards";
+export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, readOnly, viewMode, onViewModeChange, viewScope, cardTitle, cardRows, emptyText, tableContainerClassName, tableClassName, cardGridClassName }: {
   title: string; subtitle: string; icon: ReactNode; addLabel: string; fields: Field[];
   columns: { label: string; render: (r: Row) => ReactNode; align?: "right" }[]; hook: Crud;
   locationPicker?: boolean;
   /** When set, hides add/edit/delete and shows this note (data managed elsewhere). */
   readOnly?: string;
+  viewMode?: CrudViewMode;
+  onViewModeChange?: (value: CrudViewMode) => void;
+  viewScope?: string;
+  cardTitle?: (row: Row) => ReactNode;
+  cardRows?: (row: Row) => Array<{ label: string; value: ReactNode }>;
+  emptyText?: string;
+  tableContainerClassName?: string;
+  tableClassName?: string;
+  cardGridClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
@@ -185,6 +208,38 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
 
   const openAdd = () => { setEditing(null); setForm({}); setMsg(null); setOpen(true); };
   const openEdit = (r: Row & { id: string }) => { setEditing(r); setForm({ ...r }); setMsg(null); setOpen(true); };
+  const resolvedEmptyText = emptyText ?? "No records yet.";
+
+  const tableColumns: ColumnDef<Row & { id: string }>[] = [
+    ...columns.map((column, index) => ({
+      key: `column-${index}`,
+      header: column.label,
+      align: column.align,
+      render: (row: Row & { id: string }) => column.render(row),
+    })),
+    ...(!readOnly
+      ? [{
+          key: "actions",
+          header: "Actions",
+          align: "right" as const,
+          width: 116,
+          render: (row: Row & { id: string }) => (
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { if (confirm("Delete this record?")) void hook.remove(row.id); }}
+                title="Delete"
+                style={{ color: "#e11d48" }}
+              >
+                <Trash2 size={15} />
+              </Button>
+            </div>
+          ),
+        }]
+      : []),
+  ];
 
   const save = async () => {
     setSaving(true); setMsg(null);
@@ -196,37 +251,89 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
     finally { setSaving(false); }
   };
 
+  const showCardView = viewMode === "cards" && typeof cardTitle === "function" && typeof cardRows === "function";
+  const actionNode = (
+    <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
+      {!readOnly ? <Button onClick={openAdd} icon={<Plus size={16} />}>{addLabel}</Button> : null}
+      {viewMode && onViewModeChange && viewScope ? (
+        <div className="ml-auto shrink-0" style={viewToggleWrap}>
+          <button
+            id={`${viewScope}-table`}
+            data-testid={`${viewScope}-table`}
+            type="button"
+            onClick={() => onViewModeChange("table")}
+            style={viewToggleButton(viewMode === "table")}
+            aria-label="Table view"
+            title="Table view"
+          >
+            <Rows3 size={14} />
+          </button>
+          <button
+            id={`${viewScope}-cards`}
+            data-testid={`${viewScope}-cards`}
+            type="button"
+            onClick={() => onViewModeChange("cards")}
+            style={viewToggleButton(viewMode === "cards")}
+            aria-label="Card view"
+            title="Card view"
+          >
+            <LayoutGrid size={14} />
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
   return (
     <div>
-      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={readOnly ? undefined : <Button onClick={openAdd} icon={<Plus size={16} />}>{addLabel}</Button>} />
+      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={readOnly && !viewMode ? undefined : actionNode} />
       {readOnly && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", marginBottom: 12, borderRadius: 10, background: "rgba(17,94,89,0.06)", border: "1px solid rgba(17,94,89,0.15)", fontSize: 12.5, fontWeight: 600, color: "var(--dark-text)" }}>
           <Info size={14} style={{ color: TEAL, flexShrink: 0 }} /> {readOnly}
         </div>
       )}
       {hook.error && <ErrorBar text={hook.error} />}
-      <div style={card}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr>{columns.map((c) => <th key={c.label} style={{ ...th, textAlign: c.align || "left" }}>{c.label}</th>)}{!readOnly && <th style={{ ...th, textAlign: "right" }}>Actions</th>}</tr></thead>
-          <tbody>
-            {hook.loading ? (
-              <tr><td colSpan={columns.length + (readOnly ? 0 : 1)} style={{ ...tdc, textAlign: "center", padding: "36px 0" }}><Loader2 size={20} className="animate-spin" style={{ display: "inline" }} /></td></tr>
-            ) : hook.data.length === 0 ? (
-              <tr><td colSpan={columns.length + (readOnly ? 0 : 1)} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No records yet.</td></tr>
-            ) : hook.data.map((r) => (
-              <tr key={r.id}>
-                {columns.map((c) => <td key={c.label} style={{ ...tdc, textAlign: c.align || "left" }}>{c.render(r)}</td>)}
-                {!readOnly && (
-                  <td style={{ ...tdc, textAlign: "right" }}>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(r)} title="Edit"><Pencil size={15} /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this record?")) hook.remove(r.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <SectionCard className={tableContainerClassName ? "overflow-hidden border-0 shadow-none" : "overflow-hidden border-slate-200 shadow-sm"} padding={false}>
+        {showCardView ? (
+          hook.loading ? (
+            <Center><Loader2 size={22} className="animate-spin" /></Center>
+          ) : hook.data.length === 0 ? (
+            <div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">{resolvedEmptyText}</div>
+          ) : (
+            <div className={cardGridClassName ?? "grid gap-3 p-[14px]"}>
+              {hook.data.map((row) => (
+                <div key={row.id} style={{ border: "1px solid var(--border-color)", borderRadius: 18, padding: 16, background: "var(--surface-bg)", display: "grid", gap: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--dark-text)" }}>{cardTitle(row)}</div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {cardRows(row).map((item) => (
+                      <div key={String(item.label)} style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+                        <span style={{ ...lbl, fontSize: 8.5 }}>{item.label}</span>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--dark-text)", textAlign: "right" }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {!readOnly ? (
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this record?")) void hook.remove(row.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <DataTable
+            data={hook.data as Array<Row & { id: string }>}
+            columns={tableColumns}
+            getRowId={(row) => row.id}
+            loading={hook.loading}
+            emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">{resolvedEmptyText}</div>}
+            className={tableContainerClassName ?? "rounded-none border-0 shadow-none"}
+            tableClassName={tableClassName ?? "min-w-[720px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:font-medium"}
+          />
+        )}
+      </SectionCard>
 
       {open && (
         <div style={overlay} onClick={() => setOpen(false)}>
@@ -270,11 +377,16 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
 /* ---- small shared bits ---- */
 export const PanelHeader = ({ title, subtitle, icon, action }: { title: string; subtitle: string; icon: ReactNode; action?: ReactNode }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 44 }}>
       <div style={{ height: 44, width: 44, borderRadius: 14, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
-      <div><h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.4px", color: "var(--dark-text)", margin: 0 }}>{title}</h2><p style={{ ...lbl, marginTop: 2 }}>{subtitle}</p></div>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.4px", color: "var(--dark-text)", margin: 0 }}>{title}</h2>
+        <p style={{ ...lbl, marginTop: 2 }}>{subtitle}</p>
+      </div>
     </div>
-    {action}
+    <div className="w-full sm:w-auto" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", minHeight: 44 }}>
+      {action}
+    </div>
   </div>
 );
 export const ErrorBar = ({ text }: { text: string }) => <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertCircle size={16} /> {text}</div>;

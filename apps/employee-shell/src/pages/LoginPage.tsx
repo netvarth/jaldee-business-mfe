@@ -112,15 +112,15 @@ export default function LoginPage() {
         <section className="rounded-lg border border-white/70 bg-white/[0.9] p-6 text-slate-900 shadow-[0_24px_70px_rgba(17,24,21,0.16)] backdrop-blur md:p-8">
           <div className="mb-7">
             <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">
-              Tenant Login
+              Employee Login
             </div>
             <h2 className="mt-5 text-3xl font-semibold leading-tight text-slate-950">
-              {requiresMfa ? "Verify your sign in" : "Sign in to HR"}
+              {requiresMfa ? "Verify your sign in" : "Sign in to ESS"}
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
               {requiresMfa
                 ? `Enter the OTP${maskedDestination ? ` sent to ${maskedDestination}` : ""}.`
-                : "For now, use a tenant/business login to inspect the employee HR workspace."}
+                : "Use your employee login to access attendance, leave, payroll, and HR self-service."}
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export default function LoginPage() {
                     value={loginId}
                     onChange={(event) => setLoginId(event.target.value)}
                     className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#2f6b55] focus:ring-2 focus:ring-[#dce86c]/40"
-                    placeholder="Enter tenant login"
+                    placeholder="Enter login ID"
                   />
                 </label>
 
@@ -195,7 +195,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="min-h-12 w-full rounded-md bg-[#245640] px-5 text-sm font-semibold text-white transition hover:bg-[#1d4735] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Signing in..." : "Sign in to HR workspace"}
+                {loading ? "Signing in..." : "Sign in to ESS"}
               </button>
             )}
           </form>

@@ -36,13 +36,13 @@ export function RecruitmentViewToggle({
   cardsTestId: string;
 }) {
   return (
-    <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+    <div className="inline-flex shrink-0 items-center gap-[3px] rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] p-[3px]">
       <button
         type="button"
         data-testid={tableTestId}
         onClick={() => onChange("table")}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border-0",
           value === "table"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"
@@ -50,14 +50,14 @@ export function RecruitmentViewToggle({
         aria-label="Table view"
         title="Table view"
       >
-        <Rows3 size={16} />
+        <Rows3 size={14} />
       </button>
       <button
         type="button"
         data-testid={cardsTestId}
         onClick={() => onChange("cards")}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border-0",
           value === "cards"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"
@@ -65,7 +65,7 @@ export function RecruitmentViewToggle({
         aria-label="Card view"
         title="Card view"
       >
-        <LayoutGrid size={16} />
+        <LayoutGrid size={14} />
       </button>
     </div>
   );

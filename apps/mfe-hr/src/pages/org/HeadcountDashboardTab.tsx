@@ -125,16 +125,27 @@ export default function HeadcountDashboardTab({ onRequestTransfer }: { onRequest
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {roles.map((r, i) => {
                     const c = r.flag === "Shortage" ? "#e11d48" : r.flag === "Excess" ? "#d97706" : "#059669";
+                    const roleTitle = r.positionName || r.departmentName || (dId !== "global_dept" ? departmentName(dId) : "Unassigned role");
+                    const shortageCount = Math.max(0, (r.sanctioned || 0) - (r.projected || 0));
                     return (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--app-bg)", borderRadius: 10, border: "1px solid var(--border-color)" }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)" }}>{r.positionName}</div>
-                          <div style={{ fontSize: 11, color: "var(--light-text)", marginTop: 2 }}>Actual: {r.actual} {r.inNotice > 0 && <span style={{ color: "#d97706" }}>({r.inNotice} leaving)</span>}</div>
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "10px 12px", background: "var(--app-bg)", borderRadius: 10, border: "1px solid var(--border-color)" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)" }}>{roleTitle}</div>
+                          <div style={{ fontSize: 10, color: "var(--light-text)", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            {r.shiftName || (sId !== "global_shift" ? shiftName(sId) : "Any Shift")}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--light-text)", marginTop: 6 }}>
+                            Actual: {r.actual}
+                            {r.inNotice > 0 && <span style={{ color: "#d97706" }}> • {r.inNotice} leaving</span>}
+                          </div>
                         </div>
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)" }}>{r.projected} / {r.sanctioned}</div>
+                          <div style={{ fontSize: 10, color: "var(--light-text)", marginTop: 2 }}>Projected / Sanctioned</div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, marginTop: 4 }}>
-                            <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: c }}>{r.flag}</div>
+                            <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: c }}>
+                              {r.flag === "Shortage" ? `${r.flag} ${shortageCount > 0 ? `(${shortageCount})` : ""}`.trim() : r.flag}
+                            </div>
                             {r.flag === "Shortage" && onRequestTransfer && (
                               <button onClick={() => onRequestTransfer(bId, dId, sId)} style={{ fontSize: 10, fontWeight: 700, padding: "4px 8px", background: "rgba(225,29,72,0.1)", color: "#e11d48", border: "1px solid rgba(225,29,72,0.2)", borderRadius: 6, cursor: "pointer" }}>Fill Seat</button>
                             )}

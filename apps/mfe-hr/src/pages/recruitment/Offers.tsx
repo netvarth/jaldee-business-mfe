@@ -141,16 +141,18 @@ export default function Offers() {
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="text-sm text-gray-500">Manage active, accepted, and declined offers.</div>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <RecruitmentViewToggle
-                value={viewMode}
-                onChange={setViewMode}
-                tableTestId="hr-recruitment-offers-view-table"
-                cardsTestId="hr-recruitment-offers-view-cards"
-              />
+            <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:flex-row md:items-center">
               <Button variant="primary" data-testid="hr-recruitment-new-offer" onClick={() => setNewOfferOpen(true)}>
                 + New Offer
               </Button>
+              <div className="ml-auto shrink-0">
+                <RecruitmentViewToggle
+                  value={viewMode}
+                  onChange={setViewMode}
+                  tableTestId="hr-recruitment-offers-view-table"
+                  cardsTestId="hr-recruitment-offers-view-cards"
+                />
+              </div>
             </div>
           </div>
 

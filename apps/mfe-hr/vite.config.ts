@@ -13,6 +13,7 @@ export default defineConfig({
       filename: "remoteEntry.js",
       exposes: {
         "./mount": "./src/mount.tsx",
+        "./publicMount": "./src/publicMount.tsx",
       },
     }),
   ],
