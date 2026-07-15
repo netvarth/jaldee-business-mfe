@@ -6,6 +6,7 @@ import { Button, EmptyState, ErrorState, FormSection, Input, Select, Switch, Pag
 import SchemaBuilder, { type SchemaField } from "./SchemaBuilder";
 import { useUsers } from "../../services/useUsers";
 import { useServiceDetails, toServiceFormPrefill, type ServiceDetailsRecord } from "../../services/useServiceDetails";
+import DualListUsersModal from "../calendar/components/DualListUsersModal";
 
 type ValidationErrors = Partial<Record<
   "name" | "teleServiceMode" | "teleServicePlatform" | "meetingLink" | "phoneNumber" | "requestType",
@@ -44,6 +45,8 @@ export default function CreateServicePage() {
   const { getService, loading: loadingService, error: serviceError } = useServiceDetails();
   const { users } = useUsers();
 
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+
   const [name, setName] = useState("");
   const [displayOrder, setDisplayOrder] = useState(0);
   const [description, setDescription] = useState("");
@@ -72,7 +75,10 @@ export default function CreateServicePage() {
   const [hsnCode, setHsnCode] = useState("None");
   const [prepaymentRequired, setPrepaymentRequired] = useState(false);
   const [prepaymentAmount, setPrepaymentAmount] = useState<number | "">("");
-  const [prePaymentType, setPrePaymentType] = useState<"FIXED" | "PERCENTAGE">("FIXED");
+  const [prePaymentType, setPrePaymentType] = useState<"FIXED" | "PERCENTAGE">("PERCENTAGE");
+  const [multiCurrencyEnabled, setMultiCurrencyEnabled] = useState(false);
+  const [internationalCurrency, setInternationalCurrency] = useState("USD");
+  const [internationalPrice, setInternationalPrice] = useState<number | "">("");
   const [preServiceSchema, setPreServiceSchema] = useState<SchemaField[]>([]);
   const [postServiceSchema, setPostServiceSchema] = useState<SchemaField[]>([]);
   const [currencyCode, setCurrencyCode] = useState("INR");
@@ -480,143 +486,259 @@ export default function CreateServicePage() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          {/* SECTION 3: Pricing & Payment */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mt-6">
+            <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100">
+              <div className="flex flex-col">
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  3. PRICING & PAYMENT INFO
+                </h2>
+                <p className="mt-1 text-xs text-slate-500 font-medium ml-7">Does this service have pricing?</p>
+              </div>
+              <Switch checked={hasPricing} onChange={setHasPricing} />
+            </div>
+            
+            {hasPricing && (
+              <div className="space-y-6">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Service Price *</label>
+                  <div className="relative max-w-sm">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={price}
+                      onChange={(e) => setPrice(Number(e.target.value))}
+                      className="block w-full rounded-md border border-slate-200 pl-8 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded bg-indigo-50 p-1 text-indigo-600">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Auto-Generate Invoice Receipt</p>
+                        <p className="text-xs text-slate-500">Instantly raise receipt upon booking confirmation.</p>
+                      </div>
+                    </div>
+                    <Switch checked={true} onChange={() => {}} />
+                  </div>
+                  <div className="flex flex-col border-b border-slate-100">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 rounded bg-indigo-50 p-1 text-indigo-600">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">Require Advance Deposit</p>
+                          <p className="text-xs text-slate-500">Deposit is mandatory for patients prior to clinical check-in.</p>
+                        </div>
+                      </div>
+                      <Switch checked={prepaymentRequired} onChange={setPrepaymentRequired} />
+                    </div>
+                    {prepaymentRequired && (
+                      <div className="px-4 pb-4 bg-slate-50 border-t border-slate-100 pt-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex bg-white rounded-lg border border-slate-200 p-0.5 shadow-sm">
+                            <button type="button" onClick={() => setPrePaymentType("PERCENTAGE")} className={`px-4 py-1.5 text-[11px] font-bold rounded-md transition-colors ${prePaymentType === "PERCENTAGE" ? "bg-[#0f172a] text-white" : "text-slate-600 hover:bg-slate-50"}`}>Percentage (%)</button>
+                            <button type="button" onClick={() => setPrePaymentType("FIXED")} className={`px-4 py-1.5 text-[11px] font-bold rounded-md transition-colors ${prePaymentType === "FIXED" ? "bg-[#0f172a] text-white" : "text-slate-600 hover:bg-slate-50"}`}>Fixed Amount (₹)</button>
+                          </div>
+                          <div className="relative w-28">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium text-[11px]">{prePaymentType === "PERCENTAGE" ? "%" : "₹"}</span>
+                            <input type="number" min={0} value={prepaymentAmount} onChange={(e) => setPrepaymentAmount(Number(e.target.value))} className="block w-full rounded-md border border-slate-200 pl-7 pr-3 py-1.5 text-xs font-semibold focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded bg-indigo-50 p-1 text-indigo-600">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Apply Clinic GST Slabs</p>
+                        <p className="text-xs text-slate-500">Determine applicable healthcare GST on final checkout.</p>
+                      </div>
+                    </div>
+                    <Switch checked={taxApplicable} onChange={setTaxApplicable} />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 rounded bg-indigo-50 p-1 text-indigo-600">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">Enable Multi-Currency ($ / £) International Pricing</p>
+                          <p className="text-xs text-slate-500">Essential configuration for overseas medical consultation, NRI patients, or global health tourism.</p>
+                        </div>
+                      </div>
+                      <Switch checked={multiCurrencyEnabled} onChange={setMultiCurrencyEnabled} />
+                    </div>
+                    {multiCurrencyEnabled && (
+                      <div className="px-4 pb-4 bg-slate-50 border-t border-slate-100 pt-3 flex gap-4 items-center justify-end">
+                        <Select 
+                          id="bookings-intl-currency"
+                          value={internationalCurrency}
+                          onChange={(e) => setInternationalCurrency(e.target.value)}
+                          containerClassName="w-32 mb-0"
+                          options={[
+                            { value: "USD", label: "USD ($)" },
+                            { value: "EUR", label: "EUR (€)" },
+                            { value: "GBP", label: "GBP (£)" },
+                            { value: "AED", label: "AED (د.إ)" },
+                          ]}
+                        />
+                        <div className="relative w-32 mt-1">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium text-xs">
+                            {internationalCurrency === "USD" ? "$" : internationalCurrency === "EUR" ? "€" : internationalCurrency === "GBP" ? "£" : internationalCurrency === "AED" ? "د.إ" : ""}
+                          </span>
+                          <input type="number" min={0} value={internationalPrice} onChange={(e) => setInternationalPrice(Number(e.target.value))} className="block w-full rounded-md border border-slate-200 pl-7 pr-3 py-[9px] text-sm font-semibold focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white" placeholder="Amount" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider mb-4">
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    GATEWAY ROUTING & ACCEPTED PAYMENT MODES
+                  </h3>
+                  
+                  <div className="space-y-5">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">DIRECT ROUTED PAYMENT PROFILE</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="border-2 border-[#5a32a3] bg-[#f8f5ff] rounded-lg p-3 flex items-start gap-3 cursor-pointer">
+                          <div className="mt-0.5"><Checkbox checked={true} onChange={() => {}} /></div>
+                          <div>
+                            <p className="text-sm font-bold text-[#5a32a3]">Jaldee Primary Gateway</p>
+                            <p className="text-xs text-slate-500">UPI, Debit Cards, Credit Cards, and Net Banking instantly settled.</p>
+                          </div>
+                        </div>
+                        <div className="border border-slate-200 bg-white rounded-lg p-3 flex items-start gap-3 cursor-pointer hover:bg-slate-50">
+                          <div className="mt-0.5"><Checkbox checked={false} onChange={() => {}} /></div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-700">Specialty Package Escrow</p>
+                            <p className="text-xs text-slate-500">Insurance claim validation, corporate health allowance, and package routing.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">ACCEPTED NATIONAL PAYMENT MODES</p>
+                      <div className="flex flex-wrap gap-2">
+                        {["UPI", "Credit Card", "Debit Card", "Net Banking"].map(m => (
+                          <span key={m} className="px-3 py-1 rounded-full bg-[#0f172a] text-white text-[11px] font-semibold">{m}</span>
+                        ))}
+                        {["Wallet", "Pay Later"].map(m => (
+                          <span key={m} className="px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-600 text-[11px] font-semibold">{m}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">ACCEPTED INTERNATIONAL MODES</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 rounded-full bg-[#0f172a] text-white text-[11px] font-semibold">Credit Card</span>
+                        <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-600 text-[11px] font-semibold">Debit Card</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 4: Assign User */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mt-6">
             <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100">
               <div>
-                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Assign User</h2>
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">4. Assign User</h2>
                 <p className="mt-1 text-xs text-slate-500">Enable this to assign specific users for this service.</p>
               </div>
               <Switch checked={assignUsers} onChange={setAssignUsers} />
             </div>
 
             {assignUsers ? (
-              <div className="space-y-3">
-                {users.map((user) => {
-                  const uid = user.userUid;
-                  const override = practitionerOverrides[uid] || { enabled: false, price: price };
-                  return (
-                    <div key={uid} className="flex items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <Checkbox
-                        id={`bookings-create-service-assign-user-${uid}`}
-                        checked={override.enabled}
-                        onChange={(e) =>
-                          setPractitionerOverrides({
-                            ...practitionerOverrides,
-                            [uid]: { ...override, enabled: e.target.checked },
-                          })
-                        }
-                        label={user.displayName}
-                        className="min-w-[180px]"
-                      />
-                    </div>
-                  );
-                })}
+              <div className="space-y-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full justify-center rounded-lg border-2 border-dashed border-slate-300 py-4 text-sm font-medium text-slate-600 hover:border-[#7c3aed] hover:text-[#7c3aed] bg-white hover:bg-slate-50 transition-colors"
+                  onClick={() => setIsUsersModalOpen(true)}
+                >
+                  + Add Users
+                </Button>
+                
+                {users.filter(u => practitionerOverrides[u.userUid]?.enabled).length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Selected Users</h3>
+                    
+                    {!hasPricing ? (
+                      <div className="flex flex-wrap gap-3">
+                        {users.filter(u => practitionerOverrides[u.userUid]?.enabled).map(user => (
+                          <div key={user.userUid} className="flex items-center gap-2 bg-[#f5f3ff] px-3 py-1.5 rounded-full border border-[#ede9fe]">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7c3aed] text-xs font-bold text-white">
+                              {user.displayName.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm font-medium text-[#7c3aed]">{user.displayName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {users
+                          .filter((user) => practitionerOverrides[user.userUid]?.enabled)
+                          .map((user) => {
+                            const uid = user.userUid;
+                            const override = practitionerOverrides[uid] || { enabled: false, price: price };
+                            return (
+                              <div key={uid} className="flex items-center justify-between gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7c3aed] text-xs font-bold text-white">
+                                    {user.displayName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="text-sm font-medium text-slate-700">{user.displayName}</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] text-slate-400 font-medium uppercase hidden sm:inline-block">Override Base Price</span>
+                                  <div className="relative w-32">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium">₹</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={override.price}
+                                      onChange={(e) => setPractitionerOverrides({ ...practitionerOverrides, [uid]: { ...override, price: Number(e.target.value) } })}
+                                      placeholder="Price"
+                                      className="block w-full rounded-md border border-slate-200 pl-8 pr-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
 
-          {/* SECTION 3: Pricing & Payment */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">3. Pricing &amp; Payment</h2>
-              <Switch checked={hasPricing} onChange={setHasPricing} />
-            </div>
-            {hasPricing && (
-              <>
-                <FormSection title="Pricing Configuration">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Select
-                      id="bookings-create-service-currency"
-                      label="Currency"
-                      value={currencyCode}
-                      onChange={(e) => setCurrencyCode(e.target.value)}
-                      options={[
-                        { value: "INR", label: "INR (₹)" },
-                        { value: "USD", label: "USD ($)" },
-                        { value: "EUR", label: "EUR (€)" },
-                        { value: "AED", label: "AED (د.إ)" },
-                      ]}
-                    />
-                    <Input id="bookings-create-service-price" data-testid="bookings-create-service-price" type="number" min={0} label="Service Base Price" required value={price} onChange={(e) => setPrice(Number(e.target.value))} />
-                  </div>
-                  <Select
-                    id="bookings-create-service-tax-applicable"
-                    data-testid="bookings-create-service-tax-applicable"
-                    label="Tax Applicable"
-                    value={String(taxApplicable)}
-                    onChange={(e) => setTaxApplicable(e.target.value === "true")}
-                    options={[
-                      { value: "false", label: "No" },
-                      { value: "true", label: "Yes" },
-                    ]}
-                  />
-                </FormSection>
-
-                {assignUsers ? (
-                  <FormSection title="Practitioner Price Overrides" className="mt-6">
-                    <p className="text-xs text-slate-500 mb-4">Set custom prices for assigned users providing this service.</p>
-                    <div className="space-y-3">
-                      {users
-                        .filter((user) => practitionerOverrides[user.userUid]?.enabled)
-                        .map((user) => {
-                          const uid = user.userUid;
-                          const override = practitionerOverrides[uid] || { enabled: false, price: price };
-                          return (
-                            <div key={uid} className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                              <div className="min-w-[180px] text-sm font-medium text-slate-700">{user.displayName}</div>
-                              <Input
-                                type="number"
-                                min={0}
-                                value={override.price}
-                                onChange={(e) => setPractitionerOverrides({ ...practitionerOverrides, [uid]: { ...override, price: Number(e.target.value) } })}
-                                placeholder="Override Price"
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </FormSection>
-                ) : null}
-
-                <FormSection title="Advance Payment" className="mt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="font-medium text-slate-800 text-sm">Require Advance Payment?</h4>
-                      <p className="text-xs text-slate-500">Force customers to pay an advance amount to confirm their booking.</p>
-                    </div>
-                    <Switch checked={prepaymentRequired} onChange={setPrepaymentRequired} />
-                  </div>
-                  {prepaymentRequired && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Select
-                        label="Advance Payment Type"
-                        value={prePaymentType}
-                        onChange={(e) => setPrePaymentType(e.target.value as "FIXED" | "PERCENTAGE")}
-                        options={[
-                          { value: "FIXED", label: "Fixed Amount" },
-                          { value: "PERCENTAGE", label: "Percentage (%)" },
-                        ]}
-                      />
-                      <Input 
-                        type="number" 
-                        min={0} 
-                        label={prePaymentType === "PERCENTAGE" ? "Advance Percentage" : "Advance Amount"} 
-                        required 
-                        value={prepaymentAmount} 
-                        onChange={(e) => setPrepaymentAmount(Number(e.target.value))} 
-                        prefix={prePaymentType === "FIXED" ? (currencyCode === "INR" ? "₹" : currencyCode === "USD" ? "$" : currencyCode === "EUR" ? "€" : "") : ""}
-                        suffix={prePaymentType === "PERCENTAGE" ? "%" : ""}
-                      />
-                    </div>
-                  )}
-                </FormSection>
-              </>
-            )}
-          </div>
-
-          {/* SECTION 4: Customization */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider pb-4 mb-6 border-b border-slate-100">4. Intake Forms & Questionnaires</h2>
+          {/* SECTION 5: Customization */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mt-6">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider pb-4 mb-6 border-b border-slate-100">5. Intake Forms &amp; Questionnaires</h2>
             <SchemaBuilder 
               title="Pre-Service Questionnaire"
               description="Ask customers these questions before confirming their booking."
@@ -638,6 +760,31 @@ export default function CreateServicePage() {
           </div>
         </form>
       </div>
+
+      <DualListUsersModal
+        isOpen={isUsersModalOpen}
+        onClose={() => setIsUsersModalOpen(false)}
+        serviceName={name || "this service"}
+        allUsers={users.map(u => ({ id: u.userUid, name: u.displayName, role: u.designation || "Practitioner" }))}
+        initialSelectedUsers={users.filter(u => practitionerOverrides[u.userUid]?.enabled).map(u => ({ id: u.userUid, name: u.displayName, role: u.designation || "Practitioner" }))}
+        onSave={(selectedUsers) => {
+          const nextOverrides = { ...practitionerOverrides };
+          // Disable all users first
+          Object.keys(nextOverrides).forEach(uid => {
+            nextOverrides[uid].enabled = false;
+          });
+          // Enable selected users
+          selectedUsers.forEach(su => {
+            if (!nextOverrides[su.id]) {
+              nextOverrides[su.id] = { enabled: true, price: price };
+            } else {
+              nextOverrides[su.id].enabled = true;
+            }
+          });
+          setPractitionerOverrides(nextOverrides);
+          setIsUsersModalOpen(false);
+        }}
+      />
     </section>
   );
 }

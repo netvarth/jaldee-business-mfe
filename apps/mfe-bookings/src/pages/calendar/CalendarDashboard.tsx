@@ -11,7 +11,7 @@ import SavedFiltersModal from './SavedFiltersModal';
 import WeekGrid from './WeekGrid';
 import MonthGrid from './MonthGrid';
 import ListGrid from './ListGrid';
-import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import CreateAppointmentDrawer from '../booking/CreateAppointmentDrawer';
 import BlockSlotModal from '../booking/BlockSlotModal';
 import DayGrid from './DayGrid';
 import './calendar-grid.css';
@@ -22,7 +22,7 @@ interface CalendarDashboardProps {
 }
 
 export default function CalendarDashboard({ onBookingSelect }: CalendarDashboardProps) {
-    const { openModal } = useModal();
+    const { openModal, openDrawer } = useModal();
     const { calendars } = useCalendars();
 
     const [viewMode, setViewMode] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
@@ -127,7 +127,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                                         className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                         onClick={() => {
                                             setCreateMenuOpen(false);
-                                            openModal(<CreateAppointmentModal initialDate={date} />);
+                                            openDrawer(<CreateAppointmentDrawer initialDate={date} />);
                                         }}
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>

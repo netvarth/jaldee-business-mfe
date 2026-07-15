@@ -127,6 +127,21 @@ export default function CalendarDetails() {
     };
   }, [calendarUid, searchSchedules]);
 
+  const serviceItems = useMemo(
+    () => asTextList(calendar?.services as unknown[]).map((item) => serviceNameMap.get(item) ?? item),
+    [calendar?.services, serviceNameMap],
+  );
+  const userItems = useMemo(
+    () =>
+      asTextList(
+        calendar?.users as unknown[],
+        ["displayName", "name", "label", "title", "userUid", "uid", "id"],
+      ).map((item) => userNameMap.get(item) ?? item),
+    [calendar?.users, userNameMap],
+  );
+  const channelItems = asTextList(calendar?.bookingChannels as unknown[]);
+  const tagItems = asTextList(calendar?.tags as unknown[]);
+
   if (!calendar) {
     return (
       <main
@@ -142,21 +157,6 @@ export default function CalendarDetails() {
       </main>
     );
   }
-
-  const serviceItems = useMemo(
-    () => asTextList(calendar.services as unknown[]).map((item) => serviceNameMap.get(item) ?? item),
-    [calendar.services, serviceNameMap],
-  );
-  const userItems = useMemo(
-    () =>
-      asTextList(
-        calendar.users as unknown[],
-        ["displayName", "name", "label", "title", "userUid", "uid", "id"],
-      ).map((item) => userNameMap.get(item) ?? item),
-    [calendar.users, userNameMap],
-  );
-  const channelItems = asTextList(calendar.bookingChannels as unknown[]);
-  const tagItems = asTextList(calendar.tags as unknown[]);
 
   return (
     <main
@@ -298,7 +298,7 @@ export default function CalendarDetails() {
                             <button
                               type="button"
                               className="detail-sch-menu-item"
-                              onClick={() => navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar } })}
+                              onClick={() => navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar, schedule } })}
                             >
                               <span className="detail-sch-menu-icon"><Settings size={18} /></span>
                               <span>Customize</span>

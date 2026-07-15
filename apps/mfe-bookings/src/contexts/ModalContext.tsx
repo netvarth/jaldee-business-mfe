@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Dialog } from "@jaldee/design-system";
+import { Dialog, Drawer } from "@jaldee/design-system";
 
 interface ModalContextType {
   isOpen: boolean;
+  isDrawerOpen: boolean;
   modalContent: ReactNode | null;
+  drawerContent: ReactNode | null;
   openModal: (content: ReactNode) => void;
   closeModal: () => void;
+  openDrawer: (content: ReactNode) => void;
+  closeDrawer: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -13,6 +17,9 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [modalContent, setModalContent] = useState<ReactNode | null>(null);
+  
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerContent, setDrawerContent] = useState<ReactNode | null>(null);
 
   const openModal = (content: ReactNode) => {
     setModalContent(content);
@@ -24,8 +31,18 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTimeout(() => setModalContent(null), 300);
   };
 
+  const openDrawer = (content: ReactNode) => {
+    setDrawerContent(content);
+    setIsDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+    setTimeout(() => setDrawerContent(null), 300);
+  };
+
   return (
-    <ModalContext.Provider value={{ isOpen, modalContent, openModal, closeModal }}>
+    <ModalContext.Provider value={{ isOpen, isDrawerOpen, modalContent, drawerContent, openModal, closeModal, openDrawer, closeDrawer }}>
       {children}
       <Dialog
         open={isOpen}
@@ -38,6 +55,17 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       >
         {modalContent}
       </Dialog>
+      <Drawer
+        open={isDrawerOpen}
+        onClose={closeDrawer}
+        size="md"
+        hideHeader
+        showCloseButton={false}
+        panelClassName="bg-[#f8fafc] sm:w-[500px]"
+        contentClassName="p-0 flex flex-col h-full"
+      >
+        {drawerContent}
+      </Drawer>
     </ModalContext.Provider>
   );
 };

@@ -3,7 +3,7 @@ import { User, Calendar as CalendarType, Booking, Service } from '../../../types
 import { format, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
-import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import CreateAppointmentDrawer from '../booking/CreateAppointmentDrawer';
 
 interface DayGridProps {
     date: Date;
@@ -35,7 +35,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
 }
 
 export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: DayGridProps) {
-    const { openModal } = useModal();
+    const { openModal, openDrawer } = useModal();
     const startHour = 0;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
@@ -137,8 +137,8 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                 <div 
                                                     key={`${id}-${hour}`} 
                                                     className={`calendar-cell ${status === 'leave' ? 'on-leave' : ''}`}
-                                                    onClick={() => openModal(
-                                                        <CreateAppointmentModal 
+                                                    onClick={() => openDrawer(
+                                                        <CreateAppointmentDrawer 
                                                           initialDate={date} 
                                                           initialTime={`${hour.toString().padStart(2, '0')}:00`} 
                                                           initialProviderUid={viewBy === 'doctors' ? id : undefined}

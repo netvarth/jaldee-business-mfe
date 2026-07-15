@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { X } from '../../../components/icons';
 import { User, Calendar as CalendarType, Booking } from '../../../../types';
 import { useModal } from '../../../contexts/ModalContext';
-import CreateAppointmentModal from '../../booking/CreateAppointmentModal';
+import CreateAppointmentDrawer from '../../booking/CreateAppointmentDrawer';
 import { toRgba } from '../../../utils/colors';
 
 interface SlotBookingsPopoverProps {
@@ -31,7 +31,7 @@ export default function SlotBookingsPopover({
     calendars,
     onBookingSelect,
 }: SlotBookingsPopoverProps) {
-    const { openModal, closeModal } = useModal();
+    const { openModal, closeModal, openDrawer } = useModal();
 
     // Group the slot's bookings by column (doctor or calendar), preserving Figma's per-provider rows.
     const groups = Object.entries(
@@ -68,8 +68,8 @@ export default function SlotBookingsPopover({
     const addForColumn = (key: string) => {
         closeModal();
         setTimeout(() => {
-            openModal(
-                <CreateAppointmentModal
+            openDrawer(
+                <CreateAppointmentDrawer
                     initialDate={date}
                     initialTime={`${hour.toString().padStart(2, '0')}:00`}
                     initialProviderUid={viewBy === 'doctors' ? key : undefined}

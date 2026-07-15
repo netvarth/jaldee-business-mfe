@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Checkbox, FormSection, Input, PageHeader, Select, Textarea } from "@jaldee/design-system";
+import { Button, Input, PageHeader, Select, Textarea } from "@jaldee/design-system";
 import { useServices } from "../../services/useServices";
 import { useServiceGroups } from "../../services/useServiceGroups";
 import { useToast } from "../../contexts/ToastContext";
 import type { ServiceGroupItem } from "../../types";
+import DualListServicesModal from "../calendar/components/DualListServicesModal";
+
+const TrashIcon = ({ className }: { className?: string }) => (
+  <svg className={className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+);
 
 export default function CreateServiceGroupPage() {
   const navigate = useNavigate();
@@ -14,14 +19,20 @@ export default function CreateServiceGroupPage() {
   const { createGroup, updateGroup } = useServiceGroups();
   const { showToast } = useToast();
 
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
+  const [showDescription, setShowDescription] = useState(Boolean(editGroup?.description));
+
   const [name, setName] = useState(editGroup?.name ?? "");
   const [description, setDescription] = useState(editGroup?.description ?? "");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(editGroup?.serviceIds ?? []);
+  
+  // Implicitly determine mode based on whether user edits the value away from the computed sum
   const [priceMode, setPriceMode] = useState<"sum" | "fixed">(editGroup?.priceMode ?? "sum");
   const [price, setPrice] = useState(editGroup?.price ?? 0);
   const [durationMode, setDurationMode] = useState<"sum" | "override">(editGroup?.durationMode ?? "sum");
-  const [duration, setDuration] = useState(editGroup?.duration ?? 30);
+  const [duration, setDuration] = useState(editGroup?.duration ?? 0);
   const [status, setStatus] = useState<"Active" | "Inactive">(editGroup?.status ?? "Active");
+  const [labels, setLabels] = useState("");
 
   const activeServices = useMemo(() => services.filter((service) => service.status === "Active"), [services]);
 
@@ -34,7 +45,16 @@ export default function CreateServiceGroupPage() {
     [selectedServiceIds, services],
   );
 
-  const handleSubmit = (event: React.FormEvent) => {
+  // Sync inputs with calculated values when in "sum" mode
+  useMemo(() => {
+    if (priceMode === "sum") setPrice(computedPrice);
+  }, [computedPrice, priceMode]);
+
+  useMemo(() => {
+    if (durationMode === "sum") setDuration(computedDuration);
+  }, [computedDuration, durationMode]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim()) {
       showToast("Service group name is required.", "error");
@@ -56,19 +76,22 @@ export default function CreateServiceGroupPage() {
       status,
     } as const;
 
-    if (editGroup) {
-      updateGroup(editGroup.id, payload);
-      showToast("Service group updated.", "success");
-    } else {
-      createGroup(payload);
-      showToast("Service group created.", "success");
+    try {
+      if (editGroup) {
+        await updateGroup(editGroup.id, payload);
+        showToast("Service group updated.", "success");
+      } else {
+        await createGroup(payload);
+        showToast("Service group created.", "success");
+      }
+      navigate("/services/groups");
+    } catch (error) {
+      showToast("Failed to save service group. Please try again.", "error");
     }
-
-    navigate("/services/groups");
   };
 
   return (
-    <section className="flex h-full flex-col overflow-y-auto bg-slate-50">
+    <section className="flex h-full flex-col overflow-y-auto bg-[#f8f9fc]">
       <div className="sticky top-0 z-30 border-b border-slate-200 bg-white px-8 py-4">
         <PageHeader
           title={editGroup ? "Edit Service Group" : "Create Service Group"}
@@ -77,95 +100,239 @@ export default function CreateServiceGroupPage() {
           onNavigate={(href) => navigate(href)}
         />
       </div>
-
-      <div className="mx-auto w-full max-w-4xl p-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <FormSection title="Basic Details">
-              <Input label="Group name" required value={name} onChange={(event) => setName(event.target.value)} />
-              <Textarea label="Description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
-              <Select
-                label="Status"
-                value={status}
-                onChange={(event) => setStatus(event.target.value as "Active" | "Inactive")}
-                options={[
-                  { value: "Active", label: "Active" },
-                  { value: "Inactive", label: "Inactive" },
-                ]}
+      
+      <div className="mx-auto w-full max-w-[1200px] p-6">
+        <form onSubmit={handleSubmit} className="rounded-xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden flex flex-col">
+          
+          <div className="p-8 pb-6 border-b border-[#e2e8f0]">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-[#6b21a8] mb-6">Basic Package Info</h2>
+            
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-2">Package Name *</label>
+              <input 
+                type="text" 
+                required 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                placeholder="e.g. Executive General Health Checkup"
+                className="w-full h-11 px-4 text-[14px] bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
               />
-            </FormSection>
-          </div>
+            </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <FormSection title="Linked Services">
-              <div className="grid gap-3 md:grid-cols-2">
-                {activeServices.map((service) => {
-                  const serviceId = service.uid ?? service.id;
-                  return (
-                    <Checkbox
-                      key={serviceId}
-                      checked={selectedServiceIds.includes(serviceId)}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setSelectedServiceIds((current) => [...current, serviceId]);
-                        } else {
-                          setSelectedServiceIds((current) => current.filter((value) => value !== serviceId));
-                        }
-                      }}
-                      label={`${service.name} · ₹${service.price} · ${service.duration} mins`}
-                    />
-                  );
-                })}
+            {showDescription ? (
+              <div className="mb-4">
+                <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-2">Description</label>
+                <textarea 
+                  rows={3}
+                  value={description} 
+                  onChange={(e) => setDescription(e.target.value)} 
+                  placeholder="Enter package description..."
+                  className="w-full p-4 text-[14px] bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                />
               </div>
-            </FormSection>
+            ) : (
+              <button 
+                type="button" 
+                onClick={() => setShowDescription(true)}
+                className="text-[14px] font-semibold text-[#6b21a8] hover:text-[#581c87]"
+              >
+                + Add Description (Optional)
+              </button>
+            )}
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-white p-6">
-              <FormSection title="Pricing">
-                <Select
-                  label="Pricing mode"
-                  value={priceMode}
-                  onChange={(event) => setPriceMode(event.target.value as "sum" | "fixed")}
-                  options={[
-                    { value: "sum", label: "Sum of linked services" },
-                    { value: "fixed", label: "Fixed package price" },
-                  ]}
-                />
-                {priceMode === "fixed" ? (
-                  <Input type="number" min={0} label="Fixed price" value={price} onChange={(event) => setPrice(Number(event.target.value))} />
-                ) : (
-                  <p className="text-sm text-slate-500">Calculated total: ₹{computedPrice}</p>
+          <div className="p-8 pb-4 border-b border-[#e2e8f0]">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-[13px] font-bold uppercase tracking-wider text-[#6b21a8]">Bundle Clinical Services *</h2>
+                {selectedServiceIds.length > 0 && (
+                  <span className="bg-[#f3e8ff] text-[#6b21a8] text-[12px] font-bold px-3 py-1 rounded-full">
+                    {selectedServiceIds.length} Selected
+                  </span>
                 )}
-              </FormSection>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsServicesModalOpen(true)}
+                className="bg-[#f3e8ff] text-[#6b21a8] hover:bg-[#e9d5ff] font-semibold text-[13px] px-4 py-2 rounded-md transition-colors"
+              >
+                + Add Service
+              </button>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-6">
-              <FormSection title="Duration">
-                <Select
-                  label="Duration mode"
-                  value={durationMode}
-                  onChange={(event) => setDurationMode(event.target.value as "sum" | "override")}
-                  options={[
-                    { value: "sum", label: "Sum of linked services" },
-                    { value: "override", label: "Override duration" },
-                  ]}
-                />
-                {durationMode === "override" ? (
-                  <Input type="number" min={1} label="Duration in minutes" value={duration} onChange={(event) => setDuration(Number(event.target.value))} />
-                ) : (
-                  <p className="text-sm text-slate-500">Calculated total: {computedDuration} mins</p>
-                )}
-              </FormSection>
+            <div className="flex flex-col">
+              {selectedServiceIds.length > 0 ? (
+                selectedServiceIds.map((serviceId) => {
+                  const service = services.find((s) => (s.uid ?? s.id) === serviceId);
+                  if (!service) return null;
+                  const initials = service.name.substring(0, 2).toUpperCase();
+                  
+                  return (
+                    <div key={serviceId} className="flex items-center justify-between py-4 border-b border-[#f1f5f9] last:border-0 group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-[#f3e8ff] text-[#6b21a8] flex items-center justify-center font-bold text-[14px]">
+                          {initials}
+                        </div>
+                        <div>
+                          <div className="font-bold text-[14px] text-[#0f172a]">{service.name}</div>
+                          <div className="text-[13px] text-[#64748b]">{service.description || "General Medicine • Consultation"}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-12">
+                        <div className="text-right">
+                          <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wide">Duration</div>
+                          <div className="font-bold text-[14px] text-[#334155]">{service.duration} mins</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wide">Price</div>
+                          <div className="font-bold text-[14px] text-[#334155]">₹{service.price}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedServiceIds((current) => current.filter((id) => id !== serviceId))}
+                          className="text-[#94a3b8] hover:text-[#ef4444] transition-colors p-2"
+                        >
+                          <TrashIcon className="w-[18px] h-[18px]" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-[14px] text-[#64748b]">
+                  No services added to this bundle yet.
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-between bg-[#f8fafc] -mx-8 -mb-4 px-8 py-4 border-t border-[#e2e8f0]">
+              <div className="font-bold text-[13px] text-[#334155]">Total Bundled: {selectedServiceIds.length} Service(s)</div>
+              <div className="flex items-center gap-6 font-bold text-[13px] text-[#334155]">
+                <span>Sum Duration: {computedDuration} mins</span>
+                <span>Sum Cost: ₹{computedPrice}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => navigate("/services/groups")}>Cancel</Button>
-            <Button type="submit">{editGroup ? "Save Group" : "Create Group"}</Button>
+          <div className="p-8">
+            <h2 className="text-[13px] font-bold uppercase tracking-wider text-[#6b21a8] mb-6">Pricing &amp; Status</h2>
+            
+            <div className="grid grid-cols-2 gap-8 mb-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Discounted Package Fee (₹) *</label>
+                  <button 
+                    type="button"
+                    onClick={() => { setPriceMode("sum"); setPrice(computedPrice); }}
+                    className="text-[11px] font-bold text-[#6b21a8] hover:underline"
+                  >
+                    Reset to calculated (₹{computedPrice})
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748b] font-medium">₹</span>
+                  <input 
+                    type="number" 
+                    required 
+                    min={0}
+                    value={price} 
+                    onChange={(e) => { setPrice(Number(e.target.value)); setPriceMode("fixed"); }} 
+                    className="w-full h-11 pl-8 pr-4 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                  />
+                </div>
+                <div className="mt-2 text-[12px] text-[#64748b]">
+                  Original total sum: <span className="line-through">₹{computedPrice}</span>
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Duration (Minutes) *</label>
+                  <button 
+                    type="button"
+                    onClick={() => { setDurationMode("sum"); setDuration(computedDuration); }}
+                    className="text-[11px] font-bold text-[#6b21a8] hover:underline"
+                  >
+                    Reset to calculated ({computedDuration} mins)
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94a3b8]">
+                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </span>
+                  <input 
+                    type="number" 
+                    required 
+                    min={1}
+                    value={duration} 
+                    onChange={(e) => { setDuration(Number(e.target.value)); setDurationMode("override"); }} 
+                    className="w-full h-11 pl-10 pr-4 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                  />
+                </div>
+                <div className="mt-2 text-[12px] text-[#64748b]">
+                  Sum of bundled services: {computedDuration} mins
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-2">Package Labels (optional)</label>
+                <input 
+                  type="text" 
+                  value={labels} 
+                  onChange={(e) => setLabels(e.target.value)} 
+                  placeholder="e.g. Popular, Preventive, OPD"
+                  className="w-full h-11 px-4 text-[14px] bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-2">Status</label>
+                <div className="relative">
+                  <select 
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as "Active" | "Inactive")}
+                    className="w-full h-11 px-4 pr-10 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg appearance-none focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="px-8 py-6 bg-[#f8fafc] border-t border-[#e2e8f0] flex items-center justify-end gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/services/groups")}
+              className="px-6 h-11 rounded-lg border border-[#cbd5e1] text-[#475569] font-bold text-[14px] hover:bg-[#f1f5f9] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 h-11 rounded-lg bg-[#4c1d95] text-white font-bold text-[14px] hover:bg-[#5b21b6] transition-colors"
+            >
+              {editGroup ? "Update Package" : "Create Package"}
+            </button>
           </div>
         </form>
       </div>
+
+      <DualListServicesModal
+        isOpen={isServicesModalOpen}
+        onClose={() => setIsServicesModalOpen(false)}
+        allServices={activeServices}
+        initialSelectedServices={activeServices.filter((s) => selectedServiceIds.includes(s.uid ?? s.id ?? ""))}
+        onSave={(selected) => {
+          setSelectedServiceIds(selected.map((s) => s.uid ?? s.id ?? ""));
+          setIsServicesModalOpen(false);
+        }}
+      />
     </section>
   );
 }

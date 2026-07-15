@@ -3,7 +3,7 @@ import { User, Calendar as CalendarType, Booking, Service } from '../../../types
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
-import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import CreateAppointmentDrawer from '../booking/CreateAppointmentDrawer';
 import { toRgba } from '../../utils/colors';
 
 interface MonthGridProps {
@@ -18,7 +18,7 @@ interface MonthGridProps {
 }
 
 export default function MonthGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onDaySelect }: MonthGridProps) {
-    const { openModal } = useModal();
+    const { openModal, openDrawer } = useModal();
     
     const monthStart = startOfMonth(date);
     const monthEnd = endOfMonth(monthStart);
@@ -72,7 +72,7 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                                     className="month-day-select !h-auto !min-h-0 !w-auto !justify-start !rounded-none !border-0 !bg-transparent !p-0 !text-inherit !shadow-none hover:!bg-transparent"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        openModal(<CreateAppointmentModal initialDate={day} />);
+                                        openDrawer(<CreateAppointmentDrawer initialDate={day} />);
                                     }}
                                     aria-pressed={isToday}
                                 >

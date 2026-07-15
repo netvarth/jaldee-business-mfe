@@ -6,6 +6,7 @@ import { useServices } from "../../services/useServices";
 import { useUsers } from "../../services/useUsers";
 import type { Calendar, Schedule } from "../../types";
 import DualListServicesModal, { Service } from "./components/DualListServicesModal";
+import DualListUsersModal from "./components/DualListUsersModal";
 
 const channels = [
   {
@@ -59,7 +60,9 @@ export default function CustomizeCalendar() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams<{ uid: string }>();
-  const initialCalendar = (location.state as { calendar?: Calendar } | null)?.calendar;
+  const routeState = (location.state as { calendar?: Calendar; schedule?: Schedule } | null) ?? null;
+  const initialCalendar = routeState?.calendar;
+  const selectedSchedule = routeState?.schedule ?? null;
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
   const { updateCalendar, searchSchedules, getCalendar } = useCalendars();
   const { services } = useServices();
@@ -72,6 +75,8 @@ export default function CustomizeCalendar() {
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
+  const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
+  const [serviceUsers, setServiceUsers] = useState<Record<string, string[]>>({});
 
   const serviceMap = useMemo(
     () => new Map(services.map((service) => [service.uid ?? service.id, service.name])),
@@ -84,7 +89,7 @@ export default function CustomizeCalendar() {
 
   const serviceRows = useMemo(() => {
     const serviceIds = normalizeList(calendar?.services as unknown[]);
-    const userNames = normalizeList(
+    const defaultUserNames = normalizeList(
       calendar?.users as unknown[],
       ["displayName", "name", "label", "title", "userUid", "uid", "id"],
     ).map((item) => userMap.get(item) ?? item);
@@ -92,9 +97,13 @@ export default function CustomizeCalendar() {
       serviceId,
       id: `${serviceId}-${index}`,
       serviceName: serviceMap.get(serviceId) ?? serviceId,
-      users: userNames,
+      users: serviceUsers[serviceId] ? serviceUsers[serviceId].map(id => userMap.get(id) ?? id) : defaultUserNames,
     }));
-  }, [calendar?.services, calendar?.users, serviceMap, userMap]);
+  }, [calendar?.services, calendar?.users, serviceUsers, serviceMap, userMap]);
+  const visibleSchedules = useMemo(
+    () => (selectedSchedule ? schedules.filter((schedule) => schedule.uid === selectedSchedule.uid) : schedules),
+    [schedules, selectedSchedule],
+  );
 
   useEffect(() => {
     if (!calendarUid) {
@@ -216,17 +225,19 @@ export default function CustomizeCalendar() {
                     Customize Your Calendar
                   </h1>
                   <p className="mt-2 text-[15px] text-slate-500">
-                    Applicable to all the schedules and time windows in this calendar
+                    {selectedSchedule
+                      ? `Applicable to the ${selectedSchedule.name} schedule and its time windows`
+                      : "Applicable to all the schedules and time windows in this calendar"}
                   </p>
                 </div>
                 {calendar?.status ? <Badge variant="success">{calendar.status}</Badge> : null}
               </div>
 
-              <div className="mt-7 flex flex-wrap gap-3">
-                {loadingSchedules ? (
-                  <span className="text-sm text-slate-500">Loading schedules...</span>
-                ) : schedules.length ? (
-                  schedules.map((schedule) => (
+                <div className="mt-7 flex flex-wrap gap-3">
+                  {loadingSchedules ? (
+                    <span className="text-sm text-slate-500">Loading schedules...</span>
+                ) : visibleSchedules.length ? (
+                  visibleSchedules.map((schedule) => (
                       <div
                         key={schedule.uid}
                         className="inline-flex h-9 items-center rounded-full border border-[#7c3aed] px-4 text-sm font-semibold"
@@ -236,7 +247,9 @@ export default function CustomizeCalendar() {
                       </div>
                   ))
                 ) : (
-                  <span className="text-sm text-slate-500">No schedules found for this calendar.</span>
+                  <span className="text-sm text-slate-500">
+                    {selectedSchedule ? "The selected schedule could not be loaded." : "No schedules found for this calendar."}
+                  </span>
                 )}
               </div>
 
@@ -290,6 +303,13 @@ export default function CustomizeCalendar() {
                             </td>
                             <td className="px-6 py-5">
                               <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setUsersModalServiceId(row.serviceId)}
+                                  className="flex h-9 items-center justify-center rounded-lg border border-[#E7EBF4] px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                >
+                                  Edit Users
+                                </button>
                                 <button
                                   type="button"
                                   aria-label={`Delete ${row.serviceName}`}
@@ -437,6 +457,23 @@ export default function CustomizeCalendar() {
             const newCalendar = { ...calendar, services: added.map(s => s.uid ?? s.id) };
             setCalendar(newCalendar);
           }
+        }}
+      />
+
+      <DualListUsersModal
+        isOpen={usersModalServiceId !== null}
+        onClose={() => setUsersModalServiceId(null)}
+        serviceName={serviceRows.find(r => r.serviceId === usersModalServiceId)?.serviceName || "this service"}
+        allUsers={users.map(u => ({ id: u.userUid, name: u.displayName || u.firstName || "Unknown", role: u.designation || "Practitioner" }))}
+        initialSelectedUsers={(serviceUsers[usersModalServiceId!] ?? normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id"])).map(uId => {
+          const u = users.find(user => user.userUid === uId);
+          return { id: String(uId), name: u?.displayName || u?.firstName || "Unknown", role: u?.designation || "Practitioner" };
+        })}
+        onSave={(selected) => {
+          if (usersModalServiceId) {
+            setServiceUsers(prev => ({ ...prev, [usersModalServiceId]: selected.map(s => s.id) }));
+          }
+          setUsersModalServiceId(null);
         }}
       />
     </main>

@@ -3,7 +3,7 @@ import { User, Calendar as CalendarType, Booking, Service } from '../../../types
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
 import { useModal } from '../../contexts/ModalContext';
-import CreateAppointmentModal from '../booking/CreateAppointmentModal';
+import CreateAppointmentDrawer from '../booking/CreateAppointmentDrawer';
 import SlotBookingsPopover from './components/SlotBookingsPopover';
 import { toRgba } from '../../utils/colors';
 
@@ -37,7 +37,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
 }
 
 export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: WeekGridProps) {
-    const { openModal } = useModal();
+    const { openModal, openDrawer } = useModal();
     const startHour = 0;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
@@ -99,7 +99,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                 <div
                                                     key={`${dayDate.toISOString()}-${hour}`}
                                                     className={`calendar-cell${dayIndex % 2 === 1 ? ' alt-col' : ''}`}
-                                                    onClick={() => openModal(
+                                                    onClick={() => openDrawer(
                                                         slotBookings.length > 0 ? (
                                                             <SlotBookingsPopover
                                                               date={dayDate}
@@ -111,7 +111,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                               onBookingSelect={onBookingSelect}
                                                             />
                                                         ) : (
-                                                            <CreateAppointmentModal
+                                                            <CreateAppointmentDrawer
                                                               initialDate={dayDate}
                                                               initialTime={`${hour.toString().padStart(2, '0')}:00`}
                                                             />
