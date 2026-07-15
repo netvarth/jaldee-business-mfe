@@ -54,8 +54,8 @@ function PublicJobRoute() {
 
 export default function App() {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-full flex-col bg-background text-foreground">
+      <div className="flex min-h-full flex-1 flex-col">
         <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading HR...</div>}>
           <Routes>
             <Route path="/" element={<Dashboard />} />

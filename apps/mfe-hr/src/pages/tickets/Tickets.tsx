@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard } from "@jaldee/design-system";
+import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
@@ -262,45 +262,26 @@ export default function Tickets() {
             gap: 12,
           }}
         >
-          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-            <Search size={18} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-            <input
-              id="hr-tickets-search"
-              data-testid="hr-tickets-search"
-              placeholder="Search tickets by ID or subject..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                ...field,
-                height: 52,
-                borderRadius: 16,
-                paddingLeft: 46,
-                background: "#ffffff",
-                border: "1px solid rgba(148,163,184,0.16)",
-                boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
-                fontSize: 15,
-              }}
-            />
-          </div>
-          <button
+          <Input
+            id="hr-tickets-search"
+            data-testid="hr-tickets-search"
+            placeholder="Search tickets by ID or subject..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            icon={<Search size={18} />}
+            containerClassName="flex-1"
+            className="h-12 rounded-xl bg-white text-base font-semibold shadow-sm"
+          />
+          <Button
             id="hr-tickets-filter-button"
             data-testid="hr-tickets-filter-button"
-            style={{
-              height: 52,
-              width: 52,
-              borderRadius: 16,
-              border: "1px solid rgba(148,163,184,0.16)",
-              background: "#ffffff",
-              color: "var(--light-text)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Filter size={18} />
-          </button>
+            variant="outline"
+            size="lg"
+            iconOnly
+            icon={<Filter size={18} />}
+            className="w-12 shrink-0 rounded-xl"
+            aria-label="Filter tickets"
+          />
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>

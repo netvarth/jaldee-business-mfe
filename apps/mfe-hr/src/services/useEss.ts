@@ -107,12 +107,25 @@ export function useMyProfile() {
 
 export function useMyAttendance() {
   const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance");
-  const punchIn = useCallback(async (mode: string, selfieDataUrl?: string) => {
+  const punchIn = useCallback(async (
+    mode: string,
+    options?: {
+      selfieDataUrl?: string;
+      locationUid?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+      accuracy?: number | null;
+    }
+  ) => {
     const clockInType = normalizeClockInType(mode);
     await api.post("/me/attendance/punch-in", {
       clockInType,
-      wfhStatus: clockInType === "Office" ? null : "Pending",
-      selfieDataUrl: selfieDataUrl || null,
+      locationUid: options?.locationUid ?? null,
+      latitude: options?.latitude ?? null,
+      longitude: options?.longitude ?? null,
+      accuracy: options?.accuracy ?? null,
+      wfhStatus: clockInType === "Office" ? "NotApplicable" : "Requested",
+      selfieDataUrl: options?.selfieDataUrl || null,
     });
     await reload();
   }, [api, reload]);

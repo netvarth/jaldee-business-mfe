@@ -11,6 +11,7 @@ export interface AppWorkspace {
   name: string;
   kind: string;
   themeColor?: string;
+  logoUrl?: string;
 }
 
 export interface SessionResponse {

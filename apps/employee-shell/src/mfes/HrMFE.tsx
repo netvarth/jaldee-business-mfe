@@ -64,7 +64,7 @@ export default function HrMFE() {
 
     return {
       mfeName: "mfe-hr",
-      basePath: "/hr",
+      basePath: "/ess",
       authToken: accessToken,
       user: mfeUser,
       account,
@@ -76,9 +76,9 @@ export default function HrMFE() {
         code: workspace.id,
       },
       navigate: (route: string) => {
-        const nextRoute = route.startsWith("/hr")
+        const nextRoute = route.startsWith("/ess")
           ? route
-          : `/hr${route.startsWith("/") ? route : `/${route}`}`;
+          : `/ess${route.startsWith("/") ? route : `/${route}`}`;
         navigate(nextRoute);
       },
       eventBus,

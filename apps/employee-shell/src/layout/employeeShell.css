@@ -1,5 +1,19 @@
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  width: auto !important;
+}
+
 .employee-content-area {
   background: #f7f9fc;
+  -webkit-overflow-scrolling: touch;
 }
 
 .employee-content-inner {
@@ -9,10 +23,47 @@
 
 .employee-content-inner > * {
   width: 100%;
+  min-height: 100%;
+}
+
+/* The HR MFE owns its own scroll container in admin mode.
+   Inside employee-shell, that creates nested scroll traps and prevents
+   page content from extending naturally with the outer shell scroll area. */
+.employee-content-inner .page-section,
+.employee-content-inner .page-section.active {
+  height: auto !important;
+  min-height: 100%;
+  overflow: visible !important;
+}
+
+.employee-content-inner .hr-page-shell {
+  overflow: visible !important;
 }
 
 @media (max-width: 900px) {
   .employee-content-inner {
     padding: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    min-height: 100dvh;
+  }
+
+  .employee-content-area {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .employee-content-inner {
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .employee-content-inner .page-section,
+  .employee-content-inner .page-section.active,
+  .employee-content-inner .hr-page-shell {
+    min-height: auto !important;
   }
 }

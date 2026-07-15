@@ -11,7 +11,6 @@ import { useTelemetry } from "../../services/useTelemetry";
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
-const field: CSSProperties = { width: "100%", height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", padding: "0 16px", fontSize: 15, fontWeight: 700, color: "var(--dark-text)" };
 const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 16, boxShadow: "0 12px 30px rgba(15, 23, 42, 0.05)" };
 const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 20, width: "100%" };
 
@@ -187,11 +186,26 @@ export default function Announcements() {
 
         {/* SEARCH */}
         <div style={{ ...panel, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ position: "relative", flex: 1 }}>
-            <Search size={18} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-            <input id="hr-announcements-search" data-testid="hr-announcements-search" placeholder="Search announcements…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 64, borderRadius: 28, paddingLeft: 50, background: "var(--surface-bg)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", fontSize: 17 }} />
-          </div>
-          <button id="hr-announcements-filter-button" data-testid="hr-announcements-filter-button" style={{ height: 52, width: 52, borderRadius: 14, border: "1px solid rgba(148,163,184,0.16)", background: "#ffffff", color: "var(--light-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Filter size={18} /></button>
+          <Input
+            id="hr-announcements-search"
+            data-testid="hr-announcements-search"
+            placeholder="Search announcements..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            icon={<Search size={18} />}
+            containerClassName="flex-1"
+            className="h-12 rounded-xl bg-white text-base font-semibold shadow-sm"
+          />
+          <Button
+            id="hr-announcements-filter-button"
+            data-testid="hr-announcements-filter-button"
+            variant="outline"
+            size="lg"
+            iconOnly
+            icon={<Filter size={18} />}
+            className="w-12 shrink-0 rounded-xl"
+            aria-label="Filter announcements"
+          />
         </div>
 
 

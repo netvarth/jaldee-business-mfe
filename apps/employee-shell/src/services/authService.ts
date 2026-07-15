@@ -276,6 +276,12 @@ function normalizeWorkspace(raw: Record<string, unknown>, user: AppUser): AppWor
     name: String(raw.name ?? raw.businessName ?? raw.tenantName ?? "Employee Workspace"),
     kind: "employee",
     themeColor: typeof raw.primaryColor === "string" ? raw.primaryColor : "#1d4ed8",
+    logoUrl:
+      typeof raw.logoUrl === "string" ? raw.logoUrl :
+      typeof raw.logo === "string" ? raw.logo :
+      typeof raw.imageUrl === "string" ? raw.imageUrl :
+      typeof raw.businessLogo === "string" ? raw.businessLogo :
+      undefined,
   };
 }
 
