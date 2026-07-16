@@ -188,7 +188,9 @@ export const BASE_SERVICE_ENDPOINTS = {
     addGroupMembersByName: "/base-service/v1/api/tenant/consumers/groups/members",
     removeLabel: "/base-service/v1/api/tenant/consumers/remove/label",
     removeLabelByUid: (uid: string) => `/base-service/v1/api/tenant/consumers/remove/label/${pathValue(uid)}`,
+    filter: "/base-service/v1/api/tenant/consumers/filter",
     search: "/base-service/v1/api/tenant/consumers/search",
+    filterSchema: "/base-service/v1/api/tenant/consumers/filter/schema",
   },
   consumerGroups: {
     list: "/base-service/v1/api/tenant/consumer-groups",

@@ -22,6 +22,7 @@ import {
   getCustomerById,
   getCustomerCount,
   getCustomerQuestionnaire,
+  getCustomerSearchSchema,
   getCustomerFamilyMembers,
   getCustomerLabels,
   getCustomerMedicalHistory,
@@ -50,14 +51,16 @@ import type {
   CustomerGroupValues,
   CustomerMedicalHistoryValues,
   CustomerNoteValues,
+  CustomerSearchSchema,
 } from "../types";
 
-export function useCustomersList(filters: CustomerFilters) {
+export function useCustomersList(filters: CustomerFilters, options?: { enabled?: boolean }) {
   const scopedApi = useApiScope();
 
   return useQuery({
     queryKey: buildScopedListQueryKey("customers", scopedApi.apiScope, scopedApi.locationId, filters),
     queryFn: () => listCustomers(scopedApi, filters),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -136,6 +139,15 @@ export function useCustomerGroups() {
   return useQuery({
     queryKey: buildScopedListQueryKey("customer-groups", scopedApi.apiScope, scopedApi.locationId),
     queryFn: () => getCustomerGroups(scopedApi),
+  });
+}
+
+export function useCustomerSearchSchema() {
+  const scopedApi = useApiScope();
+
+  return useQuery<CustomerSearchSchema>({
+    queryKey: buildScopedListQueryKey("customer-search-schema", scopedApi.apiScope, scopedApi.locationId),
+    queryFn: () => getCustomerSearchSchema(scopedApi),
   });
 }
 

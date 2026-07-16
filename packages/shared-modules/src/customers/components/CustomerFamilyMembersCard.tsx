@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Alert, Button, ConfirmDialog, Dialog, DialogFooter, EmptyState, Input, SectionCard } from "@jaldee/design-system";
+import { useSharedModulesContext } from "../../context";
+import { emitCustomerErrorToast, emitCustomerSuccessToast, getReadableCustomerApiError } from "../lib/errorEvents";
 import { useCreateCustomerFamilyMember, useCustomerFamilyMembers, useDeleteCustomerFamilyMember } from "../queries/customers";
 
 interface CustomerFamilyMembersCardProps {
@@ -8,6 +10,7 @@ interface CustomerFamilyMembersCardProps {
 }
 
 export function CustomerFamilyMembersCard({ customerId, customerLabel }: CustomerFamilyMembersCardProps) {
+  const { eventBus } = useSharedModulesContext();
   const familyQuery = useCustomerFamilyMembers(customerId);
   const createMember = useCreateCustomerFamilyMember(customerId);
   const deleteMember = useDeleteCustomerFamilyMember(customerId);
@@ -16,18 +19,39 @@ export function CustomerFamilyMembersCard({ customerId, customerLabel }: Custome
   const [lastName, setLastName] = useState("");
   const [jaldeeId, setJaldeeId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ firstName?: string; jaldeeId?: string }>({});
 
   async function handleCreate() {
-    await createMember.mutateAsync({
-      firstName: firstName.trim(),
-      lastName: lastName.trim() || undefined,
-      jaldeeId: jaldeeId.trim() || undefined,
-    });
+    if (!firstName.trim()) {
+      setFieldErrors({ firstName: "First name is required." });
+      setFormError("Please enter the family member details.");
+      return;
+    }
 
-    setFirstName("");
-    setLastName("");
-    setJaldeeId("");
-    setDialogOpen(false);
+    try {
+      await createMember.mutateAsync({
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || undefined,
+        jaldeeId: jaldeeId.trim() || undefined,
+      });
+
+      emitCustomerSuccessToast(eventBus, "Family member added successfully.");
+      setFirstName("");
+      setLastName("");
+      setJaldeeId("");
+      setFieldErrors({});
+      setFormError(null);
+      setDialogOpen(false);
+    } catch (error) {
+      const readable = getReadableCustomerApiError(error, "Unable to add the family member right now.");
+      setFormError(readable.message);
+      setFieldErrors({
+        firstName: /first name/i.test(readable.message) ? readable.message : undefined,
+        jaldeeId: /(jaldee id|consumer id|customer id|\bid\b)/i.test(readable.message) ? readable.message : undefined,
+      });
+      emitCustomerErrorToast(eventBus, error, readable.message);
+    }
   }
 
   return (
@@ -41,12 +65,6 @@ export function CustomerFamilyMembersCard({ customerId, customerLabel }: Custome
         }
       >
         <div className="space-y-4" data-testid="customer-family-card">
-          {(createMember.error || deleteMember.error) && (
-            <Alert variant="danger">
-              Unable to update family members right now.
-            </Alert>
-          )}
-
           {familyQuery.isLoading ? (
             <div className="text-sm text-[var(--color-text-secondary)]">Loading family members...</div>
           ) : !familyQuery.data?.length ? (
@@ -93,13 +111,56 @@ export function CustomerFamilyMembersCard({ customerId, customerLabel }: Custome
         description={`Create a related ${customerLabel.toLowerCase()} record.`}
         size="md"
       >
+        {formError ? <Alert variant="danger">{formError}</Alert> : null}
         <div className="grid gap-4 md:grid-cols-2">
-          <Input data-testid="customer-family-first-name" label="First Name" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
-          <Input data-testid="customer-family-last-name" label="Last Name" value={lastName} onChange={(event) => setLastName(event.target.value)} />
-          <Input data-testid="customer-family-jaldee-id" label={`${customerLabel} ID`} value={jaldeeId} onChange={(event) => setJaldeeId(event.target.value)} />
+          <Input
+            data-testid="customer-family-first-name"
+            label="First Name"
+            value={firstName}
+            error={fieldErrors.firstName}
+            onChange={(event) => {
+              setFirstName(event.target.value);
+              setFieldErrors((current) => ({ ...current, firstName: undefined }));
+              if (formError) {
+                setFormError(null);
+              }
+            }}
+          />
+          <Input
+            data-testid="customer-family-last-name"
+            label="Last Name"
+            value={lastName}
+            onChange={(event) => {
+              setLastName(event.target.value);
+              if (formError) {
+                setFormError(null);
+              }
+            }}
+          />
+          <Input
+            data-testid="customer-family-jaldee-id"
+            label={`${customerLabel} ID`}
+            value={jaldeeId}
+            error={fieldErrors.jaldeeId}
+            onChange={(event) => {
+              setJaldeeId(event.target.value);
+              setFieldErrors((current) => ({ ...current, jaldeeId: undefined }));
+              if (formError) {
+                setFormError(null);
+              }
+            }}
+          />
         </div>
         <DialogFooter>
-          <Button data-testid="customer-family-cancel" variant="secondary" onClick={() => setDialogOpen(false)}>
+          <Button
+            data-testid="customer-family-cancel"
+            variant="secondary"
+            onClick={() => {
+              setDialogOpen(false);
+              setFormError(null);
+              setFieldErrors({});
+            }}
+          >
             Cancel
           </Button>
           <Button data-testid="customer-family-submit" onClick={handleCreate} loading={createMember.isPending} disabled={!firstName.trim()}>
@@ -113,8 +174,13 @@ export function CustomerFamilyMembersCard({ customerId, customerLabel }: Custome
         onClose={() => setDeleteTarget(null)}
         onConfirm={async () => {
           if (!deleteTarget) return;
-          await deleteMember.mutateAsync(deleteTarget.id);
-          setDeleteTarget(null);
+          try {
+            await deleteMember.mutateAsync(deleteTarget.id);
+            emitCustomerSuccessToast(eventBus, "Family member removed successfully.");
+            setDeleteTarget(null);
+          } catch (error) {
+            emitCustomerErrorToast(eventBus, error, "Unable to remove the family member right now.");
+          }
         }}
         title="Remove family member"
         description={`This will remove ${deleteTarget?.name ?? "the selected family member"} from the record.`}

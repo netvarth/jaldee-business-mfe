@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
-import { Alert, Avatar, Badge, Button, Checkbox, ConfirmDialog, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Switch, Tabs, cn } from "@jaldee/design-system";
+import { Alert, Avatar, Badge, Button, ConfirmDialog, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Switch, Tabs, cn } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
 import { resolveCustomerLabel } from "../../labels";
@@ -9,19 +9,27 @@ import { useUrlPagination } from "../../useUrlPagination";
 import {
   useChangeCustomerStatus,
   useChangeCustomerGroupStatus,
-  useAddCustomerLabels,
   useCreateCustomerGroup,
   useCustomerGroupMembers,
   useCustomerGroups,
-  useCustomerLabels,
+  useCustomerSearchSchema,
   useCustomersCount,
   useCustomersList,
   useExportCustomers,
-  useRemoveCustomerLabels,
   useRemoveSpecificCustomerFromGroup,
   useUpdateCustomerGroup,
 } from "../queries/customers";
-import type { Customer, CustomerFilters, CustomerGroup } from "../types";
+import type {
+  Customer,
+  CustomerFilters,
+  CustomerGroup,
+  CustomerSearchFilterClause,
+} from "../types";
+import {
+  buildDefaultCustomerSearchClauses,
+  compactCustomerSearchClauses,
+  CustomerSearchFilterBuilder,
+} from "./CustomerSearchFilterBuilder";
 import { CustomerFormDialog } from "./CustomerFormDialog";
 
 interface CustomersListProps {
@@ -30,31 +38,12 @@ interface CustomersListProps {
 
 type ListTab = "customers" | "inactive" | "groups";
 type SearchField = "all" | "name" | "phone" | "id";
-type CustomerAdvancedFilters = {
-  phoneE164: string;
-  email: string;
-  group: string;
-  preferredLanguage: string;
-  labelKey: string;
-  labelValue: string;
-};
-
 const SEARCH_FIELD_OPTIONS = [
   { label: "All", value: "all" },
   { label: "Name", value: "name" },
   { label: "Phone", value: "phone" },
   { label: "ID", value: "id" },
 ];
-
-const EMPTY_ADVANCED_FILTERS: CustomerAdvancedFilters = {
-  phoneE164: "",
-  email: "",
-  group: "",
-  preferredLanguage: "",
-  labelKey: "",
-  labelValue: "",
-};
-
 export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const { account, product, apiScope, user, basePath } = useSharedModulesContext();
   const navigate = useSharedNavigate();
@@ -62,21 +51,12 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const [activeTab, setActiveTab] = useState<ListTab>("customers");
   const [searchField, setSearchField] = useState<SearchField>("all");
   const [search, setSearch] = useState("");
-  const [advancedFilters, setAdvancedFilters] = useState<CustomerAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
-  const [draftFilters, setDraftFilters] = useState<CustomerAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
+  const [advancedFilters, setAdvancedFilters] = useState<CustomerSearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<CustomerSearchFilterClause[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { page, setPage, pageSize, setPageSize } = useUrlPagination({
     namespace: "customersList",
-    resetDeps: [
-      activeTab,
-      search,
-      advancedFilters.phoneE164,
-      advancedFilters.email,
-      advancedFilters.group,
-      advancedFilters.preferredLanguage,
-      advancedFilters.labelKey,
-      advancedFilters.labelValue,
-    ],
+    resetDeps: [activeTab, search, JSON.stringify(advancedFilters)],
   });
   const [hasChangedPageSize, setHasChangedPageSize] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
@@ -92,13 +72,9 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const [generateGrpMemId, setGenerateGrpMemId] = useState(false);
   const [statusChangeCustomer, setStatusChangeCustomer] = useState<Customer | null>(null);
   const [messageCustomer, setMessageCustomer] = useState<Customer | null>(null);
-  const [labelsCustomer, setLabelsCustomer] = useState<Customer | null>(null);
-  const [labelSelection, setLabelSelection] = useState<Record<string, boolean>>({});
   const exportCustomersMutation = useExportCustomers();
   const customerStatusMutation = useChangeCustomerStatus(statusChangeCustomer?.id ?? null);
-  const labelsQuery = useCustomerLabels();
-  const addLabelsMutation = useAddCustomerLabels(labelsCustomer?.id ?? null);
-  const removeLabelsMutation = useRemoveCustomerLabels(labelsCustomer?.id ?? null);
+  const searchSchemaQuery = useCustomerSearchSchema();
   const groupsQuery = useCustomerGroups();
   const groupMembersQuery = useCustomerGroupMembers(selectedGroup?.id ?? null);
   const createGroup = useCreateCustomerGroup();
@@ -124,10 +100,12 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
       status: status === "__GROUPS__" ? undefined : status,
       page,
       pageSize,
-      ...advancedFilters,
+      searchSchema: searchSchemaQuery.data,
+      filterClauses: compactCustomerSearchClauses(advancedFilters, searchSchemaQuery.data),
     }),
-    [advancedFilters, page, pageSize, search, status]
+    [advancedFilters, page, pageSize, search, searchSchemaQuery.data, status]
   );
+  const isSearchSchemaReady = searchSchemaQuery.isSuccess && Boolean(searchSchemaQuery.data);
 
   const activeCountFilters = useMemo<CustomerFilters>(
     () => ({
@@ -143,18 +121,31 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
     []
   );
 
-  const customersQuery = useCustomersList(filters);
+  const appliedAdvancedFilterCount = useMemo(
+    () => compactCustomerSearchClauses(advancedFilters, searchSchemaQuery.data).length,
+    [advancedFilters, searchSchemaQuery.data]
+  );
+  const appliedAdvancedFilterSummary = useMemo(
+    () => formatAppliedFilterSummary(advancedFilters, searchSchemaQuery.data),
+    [advancedFilters, searchSchemaQuery.data]
+  );
 
+  const customersQuery = useCustomersList(filters, {
+    enabled: isSearchSchemaReady,
+  });
+  const hasAppliedSearch = search.trim().length > 0;
+  const hasAppliedAdvancedFilters = appliedAdvancedFilterCount > 0;
+  const shouldFetchCountBadges = hasChangedPageSize && !hasAppliedSearch && !hasAppliedAdvancedFilters;
   const shouldFetchActiveCount =
-    hasChangedPageSize && !(activeTab === "customers" && !search.trim() && customersQuery.data?.total !== undefined);
+    shouldFetchCountBadges && activeTab !== "customers";
   const shouldFetchInactiveCount =
-    hasChangedPageSize && !(activeTab === "inactive" && !search.trim() && customersQuery.data?.total !== undefined);
+    shouldFetchCountBadges && activeTab !== "inactive";
 
   const activeCountQuery = useCustomersCount(activeCountFilters, {
-    enabled: shouldFetchActiveCount,
+    enabled: isSearchSchemaReady && shouldFetchActiveCount,
   });
   const inactiveCountQuery = useCustomersCount(inactiveCountFilters, {
-    enabled: shouldFetchInactiveCount,
+    enabled: isSearchSchemaReady && shouldFetchInactiveCount,
   });
 
   const rows = activeTab === "groups" ? [] : (customersQuery.data?.customers ?? []);
@@ -163,10 +154,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
   const inactiveCount = inactiveCountQuery.data ?? (activeTab === "inactive" && !search.trim() ? customersQuery.data?.total : undefined);
   const groupRows = groupsQuery.data ?? [];
   const groupMembers = groupMembersQuery.data ?? [];
-  const appliedAdvancedFilterCount = useMemo(
-    () => Object.values(advancedFilters).filter((value) => Boolean(value.trim())).length,
-    [advancedFilters]
-  );
 
   useEffect(() => {
     setSelectedRowKeys([]);
@@ -188,23 +175,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
       setSelectedGroup(latest);
     }
   }, [groupRows, selectedGroup]);
-
-  useEffect(() => {
-    if (!labelsCustomer) {
-      setLabelSelection({});
-      return;
-    }
-
-    const initialSelection = Object.entries(labelsCustomer.labels ?? {}).reduce<Record<string, boolean>>(
-      (acc, [key, value]) => {
-        acc[key] = value === true || value === "true";
-        return acc;
-      },
-      {}
-    );
-
-    setLabelSelection(initialSelection);
-  }, [labelsCustomer]);
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredGroupRows = useMemo(
@@ -297,7 +267,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
           const name = formatCustomerName(customer);
           const isInactive = customer.status === "INACTIVE";
           const hasAnyMessageTarget = Boolean(customer.email || customer.whatsappNumber || customer.phoneNo);
-          const enabledLabels = (labelsQuery.data ?? []).filter((label) => label.status === "ENABLED");
           const menuItems = [
             {
               key: "status",
@@ -381,13 +350,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                       customerId: customer.id,
                       source: "customers",
                     }),
-                }
-              : null,
-            enabledLabels.length > 0
-              ? {
-                  key: "labels",
-                  label: "Labels",
-                  onClick: () => setLabelsCustomer(customer),
                 }
               : null,
           ].filter(Boolean) as Array<{ key: string; label: string; onClick: () => void }>;
@@ -705,29 +667,40 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
               />
             </div>
 
-            <Button
-              type="button"
-              data-testid="customers-filter-trigger"
-              variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
-                appliedAdvancedFilterCount > 0
-                  ? ""
-                  : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
-              )}
-              onClick={() => {
-                setDraftFilters(advancedFilters);
-                setDrawerOpen(true);
-              }}
-            >
-              <FilterIcon />
-              <span>Filter</span>
-              {appliedAdvancedFilterCount > 0 ? (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
-                  {appliedAdvancedFilterCount}
-                </span>
-              ) : null}
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                data-testid="customers-filter-trigger-single"
+                variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
+                  appliedAdvancedFilterCount > 0
+                    ? ""
+                    : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+                )}
+                onClick={() => {
+                  setDraftFilters(
+                    advancedFilters.length > 0
+                      ? advancedFilters
+                      : buildDefaultCustomerSearchClauses(searchSchemaQuery.data)
+                  );
+                  setDrawerOpen(true);
+                }}
+              >
+                <FilterIcon />
+                <span>Filters</span>
+                {appliedAdvancedFilterCount > 0 ? (
+                  <span className="max-w-[220px] truncate text-[12px] font-medium text-current/90">
+                    {appliedAdvancedFilterSummary}
+                  </span>
+                ) : null}
+                {appliedAdvancedFilterCount > 0 ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                    {appliedAdvancedFilterCount}
+                  </span>
+                ) : null}
+              </Button>
+            </div>
           </div>
 
           {activeTab === "groups" ? (
@@ -840,56 +813,24 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title="Advanced Filters"
+        title="Filters"
         size="sm"
         contentClassName="flex flex-col p-0 overflow-hidden"
       >
         <div className="flex h-full flex-1 flex-col overflow-hidden">
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
-            <Input
-              data-testid="customers-filter-phone"
-              label="Phone"
-              placeholder="Enter phone number"
-              value={draftFilters.phoneE164}
-              onChange={(event) => setDraftFilters((current) => ({ ...current, phoneE164: event.target.value }))}
+            <CustomerSearchFilterBuilder
+              schema={searchSchemaQuery.data}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedAdvancedFilterCount}
+              onClearAll={() => {
+                const resetClauses = buildDefaultCustomerSearchClauses(searchSchemaQuery.data);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
             />
-            <Input
-              data-testid="customers-filter-email"
-              label="Email"
-              placeholder="email@example.com"
-              value={draftFilters.email}
-              onChange={(event) => setDraftFilters((current) => ({ ...current, email: event.target.value }))}
-            />
-            <Input
-              data-testid="customers-filter-group"
-              label="Group"
-              placeholder="Enter group"
-              value={draftFilters.group}
-              onChange={(event) => setDraftFilters((current) => ({ ...current, group: event.target.value }))}
-            />
-            <Input
-              data-testid="customers-filter-language"
-              label="Preferred Language"
-              placeholder="Enter language"
-              value={draftFilters.preferredLanguage}
-              onChange={(event) => setDraftFilters((current) => ({ ...current, preferredLanguage: event.target.value }))}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                data-testid="customers-filter-label-key"
-                label="Label Key"
-                placeholder="Label key"
-                value={draftFilters.labelKey}
-                onChange={(event) => setDraftFilters((current) => ({ ...current, labelKey: event.target.value }))}
-              />
-              <Input
-                data-testid="customers-filter-label-value"
-                label="Label Value"
-                placeholder="Label value"
-                value={draftFilters.labelValue}
-                onChange={(event) => setDraftFilters((current) => ({ ...current, labelValue: event.target.value }))}
-              />
-            </div>
           </div>
 
           <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
@@ -897,10 +838,10 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
               type="button"
               variant="outline"
               onClick={() => {
-                setDraftFilters(EMPTY_ADVANCED_FILTERS);
-                setAdvancedFilters(EMPTY_ADVANCED_FILTERS);
+                const resetClauses = buildDefaultCustomerSearchClauses(searchSchemaQuery.data);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
                 setPage(1);
-                setDrawerOpen(false);
               }}
             >
               Reset All
@@ -1075,79 +1016,6 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
         </DialogFooter>
       </Dialog>
 
-      <Dialog
-        open={Boolean(labelsCustomer)}
-        onClose={() => setLabelsCustomer(null)}
-        title="Labels"
-        description={labelsCustomer ? `Update labels for ${formatCustomerName(labelsCustomer)}.` : undefined}
-        size="md"
-      >
-        <div className="space-y-4" data-testid="customers-labels-dialog">
-          {(addLabelsMutation.error || removeLabelsMutation.error) ? (
-            <Alert variant="danger">Unable to update labels right now.</Alert>
-          ) : null}
-          {labelsQuery.isLoading ? (
-            <div className="text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">Loading labels...</div>
-          ) : (labelsQuery.data ?? []).filter((label) => label.status === "ENABLED").length === 0 ? (
-            <EmptyState title="No labels available" description="Create labels in settings before applying them here." />
-          ) : (
-            <div className="grid gap-3">
-              {(labelsQuery.data ?? [])
-                .filter((label) => label.status === "ENABLED")
-                .map((label) => (
-                  <Checkbox
-                    key={label.id}
-                    data-testid={`customers-label-option-${label.label}`}
-                    checked={labelSelection[label.label] ?? false}
-                    onChange={(event) =>
-                      setLabelSelection((current) => ({
-                        ...current,
-                        [label.label]: event.target.checked,
-                      }))
-                    }
-                    label={label.displayName}
-                    description={label.label}
-                  />
-                ))}
-            </div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => setLabelsCustomer(null)}>
-            Cancel
-          </Button>
-          <Button
-            data-testid="customers-labels-apply"
-            onClick={async () => {
-              if (!labelsCustomer) {
-                return;
-              }
-
-              const activeLabels = Object.entries(labelsCustomer.labels ?? {})
-                .filter(([, value]) => value === true || value === "true")
-                .map(([key]) => key);
-              const nextLabels = Object.entries(labelSelection)
-                .filter(([, checked]) => checked)
-                .map(([key]) => key);
-              const labelsToAdd = nextLabels.filter((label) => !activeLabels.includes(label));
-              const labelsToRemove = activeLabels.filter((label) => !nextLabels.includes(label));
-
-              if (labelsToRemove.length) {
-                await removeLabelsMutation.mutateAsync(labelsToRemove);
-              }
-
-              if (labelsToAdd.length) {
-                await addLabelsMutation.mutateAsync(labelsToAdd);
-              }
-
-              setLabelsCustomer(null);
-            }}
-            loading={addLabelsMutation.isPending || removeLabelsMutation.isPending}
-          >
-            Apply
-          </Button>
-        </DialogFooter>
-      </Dialog>
     </>
   );
 }
@@ -1197,6 +1065,39 @@ function getSearchPlaceholder(customerLabel: string, searchField: SearchField) {
     default:
       return "Enter name or phone or id";
   }
+}
+
+function formatAppliedFilterSummary(
+  clauses: CustomerSearchFilterClause[],
+  schema: CustomerFilters["searchSchema"]
+) {
+  const appliedClauses = compactCustomerSearchClauses(clauses, schema);
+
+  if (appliedClauses.length === 0) {
+    return "";
+  }
+
+  const parts = appliedClauses.slice(0, 2).map((clause) => {
+    const field = schema?.fields.find((item) => item.key === clause.field);
+    const label = field?.label ?? clause.field;
+    const values = clause.values.filter(Boolean).join(" - ");
+    const operator = clause.operator === "EQ" ? "" : `${formatAppliedOperatorLabel(clause.operator)} `;
+    return `${label}: ${operator}${values}`.trim();
+  });
+
+  if (appliedClauses.length > 2) {
+    parts.push(`+${appliedClauses.length - 2} more`);
+  }
+
+  return parts.join(", ");
+}
+
+function formatAppliedOperatorLabel(operator: string) {
+  return operator
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function stopRowAction(event: MouseEvent<HTMLElement>) {

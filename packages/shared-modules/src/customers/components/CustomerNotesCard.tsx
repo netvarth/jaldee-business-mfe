@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Alert, Button, ConfirmDialog, EmptyState, SectionCard, Textarea } from "@jaldee/design-system";
+import { useSharedModulesContext } from "../../context";
+import { emitCustomerErrorToast, emitCustomerSuccessToast, getReadableCustomerApiError } from "../lib/errorEvents";
 import { useCreateCustomerNote, useCustomerNotes, useDeleteCustomerNote, useUpdateCustomerNote } from "../queries/customers";
 import type { CustomerNote } from "../types";
 
@@ -9,6 +11,7 @@ interface CustomerNotesCardProps {
 }
 
 export function CustomerNotesCard({ customerId, customerLabel }: CustomerNotesCardProps) {
+  const { eventBus } = useSharedModulesContext();
   const notesQuery = useCustomerNotes(customerId);
   const createNote = useCreateCustomerNote(customerId);
   const updateNote = useUpdateCustomerNote(customerId);
@@ -16,37 +19,58 @@ export function CustomerNotesCard({ customerId, customerLabel }: CustomerNotesCa
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<CustomerNote | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomerNote | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
 
   async function handleSubmit() {
     const value = draft.trim();
     if (!value) {
+      setFieldError("Note is required.");
+      setFormError(`Enter a note for this ${customerLabel.toLowerCase()}.`);
       return;
     }
 
-    if (editing) {
-      await updateNote.mutateAsync({
-        id: editing.id,
-        customerId,
-        note: value,
-      });
-    } else {
-      await createNote.mutateAsync({
-        note: value,
-      });
-    }
+    try {
+      if (editing) {
+        await updateNote.mutateAsync({
+          id: editing.id,
+          customerId,
+          note: value,
+        });
+      } else {
+        await createNote.mutateAsync({
+          note: value,
+        });
+      }
 
-    setDraft("");
-    setEditing(null);
+      emitCustomerSuccessToast(eventBus, editing ? "Customer note updated successfully." : "Customer note added successfully.");
+      setDraft("");
+      setEditing(null);
+      setFormError(null);
+      setFieldError(null);
+    } catch (error) {
+      const readable = getReadableCustomerApiError(
+        error,
+        editing ? "Unable to update the customer note right now." : "Unable to add the customer note right now."
+      );
+      setFormError(readable.message);
+      setFieldError(/note/i.test(readable.message) ? readable.message : null);
+      emitCustomerErrorToast(eventBus, error, readable.message);
+    }
   }
 
   function handleEdit(note: CustomerNote) {
     setEditing(note);
     setDraft(note.note);
+    setFormError(null);
+    setFieldError(null);
   }
 
   function handleCancel() {
     setEditing(null);
     setDraft("");
+    setFormError(null);
+    setFieldError(null);
   }
 
   return (
@@ -62,11 +86,7 @@ export function CustomerNotesCard({ customerId, customerLabel }: CustomerNotesCa
         }
       >
         <div className="space-y-4" data-testid="customer-notes-card">
-          {(createNote.error || updateNote.error || deleteNote.error) && (
-            <Alert variant="danger">
-              Unable to save {customerLabel.toLowerCase()} notes right now.
-            </Alert>
-          )}
+          {formError ? <Alert variant="danger">{formError}</Alert> : null}
 
           <div className="space-y-3">
             <Textarea
@@ -74,7 +94,16 @@ export function CustomerNotesCard({ customerId, customerLabel }: CustomerNotesCa
               label={editing ? "Edit note" : "Add note"}
               rows={4}
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              error={fieldError ?? undefined}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                if (fieldError) {
+                  setFieldError(null);
+                }
+                if (formError) {
+                  setFormError(null);
+                }
+              }}
               placeholder={`Write a note about this ${customerLabel.toLowerCase()}.`}
             />
             <div className="flex items-center justify-end gap-3">
@@ -141,11 +170,16 @@ export function CustomerNotesCard({ customerId, customerLabel }: CustomerNotesCa
             return;
           }
 
-          await deleteNote.mutateAsync(deleteTarget.id);
-          if (editing?.id === deleteTarget.id) {
-            handleCancel();
+          try {
+            await deleteNote.mutateAsync(deleteTarget.id);
+            emitCustomerSuccessToast(eventBus, "Customer note deleted successfully.");
+            if (editing?.id === deleteTarget.id) {
+              handleCancel();
+            }
+            setDeleteTarget(null);
+          } catch (error) {
+            emitCustomerErrorToast(eventBus, error, "Unable to delete the customer note right now.");
           }
-          setDeleteTarget(null);
         }}
         title="Delete note"
         description="This note will be removed from the customer record."

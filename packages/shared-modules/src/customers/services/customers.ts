@@ -13,6 +13,14 @@ import type {
   CustomerMedicalHistoryValues,
   CustomerNote,
   CustomerNoteValues,
+  CustomerSearchFilterClause,
+  CustomerSearchFilterGroup,
+  CustomerSearchFilterNode,
+  CustomerSearchFilters,
+  CustomerSearchOperatorDefinition,
+  CustomerSearchSchema,
+  CustomerSearchSchemaField,
+  CustomerSearchSchemaView,
   CustomerVisit,
 } from "../types";
 import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../../serviceUrls";
@@ -39,57 +47,85 @@ interface CustomerListResult {
   total: number;
 }
 
-const CONSUMER_SEARCH_FIELDS = new Set([
-  "phoneE164",
-  "email",
-  "group",
-  "preferredLanguage",
-  "labelKey",
-  "labelValue",
-]);
-
-function buildConsumerSearchParams(filters: CustomerFilters) {
-  const params: Record<string, number> = {};
-
-  if (filters.page && filters.pageSize) {
-    params.page = filters.page - 1;
-    params.size = filters.pageSize;
-  }
-
-  return params;
-}
+const DEFAULT_CUSTOMER_SEARCH_SCHEMA: CustomerSearchSchema = {
+  label: "Tenant Consumer",
+  description: "Tenant-scoped consumer search",
+  defaultView: "SUMMARY",
+  fields: [
+    {
+      key: "displayName",
+      name: "displayName",
+      label: "Display Name",
+      type: "STRING",
+      filterable: true,
+      operators: ["EQ", "STARTS_WITH", "CONTAINS"],
+    },
+    {
+      key: "consumerNo",
+      name: "consumerNo",
+      label: "Consumer No",
+      type: "STRING",
+      filterable: true,
+      operators: ["EQ", "STARTS_WITH"],
+    },
+    {
+      key: "phoneE164",
+      name: "phoneE164",
+      label: "Phone (E.164)",
+      type: "STRING",
+      filterable: true,
+      operators: ["EQ"],
+    },
+    {
+      key: "email",
+      name: "email",
+      label: "Email",
+      type: "STRING",
+      filterable: true,
+      operators: ["EQ", "STARTS_WITH", "CONTAINS"],
+    },
+    {
+      key: "status",
+      name: "status",
+      label: "Status",
+      type: "ENUM",
+      filterable: true,
+      operators: ["EQ", "NE", "IN", "NOT_IN"],
+      values: ["Disabled", "Enabled"],
+    },
+  ],
+  views: [{ name: "SUMMARY", label: "Summary" }],
+  operatorCatalog: [
+    { operator: "EQ", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "NE", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "IN", arity: "AT_LEAST_ONE", minValues: 1, maxValues: -1 },
+    { operator: "NOT_IN", arity: "AT_LEAST_ONE", minValues: 1, maxValues: -1 },
+    { operator: "STARTS_WITH", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "CONTAINS", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "GT", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "GTE", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "LT", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "LTE", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
+    { operator: "BETWEEN", arity: "EXACTLY_TWO", minValues: 2, maxValues: 2 },
+  ],
+};
 
 function buildConsumerSearchBody(filters: CustomerFilters) {
-  const body: Record<string, unknown> = {};
   const search = filters.search?.trim();
+  const searchSchema = getResolvedCustomerSearchSchema(filters.searchSchema);
+  const filterClauses = normalizeCustomerSearchFilters(filters.filterClauses);
+  const filterTree = buildCustomerSearchFilters(filterClauses, filters.status, searchSchema);
+  const page = Math.max((filters.page ?? 1) - 1, 0);
+  const size = filters.pageSize ?? 20;
 
-  if (search) {
-    body.q = search;
-  }
-
-  if (filters.status) {
-    body.status = toConsumerStatus(filters.status);
-  }
-
-  Object.entries(filters).forEach(([key, value]) => {
-    if (
-      value === undefined ||
-      value === null ||
-      value === "" ||
-      key === "search" ||
-      key === "status" ||
-      key === "page" ||
-      key === "pageSize"
-    ) {
-      return;
-    }
-
-    if (CONSUMER_SEARCH_FIELDS.has(key)) {
-      body[key] = value;
-    }
-  });
-
-  return body;
+  return {
+    ...(search ? { q: search } : {}),
+    view: searchSchema.defaultView ?? "SUMMARY",
+    filters: filterTree,
+    sort: buildCustomerSearchSort(searchSchema),
+    page,
+    size,
+  };
 }
 
 function toConsumerStatus(status: string) {
@@ -153,6 +189,340 @@ function normalizeConsumerTotal(data: unknown, fallback: number) {
   const nestedTotal = nestedData && !Array.isArray(nestedData) ? nestedData.totalElements : undefined;
   const value = raw.totalElements ?? raw.total ?? raw.count ?? nestedTotal;
   return typeof value === "number" ? value : fallback;
+}
+
+function normalizeSchemaField(raw: Record<string, unknown>, fallbackKey?: string): CustomerSearchSchemaField | null {
+  const keyCandidate = [
+    raw.key,
+    raw.field,
+    raw.fieldName,
+    raw.name,
+    raw.param,
+    raw.paramName,
+    raw.parameter,
+    raw.parameterName,
+    raw.queryParam,
+    raw.id,
+    fallbackKey,
+  ].find((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  if (!keyCandidate) {
+    return null;
+  }
+
+  const aliases = new Set<string>();
+  if (Array.isArray(raw.aliases)) {
+    raw.aliases.forEach((value) => {
+      if (typeof value === "string" && value.trim()) {
+        aliases.add(value.trim());
+      }
+    });
+  }
+
+  const labelCandidate = [
+    raw.label,
+    raw.title,
+    raw.displayName,
+    raw.name,
+    fallbackKey,
+    keyCandidate,
+  ].find((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  return {
+    key: keyCandidate.trim(),
+    name: keyCandidate.trim(),
+    label: (labelCandidate ?? keyCandidate).trim(),
+    aliases: aliases.size > 0 ? [...aliases] : undefined,
+    type: typeof raw.type === "string" ? raw.type : undefined,
+    inputType: typeof raw.inputType === "string" ? raw.inputType : undefined,
+    filterable: typeof raw.filterable === "boolean" ? raw.filterable : undefined,
+    searchable: typeof raw.searchable === "boolean" ? raw.searchable : undefined,
+    sortable: typeof raw.sortable === "boolean" ? raw.sortable : undefined,
+    operators: Array.isArray(raw.operators)
+      ? raw.operators.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      : undefined,
+    views: Array.isArray(raw.views)
+      ? raw.views.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      : undefined,
+    values: Array.isArray(raw.values)
+      ? raw.values.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      : undefined,
+  };
+}
+
+function normalizeSchemaView(raw: Record<string, unknown>): CustomerSearchSchemaView | null {
+  const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : null;
+  if (!name) {
+    return null;
+  }
+
+  return {
+    name,
+    label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : name,
+    resultFields: Array.isArray(raw.resultFields)
+      ? raw.resultFields.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      : undefined,
+  };
+}
+
+function normalizeOperatorDefinition(raw: Record<string, unknown>): CustomerSearchOperatorDefinition | null {
+  const operator = typeof raw.operator === "string" && raw.operator.trim() ? raw.operator.trim() : null;
+  if (!operator) {
+    return null;
+  }
+
+  return {
+    operator,
+    arity: typeof raw.arity === "string" ? raw.arity : undefined,
+    minValues: typeof raw.minValues === "number" ? raw.minValues : undefined,
+    maxValues: typeof raw.maxValues === "number" ? raw.maxValues : undefined,
+  };
+}
+
+function normalizeCustomerSearchSchema(schema: unknown): CustomerSearchSchema {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return DEFAULT_CUSTOMER_SEARCH_SCHEMA;
+  }
+
+  const raw = schema as Record<string, unknown>;
+  const fields = Array.isArray(raw.fields)
+    ? raw.fields
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+        .map((item) => normalizeSchemaField(item))
+        .filter((item): item is CustomerSearchSchemaField => Boolean(item))
+    : [];
+
+  const views = Array.isArray(raw.views)
+    ? raw.views
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+        .map((item) => normalizeSchemaView(item))
+        .filter((item): item is CustomerSearchSchemaView => Boolean(item))
+    : undefined;
+
+  const operatorCatalog = Array.isArray(raw.operatorCatalog)
+    ? raw.operatorCatalog
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+        .map((item) => normalizeOperatorDefinition(item))
+        .filter((item): item is CustomerSearchOperatorDefinition => Boolean(item))
+    : undefined;
+
+  return {
+    schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : undefined,
+    label: typeof raw.label === "string" ? raw.label : DEFAULT_CUSTOMER_SEARCH_SCHEMA.label,
+    description: typeof raw.description === "string" ? raw.description : DEFAULT_CUSTOMER_SEARCH_SCHEMA.description,
+    defaultView: typeof raw.defaultView === "string" ? raw.defaultView : DEFAULT_CUSTOMER_SEARCH_SCHEMA.defaultView,
+    defaultSort:
+      raw.defaultSort && typeof raw.defaultSort === "object" && !Array.isArray(raw.defaultSort)
+        ? {
+            field: typeof (raw.defaultSort as Record<string, unknown>).field === "string"
+              ? String((raw.defaultSort as Record<string, unknown>).field)
+              : undefined,
+            direction: typeof (raw.defaultSort as Record<string, unknown>).direction === "string"
+              ? String((raw.defaultSort as Record<string, unknown>).direction)
+              : undefined,
+          }
+        : DEFAULT_CUSTOMER_SEARCH_SCHEMA.defaultSort,
+    fields: fields.length > 0 ? fields : DEFAULT_CUSTOMER_SEARCH_SCHEMA.fields,
+    views: views && views.length > 0 ? views : DEFAULT_CUSTOMER_SEARCH_SCHEMA.views,
+    operatorCatalog:
+      operatorCatalog && operatorCatalog.length > 0
+        ? operatorCatalog
+        : DEFAULT_CUSTOMER_SEARCH_SCHEMA.operatorCatalog,
+  };
+}
+
+function getResolvedCustomerSearchSchema(schema?: CustomerSearchSchema) {
+  return schema && schema.fields.length > 0 ? schema : DEFAULT_CUSTOMER_SEARCH_SCHEMA;
+}
+
+function normalizeCustomerSearchFilters(filters?: CustomerSearchFilters): CustomerSearchFilterGroup {
+  if (Array.isArray(filters)) {
+    return {
+      id: "root",
+      logic: "AND",
+      conditions: normalizeCustomerSearchNodes(filters),
+    };
+  }
+
+  if (!filters || typeof filters !== "object" || !Array.isArray(filters.conditions)) {
+    return {
+      id: "root",
+      logic: "AND",
+      conditions: [],
+    };
+  }
+
+  return {
+    id: typeof filters.id === "string" && filters.id.trim() ? filters.id : "root",
+    logic: filters.logic === "OR" ? "OR" : "AND",
+    conditions: normalizeCustomerSearchNodes(filters.conditions),
+  };
+}
+
+function normalizeCustomerSearchNodes(nodes: CustomerSearchFilterNode[]) {
+  return nodes.reduce<CustomerSearchFilterNode[]>((acc, node) => {
+    if (isCustomerSearchFilterGroup(node)) {
+      acc.push({
+        id: typeof node.id === "string" && node.id.trim() ? node.id : `group-${acc.length}`,
+        logic: node.logic === "OR" ? "OR" : "AND",
+        conditions: normalizeCustomerSearchNodes(node.conditions),
+      });
+      return acc;
+    }
+
+    if (!node || typeof node.field !== "string" || typeof node.operator !== "string") {
+      return acc;
+    }
+
+    acc.push({
+      ...node,
+      values: Array.isArray(node.values) ? node.values.map((value) => String(value ?? "").trim()) : [],
+    });
+    return acc;
+  }, []);
+}
+
+function buildCustomerSearchFilters(
+  filters: CustomerSearchFilterGroup,
+  status: string | undefined,
+  schema: CustomerSearchSchema
+) {
+  const rootGroup = filters.logic === "AND" ? null : buildNestedCustomerSearchGroup(filters, schema);
+  const conditions = filters.logic === "AND"
+    ? buildCustomerSearchNodes(filters.conditions, schema)
+    : rootGroup
+      ? [rootGroup]
+      : [];
+
+  if (status) {
+    conditions.push({
+      field: "status",
+      operator: "EQ",
+      values: [toConsumerStatus(status)],
+    });
+  }
+
+  return {
+    logic: "AND" as const,
+    conditions,
+  };
+}
+
+function buildCustomerSearchSort(schema: CustomerSearchSchema) {
+  const field = schema.defaultSort?.field?.trim();
+  if (!field) {
+    return [];
+  }
+
+  return [
+    {
+      field,
+      direction: (schema.defaultSort?.direction ?? "DESC").toUpperCase(),
+    },
+  ];
+}
+
+function coerceClauseValues(
+  schema: CustomerSearchSchema,
+  clause: CustomerSearchFilterClause
+) {
+  const field = schema.fields.find((item) => item.key === clause.field);
+  const fieldType = String(field?.type ?? "").toUpperCase();
+
+  return clause.values
+    .filter((value) => value !== "")
+    .map((value) => coerceFilterValue(value, fieldType));
+}
+
+function coerceFilterValue(value: string, fieldType: string) {
+  if (
+    fieldType === "INTEGER" ||
+    fieldType === "INT" ||
+    fieldType === "LONG" ||
+    fieldType === "FLOAT" ||
+    fieldType === "DOUBLE" ||
+    fieldType === "DECIMAL" ||
+    fieldType === "NUMBER"
+  ) {
+    const numericValue = Number(value);
+    return Number.isNaN(numericValue) ? value : numericValue;
+  }
+
+  if (fieldType === "BOOLEAN") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+
+  return value;
+}
+
+interface SearchRequestCondition {
+  field: string;
+  operator: string;
+  values: Array<string | number | boolean>;
+}
+
+interface SearchRequestGroup {
+  logic: "AND" | "OR";
+  conditions: Array<SearchRequestCondition | SearchRequestGroup>;
+}
+
+function buildCustomerSearchNodes(
+  nodes: CustomerSearchFilterNode[],
+  schema: CustomerSearchSchema
+) {
+  return nodes.reduce<Array<SearchRequestCondition | SearchRequestGroup>>((acc, node) => {
+    if (isCustomerSearchFilterGroup(node)) {
+      const nestedGroup = buildNestedCustomerSearchGroup(node, schema);
+      if (nestedGroup) {
+        acc.push(nestedGroup);
+      }
+      return acc;
+    }
+
+    const condition = buildCustomerSearchCondition(node, schema);
+    if (condition) {
+      acc.push(condition);
+    }
+    return acc;
+  }, []);
+}
+
+function buildNestedCustomerSearchGroup(
+  group: CustomerSearchFilterGroup,
+  schema: CustomerSearchSchema
+): SearchRequestGroup | null {
+  const conditions = buildCustomerSearchNodes(group.conditions, schema);
+  if (conditions.length === 0) {
+    return null;
+  }
+
+  return {
+    logic: group.logic,
+    conditions,
+  };
+}
+
+function buildCustomerSearchCondition(
+  clause: CustomerSearchFilterClause,
+  schema: CustomerSearchSchema
+): SearchRequestCondition | null {
+  const values = coerceClauseValues(schema, clause);
+  if (values.length === 0 && clause.operator !== "IS_NULL" && clause.operator !== "IS_NOT_NULL") {
+    return null;
+  }
+
+  return {
+    field: clause.field,
+    operator: clause.operator,
+    values,
+  };
+}
+
+function isCustomerSearchFilterGroup(
+  node: CustomerSearchFilterNode
+): node is CustomerSearchFilterGroup {
+  return Boolean(node && typeof node === "object" && "logic" in node && Array.isArray(node.conditions));
 }
 
 function buildConsumerPayload(values: CustomerFormValues) {
@@ -406,8 +776,7 @@ function toAttachment(raw: Record<string, unknown>, index: number): CustomerAtta
 export async function listCustomers(api: ScopedApi, filters: CustomerFilters): Promise<CustomerListResult> {
   const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
     buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
-    buildConsumerSearchBody(filters),
-    { params: buildConsumerSearchParams(filters) }
+    buildConsumerSearchBody(filters)
   );
 
   const consumers = normalizeConsumerList(response.data).map(toCustomer);
@@ -415,15 +784,22 @@ export async function listCustomers(api: ScopedApi, filters: CustomerFilters): P
   return { customers: consumers, total };
 }
 
+export async function getCustomerSearchSchema(api: ScopedApi): Promise<CustomerSearchSchema> {
+  const response = await api.get<unknown>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.filterSchema)
+  );
+
+  return normalizeCustomerSearchSchema(response.data);
+}
+
 export async function getCustomerCount(api: ScopedApi, filters: CustomerFilters): Promise<number> {
   const countFilters = { ...filters };
-  delete countFilters.page;
-  delete countFilters.pageSize;
+  countFilters.page = 1;
+  countFilters.pageSize = 1;
 
   const response = await api.post<ConsumerSearchResponse | Record<string, unknown>[]>(
     buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.consumers.search),
-    buildConsumerSearchBody(countFilters),
-    { params: { page: 0, size: 1 } }
+    buildConsumerSearchBody(countFilters)
   );
 
   return normalizeConsumerTotal(response.data, normalizeConsumerList(response.data).length);

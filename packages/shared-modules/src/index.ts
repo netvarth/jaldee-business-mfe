@@ -101,13 +101,49 @@ export { useModuleAccess } from "./useModuleAccess";
 export { useApiScope } from "./useApiScope";
 export { useSharedNavigate } from "./useSharedNavigate";
 export { useUrlPagination } from "./useUrlPagination";
-export type { Customer, CustomerFilters, CustomerFormValues, CustomerVisit } from "./customers";
+export type {
+  SearchFilterClause,
+  SearchFilterCondition,
+  SearchFilterGroup,
+  SearchFilterLayout,
+  SearchFilterLogic,
+  SearchFilterNode,
+  SearchFilterState,
+  SearchOperatorDefinition,
+  SearchSchema,
+  SearchSchemaField,
+  SearchSchemaView,
+} from "./filters";
+export {
+  buildDefaultSearchFilterGroup,
+  buildDefaultSearchClauses,
+  compactSearchFilters,
+  compactSearchClauses,
+  SchemaFilterBuilder,
+  SchemaFilterSingleColumn,
+} from "./filters";
+export type {
+  Customer,
+  CustomerFilters,
+  CustomerFormValues,
+  CustomerSearchFilterClause,
+  CustomerSearchFilterCondition,
+  CustomerSearchFilterGroup,
+  CustomerSearchFilterLayout,
+  CustomerSearchFilterNode,
+  CustomerSearchFilters,
+  CustomerSearchSchema,
+  CustomerSearchSchemaField,
+  CustomerVisit,
+} from "./customers";
 export {
   CustomersModule,
   CustomersList,
   CustomerDetail,
   CustomerLinkedRecords,
   CustomerFormDialog,
+  CustomerSearchFilterBuilder,
+  CustomerSearchFilterSingleColumn,
   getCustomerColumns,
   useCustomersList,
   useCustomersCount,

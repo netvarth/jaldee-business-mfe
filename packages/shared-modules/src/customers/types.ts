@@ -1,3 +1,16 @@
+import type {
+  SearchFilterClause,
+  SearchFilterCondition,
+  SearchFilterGroup,
+  SearchFilterLayout,
+  SearchFilterNode,
+  SearchFilterState,
+  SearchOperatorDefinition,
+  SearchSchema,
+  SearchSchemaField,
+  SearchSchemaView,
+} from "../filters";
+
 export interface Customer {
   id: string;
   jaldeeId?: string;
@@ -93,7 +106,20 @@ export interface CustomerFilters extends Record<string, unknown> {
   status?: string;
   page?: number;
   pageSize?: number;
+  searchSchema?: CustomerSearchSchema;
+  filterClauses?: CustomerSearchFilters;
 }
+
+export type CustomerSearchSchema = SearchSchema;
+export type CustomerSearchSchemaField = SearchSchemaField;
+export type CustomerSearchSchemaView = SearchSchemaView;
+export type CustomerSearchOperatorDefinition = SearchOperatorDefinition;
+export type CustomerSearchFilterCondition = SearchFilterCondition;
+export type CustomerSearchFilterGroup = SearchFilterGroup;
+export type CustomerSearchFilterNode = SearchFilterNode;
+export type CustomerSearchFilterClause = SearchFilterClause;
+export type CustomerSearchFilters = SearchFilterState;
+export type CustomerSearchFilterLayout = SearchFilterLayout;
 
 export interface CustomerFormValues {
   id?: string;

@@ -13,6 +13,7 @@
   "dependencies": {
     "@jaldee/api-client": "*",
     "@jaldee/auth-context": "*",
+    "lucide-react": "^1.16.0",
     "posthog-js": "^1.393.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",

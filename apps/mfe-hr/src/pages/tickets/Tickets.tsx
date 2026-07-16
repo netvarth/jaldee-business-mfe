@@ -334,15 +334,12 @@ export default function Tickets() {
                 >
                   <div style={{ width: 6, background: statusBar(t.status), flexShrink: 0 }} />
                   <div
+                    className="grid grid-cols-1 min-[981px]:grid-cols-[minmax(0,1fr)_auto] gap-[18px]"
                     style={{
                       flex: 1,
                       padding: "22px 24px",
-                      display: "grid",
-                      gridTemplateColumns: "minmax(0,1fr) auto",
                       alignItems: "center",
-                      gap: 18,
                     }}
-                    className="max-[980px]:grid-cols-1"
                   >
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 10 }}>

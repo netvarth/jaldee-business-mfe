@@ -12,6 +12,14 @@ export type {
   CustomerMedicalHistoryValues,
   CustomerNote,
   CustomerNoteValues,
+  CustomerSearchFilterClause,
+  CustomerSearchFilterCondition,
+  CustomerSearchFilterGroup,
+  CustomerSearchFilterLayout,
+  CustomerSearchFilterNode,
+  CustomerSearchFilters,
+  CustomerSearchSchema,
+  CustomerSearchSchemaField,
   CustomerVisit,
 } from "./types";
 export { getCustomerColumns } from "./getCustomerColumns";
@@ -28,8 +36,19 @@ export { CustomerLinkedRecords } from "./components/CustomerLinkedRecords";
 export { CustomerMedicalHistoryCard } from "./components/CustomerMedicalHistoryCard";
 export { CustomerProfilePhotoCard } from "./components/CustomerProfilePhotoCard";
 export { CustomerFormDialog } from "./components/CustomerFormDialog";
+export {
+  CustomerSearchFilterBuilder,
+  CustomerSearchFilterSingleColumn,
+  buildDefaultCustomerSearchClauses,
+  compactCustomerSearchClauses,
+} from "./components/CustomerSearchFilterBuilder";
 export { CustomerNotesCard } from "./components/CustomerNotesCard";
 export { CustomerQuestionnaireCard } from "./components/CustomerQuestionnaireCard";
+export {
+  emitCustomerErrorToast,
+  emitCustomerSuccessToast,
+  getReadableCustomerApiError,
+} from "./lib/errorEvents";
 export {
   useAddCustomerLabels,
   useAddCustomerToGroup,

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { Alert, Badge, Button, ConfirmDialog, Dialog, DialogFooter, EmptyState, Input, SectionCard, Switch } from "@jaldee/design-system";
+import { useSharedModulesContext } from "../../context";
+import { emitCustomerErrorToast, emitCustomerSuccessToast, getReadableCustomerApiError } from "../lib/errorEvents";
 import {
   useAddCustomerToGroup,
   useChangeCustomerGroupStatus,
@@ -18,6 +20,7 @@ interface CustomerGroupsCardProps {
 }
 
 export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroupsCardProps) {
+  const { eventBus } = useSharedModulesContext();
   const groupsQuery = useCustomerGroups();
   const membershipsQuery = useCustomerMemberships(customerId);
   const addCustomerToGroup = useAddCustomerToGroup(customerId);
@@ -33,6 +36,8 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
   const [generateGrpMemId, setGenerateGrpMemId] = useState(false);
   const [removalTarget, setRemovalTarget] = useState<CustomerGroup | null>(null);
   const [memberIdDrafts, setMemberIdDrafts] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [groupNameError, setGroupNameError] = useState<string | null>(null);
 
   const memberGroups = membershipsQuery.data ?? [];
   const availableGroups = useMemo(
@@ -56,6 +61,8 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
     setGroupName("");
     setGroupDescription("");
     setGenerateGrpMemId(false);
+    setFormError(null);
+    setGroupNameError(null);
     setGroupDialogOpen(true);
   }
 
@@ -64,6 +71,8 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
     setGroupName(group.groupName);
     setGroupDescription(group.description ?? "");
     setGenerateGrpMemId(Boolean(group.generateGrpMemId));
+    setFormError(null);
+    setGroupNameError(null);
     setGroupDialogOpen(true);
   }
 
@@ -76,16 +85,31 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
     };
 
     if (!payload.groupName) {
+      setGroupNameError("Group name is required.");
+      setFormError("Please enter the group details.");
       return;
     }
 
-    if (editingGroup) {
-      await updateGroup.mutateAsync(payload);
-    } else {
-      await createGroup.mutateAsync(payload);
-    }
+    try {
+      if (editingGroup) {
+        await updateGroup.mutateAsync(payload);
+      } else {
+        await createGroup.mutateAsync(payload);
+      }
 
-    setGroupDialogOpen(false);
+      emitCustomerSuccessToast(eventBus, editingGroup ? "Customer group updated successfully." : "Customer group created successfully.");
+      setGroupDialogOpen(false);
+      setFormError(null);
+      setGroupNameError(null);
+    } catch (error) {
+      const readable = getReadableCustomerApiError(
+        error,
+        editingGroup ? "Unable to update the customer group right now." : "Unable to create the customer group right now."
+      );
+      setFormError(readable.message);
+      setGroupNameError(/group name|group/i.test(readable.message) ? readable.message : null);
+      emitCustomerErrorToast(eventBus, error, readable.message);
+    }
   }
 
   return (
@@ -99,17 +123,6 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
         }
       >
         <div className="space-y-4" data-testid="customer-groups-card">
-          {(addCustomerToGroup.error ||
-            removeCustomerFromGroup.error ||
-            createGroup.error ||
-            updateGroup.error ||
-            changeGroupStatus.error ||
-            upsertMemberId.error) && (
-            <Alert variant="danger">
-              Unable to update customer groups right now.
-            </Alert>
-          )}
-
           {membershipsQuery.isLoading ? (
             <div className="text-sm text-[var(--color-text-secondary)]">Loading groups...</div>
           ) : memberGroups.length === 0 ? (
@@ -148,11 +161,23 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
                         data-testid={`customer-group-status-${group.id}`}
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          changeGroupStatus.mutate(group.status === "DISABLE"
-                            ? { groupId: group.id, status: "ENABLE" }
-                            : { groupId: group.id, status: "DISABLE" })
-                        }
+                        onClick={async () => {
+                          try {
+                            await changeGroupStatus.mutateAsync(
+                              group.status === "DISABLE"
+                                ? { groupId: group.id, status: "ENABLE" }
+                                : { groupId: group.id, status: "DISABLE" }
+                            );
+                            emitCustomerSuccessToast(
+                              eventBus,
+                              group.status === "DISABLE"
+                                ? `Group ${group.groupName} enabled successfully.`
+                                : `Group ${group.groupName} disabled successfully.`
+                            );
+                          } catch (error) {
+                            emitCustomerErrorToast(eventBus, error, `Unable to update the status for ${group.groupName}.`);
+                          }
+                        }}
                       >
                         {group.status === "DISABLE" ? "Enable" : "Disable"}
                       </Button>
@@ -175,13 +200,18 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
                       <Button
                         data-testid={`customer-group-member-id-save-${group.id}`}
                         size="sm"
-                        onClick={() =>
-                          upsertMemberId.mutate({
-                            groupName: group.groupName,
-                            memberId: getMemberIdDraft(group).trim(),
-                            existing: group.memberId,
-                          })
-                        }
+                        onClick={async () => {
+                          try {
+                            await upsertMemberId.mutateAsync({
+                              groupName: group.groupName,
+                              memberId: getMemberIdDraft(group).trim(),
+                              existing: group.memberId,
+                            });
+                            emitCustomerSuccessToast(eventBus, `Member ID saved for ${group.groupName}.`);
+                          } catch (error) {
+                            emitCustomerErrorToast(eventBus, error, `Unable to save the member ID for ${group.groupName}.`);
+                          }
+                        }}
                         loading={upsertMemberId.isPending}
                         disabled={!getMemberIdDraft(group).trim()}
                       >
@@ -211,7 +241,14 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
                     data-testid={`customer-group-add-${group.id}`}
                     variant="outline"
                     size="sm"
-                    onClick={() => addCustomerToGroup.mutate(group.groupName)}
+                    onClick={async () => {
+                      try {
+                        await addCustomerToGroup.mutateAsync(group.groupName);
+                        emitCustomerSuccessToast(eventBus, `Customer added to ${group.groupName} successfully.`);
+                      } catch (error) {
+                        emitCustomerErrorToast(eventBus, error, `Unable to add the customer to ${group.groupName}.`);
+                      }
+                    }}
                     loading={addCustomerToGroup.isPending}
                   >
                     Add to {group.groupName}
@@ -230,27 +267,55 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
         description="Manage group name, description, and member ID generation."
         size="md"
       >
+        {formError ? <Alert variant="danger">{formError}</Alert> : null}
         <div className="space-y-4" data-testid="customer-group-dialog">
           <Input
             data-testid="customer-group-name"
             label="Group Name"
             value={groupName}
-            onChange={(event) => setGroupName(event.target.value)}
+            error={groupNameError ?? undefined}
+            onChange={(event) => {
+              setGroupName(event.target.value);
+              if (groupNameError) {
+                setGroupNameError(null);
+              }
+              if (formError) {
+                setFormError(null);
+              }
+            }}
           />
           <Input
             data-testid="customer-group-description"
             label="Description"
             value={groupDescription}
-            onChange={(event) => setGroupDescription(event.target.value)}
+            onChange={(event) => {
+              setGroupDescription(event.target.value);
+              if (formError) {
+                setFormError(null);
+              }
+            }}
           />
           <Switch
             label="Generate group member IDs"
             checked={generateGrpMemId}
-            onChange={setGenerateGrpMemId}
+            onChange={(value) => {
+              setGenerateGrpMemId(value);
+              if (formError) {
+                setFormError(null);
+              }
+            }}
           />
         </div>
         <DialogFooter>
-          <Button data-testid="customer-group-cancel" variant="secondary" onClick={() => setGroupDialogOpen(false)}>
+          <Button
+            data-testid="customer-group-cancel"
+            variant="secondary"
+            onClick={() => {
+              setGroupDialogOpen(false);
+              setFormError(null);
+              setGroupNameError(null);
+            }}
+          >
             Cancel
           </Button>
           <Button
@@ -269,8 +334,13 @@ export function CustomerGroupsCard({ customerId, customerLabel }: CustomerGroups
         onClose={() => setRemovalTarget(null)}
         onConfirm={async () => {
           if (!removalTarget) return;
-          await removeCustomerFromGroup.mutateAsync(removalTarget.groupName);
-          setRemovalTarget(null);
+          try {
+            await removeCustomerFromGroup.mutateAsync(removalTarget.groupName);
+            emitCustomerSuccessToast(eventBus, `Customer removed from ${removalTarget.groupName} successfully.`);
+            setRemovalTarget(null);
+          } catch (error) {
+            emitCustomerErrorToast(eventBus, error, `Unable to remove the customer from ${removalTarget.groupName}.`);
+          }
         }}
         title="Remove customer from group"
         description="This will remove the customer from the selected group."

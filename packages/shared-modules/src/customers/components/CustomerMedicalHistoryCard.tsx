@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Button, ConfirmDialog, EmptyState, FileUpload, Input, SectionCard } from "@jaldee/design-system";
 import { useSharedModulesContext } from "../../context";
+import { emitCustomerErrorToast, emitCustomerSuccessToast, getReadableCustomerApiError } from "../lib/errorEvents";
 import {
   useCreateCustomerMedicalHistory,
   useCustomerMedicalHistory,
@@ -16,7 +17,7 @@ interface CustomerMedicalHistoryCardProps {
 }
 
 export function CustomerMedicalHistoryCard({ customerId, customerLabel }: CustomerMedicalHistoryCardProps) {
-  const { account, api } = useSharedModulesContext();
+  const { account, api, eventBus } = useSharedModulesContext();
   const historyQuery = useCustomerMedicalHistory(customerId);
   const createHistory = useCreateCustomerMedicalHistory(customerId);
   const updateHistory = useUpdateCustomerMedicalHistory(customerId);
@@ -26,14 +27,20 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
   const [deleteTarget, setDeleteTarget] = useState<CustomerMedicalHistory | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   async function handleSubmit() {
     const value = title.trim();
     if (!value) {
+      setTitleError("Title is required.");
+      setFormError(`Enter a medical history item for this ${customerLabel.toLowerCase()}.`);
       return;
     }
 
     setUploadError(null);
+    setFormError(null);
+    setTitleError(null);
 
     let uploadedAttachments: CustomerAttachment[] = [];
 
@@ -41,30 +48,48 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
       try {
         uploadedAttachments = await uploadMedicalHistoryAttachments(account.id, pendingFiles, api);
       } catch (error) {
-        setUploadError(error instanceof Error ? error.message : "Unable to upload attachments right now.");
+        const message = error instanceof Error ? error.message : "Unable to upload attachments right now.";
+        setUploadError(message);
+        emitCustomerErrorToast(eventBus, error, message);
         return;
       }
     }
 
     const mergedAttachments = [...(editing?.medicalHistoryAttachments ?? []), ...uploadedAttachments];
 
-    if (editing) {
-      await updateHistory.mutateAsync({
-        id: editing.id,
-        providerConsumerId: customerId,
-        title: value,
-        medicalHistoryAttachments: mergedAttachments,
-      });
-    } else {
-      await createHistory.mutateAsync({
-        title: value,
-        medicalHistoryAttachments: uploadedAttachments,
-      });
-    }
+    try {
+      if (editing) {
+        await updateHistory.mutateAsync({
+          id: editing.id,
+          providerConsumerId: customerId,
+          title: value,
+          medicalHistoryAttachments: mergedAttachments,
+        });
+      } else {
+        await createHistory.mutateAsync({
+          title: value,
+          medicalHistoryAttachments: uploadedAttachments,
+        });
+      }
 
-    setTitle("");
-    setEditing(null);
-    setPendingFiles([]);
+      emitCustomerSuccessToast(
+        eventBus,
+        editing ? "Medical history updated successfully." : "Medical history item added successfully."
+      );
+      setTitle("");
+      setEditing(null);
+      setPendingFiles([]);
+      setFormError(null);
+      setTitleError(null);
+    } catch (error) {
+      const readable = getReadableCustomerApiError(
+        error,
+        editing ? "Unable to update the medical history right now." : "Unable to add the medical history right now."
+      );
+      setFormError(readable.message);
+      setTitleError(/title|medical history/i.test(readable.message) ? readable.message : null);
+      emitCustomerErrorToast(eventBus, error, readable.message);
+    }
   }
 
   return (
@@ -76,6 +101,10 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
             <Button data-testid="customer-medical-history-cancel-edit" variant="ghost" size="sm" onClick={() => {
               setEditing(null);
               setTitle("");
+              setPendingFiles([]);
+              setFormError(null);
+              setTitleError(null);
+              setUploadError(null);
             }}>
               Cancel edit
             </Button>
@@ -83,9 +112,9 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
         }
       >
         <div className="space-y-4" data-testid="customer-medical-history-card">
-          {(createHistory.error || updateHistory.error || deleteHistory.error || uploadError) && (
+          {(formError || uploadError) && (
             <Alert variant="danger">
-              {uploadError || "Unable to update medical history right now."}
+              {formError || uploadError}
             </Alert>
           )}
 
@@ -94,7 +123,16 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
               data-testid="customer-medical-history-input"
               label={editing ? "Edit medical history item" : "Add medical history item"}
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              error={titleError ?? undefined}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                if (titleError) {
+                  setTitleError(null);
+                }
+                if (formError) {
+                  setFormError(null);
+                }
+              }}
               placeholder={`Enter ${customerLabel.toLowerCase()} medical history`}
             />
             <div data-testid="customer-medical-history-upload">
@@ -106,6 +144,9 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
                 onUpload={(files) => {
                   setPendingFiles(files);
                   setUploadError(null);
+                  if (formError) {
+                    setFormError(null);
+                  }
                 }}
               />
             </div>
@@ -129,6 +170,8 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
                     setEditing(null);
                     setTitle("");
                     setPendingFiles([]);
+                    setFormError(null);
+                    setTitleError(null);
                     setUploadError(null);
                   }}
                 >
@@ -198,6 +241,8 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
                         setEditing(item);
                         setTitle(item.title);
                         setPendingFiles([]);
+                        setFormError(null);
+                        setTitleError(null);
                         setUploadError(null);
                       }}
                     >
@@ -219,12 +264,17 @@ export function CustomerMedicalHistoryCard({ customerId, customerLabel }: Custom
         onClose={() => setDeleteTarget(null)}
         onConfirm={async () => {
           if (!deleteTarget) return;
-          await deleteHistory.mutateAsync(deleteTarget.id);
-          if (editing?.id === deleteTarget.id) {
-            setEditing(null);
-            setTitle("");
+          try {
+            await deleteHistory.mutateAsync(deleteTarget.id);
+            emitCustomerSuccessToast(eventBus, "Medical history item deleted successfully.");
+            if (editing?.id === deleteTarget.id) {
+              setEditing(null);
+              setTitle("");
+            }
+            setDeleteTarget(null);
+          } catch (error) {
+            emitCustomerErrorToast(eventBus, error, "Unable to delete the medical history item right now.");
           }
-          setDeleteTarget(null);
         }}
         title="Delete medical history item"
         description="This entry will be removed from the medical history."

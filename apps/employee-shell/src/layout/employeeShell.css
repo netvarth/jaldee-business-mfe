@@ -54,6 +54,7 @@ body {
   .employee-content-area {
     overflow-y: auto;
     overflow-x: hidden;
+    padding-bottom: 76px;
   }
 
   .employee-content-inner {

@@ -365,25 +365,25 @@ export default function EssPortal() {
                         <h2 className="text-[28px] font-black tracking-tight text-slate-950">Popular services</h2>
                         <p className="mt-2 text-sm text-slate-500">Quick access to the employee self-service areas you use most.</p>
                       </div>
-                      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                      <div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
                         {primaryServices.map((item) => (
                           <NavLink
                             key={item.key}
                             to={item.to}
-                            className="group rounded-xl border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] hover:shadow-[0_16px_32px_rgba(15,118,110,0.10)]"
+                            className="group rounded-xl border border-slate-200 bg-white p-3 sm:p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] hover:shadow-[0_16px_32px_rgba(15,118,110,0.10)]"
                           >
-                            <div className="space-y-4">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700">
-                                <item.Icon size={18} />
+                            <div className="space-y-3 sm:space-y-4">
+                              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700">
+                                <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
                               </div>
                               <div>
-                                <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">
+                                <div className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.15em] sm:tracking-[0.18em] text-emerald-700">
                                   {item.label}
                                 </div>
-                                <div className="mt-3 text-lg font-black text-slate-950">{item.label}</div>
-                                <p className="mt-2 text-sm leading-6 text-slate-500">{SECTION_DESCRIPTIONS[item.key]}</p>
+                                <div className="mt-1 sm:mt-3 text-sm sm:text-lg font-bold sm:font-black text-slate-950">{item.label}</div>
+                                <p className="mt-2 text-xs sm:text-sm leading-normal sm:leading-6 text-slate-500 hidden sm:block">{SECTION_DESCRIPTIONS[item.key]}</p>
                               </div>
-                              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-800 group-hover:border-emerald-200 group-hover:bg-emerald-50">
+                              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-800 group-hover:border-emerald-200 group-hover:bg-emerald-50 hidden sm:inline-flex">
                                 Open
                               </div>
                             </div>
