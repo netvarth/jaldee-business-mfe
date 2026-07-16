@@ -175,25 +175,26 @@ function normalizeStatus(value: unknown) {
 }
 
 function toUiServiceType(value: unknown): ServiceFormPrefill["serviceType"] {
-  return asString(value).toUpperCase().includes("TELE") ? "Teleservice" : "Onsite Service";
+  const str = asString(value).toUpperCase();
+  return str.includes("TELE") || str.includes("VIRTUAL") ? "Teleservice" : "Onsite Service";
 }
 
 function toUiApptType(value: unknown): ServiceFormPrefill["apptType"] {
   return asString(value).toUpperCase() === "REQUEST" ? "Request" : "Booking";
 }
 
-function toUiRequestType(value: unknown): ServiceFormPrefill["requestType"] {
+function toUiRequestType(value: unknown, raw: Record<string, unknown> = {}): ServiceFormPrefill["requestType"] {
   const normalized = asString(value).toUpperCase();
-  if (normalized === "DATE_TIME") return "With Date & Time";
-  if (normalized === "DATE_ONLY") return "With Date Only";
-  if (normalized === "NONE") return "No Date & Time";
+  if (normalized === "DATE_TIME" || raw.dateTime === true) return "With Date & Time";
+  if (normalized === "DATE_ONLY" || raw.date === true) return "With Date Only";
+  if (normalized === "NONE" || raw.noDateTime === true) return "No Date & Time";
   return undefined;
 }
 
 function toUiTeleMode(value: unknown): ServiceFormPrefill["teleServiceMode"] {
   const normalized = asString(value).toUpperCase();
-  if (normalized === "VIDEO") return "Video Mode";
-  if (normalized === "AUDIO") return "Audio Mode";
+  if (normalized === "VIDEO" || normalized.includes("VIDEO")) return "Video Mode";
+  if (normalized === "AUDIO" || normalized.includes("AUDIO")) return "Audio Mode";
   return undefined;
 }
 
@@ -246,7 +247,7 @@ export function normalizeServiceDetails(payload: unknown): ServiceDetailsRecord 
     serviceCode: asString(raw.serviceCode ?? raw.code ?? raw.encId) || undefined,
     serviceCategory: asString(raw.serviceCategory ?? raw.category) || undefined,
     serviceType: asString(raw.serviceType) || undefined,
-    appointmentType: asString(raw.appointmentType ?? raw.apptType) || undefined,
+    appointmentType: asString(raw.bookingMode ?? raw.appointmentType ?? raw.apptType) || undefined,
     requestType: asString(raw.requestType) || undefined,
     durationMinutes: durationMinutes || undefined,
     displayOrder: toNumber(raw.displayOrder),
@@ -274,7 +275,20 @@ export function normalizeServiceDetails(payload: unknown): ServiceDetailsRecord 
 
 export function toServiceFormPrefill(payload: unknown): ServiceFormPrefill {
   const raw = asRecord(payload);
+  
+  const virtualCallingModes = Array.isArray(raw.virtualCallingModes) ? raw.virtualCallingModes : [];
+  const firstCallingMode = asRecord(virtualCallingModes[0]);
+  const virtualServiceType = asString(raw.virtualServiceType);
+  
   const teleService = asRecord(raw.teleService);
+  
+  const platformStr = asString(firstCallingMode.callingMode || teleService.platform);
+  const platformVal = asString(firstCallingMode.value || teleService.meetingLink || teleService.phoneNumber);
+  const platformCountry = asString(firstCallingMode.countryCode);
+  
+  const parsedPlatform = toUiTelePlatform(platformStr);
+  const isPhoneBased = parsedPlatform === "WhatsApp" || parsedPlatform === "Phone";
+
   const duration = toNumber(raw.duration ?? raw.serviceDuration ?? raw.approxDuration ?? 30);
   const { durHrs, durMins } = toDurationParts(duration || 30);
   const practitionerPrices = asRecord(raw.practitionerPrices);
@@ -295,13 +309,13 @@ export function toServiceFormPrefill(payload: unknown): ServiceFormPrefill {
     description: asString(raw.description ?? raw.shortDescription),
     serviceContext: asString(raw.serviceContext).toUpperCase().includes("INPATIENT") ? "Inpatient Service" : "General Service",
     serviceType: toUiServiceType(raw.serviceType),
-    apptType: toUiApptType(raw.appointmentType ?? raw.apptType),
-    requestType: toUiRequestType(raw.requestType),
+    apptType: toUiApptType(raw.bookingMode ?? raw.appointmentType ?? raw.apptType),
+    requestType: toUiRequestType(raw.requestType, raw),
     serviceCategory: asString(raw.serviceCategory).toUpperCase().includes("SUB") ? "Sub Service" : "Main Service",
-    teleServiceMode: toUiTeleMode(teleService.mode),
-    teleServicePlatform: toUiTelePlatform(teleService.platform),
-    meetingLink: asString(teleService.meetingLink),
-    phoneValue: toPhoneValue(teleService.phoneNumber),
+    teleServiceMode: toUiTeleMode(virtualServiceType || teleService.mode),
+    teleServicePlatform: parsedPlatform,
+    meetingLink: !isPhoneBased ? platformVal : "",
+    phoneValue: isPhoneBased ? toPhoneValue(platformCountry ? `${platformCountry}${platformVal}` : platformVal) : toPhoneValue(""),
     durHrs,
     durMins,
     numResources: toNumber(raw.numResources) || 1,

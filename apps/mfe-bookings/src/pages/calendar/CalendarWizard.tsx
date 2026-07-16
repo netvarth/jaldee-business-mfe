@@ -39,7 +39,8 @@ function withSeconds(value: string) {
 
 export default function CalendarWizard() {
     const navigate = useNavigate();
-    const locationState = useLocation().state as { calendar?: any } | null;
+    const locationState = useLocation().state as { calendar?: any, returnTo?: string } | null;
+    const returnTo = locationState?.returnTo || '/calendars';
     const initialCalendar = locationState?.calendar;
 
     const { createCalendar, updateCalendar, createSchedule, getLocations } = useCalendars();
@@ -284,7 +285,7 @@ export default function CalendarWizard() {
                 };
                 await createSchedule(draftUid, schedulePayload);
             }
-            navigate('/calendars');
+            navigate(returnTo);
         } catch (error) {
             console.error(error);
         } finally {
@@ -350,7 +351,7 @@ export default function CalendarWizard() {
         <>
             <section id="page-create-calendar" className="page-section active h-full flex flex-col relative overflow-hidden bg-white" style={{ display: 'flex' }}>
                 {/* Header Back Button Overlay */}
-                <Button variant="ghost" size="sm" iconOnly icon={<X size={20} />} onClick={() => navigate('/calendars')} className="absolute right-4 top-4 z-50 text-slate-400" title="Close Wizard" aria-label="Close calendar wizard" />
+                <Button variant="ghost" size="sm" iconOnly icon={<X size={20} />} onClick={() => navigate(returnTo)} className="absolute right-4 top-4 z-50 text-slate-400" title="Close Wizard" aria-label="Close calendar wizard" />
                 <div className="shrink-0 border-b border-slate-200 bg-white px-6 pt-5">
                     <PageHeader
                         title="Create Calendar"
@@ -468,7 +469,7 @@ export default function CalendarWizard() {
                             </div>
 
                             <div className="wizard-footer-actions">
-                                <Button variant="secondary" className="btn-wizard-discard" onClick={() => navigate('/calendars')}>Discard</Button>
+                                <Button variant="secondary" className="btn-wizard-discard" onClick={() => navigate(returnTo)}>Discard</Button>
                                 <Button type="submit" loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                             </div>
                         </form>

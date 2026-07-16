@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Badge,
   Button,
   DataTable,
   EmptyState,
@@ -52,16 +53,16 @@ function AssignedCell({ services, users }: { services?: string[]; users?: string
   );
 }
 
-function statusClass(status?: string) {
-  if (status === "DRAFT") return "bg-slate-100 text-slate-600";
-  if (status === "INACTIVE") return "bg-amber-100 text-amber-800";
-  return "bg-emerald-100 text-emerald-700";
-}
-
 function statusLabel(status?: string) {
   if (status === "DRAFT") return "Draft";
   if (status === "INACTIVE") return "Inactive";
   return "Active";
+}
+
+function statusVariant(status?: string): "success" | "warning" | "neutral" {
+  if (status === "DRAFT") return "neutral";
+  if (status === "INACTIVE") return "warning";
+  return "success";
 }
 
 function resolveAssignedServiceNames(
@@ -141,7 +142,7 @@ export default function CalendarList() {
     () => [
       {
         key: "name",
-        header: "Calendar name",
+        header: "CALENDAR NAME",
         sortable: true,
         width: "32%",
         render: (calendar) => (
@@ -161,13 +162,13 @@ export default function CalendarList() {
       },
       {
         key: "locationName",
-        header: "Location",
+        header: "LOCATION",
         sortable: true,
         render: (calendar) => calendar.locationName || "-",
       },
       {
         key: "bookingChannels",
-        header: "Booking channels",
+        header: "BOOKING CHANNELS",
         render: (calendar) => (
           <div className="flex flex-wrap gap-1.5">
             {(calendar.bookingChannels ?? []).length ? (
@@ -187,7 +188,7 @@ export default function CalendarList() {
       },
       {
         key: "assigned",
-        header: "Assigned",
+        header: "ASSIGNED",
         render: (calendar) => (
           <AssignedCell
             services={resolveAssignedServiceNames(calendar.services, allServices)}
@@ -197,17 +198,17 @@ export default function CalendarList() {
       },
       {
         key: "status",
-        header: "Status",
+        header: "STATUS",
         sortable: true,
         render: (calendar) => (
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(calendar.status)}`}>
+          <Badge variant={statusVariant(calendar.status)}>
             {statusLabel(calendar.status)}
-          </span>
+          </Badge>
         ),
       },
       {
         key: "actions",
-        header: "Actions",
+        header: "ACTIONS",
         align: "right",
         sticky: "right",
         width: 100,
@@ -218,7 +219,7 @@ export default function CalendarList() {
             id={`bookings-calendar-edit-${calendar.uid}`}
             data-testid={`bookings-calendar-edit-${calendar.uid}`}
             type="button"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="font-semibold"
             onClick={(event) => {
               event.stopPropagation();
               if (calendar.status === "DRAFT") {
@@ -276,6 +277,7 @@ export default function CalendarList() {
         columns={columns}
         getRowId={(calendar) => calendar.uid}
         loading={loading}
+        rowClassName={(calendar) => (calendar.status === "INACTIVE" ? "opacity-70" : "")}
         onRowClick={(calendar) =>
           navigate(`/calendars/${calendar.uid}/details`, { state: { calendar } })
         }

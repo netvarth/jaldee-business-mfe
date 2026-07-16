@@ -59,7 +59,7 @@ const EMPTY_ADVANCED_FILTERS: UserAdvancedFilters = {
 };
 
 export function UsersList() {
-  const { basePath } = useSharedModulesContext();
+  const { basePath, uiOverrides } = useSharedModulesContext();
   const navigate = useSharedNavigate();
   const [advancedFilters, setAdvancedFilters] = useState<UserAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
   const [draftFilters, setDraftFilters] = useState<UserAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
@@ -239,8 +239,8 @@ export function UsersList() {
   return (
     <>
       <UsersPageShell
-        title="User Overview"
-        subtitle="Create And Manage Users"
+        title={uiOverrides?.listTitle ?? "User Overview"}
+        subtitle={uiOverrides?.listSubtitle ?? "Create And Manage Users"}
         actions={
           <Button
             type="button"
@@ -251,7 +251,7 @@ export function UsersList() {
             data-testid="btnCreateUser_SM_Users"
             onClick={() => setCreateDialogOpen(true)}
           >
-            Create User
+            {uiOverrides?.createButtonText ?? "Create User"}
           </Button>
         }
       >
@@ -297,26 +297,22 @@ export function UsersList() {
             </Button>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-none">
-            <DataTable
-              data={rows}
-              columns={columns}
-              loading={listQuery.isLoading}
-              onRowClick={(row) => navigate(`${basePath}/${row.id}`)}
-              pagination={{
-                page,
-                pageSize,
-                total: activeUsers,
-                onChange: setPage,
-                onPageSizeChange: setPageSize,
-                mode: "server",
-              }}
-              className="rounded-xl border-0 shadow-none"
-              tableClassName="[&_thead_th]:bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_40%,white)] [&_thead_th]:py-4 [&_thead_th]:text-[length:var(--text-xs)] [&_tbody_td]:py-4 [&_tbody_tr:last-child]:border-b-0"
-              emptyState={<EmptyState title="No users found" description="Try adjusting the active filters." />}
-              data-testid="tblUsersList_SM_Users"
-            />
-          </div>
+          <DataTable
+            data={rows}
+            columns={columns}
+            loading={listQuery.isLoading}
+            onRowClick={(row) => navigate(`${basePath}/${row.id}`)}
+            pagination={{
+              page,
+              pageSize,
+              total: activeUsers,
+              onChange: setPage,
+              onPageSizeChange: setPageSize,
+              mode: "server",
+            }}
+            emptyState={<EmptyState title="No users found" description="Try adjusting the active filters." />}
+            data-testid="tblUsersList_SM_Users"
+          />
         </div>
       </UsersPageShell>
 

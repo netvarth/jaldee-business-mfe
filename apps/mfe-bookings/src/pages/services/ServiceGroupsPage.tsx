@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Button, DataTable, EmptyState, Input, PageHeader, Popover, Tabs, type ColumnDef } from "@jaldee/design-system";
+import { useNavigate } from "react-router-dom";
+import { Badge, Button, DataTable, EmptyState, Input, PageHeader, Popover, Tabs, type ColumnDef } from "@jaldee/design-system";
 import { useServices } from "../../services/useServices";
 import { useServiceGroups } from "../../services/useServiceGroups";
-import type { ServiceGroupItem, ServiceItem } from "../../types";
+import type { ServiceGroupItem } from "../../types";
 
 export default function ServiceGroupsPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { services } = useServices();
   const { groups, deleteGroup } = useServiceGroups();
   const [query, setQuery] = useState("");
@@ -27,24 +26,20 @@ export default function ServiceGroupsPage() {
     );
   }, [groups, query]);
 
+  const formatGroupStatus = (status?: string) => (status === "Active" ? "Active" : "Inactive");
+  const groupStatusVariant = (status?: string): "success" | "neutral" =>
+    status === "Active" ? "success" : "neutral";
+
   const columns = useMemo<ColumnDef<ServiceGroupItem>[]>(() => [
     {
       key: "name",
       header: "PACKAGE NAME & ID",
       render: (group) => {
-        const initials = group.name.substring(0, 2).toUpperCase();
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800">
-              {initials}
+          <div className="min-w-0">
+              <p className="truncate font-semibold text-slate-900">{group.name}</p>
+              <p className="mt-0.5 truncate text-xs text-slate-500">{group.id || "-"}</p>
             </div>
-            <div>
-              <p className="font-bold text-slate-900">{group.name}</p>
-              <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <span className="text-[#7c3aed]">#{group.id?.substring(0, 8).toUpperCase() || "N/A"}</span>
-              </p>
-            </div>
-          </div>
         );
       },
     },
@@ -52,9 +47,9 @@ export default function ServiceGroupsPage() {
       key: "services",
       header: "INCLUDED SERVICES",
       render: (group) => (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {group.serviceIds.length ? group.serviceIds.map((serviceId) => (
-            <span key={serviceId} className="rounded-full bg-[#f1f3f9] px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+            <span key={serviceId} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
               {serviceMap.get(serviceId)?.name ?? serviceId}
             </span>
           )) : <span className="text-sm text-slate-400">No services linked</span>}
@@ -65,9 +60,9 @@ export default function ServiceGroupsPage() {
       key: "labels",
       header: "LABELS",
       render: (group) => (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {["Popular", "Specialty"].map((label, idx) => (
-            <span key={idx} className="rounded-sm bg-[#f5f3ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#7c3aed]">
+            <span key={idx} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
               {label}
             </span>
           ))}
@@ -77,15 +72,7 @@ export default function ServiceGroupsPage() {
     {
       key: "status",
       header: "STATUS",
-      render: (group) => {
-        const isActive = group.status === 'Active';
-        return (
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide bg-white ${isActive ? 'border-emerald-400 text-emerald-600' : 'border-slate-300 text-slate-500'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-            {group.status || 'ACTIVE'}
-          </span>
-        );
-      }
+      render: (group) => <Badge variant={groupStatusVariant(group.status)}>{formatGroupStatus(group.status)}</Badge>,
     },
     {
       key: "pricing",
@@ -161,10 +148,15 @@ export default function ServiceGroupsPage() {
   }, [groups, services]);
 
   return (
-    <section className="flex h-full flex-col overflow-y-auto bg-white p-4 md:p-6">
+    <section className="flex h-full flex-col overflow-y-auto bg-slate-50 p-4 md:p-6">
       <PageHeader
-        title="Services and Service Packages"
-        subtitle="Configure and manage clinical consultation services offered by Global Care Hospital"
+        title="Service Packages"
+        subtitle="Group booking services into reusable packages."
+        actions={
+          <Button onClick={() => navigate("/services/groups/create")}>
+            Create Package
+          </Button>
+        }
       />
 
       <div className="mt-4 mb-6">
@@ -178,31 +170,18 @@ export default function ServiceGroupsPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Input
-            id="bookings-service-groups-search"
-            type="search"
-            placeholder="Search packages..."
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(1);
-            }}
-            className="w-72"
-            containerClassName="w-auto"
-          />
-          <Button variant="outline" className="text-slate-500 font-semibold border-slate-200 h-10 px-4">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
-            Filter
-          </Button>
-        </div>
-        <Button
-          onClick={() => navigate("/services/groups/create")}
-          className="bg-[#4F2B85] hover:bg-[#3D2168] text-white"
-        >
-          + Create New Package
-        </Button>
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <Input
+          id="bookings-service-groups-search"
+          type="search"
+          placeholder="Search packages"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+          containerClassName="sm:max-w-sm"
+        />
       </div>
 
       <DataTable

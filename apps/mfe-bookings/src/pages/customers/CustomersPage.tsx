@@ -5,8 +5,12 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  Popover,
+  PopoverSection,
+  Badge,
   type ColumnDef,
 } from "@jaldee/design-system";
+import { Search, MoreHorizontal } from "lucide-react";
 import { useCustomers } from "../../services/useCustomers";
 import { useModal } from "../../contexts/ModalContext";
 import CreatePatientModal from "./CreatePatientModal";
@@ -16,8 +20,12 @@ function fullName(customer: Customer): string {
   return `${customer.firstName ?? ""} ${customer.lastName ?? ""}`.trim() || "Unknown";
 }
 
+function isActiveCustomer(customer: Customer): boolean {
+  return String(customer.status || "").toUpperCase() === "ENABLED";
+}
+
 export default function CustomersPage() {
-  const { customers, loading, addLocal } = useCustomers();
+  const { customers, loading, addLocal, updateLocal, toggleLocalStatus } = useCustomers();
   const { openModal } = useModal();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -60,71 +68,78 @@ export default function CustomersPage() {
           );
         },
       },
-      { key: "phoneNumber", header: "Phone", sortable: true, render: (customer) => customer.phoneNumber || "-" },
+      { key: "phoneNumber", header: "Phone number", sortable: true, render: (customer) => customer.phoneNumber || "-" },
+      { key: "email", header: "Email", sortable: true, render: (customer) => customer.email || "-" },
       {
-        key: "labels",
-        header: "Labels",
-        render: (customer) => (
-          <div className="flex flex-wrap gap-1">
-            {customer.labels?.length ? (
-              customer.labels.map((label) => (
-                <span key={label} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                  {label}
-                </span>
-              ))
-            ) : (
-              "-"
-            )}
-          </div>
-        ),
+        key: "status",
+        header: "Status",
+        sortable: true,
+        render: (customer) => {
+          return (
+            <Badge variant={isActiveCustomer(customer) ? "success" : "neutral"}>
+              {isActiveCustomer(customer) ? "Active" : "Inactive"}
+            </Badge>
+          );
+        }
       },
-      { key: "visits", header: "Visits", sortable: true, align: "center" },
       {
         key: "actions",
-        header: "Actions",
+        header: "",
         align: "right",
         sticky: "right",
-        width: 170,
+        width: 60,
         render: (customer) => (
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              id={`bookings-customer-view-${customer.id}`}
-              data-testid={`bookings-customer-view-${customer.id}`}
-              type="button"
-              onClick={(event) => event.stopPropagation()}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <Popover
+              portal
+              align="end"
+              contentClassName="!min-w-[160px] !p-2"
+              trigger={
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              }
             >
-              View
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              id={`bookings-customer-edit-${customer.id}`}
-              data-testid={`bookings-customer-edit-${customer.id}`}
-              type="button"
-              onClick={(event) => event.stopPropagation()}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Edit
-            </Button>
+              <PopoverSection>
+                <button
+                  type="button"
+                  data-testid={`bookings-customer-edit-${customer.id}`}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  onClick={() => {
+                    openModal(<CreatePatientModal initialCustomer={customer} onCreated={updateLocal} />);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  data-testid={`bookings-customer-status-${customer.id}`}
+                  className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  onClick={() => toggleLocalStatus(customer.id)}
+                >
+                  {isActiveCustomer(customer) ? "Mark Inactive" : "Mark Active"}
+                </button>
+              </PopoverSection>
+            </Popover>
           </div>
         ),
       },
     ],
-    [],
+    [openModal, toggleLocalStatus, updateLocal],
   );
 
   return (
     <section
       id="page-customers"
       data-testid="bookings-customers-page"
-      className="flex h-full flex-col gap-4 overflow-y-auto bg-slate-50 p-4 md:p-6"
+      className="flex h-full flex-col gap-4 bg-slate-50 p-4 md:p-6"
     >
       <PageHeader
-        title="Customers"
-        subtitle={`${customers.length} customer records`}
+        title="Customer Overview"
+        subtitle="Create And Manage Customers"
         actions={
           <Button
             id="bookings-customers-create"
@@ -136,18 +151,21 @@ export default function CustomersPage() {
         }
       />
 
-      <Input
-        id="bookings-customers-search"
-        data-testid="bookings-customers-search"
-        type="search"
-        placeholder="Search by name, phone, or ID"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setPage(1);
-        }}
-        containerClassName="sm:max-w-sm"
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          id="bookings-customers-search"
+          data-testid="bookings-customers-search"
+          type="search"
+          placeholder="Search by name, phone, or ID"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+          icon={<Search className="h-4 w-4 text-slate-400" />}
+          containerClassName="sm:max-w-sm"
+        />
+      </div>
 
       <DataTable
         data={filtered}

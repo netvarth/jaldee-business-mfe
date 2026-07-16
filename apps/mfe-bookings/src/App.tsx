@@ -75,7 +75,11 @@ export default function App() {
             <Route path="/calendar/:calendarUid/schedules/:scheduleUid/timewindows/:timeWindowUid/customize" element={<CustomizeTimeWindow />} />
             <Route path="/dashboard" element={<OverviewPage />} />
             <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/services" element={<div className="p-4 md:p-6 h-full"><ServicesPage /></div>} />
+            <Route path="/customers/:view" element={<CustomersPage />} />
+            <Route path="/customers/:view/:subview" element={<CustomersPage />} />
+            <Route path="/customers/:view/:subview/:recordId" element={<CustomersPage />} />
+            <Route path="/customers/:recordId" element={<CustomersPage />} />
+            <Route path="/services" element={<ServicesPage />} />
             <Route path="/services/create" element={<CreateServicePage />} />
             <Route path="/services/edit/:id" element={<CreateServicePage />} />
             <Route path="/services/:id/details" element={<ServiceDetailsPage />} />
@@ -83,6 +87,10 @@ export default function App() {
             <Route path="/services/groups/create" element={<CreateServiceGroupPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/staff" element={<StaffPage />} />
+            <Route path="/staff/:view" element={<StaffPage />} />
+            <Route path="/staff/:view/:subview" element={<StaffPage />} />
+            <Route path="/staff/:view/:subview/:recordId" element={<StaffPage />} />
+            <Route path="/staff/:recordId" element={<StaffPage />} />
             <Route path="/holidays" element={<HolidaysPage />} />
             <Route path="/qr-links" element={<QrLinksPage />} />
             <Route path="/qrlinks" element={<QrLinksPage />} />

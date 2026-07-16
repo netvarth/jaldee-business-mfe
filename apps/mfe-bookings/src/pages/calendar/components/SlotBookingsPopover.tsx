@@ -54,13 +54,13 @@ export default function SlotBookingsPopover({
         if (viewBy === 'doctors') {
             const user = users.find((u) => u.uid === key);
             return {
-                initials: user ? user.code || user.name.substring(0, 2).toUpperCase() : '?',
+                initials: user ? user.code || user.name?.substring(0, 2)?.toUpperCase() : '?',
                 color: user?.color || '#9333EA',
             };
         }
         const cal = calendars.find((c) => c.uid === key);
         return {
-            initials: cal ? cal.name.substring(0, 2).toUpperCase() : '?',
+            initials: cal ? cal.name?.substring(0, 2)?.toUpperCase() : '?',
             color: cal?.color || '#9333EA',
         };
     };

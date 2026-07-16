@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Badge,
   Button,
   DataTable,
   EmptyState,
@@ -29,6 +30,10 @@ export default function ServicesPage() {
     );
   }, [query, services]);
 
+  const formatServiceStatus = (status?: ServiceItem["status"]) => (status === "Active" ? "Active" : "Inactive");
+  const serviceStatusVariant = (status?: ServiceItem["status"]): "success" | "neutral" =>
+    status === "Active" ? "success" : "neutral";
+
   const columns = useMemo<ColumnDef<ServiceItem>[]>(
     () => [
       {
@@ -37,10 +42,10 @@ export default function ServicesPage() {
         sortable: true,
         width: "28%",
         render: (service) => (
-          <div>
-            <p className="font-semibold text-slate-900">{service.name}</p>
-            <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              <span className="text-[#7c3aed]">#{service.id?.substring(0, 8).toUpperCase() || "N/A"}</span>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-slate-900">{service.name}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-500">
+              {service.id || "-"}
             </p>
           </div>
         ),
@@ -49,18 +54,10 @@ export default function ServicesPage() {
         key: "labels",
         header: "TAGS",
         render: (service) => (
-          <div className="flex flex-wrap gap-2">
-            {(service.labels?.length ? service.labels : ["OPD"]).map((label, idx) => {
-              const tagColors = [
-                "border-red-200 text-red-600 bg-red-50",
-                "border-emerald-200 text-emerald-600 bg-emerald-50",
-                "border-amber-200 text-amber-600 bg-amber-50",
-                "border-blue-200 text-blue-600 bg-blue-50",
-                "border-purple-200 text-purple-600 bg-purple-50"
-              ];
-              const color = tagColors[idx % tagColors.length];
+          <div className="flex flex-wrap gap-1.5">
+            {(service.labels?.length ? service.labels : ["OPD"]).map((label) => {
               return (
-                <span key={label} className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide border ${color}`}>
+                <span key={label} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
                   {label}
                 </span>
               );
@@ -72,12 +69,10 @@ export default function ServicesPage() {
         key: "status",
         header: "STATUS",
         render: (service) => {
-          const isActive = service.status === 'Active';
           return (
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide bg-white ${isActive ? 'border-emerald-400 text-emerald-600' : 'border-slate-300 text-slate-500'}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-              {service.status || 'ACTIVE'}
-            </span>
+            <Badge variant={serviceStatusVariant(service.status)}>
+              {formatServiceStatus(service.status)}
+            </Badge>
           );
         }
       },
@@ -90,14 +85,7 @@ export default function ServicesPage() {
             <p className="text-xs font-medium text-slate-700">
               {service.serviceType ?? "Consultation"}
             </p>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="rounded-sm bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
-                {service.serviceMode ?? "ONLINE"}
-              </span>
-              <span className="text-sm font-bold text-slate-900">
-                ₹{service.price}
-              </span>
-            </div>
+            <p className="mt-1 text-sm font-semibold text-slate-900">₹{service.price}</p>
           </div>
         ),
       },
@@ -116,7 +104,7 @@ export default function ServicesPage() {
                   event.stopPropagation();
                   navigate(`/services/${service.id}/details`);
                 }}
-                className="rounded-full font-semibold border-slate-200 text-slate-700"
+                className="font-semibold"
               >
                 Details
               </Button>
@@ -151,11 +139,20 @@ export default function ServicesPage() {
     <section
       id="bookings-services-page"
       data-testid="bookings-services-page"
-      className="flex h-full flex-col overflow-y-auto bg-white p-4 md:p-6"
+      className="flex h-full flex-col overflow-y-auto bg-slate-50 p-4 md:p-6"
     >
       <PageHeader
-        title="Services and Service Packages"
-        subtitle="Configure and manage clinical consultation services offered by Global Care Hospital"
+        title="Services"
+        subtitle="Configure and manage booking services."
+        actions={
+          <Button
+            id="bookings-services-create"
+            data-testid="bookings-services-create"
+            onClick={() => navigate("/services/create")}
+          >
+            Create Service
+          </Button>
+        }
       />
 
       <div className="mt-4 mb-6">
@@ -169,34 +166,19 @@ export default function ServicesPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Input
-            id="bookings-services-search"
-            data-testid="bookings-services-search"
-            type="search"
-            placeholder="Search services..."
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(1);
-            }}
-            className="w-72"
-            containerClassName="w-auto"
-          />
-          <Button variant="outline" className="text-slate-500 font-semibold border-slate-200 h-10 px-4">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
-            Filter
-          </Button>
-        </div>
-        <Button
-          id="bookings-services-create"
-          data-testid="bookings-services-create"
-          onClick={() => navigate("/services/create")}
-          className="bg-[#4F2B85] hover:bg-[#3D2168] text-white"
-        >
-          + Create New Service
-        </Button>
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <Input
+          id="bookings-services-search"
+          data-testid="bookings-services-search"
+          type="search"
+          placeholder="Search services"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+          containerClassName="sm:max-w-sm"
+        />
       </div>
 
       <DataTable

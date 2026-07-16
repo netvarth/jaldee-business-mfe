@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Dialog, Drawer } from "@jaldee/design-system";
 
+interface DrawerOptions {
+  panelClassName?: string;
+}
+
 interface ModalContextType {
   isOpen: boolean;
   isDrawerOpen: boolean;
@@ -8,7 +12,7 @@ interface ModalContextType {
   drawerContent: ReactNode | null;
   openModal: (content: ReactNode) => void;
   closeModal: () => void;
-  openDrawer: (content: ReactNode) => void;
+  openDrawer: (content: ReactNode, options?: DrawerOptions) => void;
   closeDrawer: () => void;
 }
 
@@ -20,6 +24,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerContent, setDrawerContent] = useState<ReactNode | null>(null);
+  const [drawerOptions, setDrawerOptions] = useState<DrawerOptions>({});
 
   const openModal = (content: ReactNode) => {
     setModalContent(content);
@@ -31,8 +36,10 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTimeout(() => setModalContent(null), 300);
   };
 
-  const openDrawer = (content: ReactNode) => {
+  const openDrawer = (content: ReactNode, options?: DrawerOptions) => {
     setDrawerContent(content);
+    if (options) setDrawerOptions(options);
+    else setDrawerOptions({});
     setIsDrawerOpen(true);
   };
 
@@ -61,7 +68,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         size="md"
         hideHeader
         showCloseButton={false}
-        panelClassName="bg-[#f8fafc] sm:w-[500px]"
+        panelClassName={drawerOptions?.panelClassName || "bg-[#f8fafc] sm:w-[500px]"}
         contentClassName="p-0 flex flex-col h-full"
       >
         {drawerContent}

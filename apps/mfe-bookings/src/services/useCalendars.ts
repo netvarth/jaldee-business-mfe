@@ -126,9 +126,24 @@ export const useCalendars = () => {
     setError(null);
     try {
       const data = await api.post<unknown>(
-        "/calendars/search",
-        {},
-        { params: { page: 0, size: 100 } },
+        "/calendars/filter",
+        {
+          view: "BASIC",
+          filters: {
+            logic: "AND",
+            conditions: [
+              {
+                field: "status",
+                operator: "IN",
+                values: ["ACTIVE", "DRAFT", "INACTIVE"],
+              },
+            ],
+          },
+          sort: [],
+          page: 0,
+          size: 100,
+        },
+        { _skipLocationParam: true },
       );
       setCalendars(unwrapList<Calendar>(data).map(normalizeCalendar));
     } catch (e) {

@@ -175,9 +175,8 @@ export default function ServiceDetailsPage() {
               )}
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <GridBox label="Context Scope" value={humanize(raw.serviceMode || service.consultationType)} />
-                <GridBox label="Service Catalog Category" value={humanize(raw.category || service.serviceCategory)} />
-                <GridBox label="Weight Indicator" value={raw.resourcesRequired != null ? raw.resourcesRequired.toFixed(2) : null} />
-                <GridBox label="Display Sort Index" value={raw.displayOrder != null ? `Rank ${raw.displayOrder}` : null} />
+                <GridBox label="Service Category" value={humanize(raw.category || service.serviceCategory)} />
+                <GridBox label="Display Order" value={raw.displayOrder != null ? `Rank ${raw.displayOrder}` : null} />
               </div>
             </SectionCard>
 
@@ -227,11 +226,11 @@ export default function ServiceDetailsPage() {
                     <div key={idx} className="flex items-center justify-between rounded-xl border border-slate-200 p-4">
                       <div className="flex items-center gap-4">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-700 text-sm font-bold text-white shadow-sm">
-                          {user.userUid ? user.userUid.slice(0, 2).toUpperCase() : 'U'}
+                          {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : (user.userUid ? user.userUid.slice(0, 2).toUpperCase() : 'U')}
                         </div>
                         <div>
                           <div className="text-sm font-bold text-slate-800">
-                            Provider {user.userUid?.slice(0, 5).toUpperCase()}
+                            {user.displayName || `Provider ${user.userUid?.slice(0, 5).toUpperCase()}`}
                           </div>
                           <div className="text-[11px] font-semibold text-slate-500">General Medicine</div>
                         </div>

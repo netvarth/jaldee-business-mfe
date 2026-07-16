@@ -79,9 +79,24 @@ export const useServices = () => {
     setError(null);
     try {
       const data = await api.post<unknown>(
-        "/services/search",
-        {},
-        { params: { page: 0, size: 100 } },
+        "/services/filter",
+        {
+          view: "DEFAULT",
+          filters: {
+            logic: "AND",
+            conditions: [
+              {
+                field: "status",
+                operator: "IN",
+                values: ["Enabled", "Disabled"],
+              },
+            ],
+          },
+          sort: [],
+          page: 0,
+          size: 100,
+        },
+        { _skipLocationParam: true },
       );
       setServices([...createdServices, ...unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult)]);
     } catch (e) {

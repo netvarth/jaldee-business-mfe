@@ -73,7 +73,7 @@ export default function ListGrid({ bookings, calendars, services, users, onBooki
                                                 {provider && (
                                                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                                                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-slate-300 shadow-sm" style={{ backgroundColor: providerColor }}>
-                                                            {provider.code || provider.name?.substring(0, 2).toUpperCase()}
+                                                            {provider.code || provider.name?.substring(0, 2)?.toUpperCase()}
                                                         </div>
                                                         <span className="text-xs font-medium text-slate-600 truncate">{provider.name}</span>
                                                     </div>

@@ -60,9 +60,24 @@ export const useCustomers = () => {
     setCustomers((prev) => [c, ...prev.filter((x) => x.id !== c.id)]);
   }, []);
 
+  const updateLocal = useCallback((customer: Customer) => {
+    setCustomers((prev) => prev.map((item) => (item.id === customer.id ? customer : item)));
+  }, []);
+
+  const toggleLocalStatus = useCallback((id: string) => {
+    setCustomers((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const current = String(item.status || "").toUpperCase();
+        const next = current === "ENABLED" ? "DISABLED" : "ENABLED";
+        return { ...item, status: next };
+      }),
+    );
+  }, []);
+
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  return { customers, loading, error, refresh: fetchCustomers, addLocal, showToast };
+  return { customers, loading, error, refresh: fetchCustomers, addLocal, updateLocal, toggleLocalStatus, showToast };
 };

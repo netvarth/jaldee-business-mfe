@@ -27,6 +27,7 @@ export interface ServiceFormInput {
   teleServicePlatform?: "Zoom" | "Google Meet" | "Jaldee Video" | "WhatsApp" | "Phone";
   meetingLink?: string;
   phoneNumber?: string;
+  phoneCountryCode?: string;
   durHrs: number;
   durMins: number;
   numResources: number;
@@ -82,7 +83,7 @@ function toDurationMinutes(input: Pick<ServiceFormInput, "durHrs" | "durMins">) 
 }
 
 function toApiServiceType(value: ServiceFormInput["serviceType"]) {
-  return value === "Teleservice" ? "TELESERVICE" : "ONSITE";
+  return value === "Teleservice" ? "virtualService" : "physicalService";
 }
 
 function toApiAppointmentType(value: ServiceFormInput["apptType"]) {
@@ -101,8 +102,8 @@ function toApiRequestType(value?: ServiceFormInput["requestType"]) {
 }
 
 function toApiTeleMode(value?: ServiceFormInput["teleServiceMode"]) {
-  if (value === "Video Mode") return "VIDEO";
-  if (value === "Audio Mode") return "AUDIO";
+  if (value === "Video Mode") return "videoService";
+  if (value === "Audio Mode") return "audioService";
   return undefined;
 }
 
@@ -128,6 +129,11 @@ function toApiSchema(fields: SchemaField[]) {
     };
     return schema;
   }, {});
+}
+
+function getSchemaTitle(kind: "pre" | "post", fields: SchemaField[]) {
+  if (fields.length === 0) return undefined;
+  return kind === "pre" ? "Pre-Service Questionnaire" : "Post-Service Questionnaire";
 }
 
 function toLeadTimeMinutes(input: Pick<ServiceFormInput, "leadDays" | "leadHrs" | "leadMins">) {
@@ -159,8 +165,24 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     status: "Enabled",
     currencyCode: input.currencyCode,
     category: toApiCategory(input.serviceCategory),
-    serviceMode: toApiServiceType(input.serviceType),
+    serviceMode: "ONSITE",
+    serviceType: toApiServiceType(input.serviceType),
+    ...(input.serviceType === "Teleservice" ? {
+      virtualServiceType: toApiTeleMode(input.teleServiceMode),
+      virtualCallingModes: input.teleServicePlatform ? [{
+        callingMode: input.teleServicePlatform,
+        value: (input.teleServicePlatform === "WhatsApp" || input.teleServicePlatform === "Phone") ? (input.phoneNumber || "") : (input.meetingLink || ""),
+        status: "Enabled",
+        instructions: "",
+        countryCode: (input.teleServicePlatform === "WhatsApp" || input.teleServicePlatform === "Phone") ? (input.phoneCountryCode || "") : ""
+      }] : undefined
+    } : {}),
     bookingMode: input.apptType === "Request" ? "REQUEST" : "BOOKING",
+    ...(input.apptType === "Request" ? {
+      date: input.requestType === "With Date Only",
+      dateTime: input.requestType === "With Date & Time",
+      noDateTime: input.requestType === "No Date & Time",
+    } : {}),
     ...(userEntries.length ? { users: userEntries } : {}),
     displayOrder: input.displayOrder,
     maxBookingsPerConsumer: input.maxBookings,
@@ -168,9 +190,12 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     internationalPriceRequired: false,
     hsnCode: input.hsnCode === "None" ? "" : input.hsnCode,
     taxPreference: input.taxApplicable ? "TAXABLE" : "NON_TAXABLE",
-    feature: toApiAppointmentType(input.apptType) === "REQUEST" ? "REQUEST" : "BOOKING",
+    // Backend FeatureEnum expects the owning product area, not the booking mode.
+    feature: "BOOKING",
     preServiceSchema: toApiSchema(input.preServiceSchema),
     postServiceSchema: toApiSchema(input.postServiceSchema),
+    preInfoTitle: getSchemaTitle("pre", input.preServiceSchema),
+    postInfoTitle: getSchemaTitle("post", input.postServiceSchema),
     notification: true,
     livetrack: false,
     preLivetrack: false,

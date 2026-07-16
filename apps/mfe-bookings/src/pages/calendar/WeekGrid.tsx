@@ -120,55 +120,116 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                     style={{ cursor: 'pointer' }}
                                                 >
                                                     {slotBookings.length > 0 && (
-                                                        <div className="detail-stack w-full pointer-events-none">
+                                                        <div className="detail-stack w-full pointer-events-none flex flex-col gap-1">
                                                             {viewBy === 'doctors' ? (
-                                                                Object.entries(slotBookings.reduce((acc: any, bk: any) => {
-                                                                    const uid = bk.providerId || bk.userUid || 'unknown';
-                                                                    if (!acc[uid]) acc[uid] = [];
-                                                                    acc[uid].push(bk);
-                                                                    return acc;
-                                                                }, {})).map(([uid, bks]: [string, any[]]) => {
-                                                                    const user = users.find(u => u.uid === uid);
-                                                                    const initials = user ? (user.code || user.name.substring(0, 2).toUpperCase()) : '?';
-                                                                    const color = user?.color || '#9333EA';
-                                                                    return (
-                                                                        <Button
-                                                                            key={uid}
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="week-slot-entry pointer-events-auto"
-                                                                            style={{ borderColor: color, background: '#fff' }}
-                                                                            /* click bubbles to the cell → opens SlotBookingsPopover */
-                                                                        >
-                                                                            <span className="week-slot-avatar" style={{ background: color, borderRadius: '4px' }}>{initials}</span>
-                                                                            <span className="week-slot-count text-left flex-1" style={{ fontSize: '11px', color: '#333', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
-                                                                            <span style={{color, fontSize: '14px', lineHeight: 1, fontWeight: 400}}>+</span>
-                                                                        </Button>
-                                                                    );
-                                                                })
+                                                                (function() {
+                                                                    const userGroups = Object.entries(slotBookings.reduce((acc: any, bk: any) => {
+                                                                        const uid = bk.providerId || bk.userUid || 'unknown';
+                                                                        if (!acc[uid]) acc[uid] = [];
+                                                                        acc[uid].push(bk);
+                                                                        return acc;
+                                                                    }, {}));
+                                                                    
+                                                                    if (slotBookings.length > 3) {
+                                                                        return (
+                                                                            <div className="flex flex-wrap gap-1 pointer-events-auto mt-auto">
+                                                                                {userGroups.map(([uid, bks]: [string, any[]]) => {
+                                                                                    const user = users.find(u => u.uid === uid);
+                                                                                    const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
+                                                                                    const color = user?.color || '#9333EA';
+                                                                                    return (
+                                                                                        <div key={uid} className="flex flex-col items-center">
+                                                                                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-sm" style={{ backgroundColor: color }}>
+                                                                                                {initials}
+                                                                                            </div>
+                                                                                            <span className="text-[9px] font-bold text-slate-600 mt-0.5">{bks.length}</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                                <div className="flex flex-col items-center">
+                                                                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 text-[12px] font-bold bg-slate-100 shadow-sm border border-slate-200 cursor-pointer hover:bg-slate-200" onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={dayDate} initialTime={`${hour.toString().padStart(2, '0')}:00`} />); }}>
+                                                                                        +
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return userGroups.map(([uid, bks]: [string, any[]]) => {
+                                                                        const user = users.find(u => u.uid === uid);
+                                                                        const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
+                                                                        const color = user?.color || '#9333EA';
+                                                                        return (
+                                                                            <Button
+                                                                                key={uid}
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="pointer-events-auto flex items-center justify-between w-full p-1.5 rounded-lg border shadow-sm transition-all hover:opacity-90"
+                                                                                style={{ borderColor: color, backgroundColor: '#fff' }}
+                                                                            >
+                                                                                <div className="flex items-center gap-2 flex-1">
+                                                                                    <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: color }}>
+                                                                                        {initials}
+                                                                                    </div>
+                                                                                    <div className="flex flex-col items-start leading-tight">
+                                                                                        <span style={{ fontSize: '12px', color: '#333', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex items-center justify-center w-5 h-5 rounded-full text-white" style={{ backgroundColor: color, fontSize: '14px', lineHeight: 1 }}>
+                                                                                    +
+                                                                                </div>
+                                                                            </Button>
+                                                                        );
+                                                                    });
+                                                                })()
                                                             ) : (
-                                                                Object.entries(slotBookings.reduce((acc: any, bk: any) => {
-                                                                    const uid = bk.calendarId || bk.calendarUid || 'unknown';
-                                                                    if (!acc[uid]) acc[uid] = [];
-                                                                    acc[uid].push(bk);
-                                                                    return acc;
-                                                                }, {})).map(([uid, bks]: [string, any[]]) => {
-                                                                    const cal = calendars.find(c => c.uid === uid);
-                                                                    const rawColor = cal?.color || '#9333EA';
-                                                                    const isTw = rawColor.includes('bg-');
-                                                                    return (
-                                                                        <div
-                                                                            key={uid}
-                                                                            className={`flex items-center gap-1.5 p-1 px-2 rounded-md pointer-events-auto transition-opacity hover:opacity-90 w-full mb-1 ${isTw ? rawColor : ''} ${isTw ? 'bg-opacity-20' : ''}`}
-                                                                            style={isTw ? {} : { backgroundColor: toRgba(rawColor, 0.2), border: 'none' }}
-                                                                            /* click bubbles to the cell → opens SlotBookingsPopover */
-                                                                        >
-                                                                            <span className="flex-1 truncate text-left" style={isTw ? { fontSize: '11px', fontWeight: 600 } : { fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}</span>
-                                                                            <span style={isTw ? { fontSize: '14px', lineHeight: 1, fontWeight: 400 } : { color: '#1e293b', fontSize: '14px', lineHeight: 1, fontWeight: 400 }}>+</span>
-                                                                        </div>
-                                                                    );
-                                                                })
+                                                                (function() {
+                                                                    const calGroups = Object.entries(slotBookings.reduce((acc: any, bk: any) => {
+                                                                        const uid = bk.calendarId || bk.calendarUid || 'unknown';
+                                                                        if (!acc[uid]) acc[uid] = [];
+                                                                        acc[uid].push(bk);
+                                                                        return acc;
+                                                                    }, {}));
+
+                                                                    if (slotBookings.length > 3) {
+                                                                        return (
+                                                                            <div className="flex flex-wrap gap-1 pointer-events-auto mt-auto">
+                                                                                {calGroups.map(([uid, bks]: [string, any[]]) => {
+                                                                                    const cal = calendars.find(c => c.uid === uid);
+                                                                                    const calColor = cal?.color || '#9333EA';
+                                                                                    return (
+                                                                                        <div key={uid} className="w-2 h-4 rounded-sm" style={{ backgroundColor: calColor }} title={`${bks.length} Bookings`} />
+                                                                                    );
+                                                                                })}
+                                                                                <div className="flex flex-col items-center ml-1">
+                                                                                    <div className="w-4 h-4 rounded flex items-center justify-center text-slate-400 text-[12px] font-bold bg-slate-100 shadow-sm border border-slate-200 cursor-pointer hover:bg-slate-200" onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={dayDate} initialTime={`${hour.toString().padStart(2, '0')}:00`} />); }}>
+                                                                                        +
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return calGroups.map(([uid, bks]: [string, any[]]) => {
+                                                                        const cal = calendars.find(c => c.uid === uid);
+                                                                        const calColor = cal?.color || '#9333EA';
+                                                                        return (
+                                                                            <Button
+                                                                                key={uid}
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="pointer-events-auto flex items-center justify-between w-full p-1.5 rounded border transition-all hover:opacity-90"
+                                                                                style={{ backgroundColor: toRgba(calColor, 0.2), borderColor: calColor }}
+                                                                                onClick={(e) => { e.stopPropagation(); }}
+                                                                            >
+                                                                                <span style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} Bookings</span>
+                                                                                <span style={{ color: calColor, fontSize: '14px', lineHeight: 1, fontWeight: 700 }}>+</span>
+                                                                            </Button>
+                                                                        );
+                                                                    });
+                                                                })()
                                                             )}
                                                         </div>
                                                     )}

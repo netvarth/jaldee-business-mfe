@@ -78,7 +78,7 @@ export default function UpcomingAppointments({ bookings, users, date, viewMode =
                                             {provider && (
                                                 <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100">
                                                     <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white bg-slate-300" style={{ backgroundColor: providerColor }}>
-                                                        {provider.code || provider.name?.substring(0, 2).toUpperCase()}
+                                                        {provider.code || provider.name?.substring(0, 2)?.toUpperCase()}
                                                     </div>
                                                     <span className="text-[11px] font-medium text-slate-600 truncate">{provider.name}</span>
                                                 </div>

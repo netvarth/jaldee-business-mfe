@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Button, PageHeader, Select } from '@jaldee/design-system';
 import { useCalendars } from '../../services/useCalendars';
@@ -7,6 +8,7 @@ import { useProviders } from '../../services/useProviders';
 import { useServices } from '../../services/useServices';
 import { useModal } from '../../contexts/ModalContext';
 import SavedFiltersModal from './SavedFiltersModal';
+import FilterDrawer from './components/FilterDrawer';
 
 import WeekGrid from './WeekGrid';
 import MonthGrid from './MonthGrid';
@@ -22,27 +24,69 @@ interface CalendarDashboardProps {
 }
 
 export default function CalendarDashboard({ onBookingSelect }: CalendarDashboardProps) {
-    const { openModal, openDrawer } = useModal();
+    const { openModal, openDrawer, closeDrawer } = useModal();
+    const navigate = useNavigate();
     const { calendars } = useCalendars();
+    const { providers: liveProviders } = useProviders();
+    const { services } = useServices();
 
     const [viewMode, setViewMode] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
     const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
     const [viewBy, setViewBy] = useState<'doctors' | 'calendars'>('doctors');
     const [date, setDate] = useState(new Date());
+    const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
     // Live data only — no sample fallback (empty states surface real gaps).
     const { bookings: liveBookings } = useBookings(format(date, 'yyyy-MM-dd'), viewMode);
-    const { providers: liveProviders } = useProviders();
-    const { services } = useServices();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+    // Filter states
+    const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+    const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
 
     // Collapsible states for sidebar groups
     const [providersOpen, setProvidersOpen] = useState(true);
-    const [locationsOpen, setLocationsOpen] = useState(true);
     const [servicesOpen, setServicesOpen] = useState(true);
     const [calendarsOpen, setCalendarsOpen] = useState(true);
-    const [createMenuOpen, setCreateMenuOpen] = useState(false);
+    // Sync initial selected states when data loads
+    React.useEffect(() => {
+        if (calendars.length > 0 && selectedCalendarIds.size === 0) {
+            setSelectedCalendarIds(new Set(calendars.map(c => c.uid || c.id || '')));
+        }
+    }, [calendars, selectedCalendarIds.size]);
+
+    React.useEffect(() => {
+        if (liveProviders.length > 0 && selectedUserIds.size === 0) {
+            setSelectedUserIds(new Set(liveProviders.map(p => p.uid || p.id || '')));
+        }
+    }, [liveProviders, selectedUserIds.size]);
+
+    React.useEffect(() => {
+        if (services.length > 0 && selectedServiceIds.size === 0) {
+            setSelectedServiceIds(new Set(services.map(s => s.id || '')));
+        }
+    }, [services, selectedServiceIds.size]);
+
+    // Apply filters
+    const filteredCalendars = selectedCalendarIds.size === 0 ? calendars : calendars.filter(c => selectedCalendarIds.has(c.uid || c.id || ''));
+    const filteredProviders = selectedUserIds.size === 0 ? liveProviders : liveProviders.filter(p => selectedUserIds.has(p.uid || p.id || ''));
     
+    const filteredBookings = liveBookings.filter((b: any) => {
+        const calId = b.calendarId || b.calendarUid;
+        const provId = b.providerId || b.userUid;
+        // If booking has a calendarId and it's not selected, hide it. (Only if there are selected calendars to avoid hiding all initially)
+        if (calId && selectedCalendarIds.size > 0 && !selectedCalendarIds.has(calId)) return false;
+        // Same for provider
+        if (provId && selectedUserIds.size > 0 && !selectedUserIds.has(provId)) return false;
+        // For services, if we have serviceId in booking, filter by it. (Assuming booking has serviceId or serviceUid)
+        const srvId = b.serviceId || b.serviceUid;
+        if (srvId && selectedServiceIds.size > 0 && !selectedServiceIds.has(srvId)) return false;
+        return true;
+    });
+
+    const formattedDate = `${format(date, "dd MMM yyyy")}${format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? ", Today" : ""}`;
+
     return (
         <section
             id="page-dashboard"
@@ -51,21 +95,35 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
         >
             <div className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
                 <PageHeader
-                    title="Appointments"
+                    title="Calendar"
                     subtitle="View schedules, availability, and bookings across calendars."
                     className="mb-4"
+                    actions={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                id="bookings-open-calendars"
+                                data-testid="bookings-open-calendars"
+                                onClick={() => navigate("/calendars")}
+                            >
+                                Calendars
+                            </Button>
+                            <Button
+                                size="sm"
+                                id="bookings-create-calendar"
+                                data-testid="bookings-create-calendar"
+                                onClick={() => navigate("/calendars/create", { state: { returnTo: "/" } })}
+                            >
+                                Create Calendar
+                            </Button>
+                        </div>
+                    }
                 />
             </div>
             {/* Toolbar Area */}
             <div className="toolbar shrink-0 px-4 flex justify-between items-center bg-white border-b border-slate-200" style={{ height: '64px' }} data-testid="bookings-calendar-toolbar">
                 <div className="toolbar-left flex items-center gap-4">
-                    <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>} className="text-slate-600 border-0" aria-label="Menu" />
-                    <div className="flex items-center gap-2 pr-4">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: '#311090' }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        </div>
-                        <span className="font-bold text-slate-900 text-lg">Calendar</span>
-                    </div>
                     <div className="date-navigator">
                         <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>} aria-label="Previous period" id="bookings-prev-period" data-testid="bookings-prev-period" className="nav-arrow-btn" onClick={() => {
                             const newDate = new Date(date);
@@ -73,7 +131,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                             setDate(newDate);
                         }} />
                         <Button variant="ghost" size="sm" id="bookings-current-date" data-testid="bookings-current-date" className="date-picker-trigger font-bold text-slate-800 bg-white border border-slate-200" onClick={() => setDate(new Date())}>
-                            <span>{format(date, "dd MMM yyyy")}{format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? ", Today" : ""}</span>
+                            <span>{formattedDate}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="date-icon text-purple-600 ml-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                         </Button>
                         <Button variant="ghost" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>} aria-label="Next period" id="bookings-next-period" data-testid="bookings-next-period" className="nav-arrow-btn" onClick={() => {
@@ -105,11 +163,19 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                         />
                     </div>
                     <Button variant="secondary" size="sm" className="filter-applied-btn font-bold px-4" style={{ backgroundColor: '#F3E8FF', color: '#6B21A8', borderColor: '#F3E8FF' }} id="filter-panel-toggle" data-testid="bookings-filter-panel-toggle"
-                        onClick={() => openModal(
-                            <SavedFiltersModal
-                                criteria={{ viewBy }}
-                                onApply={(c) => { if (c.viewBy) setViewBy(c.viewBy as typeof viewBy); }}
-                            />
+                        onClick={() => openDrawer(
+                            <FilterDrawer
+                                initialCalendars={selectedCalendarIds}
+                                initialUsers={selectedUserIds}
+                                initialServices={selectedServiceIds}
+                                onApply={(cals, users, svcs) => {
+                                    setSelectedCalendarIds(cals);
+                                    setSelectedUserIds(users);
+                                    setSelectedServiceIds(svcs);
+                                }}
+                                onClose={closeDrawer}
+                            />,
+                            { panelClassName: 'bg-white sm:w-[320px] sm:max-w-[320px]' }
                         )}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="10" x2="14" y1="18" y2="18"/></svg>
                         <span id="filter-btn-text">Filter</span>
@@ -131,17 +197,17 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                                         }}
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
-                                        New Appointment
+                                        Booking
                                     </button>
                                     <button 
                                         className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                         onClick={() => {
                                             setCreateMenuOpen(false);
-                                            openModal(<BlockSlotModal initialDate={date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : undefined} />);
+                                            navigate('/calendars/create', { state: { returnTo: '/' } });
                                         }}
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-                                        Block Slot
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                        Calendar
                                     </button>
                                 </div>
                             </>
@@ -183,12 +249,37 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                             </div>
                             <div className="sidebar-group-body px-4 pb-2">
                                 <div className="user-checkbox-list flex flex-col gap-3 mt-1">
-                                    {calendars.map(cal => (
-                                        <div key={cal.uid || cal.id} className="flex items-center gap-2">
-                                            <input type="checkbox" id={`cal-${cal.uid || cal.id}`} className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600" defaultChecked />
-                                            <label htmlFor={`cal-${cal.uid || cal.id}`} className="text-sm text-slate-700 truncate cursor-pointer">{cal.name}</label>
-                                        </div>
-                                    ))}
+                                    {calendars.map(cal => {
+                                        const id = cal.uid || cal.id || '';
+                                        return (
+                                            <div key={id} className="flex items-center gap-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id={`cal-${id}`} 
+                                                    className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600" 
+                                                    checked={selectedCalendarIds.size === 0 || selectedCalendarIds.has(id)}
+                                                    onChange={(e) => {
+                                                        let newSet = new Set(selectedCalendarIds);
+                                                        // If it was empty (meaning "all selected"), we first fill it with all calendars
+                                                        if (selectedCalendarIds.size === 0) {
+                                                            newSet = new Set(calendars.map(c => c.uid || c.id || ''));
+                                                        }
+                                                        
+                                                        if (e.target.checked) newSet.add(id);
+                                                        else newSet.delete(id);
+                                                        
+                                                        // If we've selected all of them manually, reset to empty (optimization)
+                                                        if (newSet.size === calendars.length) {
+                                                            newSet.clear();
+                                                        }
+                                                        
+                                                        setSelectedCalendarIds(newSet);
+                                                    }}
+                                                />
+                                                <label htmlFor={`cal-${id}`} className="text-sm text-slate-700 truncate cursor-pointer">{cal.name}</label>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -211,15 +302,39 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                                     <input type="text" placeholder="Search User" className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500" />
                                 </div>
                                 <div className="user-checkbox-list flex flex-col gap-3">
-                                    {liveProviders.map(user => (
-                                        <div key={user.id} className="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" id={`usr-${user.id}`} className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600 shrink-0" defaultChecked />
-                                            <label htmlFor={`usr-${user.id}`} className="flex items-center gap-2 cursor-pointer min-w-0">
-                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${user.color.includes('emerald') ? 'bg-emerald-500' : user.color.includes('purple') ? 'bg-purple-600' : 'bg-blue-500'}`}>{user.code || user.name.substring(0, 2).toUpperCase()}</div>
-                                                <span className="truncate text-sm text-slate-700">{user.name}</span>
-                                            </label>
-                                        </div>
-                                    ))}
+                                    {liveProviders.map(user => {
+                                        const id = user.uid || user.id || '';
+                                        return (
+                                            <div key={id} className="flex items-center gap-2 cursor-pointer">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id={`user-${id}`} 
+                                                    className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600 shrink-0" 
+                                                    checked={selectedUserIds.size === 0 || selectedUserIds.has(id)}
+                                                    onChange={(e) => {
+                                                        let newSet = new Set(selectedUserIds);
+                                                        if (selectedUserIds.size === 0) {
+                                                            newSet = new Set(liveProviders.map(p => p.uid || p.id || ''));
+                                                        }
+                                                        
+                                                        if (e.target.checked) newSet.add(id);
+                                                        else newSet.delete(id);
+                                                        
+                                                        if (newSet.size === liveProviders.length) {
+                                                            newSet.clear();
+                                                        }
+                                                        setSelectedUserIds(newSet);
+                                                    }}
+                                                />
+                                                <label htmlFor={`user-${id}`} className="flex items-center gap-2 cursor-pointer min-w-0 flex-1">
+                                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0" style={{ backgroundColor: user.color || '#9333EA' }}>
+                                                        {user.code || user.name?.substring(0, 2)?.toUpperCase()}
+                                                    </div>
+                                                    <span className="truncate text-sm text-slate-700">{user.name}</span>
+                                                </label>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -238,12 +353,34 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                             </div>
                             <div className="sidebar-group-body px-4 pb-2">
                                 <div className="user-checkbox-list flex flex-col gap-3 mt-1">
-                                    {services.map(svc => (
-                                        <div key={svc.id} className="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" id={`svc-${svc.id}`} className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600 shrink-0" defaultChecked />
-                                            <label htmlFor={`svc-${svc.id}`} className="truncate text-sm text-slate-700 cursor-pointer">{svc.name}</label>
-                                        </div>
-                                    ))}
+                                    {services.map(svc => {
+                                        const id = svc.id || '';
+                                        return (
+                                            <div key={id} className="flex items-center gap-2 cursor-pointer">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id={`svc-${id}`} 
+                                                    className="w-4 h-4 rounded text-purple-600 border-slate-300 focus:ring-purple-500 accent-purple-600 shrink-0" 
+                                                    checked={selectedServiceIds.size === 0 || selectedServiceIds.has(id)}
+                                                    onChange={(e) => {
+                                                        let newSet = new Set(selectedServiceIds);
+                                                        if (selectedServiceIds.size === 0) {
+                                                            newSet = new Set(services.map(s => s.id || ''));
+                                                        }
+                                                        
+                                                        if (e.target.checked) newSet.add(id);
+                                                        else newSet.delete(id);
+                                                        
+                                                        if (newSet.size === services.length) {
+                                                            newSet.clear();
+                                                        }
+                                                        setSelectedServiceIds(newSet);
+                                                    }}
+                                                />
+                                                <label htmlFor={`svc-${id}`} className="truncate text-sm text-slate-700 cursor-pointer">{svc.name}</label>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -254,19 +391,19 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 <div className="calendar-grid-container" id="calendar-grid-scroll-area" data-testid="bookings-calendar-grid-area" data-view-mode={viewMode}>
                     {layoutMode === 'list' ? (
                         <ListGrid
-                            bookings={liveBookings as any}
-                            calendars={calendars as any}
+                            bookings={filteredBookings as any}
+                            calendars={filteredCalendars as any}
                             services={services}
-                            users={liveProviders as any}
+                            users={filteredProviders as any}
                             onBookingSelect={onBookingSelect}
                         />
                     ) : viewMode === 'DAY' ? (
                         <DayGrid
                             date={date}
                             viewBy={viewBy}
-                            users={liveProviders as any}
-                            calendars={calendars as any}
-                            bookings={liveBookings as any}
+                            users={filteredProviders as any}
+                            calendars={filteredCalendars as any}
+                            bookings={filteredBookings as any}
                             services={services}
                             onBookingSelect={onBookingSelect}
                         />
@@ -274,9 +411,9 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                         <WeekGrid
                             date={date}
                             viewBy={viewBy}
-                            users={liveProviders as any}
-                            calendars={calendars as any}
-                            bookings={liveBookings as any}
+                            users={filteredProviders as any}
+                            calendars={filteredCalendars as any}
+                            bookings={filteredBookings as any}
                             services={services}
                             onBookingSelect={onBookingSelect}
                         />
@@ -284,9 +421,9 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                         <MonthGrid
                             date={date}
                             viewBy={viewBy}
-                            users={liveProviders as any}
-                            calendars={calendars as any}
-                            bookings={liveBookings as any}
+                            users={filteredProviders as any}
+                            calendars={filteredCalendars as any}
+                            bookings={filteredBookings as any}
                             services={services}
                             onBookingSelect={onBookingSelect}
                             onDaySelect={(selectedDate) => {
