@@ -6,7 +6,7 @@ import {
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus, ChevronDown, MoreVertical,
 } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Input } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
@@ -17,6 +17,7 @@ import { useHrApi } from "../../services/useHrApi";
 import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
 import { usePayslips, type Payslip } from "../../services/usePayrollData";
+import { DOC_REQUEST_STATUSES, useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
 import { useTelemetry } from "../../services/useTelemetry";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import type { Employee } from "../../types";
@@ -217,6 +218,11 @@ export default function EmployeeDetails() {
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [loginSaving, setLoginSaving] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentSaving, setDocumentSaving] = useState(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [documentForm, setDocumentForm] = useState({ documentType: "", status: "REQUESTED", documentUrl: "" });
+  const documents = useDocumentRequests(employee?.id);
 
   useEffect(() => {
     if (!id) return;
@@ -268,10 +274,22 @@ export default function EmployeeDetails() {
     };
   }, [api, employee, loginDialogOpen]);
 
+  useEffect(() => {
+    if (!documentDialogOpen) {
+      setDocumentForm({ documentType: "", status: "REQUESTED", documentUrl: "" });
+      setDocumentError(null);
+    }
+  }, [documentDialogOpen]);
+
   const managerName = useMemo(() => allEmployees.find((e) => e.id === employee?.reportingManagerUid)?.name, [employee, allEmployees]);
   const myAttendance = useMemo(() => allAttendance.filter((a) => a.employeeUid === employee?.id), [allAttendance, employee]);
   const myLeaves = useMemo(() => allLeaves.filter((l) => l.employeeUid === employee?.id), [allLeaves, employee]);
   const myPayslips = useMemo(() => allPayslips.filter((p) => p.employeeUid === employee?.id), [allPayslips, employee]);
+  const documentRows = useMemo(() => [...documents.data].sort((a, b) => {
+    const left = new Date(b.updatedAt || b.createdAt || 0).getTime();
+    const right = new Date(a.updatedAt || a.createdAt || 0).getTime();
+    return left - right;
+  }), [documents.data]);
   const employeeTabHref = (employeeId: string, nextTab: Tab, search = "") => `/employees/${employeeId}/${nextTab}${search}`;
 
   // weekly attendance buckets (last 4 weeks) — must stay above any early return (Rules of Hooks)
@@ -292,6 +310,41 @@ export default function EmployeeDetails() {
   }, [myAttendance]);
 
   const setF = (k: keyof Employee) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const saveDocument = async () => {
+    if (!employee?.id) return;
+    if (!documentForm.documentType.trim()) {
+      setDocumentError("Document type is required.");
+      return;
+    }
+    setDocumentSaving(true);
+    setDocumentError(null);
+    try {
+      await documents.create({
+        employeeUid: employee.id,
+        documentType: documentForm.documentType.trim(),
+        status: documentForm.status,
+        documentUrl: documentForm.documentUrl.trim() || undefined,
+      });
+      setDocumentDialogOpen(false);
+    } catch (e) {
+      setDocumentError(e instanceof Error ? e.message : "Unable to save document.");
+    } finally {
+      setDocumentSaving(false);
+    }
+  };
+  const removeDocument = async (doc: DocumentRequest) => {
+    const uid = doc.uid ?? doc.id;
+    if (!uid) return;
+    setDocumentSaving(true);
+    setDocumentError(null);
+    try {
+      await documents.remove(uid);
+    } catch (e) {
+      setDocumentError(e instanceof Error ? e.message : "Unable to delete document.");
+    } finally {
+      setDocumentSaving(false);
+    }
+  };
   const handleSave = async () => {
     if (!employee) return;
     if (!form.name || !form.email || !contactNumber.number) {
@@ -967,18 +1020,26 @@ export default function EmployeeDetails() {
 
           {tab === "documents" && (
             <Panel icon={<FileText size={20} />} title="Employee Documents" sub="Official letters, credentials, and verification sheets" full
-              action={<button className="employee-details-panel-action btn btn-secondary" style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button>}>
-              {employee.documents && employee.documents.length > 0 ? (
+              action={<button className="employee-details-panel-action btn btn-secondary" onClick={() => setDocumentDialogOpen(true)} style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button>}>
+              {documents.loading ? (
+                <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={48} className="animate-spin" style={{ opacity: 0.4, marginBottom: 12 }} /><p>Loading documents...</p></div>
+              ) : documentRows.length > 0 ? (
                 <div className="employee-details-documents-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
-                  {employee.documents.map((d) => (
+                  {documentRows.map((d) => (
                     <div className="employee-details-document-card" key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
                       <div className="employee-details-document-meta" style={{ display: "flex", alignItems: "center", gap: 14 }}>
                         <div style={{ width: 40, height: 40, borderRadius: 8, background: "var(--primary-light)", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center" }}><FileText size={20} /></div>
-                        <div><div style={val}>{d.name}</div><div style={{ ...lbl, fontSize: 9 }}>{d.type}</div></div>
+                        <div>
+                          <div style={val}>{d.documentType || "Document"}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                            <StatusPill s={d.status} />
+                            <span style={{ ...lbl, fontSize: 9 }}>{formatDate(d.updatedAt || d.createdAt)}</span>
+                          </div>
+                        </div>
                       </div>
                       <div className="employee-details-document-actions" style={{ display: "flex", gap: 8 }}>
-                        <a href={d.url && d.url !== "#" ? d.url : undefined} target="_blank" rel="noreferrer" style={{ color: "var(--light-text)" }}><Download size={16} /></a>
-                        <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }}><Trash2 size={16} /></button>
+                        <a href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
+                        <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                       </div>
                     </div>
                   ))}
@@ -1044,6 +1105,47 @@ export default function EmployeeDetails() {
           <Button variant="ghost" onClick={() => setLoginDialogOpen(false)}>Cancel</Button>
           <Button variant="primary" onClick={handleSaveCredentials} loading={loginSaving} disabled={loginSaving}>
             Save Login
+          </Button>
+        </DialogFooter>
+      </Dialog>
+      <Dialog open={documentDialogOpen} onClose={() => setDocumentDialogOpen(false)} title="Add Employee Document" size="md">
+        <div style={{ display: "grid", gap: 16 }}>
+          {documentError ? (
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
+              {documentError}
+            </div>
+          ) : null}
+          <div className="form-group">
+            <label>Document Type</label>
+            <Input
+              value={documentForm.documentType}
+              onChange={(e) => setDocumentForm((prev) => ({ ...prev, documentType: e.target.value }))}
+              placeholder="Passport, Offer Letter, PAN Card"
+              className="rounded-xl !h-11"
+            />
+          </div>
+          <div className="form-group">
+            <label>Status</label>
+            <Select
+              value={documentForm.status}
+              onChange={(e) => setDocumentForm((prev) => ({ ...prev, status: e.target.value }))}
+              options={DOC_REQUEST_STATUSES.map((status) => ({ value: status, label: status }))}
+            />
+          </div>
+          <div className="form-group">
+            <label>Document URL</label>
+            <Input
+              value={documentForm.documentUrl}
+              onChange={(e) => setDocumentForm((prev) => ({ ...prev, documentUrl: e.target.value }))}
+              placeholder="https://..."
+              className="rounded-xl !h-11"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setDocumentDialogOpen(false)}>Cancel</Button>
+          <Button variant="primary" onClick={() => void saveDocument()} loading={documentSaving} disabled={documentSaving}>
+            Save Document
           </Button>
         </DialogFooter>
       </Dialog>

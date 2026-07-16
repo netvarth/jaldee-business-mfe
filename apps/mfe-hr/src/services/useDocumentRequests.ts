@@ -19,6 +19,17 @@ export interface DocumentRequest {
   updatedAt?: string;
 }
 
+export interface DocumentRequestPayload {
+  employeeUid?: string;
+  documentType: string;
+  status?: string;
+  documentUrl?: string;
+  verifiedByUid?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  id?: string;
+}
+
 export const DOC_REQUEST_STATUSES = ["REQUESTED", "SUBMITTED", "VERIFIED", "REJECTED"] as const;
 
 function withId(r: Record<string, unknown>): DocumentRequest {
@@ -51,8 +62,22 @@ export function useDocumentRequests(employeeUid?: string) {
     await load();
   }, [api, employeeUid, load]);
 
+  const create = useCallback(async (payload: DocumentRequestPayload) => {
+    await api.post("/document-requests", {
+      employeeUid,
+      status: "REQUESTED",
+      ...payload,
+    });
+    await load();
+  }, [api, employeeUid, load]);
+
   const setStatus = useCallback(async (uid: string, status: string) => {
     await api.put(`/document-requests/${uid}`, { status });
+    await load();
+  }, [api, load]);
+
+  const update = useCallback(async (uid: string, payload: Partial<DocumentRequestPayload>) => {
+    await api.put(`/document-requests/${uid}`, payload);
     await load();
   }, [api, load]);
 
@@ -61,7 +86,7 @@ export function useDocumentRequests(employeeUid?: string) {
     await load();
   }, [api, load]);
 
-  return { data, loading, error, reload: load, request, setStatus, remove };
+  return { data, loading, error, reload: load, request, create, setStatus, update, remove };
 }
 
 export function useDocumentCompleteness(employeeUid?: string) {

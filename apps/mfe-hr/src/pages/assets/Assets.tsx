@@ -36,6 +36,11 @@ function resolveAssetAttachmentUrl(attachment: AssetAttachment) {
   return attachment.filePath || attachment.shortUrl || null;
 }
 
+function isImageAttachment(attachment: AssetAttachment) {
+  const type = (attachment.fileType || "").toLowerCase();
+  return ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(type);
+}
+
 function openAssetAttachment(attachment: AssetAttachment) {
   const href = resolveAssetAttachmentUrl(attachment);
   if (!href || typeof window === "undefined") return;
@@ -47,6 +52,12 @@ function openPendingFile(file: File) {
   const href = URL.createObjectURL(file);
   window.open(href, "_blank", "noopener,noreferrer");
   window.setTimeout(() => URL.revokeObjectURL(href), 60_000);
+}
+
+function formatHistoryDateTime(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 export default function Assets() {
@@ -738,16 +749,57 @@ export default function Assets() {
             {histLoading ? (
               <div style={{ textAlign: "center", padding: "24px 0", color: "var(--light-text)" }}><Loader2 size={18} className="animate-spin" style={{ display: "inline" }} /></div>
             ) : hist.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "var(--light-text)", fontSize: 13 }}>Never allocated.</div>
+              <div style={{ textAlign: "center", padding: "24px 0", color: "var(--light-text)", fontSize: 13 }}>No history available.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {hist.map((item) => (
                   <div key={item.id} style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border-color)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <b style={{ fontSize: 13 }}>{item.employeeName || item.employeeUid}</b>
-                      <span style={{ ...lbl }}>{item.issuedOn} -&gt; {item.returnedOn || "in use"}</span>
+                      <b style={{ fontSize: 13 }}>{(item.fromStatus || "-")} -&gt; {(item.toStatus || "-")}</b>
+                      <span style={{ ...lbl }}>{formatHistoryDateTime(item.changedAt)}</span>
                     </div>
-                    {(item.issueCondition || item.returnCondition) && (
+                    <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
+                      <div style={{ fontSize: 13, color: "var(--dark-text)" }}><b>Employee:</b> {item.employeeName || item.employeeUid || "-"}</div>
+                      <div style={{ fontSize: 13, color: "var(--dark-text)" }}><b>Changed By:</b> {item.changedByName || item.changedBy || "-"}</div>
+                      {item.remarks ? <div style={{ fontSize: 13, color: "var(--dark-text)" }}><b>Remarks:</b> {item.remarks}</div> : null}
+                    </div>
+                    {item.attachment?.length ? (
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={lbl}>Attachments</div>
+                        {item.attachment.map((attachment, index) => {
+                          const href = resolveAssetAttachmentUrl(attachment);
+                          const isImage = isImageAttachment(attachment) && !!href;
+                          return (
+                            <div key={`${attachment.fileUid || attachment.driveId || attachment.fileName || index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid var(--border-color)", borderRadius: 10, padding: "10px 12px" }}>
+                              <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 12 }}>
+                                {isImage ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openAssetAttachment(attachment)}
+                                    style={{ border: "1px solid var(--border-color)", borderRadius: 8, padding: 0, background: "#fff", cursor: "pointer", overflow: "hidden", width: 56, height: 56, flexShrink: 0 }}
+                                    aria-label={`Preview ${attachment.fileName || `attachment ${index + 1}`}`}
+                                  >
+                                    <img
+                                      src={href}
+                                      alt={attachment.fileName || `Attachment ${index + 1}`}
+                                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                    />
+                                  </button>
+                                ) : null}
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis" }}>{attachment.fileName || `Attachment ${index + 1}`}</div>
+                                  <div style={{ fontSize: 12, color: "var(--light-text)" }}>{attachment.fileType || "Unknown type"}</div>
+                                </div>
+                              </div>
+                              <Button type="button" variant="outline" size="sm" disabled={!href} onClick={() => openAssetAttachment(attachment)}>
+                                {isImage ? "Preview" : "View"}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    {false && (item.issueCondition || item.returnCondition) && (
                       <div style={{ ...lbl, fontSize: 9, marginTop: 4 }}>
                         {item.issueCondition ? `Issued: ${item.issueCondition}` : ""}{item.issueCondition && item.returnCondition ? " • " : ""}{item.returnCondition ? `Returned: ${item.returnCondition}` : ""}
                       </div>

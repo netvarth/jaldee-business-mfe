@@ -93,6 +93,13 @@ export interface AssetAllocation {
   tagNumber?: string;
   employeeUid?: string;
   employeeName?: string;
+  fromStatus?: AssetStatus;
+  toStatus?: AssetStatus;
+  remarks?: string | null;
+  attachment?: AssetAttachment[];
+  changedBy?: string;
+  changedByName?: string;
+  changedAt?: string;
   issuedOn?: string;
   issueCondition?: string;
   returnedOn?: string;
