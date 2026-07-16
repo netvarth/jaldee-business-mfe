@@ -34,10 +34,10 @@ export default function Announcements() {
   const location = useLocation();
   const isEmployeeView = location.pathname.includes("/me/");
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
-  const ann = useAnnouncements();
   const { data: myProfile } = useMyProfile();
   const { trackEvent, captureError } = useTelemetry();
   const isEmployeeLogin = isEmployeeView || (myProfile?.role || "").toLowerCase() === "employee";
+  const ann = useAnnouncements({ scope: isEmployeeLogin ? "ess" : "general" });
 
   useEffect(() => {
     if (ann.error) {
@@ -278,15 +278,31 @@ export default function Announcements() {
                       <div style={{ height: 48, width: 48, borderRadius: 16, background: "rgba(17,94,89,0.1)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>A</div>
                       <div><div style={{ ...lbl, color: "var(--dark-text)" }}>Official Update</div><div style={{ fontSize: 12, color: "var(--light-text)", fontWeight: 500 }}>Organization Board</div></div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
-                        <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={!isEmployeeLogin ? () => setTracking(a) : undefined} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: !isEmployeeLogin ? "pointer" : "default" }}>{a.acknowledgedBy?.length || 0} Staff</span>
+                    {isEmployeeLogin ? (
+                      a.isAcknowledged ? (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 999, background: "#d1fae5", color: "#065f46", fontSize: 13, fontWeight: 900 }}>
+                          <CheckCircle2 size={16} />
+                          Acknowledged
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "var(--light-text)", marginBottom: 2 }}>
+                              <CheckCircle2 size={14} />
+                              Pending acknowledgment
+                            </div>
+                          </div>
+                          <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
+                        </div>
+                      )
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
+                          <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
+                        </div>
                       </div>
-                      {isEmployeeLogin ? (
-                        <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
-                      ) : null}
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useJobRequisitions } from "../../services/useRecruitmentData";
 import { useCareersSite, usePostings, type JobPosting } from "../../services/useCareers";
@@ -39,6 +39,25 @@ export default function CareersPublishPage() {
   const [error, setError] = useState<string | null>(null);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (existing?.uid) {
+      setForm(existing);
+      setTagsText((existing.tags ?? []).join(", "));
+      return;
+    }
+
+    setForm((previous) => {
+      if (previous.uid || previous.summary || previous.requirements || previous.responsibilities || previous.benefits || previous.slug) {
+        return previous;
+      }
+      return {
+        ...previous,
+        requisitionUid,
+        templateKey: previous.templateKey || site?.defaultTemplate || "classic",
+      };
+    });
+  }, [existing, requisitionUid, site?.defaultTemplate]);
 
   const set = (k: keyof JobPosting) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));

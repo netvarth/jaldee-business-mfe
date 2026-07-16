@@ -1361,12 +1361,6 @@ export default function OrgStructure() {
           }
         >
           <Select label="Employee" value={am.managerEmployeeUid} onChange={(e) => setAm({ ...am, managerEmployeeUid: e.target.value })} options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
-          <div style={{ display: "grid", gap: 6 }}>
-            <span style={lbl}>Branch</span>
-            <div style={{ border: "1px solid var(--border-color)", borderRadius: 12, padding: "12px 14px", fontSize: 13, fontWeight: 700, color: "var(--dark-text)", background: "rgba(148,163,184,0.05)" }}>
-              {branchName(am.locationUid)}
-            </div>
-          </div>
         </Modal>
       )}
 

@@ -1,9 +1,49 @@
 import { useCallback, useEffect, useState } from "react";
+import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "./useHrApi";
+import { buildBaseServiceUrl } from "../../../../packages/shared-modules/src/serviceUrls";
 
 /** W9 / R9.1 — asset registry + allocation lifecycle client. */
 
 export type AssetStatus = "Available" | "Allocated" | "UnderRepair" | "Lost" | "Retired";
+
+export interface AssetAttachment {
+  fileUid?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  ownerType?: string;
+  filePath?: string;
+  driveId?: string | number;
+  uploadedBy?: string;
+  uploadedByName?: string;
+  owner?: string;
+  ownerName?: string;
+  caption?: string;
+  contextType?: string;
+  sharedType?: string;
+  tenantUid?: string;
+  contextUid?: string[];
+  action?: string;
+  shortUrl?: string;
+  jaldeeDriveId?: string;
+  featureServiceName?: string;
+  featureModuleName?: string;
+}
+
+interface AssetUploadTarget {
+  fileUid: string;
+  uploadUrl: string;
+  filePath?: string;
+  jaldeeDriveId?: string | null;
+}
+
+interface ReturnAssetOptions {
+  asset: Asset;
+  status: AssetStatus;
+  remarks?: string;
+  attachment?: AssetAttachment[];
+}
 
 export interface Asset {
   id: string;
@@ -13,6 +53,8 @@ export interface Asset {
   tagNumber?: string;
   serialNumber?: string;
   assetValue?: number;
+  departmentUid?: string;
+  departmentName?: string;
   ownerDepartment?: string;
   accountsRef?: string;
   status?: AssetStatus;
@@ -20,6 +62,8 @@ export interface Asset {
   holderEmployeeUid?: string;
   holderEmployeeName?: string;
   issuedOn?: string;
+  remarks?: string;
+  attachment?: AssetAttachment[];
 }
 
 export interface AssetAllocation {
@@ -42,8 +86,18 @@ function withId<T extends { uid?: string; id?: string }>(r: Record<string, unkno
   return { ...(r as object), id: String(uid ?? ""), uid } as T;
 }
 
+function resolveFileType(file: File) {
+  if (file.type.includes("/")) {
+    return file.type.split("/")[1];
+  }
+
+  const segments = file.name.split(".");
+  return segments.length > 1 ? segments.pop() ?? "file" : "file";
+}
+
 export function useAssets() {
   const api = useHrApi();
+  const { api: shellApi, account, user } = useMFEProps();
   const [data, setData] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,15 +122,124 @@ export function useAssets() {
   const allocate = useCallback(async (uid: string, employeeUid: string, condition?: string) => {
     await api.post(`/assets/${uid}/allocate`, { employeeUid, condition: condition || null }); await load();
   }, [api, load]);
-  const returnAsset = useCallback(async (uid: string, opts?: { condition?: string; lost?: boolean }) => {
-    await api.post(`/assets/${uid}/return`, { condition: opts?.condition || null, lost: !!opts?.lost }); await load();
+  const requestUploadTargets = useCallback(async (ownerId: string, files: File[]) => {
+    if (!shellApi) {
+      throw new Error("Drive upload is unavailable in this shell.");
+    }
+
+    const tenantUid = account.tenantUid ?? account.id;
+    const userName = user.name || "User";
+
+    const payload = files.map((file) => ({
+      action: "ADD" as const,
+      caption: file.name,
+      contextType: "ASSET" as const,
+      featureModuleName: "ASSET" as const,
+      featureServiceName: "HR_SERVICE" as const,
+      fileName: file.name,
+      fileType: resolveFileType(file),
+      fileSize: file.size,
+      owner: ownerId,
+      ownerName: userName,
+      ownerType: "TenantUser" as const,
+      sharedType: "secureShare" as const,
+      tenantUid,
+      uploadedBy: user.id,
+      uploadedByName: userName,
+    }));
+
+    const response = await shellApi.post<AssetUploadTarget[]>(
+      buildBaseServiceUrl("/platform-service/v1/api/drive/initiate-upload"),
+      payload,
+      { _skipLocationParam: true } as any
+    );
+    return response.data;
+  }, [account.id, account.tenantUid, shellApi, user.id, user.name]);
+  const markUploadComplete = useCallback(async (fileUid: string) => {
+    if (!shellApi) {
+      throw new Error("Drive upload is unavailable in this shell.");
+    }
+
+    await shellApi.patch(
+      buildBaseServiceUrl(`/platform-service/v1/api/drive/${fileUid}/status?status=COMPLETE`),
+      null,
+      { _skipLocationParam: true } as any
+    );
+  }, [shellApi]);
+  const uploadAttachments = useCallback(async (ownerId: string, files: File[]) => {
+    if (!files.length) return [] as AssetAttachment[];
+    const targets = await requestUploadTargets(ownerId, files);
+    const uploaded: AssetAttachment[] = [];
+
+    for (const [index, target] of targets.entries()) {
+      const file = files[index];
+      if (!file) continue;
+
+      const response = await fetch(target.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: file.type ? { "Content-Type": file.type } : undefined,
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to upload attachment right now.");
+      }
+
+      await markUploadComplete(target.fileUid);
+
+      uploaded.push({
+        fileUid: target.fileUid,
+        fileName: file.name,
+        fileType: resolveFileType(file),
+        fileSize: file.size,
+        driveId: target.jaldeeDriveId ?? undefined,
+        filePath: target.filePath,
+        caption: "",
+        action: "ADD",
+        owner: user.id,
+        ownerName: user.name || "User",
+        ownerType: "TenantUser",
+        contextType: "ASSET",
+        sharedType: "secureShare",
+        tenantUid: account.tenantUid ?? account.id,
+        uploadedBy: user.id,
+        uploadedByName: user.name || "User",
+        jaldeeDriveId: target.jaldeeDriveId ?? undefined,
+        featureServiceName: "HR_SERVICE",
+        featureModuleName: "ASSET",
+      });
+    }
+
+    return uploaded;
+  }, [account.id, account.tenantUid, markUploadComplete, requestUploadTargets, user.id, user.name]);
+  const returnAsset = useCallback(async (uid: string, opts: ReturnAssetOptions) => {
+    const asset = opts.asset;
+    await api.post(`/assets/${uid}/return`, {
+      uid: asset.uid ?? asset.id,
+      assetType: asset.assetType ?? null,
+      name: asset.name ?? null,
+      tagNumber: asset.tagNumber ?? null,
+      serialNumber: asset.serialNumber ?? null,
+      assetValue: asset.assetValue ?? null,
+      departmentUid: asset.departmentUid ?? null,
+      departmentName: asset.departmentName ?? asset.ownerDepartment ?? null,
+      accountsRef: asset.accountsRef ?? null,
+      status: opts.status,
+      notes: asset.notes ?? null,
+      holderEmployeeUid: asset.holderEmployeeUid ?? null,
+      holderEmployeeName: asset.holderEmployeeName ?? null,
+      issuedOn: asset.issuedOn ?? null,
+      remarks: opts.remarks ?? null,
+      attachment: opts.attachment ?? asset.attachment ?? [],
+    });
+    await load();
   }, [api, load]);
   const history = useCallback(async (uid: string) => {
     const res = await api.get<Record<string, unknown>[]>(`/assets/${uid}/history`);
     return Array.isArray(res) ? res.map((r) => withId<AssetAllocation>(r)) : [];
   }, [api]);
 
-  return { data, loading, error, reload: load, create, getOne, update, remove, allocate, returnAsset, history };
+  return { data, loading, error, reload: load, create, getOne, update, remove, allocate, returnAsset, history, uploadAttachments };
 }
 
 /** Assets currently (or historically) held by one employee. */

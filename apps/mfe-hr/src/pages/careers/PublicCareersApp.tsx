@@ -3,21 +3,20 @@ import PublicJobList from "./PublicJobList";
 import PublicJobPage from "./PublicJobPage";
 
 /**
- * Self-contained PUBLIC careers site, exposed as a federation module and mounted
- * by shell-host at an UNAUTHENTICATED /careers/* route. It deliberately does NOT
- * use react-router (it renders inside the shell's router) — it parses the path
- * itself and manages navigation via history, so only the public careers pages
- * are reachable (no other HR screens leak out).
+ * Self-contained public careers site, exposed as a federation module.
+ * It does not use react-router; it parses the pathname and drives history itself.
  *
  * URLs:
- *   /careers/{companySlug}                 → job listing
- *   /careers/{companySlug}/{jobSlug}       → job detail + apply
+ *   /careers/{companySlug}
+ *   /careers/{companySlug}/{jobSlug}
  */
 function parse(pathname: string): { companySlug?: string; jobSlug?: string } {
   const parts = pathname.replace(/^\/+|\/+$/g, "").split("/"); // e.g. ["careers","jaldee","senior-..."]
   const idx = parts.indexOf("careers");
-  const rest = idx >= 0 ? parts.slice(idx + 1) : parts;
-  return { companySlug: rest[0], jobSlug: rest[1] };
+  if (idx < 0) {
+    return {};
+  }
+  return { companySlug: parts[idx + 1], jobSlug: parts[idx + 2] };
 }
 
 export default function PublicCareersApp() {

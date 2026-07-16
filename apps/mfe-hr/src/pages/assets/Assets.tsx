@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Trash2, Eye, MoreVertical, LayoutGrid, Rows3 } from "lucide-react";
-import { Badge, Button, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
-import { useAssets, type Asset, type AssetAllocation, type AssetStatus } from "../../services/useAssets";
+import { Badge, Button, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
+import { useAssets, type Asset, type AssetAllocation, type AssetAttachment, type AssetStatus } from "../../services/useAssets";
 import { useEmployees } from "../../services/useEmployees";
 import { useShellErrorToast } from "../../services/useShellFeedback";
 import { useDepartments } from "../../services/useSettingsData";
@@ -15,6 +15,7 @@ import { useDepartments } from "../../services/useSettingsData";
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const ASSET_TYPES = ["Laptop", "Desktop", "Monitor", "Phone", "SIM", "ID Card", "Access Card", "Vehicle", "Furniture", "Other"];
+const RETURN_STATUS_OPTIONS: AssetStatus[] = ["Available", "UnderRepair", "Lost", "Retired"];
 const EMPTY_FORM = { assetType: "Laptop", name: "", tagNumber: "", serialNumber: "", assetValue: "", ownerDepartment: "", accountsRef: "", notes: "" };
 type ViewMode = "table" | "cards";
 
@@ -29,6 +30,23 @@ function getStatusBadgeVariant(status?: string) {
   if (status === "UnderRepair") return "warning";
   if (status === "Lost") return "danger";
   return "neutral";
+}
+
+function resolveAssetAttachmentUrl(attachment: AssetAttachment) {
+  return attachment.filePath || attachment.shortUrl || null;
+}
+
+function openAssetAttachment(attachment: AssetAttachment) {
+  const href = resolveAssetAttachmentUrl(attachment);
+  if (!href || typeof window === "undefined") return;
+  window.open(href, "_blank", "noopener,noreferrer");
+}
+
+function openPendingFile(file: File) {
+  if (typeof window === "undefined") return;
+  const href = URL.createObjectURL(file);
+  window.open(href, "_blank", "noopener,noreferrer");
+  window.setTimeout(() => URL.revokeObjectURL(href), 60_000);
 }
 
 export default function Assets() {
@@ -57,8 +75,9 @@ export default function Assets() {
   const [allocEmp, setAllocEmp] = useState("");
   const [allocCond, setAllocCond] = useState("");
   const [returnFor, setReturnFor] = useState<Asset | null>(null);
-  const [returnCond, setReturnCond] = useState("");
-  const [returnAsLost, setReturnAsLost] = useState(false);
+  const [returnStatus, setReturnStatus] = useState<AssetStatus>("Available");
+  const [returnRemarks, setReturnRemarks] = useState("");
+  const [returnFiles, setReturnFiles] = useState<File[]>([]);
 
   const [histFor, setHistFor] = useState<Asset | null>(null);
   const [hist, setHist] = useState<AssetAllocation[]>([]);
@@ -177,6 +196,21 @@ export default function Assets() {
     finally { setViewLoading(false); }
   };
 
+  const openReturn = async (asset: Asset) => {
+    setMsg(null);
+    setReturnStatus("Available");
+    setReturnRemarks("");
+    setReturnFiles([]);
+    try {
+      const full = await assets.getOne(asset.id);
+      setReturnFor(full);
+      setReturnStatus(full.status === "Allocated" ? "Available" : (full.status || "Available"));
+      setReturnRemarks(full.remarks || "");
+    } catch {
+      setReturnFor(asset);
+    }
+  };
+
   const columns = useMemo<ColumnDef<Asset>[]>(() => [
     {
       key: "name",
@@ -257,7 +291,7 @@ export default function Assets() {
           <AssetActions
             asset={asset}
             busy={busy}
-            onReturn={() => { setReturnFor(asset); setReturnCond(""); setReturnAsLost(false); setMsg(null); }}
+            onReturn={() => void openReturn(asset)}
             onView={() => void openView(asset)}
             onHistory={() => void openHistory(asset)}
             onEdit={() => openEdit(asset)}
@@ -393,7 +427,7 @@ export default function Assets() {
                     <AssetActions
                       asset={asset}
                       busy={busy}
-                      onReturn={() => { setReturnFor(asset); setReturnCond(""); setReturnAsLost(false); setMsg(null); }}
+                      onReturn={() => void openReturn(asset)}
                       onView={() => void openView(asset)}
                       onHistory={() => void openHistory(asset)}
                       onEdit={() => openEdit(asset)}
@@ -506,8 +540,31 @@ export default function Assets() {
                 <Detail label="Owner Department" value={viewFor.ownerDepartment} />
                 <Detail label="Accounts Ref" value={viewFor.accountsRef} />
                 <Detail label="Holder" value={viewFor.holderEmployeeName} />
+                <Detail label="Remarks" value={viewFor.remarks} />
                 <div className="sm:col-span-2">
                   <Detail label="Notes" value={viewFor.notes} />
+                </div>
+                <div className="sm:col-span-2">
+                  <div style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border-color)" }}>
+                    <div style={{ ...lbl, marginBottom: 10 }}>Attachments</div>
+                    {!viewFor.attachment?.length ? (
+                      <div style={{ fontSize: 13, color: "var(--light-text)" }}>No attachments.</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {viewFor.attachment.map((attachment, index) => (
+                          <div key={`${attachment.fileUid || attachment.driveId || attachment.fileName || index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid var(--border-color)", borderRadius: 10, padding: "10px 12px" }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis" }}>{attachment.fileName || `Attachment ${index + 1}`}</div>
+                              <div style={{ fontSize: 12, color: "var(--light-text)" }}>{attachment.fileType || "Unknown type"}</div>
+                            </div>
+                            <Button type="button" variant="outline" size="sm" disabled={!resolveAssetAttachmentUrl(attachment)} onClick={() => openAssetAttachment(attachment)}>
+                              View
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -582,15 +639,65 @@ export default function Assets() {
       {returnFor && (
         <Dialog open={!!returnFor} onClose={() => setReturnFor(null)} testId="hr-assets-return-modal" hideHeader contentClassName="w-[calc(100vw-1.5rem)] max-w-[480px] p-0 overflow-hidden">
           <div style={{ background: "rgba(17,94,89,0.05)", padding: "20px 24px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>{returnAsLost ? "Write Off Asset" : "Return Asset"}</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{returnFor.name}</p></div>
+            <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>Update Asset Status</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{returnFor.name}</p></div>
             <button id="hr-assets-return-close" data-testid="hr-assets-return-close" onClick={() => setReturnFor(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
           </div>
           <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-            <Input id="hr-assets-return-condition" data-testid="hr-assets-return-condition" label={returnAsLost ? "Write Off Note" : "Return Condition"} value={returnCond} onChange={(e) => setReturnCond(e.target.value)} placeholder={returnAsLost ? "Reason for write off" : "Condition at return"} />
-            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--dark-text)" }}>
-              <input id="hr-assets-return-lost" data-testid="hr-assets-return-lost" type="checkbox" checked={returnAsLost} onChange={(e) => setReturnAsLost(e.target.checked)} />
-              Mark as write off / lost
-            </label>
+            <Select
+              id="hr-assets-return-status"
+              testId="hr-assets-return-status"
+              label="Next Status"
+              value={returnStatus}
+              onChange={(e) => setReturnStatus(e.target.value as AssetStatus)}
+              options={RETURN_STATUS_OPTIONS.map((status) => ({ value: status, label: status }))}
+            />
+            <Textarea
+              id="hr-assets-return-remarks"
+              data-testid="hr-assets-return-remarks"
+              label="Remarks"
+              rows={3}
+              value={returnRemarks}
+              onChange={(e) => setReturnRemarks(e.target.value)}
+              placeholder="Add return notes, repair details, or write-off reason"
+            />
+            <FileUpload
+              label="Attachments"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              multiple
+              onUpload={setReturnFiles}
+            />
+            {returnFor.attachment?.length ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={lbl}>Uploaded Files</div>
+                {returnFor.attachment.map((attachment, index) => (
+                  <div key={`${attachment.fileUid || attachment.driveId || attachment.fileName || index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid var(--border-color)", borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis" }}>{attachment.fileName || `Attachment ${index + 1}`}</div>
+                      <div style={{ fontSize: 12, color: "var(--light-text)" }}>{attachment.fileType || "Unknown type"}</div>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" disabled={!resolveAssetAttachmentUrl(attachment)} onClick={() => openAssetAttachment(attachment)}>
+                      View
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {returnFiles.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={lbl}>Selected Files</div>
+                {returnFiles.map((file, index) => (
+                  <div key={`${file.name}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid var(--border-color)", borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--light-text)" }}>{Math.round(file.size / 1024)} KB</div>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => openPendingFile(file)}>
+                      View
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
           </div>
           <div style={{ padding: "0 24px 20px" }}>
@@ -602,11 +709,20 @@ export default function Assets() {
                 disabled={busy}
                 loading={busy}
                 onClick={() => act(async () => {
-                  await assets.returnAsset(returnFor.id, { condition: returnCond, lost: returnAsLost });
+                  const uploaded = await assets.uploadAttachments(returnFor.uid ?? returnFor.id, returnFiles);
+                  await assets.returnAsset(returnFor.id, {
+                    asset: returnFor,
+                    status: returnStatus,
+                    remarks: returnRemarks.trim(),
+                    attachment: [...(returnFor.attachment || []), ...uploaded],
+                  });
                   setReturnFor(null);
+                  setReturnStatus("Available");
+                  setReturnRemarks("");
+                  setReturnFiles([]);
                 })}
               >
-                {returnAsLost ? "Write Off" : "Return"}
+                Save Status
               </Button>
             </DialogFooter>
           </div>

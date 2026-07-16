@@ -41,7 +41,7 @@ function PublicListRoute() {
   return (
     <PublicJobList
       companySlug={companySlug ?? ""}
-      onOpen={(slug) => navigate(`/careers/site/${companySlug}/${slug}`)}
+      onOpen={(slug) => navigate(`/careers/${companySlug}/${slug}`)}
     />
   );
 }
@@ -87,8 +87,8 @@ export default function App() {
             <Route path="/recruitment/offers" element={<Offers />} />
             <Route path="/recruitment/careers" element={<CareersAdmin />} />
             <Route path="/recruitment/careers/publish/:requisitionUid" element={<CareersPublishPage />} />
-            <Route path="/careers/site/:companySlug" element={<PublicListRoute />} />
-            <Route path="/careers/site/:companySlug/:jobSlug" element={<PublicJobRoute />} />
+            <Route path="/careers/:companySlug" element={<PublicListRoute />} />
+            <Route path="/careers/:companySlug/:jobSlug" element={<PublicJobRoute />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/:section" element={<Settings />} />
