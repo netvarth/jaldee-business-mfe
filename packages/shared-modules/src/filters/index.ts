@@ -20,3 +20,5 @@ export {
   SchemaFilterBuilder,
   SchemaFilterSingleColumn,
 } from "./SchemaFilterBuilder";
+
+export { normalizeSearchSchema } from "./normalizeSearchSchema";

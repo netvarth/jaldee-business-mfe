@@ -3,17 +3,24 @@ import { useNavigate } from "react-router-dom";
 import {
   Badge,
   Button,
+  cn,
   DataTable,
+  Drawer,
   EmptyState,
   Input,
   PageHeader,
   type ColumnDef,
 } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useCalendars } from "../../services/useCalendars";
+import { useCalendarSearchSchema } from "../../services/useCalendarSearchSchema";
+import { formatAppliedCalendarFilterSummary } from "../../services/calendarSearch";
 import type { Calendar } from "../../types";
-
-import { useServices } from "../../services/useServices";
-import { useUsers } from "../../services/useUsers";
 
 function ChipRow({ label, items }: { label: string; items?: string[] }) {
   const list = items ?? [];
@@ -67,66 +74,65 @@ function statusVariant(status?: string): "success" | "warning" | "neutral" {
 
 function resolveAssignedServiceNames(
   services: Calendar["services"],
-  allServices: Array<{ id?: string; uid?: string; name?: string }>,
 ) {
   return (services ?? [])
     .map((service) => {
       if (!service) return null;
 
-      const serviceId =
-        typeof service === "string" ? service : service.uid || service.id || null;
-      const serviceName =
-        typeof service === "object" && "name" in service ? service.name : null;
+      if (typeof service === "string") {
+        return service;
+      }
 
-      if (!serviceId && !serviceName) return null;
-
-      const found = allServices.find((item) => item.id === serviceId || item.uid === serviceId);
-      return found?.name || serviceName || serviceId;
+      return service.name || service.uid || service.id || null;
     })
     .filter((value): value is string => Boolean(value));
 }
 
 function resolveAssignedUserNames(
   users: Calendar["users"],
-  allUsers: Array<{
-    id?: string;
-    uid?: string;
-    userUid?: string;
-    displayName?: string;
-    firstName?: string;
-    lastName?: string;
-  }>,
 ) {
   return (users ?? [])
     .map((user) => {
       if (!user) return null;
 
-      const userId =
-        typeof user === "string" ? user : user.userUid || user.uid || user.id || null;
-      const userName =
-        typeof user === "object" && (user.displayName || user.firstName)
-          ? user.displayName || `${user.firstName || ""} ${user.lastName || ""}`.trim()
-          : null;
+      if (typeof user === "string") {
+        return user;
+      }
 
-      if (!userId && !userName) return null;
-
-      const found = allUsers.find(
-        (item) => item.userUid === userId || item.uid === userId || item.id === userId,
+      return (
+        user.displayName ||
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+        user.userUid ||
+        user.uid ||
+        user.id ||
+        null
       );
-      return found
-        ? found.displayName || `${found.firstName || ""} ${found.lastName || ""}`.trim()
-        : userName || userId;
     })
     .filter((value): value is string => Boolean(value));
 }
 
 export default function CalendarList() {
-  const { calendars, loading } = useCalendars();
-  const { services: allServices } = useServices();
-  const { users: allUsers } = useUsers();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { schema: calendarSearchSchema, loading: calendarSearchSchemaLoading } =
+    useCalendarSearchSchema();
+  const { calendars, loading } = useCalendars(advancedFilters, calendarSearchSchema, {
+    enabled: !calendarSearchSchemaLoading,
+  });
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, calendarSearchSchema).length,
+    [advancedFilters, calendarSearchSchema]
+  );
+
+  const appliedFilterSummary = useMemo(
+    () => formatAppliedCalendarFilterSummary(advancedFilters, calendarSearchSchema),
+    [advancedFilters, calendarSearchSchema]
+  );
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -191,8 +197,8 @@ export default function CalendarList() {
         header: "ASSIGNED",
         render: (calendar) => (
           <AssignedCell
-            services={resolveAssignedServiceNames(calendar.services, allServices)}
-            users={resolveAssignedUserNames(calendar.users, allUsers)}
+            services={resolveAssignedServiceNames(calendar.services)}
+            users={resolveAssignedUserNames(calendar.users)}
           />
         ),
       },
@@ -234,7 +240,7 @@ export default function CalendarList() {
         ),
       },
     ],
-    [allServices, allUsers, navigate],
+    [navigate],
   );
 
   return (
@@ -257,7 +263,7 @@ export default function CalendarList() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
           id="bookings-calendar-list-search"
           data-testid="bookings-calendar-list-search"
@@ -270,6 +276,35 @@ export default function CalendarList() {
           }}
           containerClassName="sm:max-w-sm"
         />
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+          <Button
+            type="button"
+            data-testid="bookings-calendar-list-filter-trigger"
+            variant={appliedFilterCount > 0 ? "primary" : "outline"}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
+              appliedFilterCount > 0
+                ? ""
+                : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+            )}
+            onClick={() => {
+              setDraftFilters(
+                advancedFilters.length > 0
+                  ? advancedFilters
+                  : buildDefaultSearchClauses(calendarSearchSchema)
+              );
+              setDrawerOpen(true);
+            }}
+          >
+            <FilterIcon />
+            <span>Filters</span>
+            {appliedFilterCount > 0 ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                {appliedFilterCount}
+              </span>
+            ) : null}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -296,6 +331,73 @@ export default function CalendarList() {
         }
         data-testid="bookings-calendar"
       />
+
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col overflow-hidden p-0"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={calendarSearchSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              appliedSummary={appliedFilterSummary}
+              onClearAll={() => {
+                const resetClauses = buildDefaultSearchClauses(calendarSearchSchema);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
+              emptyStateMessage="No calendar filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const resetClauses = buildDefaultSearchClauses(calendarSearchSchema);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setAdvancedFilters(draftFilters);
+                setPage(1);
+                setDrawerOpen(false);
+              }}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </section>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+    </svg>
   );
 }

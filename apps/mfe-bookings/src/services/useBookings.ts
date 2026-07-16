@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useBookingApi } from "../services/useBookingApi";
 import { createdBookings } from "../data/sessionStore";
+import { formatIsoTime } from "../utils/dateTime";
+import { buildBookingSearchBody, getBookingDateRange } from "./bookingSearch";
 import { unwrapList } from "./response";
 import { useBookingPreferences } from "./useBookingPreferences";
-import { formatIsoTime } from "../utils/dateTime";
 
-/** Raw booking row from POST /bookings/search (BookingDto). */
 interface BookingDto {
   uid?: string;
   calendarUid?: string;
@@ -16,7 +17,7 @@ interface BookingDto {
   patient?: any;
   patientName?: string;
   bookingDate?: string;
-  startTime?: string; // ISO OffsetDateTime
+  startTime?: string;
   endTime?: string;
   status?: string;
 }
@@ -34,10 +35,18 @@ const STATUS_MAP: Record<string, string> = {
   BLOCKED: "Blocked",
 };
 
-/** Map a live BookingDto into the shape the calendar grid expects (mock-compatible). */
 function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
   const start = formatIsoTime(d.startTime, timeZone);
-  const derivedCustomerName = d.customerName || d.patientName || d.customer?.firstName || d.customer?.name || d.patient?.firstName || d.patient?.name || d.patient || "Walk-in";
+  const derivedCustomerName =
+    d.customerName ||
+    d.patientName ||
+    d.customer?.firstName ||
+    d.customer?.name ||
+    d.patient?.firstName ||
+    d.patient?.name ||
+    d.patient ||
+    "Walk-in";
+
   return {
     id: d.uid,
     uid: d.uid,
@@ -60,69 +69,80 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
   };
 }
 
-export function useBookings(date: string, viewMode: 'DAY' | 'WEEK' | 'MONTH' = 'DAY') {
+export function useBookings(
+  date: string,
+  viewMode: "DAY" | "WEEK" | "MONTH" = "DAY",
+  filterClauses: SearchFilterClause[] = [],
+  schema: SearchSchema | null | undefined = null,
+  options?: { enabled?: boolean }
+) {
   const api = useBookingApi();
   const { preference } = useBookingPreferences();
   const [bookings, setBookings] = useState<ReturnType<typeof toCalendarBooking>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const enabled = options?.enabled ?? true;
+  const inFlightRequestKeyRef = useRef<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    // Calculate date range based on viewMode
-    const currentDate = new Date(date);
-    let fromDate = new Date(currentDate);
-    let toDate = new Date(currentDate);
+    const { fromDate, toDate } = getBookingDateRange(date, viewMode);
+    const payload = buildBookingSearchBody({
+      date,
+      viewMode,
+      filterClauses,
+      schema,
+      page: 0,
+      size: 500,
+    });
+    const requestKey = JSON.stringify(payload);
 
-    if (viewMode === 'WEEK') {
-        const day = currentDate.getDay();
-        const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-        fromDate = new Date(currentDate.setDate(diff));
-        toDate = new Date(fromDate);
-        toDate.setDate(fromDate.getDate() + 6);
-    } else if (viewMode === 'MONTH') {
-        fromDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        toDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    if (inFlightRequestKeyRef.current === requestKey) {
+      setLoading(false);
+      return;
     }
 
-    const fromDateStr = fromDate.toISOString().split('T')[0];
-    const toDateStr = toDate.toISOString().split('T')[0];
+    inFlightRequestKeyRef.current = requestKey;
 
-    // For now, if viewMode is DAY, we might just pass `date` to match the old API, 
-    // but typically `fromDate` and `toDate` or `startDate` and `endDate` are supported.
-    // Let's pass `fromDate` and `toDate` to the payload.
-    const payload: any = viewMode === 'DAY' ? { date } : { fromDate: fromDateStr, toDate: toDateStr };
+    const sessionBookings = createdBookings.filter((booking) => {
+      if (viewMode === "DAY") {
+        return booking.bookingDate === date;
+      }
 
-    // Bookings created in this session are real user actions — always shown.
-    const sessionBookings = createdBookings.filter((b) => {
-        if (viewMode === 'DAY') return b.bookingDate === date;
-        const bDate = b.bookingDate ? new Date(b.bookingDate) : new Date();
-        return bDate >= fromDate && bDate <= toDate;
+      const bookingDate = booking.bookingDate ? new Date(booking.bookingDate) : new Date();
+      return bookingDate >= new Date(fromDate) && bookingDate <= new Date(toDate);
     }) as never[];
 
     try {
-      const data = await api.post<unknown>(
-        "/bookings/search",
-        payload,
-        { params: { page: 0, size: 500 } }, // increase size for week/month
-      );
-      const live = unwrapList<BookingDto>(data).map((booking) => toCalendarBooking(booking, preference?.timezone)) as never[];
+      const data = await api.post<unknown>("/bookings/search", payload);
+      const live = unwrapList<BookingDto>(data).map((booking) =>
+        toCalendarBooking(booking, preference?.timezone)
+      ) as never[];
       setBookings([...sessionBookings, ...live]);
-    } catch (e) {
-      // No sample/mock fallback — surface the failure and show only real
-      // (session) data so empty/error states are never masked by fake bookings.
-      setError(e instanceof Error ? e.message : "Failed to load bookings.");
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load bookings.");
       setBookings([...sessionBookings]);
     } finally {
+      if (inFlightRequestKeyRef.current === requestKey) {
+        inFlightRequestKeyRef.current = null;
+      }
       setLoading(false);
     }
-  }, [api, date, viewMode, preference?.timezone]);
+  }, [api, date, enabled, filterClauses, preference?.timezone, schema, viewMode]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     fetchBookings();
-  }, [fetchBookings]);
+  }, [enabled, fetchBookings]);
 
   return { bookings, loading, error, refresh: fetchBookings };
 }

@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useBookingApi } from "../services/useBookingApi";
 import type { Calendar, CalendarSettingsRequest, CalendarStatus, Schedule } from "../types";
 import { useToast } from "../contexts/ToastContext";
 import { unwrapList } from "./response";
+import { buildCalendarSearchBody } from "./calendarSearch";
+import { loadCalendarSearchSchema } from "./calendarSearchSchema";
 
 export interface AccountLocation {
   id: number;
@@ -114,35 +117,49 @@ function normalizeLocation(raw: Record<string, unknown>): AccountLocation {
   };
 }
 
-export const useCalendars = () => {
+const EMPTY_FILTER_CLAUSES: SearchFilterClause[] = [];
+
+export const useCalendars = (
+  filterClauses: SearchFilterClause[] = EMPTY_FILTER_CLAUSES,
+  schema: SearchSchema | null | undefined = null,
+  options?: { enabled?: boolean; loadSchema?: boolean }
+) => {
   const api = useBookingApi();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
+  const enabled = options?.enabled ?? true;
+  const loadSchema = options?.loadSchema ?? true;
+  const inFlightRequestKeyRef = useRef<string | null>(null);
 
   const fetchCalendars = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
+      const resolvedSchema =
+        schema ?? (loadSchema ? await loadCalendarSearchSchema(api).catch(() => null) : null);
+      const requestBody = buildCalendarSearchBody({
+        filterClauses,
+        schema: resolvedSchema,
+        page: 0,
+        size: 100,
+      });
+      const requestKey = JSON.stringify(requestBody);
+
+      if (inFlightRequestKeyRef.current === requestKey) {
+        setLoading(false);
+        return;
+      }
+
+      inFlightRequestKeyRef.current = requestKey;
       const data = await api.post<unknown>(
-        "/calendars/filter",
-        {
-          view: "BASIC",
-          filters: {
-            logic: "AND",
-            conditions: [
-              {
-                field: "status",
-                operator: "IN",
-                values: ["ACTIVE", "DRAFT", "INACTIVE"],
-              },
-            ],
-          },
-          sort: [],
-          page: 0,
-          size: 100,
-        },
+        "/calendars/search",
+        requestBody,
         { _skipLocationParam: true },
       );
       setCalendars(unwrapList<Calendar>(data).map(normalizeCalendar));
@@ -153,9 +170,10 @@ export const useCalendars = () => {
       showToast(msg, "error");
       setCalendars([]);
     } finally {
+      inFlightRequestKeyRef.current = null;
       setLoading(false);
     }
-  }, [api, showToast]);
+  }, [api, enabled, filterClauses, loadSchema, schema, showToast]);
 
   const createCalendar = async (payload: CreateCalendarPayload) => {
     // No mock-create fallback — a failure propagates so the caller never thinks
@@ -273,8 +291,12 @@ export const useCalendars = () => {
   };
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     fetchCalendars();
-  }, [fetchCalendars]);
+  }, [enabled, fetchCalendars]);
 
   return {
     calendars,

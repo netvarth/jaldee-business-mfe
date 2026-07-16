@@ -686,19 +686,14 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
                   );
                   setDrawerOpen(true);
                 }}
-              >
-                <FilterIcon />
-                <span>Filters</span>
-                {appliedAdvancedFilterCount > 0 ? (
-                  <span className="max-w-[220px] truncate text-[12px] font-medium text-current/90">
-                    {appliedAdvancedFilterSummary}
-                  </span>
-                ) : null}
-                {appliedAdvancedFilterCount > 0 ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
-                    {appliedAdvancedFilterCount}
-                  </span>
-                ) : null}
+                >
+                  <FilterIcon />
+                  <span>Filters</span>
+                  {appliedAdvancedFilterCount > 0 ? (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                      {appliedAdvancedFilterCount}
+                    </span>
+                  ) : null}
               </Button>
             </div>
           </div>
@@ -819,15 +814,16 @@ export function CustomersList({ onSelectCustomer }: CustomersListProps) {
       >
         <div className="flex h-full flex-1 flex-col overflow-hidden">
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
-            <CustomerSearchFilterBuilder
-              schema={searchSchemaQuery.data}
-              value={draftFilters}
-              onChange={setDraftFilters}
-              appliedCount={appliedAdvancedFilterCount}
-              onClearAll={() => {
-                const resetClauses = buildDefaultCustomerSearchClauses(searchSchemaQuery.data);
-                setDraftFilters(resetClauses);
-                setAdvancedFilters(resetClauses);
+              <CustomerSearchFilterBuilder
+                schema={searchSchemaQuery.data}
+                value={draftFilters}
+                onChange={setDraftFilters}
+                appliedCount={appliedAdvancedFilterCount}
+                appliedSummary={appliedAdvancedFilterSummary}
+                onClearAll={() => {
+                  const resetClauses = buildDefaultCustomerSearchClauses(searchSchemaQuery.data);
+                  setDraftFilters(resetClauses);
+                  setAdvancedFilters(resetClauses);
                 setPage(1);
               }}
             />

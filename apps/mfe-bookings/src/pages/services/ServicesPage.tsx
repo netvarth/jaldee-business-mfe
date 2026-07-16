@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   Badge,
   Button,
+  cn,
   DataTable,
+  Drawer,
   EmptyState,
   Input,
   PageHeader,
@@ -11,14 +13,38 @@ import {
   Tabs,
   type ColumnDef,
 } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { useServiceSearchSchema } from "../../services/useServiceSearchSchema";
+import { formatAppliedServiceFilterSummary } from "../../services/serviceSearch";
 import { useServices } from "../../services/useServices";
 import type { ServiceItem } from "../../types";
 
 export default function ServicesPage() {
-  const { services, loading } = useServices();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { schema: serviceSearchSchema, loading: serviceSearchSchemaLoading } = useServiceSearchSchema();
+  const { services, loading } = useServices(advancedFilters, serviceSearchSchema, {
+    enabled: !serviceSearchSchemaLoading,
+  });
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, serviceSearchSchema).length,
+    [advancedFilters, serviceSearchSchema]
+  );
+
+  const appliedFilterSummary = useMemo(
+    () => formatAppliedServiceFilterSummary(advancedFilters, serviceSearchSchema),
+    [advancedFilters, serviceSearchSchema]
+  );
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -26,11 +52,12 @@ export default function ServicesPage() {
       (service) =>
         !normalized ||
         service.name.toLowerCase().includes(normalized) ||
-        (service.description ?? "").toLowerCase().includes(normalized),
+        (service.description ?? "").toLowerCase().includes(normalized)
     );
   }, [query, services]);
 
-  const formatServiceStatus = (status?: ServiceItem["status"]) => (status === "Active" ? "Active" : "Inactive");
+  const formatServiceStatus = (status?: ServiceItem["status"]) =>
+    status === "Active" ? "Active" : "Inactive";
   const serviceStatusVariant = (status?: ServiceItem["status"]): "success" | "neutral" =>
     status === "Active" ? "success" : "neutral";
 
@@ -44,9 +71,7 @@ export default function ServicesPage() {
         render: (service) => (
           <div className="min-w-0">
             <p className="truncate font-semibold text-slate-900">{service.name}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-500">
-              {service.id || "-"}
-            </p>
+            <p className="mt-0.5 truncate text-xs text-slate-500">{service.id || "-"}</p>
           </div>
         ),
       },
@@ -55,26 +80,25 @@ export default function ServicesPage() {
         header: "TAGS",
         render: (service) => (
           <div className="flex flex-wrap gap-1.5">
-            {(service.labels?.length ? service.labels : ["OPD"]).map((label) => {
-              return (
-                <span key={label} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
-                  {label}
-                </span>
-              );
-            })}
+            {(service.labels?.length ? service.labels : ["OPD"]).map((label) => (
+              <span
+                key={label}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
+              >
+                {label}
+              </span>
+            ))}
           </div>
         ),
       },
       {
         key: "status",
         header: "STATUS",
-        render: (service) => {
-          return (
-            <Badge variant={serviceStatusVariant(service.status)}>
-              {formatServiceStatus(service.status)}
-            </Badge>
-          );
-        }
+        render: (service) => (
+          <Badge variant={serviceStatusVariant(service.status)}>
+            {formatServiceStatus(service.status)}
+          </Badge>
+        ),
       },
       {
         key: "price",
@@ -85,7 +109,7 @@ export default function ServicesPage() {
             <p className="text-xs font-medium text-slate-700">
               {service.serviceType ?? "Consultation"}
             </p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">₹{service.price}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">Rs {service.price}</p>
           </div>
         ),
       },
@@ -94,45 +118,45 @@ export default function ServicesPage() {
         header: "ACTIONS",
         align: "right",
         width: 140,
-        render: (service) => {
-          return (
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  navigate(`/services/${service.id}/details`);
-                }}
-                className="font-semibold"
-              >
-                Details
-              </Button>
-              <Popover
-                trigger={
-                  <button className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600">
-                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
-                  </button>
-                }
-                placement="bottom"
-                align="end"
-                portal
-              >
-                <div className="flex min-w-[120px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                  <button
-                    className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                    onClick={() => navigate(`/services/edit/${service.id}`)}
-                  >
-                    Edit
-                  </button>
-                </div>
-              </Popover>
-            </div>
-          );
-        },
+        render: (service) => (
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`/services/${service.id}/details`);
+              }}
+              className="font-semibold"
+            >
+              Details
+            </Button>
+            <Popover
+              trigger={
+                <button className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600">
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                  </svg>
+                </button>
+              }
+              placement="bottom"
+              align="end"
+              portal
+            >
+              <div className="flex min-w-[120px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                <button
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => navigate(`/services/edit/${service.id}`)}
+                >
+                  Edit
+                </button>
+              </div>
+            </Popover>
+          </div>
+        ),
       },
     ],
-    [navigate],
+    [navigate]
   );
 
   return (
@@ -155,10 +179,10 @@ export default function ServicesPage() {
         }
       />
 
-      <div className="mt-4 mb-6">
+      <div className="mb-6 mt-4">
         <Tabs
           value="services"
-          onValueChange={(val) => navigate(val === "groups" ? "/services/groups" : "/services")}
+          onValueChange={(value) => navigate(value === "groups" ? "/services/groups" : "/services")}
           items={[
             { value: "services", label: "Services List" },
             { value: "groups", label: "Service Packages" },
@@ -166,7 +190,7 @@ export default function ServicesPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-4">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Input
           id="bookings-services-search"
           data-testid="bookings-services-search"
@@ -179,6 +203,34 @@ export default function ServicesPage() {
           }}
           containerClassName="sm:max-w-sm"
         />
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+          <Button
+            type="button"
+            variant={appliedFilterCount > 0 ? "primary" : "outline"}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
+              appliedFilterCount > 0
+                ? ""
+                : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+            )}
+            onClick={() => {
+              setDraftFilters(
+                advancedFilters.length > 0
+                  ? advancedFilters
+                  : buildDefaultSearchClauses(serviceSearchSchema)
+              );
+              setDrawerOpen(true);
+            }}
+          >
+            <FilterIcon />
+            <span>Filters</span>
+            {appliedFilterCount > 0 ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                {appliedFilterCount}
+              </span>
+            ) : null}
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -186,7 +238,7 @@ export default function ServicesPage() {
         columns={columns}
         getRowId={(service) => service.id}
         loading={loading}
-        rowClassName={(service) => service.status === "Active" ? "" : "opacity-60"}
+        rowClassName={(service) => (service.status === "Active" ? "" : "opacity-60")}
         pagination={{
           page,
           pageSize: 10,
@@ -197,6 +249,73 @@ export default function ServicesPage() {
         emptyState={<EmptyState title="No services found" description="Try changing the search." />}
         data-testid="bookings-services"
       />
+
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col overflow-hidden p-0"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={serviceSearchSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              appliedSummary={appliedFilterSummary}
+              onClearAll={() => {
+                const resetClauses = buildDefaultSearchClauses(serviceSearchSchema);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
+              emptyStateMessage="No service filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const resetClauses = buildDefaultSearchClauses(serviceSearchSchema);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setAdvancedFilters(draftFilters);
+                setPage(1);
+                setDrawerOpen(false);
+              }}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </section>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+    </svg>
   );
 }

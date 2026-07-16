@@ -1,9 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useBookingApi } from "../services/useBookingApi";
 import { useToast } from "../contexts/ToastContext";
 import type { ServiceItem } from "../types";
 import { createdServices } from "../data/sessionStore";
 import { unwrapList } from "./response";
+import { buildServiceSearchBody } from "./serviceSearch";
+
+const EMPTY_FILTER_CLAUSES: SearchFilterClause[] = [];
 
 interface ServiceSearchDto {
   id?: string | number;
@@ -67,45 +71,54 @@ function normalizeServiceSearchResult(service: ServiceSearchDto): ServiceItem {
   };
 }
 
-export const useServices = () => {
+export const useServices = (
+  filterClauses: SearchFilterClause[] = EMPTY_FILTER_CLAUSES,
+  schema: SearchSchema | null | undefined = null,
+  options?: { enabled?: boolean }
+) => {
   const api = useBookingApi();
   const { showToast } = useToast();
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const enabled = options?.enabled ?? true;
+  const inFlightRequestKeyRef = useRef<string | null>(null);
 
   const fetchServices = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+
+    const requestBody = buildServiceSearchBody({ filterClauses, schema, page: 0, size: 100 });
+    const requestKey = JSON.stringify(requestBody);
+
+    if (inFlightRequestKeyRef.current === requestKey) {
+      return;
+    }
+
+    inFlightRequestKeyRef.current = requestKey;
     setLoading(true);
     setError(null);
     try {
       const data = await api.post<unknown>(
-        "/services/filter",
-        {
-          view: "DEFAULT",
-          filters: {
-            logic: "AND",
-            conditions: [
-              {
-                field: "status",
-                operator: "IN",
-                values: ["Enabled", "Disabled"],
-              },
-            ],
-          },
-          sort: [],
-          page: 0,
-          size: 100,
-        },
-        { _skipLocationParam: true },
+        "/services/search",
+        requestBody,
+        { _skipLocationParam: true }
       );
-      setServices([...createdServices, ...unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult)]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load services.");
+      setServices([
+        ...createdServices,
+        ...unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult),
+      ]);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load services.");
       setServices([...createdServices]);
     } finally {
+      if (inFlightRequestKeyRef.current === requestKey) {
+        inFlightRequestKeyRef.current = null;
+      }
       setLoading(false);
     }
-  }, [api]);
+  }, [api, enabled, filterClauses, schema]);
 
   const createService = async (input: Omit<ServiceItem, "id" | "status">) => {
     try {
@@ -113,7 +126,6 @@ export const useServices = () => {
       setServices((prev) => [normalizeService(created), ...prev]);
       showToast("Service created", "success");
     } catch {
-      // Offline/no endpoint — append optimistically so the flow is reviewable.
       const local: ServiceItem = { ...input, id: `srv-${Date.now()}`, status: "Active" };
       setServices((prev) => [local, ...prev]);
       showToast("Service created (local)", "info");
@@ -122,7 +134,7 @@ export const useServices = () => {
 
   const toggleStatus = async (service: ServiceItem) => {
     const next: ServiceItem["status"] = service.status === "Active" ? "Inactive" : "Active";
-    setServices((prev) => prev.map((s) => (s.id === service.id ? { ...s, status: next } : s)));
+    setServices((prev) => prev.map((item) => (item.id === service.id ? { ...item, status: next } : item)));
     try {
       await api.put(`/services/${service.id}`, { ...service, status: toApiStatus(next) });
     } catch {
@@ -131,8 +143,12 @@ export const useServices = () => {
   };
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     fetchServices();
-  }, [fetchServices]);
+  }, [enabled, fetchServices]);
 
   return { services, loading, error, createService, toggleStatus, refresh: fetchServices };
 };

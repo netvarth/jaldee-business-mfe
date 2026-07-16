@@ -119,6 +119,7 @@ export {
   buildDefaultSearchClauses,
   compactSearchFilters,
   compactSearchClauses,
+  normalizeSearchSchema,
   SchemaFilterBuilder,
   SchemaFilterSingleColumn,
 } from "./filters";

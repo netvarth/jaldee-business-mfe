@@ -15,6 +15,7 @@ export interface SchemaFilterBuilderProps {
   value: SearchFilterClause[];
   onChange: (clauses: SearchFilterClause[]) => void;
   appliedCount?: number;
+  appliedSummary?: string;
   onClearAll?: () => void;
   emptyStateMessage?: string;
 }
@@ -156,6 +157,7 @@ function FilterToolbar({
   schema,
   value,
   appliedCount,
+  appliedSummary,
   onClearAll,
 }: SchemaFilterBuilderProps) {
   const resolvedAppliedCount = appliedCount ?? compactSearchClauses(value, schema).length;
@@ -175,9 +177,16 @@ function FilterToolbar({
         <RefreshIcon />
         <span>Clear all</span>
       </button>
-      <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
-        {resolvedAppliedCount} applied
-      </span>
+      <div className="flex min-w-0 flex-col items-end gap-1 text-right">
+        <span className="inline-flex shrink-0 items-center rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+          {resolvedAppliedCount} applied
+        </span>
+        {appliedSummary ? (
+          <span className="max-w-[260px] text-[12px] font-medium text-slate-600">
+            {appliedSummary}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

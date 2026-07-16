@@ -14,6 +14,11 @@ interface UserDto {
   lastName?: string;
   displayName?: string;
   status?: string;
+  email?: string;
+  emailId?: string;
+  phoneNumber?: string;
+  primaryPhoneNumber?: string;
+  mobileNumber?: string;
 }
 
 function resolveUserUid(user: UserDto): string | undefined {
@@ -40,6 +45,8 @@ function toUser(d: UserDto): BookingUser {
     firstName: first,
     lastName: last,
     displayName: display,
+    email: d.email ?? d.emailId ?? "",
+    phoneNumber: d.phoneNumber ?? d.primaryPhoneNumber ?? d.mobileNumber ?? "",
     status: toUiStatus(d.status),
     hasLogin: true, // live users came from the central provisioning
   };
