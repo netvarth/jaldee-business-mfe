@@ -55,9 +55,8 @@ export function FileUpload({
         }}
       >
         <div className="text-2xl text-gray-400 mb-2">📎</div>
-        <p className="text-sm text-gray-600 m-0">
-          <span className="text-indigo-600 font-medium">Click to upload</span>
-          {" "}or drag and drop
+        <p className="m-0 text-sm font-medium text-indigo-600">
+          Click to upload or drag and drop
         </p>
         {maxSize && (
           <p className="text-xs text-gray-400 mt-1 m-0">

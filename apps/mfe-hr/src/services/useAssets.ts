@@ -38,6 +38,24 @@ interface AssetUploadTarget {
   jaldeeDriveId?: string | null;
 }
 
+type AssetUploadDescriptor = {
+  action: "ADD";
+  caption: string;
+  contextType: "ASSET";
+  featureModuleName: "HR_ASSET";
+  featureServiceName: "HR";
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  owner: string;
+  ownerName: string;
+  ownerType: "TenantUser";
+  sharedType: "secureShare";
+  tenantUid: string;
+  uploadedBy: string;
+  uploadedByName: string;
+};
+
 interface ReturnAssetOptions {
   asset: Asset;
   status: AssetStatus;
@@ -134,8 +152,8 @@ export function useAssets() {
       action: "ADD" as const,
       caption: file.name,
       contextType: "ASSET" as const,
-      featureModuleName: "ASSET" as const,
-      featureServiceName: "HR_SERVICE" as const,
+      featureModuleName: "HR_ASSET" as const,
+      featureServiceName: "HR" as const,
       fileName: file.name,
       fileType: resolveFileType(file),
       fileSize: file.size,
@@ -146,14 +164,16 @@ export function useAssets() {
       tenantUid,
       uploadedBy: user.id,
       uploadedByName: userName,
-    }));
+    })) satisfies AssetUploadDescriptor[];
 
-    const response = await shellApi.post<AssetUploadTarget[]>(
+    const requestBody = payload.length === 1 ? payload[0] : payload;
+
+    const response = await shellApi.post<AssetUploadTarget | AssetUploadTarget[]>(
       buildBaseServiceUrl("/platform-service/v1/api/drive/initiate-upload"),
-      payload,
+      requestBody,
       { _skipLocationParam: true } as any
     );
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [response.data];
   }, [account.id, account.tenantUid, shellApi, user.id, user.name]);
   const markUploadComplete = useCallback(async (fileUid: string) => {
     if (!shellApi) {
@@ -205,8 +225,8 @@ export function useAssets() {
         uploadedBy: user.id,
         uploadedByName: user.name || "User",
         jaldeeDriveId: target.jaldeeDriveId ?? undefined,
-        featureServiceName: "HR_SERVICE",
-        featureModuleName: "ASSET",
+        featureServiceName: "HR",
+        featureModuleName: "HR_ASSET",
       });
     }
 

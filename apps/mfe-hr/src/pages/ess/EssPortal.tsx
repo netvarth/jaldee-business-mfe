@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, FileText, History, LayoutGrid, Loader2, Menu, MessageSquare, Receipt, Rows3, Timer, User, Wallet, type LucideIcon } from "lucide-react";
-import { Button, DataTable, Drawer, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
+import { CalendarDays, Clock, FileText, History, LayoutGrid, Loader2, MessageSquare, Receipt, Rows3, Timer, User, Wallet, type LucideIcon } from "lucide-react";
+import { Button, DataTable, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -90,7 +90,6 @@ export default function EssPortal() {
   const [leaveViewMode, setLeaveViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [payslipViewMode, setPayslipViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [faceOpen, setFaceOpen] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [punchBusy, setPunchBusy] = useState(false);
   const profile = useMyProfile();
   const attendanceRules = useAttendanceRules();
@@ -196,11 +195,6 @@ export default function EssPortal() {
     expenses: "Submit claims, review reimbursements and track approvals.",
     helpdesk: "Raise employee support requests and follow ticket updates.",
   };
-  const featureAccents: Record<string, string> = {
-    staffspace: "from-[#f8fffc] via-[#eefbf6] to-[#def7ef]",
-    expenses: "from-[#fffaf2] via-[#fff3de] to-[#ffe9c5]",
-    helpdesk: "from-[#f8fbff] via-[#eef4ff] to-[#ddeaff]",
-  };
   const leaveColumns = useMemo<ColumnDef<(typeof leaves.data)[number]>[]>(
     () => [
       { key: "leaveTypeName", header: "Type", render: (item) => item.leaveTypeName ?? "--" },
@@ -248,38 +242,6 @@ export default function EssPortal() {
           />
         </Suspense>
       )}
-      <Drawer
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-        size="sm"
-        title="Employee menu"
-        panelClassName="w-full max-w-full sm:w-96"
-      >
-        <div className="space-y-2">
-          {navItems.map((item) => {
-            const active = item.key === section;
-            return (
-              <NavLink
-                key={item.key}
-                to={item.to}
-                end={item.key === "overview"}
-                onClick={() => setMobileNavOpen(false)}
-                className={[
-                  "flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors",
-                  active
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                ].join(" ")}
-              >
-                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                  <item.Icon size={18} />
-                </span>
-                <span className="text-sm font-semibold">{item.label}</span>
-              </NavLink>
-            );
-          })}
-        </div>
-      </Drawer>
       <div style={pageStack}>
         <div style={contentPanel}>
           <div className="overflow-hidden rounded-t-2xl rounded-b-none border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
@@ -287,10 +249,10 @@ export default function EssPortal() {
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-3xl">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">Employee Self-Service</div>
-                  <h1 className="mt-3 text-[34px] font-black tracking-tight text-slate-950">
+                  <h1 className="mt-3 text-[24px] font-black tracking-tight text-slate-950 md:text-[27px] lg:text-[34px]">
                     {section === "overview" ? "Your workday, requests and updates in one place." : currentRoute.label}
                   </h1>
-                  <p className="mt-3 text-[15px] leading-7 text-slate-600">
+                  <p className="mt-3 text-[13px] leading-6 text-slate-600 md:text-[14px] md:leading-6 lg:text-[15px] lg:leading-7">
                     {section === "overview"
                       ? "Access HR details, attendance, leave, documents and support without moving between multiple screens."
                       : SECTION_DESCRIPTIONS[section]}
@@ -299,38 +261,18 @@ export default function EssPortal() {
                 <div className="grid gap-3 sm:grid-cols-3 max-sm:hidden">
                   <div className="rounded-xl border border-emerald-100 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.05)] backdrop-blur">
                     <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Employee ID</div>
-                    <div className="mt-2 text-lg font-black text-slate-950">{profile.data?.employeeId ?? "-"}</div>
+                    <div className="mt-2 text-base font-black text-slate-950 md:text-[17px] lg:text-lg">{profile.data?.employeeId ?? "-"}</div>
                   </div>
                   <div className="rounded-xl border border-sky-100 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.05)] backdrop-blur">
                     <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Department</div>
-                    <div className="mt-2 text-lg font-black text-slate-950">{profile.data?.department ?? "-"}</div>
+                    <div className="mt-2 text-base font-black text-slate-950 md:text-[17px] lg:text-lg">{profile.data?.department ?? "-"}</div>
                   </div>
                   <div className="rounded-xl border border-amber-100 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.05)] backdrop-blur">
                     <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Designation</div>
-                    <div className="mt-2 text-lg font-black text-slate-950">{profile.data?.designation ?? "-"}</div>
+                    <div className="mt-2 text-base font-black text-slate-950 md:text-[17px] lg:text-lg">{profile.data?.designation ?? "-"}</div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="rounded-b-xl rounded-t-none border border-slate-200 bg-white/95 p-3 shadow-[0_12px_32px_rgba(15,23,42,0.05)] backdrop-blur md:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Navigate</div>
-                <div className="mt-1 flex items-center gap-2 text-base font-black text-slate-950">
-                  <currentRoute.Icon size={18} className="text-emerald-700" />
-                  <span className="truncate">{currentRoute.label}</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(true)}
-                aria-label="Open employee menu"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100"
-              >
-                <Menu size={18} />
-              </button>
             </div>
           </div>
 
@@ -362,8 +304,8 @@ export default function EssPortal() {
                   <div>
                     <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
                       <div>
-                        <h2 className="text-[28px] font-black tracking-tight text-slate-950">Popular services</h2>
-                        <p className="mt-2 text-sm text-slate-500">Quick access to the employee self-service areas you use most.</p>
+                        <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[28px]">Popular services</h2>
+                        <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Quick access to the employee self-service areas you use most.</p>
                       </div>
                       <div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
                         {primaryServices.map((item) => (
@@ -372,19 +314,17 @@ export default function EssPortal() {
                             to={item.to}
                             className="group rounded-xl border border-slate-200 bg-white p-3 sm:p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] hover:shadow-[0_16px_32px_rgba(15,118,110,0.10)]"
                           >
-                            <div className="space-y-3 sm:space-y-4">
-                              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700">
+                            <div className="space-y-3 text-center sm:space-y-4 md:text-left">
+                              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700 sm:h-12 sm:w-12 md:mx-0">
                                 <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
                               </div>
                               <div>
-                                <div className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.15em] sm:tracking-[0.18em] text-emerald-700">
+                                <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-lg">
                                   {item.label}
                                 </div>
-                                <div className="mt-1 sm:mt-3 text-sm sm:text-lg font-bold sm:font-black text-slate-950">{item.label}</div>
-                                <p className="mt-2 text-xs sm:text-sm leading-normal sm:leading-6 text-slate-500 hidden sm:block">{SECTION_DESCRIPTIONS[item.key]}</p>
-                              </div>
-                              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-800 group-hover:border-emerald-200 group-hover:bg-emerald-50 hidden sm:inline-flex">
-                                Open
+                                <p className="mt-2 text-[10px] leading-normal text-slate-500 sm:text-[11px] md:text-[12px] md:leading-5 lg:text-sm lg:leading-6">
+                                  {SECTION_DESCRIPTIONS[item.key]}
+                                </p>
                               </div>
                             </div>
                           </NavLink>
@@ -393,80 +333,74 @@ export default function EssPortal() {
                     </SectionCard>
                   </div>
 
-                  <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_22%),linear-gradient(135deg,#f4fbf8_0%,#eef8ff_100%)] px-6 py-7 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-                    <div className="mb-6">
-                      <h2 className="text-[28px] font-black tracking-tight text-slate-950">Featured journeys</h2>
-                      <p className="mt-2 text-sm text-slate-500">Everything beyond core HR, grouped into the next actions employees usually need.</p>
+                  <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+                    <div>
+                      <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[28px]">Featured journeys</h2>
+                      <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Everything beyond core HR, grouped into the next actions employees usually need.</p>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
                       {featuredRoutes.map((item) => (
                         <NavLink
                           key={item.key}
                           to={item.to}
-                          className={`overflow-hidden rounded-xl border border-white/70 bg-gradient-to-br ${featureAccents[item.key]} shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(15,23,42,0.10)]`}
+                          className="group rounded-xl border border-slate-200 bg-white p-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] hover:shadow-[0_16px_32px_rgba(15,118,110,0.10)] sm:p-5 md:text-left"
                         >
-                          <div className="flex min-h-[160px] flex-col justify-between p-5 md:min-h-[180px] xl:min-h-[220px]">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 text-slate-900 shadow-sm backdrop-blur">
-                              <item.Icon size={18} />
+                          <div className="space-y-3 sm:space-y-4">
+                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700 sm:h-12 sm:w-12 md:mx-0">
+                              <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
                             </div>
                             <div>
-                              <div className="text-lg font-black text-slate-950 md:text-xl">{item.label}</div>
-                              <p className="mt-2 text-sm leading-6 text-slate-600">{featureDescriptions[item.key]}</p>
-                              <div className="mt-4 inline-flex rounded-lg border border-white/80 bg-white/85 px-4 py-2 text-sm font-semibold text-slate-800 backdrop-blur">
-                                View
+                              <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-lg">
+                                {item.label}
                               </div>
+                              <p className="mt-2 text-[10px] leading-normal text-slate-500 sm:text-[11px] md:text-[12px] md:leading-5 lg:text-sm lg:leading-6">
+                                {featureDescriptions[item.key]}
+                              </p>
                             </div>
                           </div>
                         </NavLink>
                       ))}
                     </div>
-                  </div>
-
-                  <SectionCard className="rounded-xl border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <Value label="Name" value={profile.data?.name} />
-                      <Value label="Email" value={profile.data?.email} />
-                      <Value label="Department" value={profile.data?.department} />
-                      <Value label="Designation" value={profile.data?.designation} />
-                    </div>
                   </SectionCard>
+
                 </div>
               )}
 
               {section === "profile" && (
-                <Panel loading={profile.loading} error={profile.error} className="mt-6">
+                <Panel loading={profile.loading} error={profile.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-6">
                     <div className="rounded-xl border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7fbfb_52%,#eef6ff_100%)] p-6">
                       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-center gap-4">
-                          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#d1fae5_0%,#e0f2fe_100%)] text-2xl font-black text-emerald-800 shadow-sm">
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#d1fae5_0%,#e0f2fe_100%)] text-xl font-black text-emerald-800 shadow-sm md:h-18 md:w-18 md:text-2xl lg:h-20 lg:w-20">
                             {(profile.data?.name || "E").trim().charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Employee Profile</div>
-                            <h2 className="mt-2 text-[28px] font-black tracking-tight text-slate-950">{profile.data?.name ?? "-"}</h2>
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                            <h2 className="mt-2 text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[28px]">
+                              {[humanizeProfileValue(profile.data?.salutation), profile.data?.name ?? "-"].filter((value) => value && value !== "--").join(" ")}
+                            </h2>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-600 md:text-[13px] lg:text-sm">
                               <span className="rounded-md bg-white/80 px-3 py-1 font-semibold shadow-sm">{profile.data?.designation ?? "Designation pending"}</span>
                               <span className="rounded-md bg-white/80 px-3 py-1 font-semibold shadow-sm">{profile.data?.department ?? "Department pending"}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid grid-cols-2 gap-3">
                           <ProfileStat label="Status" value={humanizeProfileValue(profile.data?.status)} />
                           <ProfileStat label="Employment Type" value={humanizeProfileValue(profile.data?.employmentType)} />
                         </div>
                       </div>
                     </div>
 
-                    <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      <ProfileField label="Salutation" value={humanizeProfileValue(profile.data?.salutation)} />
-                      <ProfileField label="Email" value={profile.data?.email} />
-                      <ProfileField label="Contact Number" value={profile.data?.contactNumber} />
+                    <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+                      <ProfileField label="Email" value={profile.data?.email} className="col-span-2 lg:col-span-2" />
+                      <ProfileField label="Contact Number" value={profile.data?.contactNumber} className="col-span-2 sm:col-span-1" />
                       <ProfileField label="Gender" value={humanizeProfileValue(profile.data?.gender)} />
                       <ProfileField label="Date of Birth" value={formatDate(profile.data?.dob)} />
                       <ProfileField label="Date of Joining" value={formatDate(profile.data?.doj)} />
                       <ProfileField label="Location" value={profile.data?.locationName} />
-                      <ProfileField label="Auth Access" value={profile.data?.isSystemUser || profile.data?.loginId || profile.data?.role ? "Enabled" : "Not available"} />
+                      <ProfileField label="Auth Access" value={profile.data?.isSystemUser || profile.data?.loginId || profile.data?.role ? "Enabled" : "Not available"} className="col-span-2 lg:col-span-1" />
                       <ProfileField label="Bank Name" value={profile.data?.bankDetails?.bankName} />
                       <ProfileField label="Account Number" value={profile.data?.bankDetails?.accountNumber} />
                       <ProfileField label="IFSC Code" value={profile.data?.bankDetails?.ifscCode} />
@@ -476,7 +410,7 @@ export default function EssPortal() {
               )}
 
               {section === "attendance" && (
-                <Panel loading={attendance.loading} error={attendance.error} className="mt-6">
+                <Panel loading={attendance.loading} error={attendance.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-6">
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <AttendanceMetricCard
@@ -521,7 +455,7 @@ export default function EssPortal() {
                             </div>
                             <div>
                               <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Console</div>
-                              <div className="mt-1.5 font-mono text-[28px] font-black tracking-tight text-slate-950">
+                              <div className="mt-1.5 font-mono text-[20px] font-black tracking-tight text-slate-950 md:text-[22px] lg:text-[28px]">
                                 {todayAttendance?.clockIn && !todayAttendance?.clockOut
                                   ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
                                   : "--:--:--"}
@@ -559,15 +493,15 @@ export default function EssPortal() {
                         <div className="mt-4 grid gap-3 sm:grid-cols-3">
                           <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Face Recognition</div>
-                            <div className="mt-1 text-base font-semibold text-slate-900">{faceRequired ? "Required" : "Optional"}</div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900 md:text-[15px] lg:text-base">{faceRequired ? "Required" : "Optional"}</div>
                           </div>
                           <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">First In</div>
-                            <div className="mt-1 text-base font-semibold text-slate-900">{time(todayAttendance?.clockIn)}</div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900 md:text-[15px] lg:text-base">{time(todayAttendance?.clockIn)}</div>
                           </div>
                           <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Last Out</div>
-                            <div className="mt-1 text-base font-semibold text-slate-900">{time(todayAttendance?.clockOut)}</div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900 md:text-[15px] lg:text-base">{time(todayAttendance?.clockOut)}</div>
                           </div>
                         </div>
                       </SectionCard>
@@ -596,8 +530,8 @@ export default function EssPortal() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
-                          <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Recent Attendance Logs</h3>
-                          <p className="mt-1 text-sm text-slate-500">Daily check-in, check-out, work mode and worked hours.</p>
+                          <h3 className="mt-2 text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">Recent Attendance Logs</h3>
+                          <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Daily check-in, check-out, work mode and worked hours.</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
                           <AttendanceViewToggle value={attendanceViewMode} onChange={setAttendanceViewMode} />
@@ -645,12 +579,12 @@ export default function EssPortal() {
               )}
 
               {section === "leave" && (
-                <Panel loading={leaves.loading || balances.loading} error={leaves.error || balances.error} className="mt-6">
+                <Panel loading={leaves.loading || balances.loading} error={leaves.error || balances.error} className="mt-2 lg:mt-6">
                   <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     {activeBalances.map((item) => (
                       <SectionCard key={item.id} className="border-slate-200 shadow-sm">
-                        <div className="text-sm text-slate-500">{item.leaveTypeName ?? "Leave"}</div>
-                        <div className="mt-1 text-2xl font-bold">{item.available ?? 0}</div>
+                        <div className="text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{item.leaveTypeName ?? "Leave"}</div>
+                        <div className="mt-1 text-[19px] font-bold md:text-[21px] lg:text-2xl">{item.available ?? 0}</div>
                         <div className="text-xs text-slate-500">available of {item.total ?? 0}</div>
                       </SectionCard>
                     ))}
@@ -662,12 +596,12 @@ export default function EssPortal() {
                         {pastBalances.map((item) => (
                           <SectionCard key={item.id} className="border-slate-200 bg-white opacity-70 shadow-sm">
                             <div className="flex items-center justify-between gap-2">
-                              <div className="text-sm text-slate-500">{item.leaveTypeName ?? "Leave"}</div>
+                              <div className="text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{item.leaveTypeName ?? "Leave"}</div>
                               <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
                                 {item.status ?? "Inactive"}
                               </span>
                             </div>
-                            <div className="mt-1 text-2xl font-bold text-slate-500">{item.available ?? 0}</div>
+                            <div className="mt-1 text-[19px] font-bold text-slate-500 md:text-[21px] lg:text-2xl">{item.available ?? 0}</div>
                             <div className="text-xs text-slate-500">available of {item.total ?? 0}</div>
                           </SectionCard>
                         ))}
@@ -676,8 +610,8 @@ export default function EssPortal() {
                   )}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-2xl font-black tracking-tight text-slate-950">Leave requests</h3>
-                      <p className="mt-1 text-sm text-slate-500">Recent leave history with balances and approval status.</p>
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">Leave requests</h3>
+                      <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Recent leave history with balances and approval status.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <AttendanceViewToggle value={leaveViewMode} onChange={setLeaveViewMode} />
@@ -717,11 +651,11 @@ export default function EssPortal() {
               )}
 
               {section === "payslips" && (
-                <Panel loading={payslips.loading} error={payslips.error} className="mt-6">
+                <Panel loading={payslips.loading} error={payslips.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-2xl font-black tracking-tight text-slate-950">Payslip statements</h3>
-                      <p className="mt-1 text-sm text-slate-500">Generated salary statements and payout status.</p>
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">Payslip statements</h3>
+                      <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Generated salary statements and payout status.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <AttendanceViewToggle value={payslipViewMode} onChange={setPayslipViewMode} />
@@ -760,19 +694,19 @@ export default function EssPortal() {
               )}
 
               {section === "staffspace" && (
-                <SectionCard className="mt-6 border-slate-200 shadow-sm">
+                <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
                   <Announcements />
                 </SectionCard>
               )}
 
               {section === "expenses" && (
-                <SectionCard className="mt-6 border-slate-200 shadow-sm">
+                <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
                   <Expenses />
                 </SectionCard>
               )}
 
               {section === "helpdesk" && (
-                <SectionCard className="mt-6 border-slate-200 shadow-sm">
+                <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
                   <Tickets />
                 </SectionCard>
               )}
@@ -781,8 +715,8 @@ export default function EssPortal() {
             <aside className={`${railClassName} xl:self-stretch`}>
               <SectionCard className="h-full rounded-xl border border-slate-200 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_28%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
                 <div>
-                  <h2 className="text-[22px] font-black tracking-tight text-slate-950">Today at a glance</h2>
-                  <p className="mt-2 text-sm text-slate-500">A quick summary of your current HR status.</p>
+                  <h2 className="text-[18px] font-black tracking-tight text-slate-950 md:text-[19px] lg:text-[22px]">Today at a glance</h2>
+                  <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">A quick summary of your current HR status.</p>
                 </div>
                 <div className="mt-6 space-y-3">
                   {snapshotItems.map((item) => (
@@ -792,9 +726,9 @@ export default function EssPortal() {
                           <item.icon size={16} />
                         </div>
                         <div className="min-w-0">
-                          <div className="truncate text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-500">{item.label}</div>
-                          <div className="mt-1 text-[20px] font-black leading-none text-slate-900">{item.value}</div>
-                          <div className="mt-1 truncate text-[13px] text-slate-500">{item.detail}</div>
+                          <div className="truncate text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:text-[13px]">{item.label}</div>
+                          <div className="mt-1 text-[16px] font-black leading-none text-slate-900 md:text-[17px] lg:text-[20px]">{item.value}</div>
+                          <div className="mt-1 truncate text-[11px] text-slate-500 md:text-[12px] lg:text-[13px]">{item.detail}</div>
                         </div>
                       </div>
                     </div>
@@ -838,17 +772,27 @@ function Panel({
 function Value({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div>
-      <dt className="text-sm font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-1.5 text-base font-medium text-slate-900">{value ?? "-"}</dd>
+      <dt className="text-[12px] font-semibold uppercase tracking-wide text-slate-500 md:text-[13px] lg:text-sm">{label}</dt>
+      <dd className="mt-1.5 text-[14px] font-medium text-slate-900 md:text-[15px] lg:text-base">{value ?? "-"}</dd>
     </div>
   );
 }
 
-function ProfileField({ label, value }: { label: string; value?: string | number | null }) {
+function ProfileField({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value?: string | number | null;
+  className?: string;
+}) {
   return (
-    <div className="min-w-0 rounded-lg bg-slate-50/80 px-4 py-3">
+    <div className={`min-w-0 rounded-lg bg-slate-50/80 px-4 py-3 ${className}`}>
       <dt className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</dt>
-      <dd className="mt-2 text-base font-semibold text-slate-950">{humanizeProfileValue(value)}</dd>
+      <dd className="mt-2 truncate text-[14px] font-semibold text-slate-950 md:text-[15px] lg:text-base" title={humanizeProfileValue(value)}>
+        {humanizeProfileValue(value)}
+      </dd>
     </div>
   );
 }
@@ -856,8 +800,8 @@ function ProfileField({ label, value }: { label: string; value?: string | number
 function ProfileStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
-      <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</div>
-      <div className="mt-1.5 text-lg font-black text-slate-950">{value}</div>
+      <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 md:text-xs">{label}</div>
+      <div className="mt-1 text-[13px] font-bold text-slate-950 md:text-[14px] lg:text-[15px]">{value}</div>
     </div>
   );
 }
@@ -896,8 +840,8 @@ function AttendanceMetricCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-          <div className="mt-3 text-[28px] font-black leading-none tracking-tight text-slate-950">{value}</div>
-          <div className="mt-2 text-sm text-slate-500">{detail}</div>
+          <div className="mt-3 text-[20px] font-black leading-none tracking-tight text-slate-950 md:text-[22px] lg:text-[28px]">{value}</div>
+          <div className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
         </div>
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${toneClass}`}>
           <Icon size={18} />
@@ -912,9 +856,9 @@ function AttendanceTimelineRow({ label, value, detail }: { label: string; value:
     <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-2.5">
       <div className="min-w-0">
         <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-        <div className="mt-0.5 truncate text-sm text-slate-500">{detail}</div>
+        <div className="mt-0.5 truncate text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
       </div>
-      <div className="shrink-0 text-[17px] font-black text-slate-950">{value}</div>
+      <div className="shrink-0 text-[15px] font-black text-slate-950 md:text-[16px] lg:text-[17px]">{value}</div>
     </div>
   );
 }
@@ -974,13 +918,13 @@ function AttendanceHistoryCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Day</div>
-          <div className="mt-1.5 text-[28px] font-black leading-none text-slate-950">{date}</div>
+          <div className="mt-1.5 text-[20px] font-black leading-none text-slate-950 md:text-[22px] lg:text-[28px]">{date}</div>
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
           {status}
         </span>
       </div>
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
         <AttendanceHistoryField label="Clock In" value={clockIn} />
         <AttendanceHistoryField label="Clock Out" value={clockOut} />
         <AttendanceHistoryField label="Work Mode" value={mode} />
@@ -992,9 +936,9 @@ function AttendanceHistoryCard({
 
 function AttendanceHistoryField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-slate-50 px-3.5 py-2.5">
+    <div className="rounded-md bg-slate-50 px-3 py-2 md:px-3.5 md:py-2.5">
       <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</div>
-      <div className="mt-1.5 text-[15px] font-semibold text-slate-950">{value}</div>
+      <div className="mt-1.5 text-[13px] font-semibold text-slate-950 md:text-[14px] lg:text-[15px]">{value}</div>
     </div>
   );
 }
@@ -1017,13 +961,13 @@ function LeaveHistoryCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Leave Type</div>
-          <div className="mt-1.5 truncate text-[24px] font-black leading-none text-slate-950">{type}</div>
+          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[24px]">{type}</div>
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
           {status}
         </span>
       </div>
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
         <AttendanceHistoryField label="From" value={from} />
         <AttendanceHistoryField label="To" value={to} />
         <AttendanceHistoryField label="Duration" value={duration} />
@@ -1049,13 +993,13 @@ function PayslipCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Payslip Month</div>
-          <div className="mt-1.5 truncate text-[24px] font-black leading-none text-slate-950">{month}</div>
+          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[24px]">{month}</div>
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
           {status}
         </span>
       </div>
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
         <AttendanceHistoryField label="Net Pay" value={netPay} />
         <AttendanceHistoryField label="Status" value={status} />
         <AttendanceHistoryField label="Generated" value={generated} />
@@ -1068,11 +1012,11 @@ function PayslipCard({
 function SimpleTable({ headers, rows }: { headers: string[]; rows: Array<Array<string>> }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-base">
+      <table className="w-full border-collapse text-left text-[13px] md:text-[14px] lg:text-base">
         <thead>
           <tr>
             {headers.map((header) => (
-              <th key={header} className="border-b px-3 py-3 text-sm uppercase text-slate-500">
+              <th key={header} className="border-b px-3 py-3 text-[12px] uppercase text-slate-500 md:text-[13px] lg:text-sm">
                 {header}
               </th>
             ))}
@@ -1081,7 +1025,7 @@ function SimpleTable({ headers, rows }: { headers: string[]; rows: Array<Array<s
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={headers.length} className="px-3 py-8 text-center text-base text-slate-500">
+              <td colSpan={headers.length} className="px-3 py-8 text-center text-[13px] text-slate-500 md:text-[14px] lg:text-base">
                 No records found.
               </td>
             </tr>
@@ -1089,7 +1033,7 @@ function SimpleTable({ headers, rows }: { headers: string[]; rows: Array<Array<s
             rows.map((row, index) => (
               <tr key={index}>
                 {row.map((value, cell) => (
-                  <td key={cell} className="border-b px-3 py-4 text-base">
+                  <td key={cell} className="border-b px-3 py-4 text-[13px] md:text-[14px] lg:text-base">
                     {value}
                   </td>
                 ))}

@@ -663,7 +663,6 @@ export default function Assets() {
             <FileUpload
               label="Attachments"
               accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-              multiple
               onUpload={setReturnFiles}
             />
             {returnFor.attachment?.length ? (

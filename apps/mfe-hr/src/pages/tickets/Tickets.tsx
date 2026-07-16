@@ -53,7 +53,7 @@ function statusBadge(s?: string): { bg: string; icon: ReactNode } {
 
 function StatCard({ label, value, tone, icon }: { label: string; value: number; tone: string; icon: ReactNode }) {
   return (
-    <div style={{ ...panel, padding: 22, borderRadius: 8 }}>
+    <div style={{ ...panel, padding: 22, borderRadius: 8, textAlign: "center" }}>
       <div
         style={{
           height: 44,
@@ -64,7 +64,7 @@ function StatCard({ label, value, tone, icon }: { label: string; value: number; 
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 14,
+          margin: "0 auto 14px",
         }}
       >
         {icon}
@@ -246,7 +246,7 @@ export default function Tickets() {
           </div>
         ) : null}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <StatCard label="Open Tickets" value={counts.open} tone="#3b82f6" icon={<AlertCircle size={22} />} />
           <StatCard label="In Progress" value={counts.progress} tone="#f59e0b" icon={<Clock size={22} />} />
           <StatCard label="Resolved (MTD)" value={counts.resolved} tone="#10b981" icon={<CheckCircle2 size={22} />} />
