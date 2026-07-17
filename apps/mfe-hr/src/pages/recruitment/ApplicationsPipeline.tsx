@@ -195,6 +195,8 @@ export default function ApplicationsPipeline() {
 
     return (
       <div
+        id={`hr-recruitment-application-card-${app.id}`}
+        data-testid={`hr-recruitment-application-card-${app.id}`}
         className="mb-3 cursor-pointer rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
         onClick={() => openCandidate(app)}
       >
@@ -221,12 +223,12 @@ export default function ApplicationsPipeline() {
 
   return (
     <RecruitmentLayout title="Applications Pipeline" subtitle="Drag and drop applications across recruitment stages.">
-      <div>
+      <div id="hr-recruitment-applications-page" data-testid="hr-recruitment-applications-page">
         <div className="mb-4 flex w-full items-center justify-between gap-3 flex-wrap rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
           <div className="text-sm text-gray-500">Review applications by stage and move candidates through the pipeline.</div>
         </div>
 
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1 overflow-x-auto" data-testid="hr-recruitment-applications-board-wrap">
           <div className="h-full min-w-0">
           {loading ? (
             <div className="flex gap-6">
@@ -284,9 +286,11 @@ export default function ApplicationsPipeline() {
         initialRound="TECH_1"
       />
 
-      <Dialog open={!!noteTarget} onClose={() => setNoteTarget(null)} title="Update Application Notes" size="md">
+      <Dialog open={!!noteTarget} onClose={() => setNoteTarget(null)} title="Update Application Notes" size="md" testId="hr-recruitment-application-notes-dialog">
         <div className="space-y-4">
           <Textarea
+            id="hr-recruitment-application-notes-input"
+            data-testid="hr-recruitment-application-notes-input"
             label="Notes"
             rows={4}
             value={noteValue}
@@ -295,15 +299,17 @@ export default function ApplicationsPipeline() {
           />
           {actionError ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div> : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNoteTarget(null)} disabled={actionBusy}>Cancel</Button>
-            <Button variant="primary" onClick={() => void handleSaveNote()} loading={actionBusy}>Save Notes</Button>
+            <Button variant="outline" onClick={() => setNoteTarget(null)} disabled={actionBusy} data-testid="hr-recruitment-application-notes-cancel">Cancel</Button>
+            <Button variant="primary" onClick={() => void handleSaveNote()} loading={actionBusy} data-testid="hr-recruitment-application-notes-save">Save Notes</Button>
           </DialogFooter>
         </div>
       </Dialog>
 
-      <Dialog open={!!ratingTarget} onClose={() => setRatingTarget(null)} title="Update Application Rating" size="sm">
+      <Dialog open={!!ratingTarget} onClose={() => setRatingTarget(null)} title="Update Application Rating" size="sm" testId="hr-recruitment-application-rating-dialog">
         <div className="space-y-4">
           <Input
+            id="hr-recruitment-application-rating-input"
+            data-testid="hr-recruitment-application-rating-input"
             label="Rating"
             type="number"
             min={0}
@@ -314,15 +320,17 @@ export default function ApplicationsPipeline() {
           />
           {actionError ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div> : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRatingTarget(null)} disabled={actionBusy}>Cancel</Button>
-            <Button variant="primary" onClick={() => void handleSaveRating()} loading={actionBusy}>Save Rating</Button>
+            <Button variant="outline" onClick={() => setRatingTarget(null)} disabled={actionBusy} data-testid="hr-recruitment-application-rating-cancel">Cancel</Button>
+            <Button variant="primary" onClick={() => void handleSaveRating()} loading={actionBusy} data-testid="hr-recruitment-application-rating-save">Save Rating</Button>
           </DialogFooter>
         </div>
       </Dialog>
 
-      <Dialog open={!!rejectTarget} onClose={() => setRejectTarget(null)} title="Reject Application" size="md">
+      <Dialog open={!!rejectTarget} onClose={() => setRejectTarget(null)} title="Reject Application" size="md" testId="hr-recruitment-application-reject-dialog">
         <div className="space-y-4">
           <Textarea
+            id="hr-recruitment-application-reject-reason"
+            data-testid="hr-recruitment-application-reject-reason"
             label="Rejection Reason"
             rows={4}
             value={rejectReason}
@@ -331,8 +339,8 @@ export default function ApplicationsPipeline() {
           />
           {actionError ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div> : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={actionBusy}>Cancel</Button>
-            <Button variant="primary" onClick={() => void handleRejectApplication()} loading={actionBusy}>Reject</Button>
+            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={actionBusy} data-testid="hr-recruitment-application-reject-cancel">Cancel</Button>
+            <Button variant="primary" onClick={() => void handleRejectApplication()} loading={actionBusy} data-testid="hr-recruitment-application-reject-confirm">Reject</Button>
           </DialogFooter>
         </div>
       </Dialog>
@@ -396,6 +404,8 @@ function ApplicationActions({
       trigger={
         <button
           type="button"
+          id={`hr-recruitment-application-actions-trigger-${app.id}`}
+          data-testid={`hr-recruitment-application-actions-trigger-${app.id}`}
           aria-label="More actions"
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-alt)]"
         >
@@ -408,6 +418,8 @@ function ApplicationActions({
           <button
             key={stage.id}
             type="button"
+            id={`hr-recruitment-application-${app.id}-move-${stage.id.toLowerCase()}`}
+            data-testid={`hr-recruitment-application-${app.id}-move-${stage.id.toLowerCase()}`}
             disabled={busy}
             onClick={() => handleStageAction(stage.id)}
             className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -417,6 +429,8 @@ function ApplicationActions({
         ))}
         <button
           type="button"
+          id={`hr-recruitment-application-${app.id}-notes`}
+          data-testid={`hr-recruitment-application-${app.id}-notes`}
           disabled={busy}
           onClick={handleNotesAction}
           className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -425,6 +439,8 @@ function ApplicationActions({
         </button>
         <button
           type="button"
+          id={`hr-recruitment-application-${app.id}-rating`}
+          data-testid={`hr-recruitment-application-${app.id}-rating`}
           disabled={busy}
           onClick={handleRatingAction}
           className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -433,6 +449,8 @@ function ApplicationActions({
         </button>
         <button
           type="button"
+          id={`hr-recruitment-application-${app.id}-reject`}
+          data-testid={`hr-recruitment-application-${app.id}-reject`}
           disabled={busy}
           onClick={handleRejectAction}
           className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -442,6 +460,8 @@ function ApplicationActions({
         {app.stage === "HIRED" ? (
           <button
             type="button"
+            id={`hr-recruitment-application-${app.id}-hire`}
+            data-testid={`hr-recruitment-application-${app.id}-hire`}
             disabled={busy}
             onClick={handleHireAction}
             className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"

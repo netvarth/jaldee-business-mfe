@@ -9,10 +9,12 @@ export interface FileUploadProps {
   onUpload:  (files: File[]) => void;
   error?:    string;
   className?: string;
+  testId?: string;
+  id?: string;
 }
 
 export function FileUpload({
-  label, accept, multiple, maxSize, onUpload, error, className
+  label, accept, multiple, maxSize, onUpload, error, className, testId, id
 }: FileUploadProps) {
   const inputRef   = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -32,7 +34,7 @@ export function FileUpload({
   }
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)} data-testid="file-upload">
+    <div className={cn("flex flex-col gap-1.5", className)} data-testid={testId || "file-upload"} id={id}>
       {label && (
         <span className="ds-form-label">{label}</span>
       )}

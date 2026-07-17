@@ -585,7 +585,7 @@ export default function EmployeeDetails() {
     const setBank = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, bankDetails: { ...(p.bankDetails ?? {}), [k]: e.target.value } }));
     const setSal = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, salaryStructure: { ...(p.salaryStructure ?? {}), [k]: Number(e.target.value) } }));
     return (
-      <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+      <section id="hr-employee-details-page" data-testid="hr-employee-details-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
         <div style={{ width: "100%" }}>
           <PageHeader
             variant="navigation"
@@ -837,7 +837,7 @@ export default function EmployeeDetails() {
 
   const tabs = EMPLOYEE_TABS;
   return (
-    <section className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-employee-edit-page" data-testid="hr-employee-edit-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       {faceOpen && (
         <Suspense fallback={null}>
           <FaceCaptureModal title={employee.faceDescriptor ? "Update Face ID" : "Enroll Face ID"} subtitle={employee.name} busy={faceBusy} onCapture={enrollFace} onClose={() => setFaceOpen(false)} />
@@ -1303,6 +1303,8 @@ export default function EmployeeDetails() {
               accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
               multiple={false}
               onUpload={setDocumentFiles}
+              testId="hr-employee-document-file-upload"
+              id="hr-employee-document-file-upload"
             />
           ) : null}
         </div>
@@ -1342,6 +1344,8 @@ export default function EmployeeDetails() {
               accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
               multiple={false}
               onUpload={setDocumentStatusFiles}
+              testId="hr-employee-document-status-file-upload"
+              id="hr-employee-document-status-file-upload"
             />
           ) : null}
         </div>

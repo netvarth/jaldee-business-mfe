@@ -122,7 +122,7 @@ export default function Interviews() {
       key: "id",
       align: "right",
       render: (row) => (
-        <Button variant="outline" size="sm" onClick={() => openUpdate(row)}>
+        <Button variant="outline" size="sm" data-testid={`hr-recruitment-interview-update-${row.id}`} onClick={() => openUpdate(row)}>
           Update
         </Button>
       ),
@@ -186,7 +186,7 @@ export default function Interviews() {
                       { label: "Status", value: <Badge variant={statusVariant(interview.status)}>{interviewStatusLabel(interview.status)}</Badge> },
                     ]}
                     footer={
-                      <Button variant="outline" size="sm" onClick={() => openUpdate(interview)}>
+                      <Button variant="outline" size="sm" data-testid={`hr-recruitment-interview-card-update-${interview.id}`} onClick={() => openUpdate(interview)}>
                         Update
                       </Button>
                     }
@@ -208,7 +208,7 @@ export default function Interviews() {
         onSave={save}
       />
 
-      <Dialog open={!!editing} onClose={() => setEditing(null)} title="Update Interview" size="md">
+      <Dialog open={!!editing} onClose={() => setEditing(null)} title="Update Interview" size="md" testId="hr-recruitment-interview-update-dialog">
         <div className="grid gap-4">
           <Select
             id="hr-recruitment-interview-update-status"
@@ -238,10 +238,10 @@ export default function Interviews() {
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setEditing(null)}>
+          <Button variant="outline" onClick={() => setEditing(null)} data-testid="hr-recruitment-interview-update-cancel">
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => void handleUpdate()} loading={savingFeedback}>
+          <Button variant="primary" onClick={() => void handleUpdate()} loading={savingFeedback} data-testid="hr-recruitment-interview-update-save">
             Save
           </Button>
         </DialogFooter>

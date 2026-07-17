@@ -1082,6 +1082,8 @@ export default function EssPortal() {
               onUpload={setDocumentFiles}
               multiple={false}
               accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              testId="ess-documents-submit-file-upload"
+              id="ess-documents-submit-file-upload"
             />
           </div>
           {documentSubmitError && (
