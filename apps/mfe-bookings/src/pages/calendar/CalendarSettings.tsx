@@ -5,7 +5,10 @@ import { useCalendars } from "../../services/useCalendars";
 import { useUsers } from "../../services/useUsers";
 import type { Calendar } from "../../types";
 
-const PRESET_COLORS = ["#0F766E", "#2563EB", "#7C3AED", "#DB2777", "#EA580C", "#16A34A", "#475569", "#111827"];
+const PRESET_COLORS = [
+  "#0F766E", "#2563EB", "#7C3AED", "#DB2777", "#EA580C", "#16A34A", "#475569", "#111827",
+  "#0891B2", "#E11D48"
+];
 function normalizeColor(value?: string | null) {
   if (!value) return "#2563EB";
   return value.startsWith("#") ? value : `#${value}`;
@@ -95,121 +98,150 @@ export default function CalendarSettings() {
   };
 
   return (
-    <main className="h-full overflow-y-auto bg-slate-50" data-testid="bookings-calendar-settings-page">
-      <div className="mx-auto w-full max-w-5xl p-4 md:p-6">
+    <main className="h-full flex flex-col bg-slate-50 calendar-details-page" data-testid="bookings-calendar-settings-page">
+      <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
         <PageHeader
           title="Calendar Settings"
           subtitle="Manage color and assigned users."
           back={{ label: "Back to calendar details", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
           onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
           actions={calendar ? <Badge variant="success">{calendar.name}</Badge> : undefined}
+          className="mb-4"
         />
+      </header>
 
-        {!calendarUid && <Alert variant="danger">Open this screen from a calendar to update settings.</Alert>}
+      <div className="calendar-details-layout" style={{ overflowY: "auto" }}>
+        <div className="max-w-5xl">
+          {!calendarUid && <Alert variant="danger" className="mb-4">Open this screen from a calendar to update settings.</Alert>}
 
         {loading ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading calendar...</div>
+          <div className="p-6 text-sm text-slate-500">Loading calendar...</div>
         ) : (
-          <div className="space-y-6">
-            <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <FormSection title="Calendar Color" description="Choose a preset color or enter a custom hex value.">
-                  <div className="col-span-full flex flex-wrap gap-3">
+          <div className="wizard-step-panel active" style={{ display: 'block', margin: 0, maxWidth: 'none' }}>
+            <div className="wizard-form">
+              <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] mb-8">
+                <div>
+                  <div className="section-header-row mb-4">
+                    <h2 className="section-title m-0">Calendar Color</h2>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-4">Choose a preset color or enter a custom hex value.</p>
+                  <div className="flex flex-wrap gap-3 mb-6">
                     {PRESET_COLORS.map((preset) => (
                       <button
                         key={preset}
                         type="button"
-                        className={`h-10 w-10 rounded-full border-2 ${color.toLowerCase() === preset.toLowerCase() ? "border-slate-900" : "border-white ring-1 ring-slate-200"}`}
+                        className={`h-10 w-10 shrink-0 rounded-full border-2 ${color.toLowerCase() === preset.toLowerCase() ? "border-slate-900" : "border-white ring-1 ring-slate-200"}`}
                         style={{ backgroundColor: preset }}
                         onClick={() => setColor(preset)}
                         aria-label={`Select ${preset}`}
                       />
                     ))}
+                    
+                    <label
+                      className={`relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 ${!PRESET_COLORS.map(c => c.toLowerCase()).includes(color.toLowerCase()) ? "border-slate-900" : "border-white ring-1 ring-slate-200"}`}
+                      title="Custom Color"
+                      style={{ background: "linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet)" }}
+                    >
+                      <input
+                        type="color"
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        value={isHexColor(color) ? color : "#ffffff"}
+                        onChange={(event) => setColor(sanitizeHex(event.target.value))}
+                        aria-label="Custom Color Picker"
+                      />
+                    </label>
                   </div>
-                  <Input
-                    id="bookings-calendar-settings-color"
-                    data-testid="bookings-calendar-settings-color"
-                    label="Hex color"
-                    value={color}
-                    onChange={(event) => setColor(sanitizeHex(event.target.value))}
-                    placeholder="#2563EB"
-                  />
-                </FormSection>
-              </div>
+                  <div className="form-group w-1/2">
+                    <Input
+                      id="bookings-calendar-settings-color"
+                      data-testid="bookings-calendar-settings-color"
+                      label="Hex color"
+                      className="wiz-sch-input"
+                      value={color}
+                      onChange={(event) => setColor(sanitizeHex(event.target.value))}
+                      placeholder="#2563EB"
+                    />
+                  </div>
+                </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <p className="text-sm font-bold text-slate-900">Live Preview</p>
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="h-12 w-12 rounded-2xl" style={{ backgroundColor: isHexColor(color) ? color : "#2563EB" }} />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{calendar?.name ?? "Calendar"}</p>
-                      <p className="text-xs text-slate-500">{calendar?.status ?? "ACTIVE"}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
+                  <p className="text-sm font-bold text-slate-900">Live Preview</p>
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="h-12 w-12 rounded-2xl" style={{ backgroundColor: isHexColor(color) ? color : "#2563EB" }} />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{calendar?.name ?? "Calendar"}</p>
+                        <p className="text-xs text-slate-500">{calendar?.status ?? "ACTIVE"}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Assigned Users</h2>
-                  <p className="mt-1 text-sm text-slate-500">Store only user IDs while showing readable names in the UI.</p>
+              <hr className="border-slate-200 my-8" />
+
+              <section>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="section-header-row">
+                    <h2 className="section-title m-0">Assigned Users</h2>
+                  </div>
+                  <Badge variant="success">{selectedUsers.length} selected</Badge>
                 </div>
-                <Badge variant="success">{selectedUsers.length} selected</Badge>
-              </div>
-              <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Available users</p>
-                  <div className="mt-3 space-y-2">
-                    {loadingUsers ? (
-                      <p className="text-sm text-slate-500">Loading users...</p>
-                    ) : availableUsers.length ? (
-                      availableUsers.map((user) => (
-                        <div key={user.userUid} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{user.displayName}</p>
-                            <p className="text-xs text-slate-500">{user.title || "User"}</p>
+                <p className="text-sm text-slate-500 mb-6">Assign practitioners or staff members to this calendar.</p>
+                
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Available users</p>
+                    <div className="mt-4 space-y-3">
+                      {loadingUsers ? (
+                        <p className="text-sm text-slate-500">Loading users...</p>
+                      ) : availableUsers.length ? (
+                        availableUsers.map((user) => (
+                          <div key={user.userUid} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{user.displayName}</p>
+                              <p className="text-xs text-slate-500">{user.title || "User"}</p>
+                            </div>
+                            <Button type="button" variant="secondary" size="sm" onClick={() => setSelectedUsers((current) => [...current, user.userUid])}>Add User</Button>
                           </div>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => setSelectedUsers((current) => [...current, user.userUid])}>Add User</Button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-400">No more active users available.</p>
-                    )}
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-400 italic">No more active users available.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Assigned users</p>
+                    <div className="mt-4 space-y-3">
+                      {selectedUserRecords.length ? (
+                        selectedUserRecords.map((user) => (
+                          <div key={user.userUid} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{user.displayName}</p>
+                              <p className="text-xs text-slate-500">{user.title || "User"}</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setSelectedUsers((current) => current.filter((value) => value !== user.userUid))}>Remove</Button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-400 italic">No users assigned.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </section>
 
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Assigned users</p>
-                  <div className="mt-3 space-y-2">
-                    {selectedUserRecords.length ? (
-                      selectedUserRecords.map((user) => (
-                        <div key={user.userUid} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{user.displayName}</p>
-                            <p className="text-xs text-slate-500">{user.title || "User"}</p>
-                          </div>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => setSelectedUsers((current) => current.filter((value) => value !== user.userUid))}>Remove</Button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-400">No users assigned.</p>
-                    )}
-                  </div>
-                </div>
+              <div className="wizard-footer-actions mt-12">
+                <Button type="button" variant="secondary" className="btn-wizard-discard" onClick={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}>Cancel</Button>
+                <Button type="button" loading={saving} disabled={!calendarUid || !isHexColor(color)} onClick={() => void save()}>
+                  Save Settings
+                </Button>
               </div>
-            </section>
-
-            <div className="flex justify-end gap-3 pb-8">
-              <Button type="button" variant="secondary" onClick={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}>Cancel</Button>
-              <Button type="button" loading={saving} disabled={!calendarUid || !isHexColor(color)} onClick={() => void save()}>
-                Save
-              </Button>
             </div>
           </div>
         )}
+        </div>
       </div>
     </main>
   );

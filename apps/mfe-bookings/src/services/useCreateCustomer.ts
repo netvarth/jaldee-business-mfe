@@ -66,12 +66,28 @@ export function useCreateCustomer() {
   const api = useBookingApi();
   const [submitting, setSubmitting] = useState(false);
 
-  /** POSTs to /customers; on no live backend, returns an optimistic local record. */
+  /** POSTs to /consumers; on no live backend, returns an optimistic local record. */
   const createCustomer = async (input: NewCustomerInput): Promise<Customer> => {
     setSubmitting(true);
-    const payload = { ...input, phoneNumber: toPhoneNumber(input.phoneNumber), status: "ACTIVE" };
+    
+    const parsedPhone = input.phoneNumber ? toPhoneNumber(input.phoneNumber) : undefined;
+    const phoneE164 = parsedPhone ? `${parsedPhone.countryCode}${parsedPhone.number}` : undefined;
+    const displayName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+    
+    const payload = {
+      firstName: input.firstName,
+      lastName: input.lastName || undefined,
+      displayName: displayName || input.firstName,
+      phoneE164,
+      email: input.email || undefined,
+      gender: input.gender ? input.gender.toUpperCase() : undefined,
+      dob: input.dob || undefined,
+      address: input.address || undefined,
+      status: "ACTIVE",
+    };
+
     try {
-      const dto = await api.post<CustomerDtoLike>("/customers", payload);
+      const dto = await api.post<CustomerDtoLike>("/consumers", payload);
       return toCustomer(input, dto);
     } catch {
       return toCustomer(input);

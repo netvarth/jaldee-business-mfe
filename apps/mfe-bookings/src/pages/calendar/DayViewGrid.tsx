@@ -25,7 +25,7 @@ export default function DayViewGrid({
     columnsList = users.filter(u => activeUsers.includes(u.id));
   } else {
     // View by Calendars
-    columnsList = calendars.filter(c => activeCalendars.includes(c.id));
+    columnsList = calendars.filter(c => activeCalendars.includes(c.uid || c.id));
   }
 
   // Simulated Current Time for the red line (e.g. 1:55 PM)

@@ -15,6 +15,7 @@ const CustomizeTimeWindow = lazy(() => import("./pages/calendar/CustomizeTimeWin
 const CalendarSettings = lazy(() => import("./pages/calendar/CalendarSettings"));
 const EditCalendar = lazy(() => import("./pages/calendar/EditCalendar"));
 const EditSchedule = lazy(() => import("./pages/calendar/EditSchedule"));
+const CreateSchedule = lazy(() => import("./pages/calendar/CreateSchedule"));
 const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
 const ServicesPage = lazy(() => import("./pages/services/ServicesPage"));
 const CreateServicePage = lazy(() => import("./pages/services/CreateServicePage"));
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/calendars/edit" element={<EditCalendar />} />
             <Route path="/calendars/edit-schedule" element={<EditSchedule />} />
             <Route path="/calendars/instant" element={<InstantAvailability />} />
+            <Route path="/calendars/:calendarUid/schedules/create" element={<CreateSchedule />} />
             <Route path="/calendars/:calendarUid/schedules/:scheduleUid/edit" element={<EditSchedule />} />
             <Route path="/calendars/:calendarUid/schedules/:scheduleUid/timewindows/:timeWindowUid/customize" element={<CustomizeTimeWindow />} />
             <Route path="/calendar/:calendarUid/schedules/:scheduleUid/timewindows/:timeWindowUid/customize" element={<CustomizeTimeWindow />} />

@@ -83,14 +83,12 @@ export function useBookings(
   const [error, setError] = useState<string | null>(null);
   const enabled = options?.enabled ?? true;
   const inFlightRequestKeyRef = useRef<string | null>(null);
+  const lastCompletedRequestKeyRef = useRef<string | null>(null);
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (force = false) => {
     if (!enabled) {
       return;
     }
-
-    setLoading(true);
-    setError(null);
 
     const { fromDate, toDate } = getBookingDateRange(date, viewMode);
     const payload = buildBookingSearchBody({
@@ -104,10 +102,15 @@ export function useBookings(
     const requestKey = JSON.stringify(payload);
 
     if (inFlightRequestKeyRef.current === requestKey) {
-      setLoading(false);
       return;
     }
 
+    if (!force && lastCompletedRequestKeyRef.current === requestKey) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
     inFlightRequestKeyRef.current = requestKey;
 
     const sessionBookings = createdBookings.filter((booking) => {
@@ -120,10 +123,13 @@ export function useBookings(
     }) as never[];
 
     try {
-      const data = await api.post<unknown>("/bookings/search", payload);
+      const data = await api.post<unknown>("/bookings/search", payload, {
+        _skipLocationParam: true,
+      });
       const live = unwrapList<BookingDto>(data).map((booking) =>
         toCalendarBooking(booking, preference?.timezone)
       ) as never[];
+      lastCompletedRequestKeyRef.current = requestKey;
       setBookings([...sessionBookings, ...live]);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load bookings.");
@@ -144,5 +150,10 @@ export function useBookings(
     fetchBookings();
   }, [enabled, fetchBookings]);
 
-  return { bookings, loading, error, refresh: fetchBookings };
+  return {
+    bookings,
+    loading,
+    error,
+    refresh: () => fetchBookings(true),
+  };
 }

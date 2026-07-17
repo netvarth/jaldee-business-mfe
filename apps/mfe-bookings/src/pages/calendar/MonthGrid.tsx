@@ -94,60 +94,78 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                                             acc[uid].push(bk);
                                             return acc;
                                         }, {}));
-                                        
-                                        if (dayBookings.length > 3) {
-                                            return (
-                                                <div className="flex flex-wrap gap-1 pointer-events-auto mt-1">
-                                                    {userGroups.map(([uid, bks]: [string, any[]]) => {
-                                                        const user = users.find(u => u.uid === uid);
-                                                        const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
-                                                        const color = user?.color || '#9333EA';
-                                                        return (
-                                                            <div key={uid} className="flex flex-col items-center">
-                                                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-sm" style={{ backgroundColor: color }}>
-                                                                    {initials}
-                                                                </div>
-                                                                <span className="text-[9px] font-bold text-slate-600 mt-0.5">{bks.length}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 text-[12px] font-bold bg-slate-100 shadow-sm border border-slate-200 cursor-pointer hover:bg-slate-200" onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} />); }}>
-                                                            +
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
+                                        const sanitizeColor = (c: string | undefined | null) => {
+                                            let clr = (c || '').trim();
+                                            if (!clr || clr === 'null' || clr === 'undefined') return '#db2777';
+                                            if (clr.startsWith('#')) return clr;
+                                            if (/^[0-9A-Fa-f]{3,6}$/.test(clr)) return `#${clr}`;
+                                            return '#db2777';
+                                        };
 
-                                        return userGroups.map(([uid, bks]: [string, any[]]) => {
-                                            const user = users.find(u => u.uid === uid);
-                                            const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
-                                            const color = user?.color || '#9333EA';
-                                            return (
-                                                <div
-                                                    key={uid}
-                                                    className="month-day-booking flex items-center justify-between p-1 px-1.5 rounded-lg border shadow-sm pointer-events-auto mb-1 transition-all hover:opacity-90 cursor-pointer w-full bg-white"
-                                                    style={{ borderColor: color }}
-                                                    onClick={(e) => { e.stopPropagation(); }}
-                                                >
-                                                    <div className="flex items-center gap-1.5 min-w-0">
-                                                        <div className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold text-white shrink-0" style={{ backgroundColor: color }}>
-                                                            {initials}
+                                        const visibleGroups = userGroups.slice(0, 3);
+                                        const hasMore = userGroups.length > 3;
+
+                                        return (
+                                            <>
+                                                {visibleGroups.map(([uid, bks]: [string, any[]]) => {
+                                                    const user = users.find(u => u.uid === uid);
+                                                    const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
+                                                    const color = sanitizeColor(user?.color);
+                                                    
+                                                    return (
+                                                        <div
+                                                            key={uid}
+                                                            className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[3px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1"
+                                                            style={{ borderColor: color, backgroundColor: '#ffffff' }}
+                                                            onClick={(e) => { e.stopPropagation(); }}
+                                                        >
+                                                            <div className="flex items-center justify-center h-full w-[24px] shrink-0 text-white text-[10px] font-bold rounded-l-[3px]" style={{ backgroundColor: color }}>
+                                                                {initials}
+                                                            </div>
+                                                            
+                                                            <div className="flex-1 px-1.5 flex items-center leading-none">
+                                                                <span style={{ fontSize: '11px', color: '#333333', fontWeight: 700 }}>{bks.length} Bookings</span>
+                                                            </div>
+                                                            
+                                                            <div className="flex items-center justify-center h-full shrink-0 pr-1.5" style={{ color: color, fontSize: '16px', fontWeight: 400 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} />); }}>
+                                                                +
+                                                            </div>
                                                         </div>
-                                                        <span className="truncate" style={{ fontSize: '11px', color: '#333', fontWeight: 600 }}>
-                                                            {bks.length} {bks.length === 1 ? 'Booking' : 'Bookings'}
-                                                        </span>
+                                                    );
+                                                })}
+                                                {hasMore && (
+                                                    <div className="group relative pointer-events-auto text-[10px] text-slate-500 font-bold text-center mt-0.5">
+                                                        <span className="cursor-pointer hover:text-slate-700 hover:underline">+ {userGroups.length - 3} more</span>
+                                                        <div className="hidden group-hover:flex absolute z-50 flex-col gap-1 bottom-full left-1/2 -translate-x-1/2 mb-1.5 p-1.5 rounded-[4px] shadow-lg w-max" style={{ backgroundColor: '#db2777' }}>
+                                                            {userGroups.slice(3).map(([uid, bks]) => {
+                                                                const u = users.find(u => u.uid === uid);
+                                                                const ini = u ? (u.code || u.name?.substring(0, 2)?.toUpperCase()) : '?';
+                                                                return (
+                                                                    <div key={uid} className="flex items-center gap-1.5 pr-2">
+                                                                        <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] bg-white/20 text-white font-bold text-[9px]">
+                                                                            {ini}
+                                                                        </div>
+                                                                        <span className="text-white text-[10px] font-semibold whitespace-nowrap">{bks.length} Bookings</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent" style={{ borderTopColor: '#db2777' }}></div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center justify-center w-4 h-4 rounded-full text-white shrink-0" style={{ backgroundColor: color, fontSize: '12px', lineHeight: 1 }}>
-                                                        +
-                                                    </div>
-                                                </div>
-                                            );
-                                        });
+                                                )}
+                                            </>
+                                        );
                                     })()
                                 ) : (
                                     (function() {
+                                        const sanitizeColor = (c: string | undefined | null) => {
+                                            let clr = (c || '').trim();
+                                            if (!clr || clr === 'null' || clr === 'undefined') return '#9333EA';
+                                            if (clr.startsWith('#')) return clr;
+                                            if (/^[0-9A-Fa-f]{3,6}$/.test(clr)) return `#${clr}`;
+                                            return '#9333EA';
+                                        };
+
                                         const calGroups = Object.entries(dayBookings.reduce((acc: any, bk: any) => {
                                             const uid = bk.calendarId || bk.calendarUid || 'unknown';
                                             if (!acc[uid]) acc[uid] = [];
@@ -155,42 +173,53 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                                             return acc;
                                         }, {}));
 
-                                        if (dayBookings.length > 3) {
-                                            return (
-                                                <div className="flex flex-wrap gap-1 pointer-events-auto mt-1">
-                                                    {calGroups.map(([uid, bks]: [string, any[]]) => {
-                                                        const cal = calendars.find(c => c.uid === uid);
-                                                        const calColor = cal?.color || '#9333EA';
-                                                        return (
-                                                            <div key={uid} className="w-2 h-4 rounded-sm" style={{ backgroundColor: calColor }} title={`${bks.length} Bookings`} />
-                                                        );
-                                                    })}
-                                                    <div className="flex flex-col items-center ml-1">
-                                                        <div className="w-4 h-4 rounded flex items-center justify-center text-slate-400 text-[12px] font-bold bg-slate-100 shadow-sm border border-slate-200 cursor-pointer hover:bg-slate-200" onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} />); }}>
-                                                            +
+                                        const visibleGroups = calGroups.slice(0, 3);
+                                        const hasMore = calGroups.length > 3;
+
+                                        return (
+                                            <>
+                                                {visibleGroups.map(([uid, bks]: [string, any[]]) => {
+                                                    const cal = calendars.find(c => c.uid === uid);
+                                                    const calColor = sanitizeColor(cal?.color);
+                                                    
+                                                    return (
+                                                        <div
+                                                            key={uid}
+                                                            className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[3px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1 px-1.5"
+                                                            style={{ backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
+                                                            onClick={(e) => { e.stopPropagation(); }}
+                                                        >
+                                                            <span style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} Bookings</span>
+                                                            
+                                                            <div className="flex items-center justify-center shrink-0" style={{ color: calColor, fontSize: '15px', fontWeight: 700 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} initialCalendarUid={uid} />); }}>
+                                                                +
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                {hasMore && (
+                                                    <div className="group relative pointer-events-auto text-[10px] text-slate-500 font-bold text-center mt-0.5">
+                                                        <span className="cursor-pointer hover:text-slate-700 hover:underline">+ {calGroups.length - 3} more</span>
+                                                        <div className="hidden group-hover:flex absolute z-50 flex-col gap-1 bottom-full left-1/2 -translate-x-1/2 mb-1.5 p-1.5 rounded-[4px] shadow-lg w-max bg-white border border-slate-200">
+                                                            {calGroups.slice(3).map(([uid, bks]) => {
+                                                                const cal = calendars.find(c => c.uid === uid);
+                                                                const ini = cal ? (cal.name?.substring(0, 2)?.toUpperCase()) : '?';
+                                                                const calColor = sanitizeColor(cal?.color);
+                                                                return (
+                                                                    <div key={uid} className="flex items-center gap-1.5 pr-2">
+                                                                        <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] text-white font-bold text-[9px]" style={{ backgroundColor: calColor }}>
+                                                                            {ini}
+                                                                        </div>
+                                                                        <span className="text-slate-700 text-[10px] font-semibold whitespace-nowrap">{bks.length} Bookings</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent" style={{ borderTopColor: '#ffffff' }}></div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        }
-
-                                        return calGroups.map(([uid, bks]: [string, any[]]) => {
-                                            const cal = calendars.find(c => c.uid === uid);
-                                            const calColor = cal?.color || '#9333EA';
-                                            return (
-                                                <div
-                                                    key={uid}
-                                                    className="month-day-booking flex items-center justify-between p-1 px-2 rounded-md pointer-events-auto mb-1 transition-opacity hover:opacity-90 cursor-pointer"
-                                                    style={{ backgroundColor: toRgba(calColor, 0.2), border: 'none' }}
-                                                    onClick={(e) => { e.stopPropagation(); }}
-                                                >
-                                                    <span className="truncate" style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>
-                                                        {bks.length} Bookings
-                                                    </span>
-                                                    <span style={{ color: calColor, fontSize: '14px', lineHeight: 1, fontWeight: 700 }}>+</span>
-                                                </div>
-                                            );
-                                        });
+                                                )}
+                                            </>
+                                        );
                                     })()
                                 )}
                             </div>

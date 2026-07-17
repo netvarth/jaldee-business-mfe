@@ -76,5 +76,12 @@ export function useQrLinks() {
     [api, search],
   );
 
-  return { qrLinks, loading, error, search, create, update };
+  const getById = useCallback(
+    async (id: string) => {
+      return api.get<QrLink>(`/qr-links/${id}`);
+    },
+    [api],
+  );
+
+  return { qrLinks, loading, error, search, create, update, getById };
 }

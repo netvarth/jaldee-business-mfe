@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { X } from "lucide-react";
 import {
   Button,
   Checkbox,
@@ -12,7 +13,7 @@ import {
 } from "@jaldee/design-system";
 import { useCalendars, type CreateSchedulePayload, type CreateTimeWindowPayload } from "../../services/useCalendars";
 import { useToast } from "../../contexts/ToastContext";
-import type { Calendar, Schedule, TimeWindow } from "../../types";
+import type { Calendar, TimeWindow } from "../../types";
 
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "Mon" },
@@ -113,31 +114,27 @@ function formatTimeWindowPayload(
   };
 }
 
-export default function EditSchedule() {
+export default function CreateSchedule() {
   const navigate = useNavigate();
   const location = useLocation();
-  const params = useParams<{ calendarUid: string; scheduleUid: string }>();
+  const params = useParams<{ calendarUid: string }>();
   const { showToast } = useToast();
-  const initialCalendar = (location.state as { calendar?: Calendar; schedule?: Schedule } | null)?.calendar ?? null;
-  const initialSchedule = (location.state as { calendar?: Calendar; schedule?: Schedule } | null)?.schedule ?? null;
+  const initialCalendar = (location.state as { calendar?: Calendar } | null)?.calendar ?? null;
   const calendarUid = params.calendarUid ?? initialCalendar?.uid ?? "";
-  const scheduleUid = params.scheduleUid ?? initialSchedule?.uid ?? "";
-  const { getCalendar, getSchedule, updateSchedule } = useCalendars();
+  const { getCalendar, createSchedule } = useCalendars();
 
   const [calendar, setCalendar] = useState<Calendar | null>(initialCalendar);
-  const [loading, setLoading] = useState(Boolean(calendarUid && scheduleUid));
+  const [loading, setLoading] = useState(Boolean(calendarUid));
   const [saving, setSaving] = useState(false);
-  const [scheduleName, setScheduleName] = useState(initialSchedule?.name ?? "");
-  const [startDate, setStartDate] = useState(initialSchedule?.startDate ?? "");
-  const [endDate, setEndDate] = useState(initialSchedule?.endDate ?? "");
-  const [timeWindows, setTimeWindows] = useState<EditableTimeWindow[]>(
-    initialSchedule?.timeWindows?.map(toEditableTimeWindow) ?? [],
-  );
+  const [scheduleName, setScheduleName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [timeWindows, setTimeWindows] = useState<EditableTimeWindow[]>([createNewTimeWindow()]);
   const [confirmDelete, setConfirmDelete] = useState<EditableTimeWindow | null>(null);
   const [overlapError, setOverlapError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!calendarUid || !scheduleUid) {
+    if (!calendarUid) {
       setLoading(false);
       return;
     }
@@ -146,21 +143,12 @@ export default function EditSchedule() {
     async function loadDetails() {
       setLoading(true);
       try {
-        const [calendarData, scheduleData] = await Promise.all([
-          getCalendar(calendarUid),
-          getSchedule(calendarUid, scheduleUid),
-        ]);
+        const calendarData = await getCalendar(calendarUid);
         if (cancelled) return;
         setCalendar(calendarData);
-        if (scheduleData) {
-          setScheduleName(scheduleData.name ?? "");
-          setStartDate(scheduleData.startDate ?? "");
-          setEndDate(scheduleData.endDate ?? "");
-          setTimeWindows((scheduleData.timeWindows ?? []).map(toEditableTimeWindow));
-        }
       } catch (error) {
         if (!cancelled) {
-          showToast(error instanceof Error ? error.message : "Failed to load schedule.", "error");
+          showToast(error instanceof Error ? error.message : "Failed to load calendar details.", "error");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -171,7 +159,7 @@ export default function EditSchedule() {
     return () => {
       cancelled = true;
     };
-  }, [calendarUid, getCalendar, getSchedule, scheduleUid, showToast]);
+  }, [calendarUid, getCalendar, showToast]);
 
   const hasOverlaps = useMemo(() => {
     for (let i = 0; i < timeWindows.length; i += 1) {
@@ -256,27 +244,26 @@ export default function EditSchedule() {
   };
 
   const save = async () => {
-    if (!calendar || !calendarUid || !scheduleUid) return;
+    if (!calendar || !calendarUid) return;
     if (!validate()) return;
     setSaving(true);
     setOverlapError(null);
     try {
       const schedulePayload: CreateSchedulePayload = {
-        uid: scheduleUid,
         name: scheduleName.trim(),
-        description: initialSchedule?.description ?? "",
+        description: "",
         calendarUid: calendar.uid,
         calendarName: calendar.name,
         startDate,
         endDate: endDate || startDate,
         slotCapacity: 0,
-        qrLinkRequired: initialSchedule?.qrLinkRequired ?? true,
-        timeWindows: timeWindows.map((timeWindow) => formatTimeWindowPayload(calendar, scheduleUid, scheduleName.trim(), timeWindow)),
+        qrLinkRequired: true,
+        timeWindows: timeWindows.map((timeWindow) => formatTimeWindowPayload(calendar, "", scheduleName.trim(), timeWindow)),
       };
-      await updateSchedule(scheduleUid, schedulePayload);
+      await createSchedule(calendarUid, schedulePayload);
       navigate(`/calendars/${calendarUid}/details`, { replace: true, state: { calendar } });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to update schedule.";
+      const msg = error instanceof Error ? error.message : "Failed to create schedule.";
       if (msg.toLowerCase().includes("overlap") || (error as any)?.code === "OVERLAP_ERROR") {
         setOverlapError(msg);
       } else {
@@ -288,10 +275,10 @@ export default function EditSchedule() {
   };
 
   return (
-    <main data-testid="bookings-edit-schedule-page" className="h-full flex flex-col bg-slate-50 calendar-details-page">
+    <main data-testid="bookings-create-schedule-page" className="h-full flex flex-col bg-slate-50 calendar-details-page">
       <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
         <PageHeader
-          title="Edit Schedule"
+          title="Add Schedule"
           subtitle="Configure schedule details and time windows."
           back={{ label: "Back to calendar details", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
           onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
@@ -311,7 +298,7 @@ export default function EditSchedule() {
                 <h2 className="section-title">Schedule Details</h2>
             </div>
             <form
-              data-testid="bookings-edit-schedule-form"
+              data-testid="bookings-create-schedule-form"
               className="wizard-form"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -321,8 +308,8 @@ export default function EditSchedule() {
               <div className="form-row">
                 <div className="form-group">
                   <Input
-                    id="edit-schedule-name"
-                    data-testid="bookings-edit-schedule-name"
+                    id="create-schedule-name"
+                    data-testid="bookings-create-schedule-name"
                     label="Schedule Name"
                     className="wiz-sch-input"
                     required
@@ -332,8 +319,8 @@ export default function EditSchedule() {
                 </div>
                 <div className="form-group">
                   <Input
-                    id="edit-schedule-start"
-                    data-testid="bookings-edit-schedule-start"
+                    id="create-schedule-start"
+                    data-testid="bookings-create-schedule-start"
                     type="date"
                     label="Start Date"
                     className="wiz-sch-input"
@@ -344,8 +331,8 @@ export default function EditSchedule() {
                 </div>
                 <div className="form-group">
                   <Input
-                    id="edit-schedule-end"
-                    data-testid="bookings-edit-schedule-end"
+                    id="create-schedule-end"
+                    data-testid="bookings-create-schedule-end"
                     type="date"
                     label="End Date"
                     className="wiz-sch-input"
@@ -387,7 +374,7 @@ export default function EditSchedule() {
                           {WEEKDAY_OPTIONS.map((day) => (
                             <Checkbox
                               key={`${timeWindow.tempId}-${day.value}`}
-                              id={`edit-schedule-weekday-${timeWindow.tempId}-${day.value}`}
+                              id={`create-schedule-weekday-${timeWindow.tempId}-${day.value}`}
                               label={day.label}
                               checked={timeWindow.weekDays.includes(day.value)}
                               onChange={(event) => toggleWeekday(timeWindow.tempId, day.value, event.target.checked)}
@@ -418,7 +405,7 @@ export default function EditSchedule() {
                         </div>
                         <div className="form-group">
                           <Select
-                            id={`edit-schedule-duration-${timeWindow.tempId}`}
+                            id={`create-schedule-duration-${timeWindow.tempId}`}
                             label="Slot Duration (m)"
                             className="wiz-tw-input"
                             value={String(timeWindow.slotDuration)}
@@ -452,7 +439,7 @@ export default function EditSchedule() {
                   Discard
                 </Button>
                 <Button type="submit" loading={saving} disabled={loading}>
-                  Update Schedule
+                  Create Schedule
                 </Button>
               </div>
             </form>

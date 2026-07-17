@@ -102,8 +102,8 @@ export function useBookingAnalytics(period: Period): Analytics {
     try {
       const response = await api.post<unknown>(
         "/bookings/search",
-        { from, to },
-        { params: { page: 0, size: 100 } },
+        { from, to, page: 0, size: 100 },
+        { _skipLocationParam: true },
       );
       const bks = unwrapList<BookingDto>(response);
       // `live` reflects whether real data came back; no mock fallback.

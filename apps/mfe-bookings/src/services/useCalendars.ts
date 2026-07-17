@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useBookingApi } from "../services/useBookingApi";
-import type { Calendar, CalendarSettingsRequest, CalendarStatus, Schedule } from "../types";
+import type {
+  Calendar,
+  CalendarCustomizationRequest,
+  CalendarSettingsRequest,
+  CalendarStatus,
+  Schedule,
+  ScheduleCustomizationRequest,
+  TimeWindow,
+  TimeWindowCustomizationRequest,
+} from "../types";
 import { useToast } from "../contexts/ToastContext";
 import { unwrapList } from "./response";
 import { buildCalendarSearchBody } from "./calendarSearch";
@@ -208,11 +217,19 @@ export const useCalendars = (
 
   const searchSchedules = useCallback(
     async (calendarUid: string, q = "") => {
-      const data = await api.post<unknown>("/calendars/schedules/search", {
-        q,
-        calendarUid,
+      const data = await api.get<unknown>(`/calendars/${calendarUid}/schedules`, {
+        _skipLocationParam: true,
       });
-      return unwrapList<Schedule>(data);
+      const schedules = unwrapList<Schedule>(data);
+      const query = q.trim().toLowerCase();
+
+      if (!query) {
+        return schedules;
+      }
+
+      return schedules.filter((schedule) =>
+        String(schedule.name ?? "").toLowerCase().includes(query),
+      );
     },
     [api],
   );
@@ -248,6 +265,15 @@ export const useCalendars = (
     return response;
   };
 
+  const customizeTimeWindow = async (
+    uid: string,
+    payload: TimeWindowCustomizationRequest,
+  ) => {
+    const updated = await api.put<TimeWindow>(`/calendars/schedules/time-windows/${uid}/customizations`, payload);
+    showToast("Time window customization saved", "success");
+    return updated;
+  };
+
   const updateCalendarSettings = async (
     uid: string,
     settings: CalendarSettingsRequest,
@@ -273,6 +299,31 @@ export const useCalendars = (
       ),
     );
     showToast("Calendar updated successfully", "success");
+    return updated;
+  };
+
+  const customizeCalendar = async (
+    uid: string,
+    payload: CalendarCustomizationRequest,
+  ) => {
+    const updated = normalizeCalendar(
+      await api.put<Calendar>(`/calendars/${uid}/customizations`, payload),
+    );
+    setCalendars((prev) =>
+      prev.map((calendar) =>
+        calendar.uid === uid ? { ...calendar, ...updated } : calendar,
+      ),
+    );
+    showToast("Calendar customization saved", "success");
+    return updated;
+  };
+
+  const customizeSchedule = async (
+    scheduleUid: string,
+    payload: ScheduleCustomizationRequest,
+  ) => {
+    const updated = await api.put<Schedule>(`/schedules/${scheduleUid}/customizations`, payload);
+    showToast("Schedule customization saved", "success");
     return updated;
   };
 
@@ -308,11 +359,14 @@ export const useCalendars = (
     getLocations,
     getSchedule,
     searchSchedules,
+    customizeCalendar,
+    customizeSchedule,
     updateCalendar,
     updateCalendarSettings,
     updateCalendarExtendedSettings,
     updateSchedule,
     updateTimeWindow,
+    customizeTimeWindow,
     normalizeCalendarStatus,
     refresh: fetchCalendars,
   };

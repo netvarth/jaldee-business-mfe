@@ -192,16 +192,7 @@ export default function CalendarList() {
           </div>
         ),
       },
-      {
-        key: "assigned",
-        header: "ASSIGNED",
-        render: (calendar) => (
-          <AssignedCell
-            services={resolveAssignedServiceNames(calendar.services)}
-            users={resolveAssignedUserNames(calendar.users)}
-          />
-        ),
-      },
+
       {
         key: "status",
         header: "STATUS",
@@ -251,18 +242,9 @@ export default function CalendarList() {
     >
       <PageHeader
         title="Calendars"
-        subtitle="Manage appointment calendars, channels, and assigned teams."
-        actions={
-          <Button
-            id="bookings-calendar-list-create"
-            data-testid="bookings-calendar-list-create"
-            onClick={() => navigate("/calendars/create")}
-          >
-            Create Calendar
-          </Button>
-        }
+        subtitle="Manage your booking calendars."
+        className="mb-2"
       />
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
           id="bookings-calendar-list-search"
@@ -303,6 +285,13 @@ export default function CalendarList() {
                 {appliedFilterCount}
               </span>
             ) : null}
+          </Button>
+          <Button
+            id="bookings-calendar-list-create"
+            data-testid="bookings-calendar-list-create"
+            onClick={() => navigate("/calendars/create")}
+          >
+            Create
           </Button>
         </div>
       </div>

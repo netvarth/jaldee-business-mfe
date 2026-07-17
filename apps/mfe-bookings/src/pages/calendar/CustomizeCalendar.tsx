@@ -4,34 +4,21 @@ import { Alert, Badge, Button, Checkbox, Input, PageHeader } from "@jaldee/desig
 import { useCalendars } from "../../services/useCalendars";
 import { useServices } from "../../services/useServices";
 import { useUsers } from "../../services/useUsers";
-import type { Calendar, Schedule } from "../../types";
+import type { Calendar, CalendarCustomizationRequest, Schedule, ScheduleCustomizationRequest } from "../../types";
 import DualListServicesModal, { Service } from "./components/DualListServicesModal";
 import DualListUsersModal from "./components/DualListUsersModal";
 
 const channels = [
-  {
-    value: "ONLINE",
-    title: "Online",
-    description: "Allow customers to book appointments online",
-  },
-  {
-    value: "WALK_IN",
-    title: "Walk-in",
-    description: "Accept walk-in appointments without prior booking",
-  },
-  {
-    value: "PHONE_IN",
-    title: "Phone-in",
-    description: "Accept appointments booked over the phone",
-  },
-  {
-    value: "IVR",
-    title: "IVR",
-    description: "Accept appointments initiated through the IVR channel",
-  },
+  { value: "ONLINE", title: "Online", description: "Allow customers to book appointments online" },
+  { value: "WALK_IN", title: "Walk-in", description: "Accept walk-in appointments without prior booking" },
+  { value: "PHONE_IN", title: "Phone-in", description: "Accept appointments booked over the phone" },
+  { value: "IVR", title: "IVR", description: "Accept appointments initiated through the IVR channel" },
 ];
 
-function normalizeList(values: unknown[] | undefined, fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id"]) {
+function normalizeList(
+  values: unknown[] | undefined,
+  fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id"],
+) {
   if (!Array.isArray(values)) return [];
   return values
     .map((value) => {
@@ -47,6 +34,10 @@ function normalizeList(values: unknown[] | undefined, fallbackKeys: string[] = [
     .filter(Boolean);
 }
 
+function unique(values: string[]) {
+  return Array.from(new Set(values.filter((value) => value.trim()))); 
+}
+
 function token(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
@@ -56,6 +47,21 @@ function formatUsers(items: string[]) {
   return [items[0], items[1], `+${items.length - 2} more`];
 }
 
+function diffList(current: string[], initial: string[]) {
+  const currentSet = new Set(current);
+  const initialSet = new Set(initial);
+  return {
+    add: current.filter((item) => !initialSet.has(item)),
+    remove: initial.filter((item) => !currentSet.has(item)),
+  };
+}
+
+interface ServiceAssignment {
+  userUid: string;
+  userName: string;
+  price?: number;
+}
+
 export default function CustomizeCalendar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,43 +69,67 @@ export default function CustomizeCalendar() {
   const routeState = (location.state as { calendar?: Calendar; schedule?: Schedule } | null) ?? null;
   const initialCalendar = routeState?.calendar;
   const selectedSchedule = routeState?.schedule ?? null;
+  const isScheduleMode = Boolean(selectedSchedule);
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
-  const { updateCalendar, searchSchedules, getCalendar } = useCalendars();
+  const { customizeCalendar, customizeSchedule, searchSchedules, getCalendar } = useCalendars();
   const { services } = useServices();
   const { users } = useUsers();
+
   const [calendar, setCalendar] = useState<Calendar | null>(initialCalendar ?? null);
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(initialCalendar?.bookingChannels ?? ["ONLINE"]);
-  const [tags, setTags] = useState<string[]>(initialCalendar?.tags ?? []);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [serviceAssignments, setServiceAssignments] = useState<Record<string, ServiceAssignment[]>>({});
+  const [initialChannels, setInitialChannels] = useState<string[]>([]);
+  const [initialServiceIds, setInitialServiceIds] = useState<string[]>([]);
+  const [initialTags, setInitialTags] = useState<string[]>([]);
+  const [initialServiceAssignments, setInitialServiceAssignments] = useState<Record<string, ServiceAssignment[]>>({});
+  const [applyToAll, setApplyToAll] = useState(!isScheduleMode);
+  const [newLabel, setNewLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
   const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
-  const [serviceUsers, setServiceUsers] = useState<Record<string, string[]>>({});
 
-  const serviceMap = useMemo(
-    () => new Map(services.map((service) => [service.uid ?? service.id, service.name])),
-    [services],
+  const serviceMap = useMemo(() => new Map(services.map((service) => [service.uid ?? service.id, service.name])), [services]);
+  const userMap = useMemo(() => new Map(users.map((user) => [user.userUid, user.displayName])), [users]);
+  const defaultUserIds = useMemo(
+    () => unique(normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"])),
+    [calendar?.users],
   );
-  const userMap = useMemo(
-    () => new Map(users.map((user) => [user.userUid, user.displayName])),
-    [users],
+
+  const defaultAssignments = useMemo<Record<string, ServiceAssignment[]>>(
+    () =>
+      Object.fromEntries(
+        selectedServiceIds.map((serviceId) => [
+          serviceId,
+          defaultUserIds.map((id) => ({
+            userUid: id,
+            userName: userMap.get(id) ?? id,
+          })),
+        ]),
+      ),
+    [defaultUserIds, selectedServiceIds, userMap],
   );
 
   const serviceRows = useMemo(() => {
-    const serviceIds = normalizeList(calendar?.services as unknown[]);
-    const defaultUserNames = normalizeList(
-      calendar?.users as unknown[],
-      ["displayName", "name", "label", "title", "userUid", "uid", "id"],
-    ).map((item) => userMap.get(item) ?? item);
-    return serviceIds.map((serviceId, index) => ({
-      serviceId,
-      id: `${serviceId}-${index}`,
-      serviceName: serviceMap.get(serviceId) ?? serviceId,
-      users: serviceUsers[serviceId] ? serviceUsers[serviceId].map(id => userMap.get(id) ?? id) : defaultUserNames,
-    }));
-  }, [calendar?.services, calendar?.users, serviceUsers, serviceMap, userMap]);
+    return selectedServiceIds.map((serviceId, index) => {
+      const assignedUsers =
+        serviceAssignments[serviceId] ??
+        initialServiceAssignments[serviceId] ??
+        defaultAssignments[serviceId] ??
+        [];
+      return {
+        serviceId,
+        id: `${serviceId}-${index}`,
+        serviceName: serviceMap.get(serviceId) ?? serviceId,
+        users: assignedUsers,
+      };
+    });
+  }, [defaultAssignments, initialServiceAssignments, selectedServiceIds, serviceAssignments, serviceMap]);
+
   const visibleSchedules = useMemo(
     () => (selectedSchedule ? schedules.filter((schedule) => schedule.uid === selectedSchedule.uid) : schedules),
     [schedules, selectedSchedule],
@@ -117,9 +147,31 @@ export default function CustomizeCalendar() {
       try {
         const data = await getCalendar(calendarUid);
         if (cancelled) return;
+        const serviceIds = unique(normalizeList(data.services as unknown[], ["uid", "id", "name"]));
+        const bookingChannels = unique(normalizeList(data.bookingChannels as unknown[]));
+        const labels = unique(normalizeList((data.tags ?? data.label) as unknown[]));
+        const baseUsers = unique(
+          normalizeList(data.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
+        );
+        const initialUserMap = Object.fromEntries(
+          serviceIds.map((serviceId) => [
+            serviceId,
+            baseUsers.map((userUid) => ({
+              userUid,
+              userName: userMap.get(userUid) ?? userUid,
+            })),
+          ]),
+        );
+
         setCalendar(data);
-        setSelectedChannels(data.bookingChannels ?? ["ONLINE"]);
-        setTags(normalizeList(data.tags as unknown[]));
+        setSelectedServiceIds(serviceIds);
+        setSelectedChannels(bookingChannels.length ? bookingChannels : ["ONLINE"]);
+        setTags(labels);
+        setServiceAssignments(initialUserMap);
+        setInitialServiceIds(serviceIds);
+        setInitialChannels(bookingChannels.length ? bookingChannels : ["ONLINE"]);
+        setInitialTags(labels);
+        setInitialServiceAssignments(initialUserMap);
       } catch {
         if (!cancelled) setCalendar(initialCalendar ?? null);
       } finally {
@@ -143,6 +195,33 @@ export default function CustomizeCalendar() {
         const data = await searchSchedules(calendarUid);
         if (cancelled) return;
         setSchedules(data);
+        if (selectedSchedule) {
+          const matched = data.find((schedule) => schedule.uid === selectedSchedule.uid) ?? selectedSchedule;
+          const scheduleServices = matched.services ?? [];
+          const nextServiceIds = unique(scheduleServices.map((item) => item.serviceUid));
+          const nextAssignments = Object.fromEntries(
+            scheduleServices.map((item) => [
+              item.serviceUid,
+              (item.users ?? []).map((user) => ({
+                userUid: user.userUid,
+                userName: user.userName ?? userMap.get(user.userUid) ?? user.userUid,
+                price: user.price,
+              })),
+            ]),
+          );
+          const bookingChannels = unique(normalizeList(matched.bookingChannels as unknown[]));
+          const labels = unique(normalizeList(matched.label as unknown[]));
+
+          setSelectedServiceIds(nextServiceIds);
+          setInitialServiceIds(nextServiceIds);
+          setServiceAssignments(nextAssignments);
+          setInitialServiceAssignments(nextAssignments);
+          setSelectedChannels(bookingChannels);
+          setInitialChannels(bookingChannels);
+          setTags(labels);
+          setInitialTags(labels);
+          setApplyToAll(false);
+        }
       } catch {
         if (!cancelled) setSchedules([]);
       } finally {
@@ -154,39 +233,134 @@ export default function CustomizeCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [calendarUid, searchSchedules]);
+  }, [calendarUid, searchSchedules, selectedSchedule, userMap]);
 
   const addTag = () => {
-    const value = window.prompt("Enter label");
-    const next = value?.trim();
-    if (next && !tags.includes(next)) {
-      setTags((current) => [...current, next]);
+    const value = newLabel.trim();
+    if (!value || tags.includes(value)) return;
+    setTags((current) => [...current, value]);
+    setNewLabel("");
+  };
+
+  const buildCalendarPayload = (): CalendarCustomizationRequest => {
+    const channelDiff = diffList(selectedChannels, initialChannels);
+    const labelDiff = diffList(tags, initialTags);
+    const serviceDiff = diffList(selectedServiceIds, initialServiceIds);
+
+    const addServices = serviceDiff.add.map((serviceUid) => {
+      const currentUsers = unique((serviceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      return { serviceUid, addUsers: currentUsers, removeUsers: [] };
+    });
+
+    const removeServices = serviceDiff.remove.map((serviceUid) => {
+      const removedUsers = unique((initialServiceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      return { serviceUid, addUsers: [], removeUsers: removedUsers };
+    });
+
+    for (const serviceUid of selectedServiceIds.filter((id) => initialServiceIds.includes(id))) {
+      const currentUsers = unique((serviceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      const initialUsers = unique((initialServiceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      const userDiff = diffList(currentUsers, initialUsers);
+      if (userDiff.add.length || userDiff.remove.length) {
+        addServices.push({
+          serviceUid,
+          addUsers: userDiff.add,
+          removeUsers: userDiff.remove,
+        });
+      }
     }
+
+    return {
+      applyToAll,
+      addServices,
+      removeServices,
+      addBookingChannels: channelDiff.add,
+      removeBookingChannels: channelDiff.remove,
+      addLabels: labelDiff.add,
+      removeLabels: labelDiff.remove,
+    };
+  };
+
+  const buildSchedulePayload = (): ScheduleCustomizationRequest => {
+    const channelDiff = diffList(selectedChannels, initialChannels);
+    const labelDiff = diffList(tags, initialTags);
+    const serviceDiff = diffList(selectedServiceIds, initialServiceIds);
+
+    const addServices = serviceDiff.add.map((serviceUid) => ({
+      serviceUid,
+      serviceName: serviceMap.get(serviceUid) ?? serviceUid,
+      addUsers: (serviceAssignments[serviceUid] ?? []).map((item) => ({
+        userUid: item.userUid,
+        userName: item.userName,
+        price: item.price ?? 0,
+      })),
+      removeUsers: [],
+    }));
+
+    const removeServices = serviceDiff.remove.map((serviceUid) => ({ serviceUid }));
+
+    for (const serviceUid of selectedServiceIds.filter((id) => initialServiceIds.includes(id))) {
+      const currentUsers = serviceAssignments[serviceUid] ?? [];
+      const initialUsers = initialServiceAssignments[serviceUid] ?? [];
+      const initialMap = new Map(initialUsers.map((item) => [item.userUid, item]));
+      const currentMap = new Map(currentUsers.map((item) => [item.userUid, item]));
+
+      const addedUsers = currentUsers
+        .filter((item) => !initialMap.has(item.userUid))
+        .map((item) => ({
+          userUid: item.userUid,
+          userName: item.userName,
+          price: item.price ?? 0,
+        }));
+
+      const removedUsers = initialUsers
+        .filter((item) => !currentMap.has(item.userUid))
+        .map((item) => ({ userUid: item.userUid }));
+
+      const repricedUsers = currentUsers
+        .filter((item) => {
+          const existing = initialMap.get(item.userUid);
+          return existing && (existing.price ?? 0) !== (item.price ?? 0);
+        })
+        .map((item) => ({
+          userUid: item.userUid,
+          userName: item.userName,
+          price: item.price ?? 0,
+        }));
+
+      if (addedUsers.length || removedUsers.length || repricedUsers.length) {
+        addServices.push({
+          serviceUid,
+          serviceName: serviceMap.get(serviceUid) ?? serviceUid,
+          addUsers: [...addedUsers, ...repricedUsers],
+          removeUsers: removedUsers,
+        });
+      }
+    }
+
+    return {
+      applyToAll,
+      addServices,
+      removeServices,
+      addBookingChannels: channelDiff.add,
+      removeBookingChannels: channelDiff.remove,
+      addLabels: labelDiff.add,
+      removeLabels: labelDiff.remove,
+    };
   };
 
   const save = async () => {
     if (!calendarUid || !calendar) return;
     setSaving(true);
     try {
-      const updated = await updateCalendar(calendarUid, {
-        uid: calendar.uid,
-        name: calendar.name ?? "",
-        description: calendar.description ?? "",
-        locationId: calendar.locationId ?? 0,
-        locationName: calendar.locationName ?? "",
-        services: normalizeList(calendar.services as unknown[], ["uid", "id", "name"]),
-        users: normalizeList(calendar.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
-        channel: calendar.channel ?? "ONLINE",
-        label: normalizeList(calendar.label as unknown[]),
-        qrLinkRequired: calendar.qrLinkRequired ?? false,
-        feature: calendar.feature ?? "BASE_CRM",
-        status: calendar.status ?? "INACTIVE",
-        color: calendar.color ?? "",
-        bookingChannels: selectedChannels,
-        capacityOverride: calendar.capacityOverride ?? 0,
-        tags,
-      });
-      navigate(`/calendars/${calendarUid}/details`, { replace: true, state: { calendar: updated } });
+      if (selectedSchedule) {
+        await customizeSchedule(selectedSchedule.uid, buildSchedulePayload());
+        navigate(`/calendars/${calendarUid}/details`, { replace: true, state: { calendar } });
+      } else {
+        const payload = buildCalendarPayload();
+        const updated = await customizeCalendar(calendarUid, payload);
+        navigate(`/calendars/${calendarUid}/details`, { replace: true, state: { calendar: updated } });
+      }
     } catch {
       // The calendar hook maps the API failure to a user-facing toast.
     } finally {
@@ -194,27 +368,31 @@ export default function CustomizeCalendar() {
     }
   };
 
+  const selectedServiceObjects = services.filter((service) =>
+    selectedServiceIds.includes(service.uid ?? service.id),
+  );
+
   return (
     <main
       id="bookings-customize-calendar-page"
       data-testid="bookings-customize-calendar-page"
       data-state={calendarUid ? "ready" : "empty"}
-      className="h-full overflow-y-auto bg-[#f6f7fb]"
+      className="calendar-details-page"
     >
-      <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
+      <header className="border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
         <PageHeader
           title="Customize Calendar"
-          subtitle="Configure booking channels and labels."
+          subtitle="Configure services, users, booking channels, and labels."
           back={{ label: "Back to calendar details", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
           onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
-          actions={calendar?.name ? <Badge variant="success">{calendar.name}</Badge> : undefined}
+          className="mb-4"
         />
+      </header>
 
-        {!calendarUid && (
-          <Alert variant="danger">Open this screen from a calendar’s details to save settings.</Alert>
-        )}
+      <div className="calendar-details-layout pb-10">
+        {!calendarUid && <Alert variant="danger" className="mt-4">Open this screen from a calendar’s details to save settings.</Alert>}
 
-        <section className="mt-8 rounded-xl border border-[#E8EAF3] bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)] md:p-8">
+        <section className="mt-2 rounded-xl border border-[#E8EAF3] bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)] md:p-8">
           {loadingCalendar ? (
             <div className="text-sm text-slate-500">Loading calendar...</div>
           ) : (
@@ -222,7 +400,7 @@ export default function CustomizeCalendar() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 md:text-[30px]">
-                    Customize Your Calendar
+                    {selectedSchedule ? selectedSchedule.name : calendar?.name || "Customize Your Calendar"}
                   </h1>
                   <p className="mt-2 text-[15px] text-slate-500">
                     {selectedSchedule
@@ -233,47 +411,52 @@ export default function CustomizeCalendar() {
                 {calendar?.status ? <Badge variant="success">{calendar.status}</Badge> : null}
               </div>
 
-                <div className="mt-7 flex flex-wrap gap-3">
+              <div className="mt-6">
+                <h3 className="mb-3 text-sm font-semibold text-slate-800">Schedules</h3>
+                <div className="flex flex-wrap gap-3">
                   {loadingSchedules ? (
                     <span className="text-sm text-slate-500">Loading schedules...</span>
-                ) : visibleSchedules.length ? (
-                  visibleSchedules.map((schedule) => (
+                  ) : visibleSchedules.length ? (
+                    visibleSchedules.map((schedule) => (
                       <div
                         key={schedule.uid}
-                        className="inline-flex h-9 items-center rounded-full border border-[#7c3aed] px-4 text-sm font-semibold"
-                        style={{ backgroundColor: "#7c3aed", color: "#ffffff" }}
+                        className="inline-flex h-8 items-center rounded-md border border-[#5a32a3] bg-[#f8f5ff] px-3 text-xs font-semibold text-[#5a32a3]"
                       >
                         {schedule.name}
                       </div>
-                  ))
-                ) : (
-                  <span className="text-sm text-slate-500">
-                    {selectedSchedule ? "The selected schedule could not be loaded." : "No schedules found for this calendar."}
-                  </span>
-                )}
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-500">
+                      {selectedSchedule
+                        ? "The selected schedule could not be loaded."
+                        : "No schedules found for this calendar."}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <section className="mt-10">
+              <section className="mt-8">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-[22px] font-semibold text-slate-900">Services &amp; Users</h2>
+                    <h2 className="text-base font-semibold text-slate-700">Services & Users</h2>
                   </div>
-                  <Button
+                  <button
                     type="button"
                     onClick={() => setIsServicesModalOpen(true)}
-                    className="h-10 rounded-lg !bg-[#7c3aed] px-5 !text-white hover:!bg-[#6d28d9] hover:!text-white"
+                    className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-slate-800 px-4 text-xs font-semibold text-white transition-colors hover:bg-slate-700"
                   >
-                    + Add Services
-                  </Button>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+                    Add Services
+                  </button>
                 </div>
 
                 <div className="mt-5 overflow-x-auto rounded-xl border border-[#E7EBF4]">
                   <table className="min-w-full border-collapse">
-                    <thead className="bg-[#f7f8fc]">
+                    <thead className="border-b border-[#E7EBF4]">
                       <tr>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">Service</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">Users</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">Actions</th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-slate-800">Services</th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-slate-800">Users</th>
+                        <th className="px-6 py-4 text-right text-sm font-bold text-slate-800"></th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
@@ -282,19 +465,35 @@ export default function CustomizeCalendar() {
                           <tr key={row.id} className="border-t border-[#E7EBF4]">
                             <td className="px-6 py-5 text-base font-medium text-slate-900">{row.serviceName}</td>
                             <td className="px-6 py-5">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {formatUsers(row.users).length ? (
-                                  formatUsers(row.users).map((user) => (
-                                    <span
-                                      key={`${row.id}-${user}`}
-                                      className={`inline-flex items-center rounded-full px-3 py-1 text-sm ${
-                                        user.startsWith("+")
-                                          ? "bg-[#f5f3ff] text-[#7c3aed]"
-                                          : "bg-[#f5f6fa] text-slate-700 ring-1 ring-[#E3E5EE]"
-                                      }`}
-                                    >
-                                      {user}
-                                    </span>
+                              <div className="flex flex-col gap-2">
+                                {row.users.length ? (
+                                  row.users.map((user) => (
+                                    <div key={`${row.serviceId}-${user.userUid}`} className="flex items-center gap-3">
+                                      <span className="text-sm text-slate-700">{user.userName}</span>
+                                      {isScheduleMode ? (
+                                        <Input
+                                          value={String(user.price ?? 0)}
+                                          onChange={(event) =>
+                                            setServiceAssignments((current) => ({
+                                              ...current,
+                                              [row.serviceId]: (current[row.serviceId] ?? row.users).map((item) =>
+                                                item.userUid === user.userUid
+                                                  ? {
+                                                      ...item,
+                                                      price: Number(event.target.value || 0),
+                                                    }
+                                                  : item,
+                                              ),
+                                            }))
+                                          }
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          className="w-28"
+                                          placeholder="Price"
+                                        />
+                                      ) : null}
+                                    </div>
                                   ))
                                 ) : (
                                   <span className="text-sm text-slate-400">No users assigned</span>
@@ -306,25 +505,17 @@ export default function CustomizeCalendar() {
                                 <button
                                   type="button"
                                   onClick={() => setUsersModalServiceId(row.serviceId)}
-                                  className="flex h-9 items-center justify-center rounded-lg border border-[#E7EBF4] px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                  className="text-sm font-semibold text-[#5a32a3] underline hover:text-[#462780]"
                                 >
-                                  Edit Users
+                                  Edit
                                 </button>
                                 <button
                                   type="button"
                                   aria-label={`Delete ${row.serviceName}`}
-                                  onClick={() => {
-                                    if (calendar) {
-                                      const newServices = calendar.services?.filter((id: any) => {
-                                        const sId = typeof id === 'string' ? id : id?.uid ?? id?.id;
-                                        return sId !== row.serviceId;
-                                      }) as string[];
-                                      setCalendar({ ...calendar, services: newServices });
-                                    }
-                                  }}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7EBF4] text-slate-500 transition hover:bg-[#fee2e2] hover:text-[#dc2626]"
+                                  onClick={() => setSelectedServiceIds((current) => current.filter((id) => id !== row.serviceId))}
+                                  className="text-slate-400 hover:text-slate-600 ml-4"
                                 >
-                                  <span aria-hidden="true">🗑</span>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
                                 </button>
                               </div>
                             </td>
@@ -342,19 +533,17 @@ export default function CustomizeCalendar() {
                 </div>
               </section>
 
-              <section className="mt-10">
-                <h2 className="text-[22px] font-semibold text-slate-900">Booking Channel Setup</h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  Configure which channels customers can use to book appointments.
-                </p>
+              <section className="mt-8">
+                <h2 className="text-base font-semibold text-slate-700">Booking Channel Setup</h2>
+                <p className="mt-1 text-sm text-slate-500">Configure which channels customers can use to book appointments for this time window</p>
 
-                <div className="mt-5 space-y-5">
+                <div className="mt-5 space-y-4">
                   {channels.map((channel) => {
                     const checked = selectedChannels.includes(channel.value);
                     return (
                       <label
                         key={channel.value}
-                        className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8EAF3] bg-white p-4 transition hover:border-[#d8ccff] hover:bg-[#faf7ff]"
+                        className="flex cursor-pointer items-start gap-3"
                       >
                         <Checkbox
                           id={`bookings-customize-channel-${token(channel.value)}`}
@@ -362,9 +551,7 @@ export default function CustomizeCalendar() {
                           checked={checked}
                           onChange={() =>
                             setSelectedChannels((current) =>
-                              checked
-                                ? current.filter((value) => value !== channel.value)
-                                : [...current, channel.value],
+                              checked ? current.filter((value) => value !== channel.value) : [...current, channel.value],
                             )
                           }
                           label={
@@ -381,17 +568,15 @@ export default function CustomizeCalendar() {
                 </div>
               </section>
 
-              <section className="mt-10">
-                <h2 className="text-[22px] font-semibold text-slate-900">Label</h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  Labels help tag bookings into specific groups.
-                </p>
+              <section className="mt-8">
+                <h2 className="text-base font-semibold text-slate-700">Label</h2>
+                <p className="mt-1 text-sm text-slate-500">Label helps you tag a booking to a specified group. Examples: VIP, Family, etc.</p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   {tags.map((tag) => (
                     <span
                       key={tag}
                       data-testid={`bookings-customize-tag-${token(tag)}`}
-                      className="inline-flex h-[34px] items-center gap-2 rounded-2xl border border-[#E3E5EE] bg-[#F5F6FA] px-4 text-sm font-medium text-slate-700"
+                      className="inline-flex h-[34px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
                     >
                       {tag}
                       <button
@@ -406,17 +591,29 @@ export default function CustomizeCalendar() {
                       </button>
                     </span>
                   ))}
-                  <button
-                    id="bookings-customize-tag-add"
-                    data-testid="bookings-customize-tag-add"
-                    type="button"
-                    onClick={addTag}
-                    className="inline-flex h-[34px] items-center rounded-2xl px-3 text-sm font-semibold text-[#7c3aed] transition hover:bg-[#f5f3ff]"
-                  >
-                    + Add Label
-                  </button>
+                  <div className="flex items-center gap-3 ml-2">
+                    <Input
+                      id="bookings-customize-tag-input"
+                      value={newLabel}
+                      onChange={(event) => setNewLabel(event.target.value)}
+                      placeholder="New label..."
+                      className="w-32 h-[34px] !min-h-[34px] text-sm"
+                    />
+                    <button
+                      id="bookings-customize-tag-add"
+                      data-testid="bookings-customize-tag-add"
+                      type="button"
+                      onClick={addTag}
+                      disabled={!newLabel.trim()}
+                      className="flex items-center gap-1.5 text-sm font-semibold text-[#5a32a3] hover:text-[#462780] disabled:opacity-50"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                      Add Label
+                    </button>
+                  </div>
                 </div>
               </section>
+
               <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Button
                   id="bookings-customize-calendar-cancel"
@@ -424,7 +621,7 @@ export default function CustomizeCalendar() {
                   type="button"
                   onClick={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
                   variant="secondary"
-                  className="h-11 rounded-lg px-6 sm:w-auto"
+                  className="h-9 rounded-md px-6 sm:w-auto text-sm font-semibold"
                 >
                   Cancel
                 </Button>
@@ -436,9 +633,9 @@ export default function CustomizeCalendar() {
                   disabled={!calendarUid || loadingCalendar}
                   loading={saving}
                   onClick={() => void save()}
-                  className="h-11 rounded-lg !bg-[#7c3aed] px-6 !text-white hover:!bg-[#6d28d9] hover:!text-white sm:min-w-[120px]"
+                  className="h-9 rounded-md !bg-[#5a32a3] px-8 !text-white hover:!bg-[#462780] hover:!text-white sm:min-w-[120px] text-sm font-semibold"
                 >
-                  Update
+                  {selectedSchedule ? "Update Schedule" : "Update"}
                 </Button>
               </div>
             </>
@@ -446,32 +643,47 @@ export default function CustomizeCalendar() {
         </section>
       </div>
 
-      <DualListServicesModal 
+      <DualListServicesModal
         isOpen={isServicesModalOpen}
         onClose={() => setIsServicesModalOpen(false)}
         allServices={services}
-        initialSelectedServices={services.filter(s => calendar?.services?.includes(s.uid ?? s.id))}
-        onSave={async (added) => {
+        initialSelectedServices={selectedServiceObjects as Service[]}
+        onSave={(selected) => {
+          setSelectedServiceIds(unique(selected.map((service) => service.uid ?? service.id)));
           setIsServicesModalOpen(false);
-          if (calendar) {
-            const newCalendar = { ...calendar, services: added.map(s => s.uid ?? s.id) };
-            setCalendar(newCalendar);
-          }
         }}
       />
 
       <DualListUsersModal
         isOpen={usersModalServiceId !== null}
         onClose={() => setUsersModalServiceId(null)}
-        serviceName={serviceRows.find(r => r.serviceId === usersModalServiceId)?.serviceName || "this service"}
-        allUsers={users.map(u => ({ id: u.userUid, name: u.displayName || u.firstName || "Unknown", role: u.designation || "Practitioner" }))}
-        initialSelectedUsers={(serviceUsers[usersModalServiceId!] ?? normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id"])).map(uId => {
-          const u = users.find(user => user.userUid === uId);
-          return { id: String(uId), name: u?.displayName || u?.firstName || "Unknown", role: u?.designation || "Practitioner" };
+        serviceName={serviceRows.find((row) => row.serviceId === usersModalServiceId)?.serviceName || "this service"}
+        allUsers={users.map((u) => ({
+          id: u.userUid,
+          name: u.displayName || u.firstName || "Unknown",
+          role: u.title || "Practitioner",
+        }))}
+        initialSelectedUsers={(serviceAssignments[usersModalServiceId ?? ""] ?? initialServiceAssignments[usersModalServiceId ?? ""] ?? defaultAssignments[usersModalServiceId ?? ""] ?? []).map((assignment) => {
+          const u = users.find((user) => user.userUid === assignment.userUid);
+          return {
+            id: String(assignment.userUid),
+            name: assignment.userName || u?.displayName || u?.firstName || "Unknown",
+            role: u?.title || "Practitioner",
+          };
         })}
         onSave={(selected) => {
           if (usersModalServiceId) {
-            setServiceUsers(prev => ({ ...prev, [usersModalServiceId]: selected.map(s => s.id) }));
+            setServiceAssignments((prev) => {
+              const existing = new Map((prev[usersModalServiceId] ?? []).map((item) => [item.userUid, item]));
+              return {
+                ...prev,
+                [usersModalServiceId]: selected.map((item) => ({
+                  userUid: item.id,
+                  userName: item.name,
+                  price: existing.get(item.id)?.price ?? 0,
+                })),
+              };
+            });
           }
           setUsersModalServiceId(null);
         }}

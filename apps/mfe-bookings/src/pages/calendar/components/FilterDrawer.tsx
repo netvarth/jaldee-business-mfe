@@ -92,7 +92,7 @@ export default function FilterDrawer({ initialCalendars, initialUsers, initialSe
                     {calendarsOpen && (
                         <div className="flex flex-col gap-2.5 mt-3 pl-1">
                             {calendars.map(cal => {
-                                const id = cal.uid || cal.id || '';
+                                const id = cal.uid ?? cal.id ?? '';
                                 return (
                                     <label key={id} className="flex items-center gap-3 cursor-pointer">
                                         <input 
@@ -101,7 +101,7 @@ export default function FilterDrawer({ initialCalendars, initialUsers, initialSe
                                             checked={selectedCalendars.size === 0 || selectedCalendars.has(id)}
                                             onChange={() => {
                                                 let newSet = new Set(selectedCalendars);
-                                                if (selectedCalendars.size === 0) newSet = new Set(calendars.map(c => c.uid || c.id || ''));
+                                                if (selectedCalendars.size === 0) newSet = new Set(calendars.map(c => c.uid ?? c.id ?? '').filter(Boolean));
                                                 if (newSet.has(id)) newSet.delete(id);
                                                 else newSet.add(id);
                                                 if (newSet.size === calendars.length) newSet.clear();

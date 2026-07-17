@@ -11,6 +11,7 @@ interface BookingSearchFiltersDrawerProps {
   onChange: (filters: SearchFilterClause[]) => void;
   onApply: () => void;
   onReset: () => void;
+  onSaveFilter?: () => void;
 }
 
 export default function BookingSearchFiltersDrawer({
@@ -21,6 +22,7 @@ export default function BookingSearchFiltersDrawer({
   onChange,
   onApply,
   onReset,
+  onSaveFilter,
 }: BookingSearchFiltersDrawerProps) {
   const { closeDrawer } = useModal();
 
@@ -54,9 +56,14 @@ export default function BookingSearchFiltersDrawer({
       </div>
 
       <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
-        <Button type="button" variant="outline" onClick={onReset}>
+        <Button type="button" variant="outline" onClick={onReset} className="mr-auto">
           Reset All
         </Button>
+        {onSaveFilter && (
+          <Button type="button" variant="secondary" onClick={onSaveFilter}>
+            Save Filter
+          </Button>
+        )}
         <Button
           type="button"
           onClick={() => {

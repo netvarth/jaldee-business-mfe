@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, PageHeader, Popover, PopoverSection, Switch } from "@jaldee/design-system";
-import { Calendar as CalendarIcon, Clock, FileText, MoreVertical, Plus, Settings, UserCircle, Users } from "../../components/icons";
+import { Calendar as CalendarIcon, Clock, FileText, MapPin, MoreVertical, Plus, Settings, UserCircle, Users } from "../../components/icons";
 import { useCalendars } from "../../services/useCalendars";
 import { useUsers } from "../../services/useUsers";
 import { useServices } from "../../services/useServices";
@@ -166,8 +166,7 @@ export default function CalendarDetails() {
       className="calendar-details-page"
     >
       <DetailsHeader
-        title={loadingCalendar ? "Loading calendar..." : calendar.name}
-        subtitle={calendar.description || "Calendar configuration and assignments."}
+        title="Calendar Details"
         onBack={() => navigate("/calendars")}
       />
 
@@ -184,18 +183,15 @@ export default function CalendarDetails() {
             <CalendarIcon size={28} />
           </div>
           <div className="calendar-profile-meta">
-            <div className="profile-name-row">
-              <div>
-                <h2 className="profile-title">{calendar.name}</h2>
-              </div>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <h2 className="profile-title m-0">{calendar.name}</h2>
               <Badge variant="success">{resolveStatusLabel(calendar.status)}</Badge>
             </div>
-            <p className="profile-description">{calendar.description || "No description"}</p>
             {calendar.locationName ? (
-              <span className="profile-location">
-                <CalendarIcon size={14} />
+              <div className="mt-3 flex w-fit items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-medium text-slate-600">
+                <MapPin size={14} />
                 {calendar.locationName}
-              </span>
+              </div>
             ) : null}
           </div>
           <div className="profile-header-actions">
@@ -235,7 +231,7 @@ export default function CalendarDetails() {
                 id="bookings-calendar-details-add-schedule"
                 data-testid="bookings-calendar-details-add-schedule"
                 variant="secondary"
-                onClick={() => navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar } })}
+                onClick={() => navigate(`/calendars/${calendar.uid}/schedules/create`, { state: { calendar } })}
               >
                 Add Schedule
               </Button>

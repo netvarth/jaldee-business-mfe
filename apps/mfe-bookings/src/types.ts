@@ -59,6 +59,70 @@ export interface CalendarSettingsRequest {
   status?: CalendarStatus;
 }
 
+export interface CalendarServiceCustomization {
+  serviceUid: string;
+  addUsers: string[];
+  removeUsers: string[];
+}
+
+export interface ScheduleServiceUserCustomization {
+  userUid: string;
+  userName?: string;
+  price?: number;
+}
+
+export interface ScheduleServiceCustomization {
+  serviceUid: string;
+  serviceName?: string;
+  addUsers: ScheduleServiceUserCustomization[];
+  removeUsers: Array<Pick<ScheduleServiceUserCustomization, "userUid">>;
+}
+
+export interface CalendarCustomizationRequest {
+  applyToAll: boolean;
+  addServices: CalendarServiceCustomization[];
+  removeServices: CalendarServiceCustomization[];
+  addBookingChannels: string[];
+  removeBookingChannels: string[];
+  addLabels: string[];
+  removeLabels: string[];
+}
+
+export interface ScheduleCustomizationRequest {
+  applyToAll: boolean;
+  addServices: ScheduleServiceCustomization[];
+  removeServices: Array<{
+    serviceUid: string;
+  }>;
+  addBookingChannels: string[];
+  removeBookingChannels: string[];
+  addLabels: string[];
+  removeLabels: string[];
+}
+
+export interface TimeWindowServiceUserCustomization extends ScheduleServiceUserCustomization {
+  capacity?: number;
+}
+
+export interface TimeWindowServiceCustomization {
+  serviceUid: string;
+  serviceName?: string;
+  addUsers: TimeWindowServiceUserCustomization[];
+  removeUsers: Array<Pick<TimeWindowServiceUserCustomization, "userUid">>;
+}
+
+export interface TimeWindowCustomizationRequest {
+  applyToAll: boolean;
+  addServices: TimeWindowServiceCustomization[];
+  removeServices: Array<{
+    serviceUid: string;
+  }>;
+  addBookingChannels: string[];
+  removeBookingChannels: string[];
+  addLabels: string[];
+  removeLabels: string[];
+}
+
 export type CalendarStatus = "DRAFT" | "ACTIVE" | "INACTIVE";
 
 export interface Schedule {
@@ -72,6 +136,17 @@ export interface Schedule {
   slotCapacity: number;
   qrLinkRequired: boolean;
   timeWindows?: TimeWindow[];
+  services?: Array<{
+    serviceUid: string;
+    serviceName?: string;
+    users?: Array<{
+      userUid: string;
+      userName?: string;
+      price?: number;
+    }>;
+  }>;
+  bookingChannels?: string[];
+  label?: string[];
 }
 
 export interface Provider {
@@ -95,6 +170,20 @@ export interface TimeWindow {
   slotCapacity: number;
   channel: string;
   label?: string[];
+  bookingChannels?: string[];
+  price?: number;
+  services?: Array<{
+    serviceUid: string;
+    serviceName?: string;
+    users?: Array<{
+      userUid: string;
+      userName?: string;
+      price?: number;
+      capacity?: number;
+    }>;
+  }>;
+  specificDate?: string | null;
+  status?: string;
   qrLinkRequired: boolean;
 }
 
