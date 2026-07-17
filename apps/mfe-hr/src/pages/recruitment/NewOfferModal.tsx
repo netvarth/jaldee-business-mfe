@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { Dialog, DialogFooter, Button, Input, Select } from "@jaldee/design-system";
-import type { Application, Candidate } from "../../types";
+import type { Application } from "../../types";
 
 export interface NewOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
   applications: Application[];
-  candidates: Candidate[];
   /** Posts the OfferDto to /recruitment/offers. */
   onSave: (payload: Record<string, unknown>) => Promise<void>;
 }
@@ -16,7 +15,7 @@ const statusOptions = [
   { value: "DRAFT", label: "Draft" },
 ];
 
-export function NewOfferModal({ isOpen, onClose, applications, candidates, onSave }: NewOfferModalProps) {
+export function NewOfferModal({ isOpen, onClose, applications, onSave }: NewOfferModalProps) {
   const [form, setForm] = useState({
     applicationUid: "",
     designation: "",
@@ -32,7 +31,7 @@ export function NewOfferModal({ isOpen, onClose, applications, candidates, onSav
 
   const applicationOptions = useMemo(() => {
     const label = (a: Application) => {
-      const cand = a.candidate ?? candidates.find((c) => c.id === a.candidateId);
+      const cand = a.candidate;
       const name = cand?.name ?? `Candidate ${String(a.candidateId).slice(0, 6)}`;
       const role = a.requisition?.title ? ` — ${a.requisition.title}` : "";
       return `${name}${role}`;
@@ -41,7 +40,7 @@ export function NewOfferModal({ isOpen, onClose, applications, candidates, onSav
       { value: "", label: "Select application…" },
       ...applications.map((a) => ({ value: a.id, label: label(a) })),
     ];
-  }, [applications, candidates]);
+  }, [applications]);
 
   const set = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>

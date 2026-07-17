@@ -41,7 +41,7 @@ export default function RecruitmentDashboard() {
 
   return (
     <RecruitmentLayout title="Recruitment Dashboard" subtitle="Overview of hiring pipeline and metrics.">
-      <div id="hr-recruitment-dashboard" data-testid="hr-recruitment-dashboard" className="p-6">
+      <div id="hr-recruitment-dashboard" data-testid="hr-recruitment-dashboard">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {statsLoading || !stats ? (
             <>

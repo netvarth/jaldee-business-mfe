@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "./useHrApi";
+import { buildBaseServiceUrl } from "../../../../packages/shared-modules/src/serviceUrls";
 
 /**
  * R7.1 (partial) — document request/verify workflow, live from
@@ -32,6 +34,19 @@ export interface DocumentRequestPayload {
 
 export const DOC_REQUEST_STATUSES = ["REQUESTED", "SUBMITTED", "VERIFIED", "REJECTED"] as const;
 
+type DocumentUploadTarget = {
+  fileUid: string;
+  uploadUrl: string;
+  filePath?: string;
+};
+
+function resolveFileType(file: File) {
+  const byMime = file.type?.split("/").pop()?.trim();
+  if (byMime) return byMime.toLowerCase();
+  const byName = file.name.split(".").pop()?.trim();
+  return (byName || "bin").toLowerCase();
+}
+
 function withId(r: Record<string, unknown>): DocumentRequest {
   const uid = (r.uid ?? r.id) as string | undefined;
   return { ...(r as object), id: String(uid ?? ""), uid } as DocumentRequest;
@@ -39,6 +54,7 @@ function withId(r: Record<string, unknown>): DocumentRequest {
 
 export function useDocumentRequests(employeeUid?: string) {
   const api = useHrApi();
+  const { api: shellApi, account, user } = useMFEProps();
   const [data, setData] = useState<DocumentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +102,64 @@ export function useDocumentRequests(employeeUid?: string) {
     await load();
   }, [api, load]);
 
-  return { data, loading, error, reload: load, request, create, setStatus, update, remove };
+  const uploadFile = useCallback(async (ownerId: string, file: File) => {
+    if (!shellApi) {
+      throw new Error("Drive upload is unavailable in this shell.");
+    }
+
+    const tenantUid = account.tenantUid ?? account.id;
+    const userName = user.name || "User";
+
+    const targetResponse = await shellApi.post<DocumentUploadTarget>(
+      buildBaseServiceUrl("/platform-service/v1/api/drive/initiate-upload"),
+      {
+        action: "ADD",
+        caption: file.name,
+        contextType: "DOCUMENT",
+        featureModuleName: "HR_EMPLOYEE",
+        featureServiceName: "HR",
+        fileName: file.name,
+        fileType: resolveFileType(file),
+        fileSize: file.size,
+        owner: ownerId,
+        ownerName: userName,
+        ownerType: "TenantUser",
+        sharedType: "secureShare",
+        tenantUid,
+        uploadedBy: user.id,
+        uploadedByName: userName,
+      },
+      { _skipLocationParam: true } as any
+    );
+
+    const target = targetResponse.data;
+    const uploadResponse = await fetch(target.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: file.type ? { "Content-Type": file.type } : undefined,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Unable to upload document right now.");
+    }
+
+    await shellApi.patch(
+      buildBaseServiceUrl(`/platform-service/v1/api/drive/${target.fileUid}/status?status=COMPLETE`),
+      null,
+      { _skipLocationParam: true } as any
+    );
+
+    return target.filePath || "";
+  }, [account.id, account.tenantUid, shellApi, user.id, user.name]);
+
+  const resolveDocumentUrl = useCallback(async (filePathOrUrl?: string | null) => {
+    if (!filePathOrUrl) return null;
+    if (/^https?:\/\//i.test(filePathOrUrl)) return filePathOrUrl;
+    const res = await api.get<{ url?: string }>(`/careers/document-url?filePath=${encodeURIComponent(filePathOrUrl)}`);
+    return res?.url ?? null;
+  }, [api]);
+
+  return { data, loading, error, reload: load, request, create, setStatus, update, remove, uploadFile, resolveDocumentUrl };
 }
 
 export function useDocumentCompleteness(employeeUid?: string) {

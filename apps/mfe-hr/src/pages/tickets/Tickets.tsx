@@ -228,22 +228,22 @@ export default function Tickets() {
                 setAddOpen(true);
               }}
               style={{
-                height: 40,
-                padding: "0 18px",
-                borderRadius: 10,
+                height: 42,
+                padding: "0 22px",
+                borderRadius: 12,
                 border: "none",
                 cursor: "pointer",
-                background: TEAL,
+                background: "#059669",
                 color: "white",
                 fontWeight: 800,
-                fontSize: 12,
+                fontSize: 13,
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
                 flexShrink: 0,
               }}
             >
-              <Plus size={15} /> New Ticket
+              <Plus size={16} /> New Ticket
             </button>
           </div>
         ) : null}

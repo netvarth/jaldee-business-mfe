@@ -112,18 +112,22 @@ export function useMyAttendance() {
     options?: {
       selfieDataUrl?: string;
       locationUid?: string | null;
-      latitude?: number | null;
-      longitude?: number | null;
-      accuracy?: number | null;
+      location?: {
+        latitude?: number | null;
+        longitude?: number | null;
+        accuracy?: number | null;
+      } | null;
     }
   ) => {
     const clockInType = normalizeClockInType(mode);
     await api.post("/me/attendance/punch-in", {
       clockInType,
       locationUid: options?.locationUid ?? null,
-      latitude: options?.latitude ?? null,
-      longitude: options?.longitude ?? null,
-      accuracy: options?.accuracy ?? null,
+      location: {
+        latitude: options?.location?.latitude ?? null,
+        longitude: options?.location?.longitude ?? null,
+        accuracy: options?.location?.accuracy ?? null,
+      },
       wfhStatus: clockInType === "Office" ? "NotApplicable" : "Requested",
       selfieDataUrl: options?.selfieDataUrl || null,
     });

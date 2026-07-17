@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
-import { Button, DataTable, DatePicker, Dialog, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import { Button, DataTable, DatePicker, Dialog, FileUpload, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -10,6 +10,7 @@ import {
   useMyPayslips,
   useMyProfile,
 } from "../../services/useEss";
+import { useBranches } from "../../services/useBranches";
 import { useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
 import Announcements from "../announcements/Announcements";
 import Expenses from "../expenses/Expenses";
@@ -134,7 +135,7 @@ export default function EssPortal() {
   const [documentSubmitBusy, setDocumentSubmitBusy] = useState(false);
   const [documentSubmitError, setDocumentSubmitError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<DocumentRequest | null>(null);
-  const [documentForm, setDocumentForm] = useState({ documentUrl: "" });
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [leaveApplyForm, setLeaveApplyForm] = useState({
     leaveTypeUid: "",
     type: "",
@@ -160,11 +161,25 @@ export default function EssPortal() {
     [balances.data],
   );
   const today = new Date().toISOString().slice(0, 10);
+  const branches = useBranches();
+  const [selectedLocationUid, setSelectedLocationUid] = useState("");
   const todayAttendance = useMemo(
     () => attendance.data.find((item) => item.dateStr === today),
     [attendance.data, today],
   );
   const faceRequired = !!attendanceRules.data?.faceRecognitionRequired;
+  const shouldShowLocationSelect = branches.data.length > 1;
+
+  useEffect(() => {
+    if (selectedLocationUid) return;
+    if (profile.data?.locationUid) {
+      setSelectedLocationUid(profile.data.locationUid);
+      return;
+    }
+    if (branches.data.length === 1) {
+      setSelectedLocationUid(branches.data[0].id);
+    }
+  }, [branches.data, profile.data?.locationUid, selectedLocationUid]);
 
   const resolveCurrentPosition = () =>
     new Promise<{ latitude: number; longitude: number; accuracy: number | null }>((resolve, reject) => {
@@ -198,10 +213,12 @@ export default function EssPortal() {
       const currentPosition = await resolveCurrentPosition();
       await attendance.punchIn(mode, {
         selfieDataUrl,
-        locationUid: profile.data?.locationUid ?? null,
-        latitude: currentPosition.latitude,
-        longitude: currentPosition.longitude,
-        accuracy: currentPosition.accuracy,
+        locationUid: selectedLocationUid || profile.data?.locationUid || branches.data[0]?.id || null,
+        location: {
+          latitude: currentPosition.latitude,
+          longitude: currentPosition.longitude,
+          accuracy: currentPosition.accuracy,
+        },
       });
       setFaceOpen(false);
     } catch (error) {
@@ -316,7 +333,7 @@ export default function EssPortal() {
   useEffect(() => {
     if (!documentDialogOpen) {
       setSelectedDocument(null);
-      setDocumentForm({ documentUrl: "" });
+      setDocumentFiles([]);
       setDocumentSubmitError(null);
     }
   }, [documentDialogOpen]);
@@ -367,28 +384,47 @@ export default function EssPortal() {
 
   const openDocumentSubmit = (document: DocumentRequest) => {
     setSelectedDocument(document);
-    setDocumentForm({ documentUrl: document.documentUrl ?? "" });
+    setDocumentFiles([]);
     setDocumentSubmitError(null);
     setDocumentDialogOpen(true);
   };
 
+  const openSubmittedDocument = async (filePathOrUrl?: string | null) => {
+    try {
+      const resolvedUrl = await documents.resolveDocumentUrl(filePathOrUrl);
+      if (!resolvedUrl) {
+        setDocumentSubmitError("Document file is unavailable.");
+        return;
+      }
+      window.open(resolvedUrl, "_blank", "noreferrer");
+    } catch (error) {
+      setDocumentSubmitError(error instanceof Error ? error.message : "Unable to open document.");
+    }
+  };
+
   const submitEmployeeDocument = async () => {
     const uid = selectedDocument?.uid || selectedDocument?.id;
+    const employeeUid = profile.data?.id ?? profile.data?.uid;
     if (!uid) {
       setDocumentSubmitError("Document request id is missing.");
       return;
     }
-    if (!documentForm.documentUrl.trim()) {
-      setDocumentSubmitError("Document URL is required.");
+    if (!employeeUid) {
+      setDocumentSubmitError("Employee id is missing.");
+      return;
+    }
+    if (!documentFiles[0]) {
+      setDocumentSubmitError("Document file is required.");
       return;
     }
 
     setDocumentSubmitBusy(true);
     setDocumentSubmitError(null);
     try {
+      const documentUrl = await documents.uploadFile(employeeUid, documentFiles[0]);
       await documents.update(uid, {
         documentType: selectedDocument?.documentType,
-        documentUrl: documentForm.documentUrl.trim(),
+        documentUrl,
         status: "SUBMITTED",
       });
       setDocumentDialogOpen(false);
@@ -419,7 +455,7 @@ export default function EssPortal() {
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-3xl">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">Employee Self-Service</div>
-                  <h1 className="mt-3 text-[24px] font-black tracking-tight text-slate-950 md:text-[27px] lg:text-[34px]">
+                  <h1 className="mt-3 text-[24px] font-black tracking-tight text-slate-950 md:text-[27px] lg:text-[30px]">
                     {section === "overview" ? "Your workday, requests and updates in one place." : currentRoute.label}
                   </h1>
                   <p className="mt-3 text-[13px] leading-6 text-slate-600 md:text-[14px] md:leading-6 lg:text-[15px] lg:leading-7">
@@ -474,7 +510,7 @@ export default function EssPortal() {
                   <div>
                     <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
                       <div>
-                        <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[28px]">Popular services</h2>
+                        <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">Popular services</h2>
                         <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Quick access to the employee self-service areas you use most.</p>
                       </div>
                       <div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
@@ -489,7 +525,7 @@ export default function EssPortal() {
                                 <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
                               </div>
                               <div>
-                                <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-lg">
+                                <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-[16px]">
                                   {item.label}
                                 </div>
                                 <p className="mt-2 text-[10px] leading-normal text-slate-500 sm:text-[11px] md:text-[12px] md:leading-5 lg:text-sm lg:leading-6">
@@ -505,7 +541,7 @@ export default function EssPortal() {
 
                   <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
                     <div>
-                      <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[28px]">Featured journeys</h2>
+                      <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">Featured journeys</h2>
                       <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Everything beyond core HR, grouped into the next actions employees usually need.</p>
                     </div>
                     <div className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
@@ -520,7 +556,7 @@ export default function EssPortal() {
                               <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
                             </div>
                             <div>
-                              <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-lg">
+                              <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-[16px]">
                                 {item.label}
                               </div>
                               <p className="mt-2 text-[10px] leading-normal text-slate-500 sm:text-[11px] md:text-[12px] md:leading-5 lg:text-sm lg:leading-6">
@@ -547,7 +583,7 @@ export default function EssPortal() {
                           </div>
                           <div>
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Employee Profile</div>
-                            <h2 className="mt-2 text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[28px]">
+                            <h2 className="mt-2 text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">
                               {[humanizeProfileValue(profile.data?.salutation), profile.data?.name ?? "-"].filter((value) => value && value !== "--").join(" ")}
                             </h2>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-600 md:text-[13px] lg:text-sm">
@@ -625,7 +661,7 @@ export default function EssPortal() {
                             </div>
                             <div>
                               <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Console</div>
-                              <div className="mt-1.5 font-mono text-[20px] font-black tracking-tight text-slate-950 md:text-[22px] lg:text-[28px]">
+                              <div className="mt-1.5 font-mono text-[18px] font-black tracking-tight text-slate-950 md:text-[20px] lg:text-[22px]">
                                 {todayAttendance?.clockIn && !todayAttendance?.clockOut
                                   ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
                                   : "--:--:--"}
@@ -637,36 +673,53 @@ export default function EssPortal() {
                             </div>
                           </div>
 
-                          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                            <Select
-                              label="Work mode"
-                              value={mode}
-                              onChange={(event) => setMode(event.target.value)}
-                              options={["Office", "WFH", "On Duty"].map((value) => ({ value, label: value }))}
-                            />
-                            {!todayAttendance?.clockIn ? (
-                              <Button
-                                onClick={() => (faceRequired ? setFaceOpen(true) : void punchIn())}
-                                disabled={punchBusy}
-                                className="bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
-                              >
-                                Punch In
-                              </Button>
-                            ) : !todayAttendance.clockOut ? (
-                              <Button
-                                onClick={() => void attendance.punchOut(todayAttendance.id)}
-                                disabled={punchBusy}
-                                className="bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
-                              >
-                                Punch Out
-                              </Button>
-                            ) : (
-                              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800">
-                                Today&apos;s attendance is completed.
+                            <div className="grid gap-4">
+                              <div className={`grid gap-4 ${shouldShowLocationSelect ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+                                <Select
+                                  label="Work mode"
+                                  value={mode}
+                                  onChange={(event) => setMode(event.target.value)}
+                                  options={["Office", "WFH", "On Duty"].map((value) => ({ value, label: value }))}
+                                />
+                                {shouldShowLocationSelect ? (
+                                  <Select
+                                    label="Location"
+                                    value={selectedLocationUid}
+                                    onChange={(event) => setSelectedLocationUid(event.target.value)}
+                                    placeholder={branches.loading ? "Loading locations" : "Select location"}
+                                    options={[
+                                      { value: "", label: branches.loading ? "Loading locations..." : "Select location" },
+                                      ...branches.data.map((branch) => ({
+                                        value: branch.id,
+                                        label: branch.code ? `${branch.name} (${branch.code})` : branch.name,
+                                      })),
+                                    ]}
+                                  />
+                                ) : null}
                               </div>
-                            )}
+                              {!todayAttendance?.clockIn ? (
+                                <Button
+                                  onClick={() => (faceRequired ? setFaceOpen(true) : void punchIn())}
+                                  disabled={punchBusy}
+                                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 sm:w-auto sm:justify-self-start"
+                                >
+                                  Punch In
+                                </Button>
+                              ) : !todayAttendance.clockOut ? (
+                                <Button
+                                  onClick={() => void attendance.punchOut(todayAttendance.id)}
+                                  disabled={punchBusy}
+                                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 sm:w-auto sm:justify-self-start"
+                                >
+                                  Punch Out
+                                </Button>
+                              ) : (
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800">
+                                  Today&apos;s attendance is completed.
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
                         <div className="mt-4 grid gap-3 sm:grid-cols-3">
                           <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
@@ -687,7 +740,7 @@ export default function EssPortal() {
                       <SectionCard className="border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Today&apos;s Timeline</div>
-                          <h3 className="mt-1.5 text-[26px] font-black tracking-tight text-slate-950">{formatDate(today)}</h3>
+                          <h3 className="mt-1.5 text-[22px] font-black tracking-tight text-slate-950 md:text-[24px] lg:text-[24px]">{formatDate(today)}</h3>
                         </div>
                         {todayAttendance ? (
                           <div className="mt-4 space-y-2.5">
@@ -708,7 +761,7 @@ export default function EssPortal() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
-                          <h3 className="mt-2 text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                          <h3 className="mt-2 text-[17px] font-black tracking-tight text-slate-950 md:text-[19px] lg:text-[20px]">
                             Recent Attendance Logs ({attendance.data.length})
                           </h3>
                           <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Daily check-in, check-out, work mode and worked hours.</p>
@@ -787,7 +840,7 @@ export default function EssPortal() {
                   )}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">
                         Leave requests ({leaves.data.length})
                       </h3>
                       <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Recent leave history with balances and approval status.</p>
@@ -839,7 +892,7 @@ export default function EssPortal() {
                 <Panel loading={documents.loading} error={documents.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">
                         My Documents ({documentRows.length})
                       </h3>
                       <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Documents requested by your company and the submission status for each one.</p>
@@ -878,14 +931,13 @@ export default function EssPortal() {
                                   <td className="border-b px-3 py-4 text-right">
                                     <div className="inline-flex gap-2">
                                       {item.documentUrl ? (
-                                        <a
-                                          href={item.documentUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
+                                        <button
+                                          type="button"
+                                          onClick={() => void openSubmittedDocument(item.documentUrl)}
                                           className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                                         >
                                           {actionLabel}
-                                        </a>
+                                        </button>
                                       ) : (
                                         <button
                                           type="button"
@@ -914,7 +966,7 @@ export default function EssPortal() {
                               status={status}
                               updated={formatDate(item.updatedAt || item.createdAt)}
                               hasFile={!!item.documentUrl}
-                              onView={item.documentUrl ? () => window.open(item.documentUrl || "", "_blank", "noreferrer") : undefined}
+                              onView={item.documentUrl ? () => void openSubmittedDocument(item.documentUrl) : undefined}
                               onSubmit={!item.documentUrl ? () => openDocumentSubmit(item) : undefined}
                             />
                           );
@@ -929,7 +981,7 @@ export default function EssPortal() {
                 <Panel loading={payslips.loading} error={payslips.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">
                         Payslip statements ({payslips.data.length})
                       </h3>
                       <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Generated salary statements and payout status.</p>
@@ -989,7 +1041,7 @@ export default function EssPortal() {
             <aside className={`${railClassName} xl:self-stretch`}>
               <SectionCard className="h-full rounded-xl border border-slate-200 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_28%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
                 <div>
-                  <h2 className="text-[18px] font-black tracking-tight text-slate-950 md:text-[19px] lg:text-[22px]">Today at a glance</h2>
+                  <h2 className="text-[18px] font-black tracking-tight text-slate-950 md:text-[19px] lg:text-[20px]">Today at a glance</h2>
                   <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">A quick summary of your current HR status.</p>
                 </div>
                 <div className="mt-6 space-y-3">
@@ -1001,7 +1053,7 @@ export default function EssPortal() {
                         </div>
                         <div className="min-w-0">
                           <div className="truncate text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:text-[13px]">{item.label}</div>
-                          <div className="mt-1 text-[16px] font-black leading-none text-slate-900 md:text-[17px] lg:text-[20px]">{item.value}</div>
+                          <div className="mt-1 text-[16px] font-black leading-none text-slate-900 md:text-[17px] lg:text-[18px]">{item.value}</div>
                           <div className="mt-1 truncate text-[11px] text-slate-500 md:text-[12px] lg:text-[13px]">{item.detail}</div>
                         </div>
                       </div>
@@ -1025,13 +1077,11 @@ export default function EssPortal() {
             <div className="mt-2 text-[15px] font-bold text-slate-950">{selectedDocument?.documentType || "--"}</div>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Document URL</label>
-            <input
-              type="url"
-              value={documentForm.documentUrl}
-              onChange={(event) => setDocumentForm({ documentUrl: event.target.value })}
-              placeholder="Paste the uploaded document link"
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition-colors focus:border-emerald-500"
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Upload Document</label>
+            <FileUpload
+              onUpload={setDocumentFiles}
+              multiple={false}
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
             />
           </div>
           {documentSubmitError && (
@@ -1266,7 +1316,7 @@ function AttendanceMetricCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-          <div className="mt-3 text-[20px] font-black leading-none tracking-tight text-slate-950 md:text-[22px] lg:text-[28px]">{value}</div>
+          <div className="mt-3 text-[18px] font-black leading-none tracking-tight text-slate-950 md:text-[19px] lg:text-[20px]">{value}</div>
           <div className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
         </div>
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${toneClass}`}>
@@ -1284,7 +1334,7 @@ function AttendanceTimelineRow({ label, value, detail }: { label: string; value:
         <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
         <div className="mt-0.5 truncate text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
       </div>
-      <div className="shrink-0 text-[15px] font-black text-slate-950 md:text-[16px] lg:text-[17px]">{value}</div>
+      <div className="shrink-0 text-[14px] font-black text-slate-950 md:text-[15px] lg:text-[16px]">{value}</div>
     </div>
   );
 }
@@ -1344,7 +1394,7 @@ function AttendanceHistoryCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Day</div>
-          <div className="mt-1.5 text-[20px] font-black leading-none text-slate-950 md:text-[22px] lg:text-[28px]">{date}</div>
+          <div className="mt-1.5 text-[20px] font-black leading-none text-slate-950 md:text-[22px] lg:text-[24px]">{date}</div>
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
           {status}
@@ -1387,7 +1437,7 @@ function LeaveHistoryCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Leave Type</div>
-          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[24px]">{type}</div>
+          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[22px]">{type}</div>
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
           {status}
@@ -1419,7 +1469,7 @@ function PayslipCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Payslip Month</div>
-          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[24px]">{month}</div>
+          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[22px]">{month}</div>
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
           {status}
@@ -1468,7 +1518,7 @@ function DocumentRequestCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Requested Document</div>
-          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[24px]">{title}</div>
+          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[22px]">{title}</div>
         </div>
         <DocumentStatusBadge status={status} />
       </div>

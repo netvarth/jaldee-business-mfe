@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogFooter, Button, Input, Select } from "@jaldee/design-system";
 import type { Application, Candidate } from "../../types";
 
@@ -7,8 +7,11 @@ export interface ScheduleInterviewModalProps {
   onClose: () => void;
   applications: Application[];
   candidates: Candidate[];
-  /** Posts the InterviewDto to /recruitment/interviews. */
   onSave: (payload: Record<string, unknown>) => Promise<void>;
+  initialApplicationUid?: string;
+  lockApplication?: boolean;
+  hideRound?: boolean;
+  initialRound?: string;
 }
 
 const roundOptions = [
@@ -25,28 +28,64 @@ const modeOptions = [
   { value: "PHONE", label: "Phone" },
 ];
 
-export function ScheduleInterviewModal({ isOpen, onClose, applications, candidates, onSave }: ScheduleInterviewModalProps) {
-  const [form, setForm] = useState({
-    applicationUid: "",
-    round: "SCREENING",
+export function ScheduleInterviewModal({
+  isOpen,
+  onClose,
+  applications,
+  candidates,
+  onSave,
+  initialApplicationUid,
+  lockApplication = false,
+  hideRound = false,
+  initialRound = "SCREENING",
+}: ScheduleInterviewModalProps) {
+  const createInitialForm = () => ({
+    applicationUid: initialApplicationUid || "",
+    round: initialRound,
     scheduledAt: "",
     durationMinutes: "60",
     mode: "VIDEO",
     locationOrLink: "",
   });
+
+  const [form, setForm] = useState(createInitialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm(createInitialForm());
+    setError(null);
+  }, [initialApplicationUid, initialRound, isOpen]);
+
+  const selectedApplication = useMemo(
+    () => applications.find((item) => item.id === form.applicationUid || item.uid === form.applicationUid) ?? null,
+    [applications, form.applicationUid]
+  );
+
+  const selectedCandidate = useMemo(() => {
+    if (!selectedApplication) return null;
+    return (
+      selectedApplication.candidate ??
+      candidates.find((candidate) =>
+        candidate.id === selectedApplication.candidateId ||
+        candidate.uid === selectedApplication.candidateUid
+      ) ??
+      null
+    );
+  }, [candidates, selectedApplication]);
+
   const applicationOptions = useMemo(() => {
-    const label = (a: Application) => {
-      const cand = a.candidate ?? candidates.find((c) => c.id === a.candidateId);
-      const name = cand?.name ?? `Candidate ${String(a.candidateId).slice(0, 6)}`;
-      const role = a.requisition?.title ? ` — ${a.requisition.title}` : "";
+    const label = (application: Application) => {
+      const candidate = application.candidate ?? candidates.find((item) => item.id === application.candidateId);
+      const name = candidate?.name ?? `Candidate ${String(application.candidateId).slice(0, 6)}`;
+      const role = application.requisition?.title ? ` - ${application.requisition.title}` : "";
       return `${name}${role}`;
     };
+
     return [
-      { value: "", label: "Select application…" },
-      ...applications.map((a) => ({ value: a.id, label: label(a) })),
+      { value: "", label: "Select application..." },
+      ...applications.map((application) => ({ value: application.id, label: label(application) })),
     ];
   }, [applications, candidates]);
 
@@ -64,6 +103,7 @@ export function ScheduleInterviewModal({ isOpen, onClose, applications, candidat
       setError("Pick a date and time.");
       return;
     }
+
     setLoading(true);
     setError(null);
     try {
@@ -71,13 +111,13 @@ export function ScheduleInterviewModal({ isOpen, onClose, applications, candidat
         applicationUid: form.applicationUid,
         round: form.round,
         mode: form.mode,
-        // datetime-local → ISO with offset so it parses as OffsetDateTime.
         scheduledAt: new Date(form.scheduledAt).toISOString(),
       };
       if (form.durationMinutes) payload.durationMinutes = Number(form.durationMinutes);
       if (form.locationOrLink) payload.locationOrLink = form.locationOrLink;
 
       await onSave(payload);
+      setForm(createInitialForm());
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to schedule interview.");
@@ -89,22 +129,34 @@ export function ScheduleInterviewModal({ isOpen, onClose, applications, candidat
   return (
     <Dialog open={isOpen} onClose={onClose} title="Schedule Interview" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        {error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
+        ) : null}
+
+        {lockApplication ? (
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 py-3">
+            <div className="text-xs font-black uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">Application</div>
+            <div className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">
+              {selectedCandidate?.name || "Candidate"}
+              {selectedApplication?.requisition?.title ? ` - ${selectedApplication.requisition.title}` : ""}
+            </div>
+          </div>
+        ) : (
+          <Select
+            label="Application"
+            required
+            options={applicationOptions}
+            value={form.applicationUid}
+            onChange={set("applicationUid")}
+          />
         )}
 
-        <Select
-          label="Application"
-          required
-          options={applicationOptions}
-          value={form.applicationUid}
-          onChange={set("applicationUid")}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <Select label="Round" options={roundOptions} value={form.round} onChange={set("round")} />
+        <div className={`grid gap-4 ${hideRound ? "grid-cols-1" : "grid-cols-2"}`}>
+          {!hideRound ? (
+            <Select label="Round" options={roundOptions} value={form.round} onChange={set("round")} />
+          ) : null}
           <Select label="Mode" options={modeOptions} value={form.mode} onChange={set("mode")} />
         </div>
 

@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
+import { useBranches } from "../../services/useBranches";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs } from "../../services/useAttendanceData";
 import { useAttendanceRules } from "../../services/useSettingsData";
 import { formatDate } from "../../lib/utils";
@@ -87,6 +88,33 @@ function getPreferredViewMode() {
   return window.matchMedia("(max-width: 767px)").matches ? "cards" : "table";
 }
 
+function resolveCurrentPosition() {
+  return new Promise<{ latitude: number; longitude: number; accuracy: number | null }>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Location access is not supported by this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+        });
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error("Location permission is required to clock in."));
+          return;
+        }
+        reject(new Error("Unable to fetch the current location."));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  });
+}
+
 function AttendanceViewToggle({
   value,
   onChange,
@@ -151,6 +179,7 @@ export default function Attendance() {
   const location = useLocation();
   const navigate = useNavigate();
   const { data: employees, loading: empLoading, error: empError } = useEmployees();
+  const branches = useBranches();
   const attendance = useAttendance();
   const attendanceRules = useAttendanceRules();
   const onduty = useOnDuty();
@@ -160,6 +189,7 @@ export default function Attendance() {
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [actor, setActor] = useState("");
+  const [selectedLocationUid, setSelectedLocationUid] = useState(activeLocation?.id ?? "");
   const [mode, setMode] = useState<ClockType>(ClockType.Office);
   const [face, setFace] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -183,6 +213,16 @@ export default function Attendance() {
   }, []);
 
   useEffect(() => { if (!actor && employees.length) setActor(employees[0].id); }, [employees, actor]);
+  useEffect(() => {
+    if (selectedLocationUid) return;
+    if (activeLocation?.id) {
+      setSelectedLocationUid(activeLocation.id);
+      return;
+    }
+    if (branches.data.length) {
+      setSelectedLocationUid(branches.data[0].id);
+    }
+  }, [activeLocation?.id, branches.data, selectedLocationUid]);
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
 
   const empName = useMemo(() => { const m = new Map(employees.map((e) => [e.id, e.name] as const)); return (uid?: string) => (uid ? m.get(uid) ?? uid : "—"); }, [employees]);
@@ -199,6 +239,7 @@ export default function Attendance() {
   const todayLogs = useMemo(() => attendance.data.filter((a) => a.employeeUid === actor && a.dateStr === today), [attendance.data, actor, today]);
   const faceRequired = !!attendanceRules.data?.faceRecognitionRequired;
   const pendingOvertime = useMemo(() => attendance.data.filter((a) => (a.overtimeStatus || "").toLowerCase() === "pending" && (a.overtimeMinutes ?? 0) > 0), [attendance.data]);
+  const shouldShowLocationSelect = branches.data.length > 1;
 
   const actorEmp = useMemo(() => employees.find((e) => e.id === actor), [employees, actor]);
 
@@ -209,13 +250,19 @@ export default function Attendance() {
         await attendance.punchOut(open.id);
         setMsg("Clocked out.");
       } else {
-        await attendance.punchIn({
-          employeeUid: actor,
-          locationUid: activeLocation?.id ?? null,
-          clockInType: mode,
-          securedCheck: secured,
-          selfieDataUrl: selfieDataUrl || null,
-        });
+        const currentPosition = await resolveCurrentPosition();
+          await attendance.punchIn({
+            employeeUid: actor,
+            locationUid: selectedLocationUid || activeLocation?.id || null,
+            location: {
+              latitude: currentPosition.latitude,
+              longitude: currentPosition.longitude,
+              accuracy: currentPosition.accuracy,
+            },
+            clockInType: mode,
+            securedCheck: secured,
+            selfieDataUrl: selfieDataUrl || null,
+          });
         setMsg(secured ? "Face verified — clocked in." : "Clocked in.");
       }
     } catch (e) {
@@ -399,6 +446,23 @@ export default function Attendance() {
                 onChange={(e) => setMode(e.target.value as ClockType)}
                 options={CLOCK_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
               />
+              {shouldShowLocationSelect ? (
+                <Select
+                  id="hr-attendance-location"
+                  testId="hr-attendance-location"
+                  label="Location"
+                  value={selectedLocationUid}
+                  onChange={(e) => setSelectedLocationUid(e.target.value)}
+                  placeholder={branches.loading ? "Loading locations" : "Select location"}
+                  options={[
+                    { value: "", label: branches.loading ? "Loading locations..." : "Select location" },
+                    ...branches.data.map((branch) => ({
+                      value: branch.id,
+                      label: branch.code ? `${branch.name} (${branch.code})` : branch.name,
+                    })),
+                  ]}
+                />
+              ) : null}
               <div className="attendance-face-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", border: "1px solid var(--border-color)", borderRadius: 12, background: "rgba(100,116,139,0.03)" }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "var(--dark-text)", letterSpacing: "0.04em" }}>FACE RECOGNITION SCAN</div>

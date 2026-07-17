@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DataTable, Badge, Button, Input, ErrorState, EmptyState } from "@jaldee/design-system";
 import { useJobRequisitions } from "../../services/useRecruitmentData";
-import { usePostings } from "../../services/useCareers";
 import { useShellErrorToast, useShellFeedback } from "../../services/useShellFeedback";
 import { NewRequisitionModal } from "./NewRequisitionModal";
 import RecruitmentLayout from "./RecruitmentLayout";
@@ -15,7 +14,6 @@ export default function JobRequisitions() {
   const { data, loading, error, save } = useJobRequisitions();
   const { toast, track, capture } = useShellFeedback("hr.recruitment.requisitions");
   useShellErrorToast("hr.recruitment.requisitions", "Requisitions", error);
-  const { data: postings } = usePostings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
@@ -24,7 +22,6 @@ export default function JobRequisitions() {
     ? data.filter((requisition) => requisition.title?.toLowerCase().includes(search.toLowerCase()))
     : data;
 
-  const postingFor = (reqId: string) => postings.find((posting) => posting.requisitionUid === reqId);
   const statusVariant = (status?: string) => {
     const value = String(status ?? "").toUpperCase();
     if (value === "OPEN") return "success";
@@ -44,31 +41,18 @@ export default function JobRequisitions() {
       render: (row) => <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>,
     },
     {
-      header: "Careers",
-      key: "id",
-      render: (row) => {
-        const posting = postingFor(row.id);
-        if (posting?.status === "PUBLISHED") return <Badge variant="info">Live</Badge>;
-        if (posting) return <Badge variant="neutral">Draft</Badge>;
-        return <span className="text-xs text-gray-400">Not published</span>;
-      },
-    },
-    {
       header: "",
       key: "uid",
       align: "right",
-      render: (row) => {
-        const published = postingFor(row.id)?.status === "PUBLISHED";
-        return (
-          <Button
-            variant={published ? "outline" : "primary"}
-            size="sm"
-            onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
-          >
-            {published ? "Edit careers page" : "Publish to careers"}
-          </Button>
-        );
-      },
+      render: (row) => (
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
+        >
+          Manage careers page
+        </Button>
+      ),
     },
   ];
 
@@ -82,7 +66,7 @@ export default function JobRequisitions() {
 
   return (
     <RecruitmentLayout title="Job Requisitions" subtitle="Manage open roles and headcount requests.">
-      <div className="p-4 md:p-6">
+      <div>
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">
@@ -124,8 +108,6 @@ export default function JobRequisitions() {
             ) : viewMode === "cards" ? (
               <div className="grid gap-4 p-4 md:grid-cols-2">
                 {filtered.map((row) => {
-                  const posting = postingFor(row.id);
-                  const published = posting?.status === "PUBLISHED";
                   return (
                     <RecruitmentMobileCard
                       key={row.id}
@@ -134,16 +116,15 @@ export default function JobRequisitions() {
                         { label: "Type", value: row.employmentType || "-" },
                         { label: "Openings", value: row.openings ?? "-" },
                         { label: "Status", value: <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge> },
-                        { label: "Careers", value: published ? <Badge variant="info">Live</Badge> : posting ? <Badge variant="neutral">Draft</Badge> : "Not published" },
                       ]}
                       footer={
                         <Button
-                          variant={published ? "outline" : "primary"}
+                          variant="primary"
                           size="sm"
                           data-testid={`hr-recruitment-publish-card-${row.id}`}
                           onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
                         >
-                          {published ? "Edit careers page" : "Publish to careers"}
+                          Manage careers page
                         </Button>
                       }
                     />

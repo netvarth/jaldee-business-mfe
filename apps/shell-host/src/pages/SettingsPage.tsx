@@ -57,6 +57,12 @@ type LocationRow = {
   name: string;
   code: string;
   address: string;
+  pincode: string;
+  latitude: string;
+  longitude: string;
+  parking: string;
+  alwaysOpen: boolean;
+  googleMapUrl: string;
   status: string;
   timezone: string;
   isBase: boolean;
@@ -327,6 +333,26 @@ function readBoolean(value: unknown, fallback = false) {
   return fallback;
 }
 
+function readErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === "object" && error !== null) {
+    const response = (error as { response?: { data?: unknown } }).response;
+    const data = response?.data;
+    if (typeof data === "string" && data.trim()) {
+      return data.trim();
+    }
+    if (typeof data === "object" && data !== null) {
+      const message = (data as { message?: unknown }).message;
+      if (typeof message === "string" && message.trim()) {
+        return message.trim();
+      }
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 function readProductFlag(settings: TenantSettingsRecord, id: string, fallback: boolean) {
   const keyMap: Record<string, string[]> = {
     booking: ["booking", "bookingEnabled", "bookingStatus"],
@@ -434,6 +460,12 @@ function normalizeLocations(input: unknown): LocationRow[] {
         name: normalized,
         code: normalized,
         address: "",
+        pincode: "",
+        latitude: "",
+        longitude: "",
+        parking: "NONE",
+        alwaysOpen: true,
+        googleMapUrl: "",
         status: "Enabled",
         timezone: "",
         isBase: index === 0,
@@ -450,6 +482,12 @@ function normalizeLocations(input: unknown): LocationRow[] {
       name,
       code: readString(record.code, record.locationCode, record.branchCode, record.shortName),
       address: readString(record.address, record.displayAddress, record.formattedAddress),
+      pincode: readString(record.pincode, record.pinCode, record.postalCode),
+      latitude: readString(record.latitude),
+      longitude: readString(record.longitude),
+      parking: normalizeParkingType(readString(record.parkingType, record.parking)),
+      alwaysOpen: readBoolean(record.open24Hours ?? record.alwaysOpen, true),
+      googleMapUrl: readString(record.googleMapUrl, record.mapUrl, record.googleMapsUrl),
       status: readString(record.status, record.locationStatus) || "Enabled",
       timezone: readString(record.timezone, record.defaultTimezone),
       isBase: readBoolean(record.baseLocation, false) || readBoolean(record.isBase, false),
@@ -527,6 +565,7 @@ export default function SettingsPage() {
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [createLocationOpen, setCreateLocationOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<LocationRow | null>(null);
   const [locationForm, setLocationForm] = useState<LocationFormState>(EMPTY_LOCATION_FORM);
   const [searchLocation, setSearchLocation] = useState("");
   const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -828,8 +867,31 @@ export default function SettingsPage() {
 
   function openCreateLocationDialog() {
     setLocationsError(null);
+    setEditingLocation(null);
     setLocationForm(EMPTY_LOCATION_FORM);
     setSearchLocation("");
+    setMapStatus("idle");
+    mapRef.current = null;
+    markerRef.current = null;
+    geocoderRef.current = null;
+    autocompleteRef.current = null;
+    setCreateLocationOpen(true);
+  }
+
+  function openEditLocationDialog(locationItem: LocationRow) {
+    setLocationsError(null);
+    setEditingLocation(locationItem);
+    setLocationForm({
+      locationName: locationItem.name,
+      address: locationItem.address,
+      pincode: locationItem.pincode,
+      longitude: locationItem.longitude || EMPTY_LOCATION_FORM.longitude,
+      latitude: locationItem.latitude || EMPTY_LOCATION_FORM.latitude,
+      parking: locationItem.parking || EMPTY_LOCATION_FORM.parking,
+      alwaysOpen: locationItem.alwaysOpen,
+      googleMapUrl: locationItem.googleMapUrl || EMPTY_LOCATION_FORM.googleMapUrl,
+    });
+    setSearchLocation(locationItem.address || locationItem.name);
     setMapStatus("idle");
     mapRef.current = null;
     markerRef.current = null;
@@ -843,6 +905,7 @@ export default function SettingsPage() {
       return;
     }
     setCreateLocationOpen(false);
+    setEditingLocation(null);
   }
 
   function updateLocationForm<K extends keyof LocationFormState>(key: K, value: LocationFormState[K]) {
@@ -942,8 +1005,8 @@ export default function SettingsPage() {
           code: baseLocation.code,
         });
       }
-    } catch {
-      setLocationsError("Unable to load locations.");
+    } catch (error) {
+      setLocationsError(readErrorMessage(error, "Unable to load locations."));
     } finally {
       setLocationsLoading(false);
     }
@@ -956,7 +1019,7 @@ export default function SettingsPage() {
     const pincode = locationForm.pincode.trim();
 
     if (!tenantUid) {
-      setLocationsError("Unable to create location because tenant details are missing.");
+      setLocationsError(`Unable to ${editingLocation ? "update" : "create"} location because tenant details are missing.`);
       return;
     }
 
@@ -969,7 +1032,7 @@ export default function SettingsPage() {
     setLocationsError(null);
 
     try {
-      await apiClient.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.create), {
+      const payload = {
         tenantUid,
         place: locationName,
         address,
@@ -983,14 +1046,61 @@ export default function SettingsPage() {
         locationType: "GOOGLE_MAP",
         locationCurrency: currency,
         timezone,
-        baseLocation: locations.length === 0,
+        baseLocation: editingLocation ? editingLocation.isBase : locations.length === 0,
         country: INDIA_COUNTRY,
-      });
+      };
+      if (editingLocation) {
+        await apiClient.put(
+          buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.update(editingLocation.id)),
+          payload,
+        );
+      } else {
+        await apiClient.post(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.create), payload);
+      }
       setCreateLocationOpen(false);
+      setEditingLocation(null);
       setLocationForm(EMPTY_LOCATION_FORM);
       await loadLocations();
-    } catch {
-      setLocationsError("Unable to create location.");
+    } catch (error) {
+      setLocationsError(readErrorMessage(error, `Unable to ${editingLocation ? "update" : "create"} location.`));
+    } finally {
+      setLocationSaving(false);
+    }
+  }
+
+  async function handleSetBaseLocation(locationItem: LocationRow) {
+    setLocationsError(null);
+    setLocationSaving(true);
+    try {
+      await apiClient.put(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.setAsBase(locationItem.id)),
+      );
+      await loadLocations();
+    } catch (error) {
+      setLocationsError(readErrorMessage(error, "Unable to set base location."));
+    } finally {
+      setLocationSaving(false);
+    }
+  }
+
+  async function handleDisableLocation(locationItem: LocationRow) {
+    if (locationItem.isBase) {
+      setLocationsError("Set another location as base before disabling this one.");
+      return;
+    }
+    if (!window.confirm(`Disable ${locationItem.name}?`)) {
+      return;
+    }
+
+    setLocationsError(null);
+    setLocationSaving(true);
+    try {
+      await apiClient.put(
+        buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.status(locationItem.id, "Disabled")),
+      );
+      await loadLocations();
+    } catch (error) {
+      setLocationsError(readErrorMessage(error, "Unable to disable location."));
     } finally {
       setLocationSaving(false);
     }
@@ -1115,9 +1225,9 @@ export default function SettingsPage() {
           className="settings-page__header"
         />
 
-        {settingsError || locationsError ? (
+        {settingsError || (!createLocationOpen && locationsError) ? (
           <SectionCard className="settings-card settings-alert-card">
-            <p className="settings-alert-card__copy">{settingsError ?? locationsError}</p>
+            <p className="settings-alert-card__copy">{settingsError ?? (!createLocationOpen ? locationsError : null)}</p>
           </SectionCard>
         ) : null}
 
@@ -1244,6 +1354,42 @@ export default function SettingsPage() {
                       <div className="settings-location-card__meta">
                         <span>{item.address || "No address available"}</span>
                         <span>{item.timezone || timezone}</span>
+                      </div>
+                      <div className="settings-location-card__footer">
+                        {!item.isBase ? (
+                          <Button
+                            id={`settings-locations-set-base-${item.id}`}
+                            data-testid={`settings-locations-set-base-${item.id}`}
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void handleSetBaseLocation(item)}
+                            disabled={locationSaving}
+                          >
+                            Set as Base
+                          </Button>
+                        ) : null}
+                        <Button
+                          id={`settings-locations-disable-${item.id}`}
+                          data-testid={`settings-locations-disable-${item.id}`}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleDisableLocation(item)}
+                          disabled={locationSaving || item.isBase}
+                        >
+                          Remove
+                        </Button>
+                        <Button
+                          id={`settings-locations-edit-${item.id}`}
+                          data-testid={`settings-locations-edit-${item.id}`}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditLocationDialog(item)}
+                        >
+                          Edit
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1602,8 +1748,8 @@ export default function SettingsPage() {
           open={createLocationOpen}
           onClose={closeCreateLocationDialog}
           testId="settings-create-location-dialog"
-          title="Create Location"
-          description="Add a branch or service location for this tenant."
+          title={editingLocation ? "Edit Location" : "Create Location"}
+          description={editingLocation ? "Update branch or service location details." : "Add a branch or service location for this tenant."}
           size="lg"
           contentClassName="settings-location-dialog"
           bodyClassName="settings-location-dialog__body"
@@ -1739,6 +1885,22 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+          {locationsError ? (
+            <div
+              style={{
+                marginTop: 16,
+                borderRadius: 12,
+                border: "1px solid rgba(244,63,94,0.18)",
+                background: "rgba(244,63,94,0.06)",
+                color: "#e11d48",
+                padding: "12px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {locationsError}
+            </div>
+          ) : null}
           <DialogFooter>
             <Button
               id="settings-location-cancel-button"
@@ -1757,8 +1919,8 @@ export default function SettingsPage() {
               onClick={handleCreateLocation}
               disabled={locationSaving}
             >
-              <ActionGlyph kind="add" />
-              {locationSaving ? "Creating" : "Create Location"}
+              <ActionGlyph kind={editingLocation ? "save" : "add"} />
+              {locationSaving ? (editingLocation ? "Saving" : "Creating") : (editingLocation ? "Save Location" : "Create Location")}
             </Button>
           </DialogFooter>
         </Dialog>

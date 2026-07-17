@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from "react";
 import { Loader2, Users, Briefcase, AlertCircle, TrendingDown, CheckCircle2 } from "lucide-react";
-import { useBranchNorms } from "../../services/useOrg";
+import { useBranchNorms, usePositions } from "../../services/useOrg";
 import { useBranches } from "../../services/useBranches";
 import { useDepartments, useShifts } from "../../services/useSettingsData";
 
@@ -11,6 +11,7 @@ const statVal: CSSProperties = { fontSize: 28, fontWeight: 900, color: "var(--da
 
 export default function HeadcountDashboardTab({ onRequestTransfer }: { onRequestTransfer?: (locId: string, deptId: string, shiftId: string) => void }) {
   const norms = useBranchNorms();
+  const positions = usePositions();
   const { data: branches } = useBranches();
   const { data: departments } = useDepartments();
   const { data: shifts } = useShifts();
@@ -29,6 +30,16 @@ export default function HeadcountDashboardTab({ onRequestTransfer }: { onRequest
     const m = new Map(shifts.map((s) => [s.id, s.name] as const));
     return (uid?: string | null) => (uid ? m.get(uid) ?? uid : "Any Shift");
   }, [shifts]);
+
+  const positionName = useMemo(() => {
+    const m = new Map(
+      positions.data.map((position) => [
+        position.id,
+        position.name || position.designationName || position.code || "",
+      ] as const)
+    );
+    return (uid?: string | null) => (uid ? m.get(uid) ?? uid : "");
+  }, [positions.data]);
 
   const kpis = useMemo(() => {
     if (!norms.data) return { sanctioned: 0, actual: 0, notice: 0, projected: 0, shortage: 0, excess: 0 };
@@ -125,7 +136,11 @@ export default function HeadcountDashboardTab({ onRequestTransfer }: { onRequest
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {roles.map((r, i) => {
                     const c = r.flag === "Shortage" ? "#e11d48" : r.flag === "Excess" ? "#d97706" : "#059669";
-                    const roleTitle = r.positionName || r.departmentName || (dId !== "global_dept" ? departmentName(dId) : "Unassigned role");
+                    const roleTitle =
+                      r.positionName ||
+                      positionName(r.positionUid) ||
+                      r.departmentName ||
+                      (dId !== "global_dept" ? departmentName(dId) : "Unassigned role");
                     const shortageCount = Math.max(0, (r.sanctioned || 0) - (r.projected || 0));
                     return (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, padding: "10px 12px", background: "var(--app-bg)", borderRadius: 10, border: "1px solid var(--border-color)" }}>

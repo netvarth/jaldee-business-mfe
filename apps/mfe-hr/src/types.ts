@@ -90,3 +90,101 @@ export interface AttendanceBreak {
   breakType?: string;
   durationMinutes?: number;
 }
+
+export interface JobRequisition {
+  id: string;
+  uid?: string;
+  title: string;
+  employmentType?: string;
+  department?: string;
+  departmentUid?: string | null;
+  branch?: string;
+  branchUid?: string | null;
+  hiringManager?: string;
+  hiringManagerUid?: string | null;
+  openings?: number;
+  openingsCount?: number;
+  experienceRequired?: string;
+  salaryMin?: number | string | null;
+  salaryMax?: number | string | null;
+  targetCloseDate?: string;
+  jobDescription?: string;
+  status?: string;
+  applicants?: number;
+  createdAt?: string;
+}
+
+export interface Candidate {
+  id: string;
+  uid?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  source?: string;
+  addedAt?: string;
+  appliedAt?: string;
+  experienceYears?: number;
+  currentCompany?: string;
+  currentDesignation?: string;
+  skills?: string;
+  notes?: string;
+  rating?: number | null;
+  resumeFileRef?: string | null;
+  resumeFileName?: string;
+  resumeUrl?: string | null;
+}
+
+export interface Application {
+  id: string;
+  uid?: string;
+  candidateId?: string;
+  candidateUid?: string;
+  candidate?: Candidate | null;
+  candidateName?: string;
+  requisitionId?: string;
+  requisitionUid?: string;
+  requisition?: JobRequisition | null;
+  role?: string;
+  stage?: string;
+  status?: string;
+  notes?: string | null;
+  rating?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+  resumeFileRef?: string | null;
+  resumeFileName?: string;
+  resumeUrl?: string | null;
+}
+
+export interface Interview {
+  id: string;
+  uid?: string;
+  applicationId?: string;
+  applicationUid?: string;
+  round?: string;
+  scheduledAt?: string;
+  durationMinutes?: number;
+  mode?: string;
+  locationOrLink?: string;
+  interviewerUids?: string[];
+  score?: string | number;
+  feedback?: string;
+  outcome?: string;
+  status?: string;
+}
+
+export interface Offer {
+  id: string;
+  uid?: string;
+  applicationId: string;
+  designation?: string;
+  offeredSalary?: number | string | null;
+  currency?: string;
+  joiningDate?: string;
+  validUntil?: string;
+  sentAt?: string;
+  probationPeriod?: string;
+  status?: string;
+  branchUid?: string | null;
+  departmentUid?: string | null;
+}

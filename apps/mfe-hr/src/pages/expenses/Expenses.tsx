@@ -14,14 +14,27 @@ const EXPENSE_ROUTES: Array<{ key: Tab; route: string; label: string }> = [
   { key: "approvals", route: "verifications", label: "Verifications Control" },
 ];
 const TEAL = "var(--primary-color)";
+const TEXT_PRIMARY = "var(--dark-text)";
+const TEXT_SECONDARY = "var(--light-text)";
+const TEXT_INVERSE = "var(--color-text-inverse)";
+const SURFACE = "var(--surface-bg)";
+const SURFACE_SUBTLE = "rgba(100,116,139,0.06)";
+const BORDER = "var(--border-color)";
+const BORDER_SUBTLE = "rgba(148,163,184,0.16)";
+const INFO = "var(--color-info)";
+const INFO_SUBTLE = "var(--color-info-subtle)";
+const SUCCESS = "var(--success-color)";
+const SUCCESS_SOFT = "var(--success-bg)";
+const WARNING = "var(--warning-color)";
+const DANGER = "var(--danger-color)";
 const CATEGORIES = ["Travel", "Food", "Lodging", "Other"];
 
-const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 8, overflow: "hidden" };
-const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 8, boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)" };
-const lbl: CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
-const th: CSSProperties = { textAlign: "left", padding: "14px 16px", fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)", background: "rgba(100,116,139,0.04)" };
-const tdc: CSSProperties = { padding: "16px", fontSize: 14, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
-const field: CSSProperties = { width: "100%", height: 48, borderRadius: 14, border: "none", background: "rgba(100,116,139,0.06)", padding: "0 14px", fontSize: 15, fontWeight: 700, color: "var(--dark-text)" };
+const card: CSSProperties = { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" };
+const panel: CSSProperties = { background: SURFACE, border: `1px solid ${BORDER_SUBTLE}`, borderRadius: 8, boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)" };
+const lbl: CSSProperties = { fontSize: "var(--text-xs)", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: TEXT_SECONDARY };
+const th: CSSProperties = { textAlign: "left", padding: "14px 16px", fontSize: "var(--text-xs)", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: TEXT_SECONDARY, background: "rgba(100,116,139,0.04)" };
+const tdc: CSSProperties = { padding: "16px", fontSize: "var(--text-sm)", color: TEXT_PRIMARY, borderTop: `1px solid ${BORDER}` };
+const field: CSSProperties = { width: "100%", height: 48, borderRadius: 14, border: "none", background: SURFACE_SUBTLE, padding: "0 14px", fontSize: "var(--text-sm)", fontWeight: 700, color: TEXT_PRIMARY };
 const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 18 };
 type ViewMode = "table" | "cards";
 
@@ -38,21 +51,25 @@ function getPreferredViewMode() {
 
 function catStyle(c?: string): CSSProperties {
   switch (c) {
-    case "Travel": return { background: "#ecfeff", color: "#0e7490", border: "1px solid #cffafe" };
-    case "Food": return { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" };
-    case "Lodging": return { background: "#eef2ff", color: "#4338ca", border: "1px solid #e0e7ff" };
-    default: return { background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0" };
+    case "Travel": return { background: "color-mix(in srgb, var(--color-info-subtle) 55%, white)", color: INFO, border: `1px solid ${INFO_SUBTLE}` };
+    case "Food": return { background: "color-mix(in srgb, var(--warning-bg) 55%, white)", color: WARNING, border: "1px solid var(--warning-border)" };
+    case "Lodging": return { background: "color-mix(in srgb, var(--color-primary-subtle) 45%, white)", color: "var(--color-primary)", border: "1px solid var(--color-primary-muted)" };
+    default: return { background: "rgba(100,116,139,0.06)", color: TEXT_SECONDARY, border: `1px solid ${BORDER}` };
   }
 }
 function statStyle(s?: string): CSSProperties {
   switch (s) {
-    case "Approved": return { background: "rgba(16,185,129,0.06)", color: "#059669", border: "1px solid rgba(16,185,129,0.15)" };
-    case "Reimbursed": return { background: "rgba(59,130,246,0.06)", color: "#2563eb", border: "1px solid rgba(59,130,246,0.15)" };
-    case "Rejected": return { background: "rgba(244,63,94,0.06)", color: "#e11d48", border: "1px solid rgba(244,63,94,0.15)" };
-    default: return { background: "rgba(245,158,11,0.06)", color: "#d97706", border: "1px solid rgba(245,158,11,0.15)" };
+    case "Approved": return { background: "rgba(16,185,129,0.06)", color: SUCCESS, border: "1px solid rgba(16,185,129,0.15)" };
+    case "Reimbursed": return { background: "rgba(59,130,246,0.06)", color: INFO, border: "1px solid rgba(59,130,246,0.15)" };
+    case "Rejected": return { background: "rgba(244,63,94,0.06)", color: DANGER, border: "1px solid rgba(244,63,94,0.15)" };
+    default: return { background: "rgba(245,158,11,0.06)", color: WARNING, border: "1px solid rgba(245,158,11,0.15)" };
   }
 }
 const tag = (st: CSSProperties): CSSProperties => ({ ...st, display: "inline-block", padding: "3px 10px", borderRadius: 4, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" });
+const actionButton: CSSProperties = { height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: TEXT_INVERSE, fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 };
+const employeeActionButton: CSSProperties = { ...actionButton, background: SUCCESS };
+const secondaryActionButton: CSSProperties = { height: 36, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 };
+const errorBar: CSSProperties = { padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: DANGER, borderRadius: 12, fontSize: 13 };
 
 function ExpensesViewToggle({
   value,
@@ -77,8 +94,8 @@ function ExpensesViewToggle({
           borderRadius: 6,
           border: "none",
           cursor: "pointer",
-          background: value === "table" ? "var(--primary-color)" : "transparent",
-          color: value === "table" ? "white" : "var(--light-text)",
+          background: value === "table" ? SUCCESS : "transparent",
+          color: value === "table" ? TEXT_INVERSE : TEXT_SECONDARY,
           transition: "background-color 0.15s, color 0.15s",
         }}
         aria-label="Table view"
@@ -100,8 +117,8 @@ function ExpensesViewToggle({
           borderRadius: 6,
           border: "none",
           cursor: "pointer",
-          background: value === "cards" ? "var(--primary-color)" : "transparent",
-          color: value === "cards" ? "white" : "var(--light-text)",
+          background: value === "cards" ? SUCCESS : "transparent",
+          color: value === "cards" ? TEXT_INVERSE : TEXT_SECONDARY,
           transition: "background-color 0.15s, color 0.15s",
         }}
         aria-label="Card view"
@@ -115,13 +132,13 @@ function ExpensesViewToggle({
 
 function StatCard({ tag: t, label, value, sub, tone, icon, accent }: { tag: string; label: string; value: ReactNode; sub: string; tone: string; icon: ReactNode; accent?: boolean }) {
   return (
-    <div style={{ ...panel, borderRadius: 8, padding: 22, background: accent ? "rgba(17,94,89,0.04)" : "var(--surface-bg)", borderColor: accent ? "rgba(17,94,89,0.18)" : "rgba(148,163,184,0.16)" }}>
+      <div style={{ ...panel, borderRadius: 8, padding: 22, background: accent ? "rgba(17,94,89,0.04)" : SURFACE, borderColor: accent ? "rgba(17,94,89,0.18)" : BORDER_SUBTLE }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ height: 48, width: 48, borderRadius: 6, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
         <span style={{ ...lbl, color: tone, background: `${tone}14`, border: `1px solid ${tone}33`, padding: "4px 10px", borderRadius: 4 }}>{t}</span>
       </div>
       <p style={{ ...lbl, marginBottom: 6 }}>{label}</p>
-      <div style={{ fontSize: 28, fontWeight: 900, color: accent ? TEAL : "var(--dark-text)", letterSpacing: "-0.5px" }}>{value}</div>
+      <div style={{ fontSize: "var(--text-xl)", fontWeight: 900, color: accent ? TEAL : TEXT_PRIMARY, letterSpacing: "-0.5px" }}>{value}</div>
       <p style={{ ...lbl, marginTop: 8, fontSize: 10, fontWeight: 700 }}>{sub}</p>
     </div>
   );
@@ -222,20 +239,27 @@ export default function Expenses() {
           <PageHeader
             title="Expense Claims & Mileage Ledger"
             subtitle="Reimbursements, travel logs and settlement control"
-            actions={<button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Submit Expense Claim</button>}
+            actions={<button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={actionButton}><Plus size={16} /> Submit Expense Claim</button>}
           />
         ) : null}
 
         {isEmployeeView ? (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}><Plus size={15} /> Submit Claim</button>
+            <button
+              id="hr-expenses-submit-open"
+              data-testid="hr-expenses-submit-open"
+              onClick={() => { setMsg(null); setAddOpen(true); }}
+              style={{ ...employeeActionButton, flexShrink: 0 }}
+            >
+              <Plus size={16} /> Submit Claim
+            </button>
           </div>
         ) : null}
 
       {/* STAT CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
-        <StatCard tag="Pending" label="Pending Clearance" value={formatCurrency(sumPending)} sub={`${pendingCount} requests waiting review`} tone="#d97706" icon={<Clock size={24} />} />
-        <StatCard tag="Settled" label="Approved & Paid" value={formatCurrency(sumSettled)} sub={`From ${scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").length} approved profiles`} tone="#10b981" icon={<CheckCircle2 size={24} />} />
+        <StatCard tag="Pending" label="Pending Clearance" value={formatCurrency(sumPending)} sub={`${pendingCount} requests waiting review`} tone={WARNING} icon={<Clock size={24} />} />
+        <StatCard tag="Settled" label="Approved & Paid" value={formatCurrency(sumSettled)} sub={`From ${scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").length} approved profiles`} tone={SUCCESS} icon={<CheckCircle2 size={24} />} />
         <StatCard tag="Total Registers" label="Total Ledger Count" value={`${scopedExpenses.length} Claims`} sub="Expense claims logged" tone={TEAL} icon={<Receipt size={24} />} accent />
       </div>
 
@@ -255,7 +279,7 @@ export default function Expenses() {
         </div>
         <div style={{ position: "relative", width: "100%", maxWidth: 360, alignSelf: "flex-end" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-          <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 42, width: "100%", borderRadius: 999, paddingLeft: 34, fontSize: 13.5, fontWeight: 600, background: "#ffffff", border: "1px solid rgba(148,163,184,0.14)" }} />
+          <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 42, width: "100%", borderRadius: 999, paddingLeft: 34, fontSize: "var(--text-sm)", fontWeight: 600, background: SURFACE, border: `1px solid ${BORDER_SUBTLE}` }} />
         </div>
       </div>
 
@@ -281,19 +305,19 @@ export default function Expenses() {
               ) : rows.map((e) => (
                 <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
                   {!isEmployeeView && tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 14 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 10 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
-                  <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, fontSize: 13.5, color: "var(--light-text)" }}>{fmtDate(e.date)}</td>
+                  <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, fontSize: "var(--text-xs)", color: TEXT_SECONDARY }}>{fmtDate(e.date)}</td>
                   <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
-                  <td style={{ ...tdc, fontWeight: 900, fontSize: 15 }}>{formatCurrency(e.amount)}</td>
+                  <td style={{ ...tdc, fontWeight: 900, fontSize: "var(--text-sm)" }}>{formatCurrency(e.amount)}</td>
                   <td style={{ ...tdc, maxWidth: 200 }}>
                     {e.category === "Travel" && e.kms ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 700 }}><Car size={13} color="#0891b2" /> {e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)", fontWeight: 700, color: TEXT_PRIMARY }}><Car size={13} color={INFO} /> {e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</div>
                     ) : (
                       <span style={{ fontSize: 13.5, fontStyle: "italic", color: "var(--light-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>“{e.notes || "—"}”</span>
                     )}
                   </td>
                   <td style={tdc}><span style={tag(statStyle(e.status))}>{e.status || "—"}</span></td>
                   <td style={{ ...tdc, textAlign: "right" }}>
-                    <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 36, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
+                    <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={secondaryActionButton}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
                   </td>
                 </tr>
               ))}
@@ -314,11 +338,11 @@ export default function Expenses() {
                   <div style={{ minWidth: 0 }}>
                     {!isEmployeeView && tab === "approvals" ? (
                       <>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: "var(--dark-text)" }}>{empName(e.employeeUid)}</div>
+                        <div style={{ fontWeight: 800, fontSize: "var(--text-sm)", color: TEXT_PRIMARY }}>{empName(e.employeeUid)}</div>
                         <div style={{ ...lbl, fontSize: 10, marginTop: 3 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div>
                       </>
                     ) : (
-                      <div style={{ fontWeight: 800, fontSize: 15, color: "var(--dark-text)" }}>{fmtDate(e.date)}</div>
+                      <div style={{ fontWeight: 800, fontSize: "var(--text-sm)", color: TEXT_PRIMARY }}>{fmtDate(e.date)}</div>
                     )}
                   </div>
                   <span style={tag(statStyle(e.status))}>{e.status || "—"}</span>
@@ -326,7 +350,7 @@ export default function Expenses() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
                     <div style={lbl}>Submit Date</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--dark-text)", marginTop: 4 }}>{fmtDate(e.date)}</div>
+                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: TEXT_PRIMARY, marginTop: 4 }}>{fmtDate(e.date)}</div>
                   </div>
                   <div>
                     <div style={lbl}>Category</div>
@@ -334,17 +358,17 @@ export default function Expenses() {
                   </div>
                   <div>
                     <div style={lbl}>Claim Amount</div>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: "var(--dark-text)", marginTop: 4 }}>{formatCurrency(e.amount)}</div>
+                    <div style={{ fontSize: "var(--text-base)", fontWeight: 900, color: TEXT_PRIMARY, marginTop: 4 }}>{formatCurrency(e.amount)}</div>
                   </div>
                   <div>
                     <div style={lbl}>Travel Summary</div>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--dark-text)", marginTop: 4 }}>
+                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: TEXT_PRIMARY, marginTop: 4 }}>
                       {e.category === "Travel" && e.kms ? `${e.kms} KMs${e.modeOfTransport ? ` via ${e.modeOfTransport}` : ""}` : (e.notes || "—")}
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 6, borderTop: "1px solid var(--border-color)" }}>
-                  <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={{ height: 36, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
+                <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 6, borderTop: `1px solid ${BORDER}` }}>
+                  <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={secondaryActionButton}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
                 </div>
               </div>
             ))}
@@ -415,8 +439,8 @@ export default function Expenses() {
             />
           </div>
         </div>
-        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
+        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
           <button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Claim Proposal"}</button>
         </div>
@@ -457,16 +481,16 @@ export default function Expenses() {
 
               {!isEmployeeView && selected.status === "Pending" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, paddingTop: 4 }}>
-                  <button id={`hr-expenses-reject-${selected.id}`} data-testid={`hr-expenses-reject-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reject")} disabled={acting} style={{ height: 40, padding: "0 18px", borderRadius: 12, border: "none", background: "#f43f5e", color: "white", fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline</button>
-                  <button id={`hr-expenses-approve-${selected.id}`} data-testid={`hr-expenses-approve-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("approve")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve Claim</button>
+                  <button id={`hr-expenses-reject-${selected.id}`} data-testid={`hr-expenses-reject-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reject")} disabled={acting} style={{ height: 40, padding: "0 18px", borderRadius: 12, border: "none", background: DANGER, color: TEXT_INVERSE, fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline</button>
+                  <button id={`hr-expenses-approve-${selected.id}`} data-testid={`hr-expenses-approve-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("approve")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: TEXT_INVERSE, fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve Claim</button>
                 </div>
               )}
               {!isEmployeeView && selected.status === "Approved" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
-                  <button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reimburse")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: "#2563eb", color: "white", fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Mark Reimbursed</button>
+                  <button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reimburse")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: TEXT_INVERSE, fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Mark Reimbursed</button>
                 </div>
               )}
-              {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+              {msg && <div style={errorBar}>{msg}</div>}
             </div>
           </>
         )}
@@ -478,6 +502,6 @@ export default function Expenses() {
 const overlay: CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
 const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 28, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", overflow: "hidden", maxHeight: "92vh" };
 const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" };
-const ghostBtn: CSSProperties = { height: 44, padding: "0 22px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
-const primaryBtn: CSSProperties = { height: 44, padding: "0 26px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };
-const infoBox: CSSProperties = { padding: 14, borderRadius: 14, background: "rgba(100,116,139,0.04)", border: "1px solid var(--border-color)" };
+const ghostBtn: CSSProperties = { height: 44, padding: "0 22px", borderRadius: 12, border: `1px solid ${BORDER}`, background: SURFACE, color: TEXT_PRIMARY, fontWeight: 700, fontSize: 13, cursor: "pointer" };
+const primaryBtn: CSSProperties = { height: 44, padding: "0 26px", borderRadius: 12, border: "none", background: TEAL, color: TEXT_INVERSE, fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };
+const infoBox: CSSProperties = { padding: 14, borderRadius: 14, background: "rgba(100,116,139,0.04)", border: `1px solid ${BORDER}` };

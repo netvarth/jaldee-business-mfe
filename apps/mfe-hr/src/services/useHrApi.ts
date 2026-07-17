@@ -22,7 +22,7 @@ const BASE =
   import.meta.env.VITE_HR_API_BASE_PATH ||
   `${HR_SERVICE_API_ROOT}/tenant`;
 
-type Json = Record<string, unknown> | unknown[];
+type RequestBody = Record<string, unknown> | unknown[] | FormData | string | number | boolean | null;
 
 function buildHrServiceUrl(endpoint: string) {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
@@ -50,7 +50,7 @@ export function useHrApi() {
     async function request<T>(
       endpoint: string,
       method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
-      body?: Json
+      body?: RequestBody
     ): Promise<T> {
       const timeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
 

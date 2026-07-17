@@ -42,7 +42,7 @@ export function KanbanBoard<T extends KanbanItem>({
           key={col.id}
           data-testid={`kanban-column-${col.id}`}
           className={cn(
-            "flex-shrink-0 w-64 rounded-lg bg-gray-50 border border-gray-200",
+            "flex-shrink-0 w-60 rounded-lg bg-gray-50 border border-gray-200",
             overCol === col.id && "border-indigo-300 bg-indigo-50"
           )}
           onDragOver={(e) => {
@@ -70,24 +70,30 @@ export function KanbanBoard<T extends KanbanItem>({
 
           {/* Cards */}
           <div className="p-2 space-y-2 min-h-16">
-            {getColumnItems(col.id).map((item) => (
-              <div
-                key={item.id}
-                data-testid={`kanban-card-${item.id}`}
-                draggable
-                onDragStart={() => setDraggedId(item.id)}
-                onDragEnd={() => {
-                  setDraggedId(null);
-                  setOverCol(null);
-                }}
-                className={cn(
-                  "cursor-grab active:cursor-grabbing",
-                  draggedId === item.id && "opacity-50"
-                )}
-              >
-                {renderCard(item)}
+            {getColumnItems(col.id).length === 0 ? (
+              <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-gray-200 bg-white/70 px-3 py-6 text-center text-xs font-medium text-gray-400">
+                No items in this stage
               </div>
-            ))}
+            ) : (
+              getColumnItems(col.id).map((item) => (
+                <div
+                  key={item.id}
+                  data-testid={`kanban-card-${item.id}`}
+                  draggable
+                  onDragStart={() => setDraggedId(item.id)}
+                  onDragEnd={() => {
+                    setDraggedId(null);
+                    setOverCol(null);
+                  }}
+                  className={cn(
+                    "cursor-grab active:cursor-grabbing",
+                    draggedId === item.id && "opacity-50"
+                  )}
+                >
+                  {renderCard(item)}
+                </div>
+              ))
+            )}
           </div>
         </div>
       ))}

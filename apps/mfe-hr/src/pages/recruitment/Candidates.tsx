@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DataTable, Button, Input, ErrorState, EmptyState } from "@jaldee/design-system";
 import { useCandidates } from "../../services/useRecruitmentData";
 import { NewCandidateModal } from "./NewCandidateModal";
@@ -8,10 +9,17 @@ import type { ColumnDef } from "@jaldee/design-system";
 import type { Candidate } from "../../types";
 
 export default function Candidates() {
+  const navigate = useNavigate();
   const { data, loading, error, save } = useCandidates();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
+
+  const openCandidate = (candidate: Candidate) => {
+    const candidateKey = candidate.uid ?? candidate.id;
+    if (!candidateKey) return;
+    navigate(`/recruitment/candidates/${candidateKey}`, { state: { returnTo: "/recruitment/candidates" } });
+  };
 
   const filtered = search
     ? data.filter((candidate) =>
@@ -38,6 +46,22 @@ export default function Candidates() {
       key: "addedAt",
       render: (row) => (row.addedAt ? new Date(String(row.addedAt)).toLocaleDateString() : "-"),
     },
+    {
+      header: "",
+      key: "id",
+      align: "right",
+      render: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="whitespace-nowrap"
+          data-testid={`hr-recruitment-candidate-view-${row.id}`}
+          onClick={() => openCandidate(row)}
+        >
+          View
+        </Button>
+      ),
+    },
   ];
 
   if (error) {
@@ -50,7 +74,7 @@ export default function Candidates() {
 
   return (
     <RecruitmentLayout title="Candidate Pool" subtitle="Global list of all candidates and their profiles.">
-      <div className="p-4 md:p-6">
+      <div>
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">
@@ -94,6 +118,16 @@ export default function Candidates() {
                       { label: "Source", value: candidate.source || "-" },
                       { label: "Added On", value: candidate.addedAt ? new Date(String(candidate.addedAt)).toLocaleDateString() : "-" },
                     ]}
+                    footer={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid={`hr-recruitment-candidate-card-view-${candidate.id}`}
+                        onClick={() => openCandidate(candidate)}
+                      >
+                        View
+                      </Button>
+                    }
                   />
                 ))}
               </div>

@@ -26,6 +26,7 @@ const EssPortal = lazy(() => import("./pages/ess/EssPortal"));
 const RecruitmentDashboard = lazy(() => import("./pages/recruitment/Dashboard"));
 const JobRequisitions = lazy(() => import("./pages/recruitment/JobRequisitions"));
 const Candidates = lazy(() => import("./pages/recruitment/Candidates"));
+const CandidateView = lazy(() => import("./pages/recruitment/CandidateView"));
 const ApplicationsPipeline = lazy(() => import("./pages/recruitment/ApplicationsPipeline"));
 const Interviews = lazy(() => import("./pages/recruitment/Interviews"));
 const Offers = lazy(() => import("./pages/recruitment/Offers"));
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/recruitment" element={<RecruitmentDashboard />} />
             <Route path="/recruitment/requisitions" element={<JobRequisitions />} />
             <Route path="/recruitment/candidates" element={<Candidates />} />
+            <Route path="/recruitment/candidates/:candidateId" element={<CandidateView />} />
             <Route path="/recruitment/applications" element={<ApplicationsPipeline />} />
             <Route path="/recruitment/interviews" element={<Interviews />} />
             <Route path="/recruitment/offers" element={<Offers />} />

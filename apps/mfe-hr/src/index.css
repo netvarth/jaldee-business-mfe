@@ -11,7 +11,7 @@
    (teal brand primary #115E59 on slate neutrals). */
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 0 0% 100%;
     --foreground: 215 28% 17%;
     --card: 0 0% 100%;
     --card-foreground: 215 28% 17%;
@@ -37,7 +37,7 @@
   }
 
   body {
-    background-color: hsl(var(--background));
+    background-color: #ffffff;
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
   }
@@ -68,30 +68,30 @@
 
 /* Design Tokens & Variables */
 :root {
-    --primary-color: #115E59;
-    --primary-hover: #0F504C;
-    --primary-light: #ECFDF5;
-    --primary-border: #99F6E4;
+    --primary-color: var(--color-product-hr);
+    --primary-hover: var(--color-product-hr);
+    --primary-light: var(--color-product-hr-subtle);
+    --primary-border: var(--color-success-subtle);
     
     --dark-bg: #0F172A;
-    --dark-text: #1E293B;
-    --light-text: #64748B;
-    --text-secondary: #64748B;
-    --border-color: #E2E8F0;
-    --surface-bg: #FFFFFF;
-    --app-bg: #FFFFFF;
+    --dark-text: var(--color-text-primary);
+    --light-text: var(--color-text-secondary);
+    --text-secondary: var(--color-text-secondary);
+    --border-color: var(--color-border);
+    --surface-bg: var(--color-surface);
+    --app-bg: var(--color-surface);
     
-    --success-color: #10B981;
-    --success-bg: #ECFDF5;
-    --success-border: #A7F3D0;
+    --success-color: var(--color-success);
+    --success-bg: var(--color-success-subtle);
+    --success-border: var(--color-success-subtle);
     
-    --warning-color: #F59E0B;
-    --warning-bg: #FEF3C7;
-    --warning-border: #FDE68A;
+    --warning-color: var(--color-warning);
+    --warning-bg: var(--color-warning-subtle);
+    --warning-border: var(--color-warning-subtle);
     
-    --danger-color: #EF4444;
-    --danger-bg: #FEF2F2;
-    --danger-border: #FEE2E2;
+    --danger-color: var(--color-danger);
+    --danger-bg: var(--color-danger-subtle);
+    --danger-border: var(--color-danger-subtle);
 
     --sidebar-width: 72px;
     --db-sidebar-width: 260px;
@@ -808,8 +808,8 @@ a:hover {
 
 .attendance-console-layout {
     display: grid;
-    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
-    gap: 0;
+    grid-template-columns: minmax(220px, 1.05fr) minmax(260px, 0.95fr);
+    gap: 24px;
     align-items: stretch;
 }
 
@@ -818,7 +818,7 @@ a:hover {
     grid-row: 1;
     min-width: 0;
     border-right: 1px solid var(--border-color);
-    padding-right: 32px;
+    padding-right: 24px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -831,10 +831,32 @@ a:hover {
     grid-row: 1;
     min-width: 0;
     margin-top: 0 !important;
-    padding-left: 32px;
+    padding-left: 0;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1500px) {
+    .attendance-console-grid {
+        grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.85fr) !important;
+        align-items: stretch;
+    }
+
+    .attendance-console-card {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .attendance-stats-summary-card {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .attendance-timeline-card {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+@media (max-width: 1280px) {
     .attendance-console-grid {
         grid-template-columns: 1fr !important;
     }

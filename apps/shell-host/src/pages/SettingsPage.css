@@ -413,11 +413,13 @@
 
 .settings-location-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
 .settings-location-card {
+  display: flex;
+  flex-direction: column;
   padding: 16px;
   border: 1px solid #d6e3f2;
   border-radius: 14px;
@@ -462,6 +464,18 @@
   color: #56708d;
   font-size: 13px;
   line-height: 1.45;
+  flex: 1;
+}
+
+.settings-location-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5edf7;
 }
 
 .settings-empty-state {
@@ -810,6 +824,10 @@
 
   .settings-page__nav-inner {
     position: static;
+  }
+
+  .settings-location-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

@@ -176,17 +176,22 @@ export function usePostings() {
   return { data, loading, error, reload: load, save, setStatus, remove };
 }
 
-/**
- * Opens a stored document. Employee documents hold either a real URL (open
- * directly) or a drive filePath (presign via HR, then open the fresh URL).
- */
-export function useDocumentOpener() {
+export function useDocumentDownloader() {
   const api = useHrApi();
-  return useCallback(async (filePathOrUrl?: string | null) => {
+  return useCallback(async (filePathOrUrl?: string | null, fileName?: string | null) => {
     if (!filePathOrUrl) return;
-    if (/^https?:\/\//i.test(filePathOrUrl)) { window.open(filePathOrUrl, "_blank", "noopener"); return; }
-    const res = await api.get<{ url?: string }>(`/careers/document-url?filePath=${encodeURIComponent(filePathOrUrl)}`);
-    if (res?.url) window.open(res.url, "_blank", "noopener");
+    const resolvedUrl = /^https?:\/\//i.test(filePathOrUrl)
+      ? filePathOrUrl
+      : (await api.get<{ url?: string }>(`/careers/document-url?filePath=${encodeURIComponent(filePathOrUrl)}`))?.url ?? null;
+    if (!resolvedUrl) return;
+
+    const link = document.createElement("a");
+    link.href = resolvedUrl;
+    if (fileName) link.download = fileName;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }, [api]);
 }
 

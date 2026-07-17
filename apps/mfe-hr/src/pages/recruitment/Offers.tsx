@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DataTable, Badge, Button, ErrorState, EmptyState } from "@jaldee/design-system";
-import { useOffers, useApplications, useCandidates } from "../../services/useRecruitmentData";
+import { useOffers, useApplications } from "../../services/useRecruitmentData";
 import RecruitmentLayout from "./RecruitmentLayout";
 import { ConvertToEmployeeModal } from "./ConvertToEmployeeModal";
 import { NewOfferModal } from "./NewOfferModal";
 import { OfferDetailsModal } from "./OfferDetailsModal";
 import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "./recruitmentResponsive";
 import type { ColumnDef } from "@jaldee/design-system";
-import type { Offer, Candidate } from "../../types";
+import type { Offer } from "../../types";
 
 function isStatus(offer: Offer, status: string) {
   return String(offer.status).toUpperCase() === status.toUpperCase();
@@ -15,8 +15,7 @@ function isStatus(offer: Offer, status: string) {
 
 export default function Offers() {
   const { data, loading, error, updateStatus, create } = useOffers();
-  const { data: applications, hire } = useApplications();
-  const { data: candidates } = useCandidates();
+  const { data: applications, hire, reload: loadApplications } = useApplications({ autoload: false });
 
   const [converting, setConverting] = useState<Offer | null>(null);
   const [viewing, setViewing] = useState<Offer | null>(null);
@@ -24,18 +23,19 @@ export default function Offers() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
 
+  useEffect(() => {
+    if (!newOfferOpen && !converting && !viewing) return;
+    void loadApplications();
+  }, [converting, loadApplications, newOfferOpen, viewing]);
+
   const candidateFor = useMemo(() => {
-    return (offer: Offer): { candidate: Candidate | null; applicationId?: string } => {
+    return (offer: Offer) => {
       const application = applications.find((item) => item.id === offer.applicationId);
       const applicationId = application?.id ?? offer.applicationId;
-      const candidateId = application?.candidateId ?? (application as { candidateUid?: string } | undefined)?.candidateUid;
-      const candidate =
-        application?.candidate ??
-        candidates.find((item) => item.id === candidateId) ??
-        null;
+      const candidate = application?.candidate ?? null;
       return { candidate, applicationId };
     };
-  }, [applications, candidates]);
+  }, [applications]);
 
   const candidateName = (offer: Offer) => candidateFor(offer).candidate?.name ?? "-";
   const offerStatusVariant = (status?: string) => {
@@ -137,7 +137,7 @@ export default function Offers() {
 
   return (
     <RecruitmentLayout title="Offers" subtitle="Track and manage candidate offers.">
-      <div className="p-4 md:p-6">
+      <div>
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="text-sm text-gray-500">Manage active, accepted, and declined offers.</div>
@@ -212,32 +212,37 @@ export default function Offers() {
         </div>
       </div>
 
-      <ConvertToEmployeeModal
-        key={converting?.id ?? "convert"}
-        isOpen={!!converting}
-        onClose={() => setConverting(null)}
-        offer={converting}
-        candidate={resolved.candidate}
-        applicationId={resolved.applicationId}
-        onConvert={hire}
-      />
+      {converting ? (
+        <ConvertToEmployeeModal
+          key={converting.id}
+          isOpen
+          onClose={() => setConverting(null)}
+          offer={converting}
+          candidate={resolved.candidate}
+          applicationId={resolved.applicationId}
+          onConvert={hire}
+        />
+      ) : null}
 
-      <NewOfferModal
-        isOpen={newOfferOpen}
-        onClose={() => setNewOfferOpen(false)}
-        applications={applications}
-        candidates={candidates}
-        onSave={create}
-      />
+      {newOfferOpen ? (
+        <NewOfferModal
+          isOpen
+          onClose={() => setNewOfferOpen(false)}
+          applications={applications}
+          onSave={create}
+        />
+      ) : null}
 
-      <OfferDetailsModal
-        key={viewing?.id ?? "view"}
-        isOpen={!!viewing}
-        onClose={() => setViewing(null)}
-        offer={viewing}
-        candidate={viewing ? candidateFor(viewing).candidate : null}
-        onConvert={viewing && isStatus(viewing, "ACCEPTED") ? () => setConverting(viewing) : undefined}
-      />
+      {viewing ? (
+        <OfferDetailsModal
+          key={viewing.id}
+          isOpen
+          onClose={() => setViewing(null)}
+          offer={viewing}
+          candidate={candidateFor(viewing).candidate}
+          onConvert={isStatus(viewing, "ACCEPTED") ? () => setConverting(viewing) : undefined}
+        />
+      ) : null}
     </RecruitmentLayout>
   );
 }

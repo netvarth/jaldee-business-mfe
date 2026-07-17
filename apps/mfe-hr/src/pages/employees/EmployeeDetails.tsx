@@ -6,7 +6,7 @@ import {
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3,
 } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Input } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Input, FileUpload } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
@@ -248,9 +248,14 @@ export default function EmployeeDetails() {
   const [loginSaving, setLoginSaving] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentStatusDialogOpen, setDocumentStatusDialogOpen] = useState(false);
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentError, setDocumentError] = useState<string | null>(null);
-  const [documentForm, setDocumentForm] = useState({ documentType: "", status: "REQUESTED", documentUrl: "" });
+  const [selectedDocumentRequest, setSelectedDocumentRequest] = useState<DocumentRequest | null>(null);
+  const [documentForm, setDocumentForm] = useState({ documentType: "", status: "REQUESTED" });
+  const [documentStatusForm, setDocumentStatusForm] = useState({ status: "REQUESTED" });
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+  const [documentStatusFiles, setDocumentStatusFiles] = useState<File[]>([]);
   const [attendanceViewMode, setAttendanceViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [leaveViewMode, setLeaveViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [payslipViewMode, setPayslipViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
@@ -309,10 +314,20 @@ export default function EmployeeDetails() {
 
   useEffect(() => {
     if (!documentDialogOpen) {
-      setDocumentForm({ documentType: "", status: "REQUESTED", documentUrl: "" });
+      setDocumentForm({ documentType: "", status: "REQUESTED" });
+      setDocumentFiles([]);
       setDocumentError(null);
     }
   }, [documentDialogOpen]);
+
+  useEffect(() => {
+    if (!documentStatusDialogOpen) {
+      setSelectedDocumentRequest(null);
+      setDocumentStatusForm({ status: "REQUESTED" });
+      setDocumentStatusFiles([]);
+      setDocumentError(null);
+    }
+  }, [documentStatusDialogOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -364,14 +379,21 @@ export default function EmployeeDetails() {
       setDocumentError("Document type is required.");
       return;
     }
+    if (documentForm.status === "SUBMITTED" && !documentFiles[0]) {
+      setDocumentError("Upload a file before marking the document as submitted.");
+      return;
+    }
     setDocumentSaving(true);
     setDocumentError(null);
     try {
+      const documentUrl = documentForm.status === "SUBMITTED" && documentFiles[0]
+        ? await documents.uploadFile(employee.id, documentFiles[0])
+        : undefined;
       await documents.create({
         employeeUid: employee.id,
         documentType: documentForm.documentType.trim(),
         status: documentForm.status,
-        documentUrl: documentForm.documentUrl.trim() || undefined,
+        documentUrl,
       });
       setDocumentDialogOpen(false);
     } catch (e) {
@@ -389,6 +411,41 @@ export default function EmployeeDetails() {
       await documents.remove(uid);
     } catch (e) {
       setDocumentError(e instanceof Error ? e.message : "Unable to delete document.");
+    } finally {
+      setDocumentSaving(false);
+    }
+  };
+  const openDocumentStatusDialog = (doc: DocumentRequest) => {
+    setSelectedDocumentRequest(doc);
+    setDocumentStatusForm({ status: doc.status || "REQUESTED" });
+    setDocumentError(null);
+    setDocumentStatusDialogOpen(true);
+  };
+  const updateDocumentStatus = async () => {
+    const uid = selectedDocumentRequest?.uid ?? selectedDocumentRequest?.id;
+    if (!uid) return;
+    if (!documentStatusForm.status) {
+      setDocumentError("Status is required.");
+      return;
+    }
+    if (documentStatusForm.status === "SUBMITTED" && !documentStatusFiles[0] && !selectedDocumentRequest?.documentUrl) {
+      setDocumentError("Upload a file before marking the document as submitted.");
+      return;
+    }
+    setDocumentSaving(true);
+    setDocumentError(null);
+    try {
+      const documentUrl = documentStatusForm.status === "SUBMITTED" && documentStatusFiles[0]
+        ? await documents.uploadFile(employee?.id || selectedDocumentRequest?.employeeUid || "", documentStatusFiles[0])
+        : selectedDocumentRequest?.documentUrl;
+      await documents.update(uid, {
+        documentType: selectedDocumentRequest?.documentType,
+        documentUrl,
+        status: documentStatusForm.status,
+      });
+      setDocumentStatusDialogOpen(false);
+    } catch (e) {
+      setDocumentError(e instanceof Error ? e.message : "Unable to update document status.");
     } finally {
       setDocumentSaving(false);
     }
@@ -1107,6 +1164,14 @@ export default function EmployeeDetails() {
                         <td style={{ ...td, color: "var(--light-text)" }}>{formatDate(d.updatedAt || d.createdAt)}</td>
                         <td style={{ ...td, textAlign: "right" }}>
                           <div style={{ display: "inline-flex", gap: 10 }}>
+                            <button
+                              type="button"
+                              aria-label="Edit document request"
+                              style={{ background: "none", border: "none", color: "var(--primary-color)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                              onClick={() => openDocumentStatusDialog(d)}
+                            >
+                              <Pencil size={16} />
+                            </button>
                             <a href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
                             <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                           </div>
@@ -1129,6 +1194,14 @@ export default function EmployeeDetails() {
                         </div>
                       </div>
                       <div className="employee-details-document-actions" style={{ display: "flex", gap: 8 }}>
+                        <button
+                          type="button"
+                          aria-label="Edit document request"
+                          style={{ background: "none", border: "none", color: "var(--primary-color)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                          onClick={() => openDocumentStatusDialog(d)}
+                        >
+                          <Pencil size={16} />
+                        </button>
                         <a href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
                         <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                       </div>
@@ -1224,20 +1297,58 @@ export default function EmployeeDetails() {
               options={DOC_REQUEST_STATUSES.map((status) => ({ value: status, label: status }))}
             />
           </div>
-          <div className="form-group">
-            <label>Document URL</label>
-            <Input
-              value={documentForm.documentUrl}
-              onChange={(e) => setDocumentForm((prev) => ({ ...prev, documentUrl: e.target.value }))}
-              placeholder="https://..."
-              className="rounded-xl !h-11"
+          {documentForm.status === "SUBMITTED" ? (
+            <FileUpload
+              label="Document File"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              multiple={false}
+              onUpload={setDocumentFiles}
             />
-          </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setDocumentDialogOpen(false)}>Cancel</Button>
           <Button variant="primary" onClick={() => void saveDocument()} loading={documentSaving} disabled={documentSaving}>
             Save Document
+          </Button>
+        </DialogFooter>
+      </Dialog>
+      <Dialog open={documentStatusDialogOpen} onClose={() => setDocumentStatusDialogOpen(false)} title="Update Document Status" size="md">
+        <div style={{ display: "grid", gap: 16 }}>
+          {documentError ? (
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
+              {documentError}
+            </div>
+          ) : null}
+          <div className="form-group">
+            <label>Document Type</label>
+            <Input
+              value={selectedDocumentRequest?.documentType || ""}
+              readOnly
+              className="rounded-xl !h-11"
+            />
+          </div>
+          <div className="form-group">
+            <label>Status</label>
+            <Select
+              value={documentStatusForm.status}
+              onChange={(e) => setDocumentStatusForm({ status: e.target.value })}
+              options={DOC_REQUEST_STATUSES.map((status) => ({ value: status, label: status }))}
+            />
+          </div>
+          {documentStatusForm.status === "SUBMITTED" ? (
+            <FileUpload
+              label="Document File"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              multiple={false}
+              onUpload={setDocumentStatusFiles}
+            />
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setDocumentStatusDialogOpen(false)}>Cancel</Button>
+          <Button variant="primary" onClick={() => void updateDocumentStatus()} loading={documentSaving} disabled={documentSaving}>
+            Update Status
           </Button>
         </DialogFooter>
       </Dialog>
