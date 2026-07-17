@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DataTable, Badge, Button, Input, Select, Textarea, ErrorState, EmptyState } from "@jaldee/design-system";
+import { DataTable, Badge, Button, Input, Select, RichTextEditor, ErrorState, EmptyState } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useCareersSite, usePostings, type JobPosting, type CareersSite } from "../../services/useCareers";
 import { useShellErrorToast, useShellFeedback } from "../../services/useShellFeedback";
@@ -212,7 +212,13 @@ function SiteSettings({ site }: { site: ReturnType<typeof useCareersSite> }) {
         <Input label="Company URL slug" value={form.companySlug} onChange={set("companySlug")} placeholder="jaldee" />
       </div>
       <Input label="Tagline" value={form.tagline ?? ""} onChange={set("tagline")} placeholder="The operating system for local businesses" />
-      <Textarea label="About the company" value={form.aboutHtml ?? ""} onChange={set("aboutHtml")} rows={3} />
+      <RichTextEditor
+        label="About the company"
+        value={form.aboutHtml ?? ""}
+        onChange={(value) => setForm((previous) => ({ ...previous, aboutHtml: value }))}
+        placeholder="Write about your company, culture, mission, and what candidates can expect."
+        minHeightClassName="min-h-[180px]"
+      />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Select label="Default template" options={templateOptions} value={form.defaultTemplate ?? "classic"} onChange={set("defaultTemplate")} />
         <Input label="Brand colour (hex)" value={form.primaryColor ?? ""} onChange={set("primaryColor")} placeholder="#5B21D1" />

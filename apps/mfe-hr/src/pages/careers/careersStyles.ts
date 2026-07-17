@@ -29,6 +29,32 @@ export const careersStyles = `
 .jd .prose ul{margin:0 0 12px;padding-left:0;list-style:none}
 .jd .prose li{position:relative;padding:6px 0 6px 28px;line-height:1.5}
 .jd .prose li::before{content:"";position:absolute;left:4px;top:12px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.jd .prose .rich-content{line-height:1.65}
+.jd .prose .rich-content--plaintext{white-space:pre-line}
+.jd .prose .rich-content p,
+.jd .prose .rich-content div,
+.jd .prose .rich-content blockquote,
+.jd .prose .rich-content pre{margin:0 0 12px}
+.jd .prose .rich-content p:last-child,
+.jd .prose .rich-content div:last-child,
+.jd .prose .rich-content blockquote:last-child,
+.jd .prose .rich-content pre:last-child{margin-bottom:0}
+.jd .prose .rich-content h1,
+.jd .prose .rich-content h2,
+.jd .prose .rich-content h3{color:var(--ink);line-height:1.25;margin:18px 0 10px}
+.jd .prose .rich-content ul,
+.jd .prose .rich-content ol{margin:0 0 12px;padding-left:22px}
+.jd .prose .rich-content ul{list-style:disc}
+.jd .prose .rich-content ol{list-style:decimal}
+.jd .prose .rich-content ul li,
+.jd .prose .rich-content ol li{padding:0;margin:0 0 8px;position:static}
+.jd .prose .rich-content ul li::before,
+.jd .prose .rich-content ol li::before{content:none}
+.jd .prose .rich-content strong{color:var(--ink)}
+.jd .prose .rich-content a{color:var(--brand);text-decoration:none}
+.jd .prose .rich-content a:hover{text-decoration:underline}
+.jd .prose .rich-content blockquote{border-left:3px solid var(--brand);padding-left:14px;color:var(--muted)}
+.jd .prose .rich-content pre{padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#faf8fc;overflow:auto}
 .jd .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .jd .tag{background:var(--accent-soft);color:var(--brand-dark);font-size:12.5px;font-weight:600;padding:5px 11px;border-radius:8px}
 .jd .apply{align-self:start;position:sticky;top:20px}

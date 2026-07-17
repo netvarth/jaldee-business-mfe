@@ -83,7 +83,7 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_50%_0%,_#dce86c_0,_#f5f7f2_38%,_#e8efe8_100%)] px-5 py-8 text-slate-900">
       <div className="grid w-full max-w-5xl items-stretch gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-        <aside className="flex rounded-lg bg-[#111815] p-6 text-white shadow-[0_24px_70px_rgba(17,24,21,0.24)] md:p-8">
+        <aside className="order-2 flex rounded-lg bg-[#111815] p-6 text-white shadow-[0_24px_70px_rgba(17,24,21,0.24)] md:p-8 lg:order-1">
           <div className="flex w-full flex-col justify-center">
           <div className="inline-flex w-fit rounded-md border border-[#e4f04b]/40 bg-[#e4f04b]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[#e4f04b]">
             HR Workspace
@@ -109,7 +109,7 @@ export default function LoginPage() {
           </div>
         </aside>
 
-        <section className="rounded-lg border border-white/70 bg-white/[0.9] p-6 text-slate-900 shadow-[0_24px_70px_rgba(17,24,21,0.16)] backdrop-blur md:p-8">
+        <section className="order-1 rounded-lg border border-white/70 bg-white/[0.9] p-6 text-slate-900 shadow-[0_24px_70px_rgba(17,24,21,0.16)] backdrop-blur md:p-8 lg:order-2">
           <div className="mb-7">
             <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">
               Employee Login

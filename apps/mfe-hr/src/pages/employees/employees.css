@@ -304,6 +304,59 @@
 
 .employee-details-mobile-list {
     display: none;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 320px));
+    align-items: start;
+    justify-content: start;
+}
+
+@media (max-width: 1200px) {
+    .employee-details-mobile-list {
+        grid-template-columns: repeat(2, minmax(0, 320px));
+    }
+}
+
+.employee-details-mobile-card {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--surface-bg);
+    padding: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.employee-details-mobile-card__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.employee-details-mobile-card__label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--light-text);
+    margin-bottom: 3px;
+}
+
+.employee-details-mobile-card__value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--dark-text);
+}
+
+.employee-details-mobile-card__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.employee-details-mobile-card__actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 @media (max-width: 1180px) {
@@ -654,50 +707,7 @@
 
     .employee-details-mobile-list {
         display: grid;
-        gap: 10px;
-    }
-
-    .employee-details-mobile-card {
-        border: 1px solid var(--border-color);
-        border-radius: 14px;
-        background: var(--surface-bg);
-        padding: 14px;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .employee-details-mobile-card__row {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 12px;
-    }
-
-    .employee-details-mobile-card__label {
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--light-text);
-        margin-bottom: 4px;
-    }
-
-    .employee-details-mobile-card__value {
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--dark-text);
-    }
-
-    .employee-details-mobile-card__grid {
-        display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 12px;
-    }
-
-    .employee-details-mobile-card__actions {
-        margin-top: 12px;
-        display: flex;
-        justify-content: flex-end;
     }
 
     .employee-details-stats > * {
@@ -745,12 +755,12 @@
 }
 
 @media (max-width: 520px) {
+    .employee-details-mobile-list {
+        grid-template-columns: 1fr;
+    }
+
     .employee-details-sidebar-actions,
     .employee-details-info-list {
         grid-template-columns: 1fr !important;
-    }
-
-    .employee-details-mobile-card__grid {
-        grid-template-columns: 1fr;
     }
 }

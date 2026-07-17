@@ -24,6 +24,11 @@ export interface JobView {
   aboutHtml?: string;
 }
 
+function looksLikeHtml(value?: string): boolean {
+  if (!value) return false;
+  return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
 function lines(text?: string): string[] {
   if (!text) return [];
   return text.split(/\r?\n/).map((l) => l.replace(/^[-•]\s*/, "").trim()).filter(Boolean);
@@ -69,7 +74,16 @@ export default function JobPageView({ job, interactive = true }: { job: JobView;
           {requirements.length > 0 && (<><h2>What we're looking for</h2><ul>{requirements.map((l, i) => <li key={i}>{l}</li>)}</ul></>)}
           {job.niceToHave && (<><h2>Nice to have</h2><div className="tags">{lines(job.niceToHave).map((t, i) => <span className="tag" key={i}>{t}</span>)}</div></>)}
           {benefits.length > 0 && (<><h2>Benefits</h2><ul>{benefits.map((l, i) => <li key={i}>{l}</li>)}</ul></>)}
-          {job.aboutHtml && (<><h2>About {job.companyName}</h2><p>{job.aboutHtml}</p></>)}
+          {job.aboutHtml && (
+            <>
+              <h2>About {job.companyName}</h2>
+              {looksLikeHtml(job.aboutHtml) ? (
+                <div className="rich-content" dangerouslySetInnerHTML={{ __html: job.aboutHtml }} />
+              ) : (
+                <div className="rich-content rich-content--plaintext">{job.aboutHtml}</div>
+              )}
+            </>
+          )}
           {tags.length > 0 && <div className="tags" style={{ marginTop: 18 }}>{tags.map((t, i) => <span className="tag" key={i}>{t}</span>)}</div>}
         </div>
 

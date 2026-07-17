@@ -53,24 +53,26 @@ function statusBadge(s?: string): { bg: string; icon: ReactNode } {
 
 function StatCard({ label, value, tone, icon }: { label: string; value: number; tone: string; icon: ReactNode }) {
   return (
-    <div style={{ ...panel, padding: 22, borderRadius: 8, textAlign: "center" }}>
+    <div style={{ ...panel, padding: 16, borderRadius: 8, display: "flex", alignItems: "center", gap: 12, minHeight: 82 }}>
       <div
         style={{
-          height: 44,
-          width: 44,
+          height: 38,
+          width: 38,
           borderRadius: 6,
           background: `${tone}18`,
           color: tone,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          margin: "0 auto 14px",
+          flexShrink: 0,
         }}
       >
         {icon}
       </div>
-      <p style={{ ...lbl, marginBottom: 4 }}>{label}</p>
-      <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.05, color: "var(--dark-text)" }}>{value}</div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ ...lbl, marginBottom: 3 }}>{label}</p>
+        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.8px", lineHeight: 1.05, color: "var(--dark-text)" }}>{value}</div>
+      </div>
     </div>
   );
 }
@@ -246,11 +248,12 @@ export default function Tickets() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5">
           <StatCard label="Open Tickets" value={counts.open} tone="#3b82f6" icon={<AlertCircle size={22} />} />
           <StatCard label="In Progress" value={counts.progress} tone="#f59e0b" icon={<Clock size={22} />} />
           <StatCard label="Resolved (MTD)" value={counts.resolved} tone="#10b981" icon={<CheckCircle2 size={22} />} />
           <StatCard label="Total Tickets" value={counts.total} tone={TEAL} icon={<Send size={22} />} />
+          <div aria-hidden="true" className="hidden xl:block" />
         </div>
 
         <div
@@ -337,18 +340,18 @@ export default function Tickets() {
                     className="grid grid-cols-1 min-[981px]:grid-cols-[minmax(0,1fr)_auto] gap-[18px]"
                     style={{
                       flex: 1,
-                      padding: "22px 24px",
+                      padding: "16px 18px",
                       alignItems: "center",
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 8 }}>
                         <span
                           style={{
                             ...lbl,
                             color: TEAL,
                             background: "rgba(17,94,89,0.05)",
-                            padding: "4px 10px",
+                            padding: "3px 8px",
                             borderRadius: 4,
                             letterSpacing: "0.08em",
                           }}
@@ -358,7 +361,7 @@ export default function Tickets() {
                         <span
                           style={{
                             borderRadius: 4,
-                            padding: "4px 12px",
+                            padding: "4px 10px",
                             fontWeight: 900,
                             fontSize: 10,
                             letterSpacing: "-0.1px",
@@ -371,13 +374,13 @@ export default function Tickets() {
                           {t.category}
                         </span>
                       </div>
-                      <h3 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 6px" }}>{t.title}</h3>
+                      <h3 style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.3px", color: "var(--dark-text)", margin: "0 0 4px" }}>{t.title}</h3>
                       <p
                         style={{
-                          fontSize: 14,
+                          fontSize: 13,
                           color: "var(--light-text)",
                           fontWeight: 500,
-                          lineHeight: 1.55,
+                          lineHeight: 1.45,
                           margin: 0,
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
@@ -392,9 +395,9 @@ export default function Tickets() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 20,
+                        gap: 14,
                         background: "rgba(248,250,252,0.92)",
-                        padding: "14px 18px",
+                        padding: "10px 12px",
                         borderRadius: 6,
                         border: "1px solid rgba(148,163,184,0.14)",
                         flexWrap: "wrap",
@@ -402,11 +405,11 @@ export default function Tickets() {
                     >
                       <div>
                         <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created</p>
-                        <p style={{ fontSize: 13, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdAtTs ? new Date(t.createdAtTs).toLocaleDateString() : "N/A"}</p>
+                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdAtTs ? new Date(t.createdAtTs).toLocaleDateString() : "N/A"}</p>
                       </div>
                       <div>
                         <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Dept</p>
-                        <p style={{ fontSize: 13, fontWeight: 900, color: "var(--dark-text)" }}>{t.department || "-"}</p>
+                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{t.department || "-"}</p>
                       </div>
                       <span
                         style={{
@@ -414,7 +417,7 @@ export default function Tickets() {
                           alignItems: "center",
                           gap: 6,
                           borderRadius: 4,
-                          padding: "5px 14px",
+                          padding: "4px 10px",
                           fontWeight: 900,
                           fontSize: 10,
                           letterSpacing: "-0.2px",
@@ -426,8 +429,8 @@ export default function Tickets() {
                         {sb.icon} {t.status}
                       </span>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--light-text)" }}>
-                        <MessageSquare size={18} />
-                        <span style={{ fontSize: 14, fontWeight: 900 }}>{t.responses?.length || 0}</span>
+                        <MessageSquare size={16} />
+                        <span style={{ fontSize: 13, fontWeight: 900 }}>{t.responses?.length || 0}</span>
                       </div>
                     </div>
                   </div>

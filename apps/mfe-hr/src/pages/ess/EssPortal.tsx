@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, FileText, History, LayoutGrid, Loader2, MessageSquare, Receipt, Rows3, Timer, User, Wallet, type LucideIcon } from "lucide-react";
-import { Button, DataTable, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
+import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { Button, DataTable, DatePicker, Dialog, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -10,21 +10,23 @@ import {
   useMyPayslips,
   useMyProfile,
 } from "../../services/useEss";
+import { useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
 import Announcements from "../announcements/Announcements";
 import Expenses from "../expenses/Expenses";
 import Tickets from "../tickets/Tickets";
-import { useAttendanceRules } from "../../services/useSettingsData";
+import { useAttendanceRules, useLeaveTypes } from "../../services/useSettingsData";
 import { formatCurrency, formatDate } from "../../lib/utils";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
-type Section = "overview" | "profile" | "attendance" | "leave" | "payslips" | "staffspace" | "expenses" | "helpdesk";
+type Section = "overview" | "profile" | "attendance" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "helpdesk";
 
 const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: LucideIcon }> = [
   { key: "overview", route: "", label: "Overview", Icon: User },
   { key: "profile", route: "profile", label: "My Profile", Icon: User },
   { key: "attendance", route: "attendance", label: "Attendance", Icon: Clock },
   { key: "leave", route: "leave", label: "Leave", Icon: CalendarDays },
+  { key: "documents", route: "documents", label: "My Documents", Icon: FileText },
   { key: "staffspace", route: "staffspace", label: "StaffSpace", Icon: FileText },
   { key: "payslips", route: "payslips", label: "Payslips", Icon: Wallet },
   { key: "expenses", route: "expenses", label: "Expenses", Icon: Receipt },
@@ -36,6 +38,7 @@ const SECTION_DESCRIPTIONS: Record<Section, string> = {
   profile: "Your HR profile, identity details and employment information.",
   attendance: "Track work mode, punch status and attendance history.",
   leave: "Review leave balances and past requests.",
+  documents: "Documents requested by your company and the files you have submitted.",
   payslips: "View payroll statements and generated payslips.",
   staffspace: "Company announcements and internal updates.",
   expenses: "Submit and track employee expense claims.",
@@ -48,6 +51,38 @@ function sectionFromPath(pathname: string): Section {
   if (segment === "me") return "overview";
   const match = ESS_ROUTES.find((item) => item.route === segment || item.key === segment);
   return match?.key || "overview";
+}
+
+function calcLeaveDays(start?: string, end?: string, half?: boolean): number {
+  if (!start || !end) return 0;
+  if (half && start === end) return 0.5;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
+  return Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+}
+
+function mergeLeaveBalanceBuckets<T extends { leaveTypeName?: string; total?: number; used?: number; available?: number; status?: string }>(
+  items: T[],
+) {
+  const grouped = new Map<string, T & { total: number; used: number; available: number }>();
+  for (const item of items) {
+    const key = `${item.leaveTypeName || "Leave"}::${item.status || "ACTIVE"}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.total += item.total ?? 0;
+      existing.used += item.used ?? 0;
+      existing.available += item.available ?? 0;
+      continue;
+    }
+    grouped.set(key, {
+      ...item,
+      total: item.total ?? 0,
+      used: item.used ?? 0,
+      available: item.available ?? 0,
+    });
+  }
+  return Array.from(grouped.values());
 }
 
 const contentPanel: CSSProperties = {
@@ -88,21 +123,40 @@ export default function EssPortal() {
   const [mode, setMode] = useState("Office");
   const [attendanceViewMode, setAttendanceViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [leaveViewMode, setLeaveViewMode] = useState<ViewMode>(() => getPreferredViewMode());
+  const [documentViewMode, setDocumentViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [payslipViewMode, setPayslipViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [faceOpen, setFaceOpen] = useState(false);
   const [punchBusy, setPunchBusy] = useState(false);
+  const [leaveApplyOpen, setLeaveApplyOpen] = useState(false);
+  const [leaveApplyBusy, setLeaveApplyBusy] = useState(false);
+  const [leaveApplyError, setLeaveApplyError] = useState<string | null>(null);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentSubmitBusy, setDocumentSubmitBusy] = useState(false);
+  const [documentSubmitError, setDocumentSubmitError] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentRequest | null>(null);
+  const [documentForm, setDocumentForm] = useState({ documentUrl: "" });
+  const [leaveApplyForm, setLeaveApplyForm] = useState({
+    leaveTypeUid: "",
+    type: "",
+    startDate: "",
+    endDate: "",
+    isHalfDay: false,
+    reason: "",
+  });
   const profile = useMyProfile();
   const attendanceRules = useAttendanceRules();
+  const leaveTypes = useLeaveTypes();
   const attendance = useMyAttendance();
   const leaves = useMyLeaves();
   const balances = useMyLeaveBalances();
   const payslips = useMyPayslips();
+  const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid);
   const activeBalances = useMemo(
-    () => balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() === "ACTIVE"),
+    () => mergeLeaveBalanceBuckets(balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() === "ACTIVE")),
     [balances.data],
   );
   const pastBalances = useMemo(
-    () => balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() !== "ACTIVE"),
+    () => mergeLeaveBalanceBuckets(balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() !== "ACTIVE")),
     [balances.data],
   );
   const today = new Date().toISOString().slice(0, 10);
@@ -189,12 +243,21 @@ export default function EssPortal() {
     },
   ];
   const featuredRoutes = navItems.filter((item) => ["staffspace", "expenses", "helpdesk"].includes(item.key));
-  const primaryServices = navItems.filter((item) => ["profile", "attendance", "leave", "payslips"].includes(item.key));
+  const primaryServices = navItems.filter((item) => ["profile", "attendance", "leave", "documents", "payslips"].includes(item.key));
   const featureDescriptions: Record<string, string> = {
     staffspace: "Company announcements, policy updates and internal communication.",
     expenses: "Submit claims, review reimbursements and track approvals.",
     helpdesk: "Raise employee support requests and follow ticket updates.",
   };
+  const documentRows = useMemo(
+    () =>
+      [...documents.data].sort((a, b) => {
+        const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      }),
+    [documents.data],
+  );
   const leaveColumns = useMemo<ColumnDef<(typeof leaves.data)[number]>[]>(
     () => [
       { key: "leaveTypeName", header: "Type", render: (item) => item.leaveTypeName ?? "--" },
@@ -214,6 +277,26 @@ export default function EssPortal() {
     ],
     [payslips.data],
   );
+  const essRequestedBalances = useMemo(() => {
+    const employeeUid = profile.data?.id ?? profile.data?.uid;
+    if (!employeeUid || !leaveApplyForm.type) return [];
+    return activeBalances.filter((item) => {
+      const leaveTypeName = (item.leaveTypeName || "").toLowerCase();
+      const selectedType = leaveApplyForm.type.toLowerCase();
+      return leaveTypeName === selectedType;
+    });
+  }, [activeBalances, leaveApplyForm.type, profile.data?.id, profile.data?.uid]);
+  const essRequestedAvailable = useMemo(
+    () => essRequestedBalances.reduce((sum, item) => sum + (item.available ?? 0), 0),
+    [essRequestedBalances],
+  );
+  const essRequestedDuration = calcLeaveDays(
+    leaveApplyForm.startDate,
+    leaveApplyForm.endDate || leaveApplyForm.startDate,
+    leaveApplyForm.isHalfDay,
+  );
+  const essShowInsufficientBalanceWarning =
+    !!leaveApplyForm.leaveTypeUid && essRequestedDuration > 0 && essRequestedAvailable < essRequestedDuration;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -222,12 +305,99 @@ export default function EssPortal() {
       const nextMode: ViewMode = media.matches ? "cards" : "table";
       setAttendanceViewMode(nextMode);
       setLeaveViewMode(nextMode);
+      setDocumentViewMode(nextMode);
       setPayslipViewMode(nextMode);
     };
     syncViewMode();
     media.addEventListener("change", syncViewMode);
     return () => media.removeEventListener("change", syncViewMode);
   }, []);
+
+  useEffect(() => {
+    if (!documentDialogOpen) {
+      setSelectedDocument(null);
+      setDocumentForm({ documentUrl: "" });
+      setDocumentSubmitError(null);
+    }
+  }, [documentDialogOpen]);
+
+  const submitEssLeaveApply = async () => {
+    const employeeUid = profile.data?.id ?? profile.data?.uid;
+    if (!employeeUid || !leaveApplyForm.leaveTypeUid || !leaveApplyForm.startDate || !leaveApplyForm.reason) {
+      setLeaveApplyError("Leave type, start date and reason are required.");
+      return;
+    }
+
+    setLeaveApplyBusy(true);
+    setLeaveApplyError(null);
+    try {
+      const selectedLeaveType = leaveTypes.data.find(
+        (type) => type.id === leaveApplyForm.leaveTypeUid || type.uid === leaveApplyForm.leaveTypeUid,
+      );
+      const leaveTypeName = selectedLeaveType?.name || leaveApplyForm.type || leaveApplyForm.leaveTypeUid;
+      const endDate = leaveApplyForm.endDate || leaveApplyForm.startDate;
+      const duration = calcLeaveDays(leaveApplyForm.startDate, endDate, leaveApplyForm.isHalfDay);
+      await leaves.apply({
+        employeeUid,
+        leaveTypeUid: leaveApplyForm.leaveTypeUid,
+        leaveTypeName,
+        type: leaveTypeName,
+        startDate: leaveApplyForm.startDate,
+        endDate,
+        isHalfDay: leaveApplyForm.isHalfDay,
+        duration,
+        reason: leaveApplyForm.reason,
+        status: "Pending",
+      });
+      setLeaveApplyForm({
+        leaveTypeUid: "",
+        type: "",
+        startDate: "",
+        endDate: "",
+        isHalfDay: false,
+        reason: "",
+      });
+      setLeaveApplyOpen(false);
+    } catch (error) {
+      setLeaveApplyError(error instanceof Error ? error.message : "Failed to submit.");
+    } finally {
+      setLeaveApplyBusy(false);
+    }
+  };
+
+  const openDocumentSubmit = (document: DocumentRequest) => {
+    setSelectedDocument(document);
+    setDocumentForm({ documentUrl: document.documentUrl ?? "" });
+    setDocumentSubmitError(null);
+    setDocumentDialogOpen(true);
+  };
+
+  const submitEmployeeDocument = async () => {
+    const uid = selectedDocument?.uid || selectedDocument?.id;
+    if (!uid) {
+      setDocumentSubmitError("Document request id is missing.");
+      return;
+    }
+    if (!documentForm.documentUrl.trim()) {
+      setDocumentSubmitError("Document URL is required.");
+      return;
+    }
+
+    setDocumentSubmitBusy(true);
+    setDocumentSubmitError(null);
+    try {
+      await documents.update(uid, {
+        documentType: selectedDocument?.documentType,
+        documentUrl: documentForm.documentUrl.trim(),
+        status: "SUBMITTED",
+      });
+      setDocumentDialogOpen(false);
+    } catch (error) {
+      setDocumentSubmitError(error instanceof Error ? error.message : "Failed to submit document.");
+    } finally {
+      setDocumentSubmitBusy(false);
+    }
+  };
 
   return (
     <section id="hr-ess-page" data-testid="hr-ess-page" className="page-section active hr-page-shell">
@@ -475,11 +645,19 @@ export default function EssPortal() {
                               options={["Office", "WFH", "On Duty"].map((value) => ({ value, label: value }))}
                             />
                             {!todayAttendance?.clockIn ? (
-                              <Button onClick={() => (faceRequired ? setFaceOpen(true) : void punchIn())} disabled={punchBusy}>
+                              <Button
+                                onClick={() => (faceRequired ? setFaceOpen(true) : void punchIn())}
+                                disabled={punchBusy}
+                                className="bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
+                              >
                                 Punch In
                               </Button>
                             ) : !todayAttendance.clockOut ? (
-                              <Button onClick={() => void attendance.punchOut(todayAttendance.id)} disabled={punchBusy}>
+                              <Button
+                                onClick={() => void attendance.punchOut(todayAttendance.id)}
+                                disabled={punchBusy}
+                                className="bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
+                              >
                                 Punch Out
                               </Button>
                             ) : (
@@ -530,14 +708,13 @@ export default function EssPortal() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
-                          <h3 className="mt-2 text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">Recent Attendance Logs</h3>
+                          <h3 className="mt-2 text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                            Recent Attendance Logs ({attendance.data.length})
+                          </h3>
                           <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Daily check-in, check-out, work mode and worked hours.</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
                           <AttendanceViewToggle value={attendanceViewMode} onChange={setAttendanceViewMode} />
-                          <div className="rounded-lg bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600">
-                            {attendance.data.length} total record(s)
-                          </div>
                         </div>
                       </div>
                       <div className="mt-5">
@@ -580,7 +757,7 @@ export default function EssPortal() {
 
               {section === "leave" && (
                 <Panel loading={leaves.loading || balances.loading} error={leaves.error || balances.error} className="mt-2 lg:mt-6">
-                  <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {activeBalances.map((item) => (
                       <SectionCard key={item.id} className="border-slate-200 shadow-sm">
                         <div className="text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{item.leaveTypeName ?? "Leave"}</div>
@@ -592,7 +769,7 @@ export default function EssPortal() {
                   {pastBalances.length > 0 && (
                     <details className="mb-5 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm">
                       <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-slate-700">Past/Expired Balances</summary>
-                      <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-3">
                         {pastBalances.map((item) => (
                           <SectionCard key={item.id} className="border-slate-200 bg-white opacity-70 shadow-sm">
                             <div className="flex items-center justify-between gap-2">
@@ -610,14 +787,22 @@ export default function EssPortal() {
                   )}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">Leave requests</h3>
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                        Leave requests ({leaves.data.length})
+                      </h3>
                       <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Recent leave history with balances and approval status.</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
+                      <Button
+                        onClick={() => {
+                          setLeaveApplyError(null);
+                          setLeaveApplyOpen(true);
+                        }}
+                        className="bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
+                      >
+                        <Plus size={16} /> Apply for Leave
+                      </Button>
                       <AttendanceViewToggle value={leaveViewMode} onChange={setLeaveViewMode} />
-                      <div className="rounded-lg bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600">
-                        {leaves.data.length} total record(s)
-                      </div>
                     </div>
                   </div>
                   <div className="mt-5">
@@ -650,18 +835,107 @@ export default function EssPortal() {
                 </Panel>
               )}
 
+              {section === "documents" && (
+                <Panel loading={documents.loading} error={documents.error} className="mt-2 lg:mt-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                        My Documents ({documentRows.length})
+                      </h3>
+                      <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Documents requested by your company and the submission status for each one.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
+                      <AttendanceViewToggle value={documentViewMode} onChange={setDocumentViewMode} />
+                    </div>
+                  </div>
+                  <div className="mt-5">
+                    {documentRows.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                        No document requests found.
+                      </div>
+                    ) : documentViewMode === "table" ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-left text-[13px] md:text-[14px] lg:text-base">
+                          <thead>
+                            <tr>
+                              <th className="border-b px-3 py-3 text-[12px] uppercase text-slate-500 md:text-[13px] lg:text-sm">Document</th>
+                              <th className="border-b px-3 py-3 text-[12px] uppercase text-slate-500 md:text-[13px] lg:text-sm">Status</th>
+                              <th className="border-b px-3 py-3 text-[12px] uppercase text-slate-500 md:text-[13px] lg:text-sm">Updated</th>
+                              <th className="border-b px-3 py-3 text-right text-[12px] uppercase text-slate-500 md:text-[13px] lg:text-sm">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {documentRows.map((item, index) => {
+                              const status = (item.status || "REQUESTED").toUpperCase();
+                              const actionLabel = item.documentUrl ? "View" : status === "VERIFIED" ? "Verified" : "Submit";
+                              return (
+                                <tr key={item.id || `${item.documentType ?? "document"}-${index}`}>
+                                  <td className="border-b px-3 py-4 font-semibold text-slate-950">{item.documentType || "Document"}</td>
+                                  <td className="border-b px-3 py-4">
+                                    <DocumentStatusBadge status={status} />
+                                  </td>
+                                  <td className="border-b px-3 py-4 text-slate-500">{formatDate(item.updatedAt || item.createdAt)}</td>
+                                  <td className="border-b px-3 py-4 text-right">
+                                    <div className="inline-flex gap-2">
+                                      {item.documentUrl ? (
+                                        <a
+                                          href={item.documentUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                                        >
+                                          {actionLabel}
+                                        </a>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => openDocumentSubmit(item)}
+                                          className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                                        >
+                                          {actionLabel}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {documentRows.map((item, index) => {
+                          const status = (item.status || "REQUESTED").toUpperCase();
+                          return (
+                            <DocumentRequestCard
+                              key={item.id || `${item.documentType ?? "document"}-${index}`}
+                              title={item.documentType || "Document"}
+                              status={status}
+                              updated={formatDate(item.updatedAt || item.createdAt)}
+                              hasFile={!!item.documentUrl}
+                              onView={item.documentUrl ? () => window.open(item.documentUrl || "", "_blank", "noreferrer") : undefined}
+                              onSubmit={!item.documentUrl ? () => openDocumentSubmit(item) : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </Panel>
+              )}
+
               {section === "payslips" && (
                 <Panel loading={payslips.loading} error={payslips.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">Payslip statements</h3>
+                      <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-2xl">
+                        Payslip statements ({payslips.data.length})
+                      </h3>
                       <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Generated salary statements and payout status.</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
                       <AttendanceViewToggle value={payslipViewMode} onChange={setPayslipViewMode} />
-                      <div className="rounded-lg bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600">
-                        {payslips.data.length} total record(s)
-                      </div>
                     </div>
                   </div>
                   <div className="mt-5">
@@ -739,6 +1013,158 @@ export default function EssPortal() {
           </div>
         </div>
       </div>
+      <Dialog
+        open={documentDialogOpen}
+        onClose={() => setDocumentDialogOpen(false)}
+        title="Submit Document"
+        size="md"
+      >
+        <div className="grid gap-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Requested Document</div>
+            <div className="mt-2 text-[15px] font-bold text-slate-950">{selectedDocument?.documentType || "--"}</div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Document URL</label>
+            <input
+              type="url"
+              value={documentForm.documentUrl}
+              onChange={(event) => setDocumentForm({ documentUrl: event.target.value })}
+              placeholder="Paste the uploaded document link"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition-colors focus:border-emerald-500"
+            />
+          </div>
+          {documentSubmitError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {documentSubmitError}
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDocumentDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => void submitEmployeeDocument()} loading={documentSubmitBusy} disabled={documentSubmitBusy}>
+              Submit Document
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+      <Dialog
+        open={leaveApplyOpen}
+        onClose={() => setLeaveApplyOpen(false)}
+        testId="ess-leave-apply-modal"
+        hideHeader
+        contentClassName="max-w-[900px] p-0 overflow-hidden"
+      >
+        <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: "var(--primary-color)", margin: 0 }}>Apply for Leave</h3>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--primary-color)", opacity: 0.8, margin: "4px 0 0" }}>Submit your absence request from the employee portal.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLeaveApplyOpen(false)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }} className="max-[820px]:grid-cols-1">
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee</label>
+              <div className="flex h-12 items-center rounded-xl bg-slate-50 px-4 text-sm font-semibold text-slate-900">
+                {profile.data?.name ?? "Employee"}
+              </div>
+            </div>
+            <Select
+              id="ess-leave-type"
+              testId="ess-leave-type"
+              label="Leave Type"
+              value={leaveApplyForm.leaveTypeUid}
+              onChange={(e) => {
+                const selectedLeaveType = leaveTypes.data.find((type) => type.id === e.target.value || type.uid === e.target.value);
+                setLeaveApplyForm((current) => ({ ...current, leaveTypeUid: e.target.value, type: selectedLeaveType?.name || "" }));
+              }}
+              placeholder={leaveTypes.loading ? "Loading leave types" : "Select leave type"}
+              options={leaveTypes.data.map((type) => ({ value: type.id, label: type.name || type.id }))}
+            />
+            {!leaveTypes.loading && leaveTypes.data.length === 0 && (
+              <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)", color: "#b45309", fontSize: 12, fontWeight: 700 }}>
+                No leave types are configured in Settings.
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <DatePicker
+                id="ess-leave-start-date"
+                label="Start Date"
+                value={leaveApplyForm.startDate}
+                onChange={(e) => setLeaveApplyForm((current) => ({ ...current, startDate: e.target.value }))}
+              />
+              <DatePicker
+                id="ess-leave-end-date"
+                label="End Date"
+                value={leaveApplyForm.endDate}
+                onChange={(e) => setLeaveApplyForm((current) => ({ ...current, endDate: e.target.value }))}
+              />
+            </div>
+            {leaveApplyForm.startDate && (!leaveApplyForm.endDate || leaveApplyForm.startDate === leaveApplyForm.endDate) && (
+              <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
+                <input
+                  id="ess-leave-half-day"
+                  data-testid="ess-leave-half-day"
+                  type="checkbox"
+                  checked={leaveApplyForm.isHalfDay}
+                  onChange={(e) => setLeaveApplyForm((current) => ({ ...current, isHalfDay: e.target.checked }))}
+                /> Apply as Half Day (0.5 days)
+              </label>
+            )}
+            {leaveApplyForm.startDate && (
+              <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 16, borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-700">Total Days Count</span>
+                <span style={{ background: "var(--primary-color)", color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>
+                  {essRequestedDuration} Days
+                </span>
+              </div>
+            )}
+            {essShowInsufficientBalanceWarning && (
+              <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", padding: 14, borderRadius: 14, color: "#92400e", fontSize: 12.5, fontWeight: 700, lineHeight: 1.45 }}>
+                You have insufficient balance for this leave type. Your manager may approve this as Loss of Pay or reject it.
+              </div>
+            )}
+            <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: 16, display: "flex", gap: 14 }}>
+              <div style={{ height: 40, width: 40, borderRadius: 12, background: "rgba(99,102,241,0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Info size={20} />
+              </div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", lineHeight: 1.5, margin: 0 }}>
+                Leave balances are real-time and auto-deducted once the request is reviewed and approved.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <Textarea
+              id="ess-leave-reason"
+              data-testid="ess-leave-reason"
+              label="Detailed Statement / Reason"
+              placeholder="Share a short note detailing the cause of your request..."
+              value={leaveApplyForm.reason}
+              onChange={(e) => setLeaveApplyForm((current) => ({ ...current, reason: e.target.value }))}
+              rows={9}
+            />
+          </div>
+        </div>
+        {leaveApplyError && (
+          <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>
+            {leaveApplyError}
+          </div>
+        )}
+        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <Button variant="outline" onClick={() => setLeaveApplyOpen(false)}>Close</Button>
+          <Button onClick={() => void submitEssLeaveApply()} disabled={leaveApplyBusy || leaveTypes.loading} loading={leaveApplyBusy}>
+            Submit Application
+          </Button>
+        </div>
+      </Dialog>
     </section>
   );
 }
@@ -1004,6 +1430,71 @@ function PayslipCard({
         <AttendanceHistoryField label="Status" value={status} />
         <AttendanceHistoryField label="Generated" value={generated} />
         <AttendanceHistoryField label="Month" value={month} />
+      </div>
+    </div>
+  );
+}
+
+function DocumentStatusBadge({ status }: { status: string }) {
+  const tone =
+    status === "VERIFIED"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "SUBMITTED"
+        ? "border-sky-200 bg-sky-50 text-sky-700"
+        : status === "REJECTED"
+          ? "border-rose-200 bg-rose-50 text-rose-700"
+          : "border-amber-200 bg-amber-50 text-amber-700";
+
+  return <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${tone}`}>{status}</span>;
+}
+
+function DocumentRequestCard({
+  title,
+  status,
+  updated,
+  hasFile,
+  onView,
+  onSubmit,
+}: {
+  title: string;
+  status: string;
+  updated: string;
+  hasFile: boolean;
+  onView?: () => void;
+  onSubmit?: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Requested Document</div>
+          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[24px]">{title}</div>
+        </div>
+        <DocumentStatusBadge status={status} />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <AttendanceHistoryField label="Status" value={status} />
+        <AttendanceHistoryField label="Updated" value={updated} />
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        {hasFile && onView ? (
+          <button
+            type="button"
+            onClick={onView}
+            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            View
+          </button>
+        ) : null}
+        {!hasFile && onSubmit ? (
+          <button
+            type="button"
+            onClick={onSubmit}
+            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            Submit
+          </button>
+        ) : null}
       </div>
     </div>
   );

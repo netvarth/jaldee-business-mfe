@@ -4,7 +4,7 @@ const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"))
 import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
-  Download, Trash2, Plus, ChevronDown, MoreVertical,
+  Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3,
 } from "lucide-react";
 import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Input } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
@@ -24,6 +24,7 @@ import type { Employee } from "../../types";
 import "./employees.css";
 
 type Tab = "overview" | "attendance" | "leaves" | "payroll" | "documents";
+type CollectionView = "table" | "cards";
 const EMPLOYEE_TABS: Tab[] = ["overview", "attendance", "leaves", "payroll", "documents"];
 const EMPLOYEE_TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
@@ -62,6 +63,11 @@ function employeeTabFromPath(pathname: string): Tab {
   const employeesIndex = segments.lastIndexOf("employees");
   const candidate = employeesIndex >= 0 ? segments[employeesIndex + 2] : undefined;
   return EMPLOYEE_TABS.includes(candidate as Tab) ? candidate as Tab : "overview";
+}
+
+function getPreferredCollectionView() {
+  if (typeof window === "undefined") return "table" as CollectionView;
+  return window.matchMedia("(max-width: 1024px)").matches ? "cards" : "table";
 }
 
 function Panel({ icon, title, sub, action, children, full }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode; children: React.ReactNode; full?: boolean }) {
@@ -109,6 +115,29 @@ function StatusPill({ s }: { s?: string }) {
   const bg = ok ? "var(--success-bg)" : warn ? "var(--warning-bg)" : "rgba(100,116,139,0.12)";
   const col = ok ? "var(--success-color)" : warn ? "var(--warning-color)" : "var(--light-text)";
   return <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", background: bg, color: col }}>{s || "—"}</span>;
+}
+
+function CollectionViewToggle({ value, onChange }: { value: CollectionView; onChange: (value: CollectionView) => void }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 4, borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--surface-bg)" }}>
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        aria-label="Table view"
+        style={{ width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "table" ? "var(--primary-color)" : "transparent", color: value === "table" ? "#fff" : "var(--light-text)" }}
+      >
+        <Rows3 size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("cards")}
+        aria-label="Card view"
+        style={{ width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "cards" ? "var(--primary-color)" : "transparent", color: value === "cards" ? "#fff" : "var(--light-text)" }}
+      >
+        <LayoutGrid size={16} />
+      </button>
+    </div>
+  );
 }
 
 function LegacyPayslipStatementDialog({ payslip, onClose }: { payslip: Payslip | null; onClose: () => void }) {
@@ -222,6 +251,10 @@ export default function EmployeeDetails() {
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [documentForm, setDocumentForm] = useState({ documentType: "", status: "REQUESTED", documentUrl: "" });
+  const [attendanceViewMode, setAttendanceViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
+  const [leaveViewMode, setLeaveViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
+  const [payslipViewMode, setPayslipViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
+  const [documentViewMode, setDocumentViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const documents = useDocumentRequests(employee?.id);
 
   useEffect(() => {
@@ -280,6 +313,21 @@ export default function EmployeeDetails() {
       setDocumentError(null);
     }
   }, [documentDialogOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 1024px)");
+    const syncCollectionView = () => {
+      const nextMode: CollectionView = media.matches ? "cards" : "table";
+      setAttendanceViewMode(nextMode);
+      setLeaveViewMode(nextMode);
+      setPayslipViewMode(nextMode);
+      setDocumentViewMode(nextMode);
+    };
+    syncCollectionView();
+    media.addEventListener("change", syncCollectionView);
+    return () => media.removeEventListener("change", syncCollectionView);
+  }, []);
 
   const managerName = useMemo(() => allEmployees.find((e) => e.id === employee?.reportingManagerUid)?.name, [employee, allEmployees]);
   const myAttendance = useMemo(() => allAttendance.filter((a) => a.employeeUid === employee?.id), [allAttendance, employee]);
@@ -909,10 +957,11 @@ export default function EmployeeDetails() {
                   ))}
                 </div>
               </Panel>
-              <Panel icon={<Clock size={20} />} title="Attendance Logs (Last 30 Days)" sub="Check-in detail ledger history logs" full>
+              <Panel icon={<Clock size={20} />} title="Attendance Logs (Last 30 Days)" sub="Check-in detail ledger history logs" full
+                action={<CollectionViewToggle value={attendanceViewMode} onChange={setAttendanceViewMode} />}>
                 {myAttendance.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No attendance records.</div> : (
                   <>
-                  <div className="employee-details-table-wrap employee-details-desktop-table">
+                  <div className="employee-details-table-wrap" style={{ display: attendanceViewMode === "table" ? "block" : "none" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Date</th><th style={th}>Mode</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={th}>Hours</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
                     <tbody>{myAttendance.slice(0, 30).map((a) => (
@@ -920,7 +969,7 @@ export default function EmployeeDetails() {
                     ))}</tbody>
                   </table>
                   </div>
-                  <div className="employee-details-mobile-list">
+                  <div className="employee-details-mobile-list" style={{ display: attendanceViewMode === "cards" ? "grid" : "none" }}>
                     {myAttendance.slice(0, 30).map((a) => (
                       <div key={a.id} className="employee-details-mobile-card">
                         <div className="employee-details-mobile-card__row">
@@ -946,9 +995,11 @@ export default function EmployeeDetails() {
           )}
 
           {tab === "leaves" && (
-            <Panel icon={<History size={20} />} title="Leave Applications" sub="History of requested absence records" full>
+            <Panel icon={<History size={20} />} title="Leave Applications" sub="History of requested absence records" full
+              action={<CollectionViewToggle value={leaveViewMode} onChange={setLeaveViewMode} />}>
               {myLeaves.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No leave applications.</div> : (
-                <div className="employee-details-table-wrap">
+                <>
+                <div className="employee-details-table-wrap" style={{ display: leaveViewMode === "table" ? "block" : "none" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr><th style={th}>Type</th><th style={th}>Duration</th><th style={th}>Applied At</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
                   <tbody>{myLeaves.map((l) => (
@@ -956,6 +1007,26 @@ export default function EmployeeDetails() {
                   ))}</tbody>
                 </table>
                 </div>
+                <div className="employee-details-mobile-list" style={{ display: leaveViewMode === "cards" ? "grid" : "none" }}>
+                  {myLeaves.map((l) => (
+                    <div key={l.id} className="employee-details-mobile-card">
+                      <div className="employee-details-mobile-card__row">
+                        <div>
+                          <div className="employee-details-mobile-card__label">Type</div>
+                          <div className="employee-details-mobile-card__value">{l.type || "—"}</div>
+                        </div>
+                        <StatusPill s={l.status} />
+                      </div>
+                      <div className="employee-details-mobile-card__grid">
+                        <Field k="From" v={formatDate(l.startDate)} />
+                        <Field k="To" v={formatDate(l.endDate)} />
+                        <Field k="Applied" v={formatDate(l.appliedAt)} />
+                        <Field k="Status" v={l.status || "—"} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                </>
               )}
             </Panel>
           )}
@@ -982,10 +1053,11 @@ export default function EmployeeDetails() {
                   </div>
                 </div>
               </Panel>
-              <Panel icon={<FileText size={20} />} title="Payslip Archive" sub="Available monthly payment breakdowns and receipts" full>
+              <Panel icon={<FileText size={20} />} title="Payslip Archive" sub="Available monthly payment breakdowns and receipts" full
+                action={<CollectionViewToggle value={payslipViewMode} onChange={setPayslipViewMode} />}>
                 {myPayslips.length === 0 ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No payslips generated.</div> : (
                   <>
-                  <div className="employee-details-table-wrap employee-details-desktop-table">
+                  <div className="employee-details-table-wrap" style={{ display: payslipViewMode === "table" ? "block" : "none" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Month</th><th style={th}>Net Pay</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th></tr></thead>
                     <tbody>{myPayslips.map((p) => (
@@ -993,7 +1065,7 @@ export default function EmployeeDetails() {
                     ))}</tbody>
                   </table>
                   </div>
-                  <div className="employee-details-mobile-list">
+                  <div className="employee-details-mobile-list" style={{ display: payslipViewMode === "cards" ? "grid" : "none" }}>
                     {myPayslips.map((p) => (
                       <div key={p.id} className="employee-details-mobile-card">
                         <div className="employee-details-mobile-card__row">
@@ -1020,11 +1092,30 @@ export default function EmployeeDetails() {
 
           {tab === "documents" && (
             <Panel icon={<FileText size={20} />} title="Employee Documents" sub="Official letters, credentials, and verification sheets" full
-              action={<button className="employee-details-panel-action btn btn-secondary" onClick={() => setDocumentDialogOpen(true)} style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button>}>
+              action={<div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /><button className="employee-details-panel-action btn btn-secondary" onClick={() => setDocumentDialogOpen(true)} style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button></div>}>
               {documents.loading ? (
                 <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={48} className="animate-spin" style={{ opacity: 0.4, marginBottom: 12 }} /><p>Loading documents...</p></div>
               ) : documentRows.length > 0 ? (
-                <div className="employee-details-documents-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
+                <>
+                <div className="employee-details-table-wrap" style={{ display: documentViewMode === "table" ? "block" : "none" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr><th style={th}>Document</th><th style={th}>Status</th><th style={th}>Updated</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
+                    <tbody>{documentRows.map((d) => (
+                      <tr key={d.id}>
+                        <td style={{ ...td, fontWeight: 700 }}>{d.documentType || "Document"}</td>
+                        <td style={td}><StatusPill s={d.status} /></td>
+                        <td style={{ ...td, color: "var(--light-text)" }}>{formatDate(d.updatedAt || d.createdAt)}</td>
+                        <td style={{ ...td, textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: 10 }}>
+                            <a href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
+                            <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <div className="employee-details-documents-grid" style={{ display: documentViewMode === "cards" ? "grid" : "none", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
                   {documentRows.map((d) => (
                     <div className="employee-details-document-card" key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
                       <div className="employee-details-document-meta" style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -1044,6 +1135,7 @@ export default function EmployeeDetails() {
                     </div>
                   ))}
                 </div>
+                </>
               ) : <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><FileText size={48} style={{ opacity: 0.2, marginBottom: 12 }} /><p>No documents uploaded yet.</p></div>}
             </Panel>
           )}

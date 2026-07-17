@@ -237,8 +237,13 @@ export function usePublicJob(companySlug: string, jobSlug: string) {
   return { data, loading, error };
 }
 
-/** Submit a public application (multipart: application JSON + optional resume file). */
-export async function applyToJob(companySlug: string, jobSlug: string, payload: JobApplication, resume?: File | null) {
+/** Submit a public application using multipart form data. */
+export async function applyToJob(
+  companySlug: string,
+  jobSlug: string,
+  payload: JobApplication,
+  resume?: File | null
+) {
   const fd = new FormData();
   fd.append("application", new Blob([JSON.stringify(payload)], { type: "application/json" }));
   if (resume) fd.append("resume", resume, resume.name);

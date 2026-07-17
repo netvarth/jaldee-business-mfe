@@ -33,9 +33,9 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
   const inactiveClass = "flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 py-2 px-3 transition-colors no-underline";
 
   return (
-    <div className="flex min-h-screen bg-[#f7f9fc] text-slate-900 pb-[76px] md:pb-0">
+    <div className="flex min-h-screen bg-[#f7f9fc] pb-[76px] text-slate-900 lg:pb-0">
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-20 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-5 lg:px-6">
+        <header className="hidden min-h-20 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 md:flex md:px-5 lg:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <Avatar
               name={workspaceName}
@@ -71,7 +71,7 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
       </main>
 
       {/* Sticky Mobile Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-[190] border-t border-slate-200 bg-white/95 pb-safe pt-2 backdrop-blur-md md:hidden shadow-[0_-4px_20px_rgba(15,23,42,0.04)]">
+      <div className="fixed bottom-0 left-0 right-0 z-[190] border-t border-slate-200 bg-white/95 pb-safe pt-2 shadow-[0_-4px_20px_rgba(15,23,42,0.04)] backdrop-blur-md lg:hidden">
         <nav className="flex items-center justify-around px-2">
           <NavLink
             to="/me"
@@ -166,6 +166,23 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
             </NavLink>
 
             <NavLink
+              to="/me/documents"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors no-underline ${
+                  isActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-950 font-bold"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold"
+                }`
+              }
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <FileText size={18} />
+              </span>
+              <span className="text-sm">My Documents</span>
+            </NavLink>
+
+            <NavLink
               to="/me/expenses"
               onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) =>
@@ -222,4 +239,3 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
     </div>
   );
 }
-
