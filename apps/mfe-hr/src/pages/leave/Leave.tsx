@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { PageHeader, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
@@ -276,7 +276,7 @@ export default function Leave() {
         actions={
           <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
           <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 12 }}><UserCheck size={14} /> Corporate Admin Control</span>
-          <button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" onClick={() => { setMsg(null); setApplyOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Apply for Leave</button>
+          <Button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setApplyOpen(true); }}>Apply for Leave</Button>
           </div>
         }
       />
@@ -771,8 +771,8 @@ export default function Leave() {
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" onClick={() => setApplyOpen(false)} style={ghostBtn}>Close</button>
-          <button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" onClick={submitApply} disabled={saving || leaveTypes.loading} style={{ ...primaryBtn, opacity: saving || leaveTypes.loading ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Application"}</button>
+          <Button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" variant="outline" onClick={() => setApplyOpen(false)}>Close</Button>
+          <Button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" variant="primary" onClick={submitApply} disabled={leaveTypes.loading} loading={saving}>Submit Application</Button>
         </div>
       </Dialog>
 

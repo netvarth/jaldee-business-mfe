@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DataTable, Badge, Button, Input, Select, RichTextEditor, ErrorState, EmptyState } from "@jaldee/design-system";
+import { DataTable, DataTablePagination, Badge, Button, Input, Select, RichTextEditor, ErrorState, EmptyState, Drawer } from "@jaldee/design-system";
+import { Filter } from "lucide-react";
 import type { ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useCareersSite, usePostings, type JobPosting, type CareersSite } from "../../services/useCareers";
+import { useCareerPostingSearchSchema } from "../../services/useHrSearchSchema";
 import { useShellErrorToast, useShellFeedback } from "../../services/useShellFeedback";
 import RecruitmentLayout from "../recruitment/RecruitmentLayout";
 import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "../recruitment/recruitmentResponsive";
@@ -17,11 +25,34 @@ export default function CareersAdmin() {
   const navigate = useNavigate();
   const { toast, track, capture } = useShellFeedback("hr.recruitment.careers");
   const site = useCareersSite();
-  const { data: postings, loading, error, setStatus } = usePostings();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const { schema: postingSchema, loading: schemaLoading } = useCareerPostingSearchSchema();
+  const { data: postings, loading, error, setStatus, totalElements } = usePostings(advancedFilters, postingSchema, { enabled: !schemaLoading, page: page - 1, pageSize });
   useShellErrorToast("hr.recruitment.careers", "Careers", error || site.error);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, postingSchema).length,
+    [advancedFilters, postingSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(postingSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(postingSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setPage(1);
+  };
+  const resetFilters = () => { clearFilters(); setFiltersOpen(false); };
+  const applyFilters = () => { setAdvancedFilters(draftFilters); setPage(1); setFiltersOpen(false); };
 
   const openEdit = (posting: JobPosting) => {
     if (posting.requisitionUid) navigate(`/recruitment/careers/publish/${posting.requisitionUid}`);
@@ -102,6 +133,16 @@ export default function CareersAdmin() {
               )}
             </div>
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <Button
+                type="button"
+                variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                icon={<Filter size={16} />}
+                data-testid="hr-careers-postings-filter-button"
+                aria-label="Open posting filters"
+                onClick={openFilters}
+              >
+                Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+              </Button>
               <RecruitmentViewToggle
                 value={viewMode}
                 onChange={setViewMode}
@@ -121,48 +162,100 @@ export default function CareersAdmin() {
                 <EmptyState title="No published roles yet" description="Open Requisitions and click 'Publish to careers' on a role." />
               </div>
             ) : viewMode === "cards" ? (
-              <div className="grid gap-4 p-4 md:grid-cols-2">
-                {postings.map((posting) => (
-                  <RecruitmentMobileCard
-                    key={posting.uid}
-                    title={posting.title}
-                    rows={[
-                      { label: "Slug", value: posting.slug ? `/${posting.slug}` : "-" },
-                      { label: "Location", value: posting.locationText || "-" },
-                      { label: "Applies", value: posting.applyCount ?? 0 },
-                      {
-                        label: "Status",
-                        value: (
-                          <Badge variant={posting.status === "PUBLISHED" ? "success" : posting.status === "CLOSED" ? "danger" : "neutral"}>
-                            {posting.status || "-"}
-                          </Badge>
-                        ),
-                      },
-                    ]}
-                    footer={
-                      <>
-                        <Button variant="outline" size="sm" data-testid={`hr-careers-card-edit-${posting.uid}`} onClick={() => openEdit(posting)}>
-                          Edit
-                        </Button>
-                        {posting.status !== "PUBLISHED" ? (
-                          <Button variant="primary" size="sm" data-testid={`hr-careers-card-publish-${posting.uid}`} loading={busy === posting.uid} onClick={() => doStatus(posting.uid!, "PUBLISHED")}>
-                            Publish
+              <>
+                <div className="grid gap-4 p-4 md:grid-cols-2">
+                  {postings.map((posting) => (
+                    <RecruitmentMobileCard
+                      key={posting.uid}
+                      title={posting.title}
+                      rows={[
+                        { label: "Slug", value: posting.slug ? `/${posting.slug}` : "-" },
+                        { label: "Location", value: posting.locationText || "-" },
+                        { label: "Applies", value: posting.applyCount ?? 0 },
+                        {
+                          label: "Status",
+                          value: (
+                            <Badge variant={posting.status === "PUBLISHED" ? "success" : posting.status === "CLOSED" ? "danger" : "neutral"}>
+                              {posting.status || "-"}
+                            </Badge>
+                          ),
+                        },
+                      ]}
+                      footer={
+                        <>
+                          <Button variant="outline" size="sm" data-testid={`hr-careers-card-edit-${posting.uid}`} onClick={() => openEdit(posting)}>
+                            Edit
                           </Button>
-                        ) : (
-                          <Button variant="outline" size="sm" data-testid={`hr-careers-card-unpublish-${posting.uid}`} loading={busy === posting.uid} onClick={() => doStatus(posting.uid!, "CLOSED")}>
-                            Unpublish
-                          </Button>
-                        )}
-                      </>
-                    }
-                  />
-                ))}
-              </div>
+                          {posting.status !== "PUBLISHED" ? (
+                            <Button variant="primary" size="sm" data-testid={`hr-careers-card-publish-${posting.uid}`} loading={busy === posting.uid} onClick={() => doStatus(posting.uid!, "PUBLISHED")}>
+                              Publish
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" data-testid={`hr-careers-card-unpublish-${posting.uid}`} loading={busy === posting.uid} onClick={() => doStatus(posting.uid!, "CLOSED")}>
+                              Unpublish
+                            </Button>
+                          )}
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+                <DataTablePagination
+                  testId="hr-careers-postings-pagination"
+                  page={page}
+                  pageSize={pageSize}
+                  total={totalElements}
+                  onChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                />
+              </>
             ) : (
-              <DataTable data={postings} columns={columns} loading={loading} />
+              <DataTable
+                data={postings}
+                columns={columns}
+                loading={loading}
+                pagination={{
+                  page,
+                  pageSize,
+                  total: totalElements,
+                  mode: "server",
+                  onChange: setPage,
+                  onPageSizeChange: (size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  },
+                }}
+              />
             )}
           </div>
         </div>
+        <Drawer
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          title="Posting Filters"
+          size="sm"
+          contentClassName="flex flex-col p-0 overflow-hidden"
+        >
+          <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-careers-postings-filter-drawer">
+            <div className="flex-1 space-y-5 overflow-y-auto p-5">
+              <SchemaFilterBuilder
+                schema={postingSchema}
+                value={draftFilters}
+                onChange={setDraftFilters}
+                appliedCount={appliedFilterCount}
+                onClearAll={clearFilters}
+                emptyStateMessage="No posting filters are available from the schema."
+              />
+            </div>
+            <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+              <Button type="button" variant="outline" className="flex-1" data-testid="hr-careers-postings-filter-reset" onClick={resetFilters}>Reset All</Button>
+              <Button type="button" variant="primary" className="flex-1" data-testid="hr-careers-postings-filter-apply" onClick={applyFilters}>Apply Filters</Button>
+            </div>
+          </div>
+        </Drawer>
       </section>
     </RecruitmentLayout>
   );

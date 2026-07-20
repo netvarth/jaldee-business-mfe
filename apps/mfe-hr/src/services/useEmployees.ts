@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { useHrApi } from "./useHrApi";
 import type { Employee, SalaryStructure } from "../types";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildEmployeeSearchBody } from "./employeeSearch";
+
+const EMPTY_FILTERS: SearchFilterClause[] = [];
+type UseEmployeesOptions = { enabled?: boolean };
+
+function isUseEmployeesOptions(value: unknown): value is UseEmployeesOptions {
+  return Boolean(value && typeof value === "object" && "enabled" in value);
+}
+
+function unwrapEmployees(response: unknown): Record<string, unknown>[] {
+  if (Array.isArray(response)) return response as Record<string, unknown>[];
+  if (!response || typeof response !== "object") return [];
+  const value = response as Record<string, unknown>;
+  for (const key of ["content", "items", "results", "data"]) {
+    if (Array.isArray(value[key])) return value[key] as Record<string, unknown>[];
+  }
+  return [];
+}
 
 /** Backend returns `uid`; the UI keys on `id`. Normalize once here. */
 function normalize(e: Record<string, unknown>): Employee {
@@ -24,8 +43,14 @@ function normalize(e: Record<string, unknown>): Employee {
  * loading + error so the screen can show real states instead of silently
  * falling back. `reload` re-fetches after mutations.
  */
-export function useEmployees(options: { enabled?: boolean } = {}) {
-  const enabled = options.enabled ?? true;
+export function useEmployees(
+  filterClausesOrOptions: SearchFilterClause[] | UseEmployeesOptions = EMPTY_FILTERS,
+  schema: SearchSchema | null | undefined = null,
+  options: UseEmployeesOptions = {}
+) {
+  const legacyOptions = isUseEmployeesOptions(filterClausesOrOptions) ? filterClausesOrOptions : null;
+  const filterClauses = legacyOptions ? EMPTY_FILTERS : filterClausesOrOptions;
+  const enabled = (legacyOptions ?? options).enabled ?? true;
   const api = useHrApi();
   const [data, setData] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(enabled);
@@ -39,15 +64,18 @@ export function useEmployees(options: { enabled?: boolean } = {}) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<Record<string, unknown>[]>("/employees");
-      setData(Array.isArray(res) ? res.map(normalize) : []);
+      const res = await api.post<unknown>(
+        "/employees/search",
+        buildEmployeeSearchBody(filterClauses, schema)
+      );
+      setData(unwrapEmployees(res).map(normalize));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load employees");
       setData([]);
     } finally {
       setLoading(false);
     }
-  }, [api, enabled]);
+  }, [api, enabled, filterClauses, schema]);
 
   useEffect(() => {
     void load();

@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical } from "lucide-react";
-import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical, Filter } from "lucide-react";
+import { PageHeader, Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import {
   useDepartments, useDesignations, useShifts, useLeaveTypes, useHolidays,
   useCompanyProfile, useAttendanceRules, usePayrollSettings,
 } from "../../services/useSettingsData";
+import { useDepartmentSearchSchema, useDesignationSearchSchema, useHolidaySearchSchema } from "../../services/useHrSearchSchema";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
@@ -293,7 +300,7 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
               ))}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14, marginTop: 22 }}>
-              <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes</button>
+              <Button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} variant="primary" onClick={save} loading={saving} icon={<Save size={16} />}>Save Changes</Button>
             </div>
           </>
         )}
@@ -303,17 +310,45 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
 }
 
 /* ---- Generic list CRUD panel ---- */
-interface Crud { data: (Row & { id: string })[]; loading: boolean; error: string | null; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
-function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, automationScope }: {
+interface Crud { data: (Row & { id: string })[]; loading: boolean; error: string | null; totalElements?: number; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
+function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, automationScope, searchSchema, filterClauses, onFilterClausesChange, page, pageSize, onPageChange, onPageSizeChange }: {
   title: string; subtitle: string; icon: ReactNode; addLabel: string; fields: Field[];
   columns: { label: string; render: (r: Row) => ReactNode; align?: "right" }[]; hook: Crud;
   automationScope: string;
+  searchSchema?: SearchSchema | null;
+  filterClauses?: SearchFilterClause[];
+  onFilterClausesChange?: (filters: SearchFilterClause[]) => void;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }) {
   const { eventBus } = useMFEProps();
   const [open, setOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
+  const appliedFilterCount = compactSearchClauses(filterClauses ?? [], searchSchema).length;
+  const totalRecords = hook.totalElements ?? hook.data.length;
+  const hasPagination = typeof page === "number" && typeof pageSize === "number" && typeof onPageChange === "function";
+
+  const openFilters = () => {
+    setDraftFilters(filterClauses?.length ? filterClauses : buildDefaultSearchClauses(searchSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(searchSchema);
+    setDraftFilters(reset);
+    onFilterClausesChange?.(reset);
+    onPageChange?.(1);
+  };
+  const applyFilters = () => {
+    onFilterClausesChange?.(draftFilters);
+    onPageChange?.(1);
+    setFiltersOpen(false);
+  };
 
   const openAdd = () => {
     setEditing(null);
@@ -395,7 +430,16 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
 
   return (
     <div>
-      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={<button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} onClick={openAdd} style={primaryBtn}><Plus size={16} /> {addLabel}</button>} />
+      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={
+        <div className="flex flex-wrap justify-end gap-2">
+          {searchSchema && onFilterClausesChange ? (
+            <Button type="button" id={`${automationScope}-filter`} data-testid={`${automationScope}-filter`} variant={appliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label={`Open ${title} filters`} onClick={openFilters}>
+              Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+            </Button>
+          ) : null}
+          <Button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} variant="primary" icon={<Plus size={16} />} onClick={openAdd}>{addLabel}</Button>
+        </div>
+      } />
       {hook.error && <ErrorBar text={hook.error} />}
       {hook.loading ? (
         <SectionCard className="border-slate-200 shadow-sm" data-testid={`${automationScope}-panel`}>
@@ -408,7 +452,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] px-5 py-4">
             <div>
               <div className="text-sm font-bold text-slate-900">{title}</div>
-              <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{hook.data.length} record{hook.data.length === 1 ? "" : "s"}</div>
+              <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{totalRecords} record{totalRecords === 1 ? "" : "s"}</div>
             </div>
           </div>
           <DataTable
@@ -416,6 +460,17 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
             columns={tableColumns}
             getRowId={(row) => row.id}
             data-testid={`${automationScope}-table`}
+            pagination={hasPagination ? {
+              page,
+              pageSize,
+              total: totalRecords,
+              mode: "server",
+              onChange: onPageChange,
+              onPageSizeChange: onPageSizeChange ? (size) => {
+                onPageSizeChange(size);
+                onPageChange(1);
+              } : undefined,
+            } : undefined}
             emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">No records yet.</div>}
             className="rounded-none border-0 shadow-none"
             tableClassName="[&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em]"
@@ -447,6 +502,30 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
           <button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} onClick={save} disabled={saving} style={primaryBtn}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editing ? "Update" : "Create"}</button>
         </div>
       </Dialog>
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title={`${title} Filters`}
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid={`${automationScope}-filter-drawer`}>
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={searchSchema ?? null}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage={`No ${title.toLowerCase()} filters are available from the schema.`}
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <button type="button" style={{ ...ghostBtn, flex: 1 }} data-testid={`${automationScope}-filter-reset`} onClick={() => { clearFilters(); setFiltersOpen(false); }}>Reset All</button>
+            <button type="button" style={{ ...primaryBtn, flex: 1 }} data-testid={`${automationScope}-filter-apply`} onClick={applyFilters}>Apply Filters</button>
+          </div>
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -644,8 +723,8 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
         subtitle={view === "assignment" ? "Assign explicit balance periods to employees and leave types" : "Define leave types, quotas and carry-forward rules"}
         icon={<Plane size={20} />}
         action={view === "assignment"
-          ? <button id="hr-settings-leave-assignment-back" data-testid="hr-settings-leave-assignment-back" onClick={() => navigate("/settings/leavetypes")} style={ghostBtn}>Back to Leave Types</button>
-          : <button id="hr-settings-leave-assignment-open" data-testid="hr-settings-leave-assignment-open" onClick={() => navigate("/settings/leavetypes/assign")} style={primaryBtn}><Users2 size={16} /> Assign Balance</button>}
+          ? <Button id="hr-settings-leave-assignment-back" data-testid="hr-settings-leave-assignment-back" variant="outline" onClick={() => navigate("/settings/leavetypes")}>Back to Leave Types</Button>
+          : <Button id="hr-settings-leave-assignment-open" data-testid="hr-settings-leave-assignment-open" variant="primary" icon={<Users2 size={16} />} onClick={() => navigate("/settings/leavetypes/assign")}>Assign Balance</Button>}
       />
 
       {view === "policies" && <div style={card}>
@@ -654,7 +733,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
             <h3 style={{ fontSize: 16, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>Leave Type Configuration</h3>
             <p style={{ ...lbl, marginTop: 4 }}>Policy builder for quotas, accrual and calendar styling</p>
           </div>
-          <button id="hr-settings-leave-policy-create" data-testid="hr-settings-leave-policy-create" onClick={openCreatePolicy} style={primaryBtn}><Plus size={16} /> Create New Leave Type</button>
+          <Button id="hr-settings-leave-policy-create" data-testid="hr-settings-leave-policy-create" variant="primary" icon={<Plus size={16} />} onClick={openCreatePolicy}>Create New Leave Type</Button>
         </div>
         {leaveTypes.error && <div style={{ padding: "16px 24px" }}><ErrorBar text={leaveTypes.error} /></div>}
         {leaveTypes.loading ? (
@@ -736,9 +815,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
                 </p>
               </div>
             </div>
-            <button id="hr-settings-leave-assignment-confirm" data-testid="hr-settings-leave-assignment-confirm" onClick={confirmAssignment} disabled={!canAssign} style={{ ...primaryBtn, opacity: canAssign ? 1 : 0.55, flex: "0 0 auto", justifyContent: "center" }}>
-              {assigning ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Confirm Assignment
-            </button>
+            <Button id="hr-settings-leave-assignment-confirm" data-testid="hr-settings-leave-assignment-confirm" variant="primary" icon={<Save size={16} />} onClick={confirmAssignment} disabled={!canAssign} loading={assigning}>Confirm Assignment</Button>
           </div>
         </div>
 
@@ -761,8 +838,8 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
                 <p style={{ ...lbl, marginTop: 3 }}>{selectedEmployeeUids.length} selected from {activeEmployees.length} active employees</p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button id="hr-settings-leave-select-visible" data-testid="hr-settings-leave-select-visible" onClick={selectVisibleEmployees} style={ghostBtn} type="button">Select Visible</button>
-                <button id="hr-settings-leave-clear-selected" data-testid="hr-settings-leave-clear-selected" onClick={clearSelectedEmployees} style={ghostBtn} type="button">Clear</button>
+                <Button id="hr-settings-leave-select-visible" data-testid="hr-settings-leave-select-visible" variant="outline" onClick={selectVisibleEmployees} type="button">Select Visible</Button>
+                <Button id="hr-settings-leave-clear-selected" data-testid="hr-settings-leave-clear-selected" variant="outline" onClick={clearSelectedEmployees} type="button">Clear</Button>
               </div>
             </div>
             <div style={{ padding: 16 }}>
@@ -799,9 +876,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button id="hr-settings-leave-assignment-confirm-bottom" data-testid="hr-settings-leave-assignment-confirm-bottom" onClick={confirmAssignment} disabled={!canAssign} style={{ ...primaryBtn, opacity: canAssign ? 1 : 0.55, flex: "0 0 auto", justifyContent: "center" }}>
-            {assigning ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Confirm Assignment
-          </button>
+          <Button id="hr-settings-leave-assignment-confirm-bottom" data-testid="hr-settings-leave-assignment-confirm-bottom" variant="primary" icon={<Save size={16} />} onClick={confirmAssignment} disabled={!canAssign} loading={assigning}>Confirm Assignment</Button>
         </div>
       </div>}
 
@@ -853,8 +928,8 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud }) {
           </div>
         </div>
         <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button id="hr-settings-leave-policy-cancel" data-testid="hr-settings-leave-policy-cancel" onClick={() => setPolicyOpen(false)} style={ghostBtn}>Cancel</button>
-          <button id="hr-settings-leave-policy-save" data-testid="hr-settings-leave-policy-save" onClick={savePolicy} disabled={savingPolicy} style={primaryBtn}>{savingPolicy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Leave Type</button>
+          <Button id="hr-settings-leave-policy-cancel" data-testid="hr-settings-leave-policy-cancel" variant="outline" onClick={() => setPolicyOpen(false)}>Cancel</Button>
+          <Button id="hr-settings-leave-policy-save" data-testid="hr-settings-leave-policy-save" variant="primary" icon={<Save size={16} />} onClick={savePolicy} loading={savingPolicy}>Save Leave Type</Button>
         </div>
       </Dialog>
     </div>
@@ -892,12 +967,24 @@ export default function Settings() {
   const navigate = useNavigate();
   const section = (routeSection as SectionKey) || "company";
   const [menuOpen, setMenuOpen] = useState(false);
+  const [departmentFilters, setDepartmentFilters] = useState<SearchFilterClause[]>([]);
+  const [designationFilters, setDesignationFilters] = useState<SearchFilterClause[]>([]);
+  const [holidayFilters, setHolidayFilters] = useState<SearchFilterClause[]>([]);
+  const [departmentPage, setDepartmentPage] = useState(1);
+  const [designationPage, setDesignationPage] = useState(1);
+  const [holidayPage, setHolidayPage] = useState(1);
+  const [departmentPageSize, setDepartmentPageSize] = useState(20);
+  const [designationPageSize, setDesignationPageSize] = useState(20);
+  const [holidayPageSize, setHolidayPageSize] = useState(20);
+  const { schema: departmentSchema, loading: departmentSchemaLoading } = useDepartmentSearchSchema();
+  const { schema: designationSchema, loading: designationSchemaLoading } = useDesignationSearchSchema();
+  const { schema: holidaySchema, loading: holidaySchemaLoading } = useHolidaySearchSchema();
 
-  const departments = useDepartments();
-  const designations = useDesignations();
+  const departments = useDepartments(departmentFilters, departmentSchema, { enabled: !departmentSchemaLoading, page: departmentPage - 1, pageSize: departmentPageSize });
+  const designations = useDesignations(designationFilters, designationSchema, { enabled: !designationSchemaLoading, page: designationPage - 1, pageSize: designationPageSize });
   const shifts = useShifts();
   const leaveTypes = useLeaveTypes();
-  const holidays = useHolidays();
+  const holidays = useHolidays(holidayFilters, holidaySchema, { enabled: !holidaySchemaLoading, page: holidayPage - 1, pageSize: holidayPageSize });
   const company = useCompanyProfile();
   const attRules = useAttendanceRules();
   const payroll = usePayrollSettings();
@@ -983,11 +1070,25 @@ export default function Settings() {
           )}
           {section === "departments" && (
             <CrudPanel title="Departments" subtitle="Organizational units" icon={<Users2 size={20} />} addLabel="Add Department" hook={departments} automationScope="hr-settings-departments"
+              searchSchema={departmentSchema}
+              filterClauses={departmentFilters}
+              onFilterClausesChange={setDepartmentFilters}
+              page={departmentPage}
+              pageSize={departmentPageSize}
+              onPageChange={setDepartmentPage}
+              onPageSizeChange={setDepartmentPageSize}
               fields={[{ key: "name", label: "Department Name" }, { key: "code", label: "Code" }]}
               columns={[{ label: "Name", render: (r) => <b>{r.name as string}</b> }, { label: "Code", render: (r) => (r.code as string) || "—" }]} />
           )}
           {section === "designations" && (
             <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={designations} automationScope="hr-settings-designations"
+              searchSchema={designationSchema}
+              filterClauses={designationFilters}
+              onFilterClausesChange={setDesignationFilters}
+              page={designationPage}
+              pageSize={designationPageSize}
+              onPageChange={setDesignationPage}
+              onPageSizeChange={setDesignationPageSize}
               fields={[
                 { key: "name", label: "Role / Designation" }, { key: "code", label: "Code" },
                 { key: "hrDepartmentUid", label: "Department", type: "select", options: departments.data.map((d) => ({ value: d.id, label: d.name as string })), optional: true },
@@ -1056,6 +1157,13 @@ export default function Settings() {
           )}
           {section === "holidays" && (
             <CrudPanel title="Holiday Calendar" subtitle="Company holidays & observances" icon={<CalendarDays size={20} />} addLabel="Add Holiday" hook={holidays} automationScope="hr-settings-holidays"
+              searchSchema={holidaySchema}
+              filterClauses={holidayFilters}
+              onFilterClausesChange={setHolidayFilters}
+              page={holidayPage}
+              pageSize={holidayPageSize}
+              onPageChange={setHolidayPage}
+              onPageSizeChange={setHolidayPageSize}
               fields={[
                 { key: "name", label: "Holiday Name" }, { key: "date", label: "Date", type: "date" },
                 { key: "type", label: "Type", type: "select", options: ["Public", "Optional", "Restricted"] },

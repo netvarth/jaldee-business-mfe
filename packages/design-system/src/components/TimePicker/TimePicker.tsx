@@ -14,16 +14,15 @@ export interface TimePickerProps extends Omit<InputHTMLAttributes<HTMLInputEleme
 
 const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
   ({ className, label, error, hint, id, fullWidth = true, use12Hour = false, value, onChange, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-") ?? "time-picker";
+    const testId = (props as any)["data-testid"] || inputId;
 
     const hours12 = useMemo(() => Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")), []);
     const minutes = useMemo(() => Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")), []);
 
-    // Parse the current value (e.g. "05:30 PM", "17:30", "09:00 AM") into 12-hour components and 24-hour HH:MM
     const [h12Str, minStr, period, time24] = useMemo<[string, string, "AM" | "PM", string]>(() => {
       const valStr = String(value ?? "").trim();
       
-      // 1. Try matching 12-hour format: "05:30 PM"
       const match12 = valStr.match(/^(\d{1,2})[.:](\d{2})\s*([AP]M)$/i);
       if (match12) {
         const h12 = String(Number(match12[1])).padStart(2, "0");
@@ -35,7 +34,6 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
         return [h12, min, p, `${String(h24).padStart(2, "0")}:${min}`];
       }
 
-      // 2. Try matching 24-hour format: "17:30"
       const match24 = valStr.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
       if (match24) {
         const h24 = Number(match24[1]);
@@ -100,10 +98,11 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
         {use12Hour ? (
           <Popover
             trigger={
-              <div className={cn("relative cursor-pointer", fullWidth && "w-full")}>
+              <div id={`${testId}-trigger`} data-testid={`${testId}-trigger`} className={cn("relative cursor-pointer", fullWidth && "w-full")}>
                 <input
                   ref={ref}
                   id={inputId}
+                  data-testid={testId}
                   value={displayValue}
                   readOnly
                   disabled={props.disabled}
@@ -120,6 +119,8 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
                 />
                 <button
                   type="button"
+                  id={`${testId}-icon`}
+                  data-testid={`${testId}-icon`}
                   disabled={props.disabled}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center text-gray-400 hover:text-gray-600 pointer-events-none"
                 >
@@ -131,6 +132,7 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
             disabled={props.disabled}
           >
             <TimePickerPopoverContent
+              testId={testId}
               hours12={hours12}
               minutes={minutes}
               h12Str={h12Str}
@@ -145,6 +147,7 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
           <input
             ref={ref}
             id={inputId}
+            data-testid={testId}
             type="time"
             value={time24}
             onChange={onChange}
@@ -171,6 +174,7 @@ TimePicker.displayName = "TimePicker";
 export { TimePicker };
 
 interface TimePickerPopoverContentProps {
+  testId?: string;
   hours12: string[];
   minutes: string[];
   h12Str: string;
@@ -182,6 +186,7 @@ interface TimePickerPopoverContentProps {
 }
 
 function TimePickerPopoverContent({
+  testId = "timepicker",
   hours12,
   minutes,
   h12Str,
@@ -207,7 +212,7 @@ function TimePickerPopoverContent({
       scrollToActive(minRef.current);
     }, 50);
     return () => clearTimeout(t);
-  }, [h12Str, minStr]); // Re-scroll when selection changes
+  }, [h12Str, minStr]);
 
   return (
     <div className="flex gap-2 items-center h-48 overflow-hidden bg-white">
@@ -221,6 +226,8 @@ function TimePickerPopoverContent({
           return (
             <button
               key={h}
+              id={`${testId}-hour-${h}`}
+              data-testid={`${testId}-hour-${h}`}
               type="button"
               data-active={isSelected}
               onClick={() => onHourChange(h)}
@@ -249,6 +256,8 @@ function TimePickerPopoverContent({
           return (
             <button
               key={m}
+              id={`${testId}-min-${m}`}
+              data-testid={`${testId}-min-${m}`}
               type="button"
               data-active={isSelected}
               onClick={() => onMinChange(m)}
@@ -274,6 +283,8 @@ function TimePickerPopoverContent({
           return (
             <button
               key={p}
+              id={`${testId}-period-${p}`}
+              data-testid={`${testId}-period-${p}`}
               type="button"
               onClick={() => onPeriodChange(p)}
               className={cn(

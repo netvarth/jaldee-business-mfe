@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, DataTable, Drawer, EmptyState, PageHeader, Select, cn } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Drawer, EmptyState, PageHeader, cn } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { LayoutGrid, Rows3 } from "lucide-react";
+import { Download, LayoutGrid, Plus, Rows3, Upload } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
+import { useEmployeeSearchSchema } from "../../services/useEmployeeSearchSchema";
 import { useHrApi } from "../../services/useHrApi";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import { exportToCSV } from "../../lib/utils";
@@ -26,16 +33,17 @@ export default function EmployeeMaster() {
   const navigate = useNavigate();
   const { eventBus } = useMFEProps();
   const api = useHrApi();
-  const { data: employees, loading, error, remove } = useEmployees();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
+  const { data: employees, loading, error, remove } = useEmployees(
+    advancedFilters,
+    employeeSearchSchema,
+    { enabled: !schemaLoading }
+  );
   const { data: allDepartments } = useDepartments();
   const { data: allDesignations } = useDesignations();
   const [searchTerm, setSearchTerm] = useState("");
-  const [deptFilter, setDeptFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [draftDeptFilter, setDraftDeptFilter] = useState("all");
-  const [draftStatusFilter, setDraftStatusFilter] = useState("all");
-  const [draftTypeFilter, setDraftTypeFilter] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -44,19 +52,10 @@ export default function EmployeeMaster() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const departments = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[],
-    [employees]
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, employeeSearchSchema).length,
+    [advancedFilters, employeeSearchSchema]
   );
-  const statuses = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.status).filter(Boolean))) as string[],
-    [employees]
-  );
-  const employmentTypes = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.employmentType).filter(Boolean))) as string[],
-    [employees]
-  );
-  const appliedFilterCount = [deptFilter, statusFilter, typeFilter].filter((value) => value !== "all").length;
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -66,12 +65,9 @@ export default function EmployeeMaster() {
         e.employeeId?.toLowerCase().includes(q) ||
         e.email?.toLowerCase().includes(q) ||
         e.designation?.toLowerCase().includes(q);
-      const matchesDept = deptFilter === "all" || e.department === deptFilter;
-      const matchesStatus = statusFilter === "all" || e.status === statusFilter;
-      const matchesType = typeFilter === "all" || e.employmentType === typeFilter;
-      return matchesQ && matchesDept && matchesStatus && matchesType;
+      return matchesQ;
     });
-  }, [employees, searchTerm, deptFilter, statusFilter, typeFilter]);
+  }, [employees, searchTerm]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -96,27 +92,26 @@ export default function EmployeeMaster() {
   }, [filtered, page, pageSize]);
 
   const openFilters = () => {
-    setDraftDeptFilter(deptFilter);
-    setDraftStatusFilter(statusFilter);
-    setDraftTypeFilter(typeFilter);
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(employeeSearchSchema)
+    );
     setFiltersOpen(true);
   };
 
-  const resetFilters = () => {
-    setDraftDeptFilter("all");
-    setDraftStatusFilter("all");
-    setDraftTypeFilter("all");
-    setDeptFilter("all");
-    setStatusFilter("all");
-    setTypeFilter("all");
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(employeeSearchSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
     setPage(1);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
     setFiltersOpen(false);
   };
 
   const applyFilters = () => {
-    setDeptFilter(draftDeptFilter);
-    setStatusFilter(draftStatusFilter);
-    setTypeFilter(draftTypeFilter);
+    setAdvancedFilters(draftFilters);
     setPage(1);
     setFiltersOpen(false);
   };
@@ -283,22 +278,6 @@ export default function EmployeeMaster() {
       key: "status",
       header: "Status",
       width: "13%",
-      filter: {
-        value: statusFilter,
-        allValue: "all",
-        searchable: true,
-        searchPlaceholder: "Search status...",
-        testId: "hr-employees-inline-status-filter",
-        options: [
-          { value: "all", label: "All Statuses" },
-          ...statuses.map((status) => ({ value: status, label: status })),
-        ],
-        onChange: (value) => {
-          setStatusFilter(value);
-          setDraftStatusFilter(value);
-          setPage(1);
-        },
-      },
       render: (employee) => (
         <Badge
           variant={
@@ -367,31 +346,33 @@ export default function EmployeeMaster() {
         subtitle="Manage employee profiles, departments, roles, and workforce status."
         actions={
           <div className="employee-master-header-actions">
-            <button
+            <Button
               id="hr-employees-import-button"
               data-testid="hr-employees-import-button"
-              className="btn-grid-action"
+              variant="outline"
+              icon={<Upload size={16} />}
               onClick={() => fileInputRef.current?.click()}
             >
               {importing ? "Importing..." : "Import CSV"}
-            </button>
-            <button
+            </Button>
+            <Button
               id="hr-employees-export-button"
               data-testid="hr-employees-export-button"
-              className="btn-grid-action"
+              variant="outline"
+              icon={<Download size={16} />}
               onClick={handleExport}
             >
               Export CSV
-            </button>
-            <button
+            </Button>
+            <Button
               id="hr-employees-create-button"
               data-testid="hr-employees-create-button"
-              className="btn btn-primary"
+              variant="primary"
+              icon={<Plus size={16} />}
               onClick={() => navigate("/employees/new")}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" /></svg>
               New Employee
-            </button>
+            </Button>
           </div>
         }
       />
@@ -424,22 +405,11 @@ export default function EmployeeMaster() {
             id="hr-employees-filter-indicator"
             data-testid="hr-employees-filter-indicator"
             variant={appliedFilterCount > 0 ? "primary" : "outline"}
-            className={cn(
-              "ml-auto flex shrink-0 items-center gap-2 rounded-md px-4 py-2 font-semibold",
-              appliedFilterCount > 0
-                ? ""
-                : "border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
-            )}
+            icon={<FilterIcon />}
             aria-label="Open employee filters"
             onClick={openFilters}
           >
-            <FilterIcon />
-            <span>Filter</span>
-            {appliedFilterCount > 0 ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[var(--color-primary)]">
-                {appliedFilterCount}
-              </span>
-            ) : null}
+            Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
           </Button>
           <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
         </div>
@@ -627,38 +597,13 @@ export default function EmployeeMaster() {
       >
         <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-employees-filter-drawer">
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
-            <Select
-              id="hr-employees-department-filter"
-              testId="hr-employees-department-filter"
-              label="Department"
-              value={draftDeptFilter}
-              onChange={(e) => setDraftDeptFilter(e.target.value)}
-              options={[
-                { value: "all", label: "All Departments" },
-                ...departments.map((d) => ({ value: d, label: d }))
-              ]}
-            />
-            <Select
-              id="hr-employees-status-filter"
-              testId="hr-employees-status-filter"
-              label="Status"
-              value={draftStatusFilter}
-              onChange={(e) => setDraftStatusFilter(e.target.value)}
-              options={[
-                { value: "all", label: "All Statuses" },
-                ...statuses.map((status) => ({ value: status, label: status }))
-              ]}
-            />
-            <Select
-              id="hr-employees-type-filter"
-              testId="hr-employees-type-filter"
-              label="Employment Type"
-              value={draftTypeFilter}
-              onChange={(e) => setDraftTypeFilter(e.target.value)}
-              options={[
-                { value: "all", label: "All Employment Types" },
-                ...employmentTypes.map((type) => ({ value: type, label: type }))
-              ]}
+            <SchemaFilterBuilder
+              schema={employeeSearchSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No employee filters are available from the schema."
             />
           </div>
           <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">

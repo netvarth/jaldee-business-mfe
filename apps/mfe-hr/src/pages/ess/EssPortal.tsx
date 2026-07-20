@@ -1,6 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
-import { Button, DataTable, DatePicker, Dialog, FileUpload, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import { CalendarDays, Clock, FileText, Filter, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { Button, DataTable, DataTablePagination, DatePicker, Dialog, Drawer, FileUpload, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -12,6 +18,7 @@ import {
 } from "../../services/useEss";
 import { useBranches } from "../../services/useBranches";
 import { useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
+import { useDocumentRequestSearchSchema } from "../../services/useHrSearchSchema";
 import Announcements from "../announcements/Announcements";
 import Expenses from "../expenses/Expenses";
 import Tickets from "../tickets/Tickets";
@@ -136,6 +143,11 @@ export default function EssPortal() {
   const [documentSubmitError, setDocumentSubmitError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<DocumentRequest | null>(null);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+  const [documentFilters, setDocumentFilters] = useState<SearchFilterClause[]>([]);
+  const [documentDraftFilters, setDocumentDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [documentFiltersOpen, setDocumentFiltersOpen] = useState(false);
+  const [documentPage, setDocumentPage] = useState(1);
+  const [documentPageSize, setDocumentPageSize] = useState(20);
   const [leaveApplyForm, setLeaveApplyForm] = useState({
     leaveTypeUid: "",
     type: "",
@@ -151,7 +163,27 @@ export default function EssPortal() {
   const leaves = useMyLeaves();
   const balances = useMyLeaveBalances();
   const payslips = useMyPayslips();
-  const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid);
+  const { schema: documentSearchSchema, loading: documentSchemaLoading } = useDocumentRequestSearchSchema();
+  const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid, documentFilters, documentSearchSchema, { enabled: !documentSchemaLoading, page: documentPage - 1, pageSize: documentPageSize });
+  const documentAppliedFilterCount = useMemo(
+    () => compactSearchClauses(documentFilters, documentSearchSchema).length,
+    [documentFilters, documentSearchSchema]
+  );
+  const openDocumentFilters = () => {
+    setDocumentDraftFilters(documentFilters.length ? documentFilters : buildDefaultSearchClauses(documentSearchSchema));
+    setDocumentFiltersOpen(true);
+  };
+  const clearDocumentFilters = () => {
+    const reset = buildDefaultSearchClauses(documentSearchSchema);
+    setDocumentDraftFilters(reset);
+    setDocumentFilters(reset);
+    setDocumentPage(1);
+  };
+  const applyDocumentFilters = () => {
+    setDocumentFilters(documentDraftFilters);
+    setDocumentPage(1);
+    setDocumentFiltersOpen(false);
+  };
   const activeBalances = useMemo(
     () => mergeLeaveBalanceBuckets(balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() === "ACTIVE")),
     [balances.data],
@@ -899,6 +931,16 @@ export default function EssPortal() {
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
                       <AttendanceViewToggle value={documentViewMode} onChange={setDocumentViewMode} />
+                      <Button
+                        type="button"
+                        data-testid="ess-documents-filter-button"
+                        variant={documentAppliedFilterCount > 0 ? "primary" : "outline"}
+                        icon={<Filter size={16} />}
+                        aria-label="Open document filters"
+                        onClick={openDocumentFilters}
+                      >
+                        Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}
+                      </Button>
                     </div>
                   </div>
                   <div className="mt-5">
@@ -973,6 +1015,17 @@ export default function EssPortal() {
                         })}
                       </div>
                     )}
+                    <DataTablePagination
+                      testId="ess-documents-pagination"
+                      page={documentPage}
+                      pageSize={documentPageSize}
+                      total={documents.totalElements}
+                      onChange={setDocumentPage}
+                      onPageSizeChange={(size) => {
+                        setDocumentPageSize(size);
+                        setDocumentPage(1);
+                      }}
+                    />
                   </div>
                 </Panel>
               )}
@@ -1065,6 +1118,28 @@ export default function EssPortal() {
           </div>
         </div>
       </div>
+      <Dialog
+        open={documentFiltersOpen}
+        onClose={() => setDocumentFiltersOpen(false)}
+        title="Document Filters"
+        size="md"
+      >
+        <div className="space-y-5">
+          <SchemaFilterBuilder
+            schema={documentSearchSchema}
+            value={documentDraftFilters}
+            onChange={setDocumentDraftFilters}
+            appliedCount={documentAppliedFilterCount}
+            onClearAll={clearDocumentFilters}
+            emptyStateMessage="No document request filters are available from the schema."
+          />
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+            <Button type="button" variant="outline" onClick={() => { clearDocumentFilters(); setDocumentFiltersOpen(false); }}>Reset All</Button>
+            <Button type="button" onClick={applyDocumentFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Dialog>
+
       <Dialog
         open={documentDialogOpen}
         onClose={() => setDocumentDialogOpen(false)}

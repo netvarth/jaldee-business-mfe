@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "./useHrApi";
 import { buildBaseServiceUrl } from "../../../../packages/shared-modules/src/serviceUrls";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 import type { JobRequisition, Candidate, Application, Interview, Offer } from "../types";
 
 /** Backend returns `uid`; the UI keys on `id`. Normalize once here. */
@@ -230,26 +232,41 @@ export function useJobRequisitions() {
   return { data, loading, error, reload: load, save };
 }
 
-export function useCandidates() {
+export function useCandidates(
+  filterClauses: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
+  schema: SearchSchema | null | undefined = null,
+  { enabled = true, page = 0, pageSize = 100 }: { enabled?: boolean; page?: number; pageSize?: number } = {}
+) {
   const api = useHrApi();
   const { api: shellApi, account, user } = useMFEProps();
   const [data, setData] = useState<Candidate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<any>("/recruitment/candidates");
-      setData(extractList(res).map(normalize));
+      const res = await api.post<unknown>(
+        "/recruitment/candidates/search",
+        buildHrSearchBody(filterClauses, schema, page, pageSize)
+      );
+      const pageResult = unwrapHrSearchPage(res);
+      setData(pageResult.content.map((row) => normalize(row) as Candidate));
+      setTotalElements(pageResult.totalElements);
+      setTotalPages(pageResult.totalPages);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load candidates");
       setData([]);
+      setTotalElements(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, enabled, filterClauses, page, pageSize, schema]);
 
   useEffect(() => {
     void load();
@@ -276,7 +293,7 @@ export function useCandidates() {
     [account, api, load, shellApi, user]
   );
 
-  return { data, loading, error, reload: load, save, uploadResume };
+  return { data, loading, error, reload: load, save, uploadResume, totalElements, totalPages };
 }
 
 export function useCandidate(candidateUid?: string) {

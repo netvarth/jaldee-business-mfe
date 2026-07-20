@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Rows3, LayoutGrid } from "lucide-react";
-import { Button, Input, Select, Checkbox, Textarea, DataTable, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Rows3, LayoutGrid, Filter } from "lucide-react";
+import { Button, Input, Select, Checkbox, Textarea, DataTable, DataTablePagination, Drawer, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 
 export const TEAL = "var(--primary-color)";
 export const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -182,9 +188,9 @@ const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius:
 /* ---- Generic list CRUD panel ---- */
 // data typed loosely so specific hook interfaces (Shift, ShiftRotation, LeaveType…) satisfy it
 // (TS interfaces aren't assignable to Record<string, unknown> without an index signature).
-export interface Crud { data: any[]; loading: boolean; error: string | null; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
+export interface Crud { data: any[]; loading: boolean; error: string | null; totalElements?: number; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
 type CrudViewMode = "table" | "cards";
-export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, readOnly, viewMode, onViewModeChange, viewScope, cardTitle, cardRows, emptyText, tableContainerClassName, tableClassName, cardGridClassName }: {
+export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, readOnly, viewMode, onViewModeChange, viewScope, cardTitle, cardRows, emptyText, tableContainerClassName, tableClassName, cardGridClassName, searchSchema, filterClauses, onFilterClausesChange, page, pageSize, onPageChange, onPageSizeChange }: {
   title: string; subtitle: string; icon: ReactNode; addLabel: string; fields: Field[];
   columns: { label: string; render: (r: Row) => ReactNode; align?: "right" }[]; hook: Crud;
   locationPicker?: boolean;
@@ -199,8 +205,17 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
   tableContainerClassName?: string;
   tableClassName?: string;
   cardGridClassName?: string;
+  searchSchema?: SearchSchema | null;
+  filterClauses?: SearchFilterClause[];
+  onFilterClausesChange?: (filters: SearchFilterClause[]) => void;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
@@ -209,6 +224,24 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
   const openAdd = () => { setEditing(null); setForm({}); setMsg(null); setOpen(true); };
   const openEdit = (r: Row & { id: string }) => { setEditing(r); setForm({ ...r }); setMsg(null); setOpen(true); };
   const resolvedEmptyText = emptyText ?? "No records yet.";
+  const appliedFilterCount = compactSearchClauses(filterClauses ?? [], searchSchema).length;
+  const hasServerPagination = typeof page === "number" && typeof pageSize === "number" && typeof onPageChange === "function";
+  const totalRecords = hook.totalElements ?? hook.data.length;
+  const openFilters = () => {
+    setDraftFilters(filterClauses?.length ? filterClauses : buildDefaultSearchClauses(searchSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(searchSchema);
+    setDraftFilters(reset);
+    onFilterClausesChange?.(reset);
+    onPageChange?.(1);
+  };
+  const applyFilters = () => {
+    onFilterClausesChange?.(draftFilters);
+    onPageChange?.(1);
+    setFiltersOpen(false);
+  };
 
   const tableColumns: ColumnDef<Row & { id: string }>[] = [
     ...columns.map((column, index) => ({
@@ -255,6 +288,16 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
   const actionNode = (
     <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
       {!readOnly ? <Button onClick={openAdd} icon={<Plus size={16} />}>{addLabel}</Button> : null}
+      {searchSchema && onFilterClausesChange ? (
+        <Button
+          type="button"
+          variant={appliedFilterCount > 0 ? "primary" : "outline"}
+          onClick={openFilters}
+          icon={<Filter size={16} />}
+        >
+          Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+        </Button>
+      ) : null}
       {viewMode && onViewModeChange && viewScope ? (
         <div className="ml-auto shrink-0" style={viewToggleWrap}>
           <button
@@ -331,8 +374,32 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
             emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">{resolvedEmptyText}</div>}
             className={tableContainerClassName ?? "rounded-none border-0 shadow-none"}
             tableClassName={tableClassName ?? "min-w-[720px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:font-medium"}
+            pagination={hasServerPagination ? {
+              page,
+              pageSize,
+              total: totalRecords,
+              mode: "server",
+              onChange: onPageChange,
+              onPageSizeChange: onPageSizeChange ? (size) => {
+                onPageSizeChange(size);
+                onPageChange(1);
+              } : undefined,
+            } : undefined}
           />
         )}
+        {showCardView && hasServerPagination ? (
+          <DataTablePagination
+            testId={`${viewScope ?? title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-pagination`}
+            page={page}
+            pageSize={pageSize}
+            total={totalRecords}
+            onChange={onPageChange}
+            onPageSizeChange={onPageSizeChange ? (size) => {
+              onPageSizeChange(size);
+              onPageChange(1);
+            } : undefined}
+          />
+        ) : null}
       </SectionCard>
 
       {open && (
@@ -370,6 +437,30 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           </div>
         </div>
       )}
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title={`${title} Filters`}
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={searchSchema ?? null}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage={`No ${title.toLowerCase()} filters are available from the schema.`}
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => { clearFilters(); setFiltersOpen(false); }}>Reset All</Button>
+            <Button type="button" variant="primary" className="flex-1" onClick={applyFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Drawer>
     </div>
   );
 }

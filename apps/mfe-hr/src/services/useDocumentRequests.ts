@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useHrApi } from "./useHrApi";
 import { buildBaseServiceUrl } from "../../../../packages/shared-modules/src/serviceUrls";
+import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 
 /**
  * R7.1 (partial) — document request/verify workflow, live from
@@ -52,24 +54,42 @@ function withId(r: Record<string, unknown>): DocumentRequest {
   return { ...(r as object), id: String(uid ?? ""), uid } as DocumentRequest;
 }
 
-export function useDocumentRequests(employeeUid?: string) {
+export function useDocumentRequests(
+  employeeUid?: string,
+  filterClauses: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
+  schema: SearchSchema | null | undefined = null,
+  { page = 0, pageSize = 20, enabled = true }: { page?: number; pageSize?: number; enabled?: boolean } = {}
+) {
   const api = useHrApi();
   const { api: shellApi, account, user } = useMFEProps();
   const [data, setData] = useState<DocumentRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const load = useCallback(async () => {
-    if (!employeeUid) { setData([]); setLoading(false); return; }
+    if (!enabled || !employeeUid) { setData([]); setLoading(false); return; }
     setLoading(true); setError(null);
     try {
-      const res = await api.get<Record<string, unknown>[]>(`/document-requests/employee/${employeeUid}`);
-      setData(Array.isArray(res) ? res.map(withId) : []);
+      const res = await api.post<unknown>(
+        "/document-requests/search",
+        buildHrSearchBody([
+          { field: "employeeUid", operator: "EQ", values: [employeeUid] },
+          ...filterClauses,
+        ], schema, page, pageSize)
+      );
+      const pageResult = unwrapHrSearchPage(res);
+      setData(pageResult.content.map(withId));
+      setTotalElements(pageResult.totalElements);
+      setTotalPages(pageResult.totalPages);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load document requests");
       setData([]);
+      setTotalElements(0);
+      setTotalPages(0);
     } finally { setLoading(false); }
-  }, [api, employeeUid]);
+  }, [api, employeeUid, enabled, filterClauses, page, pageSize, schema]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -159,7 +179,7 @@ export function useDocumentRequests(employeeUid?: string) {
     return res?.url ?? null;
   }, [api]);
 
-  return { data, loading, error, reload: load, request, create, setStatus, update, remove, uploadFile, resolveDocumentUrl };
+  return { data, loading, error, reload: load, request, create, setStatus, update, remove, uploadFile, resolveDocumentUrl, totalElements, totalPages };
 }
 
 export function useDocumentCompleteness(employeeUid?: string) {

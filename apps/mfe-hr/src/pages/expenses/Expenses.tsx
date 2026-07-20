@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Rows3, LayoutGrid } from "lucide-react";
-import { PageHeader, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
@@ -152,7 +152,7 @@ export default function Expenses() {
   const tab = tabFromPath(location.pathname);
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
   const expenses = useExpenses();
-  const { data: myProfile } = useMyProfile();
+  const { data: myProfile } = useMyProfile({ enabled: isEmployeeView });
 
   useEffect(() => {
     if (expenses.error) {
@@ -165,9 +165,9 @@ export default function Expenses() {
   }, [expenses.error, eventBus]);
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
-  const empName = (uid?: string) => uid && myProfile?.id === uid ? (myProfile.name ?? uid) : (uid ? empMap.get(uid)?.name ?? uid : "—");
-  const empDept = (uid?: string) => uid && myProfile?.id === uid ? (myProfile.department ?? "N/A") : (uid ? empMap.get(uid)?.department ?? "N/A" : "—");
-  const empCode = (uid?: string) => uid && myProfile?.id === uid ? (myProfile.employeeId ?? "—") : (uid ? empMap.get(uid)?.employeeId ?? "—" : "—");
+  const empName = (uid?: string) => uid ? empMap.get(uid)?.name ?? uid : "—";
+  const empDept = (uid?: string) => uid ? empMap.get(uid)?.department ?? "N/A" : "—";
+  const empCode = (uid?: string) => uid ? empMap.get(uid)?.employeeId ?? "—" : "—";
   const scopedExpenses = useMemo(() => (
     isEmployeeView && myProfile?.id ? expenses.data.filter((e) => e.employeeUid === myProfile.id) : expenses.data
   ), [expenses.data, isEmployeeView, myProfile?.id]);
@@ -239,20 +239,21 @@ export default function Expenses() {
           <PageHeader
             title="Expense Claims & Mileage Ledger"
             subtitle="Reimbursements, travel logs and settlement control"
-            actions={<button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" onClick={() => { setMsg(null); setAddOpen(true); }} style={actionButton}><Plus size={16} /> Submit Expense Claim</button>}
+            actions={<Button id="hr-expenses-submit-open" data-testid="hr-expenses-submit-open" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setAddOpen(true); }}>Submit Expense Claim</Button>}
           />
         ) : null}
 
         {isEmployeeView ? (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
+            <Button
               id="hr-expenses-submit-open"
               data-testid="hr-expenses-submit-open"
+              variant="primary"
+              icon={<Plus size={16} />}
               onClick={() => { setMsg(null); setAddOpen(true); }}
-              style={{ ...employeeActionButton, flexShrink: 0 }}
             >
-              <Plus size={16} /> Submit Claim
-            </button>
+              Submit Claim
+            </Button>
           </div>
         ) : null}
 
@@ -441,8 +442,8 @@ export default function Expenses() {
         </div>
         {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-          <button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit Claim Proposal"}</button>
+          <Button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} variant="primary" onClick={submit} loading={saving}>Submit Claim Proposal</Button>
         </div>
       </Dialog>
 

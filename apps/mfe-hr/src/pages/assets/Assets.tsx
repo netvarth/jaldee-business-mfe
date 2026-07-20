@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Trash2, Eye, MoreVertical, LayoutGrid, Rows3 } from "lucide-react";
+import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Trash2, Eye, MoreVertical, LayoutGrid, Rows3, Filter } from "lucide-react";
 import { Badge, Button, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useAssets, type Asset, type AssetAllocation, type AssetAttachment, type AssetStatus } from "../../services/useAssets";
+import { useAssetSearchSchema } from "../../services/useAssetSearchSchema";
 import { useEmployees } from "../../services/useEmployees";
 import { useShellErrorToast } from "../../services/useShellFeedback";
 import { useDepartments } from "../../services/useSettingsData";
@@ -61,18 +68,16 @@ function formatHistoryDateTime(value?: string | null) {
 }
 
 export default function Assets() {
-  const assets = useAssets();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { schema: assetSearchSchema, loading: schemaLoading } = useAssetSearchSchema();
+  const assets = useAssets(advancedFilters, assetSearchSchema, { enabled: !schemaLoading });
   const { data: employees } = useEmployees();
   const departments = useDepartments();
   useShellErrorToast("hr.assets", "Assets", assets.error);
 
   const [filter, setFilter] = useState<"all" | AssetStatus>("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [draftTypeFilter, setDraftTypeFilter] = useState("all");
-  const [draftDepartmentFilter, setDraftDepartmentFilter] = useState("all");
-  const [draftFilter, setDraftFilter] = useState<"all" | AssetStatus>("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [busy, setBusy] = useState(false);
@@ -107,19 +112,20 @@ export default function Assets() {
 
   const rows = useMemo(() => assets.data.filter((asset) => {
     if (filter !== "all" && asset.status !== filter) return false;
-    if (typeFilter !== "all" && (asset.assetType || "Other") !== typeFilter) return false;
-    if (departmentFilter !== "all" && (asset.ownerDepartment || "") !== departmentFilter) return false;
     const q = search.trim().toLowerCase();
     return !q || [asset.name, asset.assetType, asset.tagNumber, asset.serialNumber, asset.holderEmployeeName]
       .some((value) => (value || "").toLowerCase().includes(q));
-  }), [assets.data, departmentFilter, filter, search, typeFilter]);
+  }), [assets.data, filter, search]);
 
   const counts = useMemo(() => {
     const next: Record<string, number> = {};
     assets.data.forEach((asset) => { next[asset.status || "?"] = (next[asset.status || "?"] || 0) + 1; });
     return next;
   }, [assets.data]);
-  const appliedFilterCount = [typeFilter !== "all", departmentFilter !== "all"].filter(Boolean).length;
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, assetSearchSchema).length,
+    [advancedFilters, assetSearchSchema]
+  );
 
   const act = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -136,26 +142,25 @@ export default function Assets() {
   };
 
   const openFilters = () => {
-    setDraftFilter(filter);
-    setDraftTypeFilter(typeFilter);
-    setDraftDepartmentFilter(departmentFilter);
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(assetSearchSchema)
+    );
     setFiltersOpen(true);
   };
 
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(assetSearchSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
   const resetFilters = () => {
-    setDraftFilter("all");
-    setDraftTypeFilter("all");
-    setDraftDepartmentFilter("all");
-    setFilter("all");
-    setTypeFilter("all");
-    setDepartmentFilter("all");
+    clearFilters();
     setFiltersOpen(false);
   };
 
   const applyFilters = () => {
-    setFilter(draftFilter);
-    setTypeFilter(draftTypeFilter);
-    setDepartmentFilter(draftDepartmentFilter);
+    setAdvancedFilters(draftFilters);
     setFiltersOpen(false);
   };
 
@@ -372,22 +377,11 @@ export default function Assets() {
                 id="hr-assets-filter-indicator"
                 data-testid="hr-assets-filter-indicator"
                 variant={appliedFilterCount > 0 ? "primary" : "outline"}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
-                  appliedFilterCount > 0
-                    ? ""
-                    : "border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
-                )}
+                icon={<FilterIcon />}
                 aria-label="Open asset filters"
                 onClick={openFilters}
               >
-                <FilterIcon />
-                <span>Filter</span>
-                {appliedFilterCount > 0 ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[var(--color-primary)]">
-                    {appliedFilterCount}
-                  </span>
-                ) : null}
+                Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
               </Button>
               <AssetsViewToggle value={viewMode} onChange={setViewMode} />
             </div>
@@ -483,30 +477,13 @@ export default function Assets() {
       >
         <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-assets-filter-drawer">
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
-            <Select
-              id="hr-assets-type-filter"
-              testId="hr-assets-type-filter"
-              label="Asset Type"
-              value={draftTypeFilter}
-              onChange={(event) => setDraftTypeFilter(event.target.value)}
-              options={[
-                { value: "all", label: "All Asset Types" },
-                ...ASSET_TYPES.map((type) => ({ value: type, label: type })),
-              ]}
-            />
-            <Select
-              id="hr-assets-department-filter"
-              testId="hr-assets-department-filter"
-              label="Owner Department"
-              value={draftDepartmentFilter}
-              onChange={(event) => setDraftDepartmentFilter(event.target.value)}
-              options={[
-                { value: "all", label: "All Departments" },
-                ...departments.data.map((department) => ({
-                  value: department.name || department.id,
-                  label: department.name || department.id,
-                })),
-              ]}
+            <SchemaFilterBuilder
+              schema={assetSearchSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No asset filters are available from the schema."
             />
           </div>
           <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">

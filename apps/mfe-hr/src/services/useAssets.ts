@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildAssetSearchBody } from "./assetSearch";
 import { useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "./useHrApi";
 import { buildBaseServiceUrl } from "../../../../packages/shared-modules/src/serviceUrls";
@@ -120,21 +122,44 @@ function resolveFileType(file: File) {
   return segments.length > 1 ? segments.pop() ?? "file" : "file";
 }
 
-export function useAssets() {
+const EMPTY_FILTERS: SearchFilterClause[] = [];
+
+export function useAssets(
+  filterClauses: SearchFilterClause[] = EMPTY_FILTERS,
+  schema: SearchSchema | null | undefined = null,
+  { enabled = true }: { enabled?: boolean } = {}
+) {
   const api = useHrApi();
   const { api: shellApi, account, user } = useMFEProps();
   const [data, setData] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
-      const res = await api.get<Record<string, unknown>[]>("/assets");
-      setData(Array.isArray(res) ? res.map((r) => withId<Asset>(r)) : []);
+      let res: unknown;
+      try {
+        res = await api.post<unknown>("/assets/search", buildAssetSearchBody(filterClauses, schema));
+      } catch {
+        res = await api.get<Record<string, unknown>[]>("/assets");
+      }
+      const list: Record<string, unknown>[] = Array.isArray(res)
+        ? res
+        : (res && typeof res === "object"
+          ? (() => {
+              const obj = res as Record<string, unknown>;
+              for (const key of ["content", "items", "results", "data"]) {
+                if (Array.isArray(obj[key])) return obj[key] as Record<string, unknown>[];
+              }
+              return [];
+            })()
+          : []);
+      setData(list.map((r) => withId<Asset>(r)));
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load assets"); setData([]); }
     finally { setLoading(false); }
-  }, [api]);
+  }, [api, enabled, filterClauses, schema]);
   useEffect(() => { void load(); }, [load]);
 
   const create = useCallback(async (p: Record<string, unknown>) => { await api.post("/assets", p); await load(); }, [api, load]);

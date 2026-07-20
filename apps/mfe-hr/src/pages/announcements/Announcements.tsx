@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical } from "lucide-react";
-import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection } from "@jaldee/design-system";
+import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection, Drawer } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
-import { useMyProfile } from "../../services/useEss";
+import { useAnnouncementSearchSchema } from "../../services/useAnnouncementSearchSchema";
 import { useTelemetry } from "../../services/useTelemetry";
 
 const TEAL = "var(--primary-color)";
@@ -33,11 +39,53 @@ export default function Announcements() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
   const isEmployeeView = location.pathname.includes("/me/");
-  const { data: employees } = useEmployees({ enabled: !isEmployeeView });
-  const { data: myProfile } = useMyProfile();
   const { trackEvent, captureError } = useTelemetry();
-  const isEmployeeLogin = isEmployeeView || (myProfile?.role || "").toLowerCase() === "employee";
-  const ann = useAnnouncements({ scope: isEmployeeLogin ? "ess" : "general" });
+  const isEmployeeLogin = isEmployeeView;
+  const [tracking, setTracking] = useState<Announcement | null>(null);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const { data: employees } = useEmployees({ enabled: !isEmployeeView && Boolean(tracking) });
+  const { schema: announcementSearchSchema, loading: schemaLoading } = useAnnouncementSearchSchema();
+
+  const ann = useAnnouncements(
+    advancedFilters,
+    announcementSearchSchema,
+    { scope: isEmployeeLogin ? "ess" : "general", enabled: !schemaLoading }
+  );
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, announcementSearchSchema).length,
+    [advancedFilters, announcementSearchSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(announcementSearchSchema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(announcementSearchSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
 
   useEffect(() => {
     if (ann.error) {
@@ -50,13 +98,6 @@ export default function Announcements() {
   }, [ann.error, eventBus]);
 
   const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
-
-  const [search, setSearch] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
-  const [tracking, setTracking] = useState<Announcement | null>(null);
-  const [form, setForm] = useState({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
 
   const items = useMemo(() => {
     const q = search.toLowerCase();
@@ -131,16 +172,8 @@ export default function Announcements() {
 
   const handleAcknowledge = async (id: string) => {
     if (!isEmployeeLogin) return;
-    if (!myProfile?.id) {
-      eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "error",
-        title: "StaffSpace",
-        message: "Employee profile not loaded.",
-      });
-      return;
-    }
     try {
-      await ann.acknowledge(id, myProfile.id);
+      await ann.acknowledge(id);
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
         title: "StaffSpace",
@@ -180,7 +213,11 @@ export default function Announcements() {
           <PageHeader
             title="StaffSpace"
             subtitle="Stay updated with the latest company news and policies."
-            actions={!isEmployeeLogin ? <button id="hr-announcements-create-button" data-testid="hr-announcements-create-button" onClick={() => { setMsg(null); setAddOpen(true); }} style={{ height: 42, padding: "0 22px", borderRadius: 12, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> New Announcement</button> : undefined}
+            actions={!isEmployeeLogin ? (
+              <Button id="hr-announcements-create-button" data-testid="hr-announcements-create-button" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setAddOpen(true); }}>
+                New Announcement
+              </Button>
+            ) : undefined}
           />
         ) : null}
 
@@ -197,15 +234,16 @@ export default function Announcements() {
             className="h-12 rounded-xl bg-white text-base font-semibold shadow-sm"
           />
           <Button
+            type="button"
             id="hr-announcements-filter-button"
             data-testid="hr-announcements-filter-button"
-            variant="outline"
-            size="lg"
-            iconOnly
-            icon={<Filter size={18} />}
-            className="w-12 shrink-0 rounded-xl"
+            variant={appliedFilterCount > 0 ? "primary" : "outline"}
+            icon={<Filter size={16} />}
             aria-label="Filter announcements"
-          />
+            onClick={openFilters}
+          >
+            Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+          </Button>
         </div>
 
 
@@ -292,7 +330,7 @@ export default function Announcements() {
                               Pending acknowledgment
                             </div>
                           </div>
-                          <button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} onClick={() => handleAcknowledge(a.id)} style={{ height: 48, padding: "0 30px", borderRadius: 16, border: "none", cursor: "pointer", background: TEAL, color: "white", fontWeight: 900, fontSize: 14, boxShadow: "0 8px 18px rgba(17,94,89,0.12)" }}>Acknowledge</button>
+                          <Button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} variant="primary" onClick={() => handleAcknowledge(a.id)}>Acknowledge</Button>
                         </div>
                       )
                     ) : (
@@ -442,6 +480,48 @@ export default function Announcements() {
           </>
         )}
       </Dialog>
+
+      {/* FILTER DRAWER */}
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Advanced Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-announcements-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={announcementSearchSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No announcement filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="hr-announcements-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="hr-announcements-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </section>
   );
 }
@@ -449,5 +529,3 @@ export default function Announcements() {
 const overlay: CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
 const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 32, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", overflow: "hidden", maxHeight: "92vh" };
 const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" };
-const ghostBtn: CSSProperties = { height: 44, padding: "0 22px", borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
-const primaryBtn: CSSProperties = { height: 44, padding: "0 26px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };

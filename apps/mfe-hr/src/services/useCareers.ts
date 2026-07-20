@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 import { useHrApi } from "./useHrApi";
 
 /**
@@ -126,25 +128,40 @@ export function useCareersSite() {
 }
 
 /** Admin postings list + CRUD + publish. */
-export function usePostings() {
+export function usePostings(
+  filterClauses: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
+  schema: SearchSchema | null | undefined = null,
+  { enabled = true, page = 0, pageSize = 100 }: { enabled?: boolean; page?: number; pageSize?: number } = {}
+) {
   const api = useHrApi();
   const [data, setData] = useState<JobPosting[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<JobPosting[]>("/careers/postings");
-      setData(Array.isArray(res) ? res : []);
+      const res = await api.post<unknown>(
+        "/careers/postings/search",
+        buildHrSearchBody(filterClauses, schema, page, pageSize)
+      );
+      const pageResult = unwrapHrSearchPage(res);
+      setData(pageResult.content as unknown as JobPosting[]);
+      setTotalElements(pageResult.totalElements);
+      setTotalPages(pageResult.totalPages);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load postings");
       setData([]);
+      setTotalElements(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, enabled, filterClauses, page, pageSize, schema]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -173,7 +190,7 @@ export function usePostings() {
     [api, load]
   );
 
-  return { data, loading, error, reload: load, save, setStatus, remove };
+  return { data, loading, error, reload: load, save, setStatus, remove, totalElements, totalPages };
 }
 
 export function useDocumentDownloader() {

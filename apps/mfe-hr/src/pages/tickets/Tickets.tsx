@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button } from "@jaldee/design-system";
+import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
+import { useTicketSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
 
 const TEAL = "var(--primary-color)";
@@ -82,7 +89,13 @@ export default function Tickets() {
   const location = useLocation();
   const isEmployeeView = location.pathname.includes("/me/");
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
-  const tickets = useTickets();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [ticketsPage, setTicketsPage] = useState(1);
+  const [ticketsPageSize, setTicketsPageSize] = useState(20);
+  const { schema: ticketSchema, loading: schemaLoading } = useTicketSearchSchema();
+  const tickets = useTickets(advancedFilters, ticketSchema, { enabled: !schemaLoading, page: ticketsPage - 1, pageSize: ticketsPageSize });
   const { data: myProfile } = useMyProfile();
 
   useEffect(() => {
@@ -109,6 +122,23 @@ export default function Tickets() {
   const [msg, setMsg] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, ticketSchema).length,
+    [advancedFilters, ticketSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(ticketSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(ticketSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setTicketsPage(1);
+  };
+  const resetFilters = () => { clearFilters(); setFiltersOpen(false); };
+  const applyFilters = () => { setAdvancedFilters(draftFilters); setTicketsPage(1); setFiltersOpen(false); };
 
   const scopedTickets = useMemo(
     () => (isEmployeeView && myProfile?.id ? tickets.data.filter((t) => t.employeeUid === myProfile.id) : tickets.data),
@@ -190,61 +220,36 @@ export default function Tickets() {
             title="HR Helpdesk"
             subtitle="Raise and track your HR or admin-related issues."
             actions={
-              <button
+              <Button
                 id="hr-tickets-create-button"
                 data-testid="hr-tickets-create-button"
+                variant="primary"
+                icon={<Plus size={16} />}
                 onClick={() => {
                   setMsg(null);
                   setAddOpen(true);
                 }}
-                style={{
-                  height: 42,
-                  padding: "0 22px",
-                  borderRadius: 4,
-                  border: "none",
-                  cursor: "pointer",
-                  background: TEAL,
-                  color: "white",
-                  fontWeight: 800,
-                  fontSize: 13,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
               >
-                <Plus size={16} /> Raise New Ticket
-              </button>
+                Raise New Ticket
+              </Button>
             }
           />
         ) : null}
 
         {isEmployeeView ? (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
+            <Button
               id="hr-tickets-create-button"
               data-testid="hr-tickets-create-button"
+              variant="primary"
+              icon={<Plus size={16} />}
               onClick={() => {
                 setMsg(null);
                 setAddOpen(true);
               }}
-              style={{
-                height: 42,
-                padding: "0 22px",
-                borderRadius: 12,
-                border: "none",
-                cursor: "pointer",
-                background: "#059669",
-                color: "white",
-                fontWeight: 800,
-                fontSize: 13,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                flexShrink: 0,
-              }}
             >
-              <Plus size={16} /> New Ticket
-            </button>
+              New Ticket
+            </Button>
           </div>
         ) : null}
 
@@ -278,13 +283,13 @@ export default function Tickets() {
           <Button
             id="hr-tickets-filter-button"
             data-testid="hr-tickets-filter-button"
-            variant="outline"
-            size="lg"
-            iconOnly
-            icon={<Filter size={18} />}
-            className="w-12 shrink-0 rounded-xl"
+            variant={appliedFilterCount > 0 ? "primary" : "outline"}
+            icon={<Filter size={16} />}
             aria-label="Filter tickets"
-          />
+            onClick={openFilters}
+          >
+            Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+          </Button>
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
@@ -306,17 +311,18 @@ export default function Tickets() {
                 }
                 action={
                   search.trim() ? (
-                    <button className="btn btn-secondary" onClick={() => setSearch("")}>Clear search</button>
+                    <Button variant="outline" onClick={() => setSearch("")}>Clear search</Button>
                   ) : (
-                    <button
-                      className="btn btn-primary"
+                    <Button
+                      variant="primary"
+                      icon={<Plus size={16} />}
                       onClick={() => {
                         setMsg(null);
                         setAddOpen(true);
                       }}
                     >
-                      <Plus size={16} /> Raise New Ticket
-                    </button>
+                      Raise New Ticket
+                    </Button>
                   )
                 }
               />
@@ -438,6 +444,17 @@ export default function Tickets() {
               );
             })
           )}
+          <DataTablePagination
+            testId="hr-tickets-pagination"
+            page={ticketsPage}
+            pageSize={ticketsPageSize}
+            total={tickets.totalElements}
+            onChange={setTicketsPage}
+            onPageSizeChange={(size) => {
+              setTicketsPageSize(size);
+              setTicketsPage(1);
+            }}
+          />
         </div>
       </div>
 
@@ -499,7 +516,7 @@ export default function Tickets() {
                 options={["Low", "Medium", "High"].map((p) => ({ value: p, label: p }))}
               />
             </div>
-            <button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" style={{ height: 52, borderRadius: 16, border: "none", background: "rgba(100,116,139,0.06)", color: "var(--light-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center" }}><Paperclip size={16} /> Attachment (Optional)</button>
+            <Button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" variant="outline" icon={<Paperclip size={16} />}>Attachment (Optional)</Button>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <Textarea
@@ -515,10 +532,35 @@ export default function Tickets() {
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" onClick={() => setAddOpen(false)} style={ghostBtn}>Cancel</button>
-          <button id="hr-tickets-submit" data-testid="hr-tickets-submit" onClick={raise} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? <><Loader2 size={16} className="animate-spin" /> Submitting...</> : "Submit Ticket"}</button>
+          <Button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button id="hr-tickets-submit" data-testid="hr-tickets-submit" variant="primary" onClick={raise} loading={saving}>Submit Ticket</Button>
         </div>
       </Dialog>
+
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Ticket Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-tickets-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={ticketSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No ticket filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button type="button" variant="outline" className="flex-1" data-testid="hr-tickets-filter-reset" onClick={resetFilters}>Reset All</Button>
+            <Button type="button" variant="primary" className="flex-1" data-testid="hr-tickets-filter-apply" onClick={applyFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Drawer>
 
       <Dialog
         open={!!liveSelected}
@@ -576,7 +618,7 @@ export default function Tickets() {
             </div>
             <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", display: "flex", gap: 10 }}>
               <input id="hr-tickets-reply-input" data-testid="hr-tickets-reply-input" placeholder="Write a reply..." value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} style={{ ...field, height: 46, borderRadius: 14 }} />
-              <button id="hr-tickets-reply-send" data-testid="hr-tickets-reply-send" onClick={sendReply} disabled={replying || !replyText.trim()} style={{ height: 46, padding: "0 20px", borderRadius: 14, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, opacity: replyText.trim() ? 1 : 0.6 }}>{replying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Send</button>
+              <Button id="hr-tickets-reply-send" data-testid="hr-tickets-reply-send" variant="primary" onClick={sendReply} disabled={!replyText.trim()} loading={replying} icon={<Send size={16} />}>Send</Button>
             </div>
             {msg && <div style={{ margin: "0 24px 16px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
           </>
@@ -587,5 +629,3 @@ export default function Tickets() {
 }
 
 const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" };
-const ghostBtn: CSSProperties = { height: 44, padding: "0 22px", borderRadius: 12, border: "2px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
-const primaryBtn: CSSProperties = { height: 44, padding: "0 26px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };

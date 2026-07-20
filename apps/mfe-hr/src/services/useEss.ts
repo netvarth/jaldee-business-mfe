@@ -83,12 +83,16 @@ export interface MyPayslip {
   status?: string; generatedAt?: string;
 }
 
-export function useMyProfile() {
+export function useMyProfile({ enabled = true }: { enabled?: boolean } = {}) {
   const api = useHrApi();
   const [data, setData] = useState<Employee | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const reload = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -100,7 +104,7 @@ export function useMyProfile() {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, enabled]);
   useEffect(() => { void reload(); }, [reload]);
   return { data, loading, error, reload };
 }

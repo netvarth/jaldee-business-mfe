@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DataTable, Button, Input, ErrorState, EmptyState } from "@jaldee/design-system";
+import { DataTable, DataTablePagination, Button, Input, ErrorState, EmptyState, Drawer } from "@jaldee/design-system";
+import { Filter } from "lucide-react";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useCandidates } from "../../services/useRecruitmentData";
+import { useCandidateSearchSchema } from "../../services/useHrSearchSchema";
 import { NewCandidateModal } from "./NewCandidateModal";
 import RecruitmentLayout from "./RecruitmentLayout";
 import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "./recruitmentResponsive";
@@ -10,10 +18,33 @@ import type { Candidate } from "../../types";
 
 export default function Candidates() {
   const navigate = useNavigate();
-  const { data, loading, error, save } = useCandidates();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const { schema: candidateSchema, loading: schemaLoading } = useCandidateSearchSchema();
+  const { data, loading, error, save, totalElements } = useCandidates(advancedFilters, candidateSchema, { enabled: !schemaLoading, page: page - 1, pageSize });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, candidateSchema).length,
+    [advancedFilters, candidateSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(candidateSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(candidateSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setPage(1);
+  };
+  const resetFilters = () => { clearFilters(); setFiltersOpen(false); };
+  const applyFilters = () => { setAdvancedFilters(draftFilters); setPage(1); setFiltersOpen(false); };
 
   const openCandidate = (candidate: Candidate) => {
     const candidateKey = candidate.uid ?? candidate.id;
@@ -78,6 +109,16 @@ export default function Candidates() {
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">
+              <Button
+                type="button"
+                variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                icon={<Filter size={16} />}
+                data-testid="hr-recruitment-candidates-filter-button"
+                aria-label="Open candidate filters"
+                onClick={openFilters}
+              >
+                Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+              </Button>
               <Button variant="primary" data-testid="hr-recruitment-new-candidate" onClick={() => setIsModalOpen(true)}>
                 + Add Candidate
               </Button>
@@ -107,38 +148,90 @@ export default function Candidates() {
                 <EmptyState title="No Candidates" description="Add candidates to start the hiring process." />
               </div>
             ) : viewMode === "cards" ? (
-              <div className="grid gap-4 p-4 md:grid-cols-2">
-                {filtered.map((candidate) => (
-                  <RecruitmentMobileCard
-                    key={candidate.id}
-                    title={candidate.name}
-                    rows={[
-                      { label: "Email", value: candidate.email || "-" },
-                      { label: "Phone", value: candidate.phone || "-" },
-                      { label: "Source", value: candidate.source || "-" },
-                      { label: "Added On", value: candidate.addedAt ? new Date(String(candidate.addedAt)).toLocaleDateString() : "-" },
-                    ]}
-                    footer={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        data-testid={`hr-recruitment-candidate-card-view-${candidate.id}`}
-                        onClick={() => openCandidate(candidate)}
-                      >
-                        View
-                      </Button>
-                    }
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid gap-4 p-4 md:grid-cols-2">
+                  {filtered.map((candidate) => (
+                    <RecruitmentMobileCard
+                      key={candidate.id}
+                      title={candidate.name}
+                      rows={[
+                        { label: "Email", value: candidate.email || "-" },
+                        { label: "Phone", value: candidate.phone || "-" },
+                        { label: "Source", value: candidate.source || "-" },
+                        { label: "Added On", value: candidate.addedAt ? new Date(String(candidate.addedAt)).toLocaleDateString() : "-" },
+                      ]}
+                      footer={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid={`hr-recruitment-candidate-card-view-${candidate.id}`}
+                          onClick={() => openCandidate(candidate)}
+                        >
+                          View
+                        </Button>
+                      }
+                    />
+                  ))}
+                </div>
+                <DataTablePagination
+                  testId="hr-recruitment-candidates-pagination"
+                  page={page}
+                  pageSize={pageSize}
+                  total={totalElements}
+                  onChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                />
+              </>
             ) : (
-              <DataTable data={filtered} columns={columns} loading={loading} />
+              <DataTable
+                data={filtered}
+                columns={columns}
+                loading={loading}
+                pagination={{
+                  page,
+                  pageSize,
+                  total: totalElements,
+                  mode: "server",
+                  onChange: setPage,
+                  onPageSizeChange: (size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  },
+                }}
+              />
             )}
           </div>
         </div>
       </div>
 
       <NewCandidateModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={save} />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Candidate Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-recruitment-candidates-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={candidateSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No candidate filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button type="button" variant="outline" className="flex-1" data-testid="hr-recruitment-candidates-filter-reset" onClick={resetFilters}>Reset All</Button>
+            <Button type="button" variant="primary" className="flex-1" data-testid="hr-recruitment-candidates-filter-apply" onClick={applyFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Drawer>
     </RecruitmentLayout>
   );
 }

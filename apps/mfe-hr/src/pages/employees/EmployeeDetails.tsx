@@ -4,9 +4,15 @@ const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"))
 import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
-  Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3,
+  Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3, Filter,
 } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Input, FileUpload } from "@jaldee/design-system";
+import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
@@ -18,6 +24,7 @@ import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
 import { usePayslips, type Payslip } from "../../services/usePayrollData";
 import { DOC_REQUEST_STATUSES, useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
+import { useDocumentRequestSearchSchema } from "../../services/useHrSearchSchema";
 import { useTelemetry } from "../../services/useTelemetry";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import type { Employee } from "../../types";
@@ -256,11 +263,36 @@ export default function EmployeeDetails() {
   const [documentStatusForm, setDocumentStatusForm] = useState({ status: "REQUESTED" });
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [documentStatusFiles, setDocumentStatusFiles] = useState<File[]>([]);
+  const [documentFilters, setDocumentFilters] = useState<SearchFilterClause[]>([]);
+  const [documentDraftFilters, setDocumentDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [documentFiltersOpen, setDocumentFiltersOpen] = useState(false);
+  const [documentPage, setDocumentPage] = useState(1);
+  const [documentPageSize, setDocumentPageSize] = useState(20);
   const [attendanceViewMode, setAttendanceViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [leaveViewMode, setLeaveViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [payslipViewMode, setPayslipViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [documentViewMode, setDocumentViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
-  const documents = useDocumentRequests(employee?.id);
+  const { schema: documentSearchSchema, loading: documentSchemaLoading } = useDocumentRequestSearchSchema();
+  const documents = useDocumentRequests(employee?.id, documentFilters, documentSearchSchema, { enabled: !documentSchemaLoading, page: documentPage - 1, pageSize: documentPageSize });
+  const documentAppliedFilterCount = useMemo(
+    () => compactSearchClauses(documentFilters, documentSearchSchema).length,
+    [documentFilters, documentSearchSchema]
+  );
+  const openDocumentFilters = () => {
+    setDocumentDraftFilters(documentFilters.length ? documentFilters : buildDefaultSearchClauses(documentSearchSchema));
+    setDocumentFiltersOpen(true);
+  };
+  const clearDocumentFilters = () => {
+    const reset = buildDefaultSearchClauses(documentSearchSchema);
+    setDocumentDraftFilters(reset);
+    setDocumentFilters(reset);
+    setDocumentPage(1);
+  };
+  const applyDocumentFilters = () => {
+    setDocumentFilters(documentDraftFilters);
+    setDocumentPage(1);
+    setDocumentFiltersOpen(false);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -1149,7 +1181,7 @@ export default function EmployeeDetails() {
 
           {tab === "documents" && (
             <Panel icon={<FileText size={20} />} title="Employee Documents" sub="Official letters, credentials, and verification sheets" full
-              action={<div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /><button className="employee-details-panel-action btn btn-secondary" onClick={() => setDocumentDialogOpen(true)} style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Plus size={14} /> Add Doc</button></div>}>
+              action={<div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /><Button type="button" data-testid="hr-employee-documents-filter-button" variant={documentAppliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label="Open employee document filters" onClick={openDocumentFilters}>Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}</Button><Button type="button" variant="primary" icon={<Plus size={16} />} onClick={() => setDocumentDialogOpen(true)}>Add Doc</Button></div>}>
               {documents.loading ? (
                 <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={48} className="animate-spin" style={{ opacity: 0.4, marginBottom: 12 }} /><p>Loading documents...</p></div>
               ) : documentRows.length > 0 ? (
@@ -1210,6 +1242,17 @@ export default function EmployeeDetails() {
                 </div>
                 </>
               ) : <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><FileText size={48} style={{ opacity: 0.2, marginBottom: 12 }} /><p>No documents uploaded yet.</p></div>}
+              <DataTablePagination
+                testId="hr-employee-documents-pagination"
+                page={documentPage}
+                pageSize={documentPageSize}
+                total={documents.totalElements}
+                onChange={setDocumentPage}
+                onPageSizeChange={(size) => {
+                  setDocumentPageSize(size);
+                  setDocumentPage(1);
+                }}
+              />
             </Panel>
           )}
         </div>
@@ -1315,6 +1358,30 @@ export default function EmployeeDetails() {
           </Button>
         </DialogFooter>
       </Dialog>
+      <Drawer
+        open={documentFiltersOpen}
+        onClose={() => setDocumentFiltersOpen(false)}
+        title="Document Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-employee-documents-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={documentSearchSchema}
+              value={documentDraftFilters}
+              onChange={setDocumentDraftFilters}
+              appliedCount={documentAppliedFilterCount}
+              onClearAll={clearDocumentFilters}
+              emptyStateMessage="No document request filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button type="button" variant="outline" className="flex-1" data-testid="hr-employee-documents-filter-reset" onClick={() => { clearDocumentFilters(); setDocumentFiltersOpen(false); }}>Reset All</Button>
+            <Button type="button" variant="primary" className="flex-1" data-testid="hr-employee-documents-filter-apply" onClick={applyDocumentFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Drawer>
       <Dialog open={documentStatusDialogOpen} onClose={() => setDocumentStatusDialogOpen(false)} title="Update Document Status" size="md">
         <div style={{ display: "grid", gap: 16 }}>
           {documentError ? (

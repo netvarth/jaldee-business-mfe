@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildAttendanceSearchBody, unwrapAttendancePage } from "./attendanceSearch";
 import { useHrApi } from "../services/useHrApi";
 
 function normalizeClockInType(value: unknown) {
@@ -74,36 +76,69 @@ function useList<T extends { uid?: string; id?: string }>(endpoint: string) {
   return { api, data, loading, error, reload: load };
 }
 
-export function useAttendance() {
-  const { api, data, loading, error, reload } = useList<AttendanceRecord>("/attendance");
+const EMPTY_FILTERS: SearchFilterClause[] = [];
+
+export function useAttendance(
+  filterClauses: SearchFilterClause[] = EMPTY_FILTERS,
+  schema: SearchSchema | null | undefined = null,
+  { enabled = true, page = 0, pageSize = 20 }: { enabled?: boolean; page?: number; pageSize?: number } = {}
+) {
+  const api = useHrApi();
+  const [data, setData] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
+    setLoading(true); setError(null);
+    try {
+      let res: unknown;
+      try {
+        res = await api.post<unknown>("/attendance/search", buildAttendanceSearchBody(filterClauses, schema, page, pageSize));
+      } catch {
+        res = await api.get<Record<string, unknown>[]>("/attendance");
+      }
+      const page_result = unwrapAttendancePage(res);
+      setData(page_result.content.map((r) => withId<AttendanceRecord>(r)));
+      setTotalElements(page_result.totalElements);
+      setTotalPages(page_result.totalPages);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load attendance");
+      setData([]);
+    } finally { setLoading(false); }
+  }, [api, enabled, filterClauses, schema, page, pageSize]);
+  useEffect(() => { void load(); }, [load]);
+
   const punchIn = useCallback(async (payload: Record<string, unknown>) => {
     await api.post("/attendance", {
       ...payload,
       clockInType: normalizeClockInType(payload.clockInType),
     });
-    await reload();
-  }, [api, reload]);
+    await load();
+  }, [api, load]);
   const punchOut = useCallback(async (uid: string) => {
     const record = data.find((item) => item.id === uid || item.uid === uid);
     await api.put(`/attendance/${uid}/punch-out`, buildPunchOutPayload(record, uid));
-    await reload();
-  }, [api, data, reload]);
+    await load();
+  }, [api, data, load]);
   const verify = useCallback(async (uid: string, wfhStatus: string, verifiedByUid?: string | null) => {
-    await api.put(`/attendance/${uid}/verify`, { wfhStatus, verifiedByUid: verifiedByUid || null }); await reload();
-  }, [api, reload]);
+    await api.put(`/attendance/${uid}/verify`, { wfhStatus, verifiedByUid: verifiedByUid || null }); await load();
+  }, [api, load]);
   const startBreak = useCallback(async (uid: string, breakType: string) => {
     await api.post(`/attendance/${uid}/breaks`, { breakType });
-    await reload();
-  }, [api, reload]);
+    await load();
+  }, [api, load]);
   const endBreak = useCallback(async (uid: string, breakUid: string) => {
     await api.put(`/attendance/${uid}/breaks/${breakUid}`);
-    await reload();
-  }, [api, reload]);
+    await load();
+  }, [api, load]);
   const approveOvertime = useCallback(async (uid: string, approvedMinutes: number) => {
     await api.put(`/attendance/${uid}/overtime?approvedMinutes=${encodeURIComponent(String(Math.max(0, approvedMinutes)))}`);
-    await reload();
-  }, [api, reload]);
-  return { data, loading, error, reload, punchIn, punchOut, verify, startBreak, endBreak, approveOvertime };
+    await load();
+  }, [api, load]);
+  return { data, loading, error, reload: load, punchIn, punchOut, verify, startBreak, endBreak, approveOvertime, totalElements, totalPages };
 }
 
 export function useOnDuty() {

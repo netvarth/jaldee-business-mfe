@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
-import { CheckCircle2, Clock, History, LayoutGrid, Loader2, MapPin, MoreVertical, Rows3, ScanFace, Timer, XCircle } from "lucide-react";
-import { PageHeader, Popover, Select, SkeletonTable } from "@jaldee/design-system";
+import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Rows3, ScanFace, Timer, XCircle } from "lucide-react";
+import { PageHeader, Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
 import { useBranches } from "../../services/useBranches";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs } from "../../services/useAttendanceData";
+import { useAttendanceSearchSchema } from "../../services/useAttendanceSearchSchema";
 import { useAttendanceRules } from "../../services/useSettingsData";
 import { formatDate } from "../../lib/utils";
 import { CLOCK_TYPE_OPTIONS, ClockType } from "../../types";
@@ -180,12 +188,11 @@ export default function Attendance() {
   const navigate = useNavigate();
   const { data: employees, loading: empLoading, error: empError } = useEmployees();
   const branches = useBranches();
-  const attendance = useAttendance();
   const attendanceRules = useAttendanceRules();
   const onduty = useOnDuty();
   const compoffs = useCompOffs();
   const locationLogs = useLocationLogs();
-  const isLoading = empLoading || attendance.loading || onduty.loading || compoffs.loading || locationLogs.loading;
+  const isLoading = empLoading || onduty.loading || compoffs.loading || locationLogs.loading;
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [actor, setActor] = useState("");
@@ -202,6 +209,36 @@ export default function Attendance() {
   const [autoTrack, setAutoTrack] = useState(false);
   const [overtimeDrafts, setOvertimeDrafts] = useState<Record<string, number>>({});
   const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
+
+  // Attendance search + pagination state
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [attPage, setAttPage] = useState(0);
+  const [attPageSize, setAttPageSize] = useState(20);
+  const { schema: attendanceSchema, loading: schemaLoading } = useAttendanceSearchSchema();
+  const attendance = useAttendance(advancedFilters, attendanceSchema, {
+    enabled: !schemaLoading,
+    page: attPage,
+    pageSize: attPageSize,
+  });
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, attendanceSchema).length,
+    [advancedFilters, attendanceSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(attendanceSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(attendanceSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setAttPage(0);
+  };
+  const resetFilters = () => { clearFilters(); setFiltersOpen(false); };
+  const applyFilters = () => { setAdvancedFilters(draftFilters); setAttPage(0); setFiltersOpen(false); };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -470,9 +507,9 @@ export default function Attendance() {
                 </div>
                 <button id="hr-attendance-face-toggle" data-testid="hr-attendance-face-toggle" data-active={faceRequired || face ? "true" : "false"} disabled={faceRequired} onClick={() => setFace((v) => !v)} aria-label="toggle face" style={{ width: 40, height: 22, borderRadius: 999, border: "none", cursor: faceRequired ? "not-allowed" : "pointer", background: faceRequired || face ? "var(--primary-color)" : "var(--border-color)", position: "relative", opacity: faceRequired ? 0.75 : 1 }}><span style={{ position: "absolute", top: 2, left: faceRequired || face ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "white", transition: "left .15s" }} /></button>
               </div>
-              <button id="hr-attendance-punch-button" data-testid="hr-attendance-punch-button" onClick={handlePunch} disabled={busy} style={{ height: 52, borderRadius: 14, border: "none", cursor: busy ? "not-allowed" : "pointer", background: clockedIn ? "#e11d48" : "var(--primary-color)", color: "white", fontWeight: 800, fontSize: 15, letterSpacing: "0.04em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy || !actor ? 0.6 : 1, transition: "background-color 0.2s, opacity 0.15s" }}>
-                {busy ? <Loader2 size={18} className="animate-spin" /> : null} {clockedIn ? "CLOCK OUT" : "CLOCK IN"}
-              </button>
+              <Button id="hr-attendance-punch-button" data-testid="hr-attendance-punch-button" variant={clockedIn ? "danger" : "primary"} size="lg" onClick={handlePunch} disabled={!actor} loading={busy} fullWidth>
+                {clockedIn ? "Clock Out" : "Clock In"}
+              </Button>
               {(msg || empError) && <div style={{ fontSize: 12, textAlign: "center", color: empError && !msg ? "var(--danger-color)" : "var(--light-text)", marginTop: 4 }}>{msg || `Employees failed to load: ${empError}`}</div>}
             </div>
 
@@ -580,58 +617,126 @@ export default function Attendance() {
         ) : (
           <>
             {subtab === "logs" && (
-              viewMode === "table" ? (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Work Type</th><th style={th}>Clock In</th><th style={th}>Clock Out</th><th style={th}>Overtime</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
-                  <tbody>{attendance.data.length === 0 ? <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No attendance logs.</td></tr> : attendance.data.map((a) => (
-                    <tr key={a.id} style={isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? { background: "rgba(245,158,11,0.04)" } : undefined}><td style={{ ...tdc, fontWeight: 600 }}>{empName(a.employeeUid)}{isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) && <span style={{ display: "block", marginTop: 3, ...lbl, color: "#b45309" }}>Needs verification before payroll</span>}</td><td style={tdc}>{formatDate(a.dateStr)}</td><td style={{ ...tdc, color: "var(--light-text)" }}>{a.clockInType || "—"}</td><td style={tdc}>{fmtTime(a.clockIn)}</td><td style={tdc}>{fmtTime(a.clockOut)}</td><td style={tdc}><OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /></td><td style={{ ...tdc, textAlign: "right" }}><StatusBadge status={a.status} /></td></tr>
-                  ))}</tbody>
-                </table>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
-                  {attendance.data.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No attendance logs.</div>
-                  ) : (
-                    attendance.data.map((a) => (
-                      <div key={a.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12, background: isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? "rgba(245,158,11,0.02)" : "var(--surface-bg)", border: isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? "1px solid rgba(245,158,11,0.2)" : "1px solid var(--border-color)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+              <>
+                {/* Logs toolbar: filter button */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid var(--border-color)", gap: 12 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)" }}>
+                    {attendance.totalElements > 0 ? `${attendance.totalElements} records` : "Attendance Logs"}
+                  </span>
+                  <Button
+                    type="button"
+                    id="hr-attendance-filter-button"
+                    data-testid="hr-attendance-filter-button"
+                    variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                    icon={<Filter size={16} />}
+                    aria-label="Filter attendance"
+                    onClick={openFilters}
+                  >
+                    Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+                  </Button>
+                </div>
+                {viewMode === "table" ? (
+                  <DataTable
+                    data-testid="hr-attendance-logs-table"
+                    data={attendance.data}
+                    columns={[
+                      {
+                        key: "employeeUid",
+                        header: "Employee",
+                        width: "22%",
+                        render: (a) => (
                           <div>
-                            <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{empName(a.employeeUid)}</div>
+                            <div style={{ fontWeight: 600 }}>{empName(a.employeeUid)}</div>
                             {isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) && (
-                              <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700, marginTop: 2 }}>Needs verification</div>
+                              <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700, marginTop: 2 }}>Needs verification before payroll</div>
                             )}
                           </div>
-                          <StatusBadge status={a.status} />
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                          <div>
-                            <div style={lbl}>Date</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{formatDate(a.dateStr)}</div>
+                        ),
+                      },
+                      { key: "dateStr", header: "Date", width: "12%", render: (a) => formatDate(a.dateStr) },
+                      { key: "clockInType", header: "Work Type", width: "12%", render: (a) => <span style={{ color: "var(--light-text)" }}>{a.clockInType || "—"}</span> },
+                      { key: "clockIn", header: "Clock In", width: "12%", render: (a) => fmtTime(a.clockIn) },
+                      { key: "clockOut", header: "Clock Out", width: "12%", render: (a) => fmtTime(a.clockOut) },
+                      { key: "overtimeMinutes", header: "Overtime", width: "16%", render: (a) => <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /> },
+                      { key: "status", header: "Status", width: "14%", align: "right", render: (a) => <StatusBadge status={a.status} /> },
+                    ] as ColumnDef<typeof attendance.data[0]>[]}
+                    getRowId={(a) => a.id}
+                    loading={attendance.loading}
+                    className="rounded-none border-0 bg-transparent shadow-none"
+                    tableClassName="min-w-[780px]"
+                    pagination={{
+                      page: attPage + 1,
+                      pageSize: attPageSize,
+                      total: attendance.totalElements,
+                      mode: "server",
+                      onChange: (p) => setAttPage(p - 1),
+                      onPageSizeChange: (size) => {
+                        setAttPageSize(size);
+                        setAttPage(0);
+                      },
+                    }}
+                    emptyState={<EmptyState title="No attendance logs" description="Adjust filters or date range to find records." />}
+                  />
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
+                      {attendance.data.length === 0 ? (
+                        <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No attendance logs.</div>
+                      ) : (
+                        attendance.data.map((a) => (
+                          <div key={a.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12, background: isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? "rgba(245,158,11,0.02)" : "var(--surface-bg)", border: isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? "1px solid rgba(245,158,11,0.2)" : "1px solid var(--border-color)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                              <div>
+                                <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{empName(a.employeeUid)}</div>
+                                {isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) && (
+                                  <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700, marginTop: 2 }}>Needs verification</div>
+                                )}
+                              </div>
+                              <StatusBadge status={a.status} />
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+                              <div>
+                                <div style={lbl}>Date</div>
+                                <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{formatDate(a.dateStr)}</div>
+                              </div>
+                              <div>
+                                <div style={lbl}>Mode</div>
+                                <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{a.clockInType || "—"}</div>
+                              </div>
+                              <div>
+                                <div style={lbl}>Clock In</div>
+                                <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{fmtTime(a.clockIn)}</div>
+                              </div>
+                              <div>
+                                <div style={lbl}>Clock Out</div>
+                                <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{fmtTime(a.clockOut)}</div>
+                              </div>
+                            </div>
+                            {a.overtimeMinutes > 0 && (
+                              <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={lbl}>Overtime</span>
+                                <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} />
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <div style={lbl}>Mode</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{a.clockInType || "—"}</div>
-                          </div>
-                          <div>
-                            <div style={lbl}>Clock In</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{fmtTime(a.clockIn)}</div>
-                          </div>
-                          <div>
-                            <div style={lbl}>Clock Out</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{fmtTime(a.clockOut)}</div>
-                          </div>
-                        </div>
-                        {a.overtimeMinutes > 0 && (
-                          <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={lbl}>Overtime</span>
-                            <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} />
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )
+                        ))
+                      )}
+                    </div>
+                    <DataTablePagination
+                      testId="hr-attendance-cards-pagination"
+                      page={attPage + 1}
+                      pageSize={attPageSize}
+                      total={attendance.totalElements}
+                      onChange={(p) => setAttPage(p - 1)}
+                      onPageSizeChange={(size) => {
+                        setAttPageSize(size);
+                        setAttPage(0);
+                      }}
+                      position="top"
+                    />
+                  </>
+                )}
+              </>
             )}
             {subtab === "pending" && (
               viewMode === "table" ? (
@@ -913,6 +1018,30 @@ export default function Attendance() {
           </>
         )}
       </div>
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Attendance Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-attendance-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={attendanceSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No attendance filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button type="button" variant="outline" className="flex-1" data-testid="hr-attendance-filter-reset" onClick={resetFilters}>Reset All</Button>
+            <Button type="button" variant="primary" className="flex-1" data-testid="hr-attendance-filter-apply" onClick={applyFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Drawer>
     </section>
   );
 }
