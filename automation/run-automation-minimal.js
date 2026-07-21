@@ -10,6 +10,8 @@ function slugify(value) {
 async function run() {
   const isHeaded = !process.argv.includes("--headless");
   const pauseDelay = 400;
+  const viewDelay = 5000;
+  let section17Started = false;
   const suffix = `${Date.now()}`.slice(-6);
   const futureDate = (daysAhead) => {
     const date = new Date();
@@ -20,7 +22,7 @@ async function run() {
     `5555${String((Number(suffix) + sequence) % 1_000_000).padStart(6, "0")}`;
 
   console.log("=========================================================");
-  console.log("  STARTING VISUAL IT ENTERPRISE HR AUTOMATION DEMO       ");
+  console.log("  STARTING MINIMAL HR AUTOMATION (1 RECORD PER SECTION)  ");
   console.log("=========================================================");
 
   const launchOptions = {
@@ -73,7 +75,8 @@ async function run() {
       if (labelName) console.log(`   [Field] Entering ${labelName}: "${text}"`);
       await el.click().catch(() => {});
       await el.fill(text).catch(() => {});
-      await page.waitForTimeout(250);
+      const isFilterField = /\b(filter|search)\b/i.test(labelName || "");
+      await page.waitForTimeout(isHeaded && section17Started && isFilterField ? viewDelay : 250);
       return true;
     }
     return false;
@@ -279,7 +282,7 @@ async function run() {
     if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
       if (labelName) console.log(`   [Action] Clicking ${labelName}`);
       await el.click();
-      await page.waitForTimeout(pauseDelay);
+      await page.waitForTimeout(isHeaded && section17Started ? viewDelay : pauseDelay);
       return true;
     }
     return false;
@@ -293,7 +296,7 @@ async function run() {
     }
     console.log(`   [Action] ${labelName}`);
     await target.click();
-    await page.waitForTimeout(pauseDelay);
+    await page.waitForTimeout(isHeaded && section17Started ? viewDelay : pauseDelay);
     return true;
   }
 
@@ -484,7 +487,7 @@ async function run() {
     { name: `Human Resources & Talent ${suffix}`, code: `HRT-${suffix}` },
     { name: `Cybersecurity & IT Ops ${suffix}`, code: `SEC-${suffix}` },
   ];
-  for (let i = 0; i < deptList.length; i++) {
+  for (let i = 0; i < Math.min(deptList.length, 1); i++) {
     const d = deptList[i];
     await closeAnyOpenModal();
     if (!(await slowClick('[data-testid="hr-settings-departments-add"], button:has-text("Add Department")', `Add ${d.name}`))) {
@@ -519,7 +522,7 @@ async function run() {
     { name: `HR Business Partner ${suffix}`, code: `HRB-${suffix}`, level: "3", desc: "Manages tech hiring, talent retention and payroll" },
     { name: `Cybersecurity Analyst ${suffix}`, code: `CSA-${suffix}`, level: "4", desc: "Monitors SOC operations, security compliance and audits" },
   ];
-  for (let i = 0; i < roleList.length; i++) {
+  for (let i = 0; i < Math.min(roleList.length, 1); i++) {
     const r = roleList[i];
     await closeAnyOpenModal();
     const designationAdd = page.locator('[data-testid="hr-settings-designations-add"]').first();
@@ -559,7 +562,7 @@ async function run() {
     { name: `24x7 IT NOC Night Shift ${suffix}`, start: "09:00 PM", end: "05:00 AM" },
     { name: `Flexible Tech Hours ${suffix}`, start: "10:00 AM", end: "06:00 PM" },
   ];
-  for (let i = 0; i < shiftList.length; i++) {
+  for (let i = 0; i < Math.min(shiftList.length, 1); i++) {
     const s = shiftList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-settings-shifts-add"], button:has-text("Add Shift")', `Add ${s.name}`);
@@ -599,7 +602,7 @@ async function run() {
     { name: `Maternity & Family Care Leave ${suffix}`, cat: "MATERNITY", quota: "90" },
     { name: `Weekend On-Call Comp Off ${suffix}`, cat: "COMP_OFF", quota: "10" },
   ];
-  for (let i = 0; i < leaveList.length; i++) {
+  for (let i = 0; i < Math.min(leaveList.length, 1); i++) {
     const l = leaveList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-settings-leave-policy-create"], button:has-text("Create New Leave Type")', `Create ${l.name}`);
@@ -632,7 +635,7 @@ async function run() {
     { name: `Regional Optional Holiday ${suffix}`, date: "2026-11-01", type: "Optional" },
     { name: `Private Company Holiday ${suffix}`, date: "2026-12-25", type: "Restricted" },
   ];
-  for (let i = 0; i < holidayList.length; i++) {
+  for (let i = 0; i < Math.min(holidayList.length, 1); i++) {
     const h = holidayList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-settings-holidays-add"], button:has-text("Add Holiday")', `Add ${h.name}`);
@@ -722,7 +725,7 @@ async function run() {
     `AWS Cloud Sandbox Access Request ${suffix}`,
     `Security Certificate Renewal Clearance ${suffix}`,
   ];
-  for (let i = 0; i < ticketList.length; i++) {
+  for (let i = 0; i < Math.min(ticketList.length, 1); i++) {
     const subject = ticketList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-tickets-create-button"], button:has-text("Raise Ticket")', `Raise Ticket ${i + 1}`);
@@ -745,7 +748,7 @@ async function run() {
     `Updated Information Security Best Practices ${suffix}`,
     `Quarterly Developer Recognition Awards ${suffix}`,
   ];
-  for (let i = 0; i < announcementList.length; i++) {
+  for (let i = 0; i < Math.min(announcementList.length, 1); i++) {
     const title = announcementList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-announcements-create-button"], button:has-text("New Announcement")', `New Announcement ${i + 1}`);
@@ -766,7 +769,7 @@ async function run() {
     { amount: "2500", note: `Engineering Sprint Retrospective Refreshments ${suffix}` },
     { amount: "1200", note: `Express Hardware Courier Shipping ${suffix}` },
   ];
-  for (let i = 0; i < expenseList.length; i++) {
+  for (let i = 0; i < Math.min(expenseList.length, 1); i++) {
     const exp = expenseList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-expenses-submit-open"], button:has-text("Submit Expense")', `Submit Expense ${i + 1}`);
@@ -789,7 +792,7 @@ async function run() {
     { type: "Monitor", name: `Dual Curved Code Display Screen ${suffix}`, val: "38000" },
     { type: "Phone", name: `5G Mobile Test Device ${suffix}`, val: "55000" },
   ];
-  for (let i = 0; i < assetList.length; i++) {
+  for (let i = 0; i < Math.min(assetList.length, 1); i++) {
     const a = assetList[i];
     await closeAnyOpenModal();
     await slowClick('button:has-text("Register Asset")', `Register ${a.name}`);
@@ -823,7 +826,7 @@ async function run() {
     { name: "Deepika Roy", gender: "FEMALE" },
   ];
 
-  for (let i = 0; i < employeeProfiles.length; i++) {
+  for (let i = 0; i < Math.min(employeeProfiles.length, 1); i++) {
     const profile = employeeProfiles[i];
     const empName = `${profile.name} ${suffix}`;
     const empEmail = `${slugify(profile.name)}.${suffix}.test@jaldee.com`;
@@ -860,7 +863,7 @@ async function run() {
     `Home Relocation & Fiber Internet Setup ${suffix}`,
     `Personal Technical Certification Prep ${suffix}`,
   ];
-  for (let i = 0; i < leaveReasons.length; i++) {
+  for (let i = 0; i < Math.min(leaveReasons.length, 1); i++) {
     const reason = leaveReasons[i];
     const isHalfDayLeave = i === 0;
     const isTwoDayLeave = i === 1;
@@ -902,7 +905,7 @@ async function run() {
     `Lead Product Manager ${suffix}`,
     `Cybersecurity Engineer ${suffix}`,
   ];
-  for (let i = 0; i < reqList.length; i++) {
+  for (let i = 0; i < Math.min(reqList.length, 1); i++) {
     const title = reqList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-recruitment-new-requisition"], button:has-text("New Requisition")', `New Requisition ${i + 1}`);
@@ -933,7 +936,7 @@ async function run() {
     "Manish Pandey",
     "Shruti Iyer",
   ];
-  for (let i = 0; i < candidateList.length; i++) {
+  for (let i = 0; i < Math.min(candidateList.length, 1); i++) {
     const cName = candidateList[i];
     const candidateName = `${cName} ${suffix}`;
     await closeAnyOpenModal();
@@ -1007,6 +1010,7 @@ async function run() {
   }
 
   async function runAttendanceAndLeaveActions() {
+  section17Started = true;
   console.log("\n>>> ATTENDANCE - CLOCK, HISTORY, VERIFICATIONS AND MODES...");
   await visitHr("/hr/attendance", "ATTENDANCE ACTIONS");
   await slowSelectFirstOption('[data-testid="hr-attendance-actor"]', "Attendance Employee");
@@ -1396,7 +1400,7 @@ async function run() {
   await runSeparationActions();
 
   console.log("=========================================================");
-  console.log("  FULL IT ENTERPRISE AUTOMATION SUITE COMPLETED!       ");
+  console.log("  MINIMAL HR AUTOMATION SUITE COMPLETED!               ");
   console.log("=========================================================");
 
   await page.waitForTimeout(3000);

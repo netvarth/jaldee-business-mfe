@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DataTable, Badge, Button, Input, ErrorState, EmptyState } from "@jaldee/design-system";
 import { useJobRequisitions } from "../../services/useRecruitmentData";
+import { useDepartments } from "../../services/useSettingsData";
+import { useEmployees } from "../../services/useEmployees";
 import { useShellErrorToast, useShellFeedback } from "../../services/useShellFeedback";
 import { NewRequisitionModal } from "./NewRequisitionModal";
 import RecruitmentLayout from "./RecruitmentLayout";
@@ -12,6 +14,8 @@ import type { JobRequisition } from "../../types";
 export default function JobRequisitions() {
   const navigate = useNavigate();
   const { data, loading, error, save } = useJobRequisitions();
+  const { data: departments } = useDepartments();
+  const { data: employees } = useEmployees();
   const { toast, track, capture } = useShellFeedback("hr.recruitment.requisitions");
   useShellErrorToast("hr.recruitment.requisitions", "Requisitions", error);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -140,6 +144,8 @@ export default function JobRequisitions() {
 
       <NewRequisitionModal
         isOpen={isModalOpen}
+        departments={departments}
+        employees={employees}
         onClose={() => setIsModalOpen(false)}
         onSave={async (payload) => {
           try {

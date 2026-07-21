@@ -112,12 +112,23 @@ export function useAttendance(
   useEffect(() => { void load(); }, [load]);
 
   const punchIn = useCallback(async (payload: Record<string, unknown>) => {
-    await api.post("/attendance", {
+    const created = await api.post<Record<string, unknown>>("/attendance", {
       ...payload,
       clockInType: normalizeClockInType(payload.clockInType),
     });
     await load();
-  }, [api, load]);
+    if (created && typeof created === "object") {
+      const createdRecord = withId<AttendanceRecord>(created);
+      setData((current) => {
+        const alreadyLoaded = current.some((item) =>
+          (createdRecord.id && item.id === createdRecord.id) ||
+          (createdRecord.uid && item.uid === createdRecord.uid)
+        );
+        return alreadyLoaded ? current : [createdRecord, ...current];
+      });
+      setTotalElements((current) => Math.max(current, data.length + 1));
+    }
+  }, [api, data.length, load]);
   const punchOut = useCallback(async (uid: string) => {
     const record = data.find((item) => item.id === uid || item.uid === uid);
     await api.put(`/attendance/${uid}/punch-out`, buildPunchOutPayload(record, uid));

@@ -25,6 +25,7 @@ export interface PhoneInputProps {
   required?: boolean;
   disabled?: boolean;
   testId?: string;
+  "data-testid"?: string;
   className?: string;
   containerClassName?: string;
   fullWidth?: boolean;
@@ -93,6 +94,7 @@ export function PhoneInput({
   required,
   disabled,
   testId,
+  "data-testid": dataTestId,
   className,
   containerClassName,
   fullWidth = true,
@@ -110,7 +112,7 @@ export function PhoneInput({
     () => id ?? label?.toLowerCase().trim().replace(/\s+/g, "-") ?? `phone-input-${reactId.replace(/:/g, "")}`,
     [id, label, reactId]
   );
-  const resolvedTestId = testId ?? fieldId;
+  const resolvedTestId = testId ?? dataTestId ?? fieldId;
   const hintId = hint ? `${fieldId}-hint` : undefined;
   const errorId = error ? `${fieldId}-error` : undefined;
   const describedBy = [errorId, !error && hintId].filter(Boolean).join(" ") || undefined;

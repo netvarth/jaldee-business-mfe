@@ -725,12 +725,14 @@ export default function Leave() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <DatePicker
                 id="hr-leave-start-date"
+                data-testid="hr-leave-start-date"
                 label="Start Date"
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value })}
               />
               <DatePicker
                 id="hr-leave-end-date"
+                data-testid="hr-leave-end-date"
                 label="End Date"
                 value={form.endDate}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}

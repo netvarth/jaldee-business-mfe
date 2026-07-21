@@ -134,8 +134,8 @@ export type { BulkActionBarProps, BulkAction } from "./components/BulkActionBar/
 export { Skeleton, SkeletonTable, SkeletonCard } from "./components/Skeleton/Skeleton";
 
 // Layer 5 — Data Display
-export { DataTable, DataTableToolbar }  from "./components/DataTable/DataTable";
-export type { DataTableProps, ColumnDef, DataTableColumnFilter } from "./components/DataTable/DataTable";
+export { DataTable, DataTablePagination, DataTableToolbar }  from "./components/DataTable/DataTable";
+export type { DataTablePaginationProps, DataTableProps, ColumnDef, DataTableColumnFilter } from "./components/DataTable/DataTable";
 
 
 export { DescriptionList }                from "./components/DescriptionList/DescriptionList";

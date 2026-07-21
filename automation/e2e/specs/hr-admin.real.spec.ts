@@ -52,20 +52,34 @@ async function fillByTestId(page: Page, testId: string, value: string) {
 
 async function fillDateByTestId(page: Page, testId: string, dateStr: string) {
   const target = page.getByTestId(testId).first();
+  await expect(target).toBeAttached({ timeout: UI_TIMEOUT });
+
   if (await target.isVisible().catch(() => false)) {
-    try {
-      await target.fill(dateStr);
-    } catch {
-      await target.evaluate((el: HTMLInputElement, val: string) => {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-        if (setter) setter.call(el, val);
-        else el.value = val;
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      }, dateStr);
-    }
-    await pause(page, 200);
+    await target.fill(dateStr);
+  } else {
+    // DatePicker keeps the ISO value in a hidden controlled input. Calling its
+    // React onChange updates the form state in the same way as a calendar pick.
+    await target.evaluate((input: HTMLInputElement, value: string) => {
+      const fiberKey = Object.keys(input).find((key) => key.startsWith("__reactFiber$"));
+      let fiber = fiberKey ? (input as unknown as Record<string, any>)[fiberKey] : null;
+
+      while (fiber) {
+        if (typeof fiber.memoizedProps?.onChange === "function") {
+          fiber.memoizedProps.onChange({
+            target: { value, name: input.name, id: input.id },
+            currentTarget: { value, name: input.name, id: input.id },
+          });
+          return;
+        }
+        fiber = fiber.return;
+      }
+
+      throw new Error(`Unable to update controlled date input ${input.dataset.testid ?? input.id}`);
+    }, dateStr);
   }
+
+  await expect(target).toHaveValue(dateStr, { timeout: UI_TIMEOUT });
+  await pause(page, 200);
 }
 
 async function selectByTestId(page: Page, testId: string, value: string) {
@@ -404,122 +418,7 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
     await fillByTestId(page, "hr-settings-payroll-payday", "28");
     await clickByTestId(page, "hr-settings-payroll-save");
 
-    console.log("=== MODULE 3: REPORTS (Export CSV) ===");
-    await navigateToHrRoute(page, "/hr/reports");
-    await clickIfVisible(page.getByTestId("hr-reports-export"));
-    await clickIfVisible(page.getByRole("button", { name: /Export|Download/i }).first());
-
-    console.log("=== MODULE 4: HELPDESK (5 IT TICKETS) ===");
-    await navigateToHrRoute(page, "/hr/tickets");
-    const ticketList = [
-      `Developer Laptop RAM & SSD Upgrade ${suffix}`,
-      `VPN & Single Sign-On Access Issue ${suffix}`,
-      `Production Database Slow Query Investigation ${suffix}`,
-      `AWS Cloud Sandbox Access Request ${suffix}`,
-      `Security Certificate Renewal Clearance ${suffix}`,
-    ];
-    for (const subject of ticketList) {
-      await clickByTestId(page, "hr-tickets-create-button");
-      if (await page.getByTestId("hr-tickets-subject").isVisible({ timeout: 4000 }).catch(() => false)) {
-        await selectFirstAvailableOption(page, "hr-tickets-employee");
-        await fillByTestId(page, "hr-tickets-subject", subject);
-        await selectByTestId(page, "hr-tickets-category", "IT/Systems");
-        await selectByTestId(page, "hr-tickets-priority", "High");
-        await fillByTestId(page, "hr-tickets-description", `IT ticket for ${subject}`);
-        await clickByTestId(page, "hr-tickets-submit");
-        await page.getByTestId("hr-tickets-subject").waitFor({ state: "hidden", timeout: 10_000 }).catch(() => {});
-      }
-    }
-
-    console.log("=== MODULE 5: STAFFSPACE / ANNOUNCEMENTS (5 IT ANNOUNCEMENTS) ===");
-    await navigateToHrRoute(page, "/hr/announcements");
-    const announcementList = [
-      `Q3 Engineering Townhall & Hackathon ${suffix}`,
-      `New Cloud Infrastructure Cost Policy ${suffix}`,
-      `Annual Tech Architecture Summit ${suffix}`,
-      `Updated Information Security Best Practices ${suffix}`,
-      `Quarterly Developer Recognition Awards ${suffix}`,
-    ];
-    for (const title of announcementList) {
-      const createAnnounceBtn = page.getByTestId("hr-announcements-create-button").or(page.getByRole("button", { name: /New Announcement|Create|Broadcast/i })).first();
-      if (await createAnnounceBtn.isVisible().catch(() => false)) {
-        await clickWhenReady(createAnnounceBtn);
-        const titleInput = page.getByTestId("hr-announcements-title").or(page.getByPlaceholder(/title/i)).first();
-        if (await titleInput.isVisible({ timeout: 4000 }).catch(() => false)) {
-          await fillWhenReady(titleInput, title);
-          await clickIfVisible(page.getByTestId("hr-announcements-submit").or(page.getByRole("button", { name: /Submit|Broadcast|Save/i })).first());
-          await pause(page, 500);
-        }
-      }
-    }
-
-    console.log("=== MODULE 6: EXPENSES (5 IT EXPENSES) ===");
-    await navigateToHrRoute(page, "/hr/expenses");
-    const expenseList = [
-      { amount: "4500", note: `AWS Developer Certification Exam Fee ${suffix}` },
-      { amount: "1850", note: `Client Onsite Tech Architecture Visit Cab ${suffix}` },
-      { amount: "5200", note: `Developer Ergonomic Chair & Dual Monitor Arm ${suffix}` },
-      { amount: "2500", note: `Engineering Sprint Retrospective Refreshments ${suffix}` },
-      { amount: "1200", note: `Express Hardware Courier Shipping ${suffix}` },
-    ];
-    for (const exp of expenseList) {
-      const submitExpenseBtn = page.getByTestId("hr-expenses-submit-open").or(page.getByRole("button", { name: /Submit Expense|New Claim|Add Expense/i })).first();
-      if (await submitExpenseBtn.isVisible().catch(() => false)) {
-        await clickWhenReady(submitExpenseBtn);
-        const amountInp = page.getByTestId("hr-expenses-amount-input").or(page.locator("input[type='number']")).first();
-        if (await amountInp.isVisible({ timeout: 4000 }).catch(() => false)) {
-          await fillWhenReady(amountInp, exp.amount);
-          await clickIfVisible(page.getByTestId("hr-expenses-submit-save").or(page.getByRole("button", { name: /Submit|Save/i })).first());
-          await pause(page, 500);
-        }
-      }
-    }
-
-    console.log("=== MODULE 7: ASSETS (5 IT HARDWARE ASSETS) ===");
-    await navigateToHrRoute(page, "/hr/assets");
-    const assetList = [
-      { type: "Laptop", name: `MacBook Pro M3 Max 32GB ${suffix}`, val: "240000" },
-      { type: "Desktop", name: `Dell UltraSharp 32-inch 4K Monitor ${suffix}`, val: "45000" },
-      { type: "Tablet", name: `iPad Pro 12.9 QA Device ${suffix}`, val: "95000" },
-      { type: "Monitor", name: `Dual Curved Code Display Screen ${suffix}`, val: "38000" },
-      { type: "Mobile", name: `5G Mobile Test Device ${suffix}`, val: "55000" },
-    ];
-    for (let i = 0; i < assetList.length; i++) {
-      const a = assetList[i];
-      const regAssetBtn = page.getByRole("button", { name: /register asset/i }).first();
-      if (await regAssetBtn.isVisible().catch(() => false)) {
-        await clickWhenReady(regAssetBtn);
-        await selectByTestId(page, "hr-assets-type", a.type);
-        await fillByTestId(page, "hr-assets-name", a.name);
-        await fillByTestId(page, "hr-assets-tag-number", `TAG-${suffix}-${i + 1}`);
-        await fillByTestId(page, "hr-assets-serial-number", `SER-${suffix}-${i + 1}`);
-        await fillByTestId(page, "hr-assets-value", a.val);
-        await fillByTestId(page, "hr-assets-notes", `IT Asset record for ${a.name}`);
-        await clickByTestId(page, "hr-assets-form-save");
-        await pause(page, 500);
-      }
-    }
-
-    console.log("=== MODULE 8: SEPARATION (5 IT EXIT REQUESTS) ===");
-    await navigateToHrRoute(page, "/hr/separation");
-    const exitReasons = [
-      `Relocation to European Tech Hub ${suffix}`,
-      `Pursuing Masters in AI & Computer Science ${suffix}`,
-      `Joining Tech Startup Lead Role ${suffix}`,
-      `Personal Health & Wellness Break ${suffix}`,
-      `Transitioning to Independent Consulting ${suffix}`,
-    ];
-    for (const reason of exitReasons) {
-      const exitBtn = page.getByTestId("hr-separation-raise-exit").or(page.getByRole("button", { name: /Raise Exit|Initiate Separation/i })).first();
-      if (await exitBtn.isVisible().catch(() => false)) {
-        await clickWhenReady(exitBtn);
-        await fillByTestId(page, "hr-separation-exit-reason", reason);
-        await clickIfVisible(page.getByTestId("hr-separation-exit-submit"));
-        await pause(page, 500);
-      }
-    }
-
-    console.log("=== MODULE 9: EMPLOYEE MASTER (15 IT ENGINEER EMPLOYEES) ===");
+    console.log("=== MODULE 3: EMPLOYEE MASTER (15 IT ENGINEER EMPLOYEES) ===");
     const employeeProfiles = [
       { name: "Rahul Sharma", gender: "MALE" },
       { name: "Priya Patel", gender: "FEMALE" },
@@ -542,7 +441,9 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       const profile = employeeProfiles[i];
       const empName = `${profile.name} ${suffix}`;
       const empEmail = `${slugify(profile.name)}.${suffix}.test@jaldee.com`;
-      const empPhone = `5555${String(i + 1).padStart(6, "0")}`;
+      const employeePhone = (attempt: number) =>
+        `5555${String((Number(suffix) + i * 3 + attempt + 1) % 1_000_000).padStart(6, "0")}`;
+      let empPhone = employeePhone(0);
 
       await navigateToHrRoute(page, "/hr/employees/new");
 
@@ -570,10 +471,156 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       await selectByTestId(page, "hr-new-employee-employment-type", "FullTime");
       await fillByTestId(page, "hr-new-employee-base-salary", String(60000 + i * 4000));
 
-      const completeBtn = page.getByRole("button", { name: /complete setup|save/i }).first();
-      await clickWhenReady(completeBtn);
-      await page.waitForTimeout(800);
+      let employeeCreated = false;
+      for (let phoneAttempt = 0; phoneAttempt < 3; phoneAttempt++) {
+        const completeBtn = page.getByRole("button", { name: /complete setup|save/i }).first();
+        await clickWhenReady(completeBtn);
+
+        const duplicateContactError = page.getByText(/(?:contact|phone|mobile|number).*(?:already|exist|duplicate)|(?:already|exist|duplicate).*(?:contact|phone|mobile|number)/i).first();
+        const outcome = await Promise.race([
+          page.waitForURL((url) => !url.pathname.endsWith("/employees/new"), { timeout: 10_000 }).then(() => "created" as const),
+          duplicateContactError.waitFor({ state: "visible", timeout: 10_000 }).then(() => "duplicate" as const),
+        ]).catch(() => "unknown" as const);
+
+        if (outcome === "created") {
+          employeeCreated = true;
+          break;
+        }
+
+        if (outcome !== "duplicate") {
+          throw new Error(`Employee creation did not complete for ${empName}`);
+        }
+
+        empPhone = employeePhone(phoneAttempt + 1);
+        await clickWhenReady(page.getByRole("button", { name: /^back$/i }).first());
+        await fillPhoneInput(page, "hr-new-employee-contact-number", empPhone);
+        await clickWhenReady(page.getByRole("button", { name: /next step/i }).first());
+        console.log(`LOG: Contact number already exists; retrying ${empName} with ${empPhone}`);
+      }
+
+      if (!employeeCreated) {
+        throw new Error(`Unable to create ${empName} after trying 3 unique contact numbers`);
+      }
       console.log(`LOG: Successfully created IT employee ${i + 1}/15: ${empName}`);
+    }
+
+    console.log("=== MODULE 4: REPORTS (Export CSV) ===");
+    await navigateToHrRoute(page, "/hr/reports");
+    await clickIfVisible(page.getByTestId("hr-reports-export"));
+    await clickIfVisible(page.getByRole("button", { name: /Export|Download/i }).first());
+
+    console.log("=== MODULE 5: HELPDESK (5 IT TICKETS) ===");
+    await navigateToHrRoute(page, "/hr/tickets");
+    const ticketList = [
+      `Developer Laptop RAM & SSD Upgrade ${suffix}`,
+      `VPN & Single Sign-On Access Issue ${suffix}`,
+      `Production Database Slow Query Investigation ${suffix}`,
+      `AWS Cloud Sandbox Access Request ${suffix}`,
+      `Security Certificate Renewal Clearance ${suffix}`,
+    ];
+    for (const subject of ticketList) {
+      await clickByTestId(page, "hr-tickets-create-button");
+      if (await page.getByTestId("hr-tickets-subject").isVisible({ timeout: 4000 }).catch(() => false)) {
+        await selectFirstAvailableOption(page, "hr-tickets-employee");
+        await fillByTestId(page, "hr-tickets-subject", subject);
+        await selectByTestId(page, "hr-tickets-category", "IT Support");
+        await selectByTestId(page, "hr-tickets-priority", "High");
+        await fillByTestId(page, "hr-tickets-description", `IT ticket for ${subject}`);
+        await clickByTestId(page, "hr-tickets-submit");
+        await page.getByTestId("hr-tickets-subject").waitFor({ state: "hidden", timeout: 10_000 }).catch(() => {});
+      }
+    }
+
+    console.log("=== MODULE 6: STAFFSPACE / ANNOUNCEMENTS (5 IT ANNOUNCEMENTS) ===");
+    await navigateToHrRoute(page, "/hr/announcements");
+    const announcementList = [
+      `Q3 Engineering Townhall & Hackathon ${suffix}`,
+      `New Cloud Infrastructure Cost Policy ${suffix}`,
+      `Annual Tech Architecture Summit ${suffix}`,
+      `Updated Information Security Best Practices ${suffix}`,
+      `Quarterly Developer Recognition Awards ${suffix}`,
+    ];
+    for (const title of announcementList) {
+      const createAnnounceBtn = page.getByTestId("hr-announcements-create-button").or(page.getByRole("button", { name: /New Announcement|Create|Broadcast/i })).first();
+      if (await createAnnounceBtn.isVisible().catch(() => false)) {
+        await clickWhenReady(createAnnounceBtn);
+        const titleInput = page.getByTestId("hr-announcements-title").or(page.getByPlaceholder(/title/i)).first();
+        if (await titleInput.isVisible({ timeout: 4000 }).catch(() => false)) {
+          await fillWhenReady(titleInput, title);
+          await clickIfVisible(page.getByTestId("hr-announcements-submit").or(page.getByRole("button", { name: /Submit|Broadcast|Save/i })).first());
+          await pause(page, 500);
+        }
+      }
+    }
+
+    console.log("=== MODULE 7: EXPENSES (5 IT EXPENSES) ===");
+    await navigateToHrRoute(page, "/hr/expenses");
+    const expenseList = [
+      { amount: "4500", note: `AWS Developer Certification Exam Fee ${suffix}` },
+      { amount: "1850", note: `Client Onsite Tech Architecture Visit Cab ${suffix}` },
+      { amount: "5200", note: `Developer Ergonomic Chair & Dual Monitor Arm ${suffix}` },
+      { amount: "2500", note: `Engineering Sprint Retrospective Refreshments ${suffix}` },
+      { amount: "1200", note: `Express Hardware Courier Shipping ${suffix}` },
+    ];
+    for (const exp of expenseList) {
+      const submitExpenseBtn = page.getByTestId("hr-expenses-submit-open").or(page.getByRole("button", { name: /Submit Expense|New Claim|Add Expense/i })).first();
+      if (await submitExpenseBtn.isVisible().catch(() => false)) {
+        await clickWhenReady(submitExpenseBtn);
+        const amountInp = page.getByTestId("hr-expenses-amount-input").or(page.locator("input[type='number']")).first();
+        if (await amountInp.isVisible({ timeout: 4000 }).catch(() => false)) {
+          const employeeSelected = await selectFirstAvailableOption(page, "hr-expenses-employee-select");
+          if (!employeeSelected) {
+            throw new Error("Expense employee dropdown did not provide a selectable employee");
+          }
+          await fillWhenReady(amountInp, exp.amount);
+          await clickIfVisible(page.getByTestId("hr-expenses-submit-save").or(page.getByRole("button", { name: /Submit|Save/i })).first());
+          await page.getByTestId("hr-expenses-submit-modal").waitFor({ state: "hidden", timeout: 10_000 });
+        }
+      }
+    }
+
+    console.log("=== MODULE 8: ASSETS (5 IT HARDWARE ASSETS) ===");
+    await navigateToHrRoute(page, "/hr/assets");
+    const assetList = [
+      { type: "Laptop", name: `MacBook Pro M3 Max 32GB ${suffix}`, val: "240000" },
+      { type: "Desktop", name: `Dell UltraSharp 32-inch 4K Monitor ${suffix}`, val: "45000" },
+      { type: "Tablet", name: `iPad Pro 12.9 QA Device ${suffix}`, val: "95000" },
+      { type: "Monitor", name: `Dual Curved Code Display Screen ${suffix}`, val: "38000" },
+      { type: "Mobile", name: `5G Mobile Test Device ${suffix}`, val: "55000" },
+    ];
+    for (let i = 0; i < assetList.length; i++) {
+      const a = assetList[i];
+      const regAssetBtn = page.getByRole("button", { name: /register asset/i }).first();
+      if (await regAssetBtn.isVisible().catch(() => false)) {
+        await clickWhenReady(regAssetBtn);
+        await selectByTestId(page, "hr-assets-type", a.type);
+        await fillByTestId(page, "hr-assets-name", a.name);
+        await fillByTestId(page, "hr-assets-tag-number", `TAG-${suffix}-${i + 1}`);
+        await fillByTestId(page, "hr-assets-serial-number", `SER-${suffix}-${i + 1}`);
+        await fillByTestId(page, "hr-assets-value", a.val);
+        await fillByTestId(page, "hr-assets-notes", `IT Asset record for ${a.name}`);
+        await clickByTestId(page, "hr-assets-form-save");
+        await pause(page, 500);
+      }
+    }
+
+    console.log("=== MODULE 9: SEPARATION (5 IT EXIT REQUESTS) ===");
+    await navigateToHrRoute(page, "/hr/separation");
+    const exitReasons = [
+      `Relocation to European Tech Hub ${suffix}`,
+      `Pursuing Masters in AI & Computer Science ${suffix}`,
+      `Joining Tech Startup Lead Role ${suffix}`,
+      `Personal Health & Wellness Break ${suffix}`,
+      `Transitioning to Independent Consulting ${suffix}`,
+    ];
+    for (const reason of exitReasons) {
+      const exitBtn = page.getByTestId("hr-separation-raise-exit").or(page.getByRole("button", { name: /Raise Exit|Initiate Separation/i })).first();
+      if (await exitBtn.isVisible().catch(() => false)) {
+        await clickWhenReady(exitBtn);
+        await fillByTestId(page, "hr-separation-exit-reason", reason);
+        await clickIfVisible(page.getByTestId("hr-separation-exit-submit"));
+        await pause(page, 500);
+      }
     }
 
     console.log("=== MODULE 10: ATTENDANCE ===");
@@ -594,12 +641,21 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
     ];
     for (const reason of leaveReasons) {
       await clickByTestId(page, "hr-leave-apply-button");
-      if (await page.getByTestId("hr-leave-start-date").isVisible({ timeout: 4000 }).catch(() => false)) {
+      const leaveModal = page.getByTestId("hr-leave-apply-modal");
+      if (await leaveModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+        const employeeSelected = await selectFirstAvailableOption(page, "hr-leave-employee");
+        if (!employeeSelected) {
+          throw new Error("Leave employee dropdown did not provide a selectable employee");
+        }
+        const leaveTypeSelected = await selectFirstAvailableOption(page, "hr-leave-type");
+        if (!leaveTypeSelected) {
+          throw new Error("Leave type dropdown did not provide a selectable leave type");
+        }
         await fillDateByTestId(page, "hr-leave-start-date", "2026-08-01");
         await fillDateByTestId(page, "hr-leave-end-date", "2026-08-02");
         await fillByTestId(page, "hr-leave-reason", reason);
         await clickByTestId(page, "hr-leave-apply-submit");
-        await page.getByTestId("hr-leave-start-date").waitFor({ state: "hidden", timeout: 10_000 }).catch(() => {});
+        await leaveModal.waitFor({ state: "hidden", timeout: 10_000 });
       }
     }
 

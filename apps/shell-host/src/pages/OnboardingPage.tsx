@@ -58,6 +58,20 @@ const BUSINESS_TYPES: BusinessType[] = [
     blurb: "Best for NBFCs, lenders, MFIs",
     bullets: ["Lead capture & KYC", "Loan origination", "Repayment tracking"],
   },
+  {
+    id: "hr",
+    name: "Jaldee HR",
+    category: "Human Resources OS",
+    blurb: "Best for employee management and payroll",
+    bullets: ["Employee records & onboarding", "Attendance & leave tracking", "Payroll processing"],
+  },
+  {
+    id: "finance",
+    name: "Jaldee Finance",
+    category: "Financial OS",
+    blurb: "Best for invoicing, payments & accounting",
+    bullets: ["Invoicing & billing", "Payments & accounting", "Financial reports"],
+  },
 ];
 
 const EMPTY_PHONE: PhoneInputValue = {
@@ -408,6 +422,8 @@ export default function OnboardingPage() {
         if (settingsData.booking) types.push("bookings");
         if (settingsData.lending) types.push("lending");
         if (settingsData.ecommerce || settingsData.eCommerce) types.push("karty");
+        if (settingsData.hr) types.push("hr");
+        if (settingsData.finance) types.push("finance");
 
         if (types.length > 0) {
           setSelectedBusinessTypes(types);
@@ -575,6 +591,7 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <PhoneInput
+                  testId="onboarding-business-phone-input"
                   data-testid="onboarding-business-phone-input"
                   label="Business Phone"
                   value={businessPhone}

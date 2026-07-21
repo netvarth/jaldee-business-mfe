@@ -1336,9 +1336,9 @@ export default function SettingsPage() {
                   <p className="settings-placeholder__copy">Fetching tenant location records.</p>
                 </div>
               ) : locations.length > 0 ? (
-                <div className="settings-location-grid">
+                <div data-testid="settings-locations-grid" className="settings-location-grid">
                   {locations.map((item) => (
-                    <div key={item.id} className="settings-location-card">
+                    <div key={item.id} data-testid={`settings-location-card-${item.id}`} className="settings-location-card">
                       <div className="settings-location-card__top">
                         <div>
                           <h3>{item.name}</h3>

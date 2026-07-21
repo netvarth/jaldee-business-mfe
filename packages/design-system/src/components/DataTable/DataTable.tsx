@@ -68,6 +68,17 @@ export interface DataTableProps<T> {
   "data-testid"?: string;
 }
 
+export interface DataTablePaginationProps {
+  pageSize: number;
+  total: number;
+  page: number;
+  onChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+  testId?: string;
+  controlTestIdPrefix?: string;
+  position?: "top" | "bottom";
+}
+
 function getCellValue<T extends object>(row: T, key: keyof T | string) {
   return row[key as keyof T];
 }
@@ -215,96 +226,6 @@ export function DataTable<T extends object>({
   const showTopPagination = showPagination && (paginationPlacement === "top" || paginationPlacement === "both");
   const showBottomPagination = showPagination && (paginationPlacement === "bottom" || paginationPlacement === "both");
 
-  function renderPagination(position: "top" | "bottom") {
-    if (!pagination) return null;
-
-    return (
-      <div
-        data-testid={`${testId}-pagination${position === "top" ? "-top" : ""}`}
-        className={cn(
-          "flex flex-col gap-3 bg-[var(--color-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between md:px-6",
-          position === "top"
-            ? "border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]"
-            : "border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]"
-        )}
-      >
-        <span className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
-          Showing {(currentPage - 1) * pagination.pageSize + 1} to{" "}
-          {Math.min(currentPage * pagination.pageSize, pagination.total)} of{" "}
-          {pagination.total} records
-        </span>
-
-        <div className="flex flex-wrap items-center gap-1">
-          <PaginationBtn
-            label="<<"
-            disabled={currentPage === 1}
-            onClick={() => pagination.onChange(1)}
-            testId={`${testId}-${position}-first`}
-          />
-          <PaginationBtn
-            label="<"
-            disabled={currentPage === 1}
-            onClick={() => pagination.onChange(currentPage - 1)}
-            testId={`${testId}-${position}-prev`}
-          />
-
-          {getPageNumbers(currentPage, totalPages).map((page, i) =>
-            page === "..." ? (
-              <span
-                key={`ellipsis-${i}`}
-                className="w-8 text-center text-[length:var(--text-xs)] text-[var(--color-text-secondary)]"
-              >
-                ...
-              </span>
-            ) : (
-              <PaginationBtn
-                key={page}
-                label={String(page)}
-                active={page === currentPage}
-                disabled={false}
-                onClick={() => pagination.onChange(page)}
-                testId={`${testId}-${position}-page-${page}`}
-              />
-            )
-          )}
-
-          <PaginationBtn
-            label=">"
-            disabled={currentPage === totalPages}
-            onClick={() => pagination.onChange(currentPage + 1)}
-            testId={`${testId}-${position}-next`}
-          />
-          <PaginationBtn
-            label=">>"
-            disabled={currentPage === totalPages}
-            onClick={() => pagination.onChange(totalPages)}
-            testId={`${testId}-${position}-last`}
-          />
-
-          {pagination.onPageSizeChange && (
-            <select
-              data-testid={`${testId}-${position}-page-size`}
-              value={pagination.pageSize}
-              onChange={(e) => pagination.onPageSizeChange?.(Number(e.target.value))}
-              className={cn(
-                "ml-2 h-8 rounded-md border px-2 text-[length:var(--text-xs)]",
-                "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-primary)]",
-                "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]"
-              )}
-              aria-label="Rows per page"
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   const state = loading ? "loading" : paginatedData.length === 0 ? "empty" : "ready";
 
   return (
@@ -320,7 +241,18 @@ export function DataTable<T extends object>({
         className
       )}
     >
-      {showTopPagination && renderPagination("top")}
+      {showTopPagination && (
+        <DataTablePagination
+          page={pagination!.page}
+          pageSize={pagination!.pageSize}
+          total={pagination!.total}
+          onChange={pagination!.onChange}
+          onPageSizeChange={pagination!.onPageSizeChange}
+          testId={`${testId}-pagination-top`}
+          controlTestIdPrefix={`${testId}-top`}
+          position="top"
+        />
+      )}
 
       <div className="min-w-0 max-w-full overflow-x-auto">
         <table
@@ -515,7 +447,121 @@ export function DataTable<T extends object>({
         </table>
       </div>
 
-      {showBottomPagination && renderPagination("bottom")}
+      {showBottomPagination && (
+        <DataTablePagination
+          page={pagination!.page}
+          pageSize={pagination!.pageSize}
+          total={pagination!.total}
+          onChange={pagination!.onChange}
+          onPageSizeChange={pagination!.onPageSizeChange}
+          testId={`${testId}-pagination`}
+          controlTestIdPrefix={`${testId}-bottom`}
+          position="bottom"
+        />
+      )}
+    </div>
+  );
+}
+
+export function DataTablePagination({
+  pageSize,
+  total,
+  page,
+  onChange,
+  onPageSizeChange,
+  testId = "data-table-pagination",
+  controlTestIdPrefix,
+  position = "bottom",
+}: DataTablePaginationProps) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const from = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, total);
+  const controlPrefix = controlTestIdPrefix ?? testId;
+
+  if (total < 10) return null;
+
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "flex flex-col gap-3 bg-[var(--color-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between md:px-6",
+        position === "top"
+          ? "border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]"
+          : "border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]"
+      )}
+    >
+      <span className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
+        Showing {from} to {to} of {total} records
+      </span>
+
+      <div className="flex flex-wrap items-center gap-1">
+        <PaginationBtn
+          label="<<"
+          disabled={currentPage === 1}
+          onClick={() => onChange(1)}
+          testId={`${controlPrefix}-first`}
+        />
+        <PaginationBtn
+          label="<"
+          disabled={currentPage === 1}
+          onClick={() => onChange(currentPage - 1)}
+          testId={`${controlPrefix}-prev`}
+        />
+
+        {getPageNumbers(currentPage, totalPages).map((paginationPage, i) =>
+          paginationPage === "..." ? (
+            <span
+              key={`ellipsis-${i}`}
+              className="w-8 text-center text-[length:var(--text-xs)] text-[var(--color-text-secondary)]"
+            >
+              ...
+            </span>
+          ) : (
+            <PaginationBtn
+              key={paginationPage}
+              label={String(paginationPage)}
+              active={paginationPage === currentPage}
+              disabled={false}
+              onClick={() => onChange(paginationPage)}
+              testId={`${controlPrefix}-page-${paginationPage}`}
+            />
+          )
+        )}
+
+        <PaginationBtn
+          label=">"
+          disabled={currentPage === totalPages}
+          onClick={() => onChange(currentPage + 1)}
+          testId={`${controlPrefix}-next`}
+        />
+        <PaginationBtn
+          label=">>"
+          disabled={currentPage === totalPages}
+          onClick={() => onChange(totalPages)}
+          testId={`${controlPrefix}-last`}
+        />
+
+        {onPageSizeChange && (
+          <select
+            data-testid={`${controlPrefix}-page-size`}
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className={cn(
+              "ml-2 h-8 rounded-md border px-2 text-[length:var(--text-xs)]",
+              "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-primary)]",
+              "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]"
+            )}
+            aria-label="Rows per page"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
     </div>
   );
 }

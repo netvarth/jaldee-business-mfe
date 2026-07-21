@@ -617,7 +617,7 @@ export default function EmployeeDetails() {
     const setBank = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, bankDetails: { ...(p.bankDetails ?? {}), [k]: e.target.value } }));
     const setSal = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, salaryStructure: { ...(p.salaryStructure ?? {}), [k]: Number(e.target.value) } }));
     return (
-      <section id="hr-employee-details-page" data-testid="hr-employee-details-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+      <section id="hr-employee-edit-page" data-testid="hr-employee-edit-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
         <div style={{ width: "100%" }}>
           <PageHeader
             variant="navigation"
@@ -820,6 +820,7 @@ export default function EmployeeDetails() {
                     <div key={section.key} className={`employee-edit-accordion__item${isOpen ? " is-open" : ""}`}>
                       <button
                         type="button"
+                        data-testid={`hr-employee-edit-section-${section.key}`}
                         className="employee-edit-accordion__trigger"
                         aria-expanded={isOpen}
                         onClick={() => setEditTab(section.key)}
@@ -851,8 +852,10 @@ export default function EmployeeDetails() {
             );
           })()}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-            <Button variant="secondary" size="lg" icon={<X size={16} />} onClick={() => navigate(employeeTabHref(employee.id, tab))}>Cancel</Button>
+            <Button id="hr-employee-edit-cancel" data-testid="hr-employee-edit-cancel" variant="secondary" size="lg" icon={<X size={16} />} onClick={() => navigate(employeeTabHref(employee.id, tab))}>Cancel</Button>
             <Button
+              id="hr-employee-edit-save"
+              data-testid="hr-employee-edit-save"
               variant="primary"
               size="lg"
               icon={saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -869,7 +872,7 @@ export default function EmployeeDetails() {
 
   const tabs = EMPLOYEE_TABS;
   return (
-    <section id="hr-employee-edit-page" data-testid="hr-employee-edit-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
+    <section id="hr-employee-details-page" data-testid="hr-employee-details-page" className="page-section active" style={{ background: "var(--app-bg)", minWidth: 0 }}>
       {faceOpen && (
         <Suspense fallback={null}>
           <FaceCaptureModal title={employee.faceDescriptor ? "Update Face ID" : "Enroll Face ID"} subtitle={employee.name} busy={faceBusy} onCapture={enrollFace} onClose={() => setFaceOpen(false)} />
@@ -917,6 +920,8 @@ export default function EmployeeDetails() {
                 {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}
               </Button>
               <Button
+                id="hr-employee-manage-login"
+                data-testid="hr-employee-manage-login"
                 className="employee-details-sidebar-button !rounded-xl"
                 variant="outline"
                 size="lg"
@@ -927,6 +932,8 @@ export default function EmployeeDetails() {
                 Manage Login
               </Button>
               <Button
+                id="hr-employee-edit-profile"
+                data-testid="hr-employee-edit-profile"
                 className="employee-details-sidebar-button !rounded-xl"
                 variant="outline"
                 size="lg"
@@ -961,6 +968,8 @@ export default function EmployeeDetails() {
             trigger={
               <button
                 type="button"
+                id="hr-employee-details-tabs-mobile-open"
+                data-testid="hr-employee-details-tabs-mobile-open"
                 className="employee-details-tabs-mobile"
                 onClick={() => setMobileTabsOpen((open) => !open)}
                 aria-label="Open employee tabs"
@@ -979,6 +988,8 @@ export default function EmployeeDetails() {
                 <button
                   key={t}
                   type="button"
+                  id={`hr-employee-details-tab-mobile-${t}`}
+                  data-testid={`hr-employee-details-tab-mobile-${t}`}
                   className="employee-details-tabs-mobile__menu-item"
                   data-active={tab === t}
                   onClick={() => {
@@ -993,7 +1004,7 @@ export default function EmployeeDetails() {
           </Popover>
           <div className="employee-details-tabs" style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
             {tabs.map((t) => (
-              <button className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{EMPLOYEE_TAB_LABELS[t]}</button>
+              <button id={`hr-employee-details-tab-${t}`} data-testid={`hr-employee-details-tab-${t}`} className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{EMPLOYEE_TAB_LABELS[t]}</button>
             ))}
           </div>
 
@@ -1181,7 +1192,7 @@ export default function EmployeeDetails() {
 
           {tab === "documents" && (
             <Panel icon={<FileText size={20} />} title="Employee Documents" sub="Official letters, credentials, and verification sheets" full
-              action={<div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /><Button type="button" data-testid="hr-employee-documents-filter-button" variant={documentAppliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label="Open employee document filters" onClick={openDocumentFilters}>Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}</Button><Button type="button" variant="primary" icon={<Plus size={16} />} onClick={() => setDocumentDialogOpen(true)}>Add Doc</Button></div>}>
+              action={<div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /><Button type="button" data-testid="hr-employee-documents-filter-button" variant={documentAppliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label="Open employee document filters" onClick={openDocumentFilters}>Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}</Button><Button id="hr-employee-document-add" data-testid="hr-employee-document-add" type="button" variant="primary" icon={<Plus size={16} />} onClick={() => setDocumentDialogOpen(true)}>Add Doc</Button></div>}>
               {documents.loading ? (
                 <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={48} className="animate-spin" style={{ opacity: 0.4, marginBottom: 12 }} /><p>Loading documents...</p></div>
               ) : documentRows.length > 0 ? (
@@ -1190,7 +1201,7 @@ export default function EmployeeDetails() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr><th style={th}>Document</th><th style={th}>Status</th><th style={th}>Updated</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
                     <tbody>{documentRows.map((d) => (
-                      <tr key={d.id}>
+                      <tr key={d.id} data-testid={`hr-employee-document-row-${d.id}`}>
                         <td style={{ ...td, fontWeight: 700 }}>{d.documentType || "Document"}</td>
                         <td style={td}><StatusPill s={d.status} /></td>
                         <td style={{ ...td, color: "var(--light-text)" }}>{formatDate(d.updatedAt || d.createdAt)}</td>
@@ -1198,14 +1209,15 @@ export default function EmployeeDetails() {
                           <div style={{ display: "inline-flex", gap: 10 }}>
                             <button
                               type="button"
+                              data-testid={`hr-employee-document-edit-${d.id}`}
                               aria-label="Edit document request"
                               style={{ background: "none", border: "none", color: "var(--primary-color)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                               onClick={() => openDocumentStatusDialog(d)}
                             >
                               <Pencil size={16} />
                             </button>
-                            <a href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
-                            <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
+                            <a data-testid={`hr-employee-document-download-${d.id}`} href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
+                            <button data-testid={`hr-employee-document-delete-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
@@ -1214,7 +1226,7 @@ export default function EmployeeDetails() {
                 </div>
                 <div className="employee-details-documents-grid" style={{ display: documentViewMode === "cards" ? "grid" : "none", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
                   {documentRows.map((d) => (
-                    <div className="employee-details-document-card" key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
+                    <div data-testid={`hr-employee-document-card-${d.id}`} className="employee-details-document-card" key={d.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
                       <div className="employee-details-document-meta" style={{ display: "flex", alignItems: "center", gap: 14 }}>
                         <div style={{ width: 40, height: 40, borderRadius: 8, background: "var(--primary-light)", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center" }}><FileText size={20} /></div>
                         <div>
@@ -1228,14 +1240,15 @@ export default function EmployeeDetails() {
                       <div className="employee-details-document-actions" style={{ display: "flex", gap: 8 }}>
                         <button
                           type="button"
+                          data-testid={`hr-employee-document-edit-card-${d.id}`}
                           aria-label="Edit document request"
                           style={{ background: "none", border: "none", color: "var(--primary-color)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                           onClick={() => openDocumentStatusDialog(d)}
                         >
                           <Pencil size={16} />
                         </button>
-                        <a href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
-                        <button style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
+                        <a data-testid={`hr-employee-document-download-card-${d.id}`} href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
+                        <button data-testid={`hr-employee-document-delete-card-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                       </div>
                     </div>
                   ))}
@@ -1263,7 +1276,7 @@ export default function EmployeeDetails() {
         employeeName={employee?.name}
         onClose={() => setViewPayslip(null)}
       />
-      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} title="Employee Login Access" size="md">
+      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} testId="hr-employee-login-dialog" title="Employee Login Access" size="md">
         <div style={{ display: "grid", gap: 16 }}>
           {loginError ? (
             <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
@@ -1279,6 +1292,7 @@ export default function EmployeeDetails() {
             <div className="form-group">
               <label>Login ID</label>
               <input
+                data-testid="hr-employee-login-id"
                 className={field}
                 value={sanitizeLoginId(credentials.loginId) || "Will be assigned by system"}
                 readOnly
@@ -1287,6 +1301,7 @@ export default function EmployeeDetails() {
             <div className="form-group">
               <label>{sanitizeLoginId(credentials.loginId) || employee.isSystemUser ? "New Password" : "Password"}</label>
               <input
+                data-testid="hr-employee-login-password"
                 type="password"
                 className={field}
                 value={credentials.password}
@@ -1299,6 +1314,7 @@ export default function EmployeeDetails() {
             <div className="form-group">
               <label>Confirm Password</label>
               <input
+                data-testid="hr-employee-login-confirm-password"
                 type="password"
                 className={field}
                 value={credentials.confirmPassword}
@@ -1310,13 +1326,13 @@ export default function EmployeeDetails() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setLoginDialogOpen(false)}>Cancel</Button>
-          <Button variant="primary" onClick={handleSaveCredentials} loading={loginSaving} disabled={loginSaving}>
+          <Button id="hr-employee-login-cancel" data-testid="hr-employee-login-cancel" variant="ghost" onClick={() => setLoginDialogOpen(false)}>Cancel</Button>
+          <Button id="hr-employee-login-save" data-testid="hr-employee-login-save" variant="primary" onClick={handleSaveCredentials} loading={loginSaving} disabled={loginSaving}>
             Save Login
           </Button>
         </DialogFooter>
       </Dialog>
-      <Dialog open={documentDialogOpen} onClose={() => setDocumentDialogOpen(false)} title="Add Employee Document" size="md">
+      <Dialog open={documentDialogOpen} onClose={() => setDocumentDialogOpen(false)} testId="hr-employee-document-dialog" title="Add Employee Document" size="md">
         <div style={{ display: "grid", gap: 16 }}>
           {documentError ? (
             <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
@@ -1326,6 +1342,8 @@ export default function EmployeeDetails() {
           <div className="form-group">
             <label>Document Type</label>
             <Input
+              id="hr-employee-document-type"
+              data-testid="hr-employee-document-type"
               value={documentForm.documentType}
               onChange={(e) => setDocumentForm((prev) => ({ ...prev, documentType: e.target.value }))}
               placeholder="Passport, Offer Letter, PAN Card"
@@ -1335,6 +1353,8 @@ export default function EmployeeDetails() {
           <div className="form-group">
             <label>Status</label>
             <Select
+              id="hr-employee-document-status"
+              testId="hr-employee-document-status"
               value={documentForm.status}
               onChange={(e) => setDocumentForm((prev) => ({ ...prev, status: e.target.value }))}
               options={DOC_REQUEST_STATUSES.map((status) => ({ value: status, label: status }))}
@@ -1352,8 +1372,8 @@ export default function EmployeeDetails() {
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setDocumentDialogOpen(false)}>Cancel</Button>
-          <Button variant="primary" onClick={() => void saveDocument()} loading={documentSaving} disabled={documentSaving}>
+          <Button id="hr-employee-document-cancel" data-testid="hr-employee-document-cancel" variant="ghost" onClick={() => setDocumentDialogOpen(false)}>Cancel</Button>
+          <Button id="hr-employee-document-save" data-testid="hr-employee-document-save" variant="primary" onClick={() => void saveDocument()} loading={documentSaving} disabled={documentSaving}>
             Save Document
           </Button>
         </DialogFooter>
@@ -1382,7 +1402,7 @@ export default function EmployeeDetails() {
           </div>
         </div>
       </Drawer>
-      <Dialog open={documentStatusDialogOpen} onClose={() => setDocumentStatusDialogOpen(false)} title="Update Document Status" size="md">
+      <Dialog open={documentStatusDialogOpen} onClose={() => setDocumentStatusDialogOpen(false)} testId="hr-employee-document-status-dialog" title="Update Document Status" size="md">
         <div style={{ display: "grid", gap: 16 }}>
           {documentError ? (
             <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
@@ -1392,6 +1412,8 @@ export default function EmployeeDetails() {
           <div className="form-group">
             <label>Document Type</label>
             <Input
+              id="hr-employee-document-status-type"
+              data-testid="hr-employee-document-status-type"
               value={selectedDocumentRequest?.documentType || ""}
               readOnly
               className="rounded-xl !h-11"
@@ -1400,6 +1422,8 @@ export default function EmployeeDetails() {
           <div className="form-group">
             <label>Status</label>
             <Select
+              id="hr-employee-document-status-select"
+              testId="hr-employee-document-status-select"
               value={documentStatusForm.status}
               onChange={(e) => setDocumentStatusForm({ status: e.target.value })}
               options={DOC_REQUEST_STATUSES.map((status) => ({ value: status, label: status }))}
@@ -1417,8 +1441,8 @@ export default function EmployeeDetails() {
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setDocumentStatusDialogOpen(false)}>Cancel</Button>
-          <Button variant="primary" onClick={() => void updateDocumentStatus()} loading={documentSaving} disabled={documentSaving}>
+          <Button id="hr-employee-document-status-cancel" data-testid="hr-employee-document-status-cancel" variant="ghost" onClick={() => setDocumentStatusDialogOpen(false)}>Cancel</Button>
+          <Button id="hr-employee-document-status-save" data-testid="hr-employee-document-status-save" variant="primary" onClick={() => void updateDocumentStatus()} loading={documentSaving} disabled={documentSaving}>
             Update Status
           </Button>
         </DialogFooter>

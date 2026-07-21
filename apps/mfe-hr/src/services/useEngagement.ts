@@ -165,7 +165,12 @@ export function useTickets(
     finally { setLoading(false); }
   }, [api, enabled, filterClauses, page, pageSize, schema]);
   useEffect(() => { void load(); }, [load]);
-  const create = useCallback(async (payload: Record<string, unknown>) => { await api.post("/tickets", payload); await load(); }, [api, load]);
+  const create = useCallback(async (payload: Record<string, unknown>) => {
+    await api.post("/tickets", payload);
+    // The ticket is persisted once POST completes. Refresh the list without
+    // keeping the Raise Ticket dialog blocked on the follow-up search request.
+    void load();
+  }, [api, load]);
   const reply = useCallback(async (uid: string, message: string) => { await api.post(`/tickets/${uid}/reply`, { message }); await load(); }, [api, load]);
   return { data, loading, error, reload: load, create, reply, totalElements, totalPages };
 }

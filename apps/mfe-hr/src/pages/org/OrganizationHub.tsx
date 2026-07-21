@@ -1182,7 +1182,7 @@ export default function OrgStructure() {
             label="Schedule branch, department, shift, and reporting changes."
             action={
               <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end">
-                <Button icon={<Plus size={15} />} onClick={() => { setTr({ employeeUid: "", toLocationUid: "", toDepartmentUid: "", toShiftUid: "", toManagerUid: "", effectiveDate: "", reason: "" }); setTrOpen(true); }}>
+                <Button id="hr-org-transfer-open" data-testid="hr-org-transfer-open" icon={<Plus size={15} />} onClick={() => { setTr({ employeeUid: "", toLocationUid: "", toDepartmentUid: "", toShiftUid: "", toManagerUid: "", effectiveDate: "", reason: "" }); setTrOpen(true); }}>
                   Schedule Transfer
                 </Button>
                 <div className="ml-auto shrink-0">
@@ -1215,8 +1215,8 @@ export default function OrgStructure() {
                         <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap", borderTop: "1px solid #d7e3f1", borderBottom: isLastRow ? "none" : undefined, borderBottomRightRadius: isLastRow ? 12 : undefined }}>
                           {t.status === "Scheduled" ? (
                             <>
-                              <Button variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => act(() => transfers.effect(t.id))}><Play size={15} /></Button>
-                              <Button variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => { if (confirm("Cancel this transfer?")) void act(() => transfers.cancel(t.id)); }}><X size={15} /></Button>
+                              <Button id={`hr-org-transfer-effect-${t.id}`} data-testid={`hr-org-transfer-effect-${t.id}`} variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => act(() => transfers.effect(t.id))}><Play size={15} /></Button>
+                              <Button id={`hr-org-transfer-cancel-${t.id}`} data-testid={`hr-org-transfer-cancel-${t.id}`} variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => { if (confirm("Cancel this transfer?")) void act(() => transfers.cancel(t.id)); }}><X size={15} /></Button>
                             </>
                           ) : null}
                         </td>
@@ -1250,8 +1250,8 @@ export default function OrgStructure() {
                       ]}
                       footer={t.status === "Scheduled" ? (
                         <>
-                          <Button variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => act(() => transfers.effect(t.id))}><Play size={15} /></Button>
-                          <Button variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => { if (confirm("Cancel this transfer?")) void act(() => transfers.cancel(t.id)); }}><X size={15} /></Button>
+                          <Button id={`hr-org-transfer-effect-card-${t.id}`} data-testid={`hr-org-transfer-effect-card-${t.id}`} variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => act(() => transfers.effect(t.id))}><Play size={15} /></Button>
+                          <Button id={`hr-org-transfer-cancel-card-${t.id}`} data-testid={`hr-org-transfer-cancel-card-${t.id}`} variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => { if (confirm("Cancel this transfer?")) void act(() => transfers.cancel(t.id)); }}><X size={15} /></Button>
                         </>
                       ) : undefined}
                     />
@@ -1370,8 +1370,8 @@ export default function OrgStructure() {
           onClose={() => setTrOpen(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setTrOpen(false)}>Cancel</Button>
-              <Button disabled={busy || !tr.employeeUid || !tr.effectiveDate || (!tr.toLocationUid && !tr.toManagerUid && !tr.toDepartmentUid && !tr.toShiftUid)} loading={busy} onClick={() => act(async () => {
+              <Button id="hr-org-transfer-modal-cancel" data-testid="hr-org-transfer-modal-cancel" variant="secondary" onClick={() => setTrOpen(false)}>Cancel</Button>
+              <Button id="hr-org-transfer-schedule" data-testid="hr-org-transfer-schedule" disabled={busy || !tr.employeeUid || !tr.effectiveDate || (!tr.toLocationUid && !tr.toManagerUid && !tr.toDepartmentUid && !tr.toShiftUid)} loading={busy} onClick={() => act(async () => {
                 await transfers.create({
                   employeeUid: tr.employeeUid,
                   toLocationUid: tr.toLocationUid || null,
@@ -1386,13 +1386,13 @@ export default function OrgStructure() {
             </>
           }
         >
-          <Select label="Employee to Transfer" value={tr.employeeUid} onChange={(e) => setTr({ ...tr, employeeUid: e.target.value })} options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
-          <Select label="To Branch (optional)" value={tr.toLocationUid} onChange={(e) => setTr({ ...tr, toLocationUid: e.target.value })} options={[{ value: "", label: "No branch change" }, ...branches.map((b) => ({ value: b.id, label: b.name }))]} />
-          <Select label="To Department (optional)" value={tr.toDepartmentUid} onChange={(e) => setTr({ ...tr, toDepartmentUid: e.target.value })} options={[{ value: "", label: "No department change" }, ...departments.data.map((d) => ({ value: d.id, label: String(d.name) }))]} />
-          <Select label="To Shift (optional)" value={tr.toShiftUid} onChange={(e) => setTr({ ...tr, toShiftUid: e.target.value })} options={[{ value: "", label: "No shift change" }, ...shifts.data.map((s) => ({ value: s.id, label: String(s.name) }))]} />
-          <Select label="To Manager (optional)" value={tr.toManagerUid} onChange={(e) => setTr({ ...tr, toManagerUid: e.target.value })} options={[{ value: "", label: "No manager change" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
-          <Input label="Effective Date" type="date" value={tr.effectiveDate} onChange={(e) => setTr({ ...tr, effectiveDate: e.target.value })} />
-          <Textarea label="Reason" rows={3} value={tr.reason} onChange={(e) => setTr({ ...tr, reason: e.target.value })} />
+          <Select id="hr-org-transfer-employee" testId="hr-org-transfer-employee" label="Employee to Transfer" value={tr.employeeUid} onChange={(e) => setTr({ ...tr, employeeUid: e.target.value })} options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
+          <Select id="hr-org-transfer-branch" testId="hr-org-transfer-branch" label="To Branch (optional)" value={tr.toLocationUid} onChange={(e) => setTr({ ...tr, toLocationUid: e.target.value })} options={[{ value: "", label: "No branch change" }, ...branches.map((b) => ({ value: b.id, label: b.name }))]} />
+          <Select id="hr-org-transfer-department" testId="hr-org-transfer-department" label="To Department (optional)" value={tr.toDepartmentUid} onChange={(e) => setTr({ ...tr, toDepartmentUid: e.target.value })} options={[{ value: "", label: "No department change" }, ...departments.data.map((d) => ({ value: d.id, label: String(d.name) }))]} />
+          <Select id="hr-org-transfer-shift" testId="hr-org-transfer-shift" label="To Shift (optional)" value={tr.toShiftUid} onChange={(e) => setTr({ ...tr, toShiftUid: e.target.value })} options={[{ value: "", label: "No shift change" }, ...shifts.data.map((s) => ({ value: s.id, label: String(s.name) }))]} />
+          <Select id="hr-org-transfer-manager" testId="hr-org-transfer-manager" label="To Manager (optional)" value={tr.toManagerUid} onChange={(e) => setTr({ ...tr, toManagerUid: e.target.value })} options={[{ value: "", label: "No manager change" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
+          <Input id="hr-org-transfer-effective-date" data-testid="hr-org-transfer-effective-date" label="Effective Date" type="date" value={tr.effectiveDate} onChange={(e) => setTr({ ...tr, effectiveDate: e.target.value })} />
+          <Textarea id="hr-org-transfer-reason" data-testid="hr-org-transfer-reason" label="Reason" rows={3} value={tr.reason} onChange={(e) => setTr({ ...tr, reason: e.target.value })} />
         </Modal>
       )}
     </section>

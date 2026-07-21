@@ -89,10 +89,10 @@ export default function Separation() {
   const awaitingApproval = (s?: string) => s === "Pending" || s === "Partially_Approved";
 
   return (
-    <section className="page-section active hr-page-shell">
+    <section id="hr-separation-page" data-testid="hr-separation-page" className="page-section active hr-page-shell">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
         <PageHeader title="Separation" subtitle="Resignations, terminations, notice & clearance" />
-        <Button onClick={() => { setMsg(null); setRaiseOpen(true); }} icon={<Plus size={16} />}>Raise Exit Request</Button>
+        <Button id="hr-separation-raise-open" data-testid="hr-separation-raise-open" onClick={() => { setMsg(null); setRaiseOpen(true); }} icon={<Plus size={16} />}>Raise Exit Request</Button>
       </div>
 
       {exits.error && (
@@ -121,14 +121,14 @@ export default function Separation() {
             </tr></thead>
             <tbody>
               {exits.data.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} data-testid={`hr-separation-row-${e.id}`}>
                   <td style={{ ...td, fontWeight: 800 }}>{e.employeeName || e.employeeUid}</td>
                   <td style={td}>{e.separationType || "—"}</td>
                   <td style={td}><StatusPill s={e.status} /></td>
                   <td style={td}>{e.noticePeriodDays != null ? `${e.noticePeriodDays}d${e.noticeWaivedDays ? ` (−${e.noticeWaivedDays} waived)` : ""}` : "—"}</td>
                   <td style={td}>{e.lastWorkingDay || "—"}</td>
                   <td style={td}>{e.clearanceStatus || "—"}</td>
-                  <td style={{ ...td, textAlign: "right" }}><Button variant="secondary" onClick={() => openDetail(e)}>Open</Button></td>
+                  <td style={{ ...td, textAlign: "right" }}><Button data-testid={`hr-separation-open-${e.id}`} variant="secondary" onClick={() => openDetail(e)}>Open</Button></td>
                 </tr>
               ))}
             </tbody>
@@ -138,27 +138,27 @@ export default function Separation() {
 
       {/* ===== RAISE MODAL ===== */}
       {raiseOpen && (
-        <div style={overlay} onClick={() => setRaiseOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 560 }}>
+        <div data-testid="hr-separation-raise-overlay" style={overlay} onClick={() => setRaiseOpen(false)}>
+          <div data-testid="hr-separation-raise-modal" onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 560 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
               <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>Raise Exit Request</h3>
               <button onClick={() => setRaiseOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-              <Select label="Employee" value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+              <Select id="hr-separation-employee" testId="hr-separation-employee" label="Employee" value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
                 options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <Select label="Separation Type" value={form.separationType} onChange={(e) => setForm({ ...form, separationType: e.target.value })}
+                <Select id="hr-separation-type" testId="hr-separation-type" label="Separation Type" value={form.separationType} onChange={(e) => setForm({ ...form, separationType: e.target.value })}
                   options={["Resignation", "Termination", "Retirement", "End of Contract"].map((t) => ({ value: t, label: t }))} />
-                <Input label="Notice Period (days)" type="number" value={form.noticePeriodDays} onChange={(e) => setForm({ ...form, noticePeriodDays: e.target.value })} />
+                <Input id="hr-separation-notice-days" data-testid="hr-separation-notice-days" label="Notice Period (days)" type="number" value={form.noticePeriodDays} onChange={(e) => setForm({ ...form, noticePeriodDays: e.target.value })} />
               </div>
-              <Textarea label="Reason" rows={4} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Reason for separation…" />
+              <Textarea id="hr-separation-reason" data-testid="hr-separation-reason" label="Reason" rows={4} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Reason for separation…" />
               <div style={{ ...lbl }}>Clearance items are created for IT, Finance, HR and Admin. Last working day = today + notice.</div>
               {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             </div>
             <div style={{ padding: "18px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <Button variant="secondary" onClick={() => setRaiseOpen(false)}>Cancel</Button>
-              <Button onClick={submitRaise} disabled={busy} loading={busy}>Raise Request</Button>
+              <Button id="hr-separation-raise-cancel" data-testid="hr-separation-raise-cancel" variant="secondary" onClick={() => setRaiseOpen(false)}>Cancel</Button>
+              <Button id="hr-separation-raise-submit" data-testid="hr-separation-raise-submit" onClick={submitRaise} disabled={busy} loading={busy}>Raise Request</Button>
             </div>
           </div>
         </div>
@@ -166,8 +166,8 @@ export default function Separation() {
 
       {/* ===== DETAIL MODAL ===== */}
       {current && selected && (
-        <div style={overlay} onClick={() => setSelected(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={modalBox}>
+        <div data-testid="hr-separation-detail-overlay" style={overlay} onClick={() => setSelected(null)}>
+          <div data-testid="hr-separation-detail-modal" onClick={(e) => e.stopPropagation()} style={modalBox}>
             <div style={{ background: "rgba(17,94,89,0.05)", padding: "20px 26px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <h3 style={{ fontSize: 19, fontWeight: 900, color: TEAL, margin: 0 }}>{current.employeeName || "Exit Request"}</h3>
@@ -206,10 +206,10 @@ export default function Separation() {
               {awaitingApproval(current.status) && (
                 <div style={{ border: "1px solid rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.04)", borderRadius: 14, padding: 14 }}>
                   <span style={{ ...lbl, color: "#b45309", display: "block", marginBottom: 8 }}><ShieldCheck size={11} style={{ display: "inline", marginRight: 4 }} />Approval Decision</span>
-                  <Textarea rows={2} placeholder="Remarks (optional)…" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+                  <Textarea id="hr-separation-decision-remarks" data-testid="hr-separation-decision-remarks" rows={2} placeholder="Remarks (optional)…" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
                   <div style={{ display: "flex", gap: 10, marginTop: 10, justifyContent: "flex-end" }}>
-                    <Button variant="secondary" disabled={busy} onClick={() => act(() => exits.decide(current.id, "REJECT", remarks))} style={{ color: "#e11d48" }}>Reject</Button>
-                    <Button disabled={busy} loading={busy} onClick={() => act(() => exits.decide(current.id, "APPROVE", remarks))}>Approve</Button>
+                    <Button id="hr-separation-reject" data-testid="hr-separation-reject" variant="secondary" disabled={busy} onClick={() => act(() => exits.decide(current.id, "REJECT", remarks))} style={{ color: "#e11d48" }}>Reject</Button>
+                    <Button id="hr-separation-approve" data-testid="hr-separation-approve" disabled={busy} loading={busy} onClick={() => act(() => exits.decide(current.id, "APPROVE", remarks))}>Approve</Button>
                   </div>
                 </div>
               )}
@@ -294,7 +294,7 @@ export default function Separation() {
 
               {awaitingApproval(current.status) && (
                 <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                  <Button variant="ghost" disabled={busy} style={{ color: "#e11d48" }}
+                  <Button id="hr-separation-cancel-request" data-testid="hr-separation-cancel-request" variant="ghost" disabled={busy} style={{ color: "#e11d48" }}
                     onClick={() => { if (confirm("Cancel this exit request?")) void act(() => exits.cancel(current.id)); }}>
                     Cancel Request
                   </Button>

@@ -222,6 +222,15 @@ export default function Attendance() {
     page: attPage,
     pageSize: attPageSize,
   });
+  const selectedEmployeeFilters = useMemo<SearchFilterClause[]>(
+    () => actor ? [{ field: "employeeUid", operator: "EQ", values: [actor] }] : [],
+    [actor]
+  );
+  const selectedEmployeeAttendance = useAttendance(selectedEmployeeFilters, attendanceSchema, {
+    enabled: !schemaLoading && !!actor,
+    page: 0,
+    pageSize: 100,
+  });
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, attendanceSchema).length,
     [advancedFilters, attendanceSchema]
@@ -267,13 +276,13 @@ export default function Attendance() {
   // The approver of a WFH/field punch is the employee's reporting manager (HR/Admin otherwise).
   const approverFor = (employeeUid?: string) => { const m = employeeUid ? empById.get(employeeUid)?.reportingManagerUid : undefined; return m ? { uid: m, name: empName(m) } : null; };
   const today = new Date().toISOString().slice(0, 10);
-  const open = useMemo(() => attendance.data.find((a) => a.employeeUid === actor && a.dateStr === today && a.clockIn && !a.clockOut), [attendance.data, actor, today]);
+  const open = useMemo(() => selectedEmployeeAttendance.data.find((a) => a.employeeUid === actor && a.dateStr === today && a.clockIn && !a.clockOut), [selectedEmployeeAttendance.data, actor, today]);
   const clockedIn = !!open;
   const weekHours = useMemo(() => {
     const since = new Date(); since.setDate(since.getDate() - 7);
-    return attendance.data.filter((a) => a.employeeUid === actor && a.dateStr && new Date(a.dateStr) >= since).reduce((t, a) => t + (a.workedHours ?? 0), 0);
-  }, [attendance.data, actor, today]);
-  const todayLogs = useMemo(() => attendance.data.filter((a) => a.employeeUid === actor && a.dateStr === today), [attendance.data, actor, today]);
+    return selectedEmployeeAttendance.data.filter((a) => a.employeeUid === actor && a.dateStr && new Date(a.dateStr) >= since).reduce((t, a) => t + (a.workedHours ?? 0), 0);
+  }, [selectedEmployeeAttendance.data, actor, today]);
+  const todayLogs = useMemo(() => selectedEmployeeAttendance.data.filter((a) => a.employeeUid === actor && a.dateStr === today), [selectedEmployeeAttendance.data, actor, today]);
   const faceRequired = !!attendanceRules.data?.faceRecognitionRequired;
   const pendingOvertime = useMemo(() => attendance.data.filter((a) => (a.overtimeStatus || "").toLowerCase() === "pending" && (a.overtimeMinutes ?? 0) > 0), [attendance.data]);
   const shouldShowLocationSelect = branches.data.length > 1;
@@ -284,11 +293,11 @@ export default function Attendance() {
     setBusy(true); setMsg(null);
     try {
       if (clockedIn && open) {
-        await attendance.punchOut(open.id);
+        await selectedEmployeeAttendance.punchOut(open.id);
         setMsg("Clocked out.");
       } else {
         const currentPosition = await resolveCurrentPosition();
-          await attendance.punchIn({
+          await selectedEmployeeAttendance.punchIn({
             employeeUid: actor,
             locationUid: selectedLocationUid || activeLocation?.id || null,
             location: {
@@ -510,7 +519,7 @@ export default function Attendance() {
               <Button id="hr-attendance-punch-button" data-testid="hr-attendance-punch-button" variant={clockedIn ? "danger" : "primary"} size="lg" onClick={handlePunch} disabled={!actor} loading={busy} fullWidth>
                 {clockedIn ? "Clock Out" : "Clock In"}
               </Button>
-              {(msg || empError) && <div style={{ fontSize: 12, textAlign: "center", color: empError && !msg ? "var(--danger-color)" : "var(--light-text)", marginTop: 4 }}>{msg || `Employees failed to load: ${empError}`}</div>}
+              {(msg || empError) && <div data-testid="hr-attendance-punch-message" style={{ fontSize: 12, textAlign: "center", color: empError && !msg ? "var(--danger-color)" : "var(--light-text)", marginTop: 4 }}>{msg || `Employees failed to load: ${empError}`}</div>}
             </div>
 
           </div>
@@ -888,7 +897,7 @@ export default function Attendance() {
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: "var(--dark-text)" }}>Live Field Tracking</div>
                     <div style={{ fontSize: 11, color: "var(--light-text)" }}>Capture GPS for {actorEmp?.name || "the selected employee"} using this device.</div>
-                    {geoMsg && <div style={{ fontSize: 11, marginTop: 4, color: /denied|Failed|Could not|not supported|first/.test(geoMsg) ? "#e11d48" : "#059669" }}>{geoMsg}</div>}
+                    {geoMsg && <div data-testid="hr-attendance-location-message" style={{ fontSize: 11, marginTop: 4, color: /denied|Failed|Could not|not supported|first/.test(geoMsg) ? "#e11d48" : "#059669" }}>{geoMsg}</div>}
                   </div>
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, color: "var(--light-text)" }}>
                     <input id="hr-attendance-auto-track" data-testid="hr-attendance-auto-track" type="checkbox" checked={autoTrack} onChange={(e) => setAutoTrack(e.target.checked)} /> Auto every 30s

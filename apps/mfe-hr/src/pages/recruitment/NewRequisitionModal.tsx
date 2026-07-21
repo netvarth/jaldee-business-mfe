@@ -6,6 +6,8 @@ export interface NewRequisitionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (req: Partial<JobRequisition>) => Promise<void>;
+  departments: Array<{ id: string; name?: string }>;
+  employees: Array<{ id: string; name?: string; employeeId?: string }>;
 }
 
 const employmentTypeOptions = [
@@ -21,9 +23,11 @@ const statusOptions = [
   { value: "OPEN", label: "Open" },
 ];
 
-export function NewRequisitionModal({ isOpen, onClose, onSave }: NewRequisitionModalProps) {
+export function NewRequisitionModal({ isOpen, onClose, onSave, departments, employees }: NewRequisitionModalProps) {
   const [formData, setFormData] = useState({
     title: "",
+    departmentUid: "",
+    hiringManagerUid: "",
     employmentType: "FullTime",
     openings: 1,
     experienceRequired: "",
@@ -40,16 +44,15 @@ export function NewRequisitionModal({ isOpen, onClose, onSave }: NewRequisitionM
     try {
       await onSave({
         title: formData.title,
+        departmentUid: formData.departmentUid,
+        hiringManagerUid: formData.hiringManagerUid,
         employmentType: formData.employmentType,
         openings: Number(formData.openings),
         experienceRequired: formData.experienceRequired || undefined,
         jobDescription: formData.jobDescription || "No description provided.",
         status: formData.status,
-        departmentUid: crypto.randomUUID(),
-        branchUid: crypto.randomUUID(),
-        hiringManagerUid: crypto.randomUUID(),
       });
-      setFormData({ title: "", employmentType: "FullTime", openings: 1, experienceRequired: "", jobDescription: "", status: "OPEN" });
+      setFormData({ title: "", departmentUid: "", hiringManagerUid: "", employmentType: "FullTime", openings: 1, experienceRequired: "", jobDescription: "", status: "OPEN" });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create requisition");
@@ -80,6 +83,29 @@ export function NewRequisitionModal({ isOpen, onClose, onSave }: NewRequisitionM
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           placeholder="e.g. Senior Frontend Engineer"
+        />
+        <Select
+          id="hr-recruitment-requisition-department"
+          testId="hr-recruitment-requisition-department"
+          label="Department"
+          required
+          placeholder="Select department"
+          options={departments.map((department) => ({ value: department.id, label: department.name || department.id }))}
+          value={formData.departmentUid}
+          onChange={(e) => setFormData({ ...formData, departmentUid: e.target.value })}
+        />
+        <Select
+          id="hr-recruitment-requisition-hiring-manager"
+          testId="hr-recruitment-requisition-hiring-manager"
+          label="Hiring Manager"
+          required
+          placeholder="Select hiring manager"
+          options={employees.map((employee) => ({
+            value: employee.id,
+            label: employee.name || employee.employeeId || employee.id,
+          }))}
+          value={formData.hiringManagerUid}
+          onChange={(e) => setFormData({ ...formData, hiringManagerUid: e.target.value })}
         />
         <div className="grid grid-cols-2 gap-4">
           <Select

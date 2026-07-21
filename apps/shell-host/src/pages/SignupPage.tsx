@@ -292,7 +292,7 @@ export default function SignupPage() {
                     }
                   />
                   <PhoneInput
-                    data-testid="signup-mobile-input"
+                    testId="signup-mobile-input"
                     label="WhatsApp / Mobile Number"
                     value={form.mobile}
                     onChange={(value) => setForm((current) => ({ ...current, mobile: value }))}
