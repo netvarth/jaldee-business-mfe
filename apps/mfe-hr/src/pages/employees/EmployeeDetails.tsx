@@ -770,7 +770,7 @@ export default function EmployeeDetails() {
               </>),
               bank: (<>
                 <div className="employee-edit-field-pair">
-                  <div className="form-group"><label>Bank Name</label><input className={field} value={bank.bankName ?? ""} onChange={setBank("bankName")} /></div>
+                  <div className="form-group"><label>Bank Name</label><input id="hr-employee-edit-bank-name" data-testid="hr-employee-edit-bank-name" className={field} value={bank.bankName ?? ""} onChange={setBank("bankName")} /></div>
                   <div className="form-group"><label>Account Number</label><input className={field} value={bank.accountNumber ?? ""} onChange={setBank("accountNumber")} /></div>
                 </div>
                 <div className="employee-edit-field-pair">

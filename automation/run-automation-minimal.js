@@ -687,12 +687,12 @@ async function run() {
   console.log("\n>>> EMPLOYEE MASTER - EDIT CURRENT-RUN EMPLOYEE PROFILE...");
   await page.goto("http://localhost:3000/hr/employees", { waitUntil: "domcontentloaded" });
   await slowType('[data-testid="hr-employees-search"]', suffix, "Current Employee Filter");
-  let currentEmployeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
-  await currentEmployeeRow.waitFor({ state: "visible", timeout: 15000 });
-  await currentEmployeeRow.locator('[data-testid^="hr-employee-edit-"]').click();
+  const editEmployeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
+  await editEmployeeRow.waitFor({ state: "visible", timeout: 15000 });
+  await editEmployeeRow.locator('[data-testid^="hr-employee-edit-"]').click();
   await page.locator('[data-testid="hr-employee-edit-page"]').waitFor({ state: "visible", timeout: 30000 });
   await slowClick('[data-testid="hr-employee-edit-section-bank"]', "Open Employee Bank Details");
-  await slowType('input:below([data-testid="hr-employee-edit-section-bank"])', "Automation Bank", "Employee Bank Name");
+  await slowType('[data-testid="hr-employee-edit-bank-name"]', `Automation Bank ${suffix}`, "Employee Bank Name");
   await slowClick('[data-testid="hr-employee-edit-save"]', "Save Edited Employee Profile");
   await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
   console.log(`   [Verified] Employee profile edited: "Rahul Sharma ${suffix}"`);
@@ -1254,60 +1254,6 @@ async function run() {
     await page.locator("tr").filter({ hasText: component.name }).first().waitFor({ state: "visible", timeout: 10000 });
   }
 
-  async function runManageLoginAction() {
-  await visitHr("/hr/employees", "EMPLOYEE MANAGE LOGIN");
-  await slowType('[data-testid="hr-employees-search"]', suffix, "Manage Login Employee Filter");
-  const employeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
-  await employeeRow.waitFor({ state: "visible", timeout: 15000 });
-  await employeeRow.locator('[data-testid^="hr-employee-view-"]').click();
-  await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
-  await slowClick('[data-testid="hr-employee-manage-login"]', "Manage Employee Login");
-  await page.locator('[data-testid="hr-employee-login-dialog"]').waitFor({ state: "visible", timeout: 10000 });
-  await page.waitForFunction(() => {
-    const input = document.querySelector('[data-testid="hr-employee-login-id"]');
-    return input && input.value && input.value !== "Will be assigned by system";
-  }, null, { timeout: 20000 });
-  await slowType('[data-testid="hr-employee-login-password"]', "Employee@2026", "Employee Login Password");
-  await slowType('[data-testid="hr-employee-login-confirm-password"]', "Employee@2026", "Confirm Employee Login Password");
-  await slowClick('[data-testid="hr-employee-login-save"]', "Save Employee Login");
-  await page.locator('[data-testid="hr-employee-login-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
-  console.log("   [Verified] Employee login managed");
-  }
-
-  async function runSeparationActions() {
-  await visitHr("/hr/separation", "SEPARATION - REJECT, CANCEL AND APPROVE");
-  await page.locator('[data-testid="hr-separation-page"]').waitFor({ state: "visible", timeout: 20000 });
-  const actOnExitRequest = async (outcome, sequence) => {
-    await slowClick('[data-testid="hr-separation-raise-open"]', `Raise Separation Request ${sequence}`);
-    await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "visible", timeout: 10000 });
-    await page.locator('[data-testid="hr-separation-employee"]').selectOption({ label: `Rahul Sharma ${suffix}` });
-    await page.locator('[data-testid="hr-separation-type"]').selectOption("Resignation");
-    await slowType('[data-testid="hr-separation-notice-days"]', "30", `Separation Notice ${sequence}`);
-    await slowType('[data-testid="hr-separation-reason"]', `${outcome} separation automation ${suffix}-${sequence}`, `Separation Reason ${sequence}`);
-    await slowClick('[data-testid="hr-separation-raise-submit"]', `Submit Separation Request ${sequence}`);
-    await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "hidden", timeout: 20000 });
-    const pendingRow = page.locator('[data-testid^="hr-separation-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: "Pending" }).first();
-    await pendingRow.waitFor({ state: "visible", timeout: 20000 });
-    await pendingRow.locator('[data-testid^="hr-separation-open-"]').click();
-    await page.locator('[data-testid="hr-separation-detail-modal"]').waitFor({ state: "visible", timeout: 10000 });
-    if (outcome === "Rejected") {
-      await slowType('[data-testid="hr-separation-decision-remarks"]', `Rejected by automation ${suffix}`, "Rejection Remarks");
-      await slowClick('[data-testid="hr-separation-reject"]', "Reject Separation Request");
-    } else if (outcome === "Cancelled") {
-      await slowClick('[data-testid="hr-separation-cancel-request"]', "Cancel Separation Request");
-    } else {
-      await slowType('[data-testid="hr-separation-decision-remarks"]', `Approved by automation ${suffix}`, "Approval Remarks");
-      await slowClick('[data-testid="hr-separation-approve"]', "Approve Separation Request");
-    }
-    await page.waitForTimeout(3000);
-    await page.locator('[data-testid="hr-separation-detail-overlay"]').click({ position: { x: 5, y: 5 } });
-    await pendingRow.filter({ hasText: outcome }).waitFor({ state: "visible", timeout: 20000 });
-    console.log(`   [Verified] Separation request ${outcome}`);
-  };
-  await actOnExitRequest("Rejected", 1);
-  await actOnExitRequest("Cancelled", 2);
-  await actOnExitRequest("Approved", 3);
-  }
   let payrollRow = page.locator("tr").filter({ hasText: payrollComponentName }).first();
   await payrollRow.waitFor({ state: "visible", timeout: 10000 });
   await payrollRow.locator('[data-testid^="hr-payroll-component-edit-"]').click();
@@ -1383,6 +1329,91 @@ async function run() {
 
   }
 
+  let managedEmployeeLoginId = "";
+
+  async function runManageLoginAction() {
+    await visitHr("/hr/employees", "EMPLOYEE MANAGE LOGIN");
+    await slowType('[data-testid="hr-employees-search"]', suffix, "Manage Login Employee Filter");
+    const employeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
+    await employeeRow.waitFor({ state: "visible", timeout: 15000 });
+    await employeeRow.locator('[data-testid^="hr-employee-view-"]').click();
+    await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
+    await slowClick('[data-testid="hr-employee-manage-login"]', "Manage Employee Login");
+    await page.locator('[data-testid="hr-employee-login-dialog"]').waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForFunction(() => {
+      const input = document.querySelector('[data-testid="hr-employee-login-id"]');
+      return input && input.value && input.value !== "Will be assigned by system";
+    }, null, { timeout: 20000 });
+    managedEmployeeLoginId = await page.locator('[data-testid="hr-employee-login-id"]').inputValue();
+    await slowType('[data-testid="hr-employee-login-password"]', "Employee@2026", "Employee Login Password");
+    await slowType('[data-testid="hr-employee-login-confirm-password"]', "Employee@2026", "Confirm Employee Login Password");
+    await slowClick('[data-testid="hr-employee-login-save"]', "Save Employee Login");
+    await page.locator('[data-testid="hr-employee-login-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
+    console.log("   [Verified] Employee login managed");
+  }
+
+  async function runSeparationActions() {
+    await visitHr("/hr/separation", "SEPARATION - REJECT, CANCEL AND APPROVE");
+    await page.locator('[data-testid="hr-separation-page"]').waitFor({ state: "visible", timeout: 20000 });
+    const actOnExitRequest = async (outcome, sequence) => {
+      await slowClick('[data-testid="hr-separation-raise-open"]', `Raise Separation Request ${sequence}`);
+      await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "visible", timeout: 10000 });
+      await page.locator('[data-testid="hr-separation-employee"]').selectOption({ label: `Rahul Sharma ${suffix}` });
+      await page.locator('[data-testid="hr-separation-type"]').selectOption("Resignation");
+      await slowType('[data-testid="hr-separation-notice-days"]', "30", `Separation Notice ${sequence}`);
+      await slowType('[data-testid="hr-separation-reason"]', `${outcome} separation automation ${suffix}-${sequence}`, `Separation Reason ${sequence}`);
+      await slowClick('[data-testid="hr-separation-raise-submit"]', `Submit Separation Request ${sequence}`);
+      await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "hidden", timeout: 20000 });
+      const pendingRow = page.locator('[data-testid^="hr-separation-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: "Pending" }).first();
+      await pendingRow.waitFor({ state: "visible", timeout: 20000 });
+      await pendingRow.locator('[data-testid^="hr-separation-open-"]').click();
+      await page.locator('[data-testid="hr-separation-detail-modal"]').waitFor({ state: "visible", timeout: 10000 });
+      if (outcome === "Rejected") {
+        await slowType('[data-testid="hr-separation-decision-remarks"]', `Rejected by automation ${suffix}`, "Rejection Remarks");
+        await slowClick('[data-testid="hr-separation-reject"]', "Reject Separation Request");
+      } else if (outcome === "Cancelled") {
+        await slowClick('[data-testid="hr-separation-cancel-request"]', "Cancel Separation Request");
+      } else {
+        await slowType('[data-testid="hr-separation-decision-remarks"]', `Approved by automation ${suffix}`, "Approval Remarks");
+        await slowClick('[data-testid="hr-separation-approve"]', "Approve Separation Request");
+      }
+      await page.waitForTimeout(3000);
+      await page.locator('[data-testid="hr-separation-detail-overlay"]').click({ position: { x: 5, y: 5 } });
+      await page.locator('[data-testid^="hr-separation-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: outcome }).first().waitFor({ state: "visible", timeout: 20000 });
+      console.log(`   [Verified] Separation request ${outcome}`);
+    };
+    await actOnExitRequest("Rejected", 1);
+    await actOnExitRequest("Cancelled", 2);
+    await actOnExitRequest("Approved", 3);
+  }
+
+  async function runEmployeePortalActions() {
+    console.log("\n>>> EMPLOYEE LOGIN - OPEN FRESH PAGE AND VERIFY SELF-SERVICE...");
+    if (!managedEmployeeLoginId) throw new Error("Managed employee login ID was not retained for employee sign-in");
+    const employeeContext = await browser.newContext({
+      baseURL: AUTOMATION_BASE_URL,
+      viewport: null,
+      permissions: ["geolocation"],
+      geolocation: { latitude: 10.5116834, longitude: 76.2164267 },
+    });
+    const employeePage = await employeeContext.newPage();
+    await employeePage.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
+    await employeePage.locator('[data-testid="auth-login-id"]').fill(managedEmployeeLoginId);
+    await employeePage.waitForTimeout(pauseDelay);
+    await employeePage.locator('[data-testid="auth-login-password"]').fill("Employee@2026");
+    await employeePage.waitForTimeout(pauseDelay);
+    await employeePage.locator('[data-testid="auth-login-submit"]').click();
+    await employeePage.locator('[data-testid="hr-ess-page"]').waitFor({ state: "visible", timeout: 30000 });
+    for (const section of ["profile", "attendance", "leave", "documents", "staffspace", "payslips", "expenses", "helpdesk"]) {
+      await employeePage.locator(`[data-testid="hr-ess-nav-${section}"]`).click();
+      await employeePage.waitForURL(new RegExp(`/hr/me/${section}`), { timeout: 15000 });
+      console.log(`   [Employee View] ${section}`);
+      await employeePage.waitForTimeout(viewDelay);
+    }
+    console.log(`   [Verified] Employee self-service login: "${managedEmployeeLoginId}"`);
+    await employeeContext.close();
+  }
+
   await runAttendanceAndLeaveActions();
   await runPayrollActions();
   await runEmployeeViewActions();
@@ -1398,6 +1429,7 @@ async function run() {
   await completeRecruitmentActions();
   await runManageLoginAction();
   await runSeparationActions();
+  await runEmployeePortalActions();
 
   console.log("=========================================================");
   console.log("  MINIMAL HR AUTOMATION SUITE COMPLETED!               ");

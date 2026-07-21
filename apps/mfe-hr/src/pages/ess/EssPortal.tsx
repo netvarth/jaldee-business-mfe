@@ -517,6 +517,7 @@ export default function EssPortal() {
           <nav className="hidden flex-wrap gap-2 rounded-b-xl rounded-t-none border border-slate-200 bg-white/95 p-2 shadow-[0_12px_32px_rgba(15,23,42,0.05)] backdrop-blur md:flex">
             {navItems.map((item) => (
               <NavLink
+                data-testid={`hr-ess-nav-${item.key}`}
                 key={item.key}
                 to={item.to}
                 end={item.key === "overview"}

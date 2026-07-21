@@ -122,6 +122,8 @@ export default function LoginPage() {
               {!requiresMfa ? (
                 <>
                   <Input
+                    id="auth-login-id"
+                    data-testid="auth-login-id"
                     type="text"
                     label="Login ID"
                     value={loginId}
@@ -132,6 +134,8 @@ export default function LoginPage() {
                   />
 
                   <Input
+                    id="auth-login-password"
+                    data-testid="auth-login-password"
                     type={showPassword ? "text" : "password"}
                     label="Password"
                     value={password}
@@ -193,6 +197,7 @@ export default function LoginPage() {
                     Back
                   </Button>
                   <Button
+                    data-testid="auth-login-otp-submit"
                     type="submit"
                     variant="primary"
                     size="lg"
@@ -207,6 +212,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <Button
+                    data-testid="auth-login-submit"
                     type="submit"
                     variant="primary"
                     size="lg"
