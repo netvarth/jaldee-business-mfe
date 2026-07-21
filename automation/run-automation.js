@@ -441,8 +441,22 @@ async function run() {
   }
 
   console.log("\n>>> 2. SETTINGS - COMPANY PROFILE FORM (IT TECH ENTERPRISE)...");
-  await page.goto("http://localhost:3000/hr/settings/company", { waitUntil: "domcontentloaded" });
-  await page.locator('[data-testid="hr-settings-company-name"]').waitFor({ state: "visible", timeout: 30000 });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await page.goto(`${AUTOMATION_BASE_URL}/hr/settings/company`, { waitUntil: "domcontentloaded" });
+    const settingsPageReady = await page.locator('[data-testid="hr-settings-page"]').waitFor({ state: "visible", timeout: 30000 }).then(() => true).catch(() => false);
+    if (!settingsPageReady) {
+      if (attempt === 2) throw new Error(`HR Settings page did not open. Current URL: ${page.url()}`);
+      await page.waitForTimeout(3000);
+      continue;
+    }
+    const companyFieldReady = await page.locator('[data-testid="hr-settings-company-name"]').waitFor({ state: "visible", timeout: 30000 }).then(() => true).catch(() => false);
+    if (companyFieldReady) break;
+    const companyLoadError = await page.locator('[data-testid="hr-settings-company-error"]').textContent().catch(() => "");
+    if (companyLoadError) throw new Error(`Company Profile could not load: ${companyLoadError.trim()}`);
+    if (attempt === 2) throw new Error(`Company Profile remained in loading state. Current URL: ${page.url()}`);
+    console.log("   [Retry] Company Profile data was still loading; reopening Settings");
+    await page.waitForTimeout(3000);
+  }
   await slowType('[data-testid="hr-settings-company-name"], input[name="name"]', `Dhyandarsh IT Technologies ${suffix}`, "Company Name");
   await slowType('[data-testid="hr-settings-company-legalname"]', "Dhyandarsh IT Technologies Private Limited", "Legal Name");
   await slowType('[data-testid="hr-settings-company-industry"]', "Information Technology & Enterprise Software", "Industry");
@@ -690,7 +704,19 @@ async function run() {
   await page.locator('[data-testid="hr-employee-edit-page"]').waitFor({ state: "visible", timeout: 30000 });
   await slowClick('[data-testid="hr-employee-edit-section-bank"]', "Open Employee Bank Details");
   await slowType('[data-testid="hr-employee-edit-bank-name"]', `Automation Bank ${suffix}`, "Employee Bank Name");
+  const employeeUpdateResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === "PUT" && /\/employees\/[^/?]+(?:\?|$)/.test(response.url()),
+    { timeout: 30000 },
+  );
   await slowClick('[data-testid="hr-employee-edit-save"]', "Save Edited Employee Profile");
+  const employeeUpdateResponse = await employeeUpdateResponsePromise;
+  if (!employeeUpdateResponse.ok()) {
+    throw new Error(`Employee profile update failed (${employeeUpdateResponse.status()}): ${await employeeUpdateResponse.text()}`);
+  }
+  const savedEmployeePath = new URL(page.url()).pathname;
+  if (new URL(page.url()).searchParams.get("edit") === "true") {
+    await page.goto(`${AUTOMATION_BASE_URL}${savedEmployeePath}`, { waitUntil: "domcontentloaded" });
+  }
   await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
   console.log(`   [Verified] Employee profile edited: "Rahul Sharma ${suffix}"`);
 

@@ -278,10 +278,10 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
   return (
     <div>
       <PanelHeader title={title} subtitle={subtitle} icon={icon} />
-      {error && <ErrorBar text={error} />}
+      {error && <div id={`${automationScope}-error`} data-testid={`${automationScope}-error`}><ErrorBar text={error} /></div>}
       <div id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} style={{ ...card, overflow: "visible", padding: 24, position: "relative", zIndex: 1 }}>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] animate-pulse">
+          <div id={`${automationScope}-loading`} data-testid={`${automationScope}-loading`} className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] animate-pulse">
             {fields.map((f) => (
               <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }} className="space-y-2">
                 {f.type !== "checkbox" && <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />}
