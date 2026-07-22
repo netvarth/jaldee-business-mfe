@@ -32,7 +32,7 @@ export default function ServicesPage() {
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { schema: serviceSearchSchema, loading: serviceSearchSchemaLoading } = useServiceSearchSchema();
-  const { services, loading } = useServices(advancedFilters, serviceSearchSchema, {
+  const { services, loading, toggleStatus } = useServices(advancedFilters, serviceSearchSchema, {
     enabled: !serviceSearchSchemaLoading,
   });
 
@@ -133,7 +133,11 @@ export default function ServicesPage() {
             </Button>
             <Popover
               trigger={
-                <button className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600">
+                <button
+                  id={`bookings-service-actions-${service.id}`}
+                  data-testid={`bookings-service-actions-${service.id}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                >
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
                   </svg>
@@ -143,12 +147,28 @@ export default function ServicesPage() {
               align="end"
               portal
             >
-              <div className="flex min-w-[120px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
                 <button
+                  id={`bookings-service-edit-${service.id}`}
+                  data-testid={`bookings-service-edit-${service.id}`}
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => navigate(`/services/edit/${service.id}`)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(`/services/edit/${service.id}`);
+                  }}
                 >
                   Edit
+                </button>
+                <button
+                  id={`bookings-service-status-${service.id}`}
+                  data-testid={`bookings-service-status-${service.id}`}
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleStatus(service);
+                  }}
+                >
+                  {service.status === "Active" ? "Inactive" : "Active"}
                 </button>
               </div>
             </Popover>

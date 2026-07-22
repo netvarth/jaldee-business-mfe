@@ -15,7 +15,7 @@ export async function loadScheduleSearchSchema(api: ReturnType<typeof useBooking
   }
 
   scheduleSearchSchemaPromise = api
-    .get<SearchSchema>("/schedules/search/schema", { _skipLocationParam: true })
+    .get<SearchSchema>("/calendars/schedules/search/schema", { _skipLocationParam: true })
     .then((response) => {
       const normalized = normalizeSearchSchema(response) ?? null;
       scheduleSearchSchemaCache = normalized;

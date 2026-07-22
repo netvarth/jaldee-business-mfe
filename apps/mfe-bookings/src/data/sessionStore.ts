@@ -44,6 +44,7 @@ export interface BookingUser {
   title?: string;
   firstName: string;
   lastName: string;
+  userDisplayName?: string;
   displayName: string;
   email?: string;
   phoneNumber?: string;

@@ -16,6 +16,7 @@ interface SlotQuery {
   date?: string;
   startDate?: string;
   endDate?: string;
+  providerUid?: string;
 }
 
 function parseSlots(body: unknown): Slot[] {
@@ -32,7 +33,7 @@ export function useSlots() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchSlots = useCallback(
-    async ({ scheduleUid, serviceUid, calendarUid, date, startDate, endDate }: SlotQuery) => {
+    async ({ scheduleUid, serviceUid, calendarUid, date, startDate, endDate, providerUid }: SlotQuery) => {
       if (!scheduleUid || !serviceUid || (!date && !startDate)) {
         setSlots([]);
         return;
@@ -45,6 +46,7 @@ export function useSlots() {
         if (date) params.append("date", date);
         if (startDate) params.append("startDate", startDate);
         if (endDate) params.append("endDate", endDate);
+        if (providerUid) params.append("providerUid", providerUid);
         
         const url = `/bookings/availability?${params.toString()}`;
         const body = await api.get<unknown>(url);

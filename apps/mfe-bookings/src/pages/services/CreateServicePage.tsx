@@ -219,27 +219,31 @@ export default function CreateServicePage() {
       showToast("Complete the required service details", "error");
       return;
     }
-    await saveService({
-      name, displayOrder, description, serviceContext, serviceType, apptType, serviceCategory,
-      requestType,
-      teleServiceMode,
-      teleServicePlatform,
-      meetingLink: needsMeetingLink ? meetingLink.trim() : undefined,
-      phoneNumber: needsPhoneNumber ? phoneValue.number : undefined,
-      phoneCountryCode: needsPhoneNumber ? phoneValue.countryCode : undefined,
-      durHrs, durMins, numResources, maxBookings, showDuration, leadDays, leadHrs, leadMins,
-      safeSlots, hasPricing, price, taxApplicable, hsnCode, 
-      prepaymentRequired, prepaymentAmount, prePaymentType,
-      preServiceSchema, postServiceSchema, currencyCode, 
-      assignUsers,
-      practitionerPrices: Object.fromEntries(
-        Object.entries(practitionerOverrides)
-          .filter(([uid, override]) => override.enabled && isUuid(uid))
-          .map(([uid, override]) => [uid, override.price])
-      ),
-    }, serviceId);
-    showToast(isEditMode ? "Service updated" : "Service created", "success");
-    goBack();
+    try {
+      await saveService({
+        name, displayOrder, description, serviceContext, serviceType, apptType, serviceCategory,
+        requestType,
+        teleServiceMode,
+        teleServicePlatform,
+        meetingLink: needsMeetingLink ? meetingLink.trim() : undefined,
+        phoneNumber: needsPhoneNumber ? phoneValue.number : undefined,
+        phoneCountryCode: needsPhoneNumber ? phoneValue.countryCode : undefined,
+        durHrs, durMins, numResources, maxBookings, showDuration, leadDays, leadHrs, leadMins,
+        safeSlots, hasPricing, price, taxApplicable, hsnCode,
+        prepaymentRequired, prepaymentAmount, prePaymentType,
+        preServiceSchema, postServiceSchema, currencyCode,
+        assignUsers,
+        practitionerPrices: Object.fromEntries(
+          Object.entries(practitionerOverrides)
+            .filter(([uid, override]) => override.enabled && isUuid(uid))
+            .map(([uid, override]) => [uid, override.price])
+        ),
+      }, serviceId);
+      showToast(isEditMode ? "Service updated" : "Service created", "success");
+      goBack();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to save service.", "error");
+    }
   };
 
   if (hydrating || loadingService) {
@@ -828,7 +832,7 @@ export default function CreateServicePage() {
           {/* Form Actions */}
           <div className="flex justify-end gap-4 pt-4">
             <Button type="button" variant="secondary" onClick={goBack} id="bookings-create-service-cancel" data-testid="bookings-create-service-cancel">Cancel</Button>
-            <Button type="submit" loading={submitting} id="bookings-create-service-submit" data-testid="bookings-create-service-submit">{isEditMode ? "Save Service" : "Create Service"}</Button>
+            <Button type="submit" loading={submitting} id="bookings-create-service-submit" data-testid="bookings-create-service-submit">{isEditMode ? "Update Service" : "Create Service"}</Button>
           </div>
         </form>
       </div>

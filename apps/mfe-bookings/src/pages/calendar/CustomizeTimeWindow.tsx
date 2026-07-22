@@ -22,9 +22,64 @@ interface TimeWindowUserAssignment {
   capacity?: number;
 }
 
+interface ServiceCustomizationSource {
+  serviceUid: string;
+  serviceName?: string;
+  users?: Array<{
+    userUid: string;
+    userName?: string;
+    price?: number;
+    capacity?: number;
+  }>;
+}
+
+function resolveUserName(
+  userUid: string,
+  fallbackName: string | undefined,
+  userMap: Map<string, { userDisplayName?: string; displayName?: string; firstName?: string }>,
+) {
+  const mappedUser = userMap.get(userUid);
+  const mappedName =
+    mappedUser?.userDisplayName?.trim() || mappedUser?.displayName?.trim() || mappedUser?.firstName?.trim();
+  if (mappedName) return mappedName;
+  const fallback = fallbackName?.trim();
+  if (fallback && fallback !== userUid) return fallback;
+  return userUid;
+}
+
+function buildAssignmentsFromSources(
+  serviceIds: string[],
+  inheritedUserIds: string[],
+  userMap: Map<string, { userDisplayName?: string; displayName?: string; firstName?: string }>,
+  timeWindowDefaults: { price?: number; slotCapacity?: number } | null,
+  serviceSources?: ServiceCustomizationSource[],
+) {
+  return Object.fromEntries(
+    serviceIds.map((serviceId) => {
+      const source = serviceSources?.find((item) => item.serviceUid === serviceId);
+      const sourceUsers = source?.users ?? [];
+      const users =
+        sourceUsers.length > 0
+          ? sourceUsers.map((user) => ({
+              userUid: user.userUid,
+              userName: resolveUserName(user.userUid, user.userName, userMap),
+              price: user.price ?? timeWindowDefaults?.price ?? 0,
+              capacity: user.capacity ?? timeWindowDefaults?.slotCapacity ?? 1,
+            }))
+          : inheritedUserIds.map((userUid) => ({
+              userUid,
+              userName: resolveUserName(userUid, undefined, userMap),
+              price: timeWindowDefaults?.price ?? 0,
+              capacity: timeWindowDefaults?.slotCapacity ?? 1,
+            }));
+      return [serviceId, users];
+    }),
+  );
+}
+
 function normalizeList(
   values: unknown[] | undefined,
-  fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id", "userUid"],
+  fallbackKeys: string[] = ["name", "displayName", "label", "title", "channel", "value", "uid", "id", "userUid"],
 ) {
   if (!Array.isArray(values)) return [];
   return values
@@ -82,7 +137,7 @@ export default function CustomizeTimeWindow() {
   const initialCalendar = routeState?.calendar ?? null;
   const initialSchedule = routeState?.schedule ?? null;
   const initialTimeWindow = routeState?.timeWindow ?? null;
-  const { getCalendar, searchSchedules, customizeTimeWindow } = useCalendars();
+  const { getCalendar, searchSchedules, customizeTimeWindow, getTimeWindowDetails } = useCalendars();
   const { services: allServices } = useServices();
   const { users: allUsers } = useUsers();
 
@@ -131,37 +186,63 @@ export default function CustomizeTimeWindow() {
     async function load() {
       setLoading(true);
       try {
-        const [calendarData, scheduleData] = await Promise.all([
+        const [calendarData, scheduleData, timeWindowData] = await Promise.all([
           getCalendar(calendarUid),
           searchSchedules(calendarUid),
+          getTimeWindowDetails(timeWindowUid).catch(() => null),
         ]);
         if (cancelled) return;
 
         const matchedSchedule = scheduleData.find((item) => item.uid === scheduleUid) ?? initialSchedule;
         const matchedTimeWindow =
-          matchedSchedule?.timeWindows?.find((item) => item.uid === timeWindowUid) ?? initialTimeWindow ?? null;
+          timeWindowData ??
+          matchedSchedule?.timeWindows?.find((item) => item.uid === timeWindowUid) ??
+          initialTimeWindow ??
+          null;
+        const calendarServiceIds = unique(normalizeList(calendarData?.services as unknown[], ["uid", "id", "name"]));
+        const calendarUsers = unique(
+          normalizeList(calendarData?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
+        );
+        const scheduleServiceIds = unique((matchedSchedule?.services ?? []).map((item) => item.serviceUid));
+        const inheritedServiceIds = scheduleServiceIds.length ? scheduleServiceIds : calendarServiceIds;
+        const inheritedAssignments = buildAssignmentsFromSources(
+          inheritedServiceIds,
+          calendarUsers,
+          userMap,
+          matchedTimeWindow,
+          matchedSchedule?.services,
+        );
 
         setCalendar(calendarData);
         setSchedule(matchedSchedule ?? null);
         setTimeWindow(matchedTimeWindow);
 
         const services = matchedTimeWindow?.services ?? [];
-        const nextServiceIds = unique(services.map((item) => item.serviceUid));
-        const nextAssignments = Object.fromEntries(
-          services.map((item) => [
-            item.serviceUid,
-            (item.users ?? []).map((user) => ({
-              userUid: user.userUid,
-              userName: user.userName ?? userMap.get(user.userUid)?.displayName ?? user.userUid,
-              price: user.price ?? matchedTimeWindow?.price ?? 0,
-              capacity: user.capacity ?? matchedTimeWindow?.slotCapacity ?? 1,
-            })),
-          ]),
+        const nextServiceIds = unique(
+          (services.length ? services.map((item) => item.serviceUid) : inheritedServiceIds),
         );
+        const nextAssignments = services.length
+          ? buildAssignmentsFromSources(nextServiceIds, calendarUsers, userMap, matchedTimeWindow, services)
+          : inheritedAssignments;
         const bookingChannels = unique(
-          normalizeList((matchedTimeWindow?.bookingChannels ?? [matchedTimeWindow?.channel].filter(Boolean)) as unknown[]),
+          normalizeList(
+            ((matchedTimeWindow?.bookingChannels?.length
+              ? matchedTimeWindow.bookingChannels
+              : matchedSchedule?.bookingChannels?.length
+                ? matchedSchedule.bookingChannels
+                : calendarData?.bookingChannels) ??
+              [matchedTimeWindow?.channel ?? calendarData?.channel].filter(Boolean)) as unknown[],
+          ),
         );
-        const labels = unique(normalizeList(matchedTimeWindow?.label as unknown[]));
+        const labels = unique(
+          normalizeList(
+            ((matchedTimeWindow?.label?.length
+              ? matchedTimeWindow.label
+              : matchedSchedule?.label?.length
+                ? matchedSchedule.label
+                : (calendarData?.tags ?? calendarData?.label)) ?? []) as unknown[],
+          ),
+        );
 
         setSelectedServiceIds(nextServiceIds);
         setInitialServiceIds(nextServiceIds);
@@ -180,7 +261,7 @@ export default function CustomizeTimeWindow() {
     return () => {
       cancelled = true;
     };
-  }, [calendarUid, getCalendar, initialSchedule, initialTimeWindow, scheduleUid, searchSchedules, timeWindowUid, userMap]);
+  }, [calendarUid, getCalendar, getTimeWindowDetails, initialSchedule, initialTimeWindow, scheduleUid, searchSchedules, timeWindowUid, userMap]);
 
   const selectedServiceObjects = allServices.filter((service) =>
     selectedServiceIds.includes(service.uid ?? service.id ?? ""),
@@ -216,6 +297,7 @@ export default function CustomizeTimeWindow() {
         userName: item.userName,
         price: item.price ?? 0,
         capacity: item.capacity ?? 1,
+        slotCapacity: item.capacity ?? 1,
       })),
       removeUsers: [],
     }));
@@ -235,6 +317,7 @@ export default function CustomizeTimeWindow() {
           userName: item.userName,
           price: item.price ?? 0,
           capacity: item.capacity ?? 1,
+          slotCapacity: item.capacity ?? 1,
         }));
 
       const removedUsers = initialUsers
@@ -254,6 +337,7 @@ export default function CustomizeTimeWindow() {
           userName: item.userName,
           price: item.price ?? 0,
           capacity: item.capacity ?? 1,
+          slotCapacity: item.capacity ?? 1,
         }));
 
       if (addedUsers.length || removedUsers.length || changedUsers.length) {
@@ -470,7 +554,9 @@ export default function CustomizeTimeWindow() {
                                   {getInitials(user.userName)}
                                 </div>
                                 <div className="flex-1">
-                                  <div className="text-sm font-semibold leading-tight text-slate-900">{user.userName}</div>
+                                  <div className="text-sm font-semibold leading-tight text-slate-900">
+                                    {resolveUserName(user.userUid, user.userName, userMap)}
+                                  </div>
                                   <div className="mt-1 text-xs font-medium text-slate-500">
                                     Price: ₹{user.price ?? 0} &nbsp; Capacity: {user.capacity ?? 1}
                                   </div>
@@ -482,7 +568,7 @@ export default function CustomizeTimeWindow() {
                                     setEditingUser({
                                       serviceId: service.id,
                                       userUid: user.userUid,
-                                      userName: user.userName,
+                                      userName: resolveUserName(user.userUid, user.userName, userMap),
                                       price: String(user.price ?? 0),
                                       capacity: String(user.capacity ?? 1),
                                     })
@@ -576,12 +662,12 @@ export default function CustomizeTimeWindow() {
         serviceName={displayServices.find((service) => service.id === usersModalServiceId)?.name || "this service"}
         allUsers={allUsers.map((user) => ({
           id: user.userUid,
-          name: user.displayName || user.firstName || "Unknown",
+          name: user.userDisplayName || user.displayName || user.firstName || "Unknown",
           role: user.title || "Practitioner",
         }))}
         initialSelectedUsers={(serviceAssignments[usersModalServiceId ?? ""] ?? []).map((assignment) => ({
           id: assignment.userUid,
-          name: assignment.userName,
+          name: resolveUserName(assignment.userUid, assignment.userName, userMap),
           role: userMap.get(assignment.userUid)?.title || "Practitioner",
         }))}
         onSave={(selected) => {
@@ -592,7 +678,7 @@ export default function CustomizeTimeWindow() {
                 ...current,
                 [usersModalServiceId]: selected.map((user) => ({
                   userUid: user.id,
-                  userName: user.name,
+                  userName: resolveUserName(user.id, user.name, userMap),
                   price: existing.get(user.id)?.price ?? timeWindow?.price ?? 0,
                   capacity: existing.get(user.id)?.capacity ?? timeWindow?.slotCapacity ?? 1,
                 })),

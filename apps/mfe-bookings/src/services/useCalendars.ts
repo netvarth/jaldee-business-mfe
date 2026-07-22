@@ -15,6 +15,8 @@ import { useToast } from "../contexts/ToastContext";
 import { unwrapList } from "./response";
 import { buildCalendarSearchBody } from "./calendarSearch";
 import { loadCalendarSearchSchema } from "./calendarSearchSchema";
+import { buildScheduleSearchBody } from "./scheduleSearch";
+import { loadScheduleSearchSchema } from "./scheduleSearchSchema";
 
 export interface AccountLocation {
   id: number;
@@ -217,29 +219,57 @@ export const useCalendars = (
 
   const searchSchedules = useCallback(
     async (calendarUid: string, q = "") => {
-      const data = await api.get<unknown>(`/calendars/${calendarUid}/schedules`, {
-        _skipLocationParam: true,
+      const schema = await loadScheduleSearchSchema(api).catch(() => null);
+      const requestBody = buildScheduleSearchBody({
+        filterClauses: [],
+        schema,
+        page: 0,
+        size: 200,
       });
-      const schedules = unwrapList<Schedule>(data);
-      const query = q.trim().toLowerCase();
-
-      if (!query) {
-        return schedules;
+      const conditions = [
+        {
+          field: "calendarUid",
+          operator: "EQ",
+          values: [calendarUid],
+        },
+      ];
+      const query = q.trim();
+      if (query) {
+        conditions.push({
+          field: "name",
+          operator: "CONTAINS",
+          values: [query],
+        });
       }
 
-      return schedules.filter((schedule) =>
-        String(schedule.name ?? "").toLowerCase().includes(query),
+      const data = await api.post<unknown>(
+        "/calendars/schedules/search",
+        {
+          ...requestBody,
+          filters: {
+            logic: "AND",
+            conditions,
+          },
+        },
+        { _skipLocationParam: true },
       );
+
+      return unwrapList<Schedule>(data);
     },
     [api],
   );
 
   const getSchedule = useCallback(
-    async (calendarUid: string, scheduleUid: string) => {
-      const schedules = await searchSchedules(calendarUid);
-      return schedules.find((schedule) => schedule.uid === scheduleUid) ?? null;
+    async (_calendarUid: string, scheduleUid: string) => {
+      const response = await api.get<{ schedule?: Schedule } | Schedule>(`/schedules/${scheduleUid}`, {
+        _skipLocationParam: true,
+      });
+      if (response && typeof response === "object" && "schedule" in response) {
+        return response.schedule ?? null;
+      }
+      return response as Schedule;
     },
-    [searchSchedules],
+    [api],
   );
 
   const updateSchedule = async (
@@ -264,6 +294,15 @@ export const useCalendars = (
     );
     return response;
   };
+
+  const getTimeWindowDetails = useCallback(
+    async (timeWindowUid: string) => {
+      return api.get<TimeWindow>(`/calendars/schedules/time-windows/${timeWindowUid}`, {
+        _skipLocationParam: true,
+      });
+    },
+    [api],
+  );
 
   const customizeTimeWindow = async (
     uid: string,
@@ -366,6 +405,7 @@ export const useCalendars = (
     updateCalendarExtendedSettings,
     updateSchedule,
     updateTimeWindow,
+    getTimeWindowDetails,
     customizeTimeWindow,
     normalizeCalendarStatus,
     refresh: fetchCalendars,

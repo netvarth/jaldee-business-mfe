@@ -102,6 +102,7 @@ export interface ScheduleCustomizationRequest {
 
 export interface TimeWindowServiceUserCustomization extends ScheduleServiceUserCustomization {
   capacity?: number;
+  slotCapacity?: number;
 }
 
 export interface TimeWindowServiceCustomization {

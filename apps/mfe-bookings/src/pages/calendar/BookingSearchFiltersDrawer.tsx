@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@jaldee/design-system";
 import { SchemaFilterBuilder } from "@jaldee/shared-modules";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
@@ -9,9 +10,9 @@ interface BookingSearchFiltersDrawerProps {
   appliedCount: number;
   appliedSummary?: string;
   onChange: (filters: SearchFilterClause[]) => void;
-  onApply: () => void;
+  onApply: (filters: SearchFilterClause[]) => void;
   onReset: () => void;
-  onSaveFilter?: () => void;
+  onSaveFilter?: (filters: SearchFilterClause[]) => void;
 }
 
 export default function BookingSearchFiltersDrawer({
@@ -25,6 +26,16 @@ export default function BookingSearchFiltersDrawer({
   onSaveFilter,
 }: BookingSearchFiltersDrawerProps) {
   const { closeDrawer } = useModal();
+  const [localFilters, setLocalFilters] = useState<SearchFilterClause[]>(draftFilters);
+
+  useEffect(() => {
+    setLocalFilters(draftFilters);
+  }, [draftFilters]);
+
+  const handleChange = (filters: SearchFilterClause[]) => {
+    setLocalFilters(filters);
+    onChange(filters);
+  };
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
@@ -46,8 +57,8 @@ export default function BookingSearchFiltersDrawer({
       <div className="flex-1 overflow-y-auto p-5">
         <SchemaFilterBuilder
           schema={schema}
-          value={draftFilters}
-          onChange={onChange}
+          value={localFilters}
+          onChange={handleChange}
           appliedCount={appliedCount}
           appliedSummary={appliedSummary}
           onClearAll={onReset}
@@ -60,14 +71,14 @@ export default function BookingSearchFiltersDrawer({
           Reset All
         </Button>
         {onSaveFilter && (
-          <Button type="button" variant="secondary" onClick={onSaveFilter}>
+          <Button type="button" variant="secondary" onClick={() => onSaveFilter(localFilters)}>
             Save Filter
           </Button>
         )}
         <Button
           type="button"
           onClick={() => {
-            onApply();
+            onApply(localFilters);
             closeDrawer();
           }}
         >

@@ -3,7 +3,6 @@ import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useBookingApi } from "../services/useBookingApi";
 import { useToast } from "../contexts/ToastContext";
 import type { ServiceItem } from "../types";
-import { createdServices } from "../data/sessionStore";
 import { unwrapList } from "./response";
 import { buildServiceSearchBody } from "./serviceSearch";
 
@@ -105,13 +104,10 @@ export const useServices = (
         requestBody,
         { _skipLocationParam: true }
       );
-      setServices([
-        ...createdServices,
-        ...unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult),
-      ]);
+      setServices(unwrapList<ServiceSearchDto>(data).map(normalizeServiceSearchResult));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load services.");
-      setServices([...createdServices]);
+      setServices([]);
     } finally {
       if (inFlightRequestKeyRef.current === requestKey) {
         inFlightRequestKeyRef.current = null;
@@ -126,9 +122,7 @@ export const useServices = (
       setServices((prev) => [normalizeService(created), ...prev]);
       showToast("Service created", "success");
     } catch {
-      const local: ServiceItem = { ...input, id: `srv-${Date.now()}`, status: "Active" };
-      setServices((prev) => [local, ...prev]);
-      showToast("Service created (local)", "info");
+      showToast("Failed to create service.", "error");
     }
   };
 
@@ -136,7 +130,7 @@ export const useServices = (
     const next: ServiceItem["status"] = service.status === "Active" ? "Inactive" : "Active";
     setServices((prev) => prev.map((item) => (item.id === service.id ? { ...item, status: next } : item)));
     try {
-      await api.put(`/services/${service.id}`, { ...service, status: toApiStatus(next) });
+      await api.put(`/services/${service.id}/status`, toApiStatus(next));
     } catch {
       // Local-only update is fine for the prototype.
     }

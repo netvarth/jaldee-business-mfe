@@ -68,9 +68,21 @@ function DetailRow({ label, rightValue }: { label: string; rightValue?: ReactNod
 function GridBox({ label, value }: { label: string; value?: ReactNode }) {
   if (value == null || value === "") return null;
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 font-semibold text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+function CompactRow({ label, value }: { label: string; value?: ReactNode }) {
+  if (value == null || value === "") return null;
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-sm font-medium text-slate-500">{label}</span>
+      <div className="text-sm font-semibold text-slate-800 flex items-center gap-2 text-right">
+        {value}
+      </div>
     </div>
   );
 }
@@ -156,9 +168,9 @@ export default function ServiceDetailsPage() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,1fr)] items-start">
           <div className="space-y-6">
             
-            {/* CLINICAL DESCRIPTION & SCOPE */}
+            {/* SERVICE DETAILS */}
             <SectionCard
-              title="CLINICAL DESCRIPTION & SCOPE"
+              title="Service Details"
               icon={<FileIcon />}
               rightElement={
                 (raw.serviceCode || raw.uid) ? (
@@ -173,10 +185,48 @@ export default function ServiceDetailsPage() {
                   "{raw.description || raw.internalDescription}"
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <GridBox label="Context Scope" value={humanize(raw.serviceMode || service.consultationType)} />
-                <GridBox label="Service Category" value={humanize(raw.category || service.serviceCategory)} />
-                <GridBox label="Display Order" value={raw.displayOrder != null ? `Rank ${raw.displayOrder}` : null} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                {/* General Group Card */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">General Configuration</div>
+                  <div className="flex flex-col gap-0">
+                    <CompactRow label="Context Scope" value={humanize(raw.serviceMode || service.consultationType)} />
+                    <CompactRow label="Service Category" value={humanize(raw.category || service.serviceCategory)} />
+                    <CompactRow label="Display Order" value={raw.displayOrder != null ? String(raw.displayOrder) : null} />
+                  </div>
+                </div>
+
+                {/* Classification & Type Card */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Classification & Type</div>
+                  <div className="flex flex-col gap-0">
+                    <CompactRow label="Service Type" value={humanize(raw.serviceType)} />
+                    <CompactRow label="Appointment Type" value={humanize(raw.bookingMode)} />
+                  </div>
+                </div>
+
+                {/* Teleservice Group Card */}
+                {raw.serviceType === 'virtualService' && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-2">Teleservice Configuration</div>
+                    <div className="flex flex-col gap-0">
+                      <CompactRow label="Mode" value={humanize(raw.virtualServiceType)} />
+                      <CompactRow label="Platform" value={humanize(raw.virtualCallingModes?.[0]?.callingMode)} />
+                      <CompactRow label="Contact Info" value={raw.virtualCallingModes?.[0]?.value} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Request Group Card */}
+                {raw.bookingMode === 'REQUEST' && (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#5a32a3] mb-2">Request Configuration</div>
+                    <div className="flex flex-col gap-0">
+                      <CompactRow label="Request Constraint" value={raw.dateTime ? 'Requires Date & Time' : raw.date ? 'Requires Date Only' : raw.noDateTime ? 'No Date & Time' : humanize(raw.serviceBookingType)} />
+                    </div>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
@@ -190,23 +240,24 @@ export default function ServiceDetailsPage() {
                 </div>
               }
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1">
-                <DetailRow label="Service Direct Action" rightValue={humanize(raw.bookingMode)} />
-                <DetailRow label="Time Proposal Method" rightValue={humanize(raw.serviceBookingType)} />
-                <DetailRow 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
+                <CompactRow 
                   label="Estimated Duration" 
-                  rightValue={raw.duration != null ? (
+                  value={raw.duration != null ? (
                     <span className="flex items-center gap-1.5"><ClockIcon className="w-4 h-4 text-slate-400" /> {raw.duration} mins</span>
                   ) : null} 
                 />
-                <DetailRow 
-                  label="Slot Visibility Displayed" 
-                  rightValue={raw.serviceDurationEnabled != null ? (raw.serviceDurationEnabled ? <span className="text-emerald-600">Show Estimated Duration</span> : "Hidden") : null} 
+                <CompactRow label="Max Bookings" value={raw.maxBookingsPerConsumer != null ? String(raw.maxBookingsPerConsumer) : null} />
+                <CompactRow label="Number of Resources" value={raw.resourcesRequired != null ? String(raw.resourcesRequired) : null} />
+                <CompactRow label="Lead Time" value={raw.leadTime != null ? `${raw.leadTime} mins` : null} />
+                <CompactRow 
+                  label="Show Estimated Duration" 
+                  value={raw.serviceDurationEnabled != null ? (raw.serviceDurationEnabled ? <span className="text-emerald-600">Enabled</span> : <span className="text-red-600">Disabled</span>) : null} 
                 />
-                <DetailRow label="Consultation Chambers" rightValue={raw.resourcesRequired != null ? `${raw.resourcesRequired} allocated resource room(s)` : null} />
-                <DetailRow label="Lead Scheduling Time Policy" rightValue={raw.leadTime != null ? `${raw.leadTime}h` : null} />
-                <DetailRow label="Max Bookings per Slot" rightValue={raw.maxBookingsPerConsumer != null ? `Max ${raw.maxBookingsPerConsumer} Patient(s)` : null} />
-                <DetailRow label="Only Available Slots" rightValue={raw.showOnlyAvailableSlots != null ? (raw.showOnlyAvailableSlots ? "Enabled" : "Disabled") : null} />
+                <CompactRow 
+                  label="Show Only Available Slots" 
+                  value={raw.showOnlyAvailableSlots != null ? (raw.showOnlyAvailableSlots ? <span className="text-emerald-600">Enabled</span> : <span className="text-red-600">Disabled</span>) : null} 
+                />
               </div>
             </SectionCard>
 

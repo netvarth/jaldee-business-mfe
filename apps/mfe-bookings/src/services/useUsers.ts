@@ -10,6 +10,7 @@ interface UserDto {
   uid?: string;
   id?: string;
   title?: string;
+  userDisplayName?: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
@@ -37,14 +38,15 @@ function toUiStatus(status?: string): BookingUser["status"] {
 function toUser(d: UserDto): BookingUser {
   const first = d.firstName ?? "";
   const last = d.lastName ?? "";
-  const display = d.displayName || `${first} ${last}`.trim() || "User";
+  const userDisplayName = d.userDisplayName || d.displayName || `${first} ${last}`.trim() || "User";
   const userUid = resolveUserUid(d);
   return {
     userUid: userUid ?? `usr-${Math.random().toString(36).slice(2, 8)}`,
     title: d.title ?? "",
     firstName: first,
     lastName: last,
-    displayName: display,
+    userDisplayName,
+    displayName: userDisplayName,
     email: d.email ?? d.emailId ?? "",
     phoneNumber: d.phoneNumber ?? d.primaryPhoneNumber ?? d.mobileNumber ?? "",
     status: toUiStatus(d.status),

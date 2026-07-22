@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Button, PageHeader, Select } from "@jaldee/design-system";
+import { Button, DatePickerPopover, PageHeader, Select } from "@jaldee/design-system";
 import {
   buildDefaultSearchClauses,
   compactSearchClauses,
@@ -31,6 +31,30 @@ interface CalendarDashboardProps {
   onBookingSelect: (bookingId: string) => void;
 }
 
+function getUserInitials(name?: string, code?: string) {
+  const normalizedCode = code?.trim();
+  if (normalizedCode) {
+    return normalizedCode.slice(0, 2).toUpperCase();
+  }
+
+  const normalizedName = name?.trim();
+  if (!normalizedName) {
+    return "NA";
+  }
+
+  const parts = normalizedName.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function resolveSidebarAvatarColors(rawColor?: string) {
+  void rawColor;
+  return { backgroundColor: "#ffffff", color: "#be185d" };
+}
+
 export default function CalendarDashboard({ onBookingSelect }: CalendarDashboardProps) {
   const { openModal, openDrawer } = useModal();
   const navigate = useNavigate();
@@ -47,6 +71,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
   const [layoutMode] = useState<"grid" | "list">("grid");
   const [viewBy, setViewBy] = useState<"doctors" | "calendars">("doctors");
   const [date, setDate] = useState(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
@@ -60,8 +85,10 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
   
   const { filters: savedFilters, saveFilter: createSavedFilter, deleteFilter: removeSavedFilter } = useDashboardFilters();
   const [activeFilterUid, setActiveFilterUid] = useState<string | undefined>();
+  const [pendingSavedFilterSearch, setPendingSavedFilterSearch] = useState(false);
+  const dateTriggerRef = React.useRef<HTMLButtonElement | null>(null);
 
-  const { bookings: liveBookings } = useBookings(
+  const { bookings: liveBookings, refresh: refreshBookings } = useBookings(
     format(date, "yyyy-MM-dd"),
     viewMode,
     advancedFilters,
@@ -101,6 +128,15 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
       setSelectedServiceIds(new Set(services.map((service) => service.id || "")));
     }
   }, [services, selectedServiceIds.size]);
+
+  React.useEffect(() => {
+    if (!pendingSavedFilterSearch) {
+      return;
+    }
+
+    refreshBookings();
+    setPendingSavedFilterSearch(false);
+  }, [pendingSavedFilterSearch, refreshBookings]);
 
   const filteredCalendars =
     selectedCalendarIds.size === 0
@@ -167,25 +203,27 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
             setAdvancedFilters(resetFilters);
             setActiveFilterUid(undefined);
           }}
-          onApply={() => {
-            setAdvancedFilters(draftFilters.length > 0 ? draftFilters : baseFilters);
+          onApply={(filters) => {
+            setDraftFilters(filters);
+            setAdvancedFilters(filters.length > 0 ? filters : baseFilters);
             setActiveFilterUid(undefined);
           }}
-          onSaveFilter={() => {
+          onSaveFilter={(filters) => {
             openModal(
               <SaveDashboardFilterModal
                 onSave={async (name) => {
-                  await createSavedFilter(name, draftFilters.length > 0 ? draftFilters : baseFilters);
+                  await createSavedFilter(name, filters.length > 0 ? filters : baseFilters);
                 }}
                 onSaveAndApply={async (name) => {
-                  const created = await createSavedFilter(name, draftFilters.length > 0 ? draftFilters : baseFilters);
+                  const created = await createSavedFilter(name, filters.length > 0 ? filters : baseFilters);
                   setAdvancedFilters(created.filter.filters);
                   setActiveFilterUid(created.uid);
                 }}
               />
             );
           }}
-        />
+        />,
+        { panelClassName: "bg-[#f8fafc] w-96 max-w-full" }
       );
     };
 
@@ -213,6 +251,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                     setAdvancedFilters(buildDefaultSearchClauses(bookingSearchSchema));
                     setActiveFilterUid(undefined);
                   }
+                  setPendingSavedFilterSearch(true);
                 }}
                 onDelete={(uid) => {
                   removeSavedFilter(uid);
@@ -406,8 +445,9 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               size="sm"
               id="bookings-current-date"
               data-testid="bookings-current-date"
+              ref={dateTriggerRef}
               className="date-picker-trigger border border-slate-200 bg-white font-bold text-slate-800"
-              onClick={() => setDate(new Date())}
+              onClick={() => setIsDatePickerOpen(true)}
             >
               <span>{formattedDate}</span>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="date-icon ml-1 text-purple-600">
@@ -436,6 +476,19 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 setDate(nextDate);
               }}
             />
+            {isDatePickerOpen ? (
+              <DatePickerPopover
+                selectedDate={date}
+                anchorRef={dateTriggerRef}
+                align="start"
+                title="Select date"
+                onSelectDate={(selectedDate) => {
+                  setDate(selectedDate);
+                  setIsDatePickerOpen(false);
+                }}
+                onClose={() => setIsDatePickerOpen(false)}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -553,6 +606,8 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 <div className={`sidebar-option-list sidebar-user-list ${liveProviders.length > 5 ? "scrollable" : ""}`}>
                   {liveProviders.map((user) => {
                     const id = getProviderKey(user);
+                    const avatarColors = resolveSidebarAvatarColors(user.color);
+
                     return (
                       <div key={id} className="sidebar-option-row sidebar-option-row-user">
                         <input
@@ -572,8 +627,8 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                           }}
                         />
                         <label htmlFor={`user-${id}`} className="sidebar-option-label sidebar-user-label">
-                          <div className="sidebar-user-avatar" style={{ backgroundColor: user.color || "#9333EA" }}>
-                            {user.code || user.name?.substring(0, 2)?.toUpperCase()}
+                          <div className="sidebar-user-avatar" style={avatarColors}>
+                            {getUserInitials(user.name, user.code)}
                           </div>
                           <span className="truncate">{user.name}</span>
                           {user.status === "leave" ? <span className="sidebar-leave-pill">LEAVE</span> : null}
@@ -670,9 +725,16 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               bookings={filteredBookings as any}
               services={services}
               onBookingSelect={onBookingSelect}
-              onDaySelect={(selectedDate) => {
+              onDaySelect={(selectedDate, uid) => {
                 setDate(selectedDate);
                 setViewMode("DAY");
+                if (uid) {
+                  if (viewBy === "doctors") {
+                    setSelectedUserIds(new Set([uid]));
+                  } else {
+                    setSelectedCalendarIds(new Set([uid]));
+                  }
+                }
               }}
             />
           )}

@@ -15,6 +15,30 @@ export interface FilterEntity {
   status?: "Disabled" | "Enabled";
 }
 
+function normalizeFilterClauses(filters: SearchFilterClause[] | undefined) {
+  if (!Array.isArray(filters)) {
+    return [];
+  }
+
+  return filters
+    .map((clause) => ({
+      ...clause,
+      values: Array.isArray(clause.values)
+        ? clause.values.map((value) => value.trim()).filter(Boolean)
+        : [],
+    }))
+    .filter((clause) => clause.values.length > 0);
+}
+
+function normalizeFilterEntity(filter: FilterEntity): FilterEntity {
+  return {
+    ...filter,
+    filter: {
+      filters: normalizeFilterClauses(filter.filter?.filters),
+    },
+  };
+}
+
 export function useDashboardFilters() {
   const api = useBookingApi();
   const { user } = useMFEProps();
@@ -31,7 +55,7 @@ export function useDashboardFilters() {
       }, {
         params: { page: 0, size: 200 }
       });
-      setFilters(unwrapList<FilterEntity>(data));
+      setFilters(unwrapList<FilterEntity>(data).map(normalizeFilterEntity));
     } catch (err: any) {
       setError(err.message || "Failed to fetch filters");
     } finally {
@@ -46,12 +70,12 @@ export function useDashboardFilters() {
   const saveFilter = async (name: string, draftFilters: SearchFilterClause[]) => {
     const payload: FilterEntity = {
       name,
-      filter: { filters: draftFilters },
+      filter: { filters: normalizeFilterClauses(draftFilters) },
       filterType: "CALENDAR_DASHBOARD",
       status: "Enabled",
       userUid: user.id,
     };
-    const created = await api.post<FilterEntity>("/filters", payload);
+    const created = normalizeFilterEntity(await api.post<FilterEntity>("/filters", payload));
     setFilters((prev) => [...prev, created]);
     return created;
   };

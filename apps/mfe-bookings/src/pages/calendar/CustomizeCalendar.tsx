@@ -17,7 +17,7 @@ const channels = [
 
 function normalizeList(
   values: unknown[] | undefined,
-  fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id"],
+  fallbackKeys: string[] = ["name", "displayName", "label", "title", "channel", "value", "uid", "id"],
 ) {
   if (!Array.isArray(values)) return [];
   return values
@@ -36,6 +36,21 @@ function normalizeList(
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter((value) => value.trim()))); 
+}
+
+function resolveEffectiveBookingChannels(
+  schedule: Schedule | null | undefined,
+  calendar: Calendar | null | undefined,
+) {
+  const normalizedScheduleChannels = unique(normalizeList(schedule?.bookingChannels as unknown[]));
+  const normalizedCalendarChannels = unique(normalizeList(calendar?.bookingChannels as unknown[]));
+  const fallbackChannel = typeof calendar?.channel === "string" && calendar.channel.trim() ? [calendar.channel] : [];
+
+  return normalizedScheduleChannels.length
+    ? normalizedScheduleChannels
+    : normalizedCalendarChannels.length
+      ? normalizedCalendarChannels
+      : fallbackChannel;
 }
 
 function token(value: string) {
@@ -59,7 +74,54 @@ function diffList(current: string[], initial: string[]) {
 interface ServiceAssignment {
   userUid: string;
   userName: string;
-  price?: number;
+}
+
+interface ServiceCustomizationSource {
+  serviceUid: string;
+  serviceName?: string;
+  users?: Array<{
+    userUid: string;
+    userName?: string;
+    price?: number;
+  }>;
+}
+
+function resolveUserName(
+  userUid: string,
+  fallbackName: string | undefined,
+  userMap: Map<string, string | undefined>,
+) {
+  const mappedName = userMap.get(userUid)?.trim();
+  if (mappedName) return mappedName;
+  const fallback = fallbackName?.trim();
+  if (fallback && fallback !== userUid) return fallback;
+  return userUid;
+}
+
+function buildAssignmentsFromSources(
+  serviceIds: string[],
+  calendarUserIds: string[],
+  userMap: Map<string, string | undefined>,
+  serviceSources?: ServiceCustomizationSource[],
+) {
+  return Object.fromEntries(
+    serviceIds.map((serviceId) => {
+      const source = serviceSources?.find((item) => item.serviceUid === serviceId);
+      const sourceUsers = source?.users ?? [];
+      const users =
+        sourceUsers.length > 0
+          ? sourceUsers.map((user) => ({
+              userUid: user.userUid,
+              userName: resolveUserName(user.userUid, user.userName, userMap),
+            }))
+          : calendarUserIds.map((userUid) => ({
+              userUid,
+              userName: resolveUserName(userUid, undefined, userMap),
+            }));
+
+      return [serviceId, users];
+    }),
+  );
 }
 
 export default function CustomizeCalendar() {
@@ -71,7 +133,7 @@ export default function CustomizeCalendar() {
   const selectedSchedule = routeState?.schedule ?? null;
   const isScheduleMode = Boolean(selectedSchedule);
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
-  const { customizeCalendar, customizeSchedule, searchSchedules, getCalendar } = useCalendars();
+  const { customizeCalendar, customizeSchedule, searchSchedules, getCalendar, getSchedule } = useCalendars();
   const { services } = useServices();
   const { users } = useUsers();
 
@@ -94,7 +156,10 @@ export default function CustomizeCalendar() {
   const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
 
   const serviceMap = useMemo(() => new Map(services.map((service) => [service.uid ?? service.id, service.name])), [services]);
-  const userMap = useMemo(() => new Map(users.map((user) => [user.userUid, user.displayName])), [users]);
+  const userMap = useMemo(
+    () => new Map(users.map((user) => [user.userUid, user.userDisplayName ?? user.displayName])),
+    [users],
+  );
   const defaultUserIds = useMemo(
     () => unique(normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"])),
     [calendar?.users],
@@ -153,15 +218,7 @@ export default function CustomizeCalendar() {
         const baseUsers = unique(
           normalizeList(data.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
         );
-        const initialUserMap = Object.fromEntries(
-          serviceIds.map((serviceId) => [
-            serviceId,
-            baseUsers.map((userUid) => ({
-              userUid,
-              userName: userMap.get(userUid) ?? userUid,
-            })),
-          ]),
-        );
+        const initialUserMap = buildAssignmentsFromSources(serviceIds, baseUsers, userMap);
 
         setCalendar(data);
         setSelectedServiceIds(serviceIds);
@@ -183,7 +240,7 @@ export default function CustomizeCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [calendarUid, getCalendar, initialCalendar]);
+  }, [calendarUid, getCalendar, initialCalendar, userMap]);
 
   useEffect(() => {
     if (!calendarUid) return;
@@ -196,21 +253,24 @@ export default function CustomizeCalendar() {
         if (cancelled) return;
         setSchedules(data);
         if (selectedSchedule) {
-          const matched = data.find((schedule) => schedule.uid === selectedSchedule.uid) ?? selectedSchedule;
-          const scheduleServices = matched.services ?? [];
-          const nextServiceIds = unique(scheduleServices.map((item) => item.serviceUid));
-          const nextAssignments = Object.fromEntries(
-            scheduleServices.map((item) => [
-              item.serviceUid,
-              (item.users ?? []).map((user) => ({
-                userUid: user.userUid,
-                userName: user.userName ?? userMap.get(user.userUid) ?? user.userUid,
-                price: user.price,
-              })),
-            ]),
+          const matched = await getSchedule(calendarUid, selectedSchedule.uid).catch(() => null);
+          if (cancelled) return;
+          const resolvedSchedule = matched ?? data.find((schedule) => schedule.uid === selectedSchedule.uid) ?? selectedSchedule;
+          const calendarServiceIds = unique(normalizeList(calendar?.services as unknown[], ["uid", "id", "name"]));
+          const calendarUsers = unique(
+            normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
           );
-          const bookingChannels = unique(normalizeList(matched.bookingChannels as unknown[]));
-          const labels = unique(normalizeList(matched.label as unknown[]));
+          const scheduleServices = resolvedSchedule.services ?? [];
+          const nextServiceIds = unique(
+            (scheduleServices.length ? scheduleServices.map((item) => item.serviceUid) : calendarServiceIds),
+          );
+          const nextAssignments = buildAssignmentsFromSources(nextServiceIds, calendarUsers, userMap, scheduleServices);
+          const bookingChannels = resolveEffectiveBookingChannels(resolvedSchedule, calendar);
+          const labels = unique(
+            normalizeList(
+              ((resolvedSchedule.label?.length ? resolvedSchedule.label : (calendar?.tags ?? calendar?.label)) ?? []) as unknown[],
+            ),
+          );
 
           setSelectedServiceIds(nextServiceIds);
           setInitialServiceIds(nextServiceIds);
@@ -233,7 +293,7 @@ export default function CustomizeCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [calendarUid, searchSchedules, selectedSchedule, userMap]);
+  }, [calendar, calendarUid, getSchedule, searchSchedules, selectedSchedule, userMap]);
 
   const addTag = () => {
     const value = newLabel.trim();
@@ -292,7 +352,6 @@ export default function CustomizeCalendar() {
       addUsers: (serviceAssignments[serviceUid] ?? []).map((item) => ({
         userUid: item.userUid,
         userName: item.userName,
-        price: item.price ?? 0,
       })),
       removeUsers: [],
     }));
@@ -317,22 +376,11 @@ export default function CustomizeCalendar() {
         .filter((item) => !currentMap.has(item.userUid))
         .map((item) => ({ userUid: item.userUid }));
 
-      const repricedUsers = currentUsers
-        .filter((item) => {
-          const existing = initialMap.get(item.userUid);
-          return existing && (existing.price ?? 0) !== (item.price ?? 0);
-        })
-        .map((item) => ({
-          userUid: item.userUid,
-          userName: item.userName,
-          price: item.price ?? 0,
-        }));
-
-      if (addedUsers.length || removedUsers.length || repricedUsers.length) {
+      if (addedUsers.length || removedUsers.length) {
         addServices.push({
           serviceUid,
           serviceName: serviceMap.get(serviceUid) ?? serviceUid,
-          addUsers: [...addedUsers, ...repricedUsers],
+          addUsers: addedUsers,
           removeUsers: removedUsers,
         });
       }
@@ -469,30 +517,9 @@ export default function CustomizeCalendar() {
                                 {row.users.length ? (
                                   row.users.map((user) => (
                                     <div key={`${row.serviceId}-${user.userUid}`} className="flex items-center gap-3">
-                                      <span className="text-sm text-slate-700">{user.userName}</span>
-                                      {isScheduleMode ? (
-                                        <Input
-                                          value={String(user.price ?? 0)}
-                                          onChange={(event) =>
-                                            setServiceAssignments((current) => ({
-                                              ...current,
-                                              [row.serviceId]: (current[row.serviceId] ?? row.users).map((item) =>
-                                                item.userUid === user.userUid
-                                                  ? {
-                                                      ...item,
-                                                      price: Number(event.target.value || 0),
-                                                    }
-                                                  : item,
-                                              ),
-                                            }))
-                                          }
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          className="w-28"
-                                          placeholder="Price"
-                                        />
-                                      ) : null}
+                                      <span className="text-sm text-slate-700">
+                                        {resolveUserName(user.userUid, user.userName, userMap)}
+                                      </span>
                                     </div>
                                   ))
                                 ) : (
@@ -660,14 +687,18 @@ export default function CustomizeCalendar() {
         serviceName={serviceRows.find((row) => row.serviceId === usersModalServiceId)?.serviceName || "this service"}
         allUsers={users.map((u) => ({
           id: u.userUid,
-          name: u.displayName || u.firstName || "Unknown",
+          name: u.userDisplayName || u.displayName || u.firstName || "Unknown",
           role: u.title || "Practitioner",
         }))}
         initialSelectedUsers={(serviceAssignments[usersModalServiceId ?? ""] ?? initialServiceAssignments[usersModalServiceId ?? ""] ?? defaultAssignments[usersModalServiceId ?? ""] ?? []).map((assignment) => {
           const u = users.find((user) => user.userUid === assignment.userUid);
           return {
             id: String(assignment.userUid),
-            name: assignment.userName || u?.displayName || u?.firstName || "Unknown",
+            name: resolveUserName(
+              assignment.userUid,
+              assignment.userName || u?.userDisplayName || u?.displayName || u?.firstName,
+              userMap,
+            ),
             role: u?.title || "Practitioner",
           };
         })}
@@ -679,8 +710,7 @@ export default function CustomizeCalendar() {
                 ...prev,
                 [usersModalServiceId]: selected.map((item) => ({
                   userUid: item.id,
-                  userName: item.name,
-                  price: existing.get(item.id)?.price ?? 0,
+                  userName: resolveUserName(item.id, item.name, userMap),
                 })),
               };
             });

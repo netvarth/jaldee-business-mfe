@@ -31,7 +31,7 @@ export function useServiceGroups() {
       displayOrder: 0,
       status: input.status === "Active" ? "Enabled" : "Disabled",
       combinedDuration: input.duration ?? 0,
-      pricingMode: input.priceMode === "fixed" ? "Fixed" : "Dynamic",
+      pricingMode: input.priceMode === "fixed" ? "FIXED" : "SUM_OF_LINKED_SERVICES",
       packagePrice: input.price ?? 0,
       currencyCode: "INR", // Defaulting to INR as per typical usage
       services: input.serviceIds.map(uid => ({ uid }))

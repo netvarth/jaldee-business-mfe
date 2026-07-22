@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
 import { useBookingApi } from "./useBookingApi";
-import { addCreatedService } from "../data/sessionStore";
 import type { ServiceItem } from "../types";
 import { useServiceDetails } from "./useServiceDetails";
 
@@ -247,13 +246,9 @@ export function useCreateService() {
       const dto = serviceId
         ? await updateService(serviceId, toApiPayload(input, location?.id))
         : await api.post<CreateServiceDtoLike>("/services", toApiPayload(input, location?.id));
-      const service = toCreatedService(input, dto);
-      addCreatedService(service);
-      return service;
+      return toCreatedService(input, dto);
     } catch {
-      const service = toCreatedService(input);
-      addCreatedService(service);
-      return service;
+      throw new Error(serviceId ? "Failed to update service." : "Failed to create service.");
     } finally {
       setSubmitting(false);
     }

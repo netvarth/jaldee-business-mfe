@@ -12,7 +12,8 @@ import {
 } from "../../services/useBookingDetails";
 import { useBookingPreferences } from "../../services/useBookingPreferences";
 import { useBlockSlot } from "../../services/useBlockSlot";
-import type { AllowedAction, BookingStatus } from "../../types";
+import { useSlots } from "../../services/useSlots";
+import type { AllowedAction, BookingStatus, Slot } from "../../types";
 import { buildOffsetDateTime, formatIsoTime } from "../../utils/dateTime";
 import AttachmentsPanel from "./AttachmentsPanel";
 
@@ -95,6 +96,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     finance, payments, paying, createInvoice, recordPayment,
   } = useBookingDetails();
   const { preference } = useBookingPreferences();
+  const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { unblockSlot, submitting: unblocking } = useBlockSlot();
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("");
@@ -106,7 +108,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const [cancelSeries, setCancelSeries] = useState(false);
   const [reschedOpen, setReschedOpen] = useState(false);
   const [newDate, setNewDate] = useState("");
-  const [newStart, setNewStart] = useState("09:00");
+  const [newStart, setNewStart] = useState("");
+  const [newEnd, setNewEnd] = useState("");
   const [rescheduleSeries, setRescheduleSeries] = useState(false);
 
   useEffect(() => {
@@ -125,6 +128,20 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   }, [bookingId, load]);
 
   if (!bookingId) return null;
+
+  useEffect(() => {
+    if (reschedOpen && newDate && details) {
+      fetchSlots({
+        scheduleUid: details.calendarUid || "",
+        calendarUid: details.calendarUid,
+        serviceUid: details.serviceUid || "",
+        providerUid: details.userUid,
+        date: newDate,
+      });
+    } else {
+      clearSlots();
+    }
+  }, [reschedOpen, newDate, details, fetchSlots, clearSlots]);
 
   const handleAction = (action: AllowedAction) => {
     if (action === "CANCEL") { setCancelOpen((v) => !v); return; }
@@ -166,16 +183,23 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   };
 
   const submitReschedule = () => {
-    if (!newDate) return;
+    if (!newDate || !newStart) return;
     const start = buildOffsetDateTime(newDate, newStart, preference?.timezone);
-    const [h, m] = newStart.split(":").map(Number);
-    const endHour = h + Math.floor((m + 30) / 60);
-    const endMinute = (m + 30) % 60;
-    const end = buildOffsetDateTime(
-      newDate,
-      `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}:00`,
-      preference?.timezone,
-    );
+    
+    let end: string;
+    if (newEnd) {
+      end = buildOffsetDateTime(newDate, newEnd, preference?.timezone);
+    } else {
+      const [h, m] = newStart.split(":").map(Number);
+      const endHour = h + Math.floor((m + 30) / 60);
+      const endMinute = (m + 30) % 60;
+      end = buildOffsetDateTime(
+        newDate,
+        `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}:00`,
+        preference?.timezone,
+      );
+    }
+    
     const extra: ActionExtra = { newDate, newStartTime: start, newEndTime: end, rescheduleSeries };
     act("RESCHEDULE", extra);
     setReschedOpen(false);
@@ -329,13 +353,43 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   <div className="px-6 mb-4">
                     <div data-testid={`bookings-appointment-details-${bookingId}-reschedule-panel`} data-state="open" className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
                       <label className="block text-xs font-bold text-slate-700">Reschedule to</label>
-                      <div className="flex gap-2">
-                        <Input id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} containerClassName="flex-1" />
-                        <TimePicker id={`bookings-appointment-details-${bookingId}-reschedule-time`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-time`} value={newStart} onChange={(e) => setNewStart(e.target.value)} fullWidth={false} />
+                      <div className="flex gap-2 mb-2">
+                        <Input id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => { setNewDate(e.target.value); setNewStart(""); setNewEnd(""); }} containerClassName="flex-1" />
                       </div>
+                      
+                      {newDate && (
+                        <div className="mb-4">
+                          <label className="block text-xs font-bold text-slate-700 mb-2">Available Slots</label>
+                          <div className="grid grid-cols-4 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                            {slotsLoading ? (
+                              <div className="text-xs font-medium text-[#6C32FF] col-span-4 p-4 text-center bg-[#f5f3ff] rounded-lg border border-[#eaddff]">Loading slots…</div>
+                            ) : slots.length === 0 ? (
+                              <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this date.</div>
+                            ) : (
+                              slots.map((s) => {
+                                const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
+                                const active = newStart === s.startTime;
+                                const fmtSlot = (t: string) => t.split(":").slice(0, 2).join(":");
+                                return (
+                                  <button
+                                    key={s.startTime}
+                                    type="button"
+                                    disabled={!available}
+                                    onClick={() => { setNewStart(s.startTime); setNewEnd(s.endTime); }}
+                                    className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all shadow-sm ${active ? 'border-[#6C32FF] bg-[#6C32FF] text-white shadow-md' : available ? 'border-slate-200 bg-white text-slate-700 hover:border-[#6C32FF] hover:text-[#6C32FF]' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed shadow-none'}`}
+                                  >
+                                    {fmtSlot(s.startTime)}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex justify-end gap-2 mt-2">
                         <Button variant="ghost" size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-back`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-back`} onClick={() => setReschedOpen(false)}>Back</Button>
-                        <Button size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-confirm`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-confirm`} onClick={submitReschedule} disabled={!newDate} style={{ backgroundColor: '#6C32FF', color: 'white' }}>Confirm</Button>
+                        <Button size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-confirm`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-confirm`} onClick={submitReschedule} disabled={!newDate || !newStart} style={{ backgroundColor: '#6C32FF', color: 'white' }}>Confirm</Button>
                       </div>
                     </div>
                   </div>
