@@ -13,6 +13,8 @@ async function run() {
   const viewDelay = 5000;
   let section17Started = false;
   const suffix = `${Date.now()}`.slice(-6);
+  let managedEmployeeLoginId = "";
+  let currentRunEmployeeUid = "";
   const futureDate = (daysAhead) => {
     const date = new Date();
     date.setDate(date.getDate() + daysAhead);
@@ -306,6 +308,14 @@ async function run() {
     await page.waitForTimeout(900);
   }
 
+  async function openSettingsSection(section, readySelector) {
+    const sectionButton = page.locator(`[data-testid="hr-settings-section-${section}"]`);
+    await sectionButton.waitFor({ state: "visible", timeout: 20000 });
+    await sectionButton.click();
+    await page.waitForURL(new RegExp(`/hr/settings/${section}(?:[/?#]|$)`), { timeout: 15000 });
+    await page.locator(readySelector).waitFor({ state: "visible", timeout: 30000 });
+  }
+
   async function confirmDialogSubmission(dialogSelector, recordText, labelName) {
     const dialog = page.locator(dialogSelector).first();
     const closed = await dialog.waitFor({ state: "hidden", timeout: 20_000 }).then(() => true).catch(() => false);
@@ -488,12 +498,12 @@ async function run() {
   const companySaveResponse = page.waitForResponse((response) => response.url().includes("/company-profile") && response.request().method() === "PUT", { timeout: 30000 });
   if (!(await slowClick('[data-testid="hr-settings-company-save"], button:has-text("Save Changes")', "Save Company Profile"))) throw new Error("Company Profile Save button was not available");
   const savedCompany = await companySaveResponse;
+  console.log(`   [Response] Save Company Profile: ${savedCompany.status()} ${savedCompany.statusText()}`);
   if (!savedCompany.ok()) throw new Error(`Company Profile save failed with HTTP ${savedCompany.status()}`);
   await page.waitForTimeout(1500);
 
   console.log("\n>>> 3. SETTINGS - ADD 5 IT DEPARTMENTS...");
-  await page.goto("http://localhost:3000/hr/settings/departments", { waitUntil: "domcontentloaded" });
-  await page.locator('[data-testid="hr-settings-departments-add"]').waitFor({ state: "visible", timeout: 30000 });
+  await openSettingsSection("departments", '[data-testid="hr-settings-departments-add"]');
   const deptList = [
     { name: `Software Engineering ${suffix}`, code: `ENG-${suffix}` },
     { name: `Cloud & Infrastructure ${suffix}`, code: `INF-${suffix}` },
@@ -527,8 +537,7 @@ async function run() {
   console.log(`   [Verified] Department updated: "${updatedDepartmentName}"`);
 
   console.log("\n>>> 4. SETTINGS - ADD 5 IT ROLES / DESIGNATIONS...");
-  await page.goto("http://localhost:3000/hr/settings/designations", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(1000);
+  await openSettingsSection("designations", '[data-testid="hr-settings-designations-add"]');
   const roleList = [
     { name: `Senior Full Stack Engineer ${suffix}`, code: `SFE-${suffix}`, level: "3", desc: "Leads React and Node microservices engineering" },
     { name: `DevOps & Cloud Architect ${suffix}`, code: `DCA-${suffix}`, level: "2", desc: "Manages AWS cloud architecture and CI/CD pipelines" },
@@ -567,8 +576,7 @@ async function run() {
   console.log(`   [Verified] Role updated: "${updatedRoleName}"`);
 
   console.log("\n>>> 5. SETTINGS - ADD 5 IT SHIFTS...");
-  await page.goto("http://localhost:3000/hr/settings/shifts", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(1000);
+  await openSettingsSection("shifts", '[data-testid="hr-settings-shifts-add"]');
   const shiftList = [
     { name: `Day Development Shift ${suffix}`, start: "09:00 AM", end: "05:00 PM" },
     { name: `APAC Support Shift ${suffix}`, start: "08:00 AM", end: "04:00 PM" },
@@ -579,7 +587,10 @@ async function run() {
   for (let i = 0; i < Math.min(shiftList.length, 1); i++) {
     const s = shiftList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-settings-shifts-add"], button:has-text("Add Shift")', `Add ${s.name}`);
+    await slowClick('[data-testid="hr-settings-shifts-add"]', `Add ${s.name}`);
+    const shiftModal = page.locator('[data-testid="hr-settings-shifts-modal"]');
+    await shiftModal.waitFor({ state: "visible", timeout: 10000 });
+    await shiftModal.locator('[data-testid="hr-settings-shifts-weeklyoffdays"]').waitFor({ state: "visible", timeout: 10000 });
     await slowType('[data-testid="hr-settings-shifts-name"]', s.name, `Shift Name ${i + 1}`);
     await slowTime("hr-settings-shifts-starttime", s.start, `Start Time ${i + 1}`);
     await slowTime("hr-settings-shifts-endtime", s.end, `End Time ${i + 1}`);
@@ -587,11 +598,19 @@ async function run() {
     await slowType('[data-testid="hr-settings-shifts-halfdaythresholdminutes"]', "240", `Half-Day Threshold ${i + 1}`);
     await slowType('[data-testid="hr-settings-shifts-breakminutes"]', "45", `Break Minutes ${i + 1}`);
     await slowClick('[data-testid="hr-settings-shifts-weeklyoffdays"]', `Weekly Off ${i + 1}`);
+    await page.locator('[data-testid="hr-settings-shifts-weeklyoffdays-menu"]').waitFor({ state: "visible", timeout: 5000 });
     await slowClick('[data-testid="hr-settings-shifts-weeklyoffdays-option-SUNDAY"]', `Select Sunday Weekly Off ${i + 1}`);
-    await page.locator('[data-testid="hr-settings-shifts-weeklyoffdays"]').click({ force: true });
+    await shiftModal.locator('[data-testid="hr-settings-shifts-name"]').click();
     await page.locator('[data-testid="hr-settings-shifts-weeklyoffdays-menu"]')
       .waitFor({ state: "hidden", timeout: 5000 });
-    await slowSaveModal("hr-settings-shifts");
+    await shiftModal.locator('[data-testid="hr-settings-shifts-save"]').click();
+    const shiftModalClosed = await shiftModal.waitFor({ state: "hidden", timeout: 20000 }).then(() => true).catch(() => false);
+    if (!shiftModalClosed) {
+      const shiftError = await shiftModal.locator('[role="alert"], [data-testid$="-error"], .text-red-700').allTextContents().catch(() => []);
+      throw new Error(`Shift was not saved: ${shiftError.join(" ").trim() || "modal remained open"}`);
+    }
+    console.log("   [View] Waiting on Shift list to verify the saved record");
+    await page.waitForTimeout(3000);
     await page.waitForTimeout(500);
   }
   const shiftToEdit = shiftList[0];
@@ -601,14 +620,27 @@ async function run() {
   await createdShiftRow.locator('[data-testid^="hr-settings-shifts-edit-"]').click();
   await slowType('[data-testid="hr-settings-shifts-name"]', updatedShiftName, "Edit Shift Name");
   await slowType('[data-testid="hr-settings-shifts-graceminutes"]', "20", "Edit Shift Grace Minutes");
-  await slowSaveModal("hr-settings-shifts");
+  const editShiftModal = page.locator('[data-testid="hr-settings-shifts-modal"]');
+  await editShiftModal.locator('[data-testid="hr-settings-shifts-save"]').click();
+  await editShiftModal.waitFor({ state: "hidden", timeout: 20000 });
   await page.getByText(updatedShiftName, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
   shiftToEdit.name = updatedShiftName;
   console.log(`   [Verified] Shift updated: "${updatedShiftName}"`);
 
   console.log("\n>>> 6. SETTINGS - CREATE 5 IT LEAVE TYPES...");
-  await page.goto("http://localhost:3000/hr/settings/leavetypes", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(1000);
+  await openSettingsSection("leavetypes", '[data-testid="hr-settings-leave-policy-create"]');
+  const saveLeavePolicy = async () => {
+    const policyModal = page.locator('[data-testid="hr-settings-leave-policy-modal"]');
+    await policyModal.waitFor({ state: "visible", timeout: 10000 });
+    await policyModal.locator('[data-testid="hr-settings-leave-policy-save"]').click();
+    const closed = await policyModal.waitFor({ state: "hidden", timeout: 20000 }).then(() => true).catch(() => false);
+    if (!closed) {
+      const errorText = await policyModal.locator('[role="alert"], [data-testid$="-error"], .text-red-700').allTextContents().catch(() => []);
+      throw new Error(`Leave Type was not saved: ${errorText.join(" ").trim() || "modal remained open"}`);
+    }
+    console.log("   [View] Waiting on Leave Type list to verify the saved record");
+    await page.waitForTimeout(3000);
+  };
   const leaveList = [
     { name: `Annual Paid Privilege Leave ${suffix}`, cat: "CASUAL", quota: "14" },
     { name: `Sick & Wellness Leave ${suffix}`, cat: "SICK", quota: "12" },
@@ -619,13 +651,14 @@ async function run() {
   for (let i = 0; i < Math.min(leaveList.length, 1); i++) {
     const l = leaveList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-settings-leave-policy-create"], button:has-text("Create New Leave Type")', `Create ${l.name}`);
+    await slowClick('[data-testid="hr-settings-leave-policy-create"]', `Create ${l.name}`);
+    await page.locator('[data-testid="hr-settings-leave-policy-modal"]').waitFor({ state: "visible", timeout: 10000 });
     await slowType('[data-testid="hr-settings-leave-policy-name"]', l.name, `Leave Name ${i + 1}`);
     await slowSelect('[data-testid="hr-settings-leave-policy-category"]', l.cat, `Category ${i + 1}`);
     await slowType('[data-testid="hr-settings-leave-policy-quota"]', l.quota, `Quota ${i + 1}`);
     const accrualType = i === 0 ? "Yearly" : "Monthly";
     await slowSelect('[data-testid="hr-settings-leave-policy-accrual"]', accrualType, `Accrual ${i + 1}`);
-    await slowSaveModal("hr-settings-leave-policy");
+    await saveLeavePolicy();
     await page.waitForTimeout(500);
   }
   const leaveTypeToEdit = leaveList[0];
@@ -634,14 +667,13 @@ async function run() {
   await createdLeaveTypeRow.locator('[data-testid^="hr-settings-leave-policy-edit-"]').click();
   await slowType('[data-testid="hr-settings-leave-policy-name"]', updatedLeaveTypeName, "Edit Leave Type Name");
   await slowType('[data-testid="hr-settings-leave-policy-quota"]', "15", "Edit Leave Type Quota");
-  await slowSaveModal("hr-settings-leave-policy");
+  await saveLeavePolicy();
   await page.getByText(updatedLeaveTypeName, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
   leaveTypeToEdit.name = updatedLeaveTypeName;
   console.log(`   [Verified] Leave type updated: "${updatedLeaveTypeName}"`);
 
   console.log("\n>>> 7. SETTINGS - ADD 5 IT HOLIDAYS...");
-  await page.goto("http://localhost:3000/hr/settings/holidays", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(1000);
+  await openSettingsSection("holidays", '[data-testid="hr-settings-holidays-add"]');
   const holidayList = [
     { name: `Republic Day ${suffix}`, date: "2026-01-26", type: "Public" },
     { name: `Independence Day ${suffix}`, date: "2026-08-15", type: "Public" },
@@ -652,26 +684,31 @@ async function run() {
   for (let i = 0; i < Math.min(holidayList.length, 1); i++) {
     const h = holidayList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-settings-holidays-add"], button:has-text("Add Holiday")', `Add ${h.name}`);
+    await slowClick('[data-testid="hr-settings-holidays-add"]', `Add ${h.name}`);
+    const holidayModal = page.locator('[data-testid="hr-settings-holidays-modal"]');
+    await holidayModal.waitFor({ state: "visible", timeout: 10000 });
     await slowType('[data-testid="hr-settings-holidays-name"]', h.name, `Holiday Name ${i + 1}`);
+    await holidayModal.locator('[data-testid="hr-settings-holidays-date"]').waitFor({ state: "attached", timeout: 10000 });
     await slowDate('[data-testid="hr-settings-holidays-date"]', h.date, `Holiday Date ${i + 1}`);
     await slowSelect('[data-testid="hr-settings-holidays-type"]', h.type, `Holiday Type ${i + 1}`);
-    await slowSaveModal("hr-settings-holidays");
-    await page.waitForTimeout(500);
+    await holidayModal.locator('[data-testid="hr-settings-holidays-save"]').click();
+    await holidayModal.waitFor({ state: "hidden", timeout: 20000 });
+    await page.waitForTimeout(3000);
   }
   const holidayToEdit = holidayList[0];
   const updatedHolidayName = `${holidayToEdit.name} Updated`;
   const createdHolidayRow = page.locator('[data-testid="hr-settings-holidays-panel"] tr').filter({ hasText: holidayToEdit.name }).first();
   await createdHolidayRow.locator('[data-testid^="hr-settings-holidays-edit-"]').click();
   await slowType('[data-testid="hr-settings-holidays-name"]', updatedHolidayName, "Edit Holiday Name");
-  await slowSaveModal("hr-settings-holidays");
+  const editHolidayModal = page.locator('[data-testid="hr-settings-holidays-modal"]');
+  await editHolidayModal.locator('[data-testid="hr-settings-holidays-save"]').click();
+  await editHolidayModal.waitFor({ state: "hidden", timeout: 20000 });
   await page.getByText(updatedHolidayName, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
   holidayToEdit.name = updatedHolidayName;
   console.log(`   [Verified] Holiday updated: "${updatedHolidayName}"`);
 
   console.log("\n>>> SETTINGS - ATTENDANCE RULES...");
-  await page.goto("http://localhost:3000/hr/settings/attendance", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(800);
+  await openSettingsSection("attendance", '[data-testid="hr-settings-attendance-save"]');
   await slowType('[data-testid="hr-settings-attendance-workhoursperday"]', "8", "Work Hours Per Day");
   await slowType('[data-testid="hr-settings-attendance-fulldaythresholdhours"]', "8", "Full Day Threshold Hours");
   await slowTime("hr-settings-attendance-shiftstarttime", "09:00 AM", "Shift Start Time");
@@ -688,40 +725,22 @@ async function run() {
   if (await faceRecognition.isVisible().catch(() => false) && await faceRecognition.isChecked().catch(() => false)) {
     await faceRecognition.click();
   }
-  await slowClick('[data-testid="hr-settings-attendance-save"], button:has-text("Save Changes")', "Save Attendance Rules");
+  const attendanceSaveResponsePromise = page.waitForResponse((response) => response.url().includes("/attendance-rules") && response.request().method() === "PUT", { timeout: 30000 });
+  await slowClick('[data-testid="hr-settings-attendance-save"]', "Save Attendance Rules");
+  const attendanceSaveResponse = await attendanceSaveResponsePromise;
+  console.log(`   [Response] Save Attendance Rules: ${attendanceSaveResponse.status()} ${attendanceSaveResponse.statusText()}`);
+  if (!attendanceSaveResponse.ok()) throw new Error(`Attendance Rules save failed (${attendanceSaveResponse.status()}): ${await attendanceSaveResponse.text()}`);
 
   console.log("\n>>> SETTINGS - PAYROLL SETTINGS...");
-  await page.goto("http://localhost:3000/hr/settings/payroll", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(800);
+  await openSettingsSection("payroll", '[data-testid="hr-settings-payroll-save"]');
   await slowType('[data-testid="hr-settings-payroll-payday"]', "28", "Payroll Day");
-  await slowClick('[data-testid="hr-settings-payroll-save"], button:has-text("Save Changes")', "Save Payroll Settings");
+  const payrollSettingsResponsePromise = page.waitForResponse((response) => response.url().includes("/payroll-settings") && response.request().method() === "PUT", { timeout: 30000 });
+  await slowClick('[data-testid="hr-settings-payroll-save"]', "Save Payroll Settings");
+  const payrollSettingsResponse = await payrollSettingsResponsePromise;
+  console.log(`   [Response] Save Payroll Settings: ${payrollSettingsResponse.status()} ${payrollSettingsResponse.statusText()}`);
+  if (!payrollSettingsResponse.ok()) throw new Error(`Payroll Settings save failed (${payrollSettingsResponse.status()}): ${await payrollSettingsResponse.text()}`);
 
   await createEmployees();
-
-  console.log("\n>>> EMPLOYEE MASTER - EDIT CURRENT-RUN EMPLOYEE PROFILE...");
-  await page.goto("http://localhost:3000/hr/employees", { waitUntil: "domcontentloaded" });
-  await slowType('[data-testid="hr-employees-search"]', suffix, "Current Employee Filter");
-  const editEmployeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
-  await editEmployeeRow.waitFor({ state: "visible", timeout: 15000 });
-  await editEmployeeRow.locator('[data-testid^="hr-employee-edit-"]').click();
-  await page.locator('[data-testid="hr-employee-edit-page"]').waitFor({ state: "visible", timeout: 30000 });
-  await slowClick('[data-testid="hr-employee-edit-section-bank"]', "Open Employee Bank Details");
-  await slowType('[data-testid="hr-employee-edit-bank-name"]', `Automation Bank ${suffix}`, "Employee Bank Name");
-  const employeeUpdateResponsePromise = page.waitForResponse((response) =>
-    response.request().method() === "PUT" && /\/employees\/[^/?]+(?:\?|$)/.test(response.url()),
-    { timeout: 30000 },
-  );
-  await slowClick('[data-testid="hr-employee-edit-save"]', "Save Edited Employee Profile");
-  const employeeUpdateResponse = await employeeUpdateResponsePromise;
-  if (!employeeUpdateResponse.ok()) {
-    throw new Error(`Employee profile update failed (${employeeUpdateResponse.status()}): ${await employeeUpdateResponse.text()}`);
-  }
-  const savedEmployeePath = new URL(page.url()).pathname;
-  if (new URL(page.url()).searchParams.get("edit") === "true") {
-    await page.goto(`${AUTOMATION_BASE_URL}${savedEmployeePath}`, { waitUntil: "domcontentloaded" });
-  }
-  await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
-  console.log(`   [Verified] Employee profile edited: "Rahul Sharma ${suffix}"`);
 
   console.log("\n>>> SETTINGS - ASSIGN LEAVE BALANCE TO CURRENT-RUN EMPLOYEE...");
   await page.goto("http://localhost:3000/hr/settings/leavetypes/assign", { waitUntil: "domcontentloaded" });
@@ -833,7 +852,7 @@ async function run() {
   }
 
   async function createEmployees() {
-  console.log("\n>>> 8. EMPLOYEE MASTER - CREATE 15 IT ENGINEER EMPLOYEES...");
+  console.log("\n>>> 8. EMPLOYEE MASTER - CREATE 1 IT ENGINEER EMPLOYEE...");
   const employeeProfiles = [
     { name: "Rahul Sharma", gender: "MALE" },
     { name: "Priya Patel", gender: "FEMALE" },
@@ -859,23 +878,47 @@ async function run() {
     const empPhone = uniquePhone(i + 1);
 
     await page.goto("http://localhost:3000/hr/employees/new", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(600);
+    await page.locator('[data-testid="hr-new-employee-page"][data-state="step-1"]').waitFor({ state: "visible", timeout: 30000 });
+    await page.locator('[data-testid="hr-new-employee-next"]').waitFor({ state: "visible", timeout: 30000 });
 
     // Step 1: Personal
-    await slowType('input[placeholder*="John Doe"], input[name="name"]', empName, `IT Employee ${i + 1} Name`);
-    await slowType('input[placeholder*="john@example.com"], input[name="email"]', empEmail, `IT Employee ${i + 1} Email`);
+    await slowType('[data-testid="hr-new-employee-name"]', empName, `IT Employee ${i + 1} Name`);
+    await slowType('[data-testid="hr-new-employee-email"]', empEmail, `IT Employee ${i + 1} Email`);
     await slowType('[data-testid="hr-new-employee-contact-number-number"], input[type="tel"]', empPhone, `IT Employee ${i + 1} Phone`);
     await slowSelect('[data-testid="hr-new-employee-gender"]', profile.gender, `IT Employee ${i + 1} Gender`);
     await slowType('input[placeholder*="ABCDE1234F"]', `ABCDE123${(i % 9) + 1}F`, `IT Employee ${i + 1} PAN`);
-    await slowClick('button:has-text("Next step")', `Next Step ${i + 1}`);
+    if (!(await slowClick('[data-testid="hr-new-employee-next"]', `Next Step ${i + 1}`))) {
+      const wizardError = await page.locator('[data-testid="hr-new-employee-error"]').textContent().catch(() => "");
+      throw new Error(`Employee Personal step could not continue for ${empName}: ${wizardError || "Next button unavailable"}`);
+    }
+    await page.locator('[data-testid="hr-new-employee-page"][data-state="step-2"]').waitFor({ state: "visible", timeout: 10000 });
+    await page.locator('[data-testid="hr-new-employee-complete"]').waitFor({ state: "visible", timeout: 10000 });
 
     // Step 2: Employment
     await slowSelectFirstOption('[data-testid="hr-new-employee-designation"]', `Designation ${i + 1}`);
     await slowSelectFirstOption('[data-testid="hr-new-employee-department"]', `Department ${i + 1}`);
     await slowSelect('[data-testid="hr-new-employee-employment-type"]', "FullTime", `Employment Type ${i + 1}`);
     await slowType('[data-testid="hr-new-employee-base-salary"]', String(60000 + i * 4000), `Base Salary ${i + 1}`);
-    await slowClick('button:has-text("Complete Setup")', `Complete Setup ${i + 1}`);
-    await page.waitForTimeout(600);
+    const employeeCreateResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === "POST" && /\/employees\/?(?:\?|$)/.test(response.url()),
+      { timeout: 30000 },
+    );
+    if (!(await slowClick('[data-testid="hr-new-employee-complete"]', `Complete Setup ${i + 1}`))) throw new Error(`Employee Complete Setup button was not available for ${empName}`);
+    const employeeCreateResponse = await employeeCreateResponsePromise;
+    console.log(`   [Response] Create Employee ${i + 1}: ${employeeCreateResponse.status()} ${employeeCreateResponse.statusText()}`);
+    if (!employeeCreateResponse.ok()) throw new Error(`Employee creation failed (${employeeCreateResponse.status()}): ${await employeeCreateResponse.text()}`);
+    const createdEmployee = await employeeCreateResponse.json().catch(() => ({}));
+    currentRunEmployeeUid = String(createdEmployee.uid ?? createdEmployee.id ?? createdEmployee.data?.uid ?? createdEmployee.data?.id ?? "");
+    if (!currentRunEmployeeUid) {
+      await page.goto(`${AUTOMATION_BASE_URL}/hr/employees`, { waitUntil: "domcontentloaded" });
+      await slowType('[data-testid="hr-employees-search"]', empName, "Created Employee Verification");
+      const createdRow = page.locator("tr").filter({ hasText: empName }).first();
+      await createdRow.waitFor({ state: "visible", timeout: 30000 });
+      const editTestId = await createdRow.locator('[data-testid^="hr-employee-edit-"]').getAttribute("data-testid");
+      currentRunEmployeeUid = editTestId?.replace("hr-employee-edit-", "") ?? "";
+    }
+    if (!currentRunEmployeeUid) throw new Error(`Employee creation succeeded but the UID could not be resolved for "${empName}"`);
+    console.log(`   [Verified] Employee created: "${empName}" (${currentRunEmployeeUid})`);
   }
   }
 
@@ -1016,8 +1059,16 @@ async function run() {
     await documentRow.locator('[data-testid^="hr-employee-document-edit-"]').click();
     await page.locator('[data-testid="hr-employee-document-status-dialog"]').waitFor({ state: "visible", timeout: 10000 });
     await slowSelect('[data-testid="hr-employee-document-status-select"]', "SUBMITTED", "Updated Document Status");
-    await page.locator('[data-testid="hr-employee-document-status-file-upload"] input[type="file"]').setInputFiles("automation/fixtures/employee-experience-certificate.pdf");
+    const experienceLetterUpload = page.locator('[data-testid="hr-employee-document-status-file-upload"] input[type="file"]');
+    await experienceLetterUpload.setInputFiles("automation/fixtures/employee-experience-certificate.pdf");
+    const uploadedExperienceLetter = await experienceLetterUpload.evaluate((input) => input.files?.[0]?.name ?? "");
+    if (uploadedExperienceLetter !== "employee-experience-certificate.pdf") throw new Error("Experience Certificate file was not selected for Submitted status");
+    console.log(`   [File] Experience Certificate selected: "${uploadedExperienceLetter}"`);
+    const documentSubmitResponsePromise = page.waitForResponse((response) => response.request().method() === "PUT" && /\/document-requests\/[^/?]+/.test(response.url()), { timeout: 30000 });
     await slowClick('[data-testid="hr-employee-document-status-save"]', "Update Employee Document");
+    const documentSubmitResponse = await documentSubmitResponsePromise;
+    console.log(`   [Response] Submit Experience Certificate: ${documentSubmitResponse.status()} ${documentSubmitResponse.statusText()}`);
+    if (!documentSubmitResponse.ok()) throw new Error(`Experience Certificate submission failed (${documentSubmitResponse.status()}): ${await documentSubmitResponse.text()}`);
     await page.locator('[data-testid="hr-employee-document-status-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
     await documentRow.waitFor({ state: "visible", timeout: 20000 });
     console.log("   [Verified] Employee document changed to Submitted with an uploaded file");
@@ -1026,9 +1077,12 @@ async function run() {
     const documentPopup = await documentPopupPromise;
     if (documentPopup) await documentPopup.close();
     console.log("   [Verified] Employee document download opened");
+    const documentDeleteResponsePromise = page.waitForResponse((response) => response.request().method() === "DELETE" && /\/document-requests\/[^/?]+/.test(response.url()), { timeout: 30000 });
     await documentRow.locator('[data-testid^="hr-employee-document-delete-"]').click();
-    await documentRow.waitFor({ state: "hidden", timeout: 20000 });
-    console.log("   [Verified] Current-run employee document deleted");
+    const documentDeleteResponse = await documentDeleteResponsePromise;
+    console.log(`   [Response] Delete Employee Document: ${documentDeleteResponse.status()} ${documentDeleteResponse.statusText()}`);
+    if (!documentDeleteResponse.ok()) throw new Error(`Employee document delete failed (${documentDeleteResponse.status()}): ${await documentDeleteResponse.text()}`);
+    console.log("   [Verified] Employee document delete accepted; audit-history rows may remain visible");
     await slowClick('[data-testid="hr-employee-face-open"]', "Edit Face ID");
     await closeAnyOpenModal();
   }
@@ -1225,7 +1279,6 @@ async function run() {
   await page.locator('[data-testid^="settings-location-card-"]').filter({ hasText: "Thrissur1" }).waitFor({ state: "visible", timeout: 20000 });
   console.log("   [Verified] Thrissur1 location created with 10.5116834, 76.2164267");
   await page.waitForTimeout(5000);
-  await page.reload({ waitUntil: "domcontentloaded" });
   await visitHr("/hr/org/transfers", "ORGANIZATION /transfers");
   await slowClick('[data-testid="hr-org-transfer-open"]', "Schedule Employee Transfer");
   await page.locator('[data-testid="hr-org-transfer-employee"]').selectOption({ label: `Rahul Sharma ${suffix}` });
@@ -1355,7 +1408,20 @@ async function run() {
 
   }
 
-  let managedEmployeeLoginId = "";
+  async function runEditEmployeeProfile() {
+    console.log("\n>>> EMPLOYEE MASTER - EDIT CURRENT-RUN EMPLOYEE PROFILE...");
+    if (!currentRunEmployeeUid) throw new Error("Current-run employee UID was not captured after creation");
+    await page.goto(`${AUTOMATION_BASE_URL}/hr/employees/${currentRunEmployeeUid}?edit=true`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="hr-employee-edit-page"]').waitFor({ state: "visible", timeout: 30000 });
+    await slowClick('[data-testid="hr-employee-edit-section-bank"]', "Open Employee Bank Details");
+    await slowType('[data-testid="hr-employee-edit-bank-name"]', `Automation Bank ${suffix}`, "Employee Bank Name");
+    const employeeUpdateResponsePromise = page.waitForResponse((response) => response.request().method() === "PUT" && /\/employees\/[^/?]+(?:\?|$)/.test(response.url()), { timeout: 30000 });
+    await slowClick('[data-testid="hr-employee-edit-save"]', "Save Edited Employee Profile");
+    const employeeUpdateResponse = await employeeUpdateResponsePromise;
+    console.log(`   [Response] Save Employee Profile: ${employeeUpdateResponse.status()} ${employeeUpdateResponse.statusText()}`);
+    if (!employeeUpdateResponse.ok()) throw new Error(`Employee profile update failed (${employeeUpdateResponse.status()}): ${await employeeUpdateResponse.text()}`);
+    console.log(`   [Verified] Employee profile edited: "Rahul Sharma ${suffix}"`);
+  }
 
   async function runManageLoginAction() {
     await visitHr("/hr/employees", "EMPLOYEE MANAGE LOGIN");
@@ -1416,14 +1482,10 @@ async function run() {
   async function runEmployeePortalActions() {
     console.log("\n>>> EMPLOYEE LOGIN - OPEN FRESH PAGE AND VERIFY SELF-SERVICE...");
     if (!managedEmployeeLoginId) throw new Error("Managed employee login ID was not retained for employee sign-in");
-    const employeeContext = await browser.newContext({
-      baseURL: AUTOMATION_BASE_URL,
-      viewport: null,
-      permissions: ["geolocation"],
-      geolocation: { latitude: 10.5116834, longitude: 76.2164267 },
-    });
-    const employeePage = await employeeContext.newPage();
+    const employeePage = await context.newPage();
     await employeePage.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
+    await employeePage.locator('[data-testid="auth-login-logout-existing-session"]').click();
+    await employeePage.locator('[data-testid="auth-login-id"]').waitFor({ state: "visible", timeout: 20000 });
     await employeePage.locator('[data-testid="auth-login-id"]').fill(managedEmployeeLoginId);
     await employeePage.waitForTimeout(pauseDelay);
     await employeePage.locator('[data-testid="auth-login-password"]').fill("Employee@2026");
@@ -1437,7 +1499,7 @@ async function run() {
       await employeePage.waitForTimeout(viewDelay);
     }
     console.log(`   [Verified] Employee self-service login: "${managedEmployeeLoginId}"`);
-    await employeeContext.close();
+    await employeePage.close();
   }
 
   await runAttendanceAndLeaveActions();
@@ -1453,8 +1515,9 @@ async function run() {
 
   await createRecruitmentRecords();
   await completeRecruitmentActions();
-  await runManageLoginAction();
   await runSeparationActions();
+  await runManageLoginAction();
+  await runEditEmployeeProfile();
   await runEmployeePortalActions();
 
   console.log("=========================================================");

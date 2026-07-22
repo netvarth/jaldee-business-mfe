@@ -568,7 +568,7 @@ export default function EmployeeDetails() {
     setLoginSaving(true);
     setLoginError(null);
     try {
-      if (sanitizeLoginId(credentials.loginId) || employee.isSystemUser) {
+      if (employee.isSystemUser) {
         await api.put(`/employees/${employee.id}/password`, {
           password: credentials.password,
         });
@@ -1279,11 +1279,11 @@ export default function EmployeeDetails() {
       <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} testId="hr-employee-login-dialog" title="Employee Login Access" size="md">
         <div style={{ display: "grid", gap: 16 }}>
           {loginError ? (
-            <div style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
+            <div id="hr-employee-login-error" data-testid="hr-employee-login-error" style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
               {loginError}
             </div>
           ) : null}
-          <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.14)", color: "var(--dark-text)", fontSize: 13 }}>
+          <div id="hr-employee-login-status" data-testid="hr-employee-login-status" style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.14)", color: "var(--dark-text)", fontSize: 13 }}>
             {sanitizeLoginId(credentials.loginId) || employee.isSystemUser
               ? "This employee already has login credentials. Saving here will update the password."
               : "This employee does not have login credentials yet. Saving here will create them."}
@@ -1292,6 +1292,7 @@ export default function EmployeeDetails() {
             <div className="form-group">
               <label>Login ID</label>
               <input
+                id="hr-employee-login-id"
                 data-testid="hr-employee-login-id"
                 className={field}
                 value={sanitizeLoginId(credentials.loginId) || "Will be assigned by system"}
@@ -1301,6 +1302,7 @@ export default function EmployeeDetails() {
             <div className="form-group">
               <label>{sanitizeLoginId(credentials.loginId) || employee.isSystemUser ? "New Password" : "Password"}</label>
               <input
+                id="hr-employee-login-password"
                 data-testid="hr-employee-login-password"
                 type="password"
                 className={field}
@@ -1314,6 +1316,7 @@ export default function EmployeeDetails() {
             <div className="form-group">
               <label>Confirm Password</label>
               <input
+                id="hr-employee-login-confirm-password"
                 data-testid="hr-employee-login-confirm-password"
                 type="password"
                 className={field}

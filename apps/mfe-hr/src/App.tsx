@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, useNavigate, useParams } from "react-router-dom";
 import "./index.css";
+import { AutomationTestIdBoundary } from "./components/AutomationTestIdBoundary";
 
 const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 const EmployeeMaster = lazy(() => import("./pages/employees/EmployeeMaster"));
@@ -55,10 +56,11 @@ function PublicJobRoute() {
 
 export default function App() {
   return (
-    <div className="flex min-h-full flex-col bg-background text-foreground">
-      <div className="flex min-h-full flex-1 flex-col">
-        <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading HR...</div>}>
-          <Routes>
+    <AutomationTestIdBoundary>
+      <div className="flex min-h-full flex-col bg-background text-foreground">
+        <div className="flex min-h-full flex-1 flex-col">
+          <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading HR...</div>}>
+            <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/employees" element={<EmployeeMaster />} />
             <Route path="/employees/new" element={<NewEmployeeWizard />} />
@@ -98,9 +100,10 @@ export default function App() {
             <Route path="/me" element={<EssPortal />} />
             <Route path="/me/*" element={<EssPortal />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No HR screen for this route." />} />
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </div>
       </div>
-    </div>
+    </AutomationTestIdBoundary>
   );
 }

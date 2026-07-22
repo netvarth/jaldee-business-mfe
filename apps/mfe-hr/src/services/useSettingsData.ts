@@ -57,9 +57,10 @@ function useCrud<T extends { uid?: string; id?: string }>(
   const [error, setError] = useState<string | null>(null);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!enabled) { setLoading(false); return; }
-    setLoading(true); setError(null);
+    if (!silent) setLoading(true);
+    setError(null);
     try {
       const res = options.search
         ? await api.post<unknown>(`${endpoint}/search`, buildHrSearchBody(options.filters ?? EMPTY_SEARCH_FILTERS, options.schema, page, pageSize))
@@ -71,16 +72,18 @@ function useCrud<T extends { uid?: string; id?: string }>(
       setTotalPages(pageResult?.totalPages ?? 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : `Failed to load ${endpoint}`);
-      setData([]);
-      setTotalElements(0);
-      setTotalPages(0);
+      if (!silent) {
+        setData([]);
+        setTotalElements(0);
+        setTotalPages(0);
+      }
     }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   }, [api, enabled, endpoint, options.filters, options.schema, options.search, page, pageSize]);
   useEffect(() => { void load(); }, [load]);
-  const create = useCallback(async (payload: Record<string, unknown>) => { await api.post(endpoint, payload); await load(); }, [api, endpoint, load]);
-  const update = useCallback(async (uid: string, payload: Record<string, unknown>) => { await api.put(`${endpoint}/${uid}`, payload); await load(); }, [api, endpoint, load]);
-  const remove = useCallback(async (uid: string) => { await api.del(`${endpoint}/${uid}`); await load(); }, [api, endpoint, load]);
+  const create = useCallback(async (payload: Record<string, unknown>) => { await api.post(endpoint, payload); await load(true); }, [api, endpoint, load]);
+  const update = useCallback(async (uid: string, payload: Record<string, unknown>) => { await api.put(`${endpoint}/${uid}`, payload); await load(true); }, [api, endpoint, load]);
+  const remove = useCallback(async (uid: string) => { await api.del(`${endpoint}/${uid}`); await load(true); }, [api, endpoint, load]);
   return { data, loading, error, reload: load, create, update, remove, totalElements, totalPages };
 }
 
@@ -90,16 +93,24 @@ function useSingleton<T extends object>(endpoint: string) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    setLoading(true); setError(null);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    setError(null);
     try {
       const res = await api.get<Record<string, unknown>>(endpoint);
       setData((res ?? {}) as T);
-    } catch (e) { setError(e instanceof Error ? e.message : `Failed to load ${endpoint}`); setData(null); }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `Failed to load ${endpoint}`);
+      if (!silent) setData(null);
+    }
+    finally { if (!silent) setLoading(false); }
   }, [api, endpoint]);
   useEffect(() => { void load(); }, [load]);
-  const save = useCallback(async (payload: Record<string, unknown>) => { await api.put(endpoint, payload); await load(); }, [api, endpoint, load]);
+  const save = useCallback(async (payload: Record<string, unknown>) => {
+    await api.put(endpoint, payload);
+    setData((current) => ({ ...(current ?? {}), ...payload } as T));
+    await load(true);
+  }, [api, endpoint, load]);
   return { data, loading, error, reload: load, save };
 }
 

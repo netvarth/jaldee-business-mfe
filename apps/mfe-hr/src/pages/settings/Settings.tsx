@@ -94,6 +94,7 @@ function buildPayload(fields: Field[], form: Row): Row {
   fields.forEach((f) => {
     const v = form[f.key] ?? f.defaultValue;
     if (f.serialize === "time12") out[f.key] = toBackendTime(v);
+    else if (f.type === "time") out[f.key] = toTimeInputValue(v) || null;
     else if (f.serialize === "csv") {
       out[f.key] = Array.isArray(v)
         ? v.map(String).filter(Boolean).join(",")

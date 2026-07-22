@@ -172,6 +172,7 @@ export default function LoginPage() {
               {!requiresMfa ? (
                 <div className="login-field">
                   <Button
+                    data-testid="auth-login-logout-existing-session"
                     type="button"
                     variant="secondary"
                     size="md"

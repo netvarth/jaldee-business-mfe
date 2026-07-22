@@ -121,7 +121,7 @@ export default function NewEmployeeWizard() {
   ];
 
   return (
-    <section className="page-section active" style={{ minWidth: 0 }}>
+    <section id="hr-new-employee-page" data-testid="hr-new-employee-page" data-state={`step-${step}`} className="page-section active" style={{ minWidth: 0 }}>
       <div style={{ width: "100%" }}>
         <PageHeader
           title="New Employee"
@@ -147,7 +147,7 @@ export default function NewEmployeeWizard() {
         </div>
 
         {error && (
-          <div style={{ marginBottom: 24, padding: "12px 16px", backgroundColor: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", borderRadius: 8, fontSize: 14 }}>
+          <div id="hr-new-employee-error" data-testid="hr-new-employee-error" style={{ marginBottom: 24, padding: "12px 16px", backgroundColor: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", borderRadius: 8, fontSize: 14 }}>
             {error}
           </div>
         )}
@@ -168,11 +168,11 @@ export default function NewEmployeeWizard() {
                     <div className="employee-personal-pair">
                       <div className="form-group">
                         <label>Full Name <span className="required">*</span></label>
-                        <input type="text" required placeholder="John Doe" value={personal.name} onChange={sp("name")} />
+                        <input id="hr-new-employee-name" data-testid="hr-new-employee-name" type="text" required placeholder="John Doe" value={personal.name} onChange={sp("name")} />
                       </div>
                       <div className="form-group">
                         <label>Email Address <span className="required">*</span></label>
-                        <input type="email" required placeholder="john@example.com" value={personal.email} onChange={sp("email")} />
+                        <input id="hr-new-employee-email" data-testid="hr-new-employee-email" type="email" required placeholder="john@example.com" value={personal.email} onChange={sp("email")} />
                       </div>
                     </div>
                     <div className="form-group">
@@ -345,15 +345,15 @@ export default function NewEmployeeWizard() {
             
             <div className="modal-footer" style={{ padding: "12px 20px", justifyContent: step === 1 ? "flex-end" : "space-between", borderTop: "none", backgroundColor: "var(--app-bg)" }}>
               {step === 1 ? (
-                <button type="submit" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button id="hr-new-employee-next" data-testid="hr-new-employee-next" type="submit" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   Next Step <ChevronRight size={16} />
                 </button>
               ) : (
                 <>
-                  <button type="button" className="btn btn-secondary" onClick={(e) => { e.preventDefault(); console.log("[NewEmployeeWizard] Back button clicked, setting step to 1"); setStep(1); }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button id="hr-new-employee-back" data-testid="hr-new-employee-back" type="button" className="btn btn-secondary" onClick={(e) => { e.preventDefault(); console.log("[NewEmployeeWizard] Back button clicked, setting step to 1"); setStep(1); }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <ChevronLeft size={16} /> Back
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={saving} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button id="hr-new-employee-complete" data-testid="hr-new-employee-complete" type="submit" className="btn btn-primary" disabled={saving} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : <>Complete Setup <CheckCircle2 size={16} /></>}
                   </button>
                 </>
