@@ -3,24 +3,75 @@ import { httpClient } from "./httpClient";
 type ApiFilter = Record<string, unknown>;
 type ApiResponse<T> = Promise<{ data: T }>;
 
+function isTenantFinanceEndpoint(url: string) {
+  return url.includes("/finance-service/v1/api/tenant/") || url.includes("/v1/api/tenant/");
+}
+
+function withTenantConfig(config?: { params?: ApiFilter }) {
+  return {
+    ...(config ?? {}),
+    _skipLocationParam: true,
+  };
+}
+
 function get<T>(url: string, params?: ApiFilter): ApiResponse<T> {
-  return httpClient.get<T>(url, params ? { params } : undefined);
+  const config = params ? { params } : undefined;
+  return httpClient.get<T>(url, isTenantFinanceEndpoint(url) ? withTenantConfig(config) : config);
 }
 
 function post<T>(url: string, data?: unknown): ApiResponse<T> {
-  return httpClient.post<T>(url, data);
+  return httpClient.post<T>(url, data, isTenantFinanceEndpoint(url) ? withTenantConfig() : undefined);
 }
 
 function put<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
-  return httpClient.put<T>(url, data, params ? { params } : undefined);
+  const config = params ? { params } : undefined;
+  return httpClient.put<T>(url, data, isTenantFinanceEndpoint(url) ? withTenantConfig(config) : config);
 }
 
 function del<T>(url: string, params?: ApiFilter): ApiResponse<T> {
-  return httpClient.delete<T>(url, params ? { params } : undefined);
+  const config = params ? { params } : undefined;
+  return httpClient.delete<T>(url, isTenantFinanceEndpoint(url) ? withTenantConfig(config) : config);
 }
 
 function buildCountPath(basePath: string) {
   return `${basePath}/count`;
+}
+
+// The MS @ModelAttribute filters use plain field names + Spring Pageable, while the
+// legacy UI sends `from`/`count`, `sort_*`, and `<field>-eq/-like/...` keys. Translate:
+//  - from/count            -> page/size
+//  - locationId(-eq)       -> locationUid
+//  - <field>-<matchmode>   -> <field>   (suffix stripped; MS binds the base field)
+//  - sort_* keys           -> dropped   (MS sort convention differs)
+function toMsQuery(filter: ApiFilter = {}): ApiFilter {
+  const out: Record<string, unknown> = {};
+  let from: unknown;
+  let count: unknown;
+  for (const [rawKey, value] of Object.entries(filter as Record<string, unknown>)) {
+    if (value === undefined || value === null || value === "") continue;
+    if (rawKey === "from") { from = value; continue; }
+    if (rawKey === "count") { count = value; continue; }
+    if (rawKey === "page" || rawKey === "size") { out[rawKey] = value; continue; }
+    if (rawKey.startsWith("sort_")) continue;
+    let key = rawKey.replace(/-(eq|neq|like|startWith|endWith|gt|lt|gte|lte)$/i, "");
+    if (key === "locationId") key = "locationUid";
+    // MS category/status/consumer filters expose a single `search` field for
+    // name-contains rather than a per-column name filter.
+    if (key === "name" || key === "categoryName" || key === "statusName") key = "search";
+    out[key] = value;
+  }
+  const size = count !== undefined ? Number(count) : undefined;
+  if (size !== undefined && !Number.isNaN(size)) {
+    out.size = size;
+    if (from !== undefined) {
+      const fromNum = Number(from);
+      out.page = size > 0 && !Number.isNaN(fromNum) ? Math.floor(fromNum / size) : 0;
+    }
+  } else if (from !== undefined) {
+    const fromNum = Number(from);
+    out.page = Number.isNaN(fromNum) ? 0 : fromNum;
+  }
+  return out;
 }
 
 function createCrudApi(basePath: string) {
@@ -45,6 +96,36 @@ function createCrudApi(basePath: string) {
     },
   };
 }
+
+function buildTenantApiUrl(path: string) {
+  return new URL(path, window.location.origin).toString();
+}
+
+const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/category");
+const TENANT_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/status");
+const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item");
+const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
+const TENANT_PAYMENTS_OUT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-out");
+const TENANT_PAYMENTS_IN_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/search`;
+const TENANT_PAYMENTS_IN_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/count`;
+const TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/search`;
+const TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/cashReserve`;
+const TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/search`;
+const TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/cashReserve`;
+const TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/search`;
+const TENANT_PAYMENTS_IN_CASH_RESERVE_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/count`;
+
+const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice");
+const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`;
+const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates");
+const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
+
+const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/expenses");
+const TENANT_EXPENSES_SEARCH_ENDPOINT = `${TENANT_EXPENSES_ENDPOINT}/search`;
+const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payment/cash-balance");
+const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
+const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
+const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer");
 
 export function sanitizeFinancePayload<T extends Record<string, unknown>>(data: T) {
   const sanitized = { ...data };
@@ -121,21 +202,27 @@ export function setFiltersFromPrimeTable(
 }
 
 const vendors = createCrudApi("provider/vendor");
-const expenses = createCrudApi("provider/jp/finance/expense");
-const payables = createCrudApi("provider/jp/finance/paymentsOut");
-const revenue = createCrudApi("provider/jp/finance/paymentsIn");
-const categories = createCrudApi("provider/jp/finance/category");
-const statuses = createCrudApi("provider/jp/finance/status");
-const invoices = createCrudApi("provider/jp/finance/invoice");
-const invoiceGeneral = createCrudApi("provider/jp/finance/invoice/general");
+const expenses = createCrudApi(TENANT_EXPENSES_ENDPOINT);
+const payables = createCrudApi(TENANT_PAYMENTS_OUT_ENDPOINT);
+const revenue = createCrudApi(TENANT_PAYMENTS_IN_ENDPOINT);
+const categories = createCrudApi(TENANT_CATEGORY_ENDPOINT);
+const statuses = createCrudApi(TENANT_STATUS_ENDPOINT);
+const invoices = createCrudApi(TENANT_INVOICE_ENDPOINT);
+const invoiceTemplates = createCrudApi(TENANT_INVOICE_TEMPLATE_ENDPOINT);
 
 export const financeApi = {
   settings: {
     provider(filter: ApiFilter = {}) {
-      return get("provider/jp/finance/settings", filter);
+      return get(TENANT_SETTINGS_ENDPOINT, filter);
     },
     expenseAutoPayout(status: string) {
-      return put(`provider/jp/finance/settings/expense/autoPayout/${status}`);
+      return put(`${TENANT_SETTINGS_ENDPOINT}/auto-payout-on-expense/${status}`);
+    },
+    expenseFeature(status: "Enabled" | "Disabled") {
+      return put(`${TENANT_SETTINGS_ENDPOINT}/expense/${status}`);
+    },
+    invoiceFeature(status: "Enabled" | "Disabled") {
+      return put(`${TENANT_SETTINGS_ENDPOINT}/invoice/${status}`);
     },
     dashboardActions<T = unknown>(data: unknown) {
       return post<T>("provider/styleconfig/styletype/FinanceStyleConfig", data);
@@ -154,26 +241,53 @@ export const financeApi = {
 
   categories: {
     ...categories,
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_CATEGORY_ENDPOINT, data);
+    },
+    detail<T = unknown>(id: string) {
+      return get<T>(`${TENANT_CATEGORY_ENDPOINT}/${id}`);
+    },
+    update<T = unknown>(id: string, data: unknown) {
+      return put<T>(`${TENANT_CATEGORY_ENDPOINT}/${id}`, data);
+    },
+    getDefaultByType<T = unknown>(categoryType: string) {
+      return get<T>(`${TENANT_CATEGORY_ENDPOINT}/${categoryType}/default`);
+    },
+    setDefaultByType<T = unknown>(id: string, categoryType: string) {
+      return put<T>(`${TENANT_CATEGORY_ENDPOINT}/${id}/${categoryType}/default`);
+    },
+    updateStatus<T = unknown>(id: string, status: string) {
+      return put<T>(`${TENANT_CATEGORY_ENDPOINT}/${id}/${status}`);
+    },
+    uploadDocument<T = unknown>(uid: string, data: unknown) {
+      return post<T>(`${TENANT_CATEGORY_ENDPOINT}/${uid}/document`, data);
+    },
+    uploadDocuments<T = unknown>(uid: string, data: unknown) {
+      return post<T>(`${TENANT_CATEGORY_ENDPOINT}/${uid}/documents`, data);
+    },
+    search<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_CATEGORY_ENDPOINT, toMsQuery(filter));
+    },
     byType<T = unknown>(type: string, filter: ApiFilter = {}) {
-      return get<T>(`provider/jp/finance/category/type/${type}`, filter);
+      return get<T>(`${TENANT_CATEGORY_ENDPOINT}/type/${type}`, filter);
     },
     byFilter<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/category/list", filter);
+      return get<T>(TENANT_CATEGORY_ENDPOINT, toMsQuery(filter));
     },
     countByType<T = number>(categoryType: string, filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/category/list/count", {
+      return get<T>(`${TENANT_CATEGORY_ENDPOINT}/count`, {
         ...filter,
         "categoryType-eq": categoryType,
       });
     },
     expenseCategories<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/category/list", {
+      return get<T>(TENANT_CATEGORY_ENDPOINT, {
         ...filter,
         "categoryType-eq": "Expense",
       });
     },
     payableCategories<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/category/list", {
+      return get<T>(TENANT_CATEGORY_ENDPOINT, {
         ...filter,
         "categoryType-eq": "PaymentsOut",
       });
@@ -182,30 +296,37 @@ export const financeApi = {
 
   statuses: {
     ...statuses,
+    search<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_STATUS_ENDPOINT, toMsQuery(filter));
+    },
     byType<T = unknown>(type: string, filter: ApiFilter = {}) {
-      return get<T>(`provider/jp/finance/status/type/${type}`, filter);
+      return get<T>(`${TENANT_STATUS_ENDPOINT}/type/${type}`, filter);
     },
     byFilter<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/status/list", filter);
+      return get<T>(TENANT_STATUS_ENDPOINT, toMsQuery(filter));
     },
     countByType<T = number>(categoryType: string, filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/status/list/count", {
+      return get<T>(`${TENANT_STATUS_ENDPOINT}/count`, {
         ...filter,
         "categoryType-eq": categoryType,
       });
     },
     enable<T = unknown>(id: string, status: string) {
-      return put<T>(`provider/jp/finance/status/${id}/${status}`);
+      return put<T>(`${TENANT_STATUS_ENDPOINT}/${id}/${status}`);
     },
     disable<T = unknown>(id: string, status: string) {
-      return put<T>(`provider/jp/finance/status/${id}/${status}`);
+      return put<T>(`${TENANT_STATUS_ENDPOINT}/${id}/${status}`);
     },
   },
 
   expenses: {
     ...expenses,
+    // MS ExpenseController pages via ExpenseFilter.page/size, not from/count.
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_EXPENSES_SEARCH_ENDPOINT, toMsQuery(filter));
+    },
     createPayout<T = unknown>(data: unknown) {
-      return post<T>("provider/jp/finance/paymentsOut", data);
+      return post<T>(TENANT_PAYMENTS_OUT_ENDPOINT, data);
     },
     listByCategory<T = unknown>(filter: ApiFilter = {}) {
       return get<T>("provider/jp/finance/analytics/categorywise/comparison", filter);
@@ -214,120 +335,200 @@ export const financeApi = {
 
   payables: {
     ...payables,
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_PAYMENTS_OUT_ENDPOINT, data);
+    },
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT, toMsQuery(filter));
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_PAYMENTS_OUT_ENDPOINT}/${uid}`);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_PAYMENTS_OUT_ENDPOINT}/${uid}`, data);
+    },
+    updateStatus<T = unknown>(uid: string, statusId: string) {
+      return put<T>(`${TENANT_PAYMENTS_OUT_ENDPOINT}/${uid}/status/${statusId}`);
+    },
+    createCashReserve<T = unknown>(data: unknown) {
+      return post<T>(TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT, data);
+    },
+    cashReserveDetail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/${uid}`);
+    },
+    updateCashReserve<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/${uid}`, data);
+    },
+    updateCashReserveStatus<T = unknown>(uid: string, statusId: string) {
+      return put<T>(`${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/${uid}/status/${statusId}`);
+    },
+    searchCashReserve<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT, toMsQuery(filter));
+    },
     listByCategory<T = unknown>(categoryId: string) {
-      return get<T>("provider/jp/finance/paymentsOut", {
+      return post<T>(TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT, toMsQuery({
         "paymentsOutCategoryId-eq": categoryId,
-      });
+      }));
     },
   },
 
   revenue: {
     ...revenue,
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_PAYMENTS_IN_SEARCH_ENDPOINT, toMsQuery(filter));
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_PAYMENTS_IN_ENDPOINT}/${uid}`);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_PAYMENTS_IN_ENDPOINT}/${uid}`, data);
+    },
+    count<T = number>(filter: ApiFilter = {}) {
+      return get<T>(TENANT_PAYMENTS_IN_COUNT_ENDPOINT, toMsQuery(filter));
+    },
   },
 
   totals: {
     list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/paymentsIn/paymentsInOut", filter);
+      return post<T>(TENANT_PAYMENTS_IN_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     count<T = number>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/paymentsIn/paymentsInOut/count", filter);
+      return get<T>(TENANT_PAYMENTS_IN_COUNT_ENDPOINT, toMsQuery(filter));
     },
   },
 
   invoices: {
     ...invoices,
-    createGeneral<T = unknown>(data: unknown) {
-      return invoiceGeneral.create<T>(data);
-    },
-    updateGeneral<T = unknown>(invoiceId: string, data: unknown) {
-      return invoiceGeneral.update<T>(invoiceId, data);
-    },
+    // Compatibility aliases for callers that still use the legacy *General names.
+    // The MS list endpoint uses Spring Pageable, so translate from/count -> page/size.
     listGeneral<T = unknown>(filter: ApiFilter = {}) {
-      return invoiceGeneral.list<T>(filter);
+      return post<T>(TENANT_INVOICE_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     countGeneral<T = number>(filter: ApiFilter = {}) {
-      return invoiceGeneral.count<T>(filter);
+      return invoices.count<T>(filter);
     },
-    detailGeneral<T = unknown>(invoiceId: string) {
-      return invoiceGeneral.detail<T>(invoiceId);
+    detailGeneral<T = unknown>(id: string) {
+      return invoices.detail<T>(id);
     },
-    createMaster<T = unknown>(data: unknown) {
-      return post<T>("provider/jp/finance/invoice/general/master", data);
+    createGeneral<T = unknown>(data: unknown) {
+      return invoices.create<T>(data);
     },
-    linkInvoices<T = unknown>(masterUid: string, data: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/master/${masterUid}/link`, data);
+    updateGeneral<T = unknown>(id: string, data: unknown) {
+      return invoices.update<T>(id, data);
     },
-    unlinkInvoices<T = unknown>(masterUid: string, data: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/master/${masterUid}/unlink`, data);
+    getBySourceUid<T = unknown>(sourceUid: string) {
+      return get<T>(`${TENANT_INVOICE_ENDPOINT}/by-source-category-uid/${sourceUid}`);
     },
-    assignUser<T = unknown>(invoiceId: string, userId: string) {
-      return put<T>(`provider/jp/finance/invoice/general/${invoiceId}/assign/${userId}`);
+    updateInvoiceStatus<T = unknown>(invoiceId: string, status: string, note?: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/invoice-status/${status}`, note);
     },
-    unassignUser<T = unknown>(invoiceId: string) {
-      return put<T>(`provider/jp/finance/invoice/general/${invoiceId}/unassign`);
+    updateStatus<T = unknown>(invoiceId: string, statusId: string) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/status/${statusId}`);
+    },
+    assignUser<T = unknown>(invoiceId: string, users: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/assignees`, users);
+    },
+    unassignUser<T = unknown>(invoiceId: string, users: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/assignees/remove`, users);
+    },
+    removeDetail<T = unknown>(detailUid: string) {
+      return del<T>(`${TENANT_INVOICE_ENDPOINT}/remove/details/${detailUid}`);
+    },
+    uploadDocument<T = unknown>(uid: string, data: unknown) {
+      return post<T>(`${TENANT_INVOICE_ENDPOINT}/${uid}/document`, data);
+    },
+    uploadDocuments<T = unknown>(uid: string, data: unknown) {
+      return post<T>(`${TENANT_INVOICE_ENDPOINT}/${uid}/documents`, data);
+    },
+    applyCoupon<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${uid}/coupon/apply`, data);
+    },
+    removeCoupon<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${uid}/coupon/remove`, data);
+    },
+    applyDiscount<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${uid}/discount/apply`, data);
+    },
+    removeDiscount<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${uid}/discount/remove`, data);
+    },
+    applyDiscountInDetail<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/detail/${uid}/discount/apply`, data);
+    },
+    removeDiscountFromDetail<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/detail/${uid}/discount/remove`, data);
+    },
+    sharePaymentLink<T = unknown>(invoiceId: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/share/payment/link`, data);
     },
     sharePdf<T = unknown>(invoiceId: string, data: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/${invoiceId}/sharePdf`, data);
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/share`, data);
     },
     sharePdfAttachment<T = unknown>(invoiceId: string, data: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/${invoiceId}/sharePdfAttachment`, data);
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/sharePdf`, data);
     },
-    createPaymentLink<T = unknown>(data: unknown) {
-      return post<T>("provider/jp/finance/general/pay/createLink", data);
+    createMaster<T = unknown>(data: unknown) {
+      return post<T>(`${TENANT_INVOICE_ENDPOINT}/master`, data);
     },
-    acceptPayment<T = unknown>(data: unknown) {
-      return post<T>("provider/jp/finance/general/pay/acceptPayment", data);
+    linkInvoices<T = unknown>(masterUid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/master/${masterUid}/link`, data);
     },
-    updateAcceptedPayment<T = unknown>(paymentRefId: string, data: unknown) {
-      return put<T>(`provider/jp/finance/general/pay/acceptPayment/update/${paymentRefId}`, data);
+    unlinkInvoices<T = unknown>(masterUid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/master/${masterUid}/unlink`, data);
     },
-    priceCalculation<T = unknown>(data: unknown) {
-      return put<T>("provider/jp/finance/invoice/calculations", data);
-    },
-    billAction<T = unknown>(invoiceId: string, action: string, data?: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/${invoiceId}/${action}`, data);
-    },
-    billStatus<T = unknown>(invoiceId: string, status: string, data?: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/${invoiceId}/billStatus/${status}`, data);
+    nextInvoiceId<T = unknown>(data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/nextInvoiceNum`, data);
     },
     templateList<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/invoice/general/template", filter);
+      return invoiceTemplates.list<T>(filter);
     },
     templateById<T = unknown>(uid: string) {
-      return get<T>(`provider/jp/finance/invoice/general/template/${uid}`);
+      return invoiceTemplates.detail<T>(uid);
     },
     createTemplate<T = unknown>(data: unknown) {
-      return post<T>("provider/jp/finance/invoice/general/template", data);
+      return invoiceTemplates.create<T>(data);
     },
     updateTemplate<T = unknown>(uid: string, data: unknown) {
-      return put<T>(`provider/jp/finance/invoice/general/template/${uid}`, data);
+      return invoiceTemplates.update<T>(uid, data);
     },
     deleteTemplate<T = unknown>(uid: string) {
-      return del<T>(`provider/jp/finance/invoice/general/template/${uid}`);
+      return invoiceTemplates.changeStatus<T>(uid, "INACTIVE");
     },
-    nextInvoiceId<T = unknown>(locationId: string) {
-      return get<T>(`provider/jp/finance/invoice/general/${locationId}/nextInvoiceId`);
+    createOfflinePayment<T = unknown>(data: unknown) {
+      return post<T>(`${TENANT_INVOICE_PAYMENT_ENDPOINT}/offline`, data);
+    },
+    updateOfflinePayment<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_PAYMENT_ENDPOINT}/offline/${uid}/update`, data);
+    },
+    paymentByInvoice<T = unknown>(invoiceId: string) {
+      return get<T>(`${TENANT_INVOICE_PAYMENT_ENDPOINT}/invoice/${invoiceId}`);
     },
   },
 
   cash: {
     createReserve<T = unknown>(direction: "paymentsIn" | "paymentsOut", data: unknown) {
-      return post<T>(`provider/jp/finance/${direction}/cashReserve`, data);
+      if (direction === "paymentsIn") {
+        return post<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT, data);
+      }
+      return post<T>(TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT, data);
     },
     updateReserve<T = unknown>(direction: "paymentsIn" | "paymentsOut", payId: string, data: unknown) {
-      return put<T>(`provider/jp/finance/${direction}/cashReserve/${payId}`, data);
+      if (direction === "paymentsIn") {
+        return put<T>(`${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/${payId}`, data);
+      }
+      return put<T>(`${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/${payId}`, data);
     },
     list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/paymentsIn/cashReserve", filter);
+      return post<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     count<T = number>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/paymentsIn/cashReserve/count", filter);
+      return get<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_COUNT_ENDPOINT, filter);
     },
-    balance<T = unknown>() {
-      return get<T>("provider/jp/finance/cashbalance");
+    balance<T = unknown>(locationId: string) {
+      return get<T>(`${TENANT_CASH_BALANCE_ENDPOINT}/${locationId}`);
     },
-    recalculateBalance<T = unknown>() {
-      return put<T>("provider/jp/finance/cashbalance/calculate");
+    recalculateBalance<T = unknown>(locationId: string) {
+      return put<T>(`${TENANT_CASH_BALANCE_ENDPOINT}/calculate/${locationId}`);
     },
   },
 
@@ -398,10 +599,10 @@ export const financeApi = {
 
   activity: {
     list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/log", filter);
+      return get<T>(TENANT_AUDIT_LOG_ENDPOINT, toMsQuery(filter));
     },
     count<T = number>(filter: ApiFilter = {}) {
-      return get<T>("provider/jp/finance/log/count", filter);
+      return get<T>(`${TENANT_AUDIT_LOG_ENDPOINT}/count`, toMsQuery(filter));
     },
   },
 
@@ -428,10 +629,10 @@ export const financeApi = {
 
   customers: {
     list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>("provider/customers", filter);
+      return get<T>(TENANT_CONSUMER_ENDPOINT, filter);
     },
     detail<T = unknown>(id: string) {
-      return get<T>(`provider/customers/${id}`);
+      return get<T>(`${TENANT_CONSUMER_ENDPOINT}/${id}`);
     },
   },
 
@@ -444,6 +645,34 @@ export const financeApi = {
     },
     uploadToSignedUrl<T = unknown>(url: string, file: unknown) {
       return put<T>(url, file);
+    },
+  },
+  services: {
+    list<T = unknown>() {
+      return get<T>("/v1/api/provider/services");
+    },
+  },
+  items: {
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return get<T>(TENANT_ITEM_ENDPOINT, filter);
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_ITEM_ENDPOINT}/${uid}`);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_ITEM_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_ITEM_ENDPOINT}/${uid}`, data);
+    },
+    changeStatus<T = unknown>(uid: string, status: string) {
+      return put<T>(`${TENANT_ITEM_ENDPOINT}/${uid}/status/${status}`);
+    },
+    updateCouponApplicable<T = unknown>(uid: string, applicable: boolean) {
+      return put<T>(`${TENANT_ITEM_ENDPOINT}/${uid}/coupon-applicable/${applicable}`);
+    },
+    updateDiscountApplicable<T = unknown>(uid: string, applicable: boolean) {
+      return put<T>(`${TENANT_ITEM_ENDPOINT}/${uid}/discount-applicable/${applicable}`);
     },
   },
 };

@@ -59,6 +59,12 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 function errorMessage(error: unknown) {
   if (!error) return "";
   if (typeof error === "string") return error;
@@ -128,12 +134,24 @@ export function FinanceMoneyCreate({ kind }: { kind: MoneyCreateKind }) {
       [cfg.statusField]: statusId || undefined,
       locationId: location?.id ?? undefined,
       description: description.trim() || undefined,
+      paymentMode: paymentMode || undefined,
       paymentInfo: {
         paymentMode,
       },
     };
 
-    if (kind === "expense") {
+    if (kind === "revenue") {
+      payload.categoryId = Number(categoryId) || undefined;
+      payload.statusId = Number(statusId) || undefined;
+      payload.paymentLabel = label.trim();
+      payload.paymentOn = toIsoDateTime(date);
+      payload.mode = paymentMode || undefined;
+      payload.locationUid = location?.id ?? undefined;
+      payload.locationName = location?.name ?? undefined;
+      payload.isPaymentsIn = true;
+      payload.financeDirect = true;
+      payload.paymentInfo = paymentMode ? [{ paymentMode }] : undefined;
+    } else if (kind === "expense") {
       payload.paymentInfo = paymentMode ? [{ paymentMode }] : undefined;
     }
 

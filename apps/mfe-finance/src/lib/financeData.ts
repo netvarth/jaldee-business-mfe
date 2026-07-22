@@ -64,6 +64,15 @@ export type FinanceReceivable = {
   amountDue: number;
   ageing: string;
   owner: string;
+  date?: string;
+  revenueCategory?: string;
+  invoiceCategory?: string;
+  invoiceNo?: string;
+  reference?: string;
+  patientName?: string;
+  vendor?: string;
+  location?: string;
+  status?: string;
 };
 
 export type FinancePayable = {
@@ -73,6 +82,13 @@ export type FinancePayable = {
   amountDue: number;
   dueOn: string;
   priority: "High" | "Medium" | "Low";
+  date?: string;
+  payoutCategory?: string;
+  expenseCategory?: string;
+  reference?: string;
+  patientName?: string;
+  location?: string;
+  status?: string;
 };
 
 export type FinanceExpense = {

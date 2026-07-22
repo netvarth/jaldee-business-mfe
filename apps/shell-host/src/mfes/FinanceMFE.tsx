@@ -3,7 +3,7 @@ import { useBuildMFEProps } from "../hooks/useMFEProps";
 
 export function loadFinanceRemote() {
   if (import.meta.env.DEV) {
-    const financeUrl = import.meta.env.VITE_FINANCE_URL ?? "http://localhost:3004";
+    const financeUrl = import.meta.env.VITE_FINANCE_URL ?? "http://localhost:3005";
     return import(/* @vite-ignore */ `${financeUrl}/src/mount.tsx`);
   }
 

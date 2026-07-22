@@ -128,15 +128,13 @@ function mapInvoiceStatus(value: any): FinanceStatus {
 
 function normalizeInvoices(payload: any): FinanceInvoice[] {
   return extractList(payload).map((item: any, index) => {
-    const pcd = item.providerConsumerData;
-    const fullName = pcd?.firstName ? `${pcd.firstName} ${pcd.lastName ?? ""}`.trim() : undefined;
     return {
-      id: text(item.invoiceNum || item.uid || item.invoiceUid || item.invoiceId || item.uuid || item.id || `invoice-${index}`),
-      customer: text(fullName || item.customerName || item.consumerName || item.customer?.name || item.invoiceFor || item.providerConsumer?.firstName),
-      category: text(item.categoryName || item.invoiceCategoryName || item.category?.name || item.invoiceCategory || item.notes),
-      amount: amount(item.netTotal || item.totalAmount || item.amount || item.total || item.invoiceAmount),
+      id: text(item.uid || item.invoiceNum || item.invoiceId || `invoice-${index}`),
+      customer: text(item.consumerName || item.customerName || item.invoiceFor || item.userName),
+      category: text(item.categoryName || item.invoiceCategoryName || "General"),
+      amount: amount(item.netTotal || item.totalAmount || item.amountDue),
       dueDate: formatDate(item.dueDate || item.invoiceDate || item.createdDate),
-      status: mapInvoiceStatus(item.billPaymentStatus || item.billStatus || item.status || item.paymentStatus),
+      status: mapInvoiceStatus(item.invoiceStatus || item.invoicePaymentStatus || item.billStatus || item.status),
     };
   });
 }
@@ -211,9 +209,9 @@ function normalizeExpenses(payload: any): FinanceExpense[] {
     const fullName = pcd?.firstName ? `${pcd.firstName} ${pcd.lastName ?? ""}`.trim() : undefined;
     return {
       id: text(item.paymentsOutUid || item.payInOutUid || item.uid || item.id || item.expenseUid || `expense-${index}`),
-      title: text(item.title || item.categoryName || item.name || item.description || item.notes),
+      title: text(item.expenseFor || item.title || item.categoryName || item.name || item.description || item.notes),
       category: text(item.categoryName || item.expenseCategoryName || item.category || "General"),
-      owner: text(fullName || item.owner || item.createdByName || item.assignedTo || "Finance"),
+      owner: text(fullName || item.userName || item.owner || item.createdByName || item.assignedTo || "Finance"),
       amount: amount(item.amount || item.totalAmount || item.expenseAmount),
       bookedOn: formatDate(item.paidDate || item.receivedDate || item.bookedOn || item.expenseDate || item.createdDate),
     };
@@ -260,10 +258,10 @@ function normalizeCashEntries(payload: any): FinanceCashEntry[] {
 function normalizeActivity(payload: any): FinanceActivity[] {
   return extractList(payload).map((item: any, index) => ({
     id: text(item.uid || item.id || item.logId || `activity-${index}`),
-    action: text(item.action || item.event || item.activity || item.description),
-    actor: text(item.actor || item.userName || item.createdByName || "System"),
+    action: text(item.message || item.action || item.event || item.activity || item.description),
+    actor: text(item.actorUserName || item.actor || item.userName || item.createdByName || "System"),
     target: text(item.target || item.referenceId || item.entityName || item.module),
-    timestamp: formatDate(item.timestamp || item.createdDate || item.updatedDate),
+    timestamp: formatDate(item.createdAt || item.timestamp || item.createdDate || item.updatedDate),
   }));
 }
 
@@ -346,7 +344,7 @@ export function FinanceLiveProvider({ children }: { children: ReactNode }) {
         financeApi.expenses.list(listFilter),
         financeApi.categories.byFilter({}),
         financeApi.statuses.byFilter({}),
-        financeApi.cash.balance(),
+        mfeProps.location?.id ? financeApi.cash.balance(mfeProps.location.id) : Promise.resolve({ data: [] }),
         financeApi.activity.list(listFilter),
         financeApi.totals.list(listFilter),
         financeApi.totals.count(locFilter),

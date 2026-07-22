@@ -556,3 +556,30 @@ export function useFinanceSummaries() {
     data: datasetQuery.data?.summaries ?? [],
   };
 }
+
+export function useFinanceTenantSettings() {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-tenant-settings"],
+    queryFn: async () => {
+      const response = await api.get<unknown>("/v1/api/tenant/settings");
+      return (response as { data: unknown }).data;
+    },
+  });
+}
+
+export function useUpdateFinanceTenantSettings() {
+  const api = useApiScope();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: unknown) => {
+      const response = await api.put<unknown>("/v1/api/tenant/settings", data);
+      return (response as { data: unknown }).data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance-tenant-settings"] });
+    },
+  });
+}

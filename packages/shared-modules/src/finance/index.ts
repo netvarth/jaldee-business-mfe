@@ -53,5 +53,7 @@ export {
   useFinanceStatuses,
   useFinanceVendorStatuses,
   useFinanceVendorsCount,
+  useFinanceTenantSettings,
+  useUpdateFinanceTenantSettings,
 } from "./queries/finance";
 export { formatFinanceCurrency, getFinanceDataset, getFinanceStatusVariant } from "./services/finance";
