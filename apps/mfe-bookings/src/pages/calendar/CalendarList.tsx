@@ -9,8 +9,10 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  Popover,
   type ColumnDef,
 } from "@jaldee/design-system";
+import { MoreVertical, MapPin, Phone, Monitor, Calendar as CalendarIcon } from "../../components/icons";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -117,7 +119,7 @@ export default function CalendarList() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { schema: calendarSearchSchema, loading: calendarSearchSchemaLoading } =
     useCalendarSearchSchema();
-  const { calendars, loading } = useCalendars(advancedFilters, calendarSearchSchema, {
+  const { calendars, loading, toggleStatus } = useCalendars(advancedFilters, calendarSearchSchema, {
     enabled: !calendarSearchSchemaLoading,
   });
   const navigate = useNavigate();
@@ -153,10 +155,12 @@ export default function CalendarList() {
         width: "32%",
         render: (calendar) => (
           <div className="flex items-center gap-3">
-            <span
-              className="h-3.5 w-3.5 shrink-0 rounded"
-              style={{ backgroundColor: calendar.color || "#9333ea" }}
-            />
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white"
+              style={{ backgroundColor: calendar.color || "#3F20FD" }}
+            >
+              <CalendarIcon size={20} />
+            </div>
             <div className="min-w-0">
               <p className="truncate font-semibold text-slate-900">{calendar.name}</p>
               <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -176,16 +180,25 @@ export default function CalendarList() {
         key: "bookingChannels",
         header: "BOOKING CHANNELS",
         render: (calendar) => (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {(calendar.bookingChannels ?? []).length ? (
-              calendar.bookingChannels?.map((channel) => (
-                <span
-                  key={channel}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
-                >
-                  {channel}
-                </span>
-              ))
+              calendar.bookingChannels?.map((channel) => {
+                let Icon = null;
+                const normalized = channel.toLowerCase();
+                if (normalized === "online") Icon = Monitor;
+                else if (normalized === "walk-in" || normalized === "walk_in") Icon = MapPin;
+                else if (normalized === "phone-in" || normalized === "phone_in") Icon = Phone;
+
+                return (
+                  <span
+                    key={channel}
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                  >
+                    {Icon && <Icon size={12} className="text-slate-500" />}
+                    {channel}
+                  </span>
+                );
+              })
             ) : (
               <span className="text-slate-400">-</span>
             )}
@@ -198,7 +211,7 @@ export default function CalendarList() {
         header: "STATUS",
         sortable: true,
         render: (calendar) => (
-          <Badge variant={statusVariant(calendar.status)}>
+          <Badge variant={statusVariant(calendar.status)} className="rounded-lg">
             {statusLabel(calendar.status)}
           </Badge>
         ),
@@ -207,26 +220,54 @@ export default function CalendarList() {
         key: "actions",
         header: "ACTIONS",
         align: "right",
-        width: 100,
+        width: 60,
         render: (calendar) => (
-          <Button
-            variant="outline"
-            size="sm"
-            id={`bookings-calendar-edit-${calendar.uid}`}
-            data-testid={`bookings-calendar-edit-${calendar.uid}`}
-            type="button"
-            className="font-semibold"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (calendar.status === "DRAFT") {
-                navigate("/calendars/create", { state: { calendar } });
-              } else {
-                navigate("/calendars/edit", { state: { calendar } });
+          <div className="flex justify-end">
+            <Popover
+              trigger={
+                <button
+                  id={`bookings-calendar-actions-${calendar.uid}`}
+                  data-testid={`bookings-calendar-actions-${calendar.uid}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical size={16} />
+                </button>
               }
-            }}
-          >
-            Edit
-          </Button>
+              placement="bottom"
+              align="end"
+              portal
+            >
+              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
+                <button
+                  id={`bookings-calendar-edit-${calendar.uid}`}
+                  data-testid={`bookings-calendar-edit-${calendar.uid}`}
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (calendar.status === "DRAFT") {
+                      navigate("/calendars/create", { state: { calendar } });
+                    } else {
+                      navigate("/calendars/edit", { state: { calendar } });
+                    }
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  id={`bookings-calendar-status-${calendar.uid}`}
+                  data-testid={`bookings-calendar-status-${calendar.uid}`}
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleStatus(calendar);
+                  }}
+                >
+                  {calendar.status === "ACTIVE" ? "Make Inactive" : "Make Active"}
+                </button>
+              </div>
+            </Popover>
+          </div>
         ),
       },
     ],

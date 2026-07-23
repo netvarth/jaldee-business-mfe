@@ -15,9 +15,9 @@ export interface ServiceGroupInput {
   name: string;
   description?: string;
   serviceIds: string[];
-  priceMode: "sum" | "fixed";
+  priceMode: "FIXED" | "SUM_OF_LINKED_SERVICES" | "MAX_OF_LINKED_SERVICES";
   price?: number;
-  durationMode: "sum" | "override";
+  durationMode: "OVERRIDE_DURATION" | "SUM_OF_LINKED_SERVICES" | "MAX_OF_LINKED_SERVICES";
   duration?: number;
   status?: "Active" | "Inactive";
 }
@@ -55,6 +55,7 @@ interface ServiceGroupSearchDto {
   priceMode?: string;
   packagePrice?: string | number;
   price?: string | number;
+  durationMode?: string;
   combinedDuration?: string | number;
   duration?: string | number;
 }
@@ -105,8 +106,13 @@ function normalizeServiceIds(
 
 function normalizeServiceGroupSearchResult(group: ServiceGroupSearchDto): ServiceGroupItem {
   const id = group.uid ?? group.id ?? group.groupId ?? group.encId;
-  const priceMode =
-    String(group.pricingMode ?? group.priceMode ?? "").toUpperCase() === "FIXED" ? "fixed" : "sum";
+  const priceModeRaw = String(group.pricingMode ?? group.priceMode ?? "").toUpperCase();
+  const priceMode = priceModeRaw === "MAX_OF_LINKED_SERVICES" ? "MAX_OF_LINKED_SERVICES"
+    : priceModeRaw === "FIXED" ? "FIXED" : "SUM_OF_LINKED_SERVICES";
+
+  const durationModeRaw = String(group.durationMode ?? "").toUpperCase();
+  const durationMode = durationModeRaw === "MAX_OF_LINKED_SERVICES" ? "MAX_OF_LINKED_SERVICES"
+    : durationModeRaw === "OVERRIDE_DURATION" || durationModeRaw === "FIXED" ? "OVERRIDE_DURATION" : "SUM_OF_LINKED_SERVICES";
 
   return {
     id: id != null ? String(id) : `svc-group-${Math.random().toString(36).slice(2, 8)}`,
@@ -120,7 +126,7 @@ function normalizeServiceGroupSearchResult(group: ServiceGroupSearchDto): Servic
           : normalizeServiceIds(group.linkedServices),
     priceMode,
     price: toNumber(group.packagePrice ?? group.price),
-    durationMode: "sum",
+    durationMode,
     duration: toNumber(group.combinedDuration ?? group.duration),
     status: toUiStatus(group.status),
   };
@@ -131,7 +137,7 @@ export function useServiceGroups(
   schema: SearchSchema | null | undefined = null,
   options?: { enabled?: boolean }
 ) {
-  const { post, put } = useBookingApi();
+  const { post, put, patch } = useBookingApi();
   const [version, setVersion] = useState(0);
   const [remoteGroups, setRemoteGroups] = useState<ServiceGroupItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -197,20 +203,30 @@ export function useServiceGroups(
   const createGroup = useCallback(async (input: ServiceGroupInput) => {
     const payload = {
       name: input.name.trim(),
+      description: input.description?.trim(),
       displayOrder: 0,
-      status: input.status === "Active" ? "Enabled" : "Disabled",
-      combinedDuration: input.duration ?? 0,
-      pricingMode: input.priceMode === "fixed" ? "FIXED" : "SUM_OF_LINKED_SERVICES",
-      packagePrice: input.price ?? 0,
+      durationMode: input.durationMode,
+      duration: input.durationMode === "OVERRIDE_DURATION" ? input.duration : undefined,
+      pricingMode: input.priceMode,
+      fixedPriceAmount: input.price ?? 0,
       currencyCode: "INR", // Defaulting to INR as per typical usage
-      services: input.serviceIds.map(uid => ({ uid }))
+      linkedServiceUids: input.serviceIds
     };
 
     try {
       const response = await post<any>("/service-groups", payload);
+      const groupId = response?.uid;
+      
+      if (groupId && input.status) {
+        try {
+          await patch(`/service-groups/${groupId}/status?status=${input.status === "Active" ? "ACTIVE" : "INACTIVE"}`);
+        } catch (statusError) {
+          console.error("Failed to update status on create:", statusError);
+        }
+      }
       
       const group: ServiceGroupItem = {
-        id: response?.uid || `svc-group-${Date.now()}`,
+        id: groupId || `svc-group-${Date.now()}`,
         name: input.name.trim(),
         description: input.description?.trim(),
         serviceIds: input.serviceIds,
@@ -227,25 +243,47 @@ export function useServiceGroups(
       console.error("Failed to create service group:", error);
       throw error;
     }
-  }, [post]);
+  }, [post, patch]);
 
   const updateGroup = useCallback(async (groupId: string, input: ServiceGroupInput) => {
-    // We update local state for now until PUT is fully requested for edit
-    const updated: ServiceGroupItem = {
-      id: groupId,
+    const payload = {
       name: input.name.trim(),
       description: input.description?.trim(),
-      serviceIds: input.serviceIds,
-      priceMode: input.priceMode,
-      price: input.price,
+      displayOrder: 0,
       durationMode: input.durationMode,
-      duration: input.duration,
-      status: input.status ?? "Active",
+      duration: input.durationMode === "OVERRIDE_DURATION" ? input.duration : undefined,
+      pricingMode: input.priceMode,
+      fixedPriceAmount: input.price ?? 0,
+      currencyCode: "INR",
+      linkedServiceUids: input.serviceIds
     };
-    updateCreatedServiceGroup(updated);
-    setVersion((current) => current + 1);
-    return updated;
-  }, []);
+
+    try {
+      await put(`/service-groups/${groupId}`, payload);
+      
+      if (input.status) {
+        await patch(`/service-groups/${groupId}/status?status=${input.status === "Active" ? "ACTIVE" : "INACTIVE"}`);
+      }
+
+      const updated: ServiceGroupItem = {
+        id: groupId,
+        name: input.name.trim(),
+        description: input.description?.trim(),
+        serviceIds: input.serviceIds,
+        priceMode: input.priceMode,
+        price: input.price,
+        durationMode: input.durationMode,
+        duration: input.duration,
+        status: input.status ?? "Active",
+      };
+      updateCreatedServiceGroup(updated);
+      setVersion((current) => current + 1);
+      return updated;
+    } catch (error) {
+      console.error("Failed to update service group:", error);
+      throw error;
+    }
+  }, [put, patch]);
 
   const deleteGroup = useCallback((groupId: string) => {
     removeCreatedServiceGroup(groupId);

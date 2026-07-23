@@ -97,3 +97,6 @@ export const MoreVertical = (p: IconProps) => (
 export const MapPin = (p: IconProps) => (
   <svg {...base(p)}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
 );
+export const Monitor = (p: IconProps) => (
+  <svg {...base(p)}><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></svg>
+);

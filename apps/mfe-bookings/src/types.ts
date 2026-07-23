@@ -366,9 +366,9 @@ export interface ServiceGroupItem {
   name: string;
   description?: string;
   serviceIds: string[];
-  priceMode: "sum" | "fixed";
+  priceMode: "FIXED" | "SUM_OF_LINKED_SERVICES" | "MAX_OF_LINKED_SERVICES";
   price?: number;
-  durationMode: "sum" | "override";
+  durationMode: "OVERRIDE_DURATION" | "SUM_OF_LINKED_SERVICES" | "MAX_OF_LINKED_SERVICES";
   duration?: number;
   status: "Active" | "Inactive";
 }

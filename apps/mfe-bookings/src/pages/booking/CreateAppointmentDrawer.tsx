@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Combobox,
@@ -18,7 +18,7 @@ import { useCreateBooking } from "../../services/useCreateBooking";
 import { useCreateSeriesBooking } from "../../services/useCreateSeriesBooking";
 import { useCustomerSearch } from "../../services/useCustomerSearch";
 import { addCreatedBooking } from "../../data/sessionStore";
-import type { BookingChannel, CustomerSearchResult, Slot } from "../../types";
+import type { BookingChannel, Calendar, CustomerSearchResult, Slot } from "../../types";
 
 const WEEK = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -57,6 +57,46 @@ function mapCustomerDetails(customer: CustomerSearchResult) {
   };
 }
 
+function resolveTextValue(value: unknown, fallbackKeys: string[]) {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    for (const key of fallbackKeys) {
+      const candidate = (value as Record<string, unknown>)[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+  }
+  return "";
+}
+
+function normalizeCalendarServiceMappings(services: Calendar["services"] | undefined) {
+  if (!Array.isArray(services)) return [];
+  return services
+    .map((service) => {
+      if (!service || typeof service === "string") {
+        const serviceUid = typeof service === "string" ? service : "";
+        return serviceUid
+          ? { serviceUid, serviceName: serviceUid, users: [] as Array<{ userUid: string; userName: string }> }
+          : null;
+      }
+
+      const serviceUid = resolveTextValue(service, ["serviceUid", "uid", "id"]);
+      if (!serviceUid) return null;
+      const serviceName = resolveTextValue(service, ["serviceName", "name", "displayName", "uid", "id"]) || serviceUid;
+      const rawUsers = "users" in service && Array.isArray(service.users) ? service.users : [];
+      const users = rawUsers
+        .map((user) => {
+          const userUid = resolveTextValue(user, ["userUid", "uid", "id"]);
+          if (!userUid) return null;
+          const userName = resolveTextValue(user, ["userName", "displayName", "name"]) || userUid;
+          return { userUid, userName };
+        })
+        .filter((item): item is { userUid: string; userName: string } => Boolean(item));
+
+      return { serviceUid, serviceName, users };
+    })
+    .filter((item): item is { serviceUid: string; serviceName: string; users: Array<{ userUid: string; userName: string }> } => Boolean(item));
+}
+
 interface CreateAppointmentDrawerProps {
   initialDate?: Date;
   initialTime?: string;
@@ -72,7 +112,7 @@ export default function CreateAppointmentDrawer({
 }: CreateAppointmentDrawerProps = {}) {
   const { closeDrawer } = useModal();
   const { showToast } = useToast();
-  const { calendars, searchSchedules } = useCalendars();
+  const { calendars, searchSchedules, getCalendar } = useCalendars();
   const { services } = useServices();
   const { providers } = useProviders();
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
@@ -107,10 +147,12 @@ export default function CreateAppointmentDrawer({
   const [notes, setNotes] = useState("");
   const [scheduleOptions, setScheduleOptions] = useState<{ value: string; label: string }[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [calendarDetails, setCalendarDetails] = useState<Calendar | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("WEEKLY");
   const [interval, setIntervalVal] = useState(1);
   const [until, setUntil] = useState("");
+  const scheduleManuallySelectedRef = useRef(false);
 
   const dateStr = selectedDate ? iso(selectedDate) : "";
   const resolvedPatientName = patientName.trim() || (selectedCustomer ? buildCustomerLabel(selectedCustomer) : "");
@@ -120,6 +162,11 @@ export default function CreateAppointmentDrawer({
   const selectedCalendar = useMemo(
     () => calendars.find((calendar) => calendar.uid === calendarUid),
     [calendarUid, calendars],
+  );
+  const effectiveCalendar = calendarDetails ?? selectedCalendar ?? null;
+  const calendarServiceMappings = useMemo(
+    () => normalizeCalendarServiceMappings(effectiveCalendar?.services),
+    [effectiveCalendar?.services]
   );
   const selectedProviderUid = useMemo(() => {
     const matchedProvider = providers.find((provider) =>
@@ -133,14 +180,19 @@ export default function CreateAppointmentDrawer({
   const selectedService = useMemo(() => services.find(s => s.uid === serviceUid || s.id === serviceUid), [services, serviceUid]);
   
   const availableServices = useMemo(() => {
-    const assignedServices = new Set(selectedCalendar?.services ?? []);
-    if (assignedServices.size === 0) {
+    if (calendarServiceMappings.length > 0) {
+      return calendarServiceMappings
+        .map((mapping) => services.find((service) => (service.uid ?? service.id) === mapping.serviceUid || service.id === mapping.serviceUid))
+        .filter((service): service is NonNullable<typeof service> => Boolean(service));
+    }
+    if (!calendarUid) {
+      return services;
+    }
+    if (!effectiveCalendar) {
       return calendarUid ? [] : services;
     }
-    return services.filter((service) =>
-      assignedServices.has(service.uid ?? service.id) || assignedServices.has(service.id),
-    );
-  }, [calendarUid, selectedCalendar?.services, services]);
+    return [];
+  }, [calendarServiceMappings, calendarUid, effectiveCalendar, services]);
   
   const serviceOptions = useMemo(
     () => availableServices.map((service) => ({ value: service.uid ?? service.id, label: service.name })),
@@ -148,14 +200,30 @@ export default function CreateAppointmentDrawer({
   );
 
   const availableProviders = useMemo(() => {
-    const assignedUsers = new Set(selectedCalendar?.users ?? []);
-    if (assignedUsers.size === 0) {
+    const selectedMapping = calendarServiceMappings.find((mapping) => mapping.serviceUid === serviceUid);
+    if (selectedMapping) {
+      return selectedMapping.users
+        .map((assignedUser) =>
+          providers.find((provider) => (provider.uid ?? provider.id) === assignedUser.userUid || provider.id === assignedUser.userUid) ?? {
+            id: assignedUser.userUid,
+            uid: assignedUser.userUid,
+            name: assignedUser.userName,
+            code: assignedUser.userName.slice(0, 2).toUpperCase(),
+            color: "avatar-color-1",
+            role: "",
+            status: "online" as const,
+          }
+        )
+        .filter(Boolean);
+    }
+    if (!calendarUid) {
+      return providers;
+    }
+    if (!effectiveCalendar) {
       return calendarUid ? [] : providers;
     }
-    return providers.filter((provider) =>
-      assignedUsers.has(provider.uid ?? provider.id) || assignedUsers.has(provider.id),
-    );
-  }, [calendarUid, selectedCalendar?.users, providers]);
+    return [];
+  }, [calendarServiceMappings, calendarUid, effectiveCalendar, providers, serviceUid]);
 
   const providerOptions = useMemo(
     () => availableProviders.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") })),
@@ -200,6 +268,30 @@ export default function CreateAppointmentDrawer({
   };
 
   useEffect(() => {
+    if (!calendarUid) {
+      setCalendarDetails(null);
+      return;
+    }
+    let cancelled = false;
+    async function loadCalendarDetails() {
+      try {
+        const data = await getCalendar(calendarUid);
+        if (!cancelled) {
+          setCalendarDetails(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setCalendarDetails(null);
+        }
+      }
+    }
+    void loadCalendarDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarUid, getCalendar]);
+
+  useEffect(() => {
     setSlot(null);
     if (serviceUid && scheduleUid && dateStr) {
       fetchSlots({ serviceUid, scheduleUid, calendarUid, date: dateStr });
@@ -211,6 +303,8 @@ export default function CreateAppointmentDrawer({
   useEffect(() => {
     if (!calendarUid) {
       setScheduleOptions([]);
+      setScheduleUid("");
+      scheduleManuallySelectedRef.current = false;
       setSchedulesLoading(false);
       return;
     }
@@ -220,12 +314,24 @@ export default function CreateAppointmentDrawer({
       try {
         const schedules = await searchSchedules(calendarUid);
         if (cancelled) return;
-        setScheduleOptions(
-          schedules.map((schedule) => ({ value: schedule.uid, label: schedule.name })),
-        );
+        const nextOptions = schedules.map((schedule) => ({ value: schedule.uid, label: schedule.name }));
+        setScheduleOptions(nextOptions);
+        setScheduleUid((current) => {
+          if (
+            scheduleManuallySelectedRef.current &&
+            current &&
+            nextOptions.some((option) => option.value === current)
+          ) {
+            return current;
+          }
+          scheduleManuallySelectedRef.current = false;
+          return nextOptions[0]?.value ?? "";
+        });
       } catch {
         if (cancelled) return;
         setScheduleOptions([]);
+        setScheduleUid("");
+        scheduleManuallySelectedRef.current = false;
       } finally {
         if (!cancelled) {
           setSchedulesLoading(false);
@@ -236,11 +342,21 @@ export default function CreateAppointmentDrawer({
     return () => {
       cancelled = true;
     };
-  }, [calendarUid, clearSlots, searchSchedules]);
+  }, [calendarUid, searchSchedules]);
+
+  useEffect(() => {
+    if (scheduleUid && !scheduleOptions.some((schedule) => schedule.value === scheduleUid)) {
+      scheduleManuallySelectedRef.current = false;
+      setScheduleUid(scheduleOptions[0]?.value ?? "");
+      setSlot(null);
+      clearSlots();
+    }
+  }, [clearSlots, scheduleOptions, scheduleUid]);
 
   useEffect(() => {
     if (serviceUid && !serviceOptions.some((service) => service.value === serviceUid)) {
       setServiceUid("");
+      setDoctorUid("");
       setSlot(null);
       clearSlots();
     }
@@ -746,7 +862,10 @@ export default function CreateAppointmentDrawer({
                  required 
                  placeholder={calendarUid ? (schedulesLoading ? "Loading schedules..." : "Select schedule") : "Select calendar first"} 
                  value={scheduleUid} 
-                 onChange={(e) => setScheduleUid(e.target.value)} 
+                 onChange={(e) => {
+                   scheduleManuallySelectedRef.current = true;
+                   setScheduleUid(e.target.value);
+                 }} 
                  options={scheduleOptions} 
                />
             </div>

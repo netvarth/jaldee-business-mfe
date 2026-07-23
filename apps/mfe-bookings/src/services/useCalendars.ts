@@ -423,6 +423,18 @@ export const useCalendars = (
     return updated;
   };
 
+  const toggleStatus = async (calendar: Calendar) => {
+    const next: CalendarStatus = calendar.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    setCalendars((prev) =>
+      prev.map((item) => (item.uid === calendar.uid ? { ...item, status: next } : item))
+    );
+    try {
+      await api.put(`/calendars/${calendar.uid}/status`, next === "ACTIVE" ? "Enabled" : "Disabled");
+    } catch {
+      // Local-only update is fine for the prototype.
+    }
+  };
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -451,6 +463,7 @@ export const useCalendars = (
     getTimeWindowDetails,
     customizeTimeWindow,
     normalizeCalendarStatus,
+    toggleStatus,
     refresh: fetchCalendars,
   };
 };

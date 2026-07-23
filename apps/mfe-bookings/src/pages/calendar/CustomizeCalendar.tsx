@@ -149,16 +149,10 @@ function buildAssignmentsFromSources(
     serviceIds.map((serviceId) => {
       const source = serviceSources?.find((item) => item.serviceUid === serviceId);
       const sourceUsers = source?.users ?? [];
-      const users =
-        sourceUsers.length > 0
-          ? sourceUsers.map((user) => ({
-              userUid: user.userUid,
-              userName: resolveUserName(user.userUid, user.userName, userMap),
-            }))
-          : calendarUserIds.map((userUid) => ({
-              userUid,
-              userName: resolveUserName(userUid, undefined, userMap),
-            }));
+      const users = sourceUsers.map((user) => ({
+        userUid: user.userUid,
+        userName: resolveUserName(user.userUid, user.userName, userMap),
+      }));
 
       return [serviceId, users];
     }),
@@ -577,7 +571,7 @@ export default function CustomizeCalendar() {
                                     </div>
                                   ))
                                 ) : (
-                                  <span className="text-sm text-slate-400">No users assigned</span>
+                                  <span className="text-sm italic text-slate-400">No users assigned</span>
                                 )}
                               </div>
                             </td>
@@ -619,7 +613,13 @@ export default function CustomizeCalendar() {
                 <p className="mt-1 text-sm text-slate-500">Configure which channels customers can use to book appointments for this time window</p>
 
                 <div className="mt-5 space-y-4">
-                  {channels.map((channel) => {
+                  {channels.filter((channel) => {
+                    if (!isScheduleMode) return true;
+                    const calendarChannels = unique(normalizeList(calendar?.bookingChannels as unknown[]));
+                    const fallbackChannel = typeof calendar?.channel === "string" && calendar.channel.trim() ? [calendar.channel] : [];
+                    const parentChannels = calendarChannels.length ? calendarChannels : fallbackChannel;
+                    return parentChannels.includes(channel.value);
+                  }).map((channel) => {
                     const checked = selectedChannels.includes(channel.value);
                     return (
                       <label

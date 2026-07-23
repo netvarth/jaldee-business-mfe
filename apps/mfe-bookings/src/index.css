@@ -2368,6 +2368,12 @@ a:hover {
     background-color: var(--app-bg);
 }
 
+@media (max-width: 639px) {
+    .wizard-content-container {
+        padding: 15px;
+    }
+}
+
 .wizard-step-panel {
     display: none;
     max-width: 700px;

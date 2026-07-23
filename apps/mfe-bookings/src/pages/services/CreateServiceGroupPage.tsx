@@ -26,10 +26,9 @@ export default function CreateServiceGroupPage() {
   const [description, setDescription] = useState(editGroup?.description ?? "");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(editGroup?.serviceIds ?? []);
   
-  // Implicitly determine mode based on whether user edits the value away from the computed sum
-  const [priceMode, setPriceMode] = useState<"sum" | "fixed">(editGroup?.priceMode ?? "sum");
+  const [priceMode, setPriceMode] = useState<ServiceGroupItem["priceMode"]>(editGroup?.priceMode ?? "SUM_OF_LINKED_SERVICES");
   const [price, setPrice] = useState(editGroup?.price ?? 0);
-  const [durationMode, setDurationMode] = useState<"sum" | "override">(editGroup?.durationMode ?? "sum");
+  const [durationMode, setDurationMode] = useState<ServiceGroupItem["durationMode"]>(editGroup?.durationMode ?? "SUM_OF_LINKED_SERVICES");
   const [duration, setDuration] = useState(editGroup?.duration ?? 0);
   const [status, setStatus] = useState<"Active" | "Inactive">(editGroup?.status ?? "Active");
   const [labels, setLabels] = useState("");
@@ -45,14 +44,25 @@ export default function CreateServiceGroupPage() {
     [selectedServiceIds, services],
   );
 
-  // Sync inputs with calculated values when in "sum" mode
+  const computedMaxPrice = useMemo(
+    () => selectedServiceIds.reduce((max, id) => Math.max(max, services.find((service) => (service.uid ?? service.id) === id)?.price ?? 0), 0),
+    [selectedServiceIds, services],
+  );
+  const computedMaxDuration = useMemo(
+    () => selectedServiceIds.reduce((max, id) => Math.max(max, services.find((service) => (service.uid ?? service.id) === id)?.duration ?? 0), 0),
+    [selectedServiceIds, services],
+  );
+
+  // Sync inputs with calculated values
   useMemo(() => {
-    if (priceMode === "sum") setPrice(computedPrice);
-  }, [computedPrice, priceMode]);
+    if (priceMode === "SUM_OF_LINKED_SERVICES") setPrice(computedPrice);
+    else if (priceMode === "MAX_OF_LINKED_SERVICES") setPrice(computedMaxPrice);
+  }, [computedPrice, computedMaxPrice, priceMode]);
 
   useMemo(() => {
-    if (durationMode === "sum") setDuration(computedDuration);
-  }, [computedDuration, durationMode]);
+    if (durationMode === "SUM_OF_LINKED_SERVICES") setDuration(computedDuration);
+    else if (durationMode === "MAX_OF_LINKED_SERVICES") setDuration(computedMaxDuration);
+  }, [computedDuration, computedMaxDuration, durationMode]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -70,9 +80,9 @@ export default function CreateServiceGroupPage() {
       description,
       serviceIds: selectedServiceIds,
       priceMode,
-      price: priceMode === "fixed" ? price : computedPrice,
+      price: priceMode === "FIXED" ? price : priceMode === "MAX_OF_LINKED_SERVICES" ? computedMaxPrice : computedPrice,
       durationMode,
-      duration: durationMode === "override" ? duration : computedDuration,
+      duration: durationMode === "OVERRIDE_DURATION" ? duration : durationMode === "MAX_OF_LINKED_SERVICES" ? computedMaxDuration : computedDuration,
       status,
     } as const;
 
@@ -220,58 +230,82 @@ export default function CreateServiceGroupPage() {
             <div className="grid grid-cols-2 gap-8 mb-6">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Discounted Package Fee (₹) *</label>
-                  <button 
-                    type="button"
-                    onClick={() => { setPriceMode("sum"); setPrice(computedPrice); }}
-                    className="text-[11px] font-bold text-[#6b21a8] hover:underline"
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Fee Mode</label>
+                </div>
+                <div className="relative mb-4">
+                  <select 
+                    value={priceMode}
+                    onChange={(e) => setPriceMode(e.target.value as ServiceGroupItem["priceMode"])}
+                    className="w-full h-11 px-4 pr-10 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg appearance-none focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
                   >
-                    Reset to calculated (₹{computedPrice})
-                  </button>
+                    <option value="SUM_OF_LINKED_SERVICES">Sum of linked services (₹{computedPrice})</option>
+                    <option value="MAX_OF_LINKED_SERVICES">Max of linked services (₹{computedMaxPrice})</option>
+                    <option value="FIXED">Fixed custom price</option>
+                  </select>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </span>
                 </div>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748b] font-medium">₹</span>
-                  <input 
-                    type="number" 
-                    required 
-                    min={0}
-                    value={price} 
-                    onChange={(e) => { setPrice(Number(e.target.value)); setPriceMode("fixed"); }} 
-                    className="w-full h-11 pl-8 pr-4 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
-                  />
-                </div>
-                <div className="mt-2 text-[12px] text-[#64748b]">
-                  Original total sum: <span className="line-through">₹{computedPrice}</span>
-                </div>
+                
+                {priceMode === "FIXED" && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Fee (₹) *</label>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748b] font-medium">₹</span>
+                      <input 
+                        type="number" 
+                        required 
+                        min={0}
+                        value={price} 
+                        onChange={(e) => { setPrice(Number(e.target.value)); setPriceMode("FIXED"); }} 
+                        className="w-full h-11 pl-8 pr-4 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
               
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Duration (Minutes) *</label>
-                  <button 
-                    type="button"
-                    onClick={() => { setDurationMode("sum"); setDuration(computedDuration); }}
-                    className="text-[11px] font-bold text-[#6b21a8] hover:underline"
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Duration Mode</label>
+                </div>
+                <div className="relative mb-4">
+                  <select 
+                    value={durationMode}
+                    onChange={(e) => setDurationMode(e.target.value as ServiceGroupItem["durationMode"])}
+                    className="w-full h-11 px-4 pr-10 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg appearance-none focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
                   >
-                    Reset to calculated ({computedDuration} mins)
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94a3b8]">
-                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <option value="SUM_OF_LINKED_SERVICES">Sum of linked services ({computedDuration} mins)</option>
+                    <option value="MAX_OF_LINKED_SERVICES">Max of linked services ({computedMaxDuration} mins)</option>
+                    <option value="OVERRIDE_DURATION">Fixed custom duration</option>
+                  </select>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </span>
-                  <input 
-                    type="number" 
-                    required 
-                    min={1}
-                    value={duration} 
-                    onChange={(e) => { setDuration(Number(e.target.value)); setDurationMode("override"); }} 
-                    className="w-full h-11 pl-10 pr-4 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
-                  />
                 </div>
-                <div className="mt-2 text-[12px] text-[#64748b]">
-                  Sum of bundled services: {computedDuration} mins
-                </div>
+
+                {durationMode === "OVERRIDE_DURATION" && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Duration (Minutes) *</label>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94a3b8]">
+                        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </span>
+                      <input 
+                        type="number" 
+                        required 
+                        min={1}
+                        value={duration} 
+                        onChange={(e) => { setDuration(Number(e.target.value)); setDurationMode("OVERRIDE_DURATION"); }} 
+                        className="w-full h-11 pl-10 pr-4 text-[14px] font-semibold bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

@@ -41,6 +41,17 @@ function asTextList(values: unknown[] | undefined, fallbackKeys: string[] = ["na
     .filter(Boolean);
 }
 
+function formatTime12(time24: string) {
+  if (!time24) return "";
+  const parts = time24.split(":");
+  if (parts.length < 2) return time24;
+  let hour = parseInt(parts[0], 10);
+  const m = parts[1];
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour.toString().padStart(2, "0")}:${m} ${ampm}`;
+}
+
 export default function CalendarDetails() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -222,11 +233,10 @@ export default function CalendarDetails() {
             data-testid="bookings-calendar-details-schedules"
             className="calendar-details-section-card"
           >
-            <div className="calendar-section-header">
+            <div className="calendar-section-header !flex-row !items-center !justify-between">
               <div>
-                <p className="calendar-section-eyebrow">Availability</p>
                 <h2 className="calendar-section-title">Schedules</h2>
-                <p className="calendar-section-copy">
+                <p className="calendar-section-copy hidden sm:block">
                   Manage your shift timings
                 </p>
               </div>
@@ -248,11 +258,11 @@ export default function CalendarDetails() {
                   <article key={schedule.uid} className="detail-schedule-card">
                     <div className="detail-sch-card-hdr">
                       <div className="detail-sch-title-wrap">
-                        <div className="detail-sch-icon">
-                          <Clock size={16} />
+                        <div className="detail-sch-icon hidden sm:flex">
+                          <CalendarIcon size={16} />
                         </div>
                         <div>
-                          <h3 className="detail-sch-title">{schedule.name}</h3>
+                          <h3 className="detail-sch-title sm:text-indigo-700 text-slate-900">{schedule.name}</h3>
                           <p className="detail-sch-dates">
                             {formatDateRange(schedule.startDate, schedule.endDate)}
                           </p>
@@ -263,11 +273,11 @@ export default function CalendarDetails() {
                           id={`bookings-calendar-schedule-edit-${schedule.uid}`}
                           data-testid={`bookings-calendar-schedule-edit-${schedule.uid}`}
                           variant="secondary"
-                          className="detail-sch-edit-btn"
+                          className="detail-sch-edit-btn !px-2 sm:!px-4"
                           onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/edit`, { state: { calendar, schedule } })}
                         >
                           <FileText size={15} />
-                          Edit
+                          <span className="hidden sm:inline">Edit</span>
                         </Button>
                         <Popover
                           align="end"
@@ -324,10 +334,6 @@ export default function CalendarDetails() {
                       </div>
                     </div>
 
-                    {schedule.description ? (
-                      <p className="detail-sch-description">{schedule.description}</p>
-                    ) : null}
-
                     <div className="detail-sch-timewindows">
                       <h4 className="detail-sch-timewindows-title">Time Windows</h4>
                       {schedule.timeWindows?.length ? (
@@ -336,53 +342,71 @@ export default function CalendarDetails() {
                             <div className="detail-tw-toprow">
                               <div className="flex items-center justify-between w-full">
                                 <div className="detail-tw-chip-row">
-                                  {timeWindow.weekDays.map((day) => (
-                                    <span key={`${timeWindow.uid}-${day}`} className="detail-tw-weekday-chip">
-                                      {weekdayName[day] ?? String(day)}
-                                    </span>
-                                  ))}
-                                  <span className="detail-tw-channel-chip ml-2">
-                                    {channelIcon[timeWindow.channel] ?? timeWindow.channel}
-                                  </span>
+                                  {[7, 1, 2, 3, 4, 5, 6].map((day) => {
+                                    const isActive = timeWindow.weekDays.includes(day);
+                                    return (
+                                      <span 
+                                        key={`${timeWindow.uid}-${day}`} 
+                                        className={`sm:px-3 sm:py-1 px-2.5 py-1.5 flex items-center justify-center text-xs font-semibold rounded-md border ${
+                                          isActive 
+                                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50" 
+                                            : "border-slate-200 text-slate-300 bg-white"
+                                        }`}
+                                      >
+                                        <span className="hidden sm:inline">{weekdayName[day]}</span>
+                                        <span className="sm:hidden">{weekdayName[day].charAt(0)}</span>
+                                      </span>
+                                    );
+                                  })}
                                 </div>
-                                <Popover
-                                  align="end"
-                                  portal
-                                  data-testid={`bookings-calendar-tw-menu-${timeWindow.uid}`}
-                                  contentClassName="detail-sch-menu"
-                                  trigger={
-                                    <button
-                                      type="button"
-                                      className="detail-sch-more-btn"
-                                      aria-label={`More details for time window`}
-                                      title={`More details for time window`}
-                                    >
-                                      <MoreVertical size={16} />
-                                    </button>
-                                  }
-                                >
-                                  <PopoverSection className="detail-sch-menu-section">
-                                    <button
-                                      type="button"
-                                      className="detail-sch-menu-item"
-                                      onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/timewindows/${timeWindow.uid}/customize`, { state: { calendar, schedule, timeWindow } })}
-                                    >
-                                      <span className="detail-sch-menu-icon"><Settings size={18} /></span>
-                                      <span>Customize</span>
-                                    </button>
-                                  </PopoverSection>
-                                </Popover>
+                                <div className="hidden sm:block">
+                                  <Popover
+                                    align="end"
+                                    portal
+                                    data-testid={`bookings-calendar-tw-menu-${timeWindow.uid}`}
+                                    contentClassName="detail-sch-menu"
+                                    trigger={
+                                      <button
+                                        type="button"
+                                        className="detail-sch-more-btn"
+                                        aria-label={`More details for time window`}
+                                        title={`More details for time window`}
+                                      >
+                                        <MoreVertical size={16} />
+                                      </button>
+                                    }
+                                  >
+                                    <PopoverSection className="detail-sch-menu-section">
+                                      <button
+                                        type="button"
+                                        className="detail-sch-menu-item"
+                                        onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/timewindows/${timeWindow.uid}/customize`, { state: { calendar, schedule, timeWindow } })}
+                                      >
+                                        <span className="detail-sch-menu-icon"><Settings size={18} /></span>
+                                        <span>Customize</span>
+                                      </button>
+                                    </PopoverSection>
+                                  </Popover>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="detail-tw-timerange">
-                              {timeWindow.startTime} - {timeWindow.endTime}
-                            </div>
-
-                            <div className="detail-tw-metrics">
-                              <DetailMetric label="Time Range" value={`${timeWindow.startTime} - ${timeWindow.endTime}`} compact />
-                              <DetailMetric label="Slot Duration" value={`${timeWindow.slotDuration}m`} compact />
-                              <DetailMetric label="Slot Capacity" value={String(timeWindow.slotCapacity)} compact />
+                            <div className="detail-tw-metrics mt-4 flex items-center justify-between sm:grid sm:grid-cols-3 sm:gap-4">
+                              <div className="flex items-center gap-2 sm:block">
+                                <Clock size={16} className="text-indigo-600 sm:hidden" />
+                                <div className="hidden sm:block text-[11px] font-semibold text-slate-400 mb-1">Time Range</div>
+                                <div className="text-sm font-bold text-slate-900">{formatTime12(timeWindow.startTime)} - {formatTime12(timeWindow.endTime)}</div>
+                              </div>
+                              <div className="flex items-center gap-4 text-center sm:text-left sm:contents">
+                                <div>
+                                  <div className="text-[8px] sm:text-[11px] font-semibold text-slate-400 mb-0.5 sm:mb-1 uppercase sm:capitalize tracking-wider sm:tracking-normal">Duration</div>
+                                  <div className="text-xs sm:text-sm font-bold text-slate-900">{timeWindow.slotDuration}m</div>
+                                </div>
+                                <div>
+                                  <div className="text-[8px] sm:text-[11px] font-semibold text-slate-400 mb-0.5 sm:mb-1 uppercase sm:capitalize tracking-wider sm:tracking-normal">Capacity</div>
+                                  <div className="text-xs sm:text-sm font-bold text-slate-900">{timeWindow.slotCapacity}</div>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))
@@ -405,25 +429,67 @@ export default function CalendarDetails() {
             className="calendar-details-sidebar"
           >
             <div className="calendar-sidebar-shell">
-              <SidebarCard title="Services" icon={<Users size={16} />}>
-                <ServiceAssignmentList items={serviceAssignments} empty="No services assigned" />
-              </SidebarCard>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 mb-3">Services</h3>
+                {serviceAssignments.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {serviceAssignments.map(s => (
+                      <div key={s.serviceName} className="bg-[#fafafa] border border-slate-100 rounded-md p-3 text-sm text-slate-700">
+                        {s.serviceName}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-500">No services</div>
+                )}
+              </div>
 
-              <SidebarCard title="Channels" icon={<Clock size={16} />}>
-                <ChipGroup
-                  items={channelItems.map((channel) => channelIcon[channel] ?? channel)}
-                  empty="No channels configured"
-                />
-              </SidebarCard>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 mb-3">Users</h3>
+                {Array.from(new Set(serviceAssignments.flatMap(sa => sa.users))).length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {Array.from(new Set(serviceAssignments.flatMap(sa => sa.users))).map((u, i) => (
+                      <div key={u} className="flex items-center gap-3 bg-[#fafafa] border border-slate-100 rounded-lg p-2 text-sm text-slate-700">
+                        <div className={`avatar-mini avatar-color-${(i % 4) + 1}`}>{initials(u)}</div>
+                        {u}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-500">No users</div>
+                )}
+              </div>
 
-              <SidebarCard title="Labels" icon={<UserCircle size={16} />}>
-                <ChipGroup items={tagItems} empty="No labels" />
-              </SidebarCard>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 mb-3">Channels</h3>
+                <div className="flex flex-wrap gap-2">
+                  {channelItems.length > 0 ? channelItems.map(c => (
+                    <div key={c} className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600">
+                      {c === "Online" || c === "ONLINE" ? <div className="text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div> : null}
+                      {c === "Walk-in" || c === "WALK_IN" ? <div className="text-slate-400"><MapPin size={14} /></div> : null}
+                      {c === "Phone-in" || c === "PHONE_IN" ? <div className="text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div> : null}
+                      {channelIcon[c] ?? c}
+                    </div>
+                  )) : <div className="text-sm text-slate-500">No channels</div>}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-base font-bold text-slate-900 mb-3">Labels</h3>
+                <div className="flex flex-wrap gap-2">
+                  {tagItems.length > 0 ? tagItems.map(t => (
+                    <div key={t} className="bg-white border border-slate-200 rounded-lg px-4 py-1.5 text-sm text-slate-700">
+                      {t}
+                    </div>
+                  )) : <div className="text-sm text-slate-500">No labels</div>}
+                </div>
+              </div>
 
               {typeof calendar.capacityOverride === "number" ? (
-                <SidebarCard title="Capacity Override" icon={<Settings size={16} />}>
-                  <div className="sidebar-stat-value">{calendar.capacityOverride}</div>
-                </SidebarCard>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 mb-3">Capacity Override</h3>
+                  <div className="sidebar-stat-value text-2xl font-bold">{calendar.capacityOverride}</div>
+                </div>
               ) : null}
             </div>
           </aside>
@@ -474,7 +540,6 @@ function DetailsHeader({
         subtitle={subtitle}
         back={{ label: "Back to calendars", href: "/calendars" }}
         onNavigate={onBack}
-        className="mb-4"
       />
     </header>
   );

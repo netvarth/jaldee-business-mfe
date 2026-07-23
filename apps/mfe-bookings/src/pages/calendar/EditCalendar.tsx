@@ -68,20 +68,34 @@ export default function EditCalendar() {
 
   return (
     <main data-testid="bookings-edit-calendar-page" className="h-full overflow-y-auto bg-slate-50 p-4 md:p-6">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title="Edit Calendar" subtitle="Update the calendar name and description." />
         <form
           data-testid="bookings-edit-calendar-form"
-          className="mt-6 rounded-xl border border-slate-200 bg-white p-5 md:p-6"
+          className="mt-6 rounded-xl border border-slate-100 bg-white p-4 md:p-8 shadow-sm"
           onSubmit={handleSubmit}
         >
-          <FormSection title="Calendar details">
-            <Input id="edit-calendar-name" name="edit-calendar-name" data-testid="bookings-edit-calendar-name" label="Calendar name" required defaultValue={calendar?.name ?? ""} />
-            <Textarea id="edit-calendar-desc" name="edit-calendar-desc" data-testid="bookings-edit-calendar-description" label="Calendar description" defaultValue={calendar?.description ?? ""} className="md:col-span-2" />
-          </FormSection>
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="flex flex-col gap-5">
+            <Input 
+              id="edit-calendar-name" 
+              name="edit-calendar-name" 
+              data-testid="bookings-edit-calendar-name" 
+              label="Calendar Name *" 
+              required 
+              defaultValue={calendar?.name ?? ""} 
+            />
+            <Textarea 
+              id="edit-calendar-desc" 
+              name="edit-calendar-desc" 
+              data-testid="bookings-edit-calendar-description" 
+              label="Calendar Description" 
+              defaultValue={calendar?.description ?? ""} 
+              rows={4}
+            />
+          </div>
+          <div className="mt-8 flex justify-end gap-4">
             <Button variant="secondary" onClick={() => navigate(-1)} disabled={submitting}>Discard</Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" variant="primary" disabled={submitting} className="bg-[#5B2D8E] hover:bg-[#4a2473] text-white">
               {submitting ? "Saving..." : "Save Changes"}
             </Button>
           </div>

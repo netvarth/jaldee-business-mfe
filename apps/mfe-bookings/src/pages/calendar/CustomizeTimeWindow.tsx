@@ -105,20 +105,12 @@ function buildAssignmentsFromSources(
     serviceIds.map((serviceId) => {
       const source = serviceSources?.find((item) => item.serviceUid === serviceId);
       const sourceUsers = source?.users ?? [];
-      const users =
-        sourceUsers.length > 0
-          ? sourceUsers.map((user) => ({
-              userUid: user.userUid,
-              userName: resolveUserName(user.userUid, user.userName, userMap),
-              price: user.price ?? timeWindowDefaults?.price ?? 0,
-              capacity: user.capacity ?? timeWindowDefaults?.slotCapacity ?? 1,
-            }))
-          : inheritedUserIds.map((userUid) => ({
-              userUid,
-              userName: resolveUserName(userUid, undefined, userMap),
-              price: timeWindowDefaults?.price ?? 0,
-              capacity: timeWindowDefaults?.slotCapacity ?? 1,
-            }));
+      const users = sourceUsers.map((user) => ({
+        userUid: user.userUid,
+        userName: resolveUserName(user.userUid, user.userName, userMap),
+        price: user.price ?? timeWindowDefaults?.price ?? 0,
+        capacity: user.capacity ?? timeWindowDefaults?.slotCapacity ?? 1,
+      }));
       return [serviceId, users];
     }),
   );
@@ -481,7 +473,13 @@ export default function CustomizeTimeWindow() {
                 </p>
 
                 <div className="mt-5 space-y-5">
-                  {channels.map((channel) => {
+                  {channels.filter((channel) => {
+                    const scheduleChannels = unique(normalizeList(schedule?.bookingChannels as unknown[]));
+                    const calendarChannels = unique(normalizeList(calendar?.bookingChannels as unknown[]));
+                    const fallbackChannel = typeof calendar?.channel === "string" && calendar.channel.trim() ? [calendar.channel] : [];
+                    const parentChannels = scheduleChannels.length ? scheduleChannels : (calendarChannels.length ? calendarChannels : fallbackChannel);
+                    return parentChannels.includes(channel.value);
+                  }).map((channel) => {
                     const checked = selectedChannels.includes(channel.value);
                     return (
                       <label
