@@ -207,7 +207,6 @@ export default function CalendarList() {
         key: "actions",
         header: "ACTIONS",
         align: "right",
-        sticky: "right",
         width: 100,
         render: (calendar) => (
           <Button
@@ -244,8 +243,17 @@ export default function CalendarList() {
         title="Calendars"
         subtitle="Manage your booking calendars."
         className="mb-2"
+        actions={
+          <Button
+            id="bookings-calendar-list-create"
+            data-testid="bookings-calendar-list-create"
+            onClick={() => navigate("/calendars/create")}
+          >
+            Create Calendar
+          </Button>
+        }
       />
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4">
         <Input
           id="bookings-calendar-list-search"
           data-testid="bookings-calendar-list-search"
@@ -256,9 +264,9 @@ export default function CalendarList() {
             setQuery(event.target.value);
             setPage(1);
           }}
-          containerClassName="sm:max-w-sm"
+          containerClassName="flex-1 min-w-0 sm:max-w-sm"
         />
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto">
           <Button
             type="button"
             data-testid="bookings-calendar-list-filter-trigger"
@@ -286,13 +294,6 @@ export default function CalendarList() {
               </span>
             ) : null}
           </Button>
-          <Button
-            id="bookings-calendar-list-create"
-            data-testid="bookings-calendar-list-create"
-            onClick={() => navigate("/calendars/create")}
-          >
-            Create
-          </Button>
         </div>
       </div>
 
@@ -318,6 +319,7 @@ export default function CalendarList() {
             description="No calendars match the current search."
           />
         }
+        tableClassName="min-w-[800px]"
         data-testid="bookings-calendar"
       />
 

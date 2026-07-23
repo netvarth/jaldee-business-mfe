@@ -86,6 +86,47 @@ interface ServiceCustomizationSource {
   }>;
 }
 
+function normalizeServiceSources(values: unknown[] | undefined): ServiceCustomizationSource[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value) => {
+      if (!value || typeof value !== "object") return null;
+      const record = value as Record<string, unknown>;
+      const serviceUid = [record.serviceUid, record.uid, record.id]
+        .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+        ?.trim();
+      if (!serviceUid) return null;
+
+      const rawUsers = Array.isArray(record.users) ? record.users : [];
+      return {
+        serviceUid,
+        serviceName:
+          [record.serviceName, record.name, record.displayName]
+            .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+            ?.trim(),
+        users: rawUsers
+          .map((user) => {
+            if (!user || typeof user !== "object") return null;
+            const userRecord = user as Record<string, unknown>;
+            const userUid = [userRecord.userUid, userRecord.uid, userRecord.id]
+              .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+              ?.trim();
+            if (!userUid) return null;
+            return {
+              userUid,
+              userName:
+                [userRecord.userName, userRecord.displayName, userRecord.name]
+                  .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+                  ?.trim(),
+              price: typeof userRecord.price === "number" ? userRecord.price : undefined,
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+      };
+    })
+    .filter((item): item is ServiceCustomizationSource => Boolean(item));
+}
+
 function resolveUserName(
   userUid: string,
   fallbackName: string | undefined,
@@ -164,6 +205,10 @@ export default function CustomizeCalendar() {
     () => unique(normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"])),
     [calendar?.users],
   );
+  const calendarServiceSources = useMemo(
+    () => normalizeServiceSources(calendar?.services as unknown[]),
+    [calendar?.services],
+  );
 
   const defaultAssignments = useMemo<Record<string, ServiceAssignment[]>>(
     () =>
@@ -212,13 +257,18 @@ export default function CustomizeCalendar() {
       try {
         const data = await getCalendar(calendarUid);
         if (cancelled) return;
-        const serviceIds = unique(normalizeList(data.services as unknown[], ["uid", "id", "name"]));
+        const serviceSources = normalizeServiceSources(data.services as unknown[]);
+        const serviceIds = unique(
+          serviceSources.length
+            ? serviceSources.map((item) => item.serviceUid)
+            : normalizeList(data.services as unknown[], ["serviceUid", "uid", "id", "serviceName", "name"])
+        );
         const bookingChannels = unique(normalizeList(data.bookingChannels as unknown[]));
         const labels = unique(normalizeList((data.tags ?? data.label) as unknown[]));
         const baseUsers = unique(
           normalizeList(data.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
         );
-        const initialUserMap = buildAssignmentsFromSources(serviceIds, baseUsers, userMap);
+        const initialUserMap = buildAssignmentsFromSources(serviceIds, baseUsers, userMap, serviceSources);
 
         setCalendar(data);
         setSelectedServiceIds(serviceIds);
@@ -256,7 +306,11 @@ export default function CustomizeCalendar() {
           const matched = await getSchedule(calendarUid, selectedSchedule.uid).catch(() => null);
           if (cancelled) return;
           const resolvedSchedule = matched ?? data.find((schedule) => schedule.uid === selectedSchedule.uid) ?? selectedSchedule;
-          const calendarServiceIds = unique(normalizeList(calendar?.services as unknown[], ["uid", "id", "name"]));
+          const calendarServiceIds = unique(
+            calendarServiceSources.length
+              ? calendarServiceSources.map((item) => item.serviceUid)
+              : normalizeList(calendar?.services as unknown[], ["serviceUid", "uid", "id", "serviceName", "name"])
+          );
           const calendarUsers = unique(
             normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
           );
@@ -293,7 +347,7 @@ export default function CustomizeCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [calendar, calendarUid, getSchedule, searchSchedules, selectedSchedule, userMap]);
+  }, [calendar, calendarServiceSources, calendarUid, getSchedule, searchSchedules, selectedSchedule, userMap]);
 
   const addTag = () => {
     const value = newLabel.trim();

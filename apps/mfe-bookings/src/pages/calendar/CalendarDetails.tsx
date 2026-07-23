@@ -2,10 +2,8 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, PageHeader, Popover, PopoverSection, Switch } from "@jaldee/design-system";
 import { Calendar as CalendarIcon, Clock, FileText, MapPin, MoreVertical, Plus, Settings, UserCircle, Users } from "../../components/icons";
-import { useCalendars } from "../../services/useCalendars";
-import { useUsers } from "../../services/useUsers";
-import { useServices } from "../../services/useServices";
 import type { Calendar, Schedule } from "../../types";
+import { useCalendars } from "../../services/useCalendars";
 
 const channelIcon: Record<string, string> = {
   Online: "Online",
@@ -27,10 +25,7 @@ const weekdayName: Record<number, string> = {
   7: "Sun",
 };
 
-function asTextList(
-  values: unknown[] | undefined,
-  fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id"],
-) {
+function asTextList(values: unknown[] | undefined, fallbackKeys: string[] = ["name", "displayName", "label", "title", "uid", "id"]) {
   if (!Array.isArray(values)) return [];
   return values
     .map((value) => {
@@ -53,22 +48,11 @@ export default function CalendarDetails() {
   const initialCalendar = (location.state as { calendar?: Calendar } | null)?.calendar;
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
   const { searchSchedules, getCalendar } = useCalendars();
-  const { users } = useUsers();
-  const { services } = useServices();
   const [calendar, setCalendar] = useState<Calendar | null>(initialCalendar ?? null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
   const [scheduleEnabledState, setScheduleEnabledState] = useState<Record<string, boolean>>({});
-  const userNameMap = useMemo(
-    () => new Map(users.map((user) => [user.userUid, user.displayName])),
-    [users],
-  );
-  const serviceNameMap = useMemo(
-    () => new Map(services.map((service) => [service.uid ?? service.id, service.name])),
-    [services],
-  );
-
   useEffect(() => {
     if (!calendarUid) {
       setLoadingCalendar(false);
@@ -127,18 +111,7 @@ export default function CalendarDetails() {
     };
   }, [calendarUid, searchSchedules]);
 
-  const serviceItems = useMemo(
-    () => asTextList(calendar?.services as unknown[]).map((item) => serviceNameMap.get(item) ?? item),
-    [calendar?.services, serviceNameMap],
-  );
-  const userItems = useMemo(
-    () =>
-      asTextList(
-        calendar?.users as unknown[],
-        ["displayName", "name", "label", "title", "userUid", "uid", "id"],
-      ).map((item) => userNameMap.get(item) ?? item),
-    [calendar?.users, userNameMap],
-  );
+  const serviceAssignments = useMemo(() => normalizeServiceAssignments(calendar?.services), [calendar?.services]);
   const channelItems = asTextList(calendar?.bookingChannels as unknown[]);
   const tagItems = asTextList(calendar?.tags as unknown[]);
 
@@ -174,27 +147,57 @@ export default function CalendarDetails() {
         <section
           id="bookings-calendar-details-summary"
           data-testid="bookings-calendar-details-summary"
-          className="calendar-profile-header"
+          className="relative flex flex-col sm:flex-row items-start sm:items-center p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-slate-200 mb-6"
         >
-          <div
-            className="calendar-color-badge-large"
-            style={{ backgroundColor: calendar.color || "var(--primary-color)" }}
-          >
-            <CalendarIcon size={28} />
-          </div>
-          <div className="calendar-profile-meta">
-            <div className="flex flex-wrap items-center gap-3 mb-2">
-              <h2 className="profile-title m-0">{calendar.name}</h2>
-              <Badge variant="success">{resolveStatusLabel(calendar.status)}</Badge>
-            </div>
-            {calendar.locationName ? (
-              <div className="mt-3 flex w-fit items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-medium text-slate-600">
-                <MapPin size={14} />
-                {calendar.locationName}
+          {/* Mobile 3-dot Menu */}
+          <div className="absolute top-4 right-4 sm:hidden">
+            <Popover
+              trigger={
+                <button type="button" className="p-1 text-slate-500 hover:bg-slate-100 rounded-md">
+                  <MoreVertical size={18} />
+                </button>
+              }
+              align="end"
+            >
+              <div className="flex flex-col min-w-[160px] p-1 bg-white rounded-md shadow-lg border border-slate-200">
+                <button 
+                  onClick={() => navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar } })} 
+                  className="text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-sm"
+                >
+                  Customize
+                </button>
+                <button 
+                  onClick={() => navigate(`/calendars/${calendar.uid}/settings`, { state: { calendar } })} 
+                  className="text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-sm"
+                >
+                  Calendar Settings
+                </button>
               </div>
-            ) : null}
+            </Popover>
           </div>
-          <div className="profile-header-actions">
+
+          <div className="flex items-start gap-4 w-full">
+            <div
+              className="shrink-0 flex items-center justify-center rounded-full text-white"
+              style={{ backgroundColor: calendar.color || "var(--primary-color)", width: "56px", height: "56px" }}
+            >
+              <CalendarIcon size={26} />
+            </div>
+            <div className="flex-1 min-w-0 pr-6 sm:pr-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h2 className="m-0 text-base sm:text-xl font-bold text-slate-900 truncate max-w-full">{calendar.name}</h2>
+                <Badge variant="success" className="text-[10px] sm:text-xs px-1.5 py-0.5">{resolveStatusLabel(calendar.status)}</Badge>
+              </div>
+              {calendar.locationName ? (
+                <div className="flex w-fit items-center gap-1.5 rounded-md bg-slate-50 px-2.5 py-1 text-[10px] sm:text-xs font-medium text-slate-600 border border-slate-100 mt-2">
+                  <MapPin size={12} className="text-indigo-500" />
+                  {calendar.locationName}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          
+          <div className="hidden sm:flex shrink-0 ml-auto gap-3 items-center">
             <ActionButton
               id="customize"
               label="Customize"
@@ -402,12 +405,8 @@ export default function CalendarDetails() {
             className="calendar-details-sidebar"
           >
             <div className="calendar-sidebar-shell">
-              <SidebarCard title="Services" icon={<CalendarIcon size={16} />}>
-                <SimpleList items={serviceItems} empty="No services assigned" />
-              </SidebarCard>
-
-              <SidebarCard title="Users" icon={<Users size={16} />}>
-                <UserList items={userItems} empty="No users assigned" />
+              <SidebarCard title="Services" icon={<Users size={16} />}>
+                <ServiceAssignmentList items={serviceAssignments} empty="No services assigned" />
               </SidebarCard>
 
               <SidebarCard title="Channels" icon={<Clock size={16} />}>
@@ -531,39 +530,68 @@ function SidebarCard({
   );
 }
 
-function SimpleList({
-  items,
-  empty,
-}: {
-  items: string[];
-  empty: string;
-}) {
-  return items.length ? (
-    <div className="sidebar-simple-list">
-      {items.map((item) => (
-        <div key={item} className="sidebar-simple-list-item">
-          {item}
-        </div>
-      ))}
-    </div>
-  ) : (
-    <span className="sidebar-empty-copy">{empty}</span>
-  );
+type ServiceAssignment = {
+  serviceName: string;
+  users: string[];
+};
+
+function resolveTextValue(value: unknown, fallbackKeys: string[]) {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    for (const key of fallbackKeys) {
+      const candidate = (value as Record<string, unknown>)[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+  }
+  return "";
 }
 
-function UserList({
+function normalizeServiceAssignments(services: Calendar["services"] | undefined): ServiceAssignment[] {
+  if (!Array.isArray(services)) return [];
+  return services
+    .map((service) => {
+      const serviceName = resolveTextValue(service, ["serviceName", "name", "uid", "id", "serviceUid"]);
+      if (!serviceName) return null;
+      const rawUsers = typeof service === "object" && service && "users" in service ? service.users : [];
+      const users = asTextList(rawUsers as unknown[], ["userName", "displayName", "name", "uid", "id", "userUid"]);
+      return { serviceName, users };
+    })
+    .filter((item): item is ServiceAssignment => Boolean(item));
+}
+
+function ServiceAssignmentList({
   items,
   empty,
 }: {
-  items: string[];
+  items: ServiceAssignment[];
   empty: string;
 }) {
   return items.length ? (
-    <div className="sidebar-user-list">
+    <div className="sidebar-service-list">
       {items.map((item, index) => (
-        <div key={item} className="sidebar-user-row">
-          <div className={`avatar-mini sidebar-user-avatar avatar-color-${(index % 4) + 1}`}>{initials(item)}</div>
-          <div className="sidebar-user-name">{item}</div>
+        <div key={item.serviceName} className="sidebar-service-card">
+          <div className="sidebar-service-header">
+            <div className="sidebar-service-title">{item.serviceName}</div>
+            <span className="sidebar-service-count">
+              {item.users.length} {item.users.length === 1 ? "user" : "users"}
+            </span>
+          </div>
+          {item.users.length ? (
+            <div className="sidebar-service-users">
+              <div className="sidebar-user-list">
+              {item.users.map((userName, userIndex) => (
+                <div key={`${item.serviceName}-${userName}`} className="sidebar-user-row sidebar-user-row-compact">
+                  <div className={`avatar-mini sidebar-user-avatar avatar-color-${((index + userIndex) % 4) + 1}`}>{initials(userName)}</div>
+                  <div className="sidebar-user-name">{userName}</div>
+                </div>
+              ))}
+              </div>
+            </div>
+          ) : (
+            <div className="sidebar-service-users">
+              <span className="sidebar-empty-copy">{empty}</span>
+            </div>
+          )}
         </div>
       ))}
     </div>

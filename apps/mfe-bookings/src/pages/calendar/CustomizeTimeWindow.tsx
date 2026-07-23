@@ -33,6 +33,53 @@ interface ServiceCustomizationSource {
   }>;
 }
 
+function normalizeServiceSources(values: unknown[] | undefined): ServiceCustomizationSource[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value) => {
+      if (!value || typeof value !== "object") return null;
+      const record = value as Record<string, unknown>;
+      const serviceUid = [record.serviceUid, record.uid, record.id]
+        .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+        ?.trim();
+      if (!serviceUid) return null;
+
+      const rawUsers = Array.isArray(record.users) ? record.users : [];
+      return {
+        serviceUid,
+        serviceName:
+          [record.serviceName, record.name, record.displayName]
+            .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+            ?.trim(),
+        users: rawUsers
+          .map((user) => {
+            if (!user || typeof user !== "object") return null;
+            const userRecord = user as Record<string, unknown>;
+            const userUid = [userRecord.userUid, userRecord.uid, userRecord.id]
+              .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+              ?.trim();
+            if (!userUid) return null;
+            return {
+              userUid,
+              userName:
+                [userRecord.userName, userRecord.displayName, userRecord.name]
+                  .find((item): item is string => typeof item === "string" && item.trim().length > 0)
+                  ?.trim(),
+              price: typeof userRecord.price === "number" ? userRecord.price : undefined,
+              capacity:
+                typeof userRecord.capacity === "number"
+                  ? userRecord.capacity
+                  : typeof userRecord.slotCapacity === "number"
+                    ? userRecord.slotCapacity
+                    : undefined,
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+      };
+    })
+    .filter((item): item is ServiceCustomizationSource => Boolean(item));
+}
+
 function resolveUserName(
   userUid: string,
   fallbackName: string | undefined,
@@ -199,7 +246,12 @@ export default function CustomizeTimeWindow() {
           matchedSchedule?.timeWindows?.find((item) => item.uid === timeWindowUid) ??
           initialTimeWindow ??
           null;
-        const calendarServiceIds = unique(normalizeList(calendarData?.services as unknown[], ["uid", "id", "name"]));
+        const calendarServiceSources = normalizeServiceSources(calendarData?.services as unknown[]);
+        const calendarServiceIds = unique(
+          calendarServiceSources.length
+            ? calendarServiceSources.map((item) => item.serviceUid)
+            : normalizeList(calendarData?.services as unknown[], ["serviceUid", "uid", "id", "serviceName", "name"])
+        );
         const calendarUsers = unique(
           normalizeList(calendarData?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"]),
         );

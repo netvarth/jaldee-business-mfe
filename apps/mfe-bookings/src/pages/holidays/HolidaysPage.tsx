@@ -150,7 +150,7 @@ export default function HolidaysPage() {
         : <span className="text-slate-500">Full day</span>,
     },
     {
-      key: "actions", header: "Actions", align: "right", sticky: "right", width: 160,
+      key: "actions", header: "Actions", align: "right", width: 160,
       render: (h) => (
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(h); }}>Edit</Button>

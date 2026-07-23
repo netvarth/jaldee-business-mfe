@@ -260,7 +260,7 @@ export default function CreateServicePage() {
 
   return (
     <section id="page-create-service" data-testid="bookings-create-service-page" className="flex h-full min-h-0 flex-col overflow-y-auto bg-slate-50">
-      <div className="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-30">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 sticky top-0 z-30">
         <PageHeader
           title={isEditMode ? "Edit Service" : "Create Service"}
           back={{ label: "Back to services", href: "/services" }}
@@ -269,11 +269,11 @@ export default function CreateServicePage() {
         />
       </div>
 
-      <div className="p-8 max-w-5xl mx-auto w-full box-border">
+      <div className="p-2 sm:p-4 md:p-8 max-w-5xl mx-auto w-full box-border">
         <form id="bookings-create-service-form" data-testid="bookings-create-service-form" onSubmit={handleSubmit} className="space-y-6">
           
           {/* SECTION 1: Service Details */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
             <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100 flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">1. Service Details</h2>
@@ -322,8 +322,8 @@ export default function CreateServicePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
+              <div className="flex flex-col md:grid md:grid-cols-3 gap-6">
+                <div className="order-1 md:order-1">
                   <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Service Type</label>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => resetTeleService("Onsite Service")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold whitespace-nowrap transition-colors ${serviceType === "Onsite Service" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
@@ -336,92 +336,8 @@ export default function CreateServicePage() {
                     </button>
                   </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Appointment Type</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => { setApptType("Booking"); setRequestType(undefined); }} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${apptType === "Booking" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                      Booking
-                    </button>
-                    <button type="button" onClick={() => setApptType("Request")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${apptType === "Request" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                      Request
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Service Category</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setServiceCategory("Main Service")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${serviceCategory === "Main Service" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-                      Main Service
-                    </button>
-                    <button type="button" onClick={() => setServiceCategory("Sub Service")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${serviceCategory === "Sub Service" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 13l4 4"></path><path d="M11 11L7 7"></path></svg>
-                      Sub Service
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {isRequest ? (
-                <div className="mt-6 pt-6 border-t border-slate-100">
-                  <div className="flex items-center gap-2 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a32a3" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <h3 className="text-sm font-bold text-[#5a32a3] uppercase tracking-wider">Request Configuration Rules</h3>
-                  </div>
-                  
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Request Type <span className="text-red-500">*</span></label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      
-                      <button type="button" onClick={() => setRequestType("With Date & Time")} className={`text-left p-4 rounded-lg border relative transition-colors ${requestType === "With Date & Time" ? "border-[#5a32a3] bg-[#f8f5ff]" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
-                        {requestType === "With Date & Time" && (
-                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#5a32a3] rounded-full flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          </div>
-                        )}
-                        <div className={`flex items-center gap-2 text-sm font-bold mb-2 ${requestType === "With Date & Time" ? "text-[#5a32a3]" : "text-slate-700"}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                          With Date and Time
-                        </div>
-                        <p className="text-xs text-slate-500">Requires patients to propose a preferred date and specific time slot.</p>
-                      </button>
-
-                      <button type="button" onClick={() => setRequestType("With Date Only")} className={`text-left p-4 rounded-lg border relative transition-colors ${requestType === "With Date Only" ? "border-[#5a32a3] bg-[#f8f5ff]" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
-                        {requestType === "With Date Only" && (
-                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#5a32a3] rounded-full flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          </div>
-                        )}
-                        <div className={`flex items-center gap-2 text-sm font-bold mb-2 ${requestType === "With Date Only" ? "text-[#5a32a3]" : "text-slate-700"}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                          With Date only
-                        </div>
-                        <p className="text-xs text-slate-500">Requires patients to specify only the date/day, with no time slot required.</p>
-                      </button>
-
-                      <button type="button" onClick={() => setRequestType("No Date & Time")} className={`text-left p-4 rounded-lg border relative transition-colors ${requestType === "No Date & Time" ? "border-[#5a32a3] bg-[#f8f5ff]" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
-                        {requestType === "No Date & Time" && (
-                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#5a32a3] rounded-full flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          </div>
-                        )}
-                        <div className={`flex items-center gap-2 text-sm font-bold mb-2 ${requestType === "No Date & Time" ? "text-[#5a32a3]" : "text-slate-700"}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                          No Date & Time
-                        </div>
-                        <p className="text-xs text-slate-500">Can request booking without any specific date, day or time constraint.</p>
-                      </button>
-
-                    </div>
-                    {errors.requestType ? <p className="mt-1 text-xs text-red-600">{errors.requestType}</p> : null}
-                  </div>
-                </div>
-              ) : null}
-
               {isTeleservice ? (
-                <div className="mt-6 pt-6 border-t border-slate-100">
+                <div className="order-2 md:order-4 md:col-span-3 pt-6 border-t border-slate-100">
                   <div className="flex items-center gap-2 mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a32a3" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
                     <h3 className="text-sm font-bold text-[#5a32a3] uppercase tracking-wider">Teleservice Setup Rules</h3>
@@ -507,11 +423,95 @@ export default function CreateServicePage() {
                   ) : null}
                 </div>
               ) : null}
+
+                <div className="order-3 md:order-2">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Appointment Type</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setApptType("Booking"); setRequestType(undefined); }} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${apptType === "Booking" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      Booking
+                    </button>
+                    <button type="button" onClick={() => setApptType("Request")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${apptType === "Request" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      Request
+                    </button>
+                  </div>
+                </div>
+              {isRequest ? (
+                <div className="order-4 md:order-5 md:col-span-3 pt-6 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a32a3" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <h3 className="text-sm font-bold text-[#5a32a3] uppercase tracking-wider">Request Configuration Rules</h3>
+                  </div>
+                  
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Request Type <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      
+                      <button type="button" onClick={() => setRequestType("With Date & Time")} className={`text-left p-4 rounded-lg border relative transition-colors ${requestType === "With Date & Time" ? "border-[#5a32a3] bg-[#f8f5ff]" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+                        {requestType === "With Date & Time" && (
+                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#5a32a3] rounded-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-2 text-sm font-bold mb-2 ${requestType === "With Date & Time" ? "text-[#5a32a3]" : "text-slate-700"}`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                          With Date and Time
+                        </div>
+                        <p className="text-xs text-slate-500">Requires patients to propose a preferred date and specific time slot.</p>
+                      </button>
+
+                      <button type="button" onClick={() => setRequestType("With Date Only")} className={`text-left p-4 rounded-lg border relative transition-colors ${requestType === "With Date Only" ? "border-[#5a32a3] bg-[#f8f5ff]" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+                        {requestType === "With Date Only" && (
+                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#5a32a3] rounded-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-2 text-sm font-bold mb-2 ${requestType === "With Date Only" ? "text-[#5a32a3]" : "text-slate-700"}`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                          With Date only
+                        </div>
+                        <p className="text-xs text-slate-500">Requires patients to specify only the date/day, with no time slot required.</p>
+                      </button>
+
+                      <button type="button" onClick={() => setRequestType("No Date & Time")} className={`text-left p-4 rounded-lg border relative transition-colors ${requestType === "No Date & Time" ? "border-[#5a32a3] bg-[#f8f5ff]" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+                        {requestType === "No Date & Time" && (
+                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#5a32a3] rounded-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-2 text-sm font-bold mb-2 ${requestType === "No Date & Time" ? "text-[#5a32a3]" : "text-slate-700"}`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                          No Date & Time
+                        </div>
+                        <p className="text-xs text-slate-500">Can request booking without any specific date, day or time constraint.</p>
+                      </button>
+
+                    </div>
+                    {errors.requestType ? <p className="mt-1 text-xs text-red-600">{errors.requestType}</p> : null}
+                  </div>
+                </div>
+              ) : null}
+
+                <div className="order-5 md:order-3">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2 block">Service Category</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setServiceCategory("Main Service")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${serviceCategory === "Main Service" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                      Main Service
+                    </button>
+                    <button type="button" onClick={() => setServiceCategory("Sub Service")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md border text-sm font-semibold transition-colors ${serviceCategory === "Sub Service" ? "border-indigo-600 text-indigo-600 bg-indigo-50" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 13l4 4"></path><path d="M11 11L7 7"></path></svg>
+                      Sub Service
+                    </button>
+                  </div>
+                </div>
+                </div>
+              </div>
             </div>
-          </div>
 
           {/* SECTION 2: Duration & Booking Rules */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider pb-4 mb-6 border-b border-slate-100">2. Duration &amp; Booking Rules</h2>
             
             <FormSection title="Schedules & Limits">
@@ -564,7 +564,7 @@ export default function CreateServicePage() {
           </div>
 
           {/* SECTION 3: Pricing & Payment */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mt-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm mt-6">
             <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100">
               <div className="flex flex-col">
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -737,7 +737,7 @@ export default function CreateServicePage() {
           </div>
 
           {/* SECTION 4: Assign User */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mt-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm mt-6">
             <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100">
               <div>
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">4. Assign User</h2>

@@ -92,10 +92,10 @@ export default function DualListUsersModal({
       onClose={onClose}
       testId="bookings-select-users-dialog"
       title={`Select Users from ${serviceName}`}
-      description="Move users to the right to configure them on the calendar."
+      description={<span className="hidden md:block">Move users to the right to configure them on the calendar.</span>}
       size="lg"
       contentClassName="modal-dual-list max-w-4xl"
-      bodyClassName="overflow-hidden"
+      bodyClassName="overflow-y-auto max-h-[75vh]"
     >
             <div className="dual-list-container">
                 {/* Left Panel: Available */}

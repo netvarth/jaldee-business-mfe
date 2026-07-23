@@ -236,7 +236,6 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
       <div className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
         <PageHeader
           title="Calendar"
-          subtitle="View schedules, availability, and bookings across calendars."
           className="mb-4"
           actions={
             <div className="flex flex-wrap items-center gap-2">
@@ -384,41 +383,43 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               Calendar
             </Button>
           </div>
-          <div className="mx-2 h-6 w-px bg-slate-200" />
-          <div className="view-pill-group">
-            <Button
-              variant="ghost"
-              size="sm"
-              id="bookings-view-day"
-              data-testid="bookings-view-day"
-              data-active={viewMode === "DAY"}
-              className={`view-pill ${viewMode === "DAY" ? "active" : ""}`}
-              onClick={() => setViewMode("DAY")}
-            >
-              Day
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              id="bookings-view-week"
-              data-testid="bookings-view-week"
-              data-active={viewMode === "WEEK"}
-              className={`view-pill ${viewMode === "WEEK" ? "active" : ""}`}
-              onClick={() => setViewMode("WEEK")}
-            >
-              Week
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              id="bookings-view-month"
-              data-testid="bookings-view-month"
-              data-active={viewMode === "MONTH"}
-              className={`view-pill ${viewMode === "MONTH" ? "active" : ""}`}
-              onClick={() => setViewMode("MONTH")}
-            >
-              Month
-            </Button>
+          <div className="mx-2 h-6 w-px bg-slate-200 hidden md:block" />
+          <div className="hidden md:block">
+            <div className="view-pill-group">
+              <Button
+                variant="ghost"
+                size="sm"
+                id="bookings-view-day"
+                data-testid="bookings-view-day"
+                data-active={viewMode === "DAY"}
+                className={`view-pill ${viewMode === "DAY" ? "active" : ""}`}
+                onClick={() => setViewMode("DAY")}
+              >
+                Day
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                id="bookings-view-week"
+                data-testid="bookings-view-week"
+                data-active={viewMode === "WEEK"}
+                className={`view-pill ${viewMode === "WEEK" ? "active" : ""}`}
+                onClick={() => setViewMode("WEEK")}
+              >
+                Week
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                id="bookings-view-month"
+                data-testid="bookings-view-month"
+                data-active={viewMode === "MONTH"}
+                className={`view-pill ${viewMode === "MONTH" ? "active" : ""}`}
+                onClick={() => setViewMode("MONTH")}
+              >
+                Month
+              </Button>
+            </div>
           </div>
           <div className="date-navigator">
             <Button
@@ -492,20 +493,22 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           </div>
         </div>
 
-        <div className="toolbar-right ml-auto flex items-center justify-end">
-          <div className="group-select-wrapper">
-            <Select
-              className="custom-select border-slate-200 bg-slate-50 text-sm font-medium"
-              containerClassName="min-w-[160px]"
-              id="group-view-by"
-              testId="bookings-group-view-by"
-              value={viewBy}
-              options={[
-                { value: "doctors", label: "View by Users" },
-                { value: "calendars", label: "View by Calendar" },
-              ]}
-              onChange={(event) => setViewBy(event.target.value as typeof viewBy)}
-            />
+        <div className="hidden md:flex ml-auto items-center justify-end">
+          <div className="toolbar-right flex items-center justify-end">
+            <div className="group-select-wrapper">
+              <Select
+                className="custom-select border-slate-200 bg-slate-50 text-sm font-medium"
+                containerClassName="min-w-[160px]"
+                id="group-view-by"
+                testId="bookings-group-view-by"
+                value={viewBy}
+                options={[
+                  { value: "doctors", label: "View by Users" },
+                  { value: "calendars", label: "View by Calendar" },
+                ]}
+                onChange={(event) => setViewBy(event.target.value as typeof viewBy)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -536,6 +539,48 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           />
 
           <div className="sidebar-scrollable-content">
+            <div className="md:hidden flex flex-col gap-3 p-4 border-b border-slate-200">
+              <div className="view-pill-group w-full flex">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`view-pill flex-1 ${viewMode === "DAY" ? "active" : ""}`}
+                  onClick={() => setViewMode("DAY")}
+                >
+                  Day
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`view-pill flex-1 ${viewMode === "WEEK" ? "active" : ""}`}
+                  onClick={() => setViewMode("WEEK")}
+                >
+                  Week
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`view-pill flex-1 ${viewMode === "MONTH" ? "active" : ""}`}
+                  onClick={() => setViewMode("MONTH")}
+                >
+                  Month
+                </Button>
+              </div>
+              
+              <div>
+                <Select
+                  className="w-full border-slate-200 bg-white text-sm font-medium"
+                  id="mobile-group-view-by"
+                  testId="bookings-mobile-group-view-by"
+                  value={viewBy}
+                  options={[
+                    { value: "doctors", label: "View by Users" },
+                    { value: "calendars", label: "View by Calendar" },
+                  ]}
+                  onChange={(event) => setViewBy(event.target.value as typeof viewBy)}
+                />
+              </div>
+            </div>
             <div
               className={`sidebar-group ${!calendarsOpen ? "collapsed" : ""}`}
               data-testid="bookings-calendars-group"

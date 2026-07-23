@@ -1,20 +1,61 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, DataTable, EmptyState, Input, PageHeader, Popover, Tabs, type ColumnDef } from "@jaldee/design-system";
+import {
+  Badge,
+  Button,
+  cn,
+  DataTable,
+  Drawer,
+  EmptyState,
+  Input,
+  PageHeader,
+  Popover,
+  Tabs,
+  type ColumnDef,
+} from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useServices } from "../../services/useServices";
 import { useServiceGroups } from "../../services/useServiceGroups";
+import { useServiceGroupSearchSchema } from "../../services/useServiceGroupSearchSchema";
+import { formatAppliedServiceGroupFilterSummary } from "../../services/serviceGroupSearch";
 import type { ServiceGroupItem } from "../../types";
 
 export default function ServiceGroupsPage() {
   const navigate = useNavigate();
   const { services } = useServices();
-  const { groups, deleteGroup } = useServiceGroups();
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const {
+    schema: serviceGroupSearchSchema,
+    loading: serviceGroupSearchSchemaLoading,
+  } = useServiceGroupSearchSchema();
+  const { groups, loading, deleteGroup } = useServiceGroups(
+    advancedFilters,
+    serviceGroupSearchSchema,
+    { enabled: !serviceGroupSearchSchemaLoading }
+  );
 
   const serviceMap = useMemo(
     () => new Map(services.map((service) => [service.uid ?? service.id, service])),
     [services],
+  );
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, serviceGroupSearchSchema).length,
+    [advancedFilters, serviceGroupSearchSchema]
+  );
+
+  const appliedFilterSummary = useMemo(
+    () => formatAppliedServiceGroupFilterSummary(advancedFilters, serviceGroupSearchSchema),
+    [advancedFilters, serviceGroupSearchSchema]
   );
 
   const filteredGroups = useMemo(() => {
@@ -132,21 +173,6 @@ export default function ServiceGroupsPage() {
     },
   ], [deleteGroup, navigate, serviceMap]);
 
-  const groupedServices = useMemo(() => {
-    const assigned = new Set<string>();
-    groups.forEach((group) => {
-      group.serviceIds.forEach((id) => assigned.add(id));
-    });
-    const ungrouped = services.filter((service) => {
-      if (service.uid) {
-        return !assigned.has(service.uid);
-      } else {
-        return !assigned.has(service.id);
-      }
-    });
-    return { ungrouped, assignedCount: assigned.size };
-  }, [groups, services]);
-
   return (
     <section className="flex h-full flex-col overflow-y-auto bg-slate-50 p-4 md:p-6">
       <PageHeader
@@ -182,12 +208,37 @@ export default function ServiceGroupsPage() {
           }}
           containerClassName="sm:max-w-sm"
         />
+        <Button
+          type="button"
+          variant={appliedFilterCount > 0 ? "primary" : "outline"}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
+            appliedFilterCount > 0 ? "" : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+          )}
+          onClick={() => {
+            setDraftFilters(
+              advancedFilters.length > 0
+                ? advancedFilters
+                : buildDefaultSearchClauses(serviceGroupSearchSchema)
+            );
+            setDrawerOpen(true);
+          }}
+        >
+          <FilterIcon />
+          <span>Filters</span>
+          {appliedFilterCount > 0 ? (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+              {appliedFilterCount}
+            </span>
+          ) : null}
+        </Button>
       </div>
 
       <DataTable
         data={filteredGroups}
         columns={columns}
         getRowId={(group) => group.id}
+        loading={loading}
         rowClassName={(group) => group.status === "Active" ? "" : "opacity-60"}
         pagination={{
           page,
@@ -197,26 +248,76 @@ export default function ServiceGroupsPage() {
           onChange: setPage,
         }}
         emptyState={<EmptyState title="No Service Packages" description="Create a package to bundle services for scheduling and booking." />}
+        tableClassName="min-w-[800px]"
       />
 
-      <section className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Catalog Coverage</h2>
-            <p className="mt-1 text-sm text-slate-500">Services not linked to a package remain bookable individually.</p>
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col overflow-hidden p-0"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={serviceGroupSearchSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              appliedSummary={appliedFilterSummary}
+              onClearAll={() => {
+                const resetClauses = buildDefaultSearchClauses(serviceGroupSearchSchema);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
+              emptyStateMessage="No service package filters are available."
+            />
           </div>
-          <span className="rounded-full bg-white border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-            {groupedServices.assignedCount} grouped
-          </span>
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const resetClauses = buildDefaultSearchClauses(serviceGroupSearchSchema);
+                setDraftFilters(resetClauses);
+                setAdvancedFilters(resetClauses);
+                setPage(1);
+              }}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setAdvancedFilters(draftFilters);
+                setPage(1);
+                setDrawerOpen(false);
+              }}
+            >
+              Apply Filters
+            </Button>
+          </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {groupedServices.ungrouped.length ? groupedServices.ungrouped.map((service) => (
-            <span key={service.id} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">
-              {service.name}
-            </span>
-          )) : <span className="text-sm text-slate-400">All services are assigned to packages.</span>}
-        </div>
-      </section>
+      </Drawer>
     </section>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 stroke-[2.2]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 6h16" />
+      <path d="M7 12h10" />
+      <path d="M10 18h4" />
+    </svg>
   );
 }

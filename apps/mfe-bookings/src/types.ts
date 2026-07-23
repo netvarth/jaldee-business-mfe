@@ -37,8 +37,39 @@ export interface Calendar {
   locationId?: number;
   color?: string;
   locationName?: string;
-  services?: string[];
-  users?: string[];
+  services?: Array<
+    | string
+    | {
+        serviceUid?: string;
+        serviceName?: string;
+        uid?: string;
+        id?: string;
+        name?: string;
+        users?: Array<
+          | string
+          | {
+              userUid?: string;
+              userName?: string;
+              uid?: string;
+              id?: string;
+              name?: string;
+              displayName?: string;
+            }
+        >;
+      }
+  >;
+  users?: Array<
+    | string
+    | {
+        userUid?: string;
+        uid?: string;
+        id?: string;
+        name?: string;
+        displayName?: string;
+        firstName?: string;
+        lastName?: string;
+      }
+  >;
   channel?: string;
   label?: string[];
   qrLinkRequired?: boolean;

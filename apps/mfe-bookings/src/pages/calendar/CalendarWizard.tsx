@@ -37,6 +37,23 @@ function withSeconds(value: string) {
     return value.split(':').length === 2 ? `${value}:00` : value;
 }
 
+function buildServicesPayload(
+    selectedServices: Service[],
+    serviceUsers: Record<string, User[]>,
+) {
+    return selectedServices.map((service) => {
+        const serviceUid = service.uid ?? service.id;
+        const assignedUsers = serviceUsers[service.id] ?? [];
+
+        return {
+            serviceUid,
+            users: assignedUsers.map((user) => ({
+                userUid: user.id,
+            })),
+        };
+    });
+}
+
 export default function CalendarWizard() {
     const navigate = useNavigate();
     const locationState = useLocation().state as { calendar?: any, returnTo?: string } | null;
@@ -176,13 +193,6 @@ export default function CalendarWizard() {
     const handleNextStep2 = async () => {
         if (!draftUid) return handleNext();
         setSubmitting(true);
-        const assignedUsers = Array.from(
-            new Set(
-                Object.values(serviceUsers)
-                    .flat()
-                    .map((user) => user.id),
-            ),
-        );
         const locationOption = locationOptions.find((option) => option.value === location);
         const bookingChannels = toBookingChannels(channels);
         
@@ -192,8 +202,8 @@ export default function CalendarWizard() {
             description,
             locationId: locationOption?.id ?? 0,
             locationName: locationOption?.label ?? location,
-            services: selectedServices.map((service) => service.uid ?? service.id),
-            users: assignedUsers,
+            services: buildServicesPayload(selectedServices, serviceUsers),
+            users: [],
             channel: bookingChannels[0] ?? 'ONLINE',
             defaultServiceId: defaultServiceId || undefined,
             label: [],
@@ -228,22 +238,14 @@ export default function CalendarWizard() {
         try {
             const locationOption = locationOptions.find((option) => option.value === location);
             const bookingChannels = toBookingChannels(channels);
-            const assignedUsers = Array.from(
-                new Set(
-                    Object.values(serviceUsers)
-                        .flat()
-                        .map((user) => user.id),
-                ),
-            );
-            
             await updateCalendar(draftUid, {
                 uid: draftUid,
                 name,
                 description,
                 locationId: locationOption?.id ?? 0,
                 locationName: locationOption?.label ?? location,
-                services: selectedServices.map((service) => service.uid ?? service.id),
-                users: assignedUsers,
+                services: buildServicesPayload(selectedServices, serviceUsers),
+                users: [],
                 channel: bookingChannels[0] ?? 'ONLINE',
                 defaultServiceId: defaultServiceId || undefined,
                 label: [],

@@ -9,6 +9,34 @@ const PRESET_COLORS = [
   "#0F766E", "#2563EB", "#7C3AED", "#DB2777", "#EA580C", "#16A34A", "#475569", "#111827",
   "#0891B2", "#E11D48"
 ];
+
+function unique(values: string[]) {
+  return Array.from(new Set(values));
+}
+
+function resolveAssignedUserUids(calendar?: Calendar | null) {
+  if (!calendar) return [];
+
+  const directUsers = (calendar.users ?? [])
+    .map((user) => {
+      if (typeof user === "string") return user;
+      return user.userUid ?? user.uid ?? user.id ?? "";
+    })
+    .filter(Boolean);
+
+  const serviceUsers = (calendar.services ?? []).flatMap((service) => {
+    if (!service || typeof service === "string") return [];
+    return (service.users ?? [])
+      .map((user) => {
+        if (typeof user === "string") return user;
+        return user.userUid ?? user.uid ?? user.id ?? "";
+      })
+      .filter(Boolean);
+  });
+
+  return unique([...directUsers, ...serviceUsers]);
+}
+
 function normalizeColor(value?: string | null) {
   if (!value) return "#2563EB";
   return value.startsWith("#") ? value : `#${value}`;
@@ -36,7 +64,7 @@ export default function CalendarSettings() {
   const [loading, setLoading] = useState(Boolean(calendarUid));
   const [saving, setSaving] = useState(false);
   const [color, setColor] = useState(normalizeColor(initialCalendar?.color));
-  const [selectedUsers, setSelectedUsers] = useState<string[]>(initialCalendar?.users ?? []);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>(resolveAssignedUserUids(initialCalendar));
   const [tags, setTags] = useState<string[]>(initialCalendar?.tags ?? []);
   const [tagDraft, setTagDraft] = useState("");
 
@@ -54,7 +82,7 @@ export default function CalendarSettings() {
         if (cancelled) return;
         setCalendar(data);
         setColor(normalizeColor(data.color));
-        setSelectedUsers(data.users ?? []);
+        setSelectedUsers(resolveAssignedUserUids(data));
         setTags(data.tags ?? []);
       } catch {
         if (!cancelled) setCalendar(null);
@@ -102,7 +130,7 @@ export default function CalendarSettings() {
       <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
         <PageHeader
           title="Calendar Settings"
-          subtitle="Manage color and assigned users."
+          subtitle="Manage color and users assigned to this calendar and its services."
           back={{ label: "Back to calendar details", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
           onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
           actions={calendar ? <Badge variant="success">{calendar.name}</Badge> : undefined}

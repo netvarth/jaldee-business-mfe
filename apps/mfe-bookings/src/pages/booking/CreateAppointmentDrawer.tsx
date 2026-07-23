@@ -146,6 +146,21 @@ export default function CreateAppointmentDrawer({
     () => availableServices.map((service) => ({ value: service.uid ?? service.id, label: service.name })),
     [availableServices],
   );
+
+  const availableProviders = useMemo(() => {
+    const assignedUsers = new Set(selectedCalendar?.users ?? []);
+    if (assignedUsers.size === 0) {
+      return calendarUid ? [] : providers;
+    }
+    return providers.filter((provider) =>
+      assignedUsers.has(provider.uid ?? provider.id) || assignedUsers.has(provider.id),
+    );
+  }, [calendarUid, selectedCalendar?.users, providers]);
+
+  const providerOptions = useMemo(
+    () => availableProviders.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") })),
+    [availableProviders],
+  );
   
   const customerOptions = useMemo(
     () =>
@@ -230,6 +245,14 @@ export default function CreateAppointmentDrawer({
       clearSlots();
     }
   }, [clearSlots, serviceOptions, serviceUid]);
+
+  useEffect(() => {
+    if (doctorUid && !providerOptions.some((provider) => provider.value === doctorUid)) {
+      setDoctorUid("");
+      setSlot(null);
+      clearSlots();
+    }
+  }, [clearSlots, providerOptions, doctorUid]);
 
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
   const startOffset = (firstDay.getDay() + 6) % 7; 
@@ -502,7 +525,7 @@ export default function CreateAppointmentDrawer({
                   </div>
                   <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
                   <Select id="bk-service" label="Consultation Service" required placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
-                  <Select id="bk-doctor" label="Assigned User" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providers.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") }))} />
+                  <Select id="bk-doctor" label="Assigned User" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
                 </div>
               </>
             ) : (
@@ -547,7 +570,7 @@ export default function CreateAppointmentDrawer({
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
-                    <Select id="bk-doctor" label="Assign User" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providers.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") }))} />
+                    <Select id="bk-doctor" label="Assign User" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
                   </div>
                 </div>
               </>

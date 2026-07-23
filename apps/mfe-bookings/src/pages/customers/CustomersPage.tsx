@@ -125,8 +125,7 @@ export default function CustomersPage() {
         key: "actions",
         header: "",
         align: "right",
-        sticky: "right",
-        width: 60,
+        width: 100,
         render: (customer) => (
           <div className="flex justify-end gap-2" onClick={(event) => event.stopPropagation()}>
             <Popover
@@ -192,7 +191,7 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4">
         <Input
           id="bookings-customers-search"
           data-testid="bookings-customers-search"
@@ -204,9 +203,9 @@ export default function CustomersPage() {
             setPage(1);
           }}
           icon={<Search className="h-4 w-4 text-slate-400" />}
-          containerClassName="sm:max-w-sm"
+          containerClassName="flex-1 min-w-0 sm:max-w-sm"
         />
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto">
           <Button
             type="button"
             variant={appliedFilterCount > 0 ? "primary" : "outline"}
@@ -248,6 +247,7 @@ export default function CustomersPage() {
           onChange: setPage,
         }}
         emptyState={<EmptyState title="No customers found" description="Try changing the search." />}
+        tableClassName="min-w-[800px]"
         data-testid="bookings-customers"
       />
 

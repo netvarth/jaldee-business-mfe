@@ -22,9 +22,13 @@ interface UserDto {
   mobileNumber?: string;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function resolveUserUid(user: UserDto): string | undefined {
   for (const candidate of [user.userUid, user.uid, user.id]) {
-    if (typeof candidate === "string" && candidate.trim()) {
+    if (typeof candidate === "string" && candidate.trim() && isUuid(candidate.trim())) {
       return candidate.trim();
     }
   }
@@ -41,7 +45,7 @@ function toUser(d: UserDto): BookingUser {
   const userDisplayName = d.userDisplayName || d.displayName || `${first} ${last}`.trim() || "User";
   const userUid = resolveUserUid(d);
   return {
-    userUid: userUid ?? `usr-${Math.random().toString(36).slice(2, 8)}`,
+    userUid: userUid ?? "",
     title: d.title ?? "",
     firstName: first,
     lastName: last,
@@ -65,10 +69,15 @@ export function useUsers() {
     setError(null);
     try {
       const data = await api.get<unknown>(TENANT_USERS_ENDPOINT, {
-        params: { page: 0, size: 10, userStatus: "ACTIVE" },
+        params: { page: 0, size: 1000, userStatus: "ACTIVE" },
         _skipLocationParam: true,
       });
-      setUsers([...createdUsers, ...unwrapList<UserDto>(data).map(toUser)]);
+      setUsers([
+        ...createdUsers,
+        ...unwrapList<UserDto>(data)
+          .map(toUser)
+          .filter((user) => Boolean(user.userUid)),
+      ]);
     } catch (e) {
       // No sample fallback — show only real (session) users on failure.
       setError(e instanceof Error ? e.message : "Failed to load users.");

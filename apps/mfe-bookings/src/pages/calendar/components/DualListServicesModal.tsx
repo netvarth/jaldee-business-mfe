@@ -73,7 +73,7 @@ export default function DualListServicesModal({
       description="Move services to the right to configure them on the calendar."
       size="lg"
       contentClassName="modal-dual-list max-w-4xl"
-      bodyClassName="overflow-hidden"
+      bodyClassName="overflow-y-auto max-h-[75vh]"
     >
             <div className="dual-list-container">
                 {/* Left Panel: Available */}

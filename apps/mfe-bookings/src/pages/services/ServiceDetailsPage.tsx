@@ -35,7 +35,7 @@ function humanize(val: unknown): string | null {
 
 function SectionCard({ title, icon, rightElement, children, subtitle }: { title: string; icon: ReactNode; rightElement?: ReactNode; children: ReactNode; subtitle?: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
       <div className="mb-6 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50">
@@ -144,27 +144,24 @@ export default function ServiceDetailsPage() {
 
   return (
     <main className="flex h-full flex-col overflow-y-auto bg-slate-50/50">
-      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white px-8 py-4">
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 md:px-8 py-4">
         <PageHeader
           title={service.name}
           subtitle={service.description || "Service configuration and availability."}
           back={{ label: "Back to services", href: "/services" }}
           onNavigate={() => navigate("/services")}
           actions={
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => navigate("/services")}>Back</Button>
-              <Button
-                id={`bookings-service-details-edit-${service.id}`}
-                onClick={() => navigate(`/services/edit/${service.id}`, { state: { service } })}
-              >
-                Edit
-              </Button>
-            </div>
+            <Button
+              id={`bookings-service-details-edit-${service.id}`}
+              onClick={() => navigate(`/services/edit/${service.id}`, { state: { service } })}
+            >
+              Edit
+            </Button>
           }
         />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col p-6">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col p-2 sm:p-4 md:p-6">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,1fr)] items-start">
           <div className="space-y-6">
             

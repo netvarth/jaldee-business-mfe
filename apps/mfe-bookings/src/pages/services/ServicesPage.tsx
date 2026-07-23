@@ -210,7 +210,7 @@ export default function ServicesPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-row items-center justify-between gap-2 sm:gap-4">
         <Input
           id="bookings-services-search"
           data-testid="bookings-services-search"
@@ -221,9 +221,9 @@ export default function ServicesPage() {
             setQuery(event.target.value);
             setPage(1);
           }}
-          containerClassName="sm:max-w-sm"
+          containerClassName="flex-1 min-w-0 sm:max-w-sm"
         />
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto">
           <Button
             type="button"
             variant={appliedFilterCount > 0 ? "primary" : "outline"}
@@ -267,6 +267,7 @@ export default function ServicesPage() {
           onChange: setPage,
         }}
         emptyState={<EmptyState title="No services found" description="Try changing the search." />}
+        tableClassName="min-w-[800px]"
         data-testid="bookings-services"
       />
 

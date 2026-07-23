@@ -30,7 +30,12 @@ export interface CreateCalendarPayload {
   description: string;
   locationId: number;
   locationName: string;
-  services: string[];
+  services: Array<{
+    serviceUid: string;
+    users: Array<{
+      userUid: string;
+    }>;
+  }>;
   users: string[];
   channel: string;
   label: string[];
@@ -71,6 +76,36 @@ export interface CreateSchedulePayload {
   slotCapacity: number;
   qrLinkRequired: boolean;
   timeWindows: CreateTimeWindowPayload[];
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function sanitizeCalendarUserIds(userIds: string[] | undefined) {
+  if (!Array.isArray(userIds)) {
+    return [];
+  }
+
+  return userIds.filter((userUid) => typeof userUid === "string" && isUuid(userUid));
+}
+
+function sanitizeCalendarSettingsRequest(settings: CalendarSettingsRequest): CalendarSettingsRequest {
+  return {
+    ...settings,
+    users: sanitizeCalendarUserIds(settings.users),
+  };
+}
+
+function sanitizeCreateCalendarPayload(payload: CreateCalendarPayload): CreateCalendarPayload {
+  return {
+    ...payload,
+    users: sanitizeCalendarUserIds(payload.users),
+    services: payload.services.map((service) => ({
+      ...service,
+      users: service.users.filter((user) => isUuid(user.userUid)),
+    })),
+  };
 }
 
 function normalizeCalendarStatus(status?: string | null): CalendarStatus {
@@ -189,7 +224,9 @@ export const useCalendars = (
   const createCalendar = async (payload: CreateCalendarPayload) => {
     // No mock-create fallback — a failure propagates so the caller never thinks
     // a calendar was persisted when it wasn't.
-    const newCalendar = normalizeCalendar(await api.post<Calendar>("/calendars", payload));
+    const newCalendar = normalizeCalendar(
+      await api.post<Calendar>("/calendars", sanitizeCreateCalendarPayload(payload))
+    );
     setCalendars((prev) => [...prev, newCalendar]);
     showToast("Calendar created successfully", "success");
     return newCalendar;
@@ -317,7 +354,9 @@ export const useCalendars = (
     uid: string,
     settings: CalendarSettingsRequest,
   ) => {
-    const updated = normalizeCalendar(await api.put<Calendar>(`/calendars/${uid}/settings`, settings));
+    const updated = normalizeCalendar(
+      await api.put<Calendar>(`/calendars/${uid}/settings`, sanitizeCalendarSettingsRequest(settings))
+    );
     setCalendars((prev) =>
       prev.map((calendar) =>
         calendar.uid === uid ? { ...calendar, ...updated } : calendar,
@@ -331,7 +370,9 @@ export const useCalendars = (
     uid: string,
     payload: CreateCalendarPayload,
   ) => {
-    const updated = normalizeCalendar(await api.put<Calendar>(`/calendars/${uid}`, payload));
+    const updated = normalizeCalendar(
+      await api.put<Calendar>(`/calendars/${uid}`, sanitizeCreateCalendarPayload(payload))
+    );
     setCalendars((prev) =>
       prev.map((calendar) =>
         calendar.uid === uid ? { ...calendar, ...updated } : calendar,
@@ -370,7 +411,9 @@ export const useCalendars = (
     uid: string,
     settings: CalendarSettingsRequest,
   ) => {
-    const updated = normalizeCalendar(await api.put<Calendar>(`/calendars/${uid}/extended-settings`, settings));
+    const updated = normalizeCalendar(
+      await api.put<Calendar>(`/calendars/${uid}/extended-settings`, sanitizeCalendarSettingsRequest(settings))
+    );
     setCalendars((prev) =>
       prev.map((calendar) =>
         calendar.uid === uid ? { ...calendar, ...updated } : calendar,
