@@ -42,20 +42,21 @@ function normalize(r: Record<string, unknown>): ExitRequest {
   return { ...(r as object), id: String(uid ?? ""), uid, clearances } as ExitRequest;
 }
 
-export function useExits() {
+export function useExits({ enabled = true }: { enabled?: boolean } = {}) {
   const api = useHrApi();
   const [data, setData] = useState<ExitRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>("/exits");
       setData(Array.isArray(res) ? res.map(normalize) : []);
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load exit requests"); setData([]); }
     finally { setLoading(false); }
-  }, [api]);
+  }, [api, enabled]);
   useEffect(() => { void load(); }, [load]);
 
   const raise = useCallback(async (payload: {

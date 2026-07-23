@@ -4,6 +4,7 @@ import { DatePickerPopover } from "../DatePickerPopover/DatePickerPopover";
 import { cn } from "../../utils";
 
 export interface DatePickerProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
+  "data-testid"?: string;
   label?: string;
   error?: string;
   hint?: string;
@@ -70,12 +71,13 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
       placeholder = "Select date",
       min,
       max,
+      "data-testid": testId,
       ...props
     },
     ref
   ) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
-    const automationId = props["data-testid"] ?? inputId;
+    const automationId = testId ?? inputId;
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const fieldRef = useRef<HTMLDivElement | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -142,6 +144,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           ref={ref}
           id={inputId}
           name={name}
+          data-testid={testId}
           {...props}
           type="hidden"
           value={hiddenValue}

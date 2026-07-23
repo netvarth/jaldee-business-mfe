@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Filter, Search, ShieldCheck } from "lucide-react";
-import { Button, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, PageHeader, SectionCard, type ColumnDef } from "@jaldee/design-system";
-import { useMFEProps } from "@jaldee/auth-context";
+import { Button, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
+import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { useHrApi } from "../../services/useHrApi";
+import { useHrSearchSchema } from "../../services/useHrSearchSchema";
 
 type AuditRecord = Record<string, unknown> & { id?: string; uid?: string };
 
@@ -39,7 +43,7 @@ function unwrapPage(response: unknown) {
 }
 
 export default function AuditLogs() {
-  const { api } = useMFEProps();
+  const api = useHrApi();
   const [rows, setRows] = useState<AuditRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,28 +53,33 @@ export default function AuditLogs() {
   const [context, setContext] = useState("ALL");
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [action, setAction] = useState("");
-  const [actorUserId, setActorUserId] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [draft, setDraft] = useState({ action: "", actorUserId: "", fromDate: "", toDate: "" });
+  const [filters, setFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [selected, setSelected] = useState<AuditRecord | null>(null);
+  const { schema, loading: schemaLoading, error: schemaError } = useHrSearchSchema("/audit-logs");
+  const appliedCount = useMemo(() => compactSearchClauses(filters, schema).length, [filters, schema]);
 
   useEffect(() => {
+    if (schemaLoading) return;
     let active = true;
     setLoading(true);
     setError("");
-    api.get("/base-service/v1/api/tenant/audit-logs", {
-      params: {
-        page: page - 1,
-        size: pageSize,
-        feature: "HR",
-        ...(context !== "ALL" ? { featureModule: context } : {}),
-        ...(action ? { action } : {}),
-        ...(actorUserId ? { actorUserId: Number(actorUserId) } : {}),
-        ...(fromDate ? { from: new Date(`${fromDate}T00:00:00.000`).toISOString() } : {}),
-        ...(toDate ? { to: new Date(`${toDate}T23:59:59.999`).toISOString() } : {}),
-      },
+    const conditions = [
+      ...(context !== "ALL" ? [{ field: "featureModule", operator: "EQ", values: [context] }] : []),
+      ...compactSearchClauses(filters, schema).map((filter) => ({
+        field: filter.field,
+        operator: filter.operator,
+        values: filter.values,
+      })),
+    ];
+    api.post("/audit-logs/search", {
+      ...(schema?.defaultView ? { view: schema.defaultView } : {}),
+      filters: conditions.length ? { logic: "AND", conditions } : null,
+      sort: schema?.defaultSort?.field
+        ? [{ field: schema.defaultSort.field, direction: schema.defaultSort.direction || "DESC" }]
+        : [],
+      page: page - 1,
+      size: pageSize,
     }).then((response) => {
       if (!active) return;
       const result = unwrapPage(response);
@@ -82,7 +91,7 @@ export default function AuditLogs() {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [api, page, pageSize, context, action, actorUserId, fromDate, toDate]);
+  }, [api, page, pageSize, context, filters, schema, schemaLoading]);
 
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -133,7 +142,6 @@ export default function AuditLogs() {
     },
   ], []);
 
-  const appliedCount = [action, actorUserId, fromDate, toDate].filter(Boolean).length;
   const exportLogs = () => {
     const blob = new Blob([JSON.stringify(visibleRows, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -164,9 +172,9 @@ export default function AuditLogs() {
             {CONTEXT_OPTIONS.map((option) => <Button key={option.value} data-testid={`hr-audit-logs-context-${option.value.toLowerCase()}`} size="sm" variant={context === option.value ? "primary" : "outline"} onClick={() => { setContext(option.value); setPage(1); }}>{option.label}</Button>)}
           </div>
           <Input data-testid="hr-audit-logs-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search current page..." icon={<Search size={16} />} containerClassName="w-full md:max-w-xs" />
-          <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraft({ action, actorUserId, fromDate, toDate }); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
+          <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(schema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
         </div>
-        {error ? <div data-testid="hr-audit-logs-error" className="m-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div> : null}
+        {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
         <div data-testid="hr-audit-logs-table" className="p-4">
           <DataTable data={visibleRows} columns={columns} loading={loading} getRowId={(record, index) => value(record, ["id", "uid", "eventUuid"], String(index))} pagination={{ page, pageSize, total, mode: "server", onChange: setPage, onPageSizeChange: setPageSize }} emptyState={<EmptyState title="No audit records" description="No HR audit activity matches the selected filters." />} />
         </div>
@@ -175,14 +183,18 @@ export default function AuditLogs() {
       <Drawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Audit Log Filters" size="sm" contentClassName="flex flex-col p-0">
         <div data-testid="hr-audit-logs-filter-drawer" className="flex h-full flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
-            <Input data-testid="hr-audit-logs-action-filter" label="Action" value={draft.action} onChange={(event) => setDraft({ ...draft, action: event.target.value })} />
-            <Input data-testid="hr-audit-logs-actor-user-id-filter" label="Actor User ID" type="number" value={draft.actorUserId} onChange={(event) => setDraft({ ...draft, actorUserId: event.target.value })} />
-            <Input data-testid="hr-audit-logs-from-filter" label="From Date" type="date" value={draft.fromDate} onChange={(event) => setDraft({ ...draft, fromDate: event.target.value })} />
-            <Input data-testid="hr-audit-logs-to-filter" label="To Date" type="date" value={draft.toDate} onChange={(event) => setDraft({ ...draft, toDate: event.target.value })} />
+            <SchemaFilterBuilder
+              schema={schema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedCount}
+              onClearAll={() => setDraftFilters(buildDefaultSearchClauses(schema))}
+              emptyStateMessage="No audit-log filters are available from the schema."
+            />
           </div>
           <div className="flex gap-3 border-t border-slate-200 p-5">
-            <Button data-testid="hr-audit-logs-filter-reset" variant="outline" className="flex-1" onClick={() => { setDraft({ action: "", actorUserId: "", fromDate: "", toDate: "" }); setAction(""); setActorUserId(""); setFromDate(""); setToDate(""); setPage(1); setFiltersOpen(false); }}>Reset</Button>
-            <Button data-testid="hr-audit-logs-filter-apply" className="flex-1" onClick={() => { setAction(draft.action.trim()); setActorUserId(draft.actorUserId.trim()); setFromDate(draft.fromDate); setToDate(draft.toDate); setPage(1); setFiltersOpen(false); }}>Apply</Button>
+            <Button data-testid="hr-audit-logs-filter-reset" variant="outline" className="flex-1" onClick={() => { const reset = buildDefaultSearchClauses(schema); setDraftFilters(reset); setFilters(reset); setPage(1); setFiltersOpen(false); }}>Reset</Button>
+            <Button data-testid="hr-audit-logs-filter-apply" className="flex-1" onClick={() => { setFilters(draftFilters); setPage(1); setFiltersOpen(false); }}>Apply</Button>
           </div>
         </div>
       </Drawer>

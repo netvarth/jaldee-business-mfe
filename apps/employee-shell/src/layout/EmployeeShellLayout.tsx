@@ -216,6 +216,23 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
               </span>
               <span className="text-sm">HelpDesk</span>
             </NavLink>
+
+            <NavLink
+              to="/me/separation"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors no-underline ${
+                  isActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-950 font-bold"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold"
+                }`
+              }
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <LogOut size={18} />
+              </span>
+              <span className="text-sm">Separation</span>
+            </NavLink>
           </div>
 
           <div className="mt-8 border-t border-slate-200 pt-4">

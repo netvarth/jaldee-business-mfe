@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { PageHeader, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
+import { Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -8,11 +9,12 @@ import {
 } from "@jaldee/shared-modules";
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useTickets, type Ticket } from "../../services/useEngagement";
 import { useTicketSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
+import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 
 const TEAL = "var(--primary-color)";
 const CATEGORIES = ["Payroll", "IT Support", "HR Policy", "Admin/Facility"];
@@ -87,6 +89,8 @@ function StatCard({ label, value, tone, icon }: { label: string; value: number; 
 export default function Tickets() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
+  const navigate = useNavigate();
+  const fromAnalytics = isAnalyticsNavigation(location.state);
   const isEmployeeView = location.pathname.includes("/me/");
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
@@ -245,6 +249,9 @@ export default function Tickets() {
       <div style={sectionStack}>
         {!isEmployeeView ? (
           <PageHeader
+            variant={fromAnalytics ? "navigation" : "default"}
+            back={fromAnalytics ? HR_ANALYTICS_BACK : undefined}
+            onNavigate={(href) => navigate(href)}
             title="HR Helpdesk"
             subtitle="Raise and track your HR or admin-related issues."
             actions={

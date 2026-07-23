@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, MoreVertical } from "lucide-react";
-import { PageHeader, Popover } from "@jaldee/design-system";
+import { Popover } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { TEAL, card } from "./SettingsComponents";
 import {
   CompanySettingsPage,

@@ -119,9 +119,9 @@ export function useHrApi() {
 
     return {
       get: <T>(endpoint: string) => request<T>(endpoint, "GET"),
-      post: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "POST", body),
-      put: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "PUT", body),
-      patch: <T>(endpoint: string, body?: Json) => request<T>(endpoint, "PATCH", body),
+      post: <T>(endpoint: string, body?: RequestBody) => request<T>(endpoint, "POST", body),
+      put: <T>(endpoint: string, body?: RequestBody) => request<T>(endpoint, "PUT", body),
+      patch: <T>(endpoint: string, body?: RequestBody) => request<T>(endpoint, "PATCH", body),
       del: <T>(endpoint: string) => request<T>(endpoint, "DELETE"),
     };
   }, [authToken]);

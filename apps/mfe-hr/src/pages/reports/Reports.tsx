@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Download, Users, CalendarDays, Wallet, FileBarChart, Loader2 } from "lucide-react";
-import { Button, PageHeader } from "@jaldee/design-system";
+import { Button } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaveBalances } from "../../services/useLeaveData";
 import { useAttendance } from "../../services/useAttendanceData";

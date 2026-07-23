@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { MoreVertical } from "lucide-react";
-import { PageHeader, Popover, Tabs } from "@jaldee/design-system";
+import { Popover, Tabs } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useTelemetry } from "../../services/useTelemetry";
 
 interface RecruitmentLayoutProps {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Trash2, Eye, MoreVertical, LayoutGrid, Rows3, Filter } from "lucide-react";
-import { Badge, Button, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, PageHeader, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
+import { Badge, Button, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,

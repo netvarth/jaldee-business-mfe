@@ -1,12 +1,9 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, CalendarClock, Ticket, Megaphone, Wallet, ChevronRight } from "lucide-react";
-import { useEmployees } from "../../services/useEmployees";
-import { useAttendance } from "../../services/useAttendanceData";
-import { useLeaves } from "../../services/useLeaveData";
-import { useTickets, useAnnouncements } from "../../services/useEngagement";
-import { usePayrollRuns } from "../../services/usePayrollData";
 import { formatCurrency, formatDate } from "../../lib/utils";
+import { HR_ANALYTICS_NAVIGATION_STATE } from "../../lib/hrNavigation";
+import { useHrAnalytics, type HrAnalyticsFrequency } from "../../services/useHrAnalytics";
 
 const card: CSSProperties = { background: "white", border: "1px solid #f1f5f9", borderRadius: 24, padding: 24 };
 const cardTitle: CSSProperties = { fontSize: 13, fontWeight: 800, color: "#1e293b", textTransform: "uppercase", margin: 0, letterSpacing: "0.05em", fontFamily: "'Outfit',sans-serif" };
@@ -20,27 +17,94 @@ interface Kpi {
 
 function pct(n: number, total: number) { return total > 0 ? Math.round((n / total) * 100) : 0; }
 
+function recordArray(data: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    if (Array.isArray(data[key])) return data[key] as Record<string, unknown>[];
+  }
+  return [];
+}
+
+function metric(data: Record<string, unknown>, ...names: string[]) {
+  const wanted = new Set(names.map((name) => name.toUpperCase()));
+  const values = recordArray(data, ["totals", "metricWiseValues", "metrics", "metricValues", "rows"]);
+  const match = values.find((item) =>
+    wanted.has(String(item.metricName ?? item.name ?? item.metricTypeName ?? "").toUpperCase()) ||
+    wanted.has(String(item.metricDisplayName ?? "").toUpperCase())
+  );
+  const value = match?.value ?? match?.count ?? match?.amount ?? 0;
+  return Number(value) || 0;
+}
+
+function metricRows(data: Record<string, unknown>, ...names: string[]) {
+  const wanted = new Set(names.map((name) => name.toUpperCase()));
+  return recordArray(data, ["rows"])
+    .filter((item) => wanted.has(String(item.metricName ?? "").toUpperCase()))
+    .sort((a, b) => {
+      const key = (item: Record<string, unknown>) =>
+        `${item.year ?? ""}-${String(item.month ?? "").padStart(2, "0")}-${item.dateFor ?? ""}-${String(item.hour ?? "").padStart(2, "0")}`;
+      return key(a).localeCompare(key(b));
+    })
+    .map((item) => Number(item.value ?? item.floatAmount ?? item.amount ?? 0) || 0);
+}
+
+function breakdown(data: Record<string, unknown>, keys: string[]) {
+  return recordArray(data, keys).map((item) => ({
+    name: String(item.name ?? item.label ?? item.departmentName ?? ""),
+    value: Number(item.value ?? item.count ?? item.total ?? 0) || 0,
+  })).filter((item) => item.name);
+}
+
+function trendPoints(values: number[], width = 600, height = 160) {
+  if (!values.length) return "";
+  const max = Math.max(...values, 1);
+  return values.map((value, index) => {
+    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+    const y = height - (value / max) * (height - 20);
+    return `${x},${y}`;
+  }).join(" ");
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: employees } = useEmployees();
-  const { data: attendance } = useAttendance();
-  const { data: leaves } = useLeaves();
-  const { data: tickets } = useTickets();
-  const { data: announcements } = useAnnouncements();
-  const { data: runs } = usePayrollRuns();
+  const navigateFromAnalytics = (href: string) =>
+    navigate(href, { state: HR_ANALYTICS_NAVIGATION_STATE });
 
   const [period, setPeriod] = useState<"today" | "week" | "month">("month");
-
-  const today = new Date().toISOString().slice(0, 10);
+  const frequency: HrAnalyticsFrequency =
+    period === "today" ? "DAILY" : period === "week" ? "WEEKLY" : "MONTHLY";
+  const { data: analytics, loading, error } = useHrAnalytics(frequency);
   const stats = useMemo(() => ({
-    employees: employees.length,
-    presentToday: attendance.filter((a) => a.dateStr === today && a.clockIn).length,
-    pendingLeaves: leaves.filter((l) => (l.status || "").toLowerCase() === "pending").length,
-    openTickets: tickets.filter((t) => (t.status || "").toLowerCase().includes("open")).length,
-    lastPayout: runs[0]?.totalPayout,
-  }), [employees, attendance, leaves, tickets, runs, today]);
-
-  const pinned = [...announcements].sort((a, b) => Number(b.isPinned) - Number(a.isPinned)).slice(0, 5);
+    employees: metric(analytics, "hr.employee.active.count"),
+    presentToday: metric(analytics, "hr.attendance.present.count"),
+    pendingLeaves: metric(analytics, "hr.leave.pending.count"),
+    openTickets: metric(analytics, "HR_OPEN_TICKETS", "HR_OPEN_TICKETS_COUNT", "OPEN_TICKETS"),
+    lastPayout: metric(
+      analytics,
+      "hr.payroll.last.payout",
+      "hr.payroll.total.payout",
+      "hr.payroll.processed.amount",
+      "hr.payroll.net.salary",
+      "Last Payout",
+    ),
+  }), [analytics]);
+  const pinned = recordArray(analytics, ["latestBroadcasts", "announcements", "broadcasts"])
+    .slice(0, 5)
+    .map((item, index) => ({
+      id: String(item.id ?? item.uid ?? index),
+      title: String(item.title ?? item.name ?? "Announcement"),
+      type: String(item.type ?? item.category ?? "General"),
+      startDate: item.startDate ?? item.date ?? item.createdAt
+        ? String(item.startDate ?? item.date ?? item.createdAt)
+        : "",
+      isPinned: Boolean(item.isPinned ?? item.pinned),
+    }));
+  const departments = breakdown(analytics, ["departmentWiseValues", "departmentBreakdown", "employeesByDepartment"]);
+  const attendanceTrend = metricRows(analytics, "hr.attendance.present.count");
+  const leaveTrend = metricRows(analytics, "hr.leave.applied", "hr.leave.pending.count");
+  const tenureAverage = metric(analytics, "HR_AVERAGE_TENURE", "AVERAGE_TENURE", "TENURE_AVERAGE");
+  const retentionChange = metric(analytics, "HR_RETENTION_CHANGE_PERCENT", "RETENTION_CHANGE_PERCENT");
+  const femalePercent = metric(analytics, "HR_FEMALE_PERCENT", "FEMALE_PERCENT", "FEMALE_RATIO");
+  const malePercent = metric(analytics, "HR_MALE_PERCENT", "MALE_PERCENT", "MALE_RATIO");
 
   const kpis: Kpi[] = [
     {
@@ -50,7 +114,7 @@ export default function Dashboard() {
       badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#059669", background: "#ecfdf5", border: "1px solid #d1fae5", padding: "3px 6px", borderRadius: 6 }}>▲ 2.1%</span>,
       icon: <Users size={18} stroke="#6366f1" strokeWidth={2.5} />,
       sub: <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: 10 }}>Active headcount limit: <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#334155", background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>50</span></div>,
-      onClick: () => navigate("/employees")
+      onClick: () => navigateFromAnalytics("/employees")
     },
     {
       id: "present-today",
@@ -60,7 +124,7 @@ export default function Dashboard() {
       badge: <span style={{ fontSize: 10, fontWeight: 900, color: "#065f46", background: "#d1fae5", padding: "3px 7px", borderRadius: 10 }}>{pct(stats.presentToday, stats.employees)}%</span>,
       icon: <CalendarClock size={18} stroke="#10b981" strokeWidth={2.5} />,
       bar: stats.employees ? stats.presentToday / stats.employees : 0, barColor: "#10b981",
-      onClick: () => navigate("/attendance")
+      onClick: () => navigateFromAnalytics("/attendance")
     },
     {
       id: "pending-leaves",
@@ -70,7 +134,7 @@ export default function Dashboard() {
       badge: <span style={{ fontSize: 10, fontWeight: 900, color: "#92400e", background: "#fef3c7", padding: "3px 7px", borderRadius: 10 }}>Action Req</span>,
       icon: <CalendarClock size={18} stroke="#f59e0b" strokeWidth={2.5} />,
       bar: stats.employees ? stats.pendingLeaves / stats.employees : 0, barColor: "#f59e0b",
-      onClick: () => navigate("/leave")
+      onClick: () => navigateFromAnalytics("/leave")
     },
     {
       id: "open-tickets",
@@ -80,7 +144,7 @@ export default function Dashboard() {
       badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fecaca", padding: "3px 6px", borderRadius: 6 }}>▼ 12%</span>,
       icon: <Ticket size={18} stroke="#ef4444" strokeWidth={2.5} />,
       bar: stats.employees ? stats.openTickets / stats.employees : 0, barColor: "#ef4444",
-      onClick: () => navigate("/tickets")
+      onClick: () => navigateFromAnalytics("/tickets")
     },
     {
       id: "last-payout",
@@ -89,7 +153,7 @@ export default function Dashboard() {
       badge: <span style={{ fontSize: 10, fontWeight: 700, color: "#4c1d95", background: "#ede9fe", border: "1px solid #ddd6fe", padding: "3px 6px", borderRadius: 6 }}>Paid</span>,
       icon: <Wallet size={18} stroke="#8b5cf6" strokeWidth={2.5} />,
       bar: 1, barColor: "#8b5cf6",
-      onClick: () => navigate("/payroll")
+      onClick: () => navigateFromAnalytics("/payroll")
     },
   ];
 
@@ -103,29 +167,18 @@ export default function Dashboard() {
   });
 
   const trendConfig = useMemo(() => {
-    if (period === "today") {
-      return {
-        sub: "Daily active hours distribution (Today).",
-        points: "0,160 100,150 200,120 300,100 400,90 500,95 600,110",
-        poly: "0,160 100,150 200,120 300,100 400,90 500,95 600,110 600,220 0,220",
-        dash: "0,180 100,180 200,175 300,170 400,175 500,175 600,180"
-      };
-    }
-    if (period === "week") {
-      return {
-        sub: "Weekly active workforce vs scheduled leaves.",
-        points: "0,140 100,120 200,90 300,95 400,70 500,85 600,80",
-        poly: "0,140 100,120 200,90 300,95 400,70 500,85 600,80 600,220 0,220",
-        dash: "0,180 100,175 200,170 300,165 400,170 500,160 600,165"
-      };
-    }
+    const points = trendPoints(attendanceTrend);
     return {
-      sub: "Monthly active workforce vs scheduled leaves.",
-      points: "0,120 100,100 200,110 300,80 400,90 500,60 600,70",
-      poly: "0,120 100,100 200,110 300,80 400,90 500,60 600,70 600,220 0,220",
-      dash: "0,180 100,170 200,160 300,175 400,160 500,180 600,165"
+      sub: period === "today"
+        ? "Daily active workforce vs scheduled leaves."
+        : period === "week"
+          ? "Weekly active workforce vs scheduled leaves."
+          : "Monthly active workforce vs scheduled leaves.",
+      points,
+      poly: points ? `${points} 600,180 0,180` : "",
+      dash: trendPoints(leaveTrend),
     };
-  }, [period]);
+  }, [attendanceTrend, leaveTrend, period]);
 
   return (
     <section id="page-hr-home" data-testid="hr-dashboard-page" className="page-section active" style={{ background: "#f8fafc", flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -143,6 +196,8 @@ export default function Dashboard() {
               </span>
             </div>
             <p style={{ fontSize: 14, lineHeight: "20px", color: "#6b7280", margin: 0 }}>Real-time visual diagnostic reports of workforce utilization, attendance trends, and engagement metrics.</p>
+            {loading && <p style={{ fontSize: 12, color: "#64748b", margin: "6px 0 0" }}>Loading analytics...</p>}
+            {error && <p role="alert" style={{ fontSize: 12, color: "#dc2626", margin: "6px 0 0" }}>{error}</p>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", background: "#f8fafc", border: "1px solid rgba(226,232,240,0.5)", borderRadius: 12, padding: 4 }}>
@@ -195,7 +250,7 @@ export default function Dashboard() {
                 <h3 style={cardTitle}>Latest Broadcasts</h3>
                 <p style={cardSub}>Company-wide announcements.</p>
               </div>
-              <button id="hr-dashboard-broadcasts-view-all" data-testid="hr-dashboard-broadcasts-view-all" onClick={() => navigate("/announcements")} style={{ background: "rgba(17,94,89,0.05)", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#115E59", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <button id="hr-dashboard-broadcasts-view-all" data-testid="hr-dashboard-broadcasts-view-all" onClick={() => navigateFromAnalytics("/announcements")} style={{ background: "rgba(17,94,89,0.05)", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#115E59", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 View All <ChevronRight size={14} />
               </button>
             </div>
@@ -229,13 +284,13 @@ export default function Dashboard() {
             <h3 style={cardTitle}>Department Breakdown</h3>
             <p style={cardSub}>Distribution of staff across teams.</p>
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-              {[{ n: "Engineering", v: Math.round(stats.employees * 0.45), c: "#55349A" }, { n: "Sales & Mktg", v: Math.round(stats.employees * 0.3), c: "#10b981" }, { n: "Operations", v: Math.round(stats.employees * 0.25), c: "#f59e0b" }].map((ch) => (
-                <div key={ch.n}>
+              {departments.map((department, index) => (
+                <div key={department.name}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                    <span>{ch.n}</span><span>{ch.v} ({pct(ch.v, stats.employees)}%)</span>
+                    <span>{department.name}</span><span>{department.value} ({pct(department.value, stats.employees)}%)</span>
                   </div>
                   <div style={{ width: "100%", background: "#f1f5f9", height: 8, borderRadius: 10, overflow: "hidden" }}>
-                    <div style={{ width: `${pct(ch.v, stats.employees)}%`, background: ch.c, height: "100%", borderRadius: 10 }} />
+                    <div style={{ width: `${pct(department.value, stats.employees)}%`, background: ["#55349A", "#10b981", "#f59e0b"][index % 3], height: "100%", borderRadius: 10 }} />
                   </div>
                 </div>
               ))}
@@ -244,13 +299,13 @@ export default function Dashboard() {
           <div id="hr-dashboard-tenure-average" data-testid="hr-dashboard-tenure-average" style={card}>
             <h3 style={cardTitle}>Tenure Average</h3>
             <p style={cardSub}>Employee retention health.</p>
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>2.4 yrs</div>
-            <div style={{ fontSize: 12, color: "#10b981", marginTop: 4, fontWeight: 700 }}>+8% YoY retention</div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>{tenureAverage} yrs</div>
+            <div style={{ fontSize: 12, color: "#10b981", marginTop: 4, fontWeight: 700 }}>{retentionChange}% YoY retention</div>
           </div>
           <div id="hr-dashboard-diversity-ratio" data-testid="hr-dashboard-diversity-ratio" style={card}>
             <h3 style={cardTitle}>Diversity Ratio</h3>
             <p style={cardSub}>Gender distribution.</p>
-            <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>42% / 58%</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: "#0f172a", marginTop: 16, fontFamily: "'Outfit',sans-serif" }}>{femalePercent}% / {malePercent}%</div>
             <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Female / Male ratio</div>
           </div>
         </div>

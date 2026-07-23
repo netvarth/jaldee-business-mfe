@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { AlertCircle, Loader2, Lock, Send, ShieldAlert, Trash2 } from "lucide-react";
-import { Button, Input, Select, Tabs, PageHeader } from "@jaldee/design-system";
+import { Button, Input, Select, Tabs } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { formatDate } from "../../lib/utils";
 import {
   useAmIGrievanceHandler, useGrievances, useGrievanceConfig,

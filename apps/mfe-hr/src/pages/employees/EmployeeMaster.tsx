@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button, DataTable, Dialog, Drawer, EmptyState, PageHeader, SectionCard, cn } from "@jaldee/design-system";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Button, DataTable, Dialog, Drawer, EmptyState, SectionCard, cn } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -9,13 +10,13 @@ import {
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { Download, LayoutGrid, Plus, Rows3, ToggleLeft, ToggleRight, Upload } from "lucide-react";
+import { Download, LayoutGrid, Plus, Rows3, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
 import { useEmployeeSearchSchema } from "../../services/useEmployeeSearchSchema";
 import { useHrApi } from "../../services/useHrApi";
-import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import { exportToCSV } from "../../lib/utils";
 import type { Employee } from "../../types";
+import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 
 type ViewMode = "table" | "cards";
 
@@ -31,31 +32,41 @@ function getPreferredViewMode() {
 
 export default function EmployeeMaster() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromAnalytics = isAnalyticsNavigation(location.state);
   const { eventBus } = useMFEProps();
   const api = useHrApi();
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const employeeSort = useMemo(
+    () => sortKey ? [{ field: sortKey === "department" ? "hrDepartment" : sortKey, direction: sortDir.toUpperCase() }] : undefined,
+    [sortDir, sortKey],
+  );
   const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
-  const { data: employees, loading, error, setStatus, totalElements, totalPages: serverTotalPages } = useEmployees(
+  const { data: employees, loading, error, reload, setStatus, totalElements, totalPages: serverTotalPages } = useEmployees(
     advancedFilters,
     employeeSearchSchema,
     {
       enabled: !schemaLoading,
       page: page - 1,
       pageSize,
+      sort: employeeSort,
     }
   );
-  const { data: allDepartments } = useDepartments();
-  const { data: allDesignations } = useDesignations();
   const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [importing, setImporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importDragging, setImportDragging] = useState(false);
   const [statusEmployee, setStatusEmployee] = useState<Employee | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInFlightRef = useRef(false);
 
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, employeeSearchSchema).length,
@@ -137,94 +148,78 @@ export default function EmployeeMaster() {
     });
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const importFile = (file?: File) => {
+    if (!file || importInFlightRef.current) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      emitToast("error", "Please select a CSV file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      emitToast("error", "The CSV file must be 10MB or smaller.");
+      return;
+    }
+    importInFlightRef.current = true;
     setImporting(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const text = event.target?.result as string;
-        // Aggressive split that handles \r, \n, \r\n, unicode separators, AND literal '\n' strings
-        const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
-        
-        if (lines.length <= 1) {
-          emitToast("error", "CSV import failed. The file must include a header row and at least one employee row.");
-          setImporting(false);
-          return;
-        }
-        
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        
-        // Find indices dynamically
-        const idIdx = headers.findIndex(h => h.includes('id'));
-        const nameIdx = headers.findIndex(h => h.includes('name'));
-        const emailIdx = headers.findIndex(h => h.includes('email'));
-        const phoneIdx = headers.findIndex(h => h.includes('contact') || h.includes('phone'));
-        const deptIdx = headers.findIndex(h => h.includes('department'));
-        const desigIdx = headers.findIndex(h => h.includes('designation'));
-        const typeIdx = headers.findIndex(h => h.includes('type'));
-        const statusIdx = headers.findIndex(h => h.includes('status'));
-        const genderIdx = headers.findIndex(h => h.includes('gender'));
-        const dobIdx = headers.findIndex(h => h.includes('dob') || h.includes('birth'));
-        const dojIdx = headers.findIndex(h => h.includes('joining') || h.includes('doj'));
-
-        const rows = lines.slice(1);
-        let successCount = 0;
-        let failCount = 0;
-        let firstError = "";
-
-        for (const row of rows) {
-          const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-          
-          const name = nameIdx >= 0 ? cols[nameIdx] : undefined;
-          if (!name) continue; // Skip invalid rows without a name
-
-          const deptVal = (deptIdx >= 0 && cols[deptIdx]) ? cols[deptIdx] : null;
-          const desigVal = (desigIdx >= 0 && cols[desigIdx]) ? cols[desigIdx] : null;
-          const deptObj = allDepartments.find(d => d.name?.toLowerCase() === deptVal?.toLowerCase());
-          const desigObj = allDesignations.find(d => d.name?.toLowerCase() === desigVal?.toLowerCase());
-
-          const payload: Record<string, unknown> = {
-            employeeId: (idIdx >= 0 && cols[idIdx]) ? cols[idIdx] : `EMP${Math.floor(1000 + Math.random() * 9000)}`,
-            name: name,
-            email: (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx] : `${name.replace(/\s+/g, '.').toLowerCase()}@company.com`,
-            contactNumber: (phoneIdx >= 0 && cols[phoneIdx]) ? cols[phoneIdx] : null,
-            hrDepartmentUid: deptObj?.id || null,
-            designationUid: desigObj?.id || null,
-            employmentType: (typeIdx >= 0 && cols[typeIdx]) ? cols[typeIdx] : "Full-time",
-            status: (statusIdx >= 0 && cols[statusIdx]) ? cols[statusIdx] : "Active",
-            gender: (genderIdx >= 0 && cols[genderIdx]) ? cols[genderIdx] : null,
-            dob: (dobIdx >= 0 && cols[dobIdx]) ? cols[dobIdx] : null,
-            doj: (dojIdx >= 0 && cols[dojIdx]) ? cols[dojIdx] : new Date().toISOString().slice(0, 10),
-            role: "employee",
-          };
-
-          try {
-            await api.post("/employees", payload);
-            successCount++;
-          } catch (e) {
-            failCount++;
-            if (!firstError) firstError = e instanceof Error ? e.message : String(e);
-          }
-        }
-
-        if (successCount > 0 && failCount === 0) {
-          emitToast("success", `Imported ${successCount} employee records.`);
-        } else if (successCount > 0) {
-          emitToast("warning", `Imported ${successCount} employees. ${failCount} rows failed.${firstError ? ` First error: ${firstError}` : ""}`);
-        } else {
-          emitToast("error", firstError || "Employee import failed.");
-        }
-        if (successCount > 0) window.location.reload();
-      } catch (err) {
-        emitToast("error", err instanceof Error ? err.message : "Error parsing CSV file.");
-      } finally {
+    const formData = new FormData();
+    formData.append("file", file);
+    void api.post<unknown>("/employees/import", formData)
+      .then(async () => {
+        await reload();
+        emitToast("success", "Employee CSV imported successfully.");
+        setImportOpen(false);
+      })
+      .catch((error) => {
+        emitToast("error", error instanceof Error ? error.message : "Employee import failed.");
+      })
+      .finally(() => {
+        importInFlightRef.current = false;
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
-      }
-    };
-    reader.readAsText(file);
+      });
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    importFile(file);
+  };
+
+  const downloadImportTemplate = () => {
+    const headers = [
+      "Employee ID",
+      "Name",
+      "Email",
+      "Contact Number",
+      "Department",
+      "Designation",
+      "Employment Type",
+      "Status",
+      "Gender",
+      "Date of Birth",
+      "Date of Joining",
+    ];
+    const sample = [
+      "EMP1001",
+      "Sample Employee",
+      "employee@company.com",
+      "9876543210",
+      "General",
+      "Associate",
+      "Full-time",
+      "Active",
+      "Female",
+      "1995-01-01",
+      new Date().toISOString().slice(0, 10),
+    ];
+    const blob = new Blob([[headers.join(","), sample.join(",")].join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "employee-import-template.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const confirmStatusChange = async () => {
@@ -272,7 +267,6 @@ export default function EmployeeMaster() {
       key: "department",
       header: "Department / Designation",
       width: "25%",
-      sortable: true,
       render: (employee) => (
         <div className="min-w-0">
           <div className="truncate font-medium">{employee.department || "—"}</div>
@@ -284,7 +278,6 @@ export default function EmployeeMaster() {
       key: "employmentType",
       header: "Type",
       width: "14%",
-      sortable: true,
       render: (employee) => employee.employmentType || "—",
     },
     {
@@ -314,6 +307,9 @@ export default function EmployeeMaster() {
     >
       <input id="hr-employees-import-file" data-testid="hr-employees-import-file" type="file" accept=".csv" ref={fileInputRef} style={{ display: "none" }} onChange={handleImport} />
       <PageHeader
+        variant={fromAnalytics ? "navigation" : "default"}
+        back={fromAnalytics ? HR_ANALYTICS_BACK : undefined}
+        onNavigate={(href) => navigate(href)}
         title="Employee Master"
         subtitle="Manage employee profiles, departments, roles, and workforce status."
         actions={
@@ -323,7 +319,7 @@ export default function EmployeeMaster() {
               data-testid="hr-employees-import-button"
               variant="outline"
               icon={<Upload size={16} />}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setImportOpen(true)}
             >
               {importing ? "Importing..." : "Import CSV"}
             </Button>
@@ -396,6 +392,15 @@ export default function EmployeeMaster() {
             getRowId={(employee) => employee.id}
             loading={loading}
             onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
+            sorting={{
+              sortKey,
+              sortDir,
+              onChange: (key, direction) => {
+                setSortKey(key);
+                setSortDir(direction);
+                setPage(1);
+              },
+            }}
             pagination={{
               page,
               pageSize,
@@ -527,6 +532,70 @@ export default function EmployeeMaster() {
         )}
       </div>
       </SectionCard>
+      <Dialog
+        open={importOpen}
+        onClose={() => !importing && setImportOpen(false)}
+        testId="hr-employees-import-modal"
+        title="Import Employees"
+        description="Upload a CSV template to create employee records in bulk."
+        size="md"
+        contentClassName="max-sm:!h-[100dvh]"
+        closeButtonClassName="h-9 w-9 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
+      >
+        <div className="space-y-4">
+          <button
+            type="button"
+            data-testid="hr-employees-import-dropzone"
+            className={cn(
+              "flex min-h-48 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-white px-6 py-8 text-center transition-colors",
+              importDragging
+                ? "border-[var(--primary-color)] bg-[var(--color-primary-subtle)]"
+                : "border-slate-200 hover:border-[var(--primary-color)]",
+            )}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setImportDragging(true);
+            }}
+            onDragLeave={() => setImportDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setImportDragging(false);
+              importFile(event.dataTransfer.files?.[0]);
+            }}
+            disabled={importing}
+          >
+            <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-700">
+              <UploadCloud size={24} />
+            </span>
+            <span className="text-sm font-bold text-violet-700">
+              {importing ? "Importing employees..." : "Click to upload"}
+            </span>
+            <span className="mt-1 text-xs font-semibold uppercase text-slate-400">
+              or drag and drop here
+            </span>
+            <span className="mt-4 text-xs text-slate-400">Supports CSV up to 10MB</span>
+          </button>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <div className="min-w-0">
+              <p className="m-0 text-sm font-bold text-slate-700">Need the CSV template?</p>
+              <p className="m-0 mt-1 text-xs text-slate-400">
+                Includes the supported employee headers and a sample row.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="hr-employees-import-template-download"
+              onClick={downloadImportTemplate}
+              className="shrink-0"
+            >
+              Download CSV
+            </Button>
+          </div>
+        </div>
+      </Dialog>
       <Dialog
         open={!!statusEmployee}
         onClose={() => !statusSaving && setStatusEmployee(null)}

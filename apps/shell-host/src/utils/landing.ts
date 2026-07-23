@@ -17,6 +17,9 @@ const PRODUCT_HOME_PATHS: Partial<Record<ProductKey, string>> = {
 
 export function getPreferredLandingPathFromProducts(products?: readonly string[] | null): string {
   const licensedProducts = Array.isArray(products) ? products : [];
+  if (licensedProducts.length === 1 && licensedProducts[0] === "hr") {
+    return "/hr";
+  }
   const prioritizedProduct = PRODUCT_PRIORITY.find((product) => licensedProducts.includes(product));
 
   if (prioritizedProduct) {

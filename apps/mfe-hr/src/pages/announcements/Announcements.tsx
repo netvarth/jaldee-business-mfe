@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical } from "lucide-react";
-import { PageHeader, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection, Drawer } from "@jaldee/design-system";
+import { EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection, Drawer } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -8,11 +9,12 @@ import {
 } from "@jaldee/shared-modules";
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useAnnouncements, type Announcement } from "../../services/useEngagement";
 import { useAnnouncementSearchSchema } from "../../services/useAnnouncementSearchSchema";
 import { useTelemetry } from "../../services/useTelemetry";
+import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
@@ -38,6 +40,8 @@ const getTodayDateString = (): string => {
 export default function Announcements() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
+  const navigate = useNavigate();
+  const fromAnalytics = isAnalyticsNavigation(location.state);
   const isEmployeeView = location.pathname.includes("/me/");
   const { trackEvent, captureError } = useTelemetry();
   const isEmployeeLogin = isEmployeeView;
@@ -211,6 +215,9 @@ export default function Announcements() {
       <div style={sectionStack}>
         {!isEmployeeView ? (
           <PageHeader
+            variant={fromAnalytics ? "navigation" : "default"}
+            back={fromAnalytics ? HR_ANALYTICS_BACK : undefined}
+            onNavigate={(href) => navigate(href)}
             title="StaffSpace"
             subtitle="Stay updated with the latest company news and policies."
             actions={!isEmployeeLogin ? (

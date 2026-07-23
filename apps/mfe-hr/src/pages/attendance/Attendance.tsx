@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
 import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Rows3, ScanFace, Timer, XCircle } from "lucide-react";
-import { PageHeader, Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
+import { Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import type { ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
@@ -9,6 +10,7 @@ import {
 } from "@jaldee/shared-modules";
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useLocation, useNavigate } from "react-router-dom";
+import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { useMFEProps } from "@jaldee/auth-context";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
@@ -186,6 +188,7 @@ export default function Attendance() {
   const { location: activeLocation } = useMFEProps();
   const location = useLocation();
   const navigate = useNavigate();
+  const fromAnalytics = isAnalyticsNavigation(location.state);
   const { data: employees, loading: empLoading, error: empError } = useEmployees();
   const branches = useBranches();
   const attendanceRules = useAttendanceRules();
@@ -403,7 +406,13 @@ export default function Attendance() {
           <FaceCaptureModal title="Verify Face to Clock In" subtitle={actorEmp?.name} busy={busy} onCapture={verifyAndPunch} onClose={() => setFaceOpen(false)} />
         </Suspense>
       )}
-      <PageHeader title="Attendance" subtitle="Shift and activity tracking" />
+      <PageHeader
+        variant={fromAnalytics ? "navigation" : "default"}
+        back={fromAnalytics ? HR_ANALYTICS_BACK : undefined}
+        onNavigate={(href) => navigate(href)}
+        title="Attendance"
+        subtitle="Shift and activity tracking"
+      />
 
       {/* console + stats + timeline grid layout */}
       <div className="attendance-console-grid" style={{ display: "grid", gridTemplateColumns: "45fr 25fr 30fr", gap: 24, marginBottom: 24, alignItems: "stretch" }}>

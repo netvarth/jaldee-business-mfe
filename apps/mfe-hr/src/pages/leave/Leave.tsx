@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { Button, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
+import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { useEmployees } from "../../services/useEmployees";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
 import { useLeaveTypes } from "../../services/useSettingsData";
@@ -77,6 +79,7 @@ export default function Leave() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
   const navigate = useNavigate();
+  const fromAnalytics = isAnalyticsNavigation(location.state);
   const tab = tabFromPath(location.pathname);
   const { data: employees, loading: empLoading } = useEmployees();
   const leaves = useLeaves();
@@ -248,6 +251,7 @@ export default function Leave() {
     <RecruitmentMobileCard
       key={l.id}
       title={empName(l.employeeUid)}
+      compact
       rows={[
         { label: "Department", value: empDept(l.employeeUid) },
         { label: "Leave Type", value: l.leaveTypeName || l.type },
@@ -256,14 +260,17 @@ export default function Leave() {
         { label: "Reason", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
       ]}
       footer={
-        <button
+        <Button
           id={`hr-leave-pending-inspect-${l.id}`}
           data-testid={`hr-leave-pending-inspect-${l.id}`}
+          variant="outline"
+          size="sm"
+          icon={<Eye size={14} />}
           onClick={() => { setSelected(l); setRemarks(""); }}
-          style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+          className="!h-8 !rounded-xl !border-[rgba(17,94,89,0.18)] !bg-[rgba(17,94,89,0.05)] !px-3 !text-xs !font-bold !leading-none !text-[var(--color-primary)]"
         >
-          <Eye size={14} /> Inspect
-        </button>
+          Review
+        </Button>
       }
     />
   ));
@@ -271,6 +278,9 @@ export default function Leave() {
   return (
     <section id="hr-leave-page" data-testid="hr-leave-page" className="page-section active hr-page-shell">
       <PageHeader
+        variant={fromAnalytics ? "navigation" : "default"}
+        back={fromAnalytics ? HR_ANALYTICS_BACK : undefined}
+        onNavigate={(href) => navigate(href)}
         title="Corporate Leave Dashboard"
         subtitle="Administrative leave and attendance control"
         actions={
@@ -376,14 +386,14 @@ export default function Leave() {
                     <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</td>
                     <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
                     <td style={{ ...tdc, textAlign: "right" }}>
-                      <button id={`hr-leave-pending-inspect-${l.id}`} data-testid={`hr-leave-pending-inspect-${l.id}`} onClick={() => { setSelected(l); setRemarks(""); }} style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><Eye size={14} /> Inspect</button>
+                      <Button id={`hr-leave-pending-inspect-${l.id}`} data-testid={`hr-leave-pending-inspect-${l.id}`} variant="outline" size="sm" icon={<Eye size={14} />} onClick={() => { setSelected(l); setRemarks(""); }} className="!h-8 !rounded-xl !border-[rgba(17,94,89,0.18)] !bg-[rgba(17,94,89,0.05)] !px-3 !text-xs !font-bold !leading-none !text-[var(--color-primary)]">Review</Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             ) : (
-              <div className="grid gap-4 p-4 sm:p-6">
+              <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
                 {pendingCards.length > 0 ? pendingCards : <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>Excellent! No pending absence application logs found.</div>}
               </div>
             )}
@@ -494,7 +504,7 @@ export default function Leave() {
             </tbody>
           </table>
           ) : (
-            <div className="grid gap-4 p-4 sm:p-6">
+            <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
               {balanceRows.length === 0 ? (
                 <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>No employees found.</div>
               ) : balanceRows.map((emp) => {
@@ -644,13 +654,14 @@ export default function Leave() {
             </tbody>
           </table>
           ) : (
-            <div className="grid gap-4 p-4 sm:p-6">
+            <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
               {ledgerRows.length === 0 ? (
                 <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>No records in the ledger.</div>
               ) : ledgerRows.map((l) => (
                 <RecruitmentMobileCard
                   key={l.id}
                   title={empName(l.employeeUid)}
+                  compact
                   rows={[
                     { label: "Employee ID", value: empCode(l.employeeUid) },
                     { label: "Category", value: l.leaveTypeName || l.type },

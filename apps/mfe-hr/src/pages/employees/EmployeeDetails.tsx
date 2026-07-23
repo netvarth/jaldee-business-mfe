@@ -7,7 +7,8 @@ import {
   Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3, Filter,
   KeyRound,
 } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
+import { Button, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -306,9 +307,12 @@ export default function EmployeeDetails() {
     const employeesIndex = segments.lastIndexOf("employees");
     const hasTabSegment = employeesIndex >= 0 && segments.length > employeesIndex + 2;
     if (!hasTabSegment) {
-      navigate(`/employees/${id}/overview${routeLocation.search}`, { replace: true });
+      navigate(`/employees/${id}/overview${routeLocation.search}`, {
+        replace: true,
+        state: routeLocation.state,
+      });
     }
-  }, [id, navigate, routeLocation.pathname, routeLocation.search]);
+  }, [id, navigate, routeLocation.pathname, routeLocation.search, routeLocation.state]);
 
   useEffect(() => {
     if (employee) {
@@ -1001,7 +1005,7 @@ export default function EmployeeDetails() {
                   className="employee-details-tabs-mobile__menu-item"
                   data-active={tab === t}
                   onClick={() => {
-                    navigate(employeeTabHref(employee.id, t));
+                    navigate(employeeTabHref(employee.id, t), { state: routeLocation.state });
                     setMobileTabsOpen(false);
                   }}
                 >
@@ -1012,7 +1016,7 @@ export default function EmployeeDetails() {
           </Popover>
           <div className="employee-details-tabs" style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
             {tabs.map((t) => (
-              <button id={`hr-employee-details-tab-${t}`} data-testid={`hr-employee-details-tab-${t}`} className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t))} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{EMPLOYEE_TAB_LABELS[t]}</button>
+              <button id={`hr-employee-details-tab-${t}`} data-testid={`hr-employee-details-tab-${t}`} className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t), { state: routeLocation.state })} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{EMPLOYEE_TAB_LABELS[t]}</button>
             ))}
           </div>
 

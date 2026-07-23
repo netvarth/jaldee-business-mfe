@@ -1,7 +1,8 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Award, Briefcase, CalendarDays, FileText, LayoutDashboard, Loader2, Plus, Search, UserPlus, Users } from "lucide-react";
-import { Dialog, Input, PageHeader, Select, Textarea } from "@jaldee/design-system";
+import { Dialog, Input, Select, Textarea } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 
 type RecruitmentTab = "dashboard" | "requisitions" | "candidates" | "applications" | "interviews" | "offers";

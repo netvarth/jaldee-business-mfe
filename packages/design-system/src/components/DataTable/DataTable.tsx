@@ -222,6 +222,9 @@ export function DataTable<T extends object>({
     );
   }
 
+  const supportsColumnSorting =
+    pagination?.mode !== "server" || Boolean(sorting);
+
   const showPagination = Boolean(pagination && pagination.total >= 10);
   const showTopPagination = showPagination && (paginationPlacement === "top" || paginationPlacement === "both");
   const showBottomPagination = showPagination && (paginationPlacement === "bottom" || paginationPlacement === "both");
@@ -282,8 +285,9 @@ export function DataTable<T extends object>({
               )}
 
               {visibleColumns.map((col) => {
+                const columnIsSortable = Boolean(col.sortable && supportsColumnSorting);
                 const isSorted = sortKey === String(col.key);
-                const ariaSort = col.sortable
+                const ariaSort = columnIsSortable
                   ? isSorted
                     ? sortDir === "asc"
                       ? "ascending"
@@ -298,14 +302,14 @@ export function DataTable<T extends object>({
                     aria-sort={ariaSort}
                     data-testid={`${testId}-col-${String(col.key)}`}
                     style={{ width: col.width }}
-                    onClick={() => col.sortable && handleSort(String(col.key))}
+                    onClick={() => columnIsSortable && handleSort(String(col.key))}
                     className={cn(
                       "px-2 py-2 text-[length:var(--text-xs)] font-medium whitespace-normal break-words md:px-3",
                       "text-[var(--color-text-secondary)]",
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
                       (!col.align || col.align === "left") && "text-left",
-                      col.sortable &&
+                      columnIsSortable &&
                         "cursor-pointer select-none hover:text-[var(--color-text-primary)]",
                       col.sticky === "left" &&
                         "sticky left-0 z-10 bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]",
@@ -326,7 +330,7 @@ export function DataTable<T extends object>({
                       ) : (
                         col.header
                       )}
-                      {col.sortable && (
+                      {columnIsSortable && (
                         <span aria-hidden="true">
                           {isSorted ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
                         </span>

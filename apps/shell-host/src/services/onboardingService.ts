@@ -1,5 +1,6 @@
 import { apiClient } from "@jaldee/api-client";
 import { buildBaseServiceUrl, BASE_SERVICE_ENDPOINTS } from "./serviceUrls";
+import { updateTenantSettingsForShell } from "./authService";
 
 interface TenantUpdateInput {
   tenantUid: string;
@@ -95,13 +96,14 @@ export const onboardingService = {
   async updateTenantSettings(input: TenantSettingsUpdateInput) {
     const selected = new Set(input.selectedProducts);
 
-    return apiClient.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update), {
+    return updateTenantSettingsForShell({
       tenantUid: input.tenantUid,
-      finance: true,
+      finance: selected.has("finance"),
       booking: selected.has("bookings"),
       health: selected.has("health"),
       lending: selected.has("lending"),
       eCommerce: selected.has("karty"),
+      hr: selected.has("hr"),
     });
   },
 

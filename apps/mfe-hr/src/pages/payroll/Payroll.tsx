@@ -18,9 +18,11 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { Button, DataTable, DataTableToolbar, DatePicker, Dialog, EmptyState, MonthPicker, PageHeader, Select, SkeletonTable } from "@jaldee/design-system";
+import { Button, DataTable, DataTableToolbar, DatePicker, Dialog, EmptyState, MonthPicker, Select, SkeletonTable } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
+import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
@@ -230,6 +232,7 @@ export default function Payroll() {
   const { eventBus } = useMFEProps();
   const location = useLocation();
   const navigate = useNavigate();
+  const fromAnalytics = isAnalyticsNavigation(location.state);
   const api = useHrApi();
   const routeState = useMemo(() => payrollRouteState(location.pathname), [location.pathname]);
   const tab = routeState.tab;
@@ -996,6 +999,9 @@ export default function Payroll() {
   return (
     <section id="hr-payroll-page" data-testid="hr-payroll-page" className="page-section active hr-page-shell" style={{ flexGrow: 1 }}>
       <PageHeader
+        variant={fromAnalytics ? "navigation" : "default"}
+        back={fromAnalytics ? HR_ANALYTICS_BACK : undefined}
+        onNavigate={(href) => navigate(href)}
         title="Payroll Management"
         subtitle="Configurable components, salary structures, employee overrides, and payroll runs."
         actions={
@@ -1487,7 +1493,7 @@ function ViewToggle({
         aria-label="Table view"
         title="Table view"
       >
-        <Rows3 size={16} />
+        <Rows3 size={14} />
       </button>
       <button
         id={`${scope}-cards`}
@@ -1498,7 +1504,7 @@ function ViewToggle({
         aria-label="Card view"
         title="Card view"
       >
-        <LayoutGrid size={16} />
+        <LayoutGrid size={14} />
       </button>
     </div>
   );
@@ -1915,11 +1921,11 @@ const primaryButton: CSSProperties = { ...buttonStyle, background: "var(--primar
 const smallAction: CSSProperties = { ...buttonStyle, padding: "7px 10px" };
 const employeeActionButton: CSSProperties = { ...smallAction, minWidth: 132 };
 const tabBar: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 6, padding: 4, background: "var(--border-color)", borderRadius: 8, marginBottom: 18, width: "fit-content" };
-const viewToggleWrap: CSSProperties = { display: "inline-flex", alignItems: "center", padding: 2, borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--app-bg)", gap: 2 };
+const viewToggleWrap: CSSProperties = { display: "inline-flex", alignItems: "center", flexShrink: 0, height: 40, padding: 2, borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-surface)", gap: 2 };
 const viewToggleButton = (active: boolean): CSSProperties => ({
   border: "none",
-  borderRadius: 8,
-  minWidth: 32,
+  borderRadius: 7,
+  width: 32,
   height: 32,
   display: "inline-flex",
   alignItems: "center",
@@ -1928,9 +1934,9 @@ const viewToggleButton = (active: boolean): CSSProperties => ({
   fontSize: 12,
   fontWeight: 800,
   cursor: "pointer",
-  background: active ? "var(--surface-bg)" : "transparent",
-  color: active ? "var(--dark-text)" : "var(--light-text)",
-  boxShadow: active ? "var(--shadow-sm)" : "none",
+  background: active ? "var(--color-primary)" : "transparent",
+  color: active ? "white" : "var(--color-text-secondary)",
+  boxShadow: "none",
 });
 const tabButton = (active: boolean): CSSProperties => ({
   ...buttonStyle,

@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { LogOut, Plus, X, AlertCircle, Loader2, ShieldCheck, Scissors, MessageSquare } from "lucide-react";
-import { PageHeader, Button, EmptyState, Input, Select, Textarea } from "@jaldee/design-system";
+import { Button, EmptyState, Input, Select, Textarea } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useExits, type ExitRequest, type ClearanceStatus } from "../../services/useExits";
 import { useEmployees } from "../../services/useEmployees";
 import { useApprovalSteps } from "../../services/useApprovals";

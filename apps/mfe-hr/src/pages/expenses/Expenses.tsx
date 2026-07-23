@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Rows3, LayoutGrid } from "lucide-react";
-import { Button, PageHeader, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
+import { Button, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";

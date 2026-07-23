@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
-import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, Input, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -17,10 +17,11 @@ import Expenses from "../expenses/Expenses";
 import Tickets from "../tickets/Tickets";
 import { useAttendanceRules, useLeaveTypes } from "../../services/useSettingsData";
 import { formatCurrency, formatDate } from "../../lib/utils";
+import { useExits } from "../../services/useExits";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
-type Section = "overview" | "profile" | "attendance" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "helpdesk";
+type Section = "overview" | "profile" | "attendance" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "separation" | "helpdesk";
 
 const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: LucideIcon }> = [
   { key: "overview", route: "", label: "Overview", Icon: User },
@@ -31,6 +32,7 @@ const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: Luci
   { key: "staffspace", route: "staffspace", label: "StaffSpace", Icon: FileText },
   { key: "payslips", route: "payslips", label: "Payslips", Icon: Wallet },
   { key: "expenses", route: "expenses", label: "Expenses", Icon: Receipt },
+  { key: "separation", route: "separation", label: "Separation", Icon: LogOut },
   { key: "helpdesk", route: "helpdesk", label: "HelpDesk", Icon: MessageSquare },
 ];
 
@@ -43,6 +45,7 @@ const SECTION_DESCRIPTIONS: Record<Section, string> = {
   payslips: "View payroll statements and generated payslips.",
   staffspace: "Company announcements and internal updates.",
   expenses: "Submit and track employee expense claims.",
+  separation: "Raise and track your resignation request.",
   helpdesk: "Raise support requests and follow updates.",
 };
 
@@ -132,6 +135,9 @@ export default function EssPortal() {
   const [leaveApplyOpen, setLeaveApplyOpen] = useState(false);
   const [leaveApplyBusy, setLeaveApplyBusy] = useState(false);
   const [leaveApplyError, setLeaveApplyError] = useState<string | null>(null);
+  const [exitBusy, setExitBusy] = useState(false);
+  const [exitError, setExitError] = useState<string | null>(null);
+  const [exitForm, setExitForm] = useState({ noticePeriodDays: "30", reason: "" });
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [documentSubmitBusy, setDocumentSubmitBusy] = useState(false);
   const [documentSubmitError, setDocumentSubmitError] = useState<string | null>(null);
@@ -148,6 +154,7 @@ export default function EssPortal() {
     reason: "",
   });
   const profile = useMyProfile();
+  const exits = useExits({ enabled: section === "separation" });
   const showAttendanceData = section === "overview" || section === "attendance";
   const showLeaveData = section === "overview" || section === "leave";
   const showPayslipData = section === "overview" || section === "payslips";
@@ -258,6 +265,37 @@ export default function EssPortal() {
       setPunchBusy(false);
     }
   };
+  const raiseResignation = async () => {
+    const employeeUid = profile.data?.id || profile.data?.uid;
+    if (!employeeUid) {
+      setExitError("Employee profile is not available.");
+      return;
+    }
+    if (!exitForm.reason.trim()) {
+      setExitError("Reason is required.");
+      return;
+    }
+    setExitBusy(true);
+    setExitError(null);
+    try {
+      await exits.raise({
+        employeeUid,
+        separationType: "Resignation",
+        reason: exitForm.reason.trim(),
+        noticePeriodDays: Number(exitForm.noticePeriodDays) || undefined,
+      });
+      setExitForm({ noticePeriodDays: "30", reason: "" });
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Resignation Request",
+        message: "Your resignation request has been submitted.",
+      });
+    } catch (error) {
+      setExitError(error instanceof Error ? error.message : "Failed to raise resignation request.");
+    } finally {
+      setExitBusy(false);
+    }
+  };
   const currentRoute = ESS_ROUTES.find((item) => item.key === section) ?? ESS_ROUTES[0];
   const navItems = ESS_ROUTES.map((item) => ({
     ...item,
@@ -286,7 +324,7 @@ export default function EssPortal() {
     },
   ];
   const featuredRoutes = navItems.filter((item) => ["staffspace", "expenses", "helpdesk"].includes(item.key));
-  const primaryServices = navItems.filter((item) => ["profile", "attendance", "leave", "documents", "payslips"].includes(item.key));
+  const primaryServices = navItems.filter((item) => ["profile", "attendance", "leave", "documents", "payslips", "separation"].includes(item.key));
   const featureDescriptions: Record<string, string> = {
     staffspace: "Company announcements, policy updates and internal communication.",
     expenses: "Submit claims, review reimbursements and track approvals.",
@@ -529,7 +567,6 @@ export default function EssPortal() {
               </NavLink>
             ))}
           </nav>
-
           <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
             <div className="min-w-0 flex-1">
               {section === "overview" && (
@@ -1075,6 +1112,81 @@ export default function EssPortal() {
               {section === "expenses" && (
                 <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
                   <Expenses />
+                </SectionCard>
+              )}
+
+              {section === "separation" && (
+                <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
+                  <div className="flex flex-col gap-6">
+                    <div>
+                      <h2 className="text-lg font-black text-slate-950">Raise Exit Request</h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Submit a resignation request for review by HR.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Input
+                        id="ess-separation-type"
+                        data-testid="ess-separation-type"
+                        label="Separation Type"
+                        value="Resignation"
+                        readOnly
+                      />
+                      <Input
+                        id="ess-separation-notice-days"
+                        data-testid="ess-separation-notice-days"
+                        label="Notice Period (days)"
+                        type="number"
+                        min={0}
+                        value={exitForm.noticePeriodDays}
+                        onChange={(event) => setExitForm((current) => ({ ...current, noticePeriodDays: event.target.value }))}
+                      />
+                    </div>
+                    <Textarea
+                      id="ess-separation-reason"
+                      data-testid="ess-separation-reason"
+                      label="Reason"
+                      rows={4}
+                      value={exitForm.reason}
+                      onChange={(event) => setExitForm((current) => ({ ...current, reason: event.target.value }))}
+                      placeholder="Share the reason for your resignation..."
+                    />
+                    {exitError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{exitError}</div>}
+                    <div className="flex justify-end">
+                      <Button
+                        id="ess-separation-submit"
+                        data-testid="ess-separation-submit"
+                        icon={<LogOut size={16} />}
+                        loading={exitBusy}
+                        disabled={exitBusy}
+                        onClick={() => void raiseResignation()}
+                      >
+                        Raise Exit Request
+                      </Button>
+                    </div>
+                    <div className="border-t border-slate-200 pt-5">
+                      <h3 className="text-sm font-black text-slate-900">My Exit Requests</h3>
+                      {exits.loading ? (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> Loading requests...</div>
+                      ) : exits.data.filter((item) => item.employeeUid === (profile.data?.id || profile.data?.uid)).length === 0 ? (
+                        <p className="mt-3 text-sm text-slate-500">No exit requests submitted.</p>
+                      ) : (
+                        <div className="mt-3 space-y-2">
+                          {exits.data
+                            .filter((item) => item.employeeUid === (profile.data?.id || profile.data?.uid))
+                            .map((item) => (
+                              <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
+                                <div>
+                                  <div className="font-bold text-slate-900">{item.separationType || "Resignation"}</div>
+                                  <div className="mt-1 text-xs text-slate-500">{item.reason || "No reason provided"}</div>
+                                </div>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{(item.status || "Pending").replaceAll("_", " ")}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </SectionCard>
               )}
 

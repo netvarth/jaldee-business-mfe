@@ -583,7 +583,7 @@ function normalizeTenantSettings(raw: unknown): TenantSettingsResponse {
     lending: readTenantBoolean(candidate, ["lending", "lendingCrm", "lendingCrmEnabled", "lendingCrmStatus"]),
     ecommerce: readTenantBoolean(candidate, ["ecommerce", "eCommerce", "karty", "kartyEnabled", "kartyStatus"]),
     eCommerce: readTenantBoolean(candidate, ["eCommerce", "ecommerce", "karty", "kartyEnabled", "kartyStatus"]),
-    hr: readTenantBoolean(candidate, ["hr"]),
+    hr: readTenantBoolean(candidate, ["hr", "humanResource"]),
     lead: readTenantBoolean(candidate, ["lead"]),
     membership: readTenantBoolean(candidate, ["membership"]),
     task: readTenantBoolean(candidate, ["task"]),

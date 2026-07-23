@@ -75,21 +75,26 @@ export function RecruitmentMobileCard({
   title,
   rows,
   footer,
+  compact = false,
 }: {
   title: ReactNode;
   rows: Array<{ label: string; value: ReactNode }>;
   footer?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <div className="grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+    <div className={`grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm ${compact ? "h-full content-start" : ""}`}>
       <div className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</div>
-      <div className="grid gap-2.5">
+      <div className={compact ? "grid max-w-2xl gap-2.5" : "grid gap-2.5"}>
         {rows.map((row) => (
-          <div key={String(row.label)} className="flex items-start justify-between gap-4">
+          <div
+            key={String(row.label)}
+            className={compact ? "grid grid-cols-1 items-start gap-1 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4" : "flex items-start justify-between gap-4"}
+          >
             <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
               {row.label}
             </span>
-            <div className="text-right text-sm font-medium text-[var(--color-text-primary)]">
+            <div className={`${compact ? "text-left" : "text-right"} text-sm font-medium text-[var(--color-text-primary)]`}>
               {row.value}
             </div>
           </div>

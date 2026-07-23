@@ -20,7 +20,8 @@ import {
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
-import { PageHeader, Button, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, type ColumnDef } from "@jaldee/design-system";
+import { Button, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, type ColumnDef } from "@jaldee/design-system";
+import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { usePositions, useHierarchyLevels, useAreaManagers, useTransfers } from "../../services/useOrg";
 import { useEmployees } from "../../services/useEmployees";
 import { useBranches } from "../../services/useBranches";
