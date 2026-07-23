@@ -5,6 +5,7 @@ import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3, Filter,
+  KeyRound,
 } from "lucide-react";
 import { Button, PageHeader, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
 import {
@@ -77,18 +78,18 @@ function getPreferredCollectionView() {
   return window.matchMedia("(max-width: 1024px)").matches ? "cards" : "table";
 }
 
-function Panel({ icon, title, sub, action, children, full }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode; children: React.ReactNode; full?: boolean }) {
+function Panel({ icon, title, sub, action, children, full, actionBelow }: { icon: React.ReactNode; title: string; sub?: string; action?: React.ReactNode; children: React.ReactNode; full?: boolean; actionBelow?: boolean }) {
   return (
-    <div style={{ ...card, padding: 24, gridColumn: full ? "1 / -1" : undefined }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <div className="employee-details-panel" style={{ ...card, padding: 24, gridColumn: full ? "1 / -1" : undefined }}>
+      <div className={`employee-details-panel-header${actionBelow ? " employee-details-panel-header--action-below" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div className="employee-details-panel-heading" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: "var(--primary-light)", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.3px", color: "var(--dark-text)" }}>{title}</div>
             {sub && <div style={{ fontSize: 12, fontWeight: 500, color: "var(--light-text)" }}>{sub}</div>}
           </div>
         </div>
-        {action}
+        {action && <div className="employee-details-panel-action">{action}</div>}
       </div>
       {children}
     </div>
@@ -126,12 +127,12 @@ function StatusPill({ s }: { s?: string }) {
 
 function CollectionViewToggle({ value, onChange }: { value: CollectionView; onChange: (value: CollectionView) => void }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 4, borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--surface-bg)" }}>
+    <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, gap: 2, padding: 2, height: 40, boxSizing: "border-box", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
       <button
         type="button"
         onClick={() => onChange("table")}
         aria-label="Table view"
-        style={{ width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "table" ? "var(--primary-color)" : "transparent", color: value === "table" ? "#fff" : "var(--light-text)" }}
+        style={{ width: 32, height: 32, borderRadius: 6, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "table" ? "var(--color-primary)" : "transparent", color: value === "table" ? "#fff" : "var(--color-text-secondary)" }}
       >
         <Rows3 size={16} />
       </button>
@@ -139,7 +140,7 @@ function CollectionViewToggle({ value, onChange }: { value: CollectionView; onCh
         type="button"
         onClick={() => onChange("cards")}
         aria-label="Card view"
-        style={{ width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "cards" ? "var(--primary-color)" : "transparent", color: value === "cards" ? "#fff" : "var(--light-text)" }}
+        style={{ width: 32, height: 32, borderRadius: 6, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "cards" ? "var(--color-primary)" : "transparent", color: value === "cards" ? "#fff" : "var(--color-text-secondary)" }}
       >
         <LayoutGrid size={16} />
       </button>
@@ -219,20 +220,25 @@ export default function EmployeeDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const routeLocation = useLocation();
+  const profileNavigationState = routeLocation.state as {
+    employeeProfileReturnTo?: string;
+    employeeProfileReturnLabel?: string;
+  } | null;
+  const employeeProfileReturnTo = profileNavigationState?.employeeProfileReturnTo || "/employees";
+  const employeeProfileReturnLabel = profileNavigationState?.employeeProfileReturnLabel || "Employees";
   const { location: activeLocation, eventBus } = useMFEProps();
   const api = useHrApi();
-  const { data: employee, loading, error, reload } = useEmployee(id);
-  const { data: allEmployees } = useEmployees();
-  const { data: designations } = useDesignations();
-  const { data: departments } = useDepartments();
-  const { trackEvent, captureError } = useTelemetry();
-  console.log("[EmployeeDetails] designations data:", designations, "departments data:", departments);
-  const { data: allAttendance } = useAttendance();
-  const { data: allLeaves } = useLeaves();
-  const { data: allPayslips } = usePayslips();
-
   const isEditing = new URLSearchParams(routeLocation.search).get("edit") === "true";
   const tab = useMemo(() => employeeTabFromPath(routeLocation.pathname), [routeLocation.pathname]);
+  const { data: employee, loading, error, reload } = useEmployee(id);
+  const { data: allEmployees } = useEmployees({ enabled: tab === "overview" || isEditing });
+  const { data: designations } = useDesignations(undefined, null, { enabled: isEditing });
+  const { data: departments } = useDepartments(undefined, null, { enabled: isEditing });
+  const { trackEvent, captureError } = useTelemetry();
+  console.log("[EmployeeDetails] designations data:", designations, "departments data:", departments);
+  const { data: allAttendance } = useAttendance(undefined, null, { enabled: tab === "attendance" });
+  const { data: allLeaves } = useLeaves({ enabled: tab === "leaves" });
+  const { data: allPayslips } = usePayslips({ enabled: tab === "payroll" });
   const [editTab, setEditTab] = useState<"personal" | "employment" | "bank">("personal");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -272,8 +278,8 @@ export default function EmployeeDetails() {
   const [leaveViewMode, setLeaveViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [payslipViewMode, setPayslipViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [documentViewMode, setDocumentViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
-  const { schema: documentSearchSchema, loading: documentSchemaLoading } = useDocumentRequestSearchSchema();
-  const documents = useDocumentRequests(employee?.id, documentFilters, documentSearchSchema, { enabled: !documentSchemaLoading, page: documentPage - 1, pageSize: documentPageSize });
+  const { schema: documentSearchSchema, loading: documentSchemaLoading } = useDocumentRequestSearchSchema(tab === "documents");
+  const documents = useDocumentRequests(employee?.id, documentFilters, documentSearchSchema, { enabled: tab === "documents" && !documentSchemaLoading, page: documentPage - 1, pageSize: documentPageSize });
   const documentAppliedFilterCount = useMemo(
     () => compactSearchClauses(documentFilters, documentSearchSchema).length,
     [documentFilters, documentSearchSchema]
@@ -324,25 +330,12 @@ export default function EmployeeDetails() {
     if (!loginDialogOpen || !employee?.id) return;
 
     setCredentials({
-      loginId: employee.loginId ?? "",
+      loginId: employee.employeeId,
       password: "",
       confirmPassword: "",
     });
     setLoginError(null);
-
-    let cancelled = false;
-    void api.get<string>(`provider/login/suggestion/loginId/${employee.id}`)
-      .then((loginId) => {
-        const nextLoginId = sanitizeLoginId(loginId);
-        if (cancelled || !nextLoginId) return;
-        setCredentials((prev) => ({ ...prev, loginId: nextLoginId }));
-      })
-      .catch(() => { });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api, employee, loginDialogOpen]);
+  }, [employee, loginDialogOpen]);
 
   useEffect(() => {
     if (!documentDialogOpen) {
@@ -568,7 +561,7 @@ export default function EmployeeDetails() {
     setLoginSaving(true);
     setLoginError(null);
     try {
-      if (employee.isSystemUser) {
+      if (employee.hasAuthUser) {
         await api.put(`/employees/${employee.id}/password`, {
           password: credentials.password,
         });
@@ -882,11 +875,11 @@ export default function EmployeeDetails() {
         variant="navigation"
         title="Employee Profile"
         subtitle={`Detailed view of ${employee.name}'s information`}
-        back={{ label: "Employees", href: "/employees" }}
+        back={{ label: employeeProfileReturnLabel, href: employeeProfileReturnTo }}
         onNavigate={(href) => navigate(href)}
       />
 
-      <div className="employee-details-layout" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 28, alignItems: "start" }}>
+      <div className="employee-details-layout" style={{ display: "grid", gridTemplateColumns: "300px minmax(0, 1fr)", gap: 28, alignItems: "start", minWidth: 0 }}>
         {/* LEFT PROFILE */}
         <div className="employee-details-sidebar" style={{ ...card, overflow: "hidden", height: "fit-content" }}>
           <div className="employee-details-sidebar-banner" style={{ height: 110, background: "var(--primary-light)" }} />
@@ -919,18 +912,33 @@ export default function EmployeeDetails() {
               >
                 {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}
               </Button>
-              <Button
-                id="hr-employee-manage-login"
-                data-testid="hr-employee-manage-login"
-                className="employee-details-sidebar-button !rounded-xl"
-                variant="outline"
-                size="lg"
-                fullWidth
-                icon={<ShieldCheck size={15} />}
-                onClick={() => setLoginDialogOpen(true)}
-              >
-                Manage Login
-              </Button>
+              {employee.hasAuthUser ? (
+                <Button
+                  id="hr-employee-reset-password"
+                  data-testid="hr-employee-reset-password"
+                  className="employee-details-sidebar-button !rounded-xl"
+                  variant="outline"
+                  size="lg"
+                  fullWidth
+                  icon={<KeyRound size={15} />}
+                  onClick={() => setLoginDialogOpen(true)}
+                >
+                  Reset Password
+                </Button>
+              ) : (
+                <Button
+                  id="hr-employee-manage-login"
+                  data-testid="hr-employee-manage-login"
+                  className="employee-details-sidebar-button !rounded-xl"
+                  variant="outline"
+                  size="lg"
+                  fullWidth
+                  icon={<ShieldCheck size={15} />}
+                  onClick={() => setLoginDialogOpen(true)}
+                >
+                  Manage Login
+                </Button>
+              )}
               <Button
                 id="hr-employee-edit-profile"
                 data-testid="hr-employee-edit-profile"
@@ -957,7 +965,7 @@ export default function EmployeeDetails() {
         </div>
 
         {/* RIGHT */}
-        <div className="employee-details-main" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div className="employee-details-main" style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0, maxWidth: "100%" }}>
           <Popover
             portal
             open={mobileTabsOpen}
@@ -1025,12 +1033,8 @@ export default function EmployeeDetails() {
                     <Field k="Joining Date" v={formatDate(employee.doj)} /><Field k="System Role" v={employee.role} />
                     <Field k="Employment Type" v={employee.employmentType || "Full-Time"} /><Field k="Reporting Manager" v={managerName || "No Manager Assigned"} />
                     <Field k="PAN" v={emp.pan as string} mono /><Field k="UAN" v={emp.uan as string} mono />
-                  </div>
-                </Panel>
-                <Panel icon={<ShieldCheck size={20} />} title="Employee Login" sub="Portal access credentials" full>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 24 }}>
-                    <Field k="Access Enabled" v={employee.isSystemUser ? "Yes" : "No"} />
-                    <Field k="Login ID" v={employee.loginId} mono />
+                    <Field k="ESS Portal Login" v={employee.hasAuthUser ? "Enabled" : "Not Enabled"} />
+                    <Field k="Login ID" v={employee.hasAuthUser ? employee.employeeId : undefined} mono />
                   </div>
                 </Panel>
                 <Panel icon={<CreditCard size={20} />} title="Bank Details (Active Account)" sub="Registered information for monthly pay disbursements" full>
@@ -1192,7 +1196,8 @@ export default function EmployeeDetails() {
 
           {tab === "documents" && (
             <Panel icon={<FileText size={20} />} title="Employee Documents" sub="Official letters, credentials, and verification sheets" full
-              action={<div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /><Button type="button" data-testid="hr-employee-documents-filter-button" variant={documentAppliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label="Open employee document filters" onClick={openDocumentFilters}>Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}</Button><Button id="hr-employee-document-add" data-testid="hr-employee-document-add" type="button" variant="primary" icon={<Plus size={16} />} onClick={() => setDocumentDialogOpen(true)}>Add Doc</Button></div>}>
+              actionBelow
+              action={<div className="employee-details-document-toolbar"><Button id="hr-employee-document-add" data-testid="hr-employee-document-add" type="button" variant="primary" icon={<Plus size={16} />} onClick={() => setDocumentDialogOpen(true)}>Add Doc</Button><Button type="button" data-testid="hr-employee-documents-filter-button" variant={documentAppliedFilterCount > 0 ? "primary" : "outline"} className={documentAppliedFilterCount === 0 ? "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]" : ""} icon={<Filter size={16} />} aria-label="Open employee document filters" onClick={openDocumentFilters}>Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}</Button><CollectionViewToggle value={documentViewMode} onChange={setDocumentViewMode} /></div>}>
               {documents.loading ? (
                 <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={48} className="animate-spin" style={{ opacity: 0.4, marginBottom: 12 }} /><p>Loading documents...</p></div>
               ) : documentRows.length > 0 ? (
@@ -1276,7 +1281,7 @@ export default function EmployeeDetails() {
         employeeName={employee?.name}
         onClose={() => setViewPayslip(null)}
       />
-      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} testId="hr-employee-login-dialog" title="Employee Login Access" size="md">
+      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} testId="hr-employee-login-dialog" title={employee.hasAuthUser ? "Reset Employee Password" : "Employee Login Access"} size="md">
         <div style={{ display: "grid", gap: 16 }}>
           {loginError ? (
             <div id="hr-employee-login-error" data-testid="hr-employee-login-error" style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
@@ -1284,7 +1289,7 @@ export default function EmployeeDetails() {
             </div>
           ) : null}
           <div id="hr-employee-login-status" data-testid="hr-employee-login-status" style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.14)", color: "var(--dark-text)", fontSize: 13 }}>
-            {sanitizeLoginId(credentials.loginId) || employee.isSystemUser
+            {employee.hasAuthUser
               ? "This employee already has login credentials. Saving here will update the password."
               : "This employee does not have login credentials yet. Saving here will create them."}
           </div>
@@ -1295,12 +1300,12 @@ export default function EmployeeDetails() {
                 id="hr-employee-login-id"
                 data-testid="hr-employee-login-id"
                 className={field}
-                value={sanitizeLoginId(credentials.loginId) || "Will be assigned by system"}
+                value={employee.employeeId}
                 readOnly
               />
             </div>
             <div className="form-group">
-              <label>{sanitizeLoginId(credentials.loginId) || employee.isSystemUser ? "New Password" : "Password"}</label>
+              <label>{employee.hasAuthUser ? "New Password" : "Password"}</label>
               <input
                 id="hr-employee-login-password"
                 data-testid="hr-employee-login-password"
@@ -1331,7 +1336,7 @@ export default function EmployeeDetails() {
         <DialogFooter>
           <Button id="hr-employee-login-cancel" data-testid="hr-employee-login-cancel" variant="ghost" onClick={() => setLoginDialogOpen(false)}>Cancel</Button>
           <Button id="hr-employee-login-save" data-testid="hr-employee-login-save" variant="primary" onClick={handleSaveCredentials} loading={loginSaving} disabled={loginSaving}>
-            Save Login
+            {employee.hasAuthUser ? "Reset Password" : "Save Login"}
           </Button>
         </DialogFooter>
       </Dialog>

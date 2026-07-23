@@ -3,12 +3,18 @@ import { useHrApi } from "./useHrApi";
 import type { Employee, SalaryStructure } from "../types";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { buildEmployeeSearchBody } from "./employeeSearch";
+import { unwrapHrSearchPage } from "./hrSearch";
 
 const EMPTY_FILTERS: SearchFilterClause[] = [];
-type UseEmployeesOptions = { enabled?: boolean };
+type UseEmployeesOptions = {
+  enabled?: boolean;
+  page?: number;
+  pageSize?: number;
+  sort?: Array<{ field: string; direction: string }>;
+};
 
 function isUseEmployeesOptions(value: unknown): value is UseEmployeesOptions {
-  return Boolean(value && typeof value === "object" && "enabled" in value);
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function unwrapEmployees(response: unknown): Record<string, unknown>[] {
@@ -51,10 +57,15 @@ export function useEmployees(
   const legacyOptions = isUseEmployeesOptions(filterClausesOrOptions) ? filterClausesOrOptions : null;
   const filterClauses = legacyOptions ? EMPTY_FILTERS : filterClausesOrOptions;
   const enabled = (legacyOptions ?? options).enabled ?? true;
+  const page = (legacyOptions ?? options).page ?? 0;
+  const pageSize = (legacyOptions ?? options).pageSize ?? 100;
+  const sort = (legacyOptions ?? options).sort;
   const api = useHrApi();
   const [data, setData] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const load = useCallback(async () => {
     if (!enabled) {
@@ -66,16 +77,21 @@ export function useEmployees(
     try {
       const res = await api.post<unknown>(
         "/employees/search",
-        buildEmployeeSearchBody(filterClauses, schema)
+        buildEmployeeSearchBody(filterClauses, schema, page, pageSize, sort)
       );
-      setData(unwrapEmployees(res).map(normalize));
+      const pageResult = unwrapHrSearchPage(res);
+      setData(pageResult.content.map(normalize));
+      setTotalElements(pageResult.totalElements);
+      setTotalPages(pageResult.totalPages);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load employees");
       setData([]);
+      setTotalElements(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
-  }, [api, enabled, filterClauses, schema]);
+  }, [api, enabled, filterClauses, page, pageSize, schema, sort]);
 
   useEffect(() => {
     void load();
@@ -123,5 +139,5 @@ export function useEmployees(
     [api, load]
   );
 
-  return { data, loading, error, reload: load, setStatus, assignStructure };
+  return { data, loading, error, reload: load, setStatus, assignStructure, totalElements, totalPages };
 }

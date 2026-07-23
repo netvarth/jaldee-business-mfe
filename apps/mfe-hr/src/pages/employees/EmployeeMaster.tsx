@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, DataTable, Dialog, Drawer, EmptyState, PageHeader, SectionCard, cn } from "@jaldee/design-system";
+import { Button, DataTable, Dialog, Drawer, EmptyState, PageHeader, SectionCard, cn } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -35,18 +35,22 @@ export default function EmployeeMaster() {
   const api = useHrApi();
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
-  const { data: employees, loading, error, setStatus } = useEmployees(
+  const { data: employees, loading, error, setStatus, totalElements, totalPages: serverTotalPages } = useEmployees(
     advancedFilters,
     employeeSearchSchema,
-    { enabled: !schemaLoading }
+    {
+      enabled: !schemaLoading,
+      page: page - 1,
+      pageSize,
+    }
   );
   const { data: allDepartments } = useDepartments();
   const { data: allDesignations } = useDesignations();
   const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [importing, setImporting] = useState(false);
   const [statusEmployee, setStatusEmployee] = useState<Employee | null>(null);
@@ -80,17 +84,14 @@ export default function EmployeeMaster() {
   }, []);
 
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    if (page > totalPages) {
-      setPage(totalPages);
+    const nextTotalPages = Math.max(1, serverTotalPages);
+    if (page > nextTotalPages) {
+      setPage(nextTotalPages);
     }
-  }, [filtered.length, page, pageSize]);
+  }, [page, serverTotalPages]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pagedEmployees = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
+  const totalPages = Math.max(1, serverTotalPages);
+  const pagedEmployees = filtered;
 
   const openFilters = () => {
     setDraftFilters(
@@ -258,7 +259,10 @@ export default function EmployeeMaster() {
             </div>
           )}
           <div className="min-w-0">
-            <div className="truncate font-semibold">{employee.name || "Unknown"}</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="truncate font-semibold">{employee.name || "Unknown"}</div>
+              <EmployeeStatusIndicator employee={employee} />
+            </div>
             <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
           </div>
         </div>
@@ -274,25 +278,6 @@ export default function EmployeeMaster() {
           <div className="truncate font-medium">{employee.department || "—"}</div>
           <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.designation || "—"}</div>
         </div>
-      ),
-    },
-    {
-      key: "status",
-      header: "Status",
-      width: "13%",
-      render: (employee) => (
-        <Badge
-          variant={
-            employee.status === "Active"
-              ? "success"
-              : employee.status === "Inactive" || employee.status === "Left"
-                ? "neutral"
-                : "warning"
-          }
-          dot
-        >
-          {employee.status || "Unknown"}
-        </Badge>
       ),
     },
     {
@@ -414,8 +399,8 @@ export default function EmployeeMaster() {
             pagination={{
               page,
               pageSize,
-              total: filtered.length,
-              mode: "client",
+              total: totalElements,
+              mode: "server",
               onChange: setPage,
               onPageSizeChange: (size) => {
                 setPageSize(size);
@@ -468,7 +453,10 @@ export default function EmployeeMaster() {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{employee.name || "Unknown"}</div>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{employee.name || "Unknown"}</div>
+                          <EmployeeStatusIndicator employee={employee} />
+                        </div>
                         <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
                       </div>
                     </div>
@@ -486,21 +474,6 @@ export default function EmployeeMaster() {
                       <span className="text-xs font-medium uppercase tracking-[0.02em] text-[var(--color-text-secondary)]">Type</span>
                       <span className="text-right text-sm text-[var(--color-text-primary)]">{employee.employmentType || "—"}</span>
                     </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-xs font-medium uppercase tracking-[0.02em] text-[var(--color-text-secondary)]">Status</span>
-                      <Badge
-                        variant={
-                          employee.status === "Active"
-                            ? "success"
-                            : employee.status === "Inactive" || employee.status === "Left"
-                              ? "neutral"
-                              : "warning"
-                        }
-                        dot
-                      >
-                        {employee.status || "Unknown"}
-                      </Badge>
-                    </div>
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" className="!h-9 !px-3 text-xs" data-testid={`hr-employee-card-view-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}`)}>
@@ -516,7 +489,7 @@ export default function EmployeeMaster() {
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between">
               <span className="text-sm text-[var(--color-text-secondary)]">
-                Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length} employees
+                Showing {totalElements === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, totalElements)} of {totalElements} employees
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -608,6 +581,26 @@ export default function EmployeeMaster() {
         </div>
       </Drawer>
     </section>
+  );
+}
+
+function EmployeeStatusIndicator({ employee }: { employee: Employee }) {
+  const status = employee.status || "Unknown";
+  const normalized = status.toLowerCase();
+  const color =
+    normalized === "active"
+      ? "bg-[#10b981] ring-[#10b981]/20"
+      : normalized === "inactive" || normalized === "left"
+        ? "bg-[#94a3b8] ring-[#94a3b8]/20"
+        : "bg-[#f59e0b] ring-[#f59e0b]/20";
+
+  return (
+    <span
+      className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-4", color)}
+      title={status}
+      aria-label={`Status: ${status}`}
+      role="img"
+    />
   );
 }
 

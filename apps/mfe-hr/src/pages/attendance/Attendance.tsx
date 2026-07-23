@@ -294,6 +294,7 @@ export default function Attendance() {
     try {
       if (clockedIn && open) {
         await selectedEmployeeAttendance.punchOut(open.id);
+        await attendance.reload();
         setMsg("Clocked out.");
       } else {
         const currentPosition = await resolveCurrentPosition();
@@ -309,6 +310,7 @@ export default function Attendance() {
             securedCheck: secured,
             selfieDataUrl: selfieDataUrl || null,
           });
+        await attendance.reload();
         setMsg(secured ? "Face verified — clocked in." : "Clocked in.");
       }
     } catch (e) {

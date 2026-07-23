@@ -88,12 +88,16 @@ function useCrud<T extends { uid?: string; id?: string }>(
 }
 
 /** Singleton config endpoint (GET returns one object, PUT upserts it). */
-function useSingleton<T extends object>(endpoint: string) {
+function useSingleton<T extends object>(endpoint: string, { enabled = true }: { enabled?: boolean } = {}) {
   const api = useHrApi();
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async (silent = false) => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     if (!silent) setLoading(true);
     setError(null);
     try {
@@ -104,7 +108,7 @@ function useSingleton<T extends object>(endpoint: string) {
       if (!silent) setData(null);
     }
     finally { if (!silent) setLoading(false); }
-  }, [api, endpoint]);
+  }, [api, enabled, endpoint]);
   useEffect(() => { void load(); }, [load]);
   const save = useCallback(async (payload: Record<string, unknown>) => {
     await api.put(endpoint, payload);
@@ -149,9 +153,9 @@ export const useDepartments = (
   }, [api, departments.reload]);
   return { ...departments, setStatus };
 };
-export const useLeaveTypes = () => {
+export const useLeaveTypes = (options: { enabled?: boolean } = {}) => {
   const api = useHrApi();
-  const leaveTypes = useCrud<LeaveType>("/leave-types");
+  const leaveTypes = useCrud<LeaveType>("/leave-types", options);
   const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
     await api.patch(`/leave-types/${uid}/status`, { status });
     await leaveTypes.reload(true);
@@ -195,7 +199,7 @@ export function useBranchesAdmin() {
 }
 
 export const useCompanyProfile = () => useSingleton<CompanyProfile>("/company-profile");
-export const useAttendanceRules = () => useSingleton<AttendanceRule>("/attendance-rules");
+export const useAttendanceRules = (options: { enabled?: boolean } = {}) => useSingleton<AttendanceRule>("/attendance-rules", options);
 export const usePayrollSettings = () => useSingleton<PayrollSetting>("/payroll-settings");
 
 export function useConsents() {

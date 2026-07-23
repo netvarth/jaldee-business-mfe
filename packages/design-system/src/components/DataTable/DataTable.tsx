@@ -671,7 +671,7 @@ function PaginationBtn({
         "min-w-[32px] h-8 rounded-md border px-2 text-[length:var(--text-xs)] transition-colors",
         "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]",
         active
-          ? "font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] border-[var(--color-primary)]"
+          ? "font-semibold bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
           : "bg-[var(--color-surface)] text-[var(--color-text-primary)] border-[var(--color-border)]",
         disabled && "opacity-40 cursor-not-allowed pointer-events-none"
       )}

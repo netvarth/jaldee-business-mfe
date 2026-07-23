@@ -81,7 +81,7 @@ export function mapAvailableLocationsToBranches(locations: RuntimeLocation[] | u
 }
 
 /** Reads branches from shell-provided availableLocations instead of refetching locations in HR. */
-export function useBranches() {
+export function useBranches({ enabled = true }: { enabled?: boolean } = {}) {
   const api = useHrApi();
   const mfeProps = useMFEProps() as ReturnType<typeof useMFEProps> & {
     availableLocations?: RuntimeLocation[];
@@ -96,6 +96,10 @@ export function useBranches() {
   );
 
   const loadFallback = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     if (shellData.length > 0) {
       setFallbackData([]);
       setLoading(false);
@@ -114,7 +118,7 @@ export function useBranches() {
     } finally {
       setLoading(false);
     }
-  }, [api, shellData.length]);
+  }, [api, enabled, shellData.length]);
 
   useEffect(() => {
     void loadFallback();

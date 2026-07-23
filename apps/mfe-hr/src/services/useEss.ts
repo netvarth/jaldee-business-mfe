@@ -39,12 +39,19 @@ function withId<T extends { uid?: string; id?: string }>(value: Record<string, u
   } as T;
 }
 
-function useEssList<T extends { uid?: string; id?: string }>(endpoint: string) {
+function useEssList<T extends { uid?: string; id?: string }>(
+  endpoint: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const api = useHrApi();
   const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const reload = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -56,7 +63,7 @@ function useEssList<T extends { uid?: string; id?: string }>(endpoint: string) {
     } finally {
       setLoading(false);
     }
-  }, [api, endpoint]);
+  }, [api, enabled, endpoint]);
   useEffect(() => { void reload(); }, [reload]);
   return { api, data, loading, error, reload };
 }
@@ -109,8 +116,8 @@ export function useMyProfile({ enabled = true }: { enabled?: boolean } = {}) {
   return { data, loading, error, reload };
 }
 
-export function useMyAttendance() {
-  const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance");
+export function useMyAttendance(options: { enabled?: boolean } = {}) {
+  const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance", options);
   const punchIn = useCallback(async (
     mode: string,
     options?: {
@@ -145,8 +152,8 @@ export function useMyAttendance() {
   return { data, loading, error, reload, punchIn, punchOut };
 }
 
-export function useMyLeaves() {
-  const { api, data, loading, error, reload } = useEssList<MyLeave>("/me/leaves");
+export function useMyLeaves(options: { enabled?: boolean } = {}) {
+  const { api, data, loading, error, reload } = useEssList<MyLeave>("/me/leaves", options);
   const apply = useCallback(async (payload: Record<string, unknown>) => {
     await api.post("/me/leaves", payload);
     await reload();
@@ -154,10 +161,10 @@ export function useMyLeaves() {
   return { data, loading, error, reload, apply };
 }
 
-export function useMyLeaveBalances() {
-  return useEssList<MyLeaveBalance>("/me/leaves/balances");
+export function useMyLeaveBalances(options: { enabled?: boolean } = {}) {
+  return useEssList<MyLeaveBalance>("/me/leaves/balances", options);
 }
 
-export function useMyPayslips() {
-  return useEssList<MyPayslip>("/me/payslips");
+export function useMyPayslips(options: { enabled?: boolean } = {}) {
+  return useEssList<MyPayslip>("/me/payslips", options);
 }

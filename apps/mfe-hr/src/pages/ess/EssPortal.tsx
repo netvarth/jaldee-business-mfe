@@ -148,12 +148,15 @@ export default function EssPortal() {
     reason: "",
   });
   const profile = useMyProfile();
-  const attendanceRules = useAttendanceRules();
-  const leaveTypes = useLeaveTypes();
-  const attendance = useMyAttendance();
-  const leaves = useMyLeaves();
-  const balances = useMyLeaveBalances();
-  const payslips = useMyPayslips();
+  const showAttendanceData = section === "overview" || section === "attendance";
+  const showLeaveData = section === "overview" || section === "leave";
+  const showPayslipData = section === "overview" || section === "payslips";
+  const attendanceRules = useAttendanceRules({ enabled: section === "attendance" });
+  const leaveTypes = useLeaveTypes({ enabled: section === "leave" });
+  const attendance = useMyAttendance({ enabled: showAttendanceData });
+  const leaves = useMyLeaves({ enabled: section === "leave" });
+  const balances = useMyLeaveBalances({ enabled: showLeaveData });
+  const payslips = useMyPayslips({ enabled: showPayslipData });
   const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid, EMPTY_DOCUMENT_FILTERS, null, {
     enabled: section === "documents",
     page: documentPage - 1,
@@ -167,8 +170,24 @@ export default function EssPortal() {
     () => mergeLeaveBalanceBuckets(balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() !== "ACTIVE")),
     [balances.data],
   );
+  const assignedLeaveTypes = useMemo(() => {
+    const assignedBalances = balances.data.filter(
+      (balance) => (balance.status || "ACTIVE").toUpperCase() === "ACTIVE",
+    );
+    return leaveTypes.data.filter((leaveType) =>
+      assignedBalances.some((balance) => {
+        const leaveTypeUid = String(leaveType.uid || leaveType.id || "").trim();
+        const balanceUid = String(balance.leaveTypeUid || "").trim();
+        if (leaveTypeUid && balanceUid) return leaveTypeUid === balanceUid;
+
+        const leaveTypeName = String(leaveType.name || "").trim().toLowerCase();
+        const balanceName = String(balance.leaveTypeName || balance.leaveType || "").trim().toLowerCase();
+        return Boolean(leaveTypeName && balanceName && leaveTypeName === balanceName);
+      }),
+    );
+  }, [balances.data, leaveTypes.data]);
   const today = new Date().toISOString().slice(0, 10);
-  const branches = useBranches();
+  const branches = useBranches({ enabled: section === "attendance" });
   const [selectedLocationUid, setSelectedLocationUid] = useState("");
   const todayAttendance = useMemo(
     () => attendance.data.find((item) => item.dateStr === today),
@@ -626,7 +645,7 @@ export default function EssPortal() {
               {section === "attendance" && (
                 <Panel loading={attendance.loading} error={attendance.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-6">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className={`${todayAttendance?.clockIn ? "order-1" : "order-2"} grid gap-4 sm:order-1 sm:grid-cols-2 xl:grid-cols-4`}>
                       <AttendanceMetricCard
                         icon={Clock}
                         label="Today Status"
@@ -660,15 +679,16 @@ export default function EssPortal() {
                       />
                     </div>
 
-                    <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-                      <SectionCard className="border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7fbfb_52%,#eef6ff_100%)] shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm">
-                              <Clock size={28} strokeWidth={1.5} />
+                    <div className={`${todayAttendance?.clockIn ? "order-2" : "order-1"} grid gap-5 sm:order-2 xl:grid-cols-[1.15fr_0.85fr]`}>
+                      <SectionCard className="border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7fbfb_52%,#eef6ff_100%)] shadow-[0_12px_28px_rgba(15,23,42,0.04)] max-sm:!border-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!shadow-none">
+                        <div className="flex flex-col gap-6">
+                          <div className="flex items-start justify-between gap-2 sm:gap-3">
+                            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm sm:h-20 sm:w-20">
+                              <Clock className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.5} />
                             </div>
-                            <div>
-                              <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Console</div>
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.16em]">Attendance Console</div>
                               <div className="mt-1.5 font-mono text-[18px] font-black tracking-tight text-slate-950 md:text-[20px] lg:text-[22px]">
                                 {todayAttendance?.clockIn && !todayAttendance?.clockOut
                                   ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -679,9 +699,10 @@ export default function EssPortal() {
                                 {todayAttendance?.clockIn && !todayAttendance?.clockOut ? "On Duty" : "Off Duty"}
                               </div>
                             </div>
+                            </div>
                           </div>
 
-                            <div className="grid gap-4">
+                            <div className="grid gap-4 border-t border-slate-200/80 pt-5">
                               <div className={`grid gap-4 ${shouldShowLocationSelect ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
                                 <Select
                                   id="ess-attendance-work-mode"
@@ -714,7 +735,7 @@ export default function EssPortal() {
                                   data-testid="ess-attendance-punch-in"
                                   onClick={() => (faceRequired ? setFaceOpen(true) : void punchIn())}
                                   disabled={punchBusy}
-                                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 sm:w-auto sm:justify-self-start"
+                                  className="h-11 w-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:bg-emerald-800"
                                 >
                                   Punch In
                                 </Button>
@@ -723,7 +744,7 @@ export default function EssPortal() {
                                   data-testid="ess-attendance-punch-out"
                                   onClick={() => void attendance.punchOut(todayAttendance.id)}
                                   disabled={punchBusy}
-                                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 sm:w-auto sm:justify-self-start"
+                                  className="h-11 w-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:bg-emerald-800"
                                 >
                                   Punch Out
                                 </Button>
@@ -735,16 +756,16 @@ export default function EssPortal() {
                             </div>
                           </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
+                        <div className="mt-6 grid gap-3 border-t border-slate-200/80 pt-5 sm:grid-cols-3">
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Face Recognition</div>
                             <div className="mt-1 text-sm font-semibold text-slate-900 md:text-[15px] lg:text-base">{faceRequired ? "Required" : "Optional"}</div>
                           </div>
-                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">First In</div>
                             <div className="mt-1 text-sm font-semibold text-slate-900 md:text-[15px] lg:text-base">{time(todayAttendance?.clockIn)}</div>
                           </div>
-                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
                             <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Last Out</div>
                             <div className="mt-1 text-sm font-semibold text-slate-900 md:text-[15px] lg:text-base">{time(todayAttendance?.clockOut)}</div>
                           </div>
@@ -771,7 +792,7 @@ export default function EssPortal() {
                       </SectionCard>
                     </div>
 
-                    <SectionCard className="border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
+                    <SectionCard className="order-3 border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
@@ -1132,9 +1153,9 @@ export default function EssPortal() {
         onClose={() => setLeaveApplyOpen(false)}
         testId="ess-leave-apply-modal"
         hideHeader
-        contentClassName="max-w-[900px] p-0 overflow-hidden"
+        contentClassName="h-[100dvh] w-screen max-w-none rounded-none p-0 overflow-y-auto sm:h-auto sm:w-[calc(100vw-2rem)] sm:max-w-[900px] sm:rounded-xl sm:max-h-[calc(100dvh-2rem)]"
       >
-        <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div className="flex items-start justify-between border-b border-[rgba(17,94,89,0.1)] bg-[rgba(17,94,89,0.05)] px-5 py-5 sm:px-8 sm:py-6">
           <div>
             <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: "#0f766e", margin: 0 }}>Apply for Leave</h3>
             <p style={{ fontSize: 13, fontWeight: 600, color: "var(--primary-color)", opacity: 0.8, margin: "4px 0 0" }}>Submit your absence request from the employee portal.</p>
@@ -1147,7 +1168,7 @@ export default function EssPortal() {
             <X size={20} />
           </button>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }} className="max-[820px]:grid-cols-1">
+        <div className="grid grid-cols-1 gap-5 p-5 md:grid-cols-2 md:gap-7 md:p-7">
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee</label>
@@ -1161,18 +1182,18 @@ export default function EssPortal() {
               label="Leave Type"
               value={leaveApplyForm.leaveTypeUid}
               onChange={(e) => {
-                const selectedLeaveType = leaveTypes.data.find((type) => type.id === e.target.value || type.uid === e.target.value);
+                const selectedLeaveType = assignedLeaveTypes.find((type) => type.id === e.target.value || type.uid === e.target.value);
                 setLeaveApplyForm((current) => ({ ...current, leaveTypeUid: e.target.value, type: selectedLeaveType?.name || "" }));
               }}
-              placeholder={leaveTypes.loading ? "Loading leave types" : "Select leave type"}
-              options={leaveTypes.data.map((type) => ({ value: type.id, label: type.name || type.id }))}
+              placeholder={leaveTypes.loading || balances.loading ? "Loading assigned leave types" : "Select leave type"}
+              options={assignedLeaveTypes.map((type) => ({ value: type.id, label: type.name || type.id }))}
             />
-            {!leaveTypes.loading && leaveTypes.data.length === 0 && (
+            {!leaveTypes.loading && !balances.loading && assignedLeaveTypes.length === 0 && (
               <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)", color: "#b45309", fontSize: 12, fontWeight: 700 }}>
-                No leave types are configured in Settings.
+                No leave types are currently assigned to you.
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <DatePicker
                 id="ess-leave-start-date"
                 data-testid="ess-leave-start-date"
@@ -1229,18 +1250,18 @@ export default function EssPortal() {
               placeholder="Share a short note detailing the cause of your request..."
               value={leaveApplyForm.reason}
               onChange={(e) => setLeaveApplyForm((current) => ({ ...current, reason: e.target.value }))}
-              rows={9}
+              rows={6}
             />
           </div>
         </div>
         {leaveApplyError && (
-          <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>
+          <div className="mx-5 rounded-xl border border-[rgba(244,63,94,0.18)] bg-[rgba(244,63,94,0.06)] px-3.5 py-2.5 text-[13px] text-[#e11d48] sm:mx-7">
             {leaveApplyError}
           </div>
         )}
-        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <Button data-testid="ess-leave-apply-close" variant="outline" onClick={() => setLeaveApplyOpen(false)}>Close</Button>
-          <Button data-testid="ess-leave-apply-submit" className="bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" onClick={() => void submitEssLeaveApply()} disabled={leaveApplyBusy || leaveTypes.loading} loading={leaveApplyBusy}>
+        <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-[var(--border-color)] bg-[var(--app-bg)] p-5 sm:flex-row sm:justify-end sm:px-7">
+          <Button data-testid="ess-leave-apply-close" className="w-full sm:w-auto" variant="outline" onClick={() => setLeaveApplyOpen(false)}>Close</Button>
+          <Button data-testid="ess-leave-apply-submit" className="w-full bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90 sm:w-auto" onClick={() => void submitEssLeaveApply()} disabled={leaveApplyBusy || leaveTypes.loading || balances.loading || assignedLeaveTypes.length === 0} loading={leaveApplyBusy}>
             Submit Application
           </Button>
         </div>

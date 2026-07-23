@@ -35,7 +35,7 @@ export function useHrSearchSchema(endpoint: string, enabled = true) {
 export const useCandidateSearchSchema = () => useHrSearchSchema("/recruitment/candidates");
 export const useCareerPostingSearchSchema = () => useHrSearchSchema("/careers/postings");
 export const useDesignationSearchSchema = () => useHrSearchSchema("/designations");
-export const useDocumentRequestSearchSchema = () => useHrSearchSchema("/document-requests");
+export const useDocumentRequestSearchSchema = (enabled = true) => useHrSearchSchema("/document-requests", enabled);
 export const useHolidaySearchSchema = () => useHrSearchSchema("/holidays");
 export const useDepartmentSearchSchema = () => useHrSearchSchema("/departments");
 export const useTicketSearchSchema = () => useHrSearchSchema("/tickets");

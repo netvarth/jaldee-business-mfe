@@ -181,7 +181,17 @@ export default function OrgChartTab() {
           </div>
         ) : (
           roots.map((r) => (
-            <NodeRow key={r.emp.id} node={r} depth={0} q={q.trim()} expanded={expanded} toggle={toggle} onOpen={(id) => navigate(`/employees/${id}`)} />
+            <NodeRow
+              key={r.emp.id}
+              node={r}
+              depth={0}
+              q={q.trim()}
+              expanded={expanded}
+              toggle={toggle}
+              onOpen={(id) => navigate(`/employees/${id}`, {
+                state: { employeeProfileReturnTo: "/org/chart", employeeProfileReturnLabel: "Org Chart" },
+              })}
+            />
           ))
         )}
       </div>

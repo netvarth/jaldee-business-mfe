@@ -69,6 +69,7 @@ export interface Employee {
   hierarchyLevel?: number;
   status?: EmployeeStatus | string;
   photoUrl?: string;
+  hasAuthUser?: boolean;
   isSystemUser?: boolean;
   password?: string | null;
   role?: string;

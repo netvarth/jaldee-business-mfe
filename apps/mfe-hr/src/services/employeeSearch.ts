@@ -16,7 +16,8 @@ export function buildEmployeeSearchBody(
   filterClauses: SearchFilterClause[],
   schema: SearchSchema | null | undefined,
   page = 0,
-  size = 100
+  size = 100,
+  sort?: Array<{ field: string; direction: string }>
 ): EmployeeSearchRequestBody {
   const conditions = compactSearchClauses(filterClauses, schema).map((clause) => ({
     field: clause.field,
@@ -27,9 +28,9 @@ export function buildEmployeeSearchBody(
   return {
     ...(schema?.defaultView ? { view: schema.defaultView } : {}),
     filters: conditions.length ? { logic: "AND", conditions } : null,
-    sort: schema?.defaultSort?.field
+    sort: sort ?? (schema?.defaultSort?.field
       ? [{ field: schema.defaultSort.field, direction: schema.defaultSort.direction ?? "DESC" }]
-      : [],
+      : []),
     page,
     size,
   };

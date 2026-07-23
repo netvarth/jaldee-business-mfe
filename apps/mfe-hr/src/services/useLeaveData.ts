@@ -18,12 +18,16 @@ function withId<T extends { uid?: string; id?: string }>(r: Record<string, unkno
   return { ...(r as object), id: String(uid ?? ""), uid } as T;
 }
 
-export function useLeaves() {
+export function useLeaves({ enabled = true }: { enabled?: boolean } = {}) {
   const api = useHrApi();
   const [data, setData] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>("/leaves/all");
@@ -32,7 +36,7 @@ export function useLeaves() {
       setError(e instanceof Error ? e.message : "Failed to load leaves");
       setData([]);
     } finally { setLoading(false); }
-  }, [api]);
+  }, [api, enabled]);
   useEffect(() => { void load(); }, [load]);
 
   const apply = useCallback(async (payload: Record<string, unknown>) => {

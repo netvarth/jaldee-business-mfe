@@ -784,7 +784,7 @@ export default function Leave() {
         onClose={() => setSelected(null)}
         testId="hr-leave-detail-modal"
         hideHeader
-        contentClassName="max-w-[900px] sm:h-[88vh] sm:max-h-[900px] p-0 overflow-hidden flex flex-col"
+        contentClassName="max-w-[760px] h-auto max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] p-0 overflow-hidden flex flex-col"
         bodyClassName="flex min-h-0 flex-1 flex-col"
       >
         {selected && (
