@@ -179,9 +179,7 @@ export function LeadsModule() {
     const isLeadDetailPage = path.includes('/list/') && !isCreateLeadPage;
 
     if (path.includes('/dashboard')) {
-      triggerFetchPipelines(active);
-      triggerFetchProducts(active);
-      triggerFetchChannels(active);
+      // Dashboard data is provided exclusively by its analytics request.
     } else if (isListPage || isCreateLeadPage) {
       triggerFetchLeads(active);
       triggerFetchPipelines(active);
@@ -214,11 +212,6 @@ export function LeadsModule() {
       triggerFetchProducts(active);
       triggerFetchPipelines(active);
       triggerFetchTemplates(active);
-    } else {
-      triggerFetchLeads(active);
-      triggerFetchPipelines(active);
-      triggerFetchProducts(active);
-      triggerFetchChannels(active);
     }
 
     return () => {
@@ -243,9 +236,6 @@ export function LeadsModule() {
           path="/dashboard"
           element={
             <DashboardScreen
-              pipelines={pipelines}
-              products={products}
-              channels={channels}
               onNavigate={handleNavigate}
             />
           }
@@ -526,9 +516,6 @@ export function LeadsModule() {
           path="*"
           element={
             <DashboardScreen
-              pipelines={pipelines}
-              products={products}
-              channels={channels}
               onNavigate={handleNavigate}
             />
           }

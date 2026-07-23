@@ -3,7 +3,7 @@ import {
   BASE_SERVICE_ENDPOINTS,
   buildBaseServiceUrl,
 } from "../../serviceUrls";
-import type { CrmLeadDto, ChannelType, Priority, InternalStatus, LeadStageTask } from "../types";
+import type { CrmLeadDto, ChannelType, Priority, InternalStatus, LeadStageTask, LeadAnalyticsData, LeadAnalyticsRequest } from "../types";
 
 type LeadSearchParams = {
   page?: number;
@@ -379,6 +379,8 @@ const leadTenantTaskRequests = new Map<string, Promise<LeadStageTask[]>>();
 const leadSearchRequests = new Map<string, Promise<CrmLeadDto[]>>();
 const taskLookupRequests = new Map<string, Promise<TaskLookupOption[]>>();
 const analyticsRequests = new Map<string, Promise<any>>();
+const analyticsResponses = new Map<string, { data: LeadAnalyticsData; timestamp: number }>();
+const ANALYTICS_RESPONSE_TTL_MS = 5_000;
 
 function getTaskLookup(key: string, endpoint: string) {
   const existingRequest = taskLookupRequests.get(key);
@@ -597,8 +599,14 @@ export const leadService = {
     );
     return response.data;
   },
-  async getAnalytics(filter: Record<string, any> = {}) {
+  async getAnalytics(filter: LeadAnalyticsRequest): Promise<LeadAnalyticsData> {
     const requestKey = stableStringify(filter);
+    const cached = analyticsResponses.get(requestKey);
+    if (cached && Date.now() - cached.timestamp < ANALYTICS_RESPONSE_TTL_MS) {
+      return cached.data;
+    }
+    if (cached) analyticsResponses.delete(requestKey);
+
     const existingRequest = analyticsRequests.get(requestKey);
     if (existingRequest) return existingRequest;
 
@@ -607,7 +615,11 @@ export const leadService = {
         filter,
         withoutLocationParam()
       )
-      .then((response) => response.data)
+      .then((response) => unwrap<LeadAnalyticsData>(response))
+      .then((data) => {
+        analyticsResponses.set(requestKey, { data, timestamp: Date.now() });
+        return data;
+      })
       .finally(() => {
         analyticsRequests.delete(requestKey);
       });

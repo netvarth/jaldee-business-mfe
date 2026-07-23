@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ICONS } from '../constants';
 import { cn } from '../lib/utils';
-import { PieChart, Button, StatCard, PageHeader, SectionCard, Select } from "@jaldee/design-system";
+import { PieChart, Button, StatCard, PageHeader, SectionCard, Select, Alert } from "@jaldee/design-system";
 import { leadService } from '../services/leadService';
 import { useJaldeeLeadsContext } from '../lib/sharedContext';
-import { CrmLeadPipelineDto, Product, Channel } from '../types';
+import { LeadAnalyticsData, LeadAnalyticsFrequency } from '../types';
 
 interface DashboardScreenProps {
-  pipelines?: CrmLeadPipelineDto[];
-  products?: Product[];
-  channels?: Channel[];
   onNavigate: (route: string, selection?: any) => void;
 }
 
@@ -21,6 +18,13 @@ const FREQUENCY_OPTIONS = [
   { value: 'MONTHLY', label: 'Last 30 Days' },
   { value: 'TILL_NOW', label: 'Till Now' },
 ];
+
+const NEW_LEADS_LABELS: Record<LeadAnalyticsFrequency, string> = {
+  TODAY: 'New Leads Today',
+  WEEKLY: 'New Leads (7d)',
+  MONTHLY: 'New Leads (30d)',
+  TILL_NOW: 'New Leads (All Time)',
+};
 
 function automationToken(value: unknown, fallback = "item") {
   const token = String(value ?? fallback).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -49,9 +53,8 @@ function readCountMetric(analytics: any, ...keys: string[]) {
 function extractBreakdown(
   analytics: any,
   arrayKeys: string[],
-  metadataList?: any[],
   idKey?: string
-): { name: string; value: number }[] {
+): { uid?: string; name: string; value: number }[] {
   const target = analytics?.data !== undefined ? analytics.data : analytics;
   let results: { name: string; value: number; uid?: string }[] = [];
 
@@ -62,14 +65,6 @@ function extractBreakdown(
       results = arr.map(item => {
         let name = item?.byName || item?.name || item?.label || item?.metricLabel || item?.metricName;
         const idVal = item?.[idKey || ''] || item?.pipelineStageUid || item?.stageUid || item?.productUid || item?.channelUid;
-        if ((!name || name === 'Unknown') && metadataList) {
-          if (idVal) {
-            const match = metadataList.find(m => m.uid === idVal || m.id === idVal);
-            if (match) {
-              name = match.name || match.displayName || match.title || match.stageName;
-            }
-          }
-        }
         return {
           uid: idVal,
           name: name || 'Unknown',
@@ -80,44 +75,28 @@ function extractBreakdown(
     }
   }
 
-  // 2. Supplement with missing metadataList entries
-  if (metadataList) {
-    const seenUids = new Set(results.map(r => r.uid).filter(Boolean));
-    const seenNames = new Set(results.map(r => r.name.toLowerCase()).filter(Boolean));
-
-    for (const meta of metadataList) {
-      const metaUid = meta.uid || meta.id;
-      const metaName = meta.name || meta.displayName || meta.title || meta.stageName;
-      if (!metaName) continue;
-
-      if ((metaUid && seenUids.has(metaUid)) || seenNames.has(metaName.toLowerCase())) {
-        continue;
-      }
-
-      results.push({
-        uid: metaUid,
-        name: metaName,
-        value: 0
-      });
-    }
-  }
-
   return results;
 }
 
-export default function DashboardScreen({ pipelines, products, channels, onNavigate }: DashboardScreenProps) {
+export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   const { account } = useJaldeeLeadsContext();
   const tenantUid = account?.tenantUid ?? account?.id;
 
-  const [frequency, setFrequency] = useState<string>('TILL_NOW');
+  const [frequency, setFrequency] = useState<LeadAnalyticsFrequency>('TILL_NOW');
   const [loading, setLoading] = useState<boolean>(true);
-  const [summaryData, setSummaryData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<LeadAnalyticsData | null>(null);
 
   useEffect(() => {
-    if (!tenantUid) return;
+    if (!tenantUid) {
+      setLoading(false);
+      setError('Analytics are unavailable because no active account was found.');
+      return;
+    }
 
     let active = true;
     setLoading(true);
+    setError(null);
 
     const fetchDashboardData = async () => {
       try {
@@ -131,12 +110,13 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
         });
 
         if (active) {
-          setSummaryData(summaryRes?.data || summaryRes);
+          setSummaryData(summaryRes);
           setLoading(false);
         }
       } catch (err) {
         console.error('Error fetching leads dashboard analytics:', err);
         if (active) {
+          setError('Lead analytics could not be loaded. Please try again shortly.');
           setLoading(false);
         }
       }
@@ -156,12 +136,10 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
   const overdueTasksCount = summaryData ? readCountMetric(summaryData, "CRM_LEAD_PENDING_TASKS_COUNT", "PENDING_TASKS", "OVERDUE_TASKS") : 0;
   const unassignedLeadsCount = summaryData ? readCountMetric(summaryData, "CRM_LEAD_UNASSIGNED_COUNT", "UNASSIGNED_LEADS") : 0;
 
-  // Extract breakdowns with 0 mock defaults, resolving UIDs to names if needed
-  const channelAnalytics = extractBreakdown(summaryData, ["channelWiseValues", "leadsByChannel", "leadsBySource", "sourceWiseValues"], channels, "channelUid");
-  const productAnalytics = extractBreakdown(summaryData, ["productWiseValues", "leadsByProduct", "productAnalytics"], products, "productUid");
-
-  const flatStages = pipelines?.flatMap(p => p.stages || []) || [];
-  const apiStageBreakdown = extractBreakdown(summaryData, ["stageWiseValues", "pipelineSaturationData", "stages", "pipelineWiseValues"], flatStages, "pipelineStageUid");
+  // All dashboard breakdowns come directly from the analytics response.
+  const channelAnalytics = extractBreakdown(summaryData, ["channelWiseValues", "leadsByChannel", "leadsBySource", "sourceWiseValues"], "channelUid");
+  const productAnalytics = extractBreakdown(summaryData, ["productWiseValues", "leadsByProduct", "productAnalytics"], "productUid");
+  const apiStageBreakdown = extractBreakdown(summaryData, ["stageWiseValues", "pipelineSaturationData", "stages", "pipelineWiseValues"], "pipelineStageUid");
   const pipelineSaturationData = apiStageBreakdown.map((item, idx) => ({
     name: item.name,
     leads: item.value,
@@ -179,7 +157,7 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
             <Select
               options={FREQUENCY_OPTIONS}
               value={frequency}
-              onChange={(e) => setFrequency(e.target.value)}
+              onChange={(e) => setFrequency(e.target.value as LeadAnalyticsFrequency)}
               fullWidth={false}
               className="min-w-[150px] text-xs font-semibold"
               testId="jaldee-leads-dashboard-frequency-select"
@@ -206,6 +184,14 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
           </div>
         }
       />
+
+      {error ? <Alert variant="danger" title="Analytics unavailable">{error}</Alert> : null}
+
+      {loading ? (
+        <div data-testid="jaldee-leads-dashboard-loading" role="status" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
+          Loading lead analytics…
+        </div>
+      ) : null}
 
       {/* Section: Quick Actions Hub */}
       <div className="space-y-4">
@@ -286,7 +272,7 @@ export default function DashboardScreen({ pipelines, products, channels, onNavig
       {/* Operational Metrics Cards */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-6">
         <StatCard
-          label="New Leads (7d)"
+          label={NEW_LEADS_LABELS[frequency]}
           value={newLeadsCount}
           accent="indigo"
           icon={<ICONS.ADD className="w-7 h-7" />}

@@ -160,9 +160,6 @@ export default defineConfig(({ mode }) => {
         },
         "/finance-service": {
           ...createServiceProxy(financeServiceProxyTarget),
-        },
-        "/v1/api/tenant/settings": {
-          ...createServiceProxy(financeServiceProxyTarget),
         }
       },
     },
