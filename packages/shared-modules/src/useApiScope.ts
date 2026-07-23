@@ -7,6 +7,10 @@ type ScopedRequestConfig = {
   [key: string]: unknown;
 };
 
+function isTenantScopedPath(path: string) {
+  return path.includes("/finance-service/v1/api/tenant/") || path.includes("/v1/api/tenant/");
+}
+
 function buildScopedUrl(path: string, apiScope: ScopeAwareRequestConfig["apiScope"], locationId?: string | null) {
   const isAbsolute = path.startsWith("http://") || path.startsWith("https://") || path.startsWith("//");
   const normalizedPath = isAbsolute ? path : (path.startsWith("/") ? path : `/${path}`);
@@ -56,12 +60,20 @@ export function useApiScope() {
       }
       return path.startsWith("/") ? path : `/${path}`;
     };
+    const isTenantRequest = (path: string) => isTenantScopedPath(normalizePath(path));
     const isScopedRequestConfig = (config: unknown): config is ScopedRequestConfig =>
       Boolean(config) && typeof config === "object" && !Array.isArray(config);
     const shouldSkip = (config: unknown) =>
       isScopedRequestConfig(config) && Boolean((config as ScopedRequestConfig).skipLocationScope);
 
     const preparePostRequest = (path: string, config?: unknown) => {
+      if (isTenantRequest(path)) {
+        return {
+          url: normalizePath(path),
+          config: withSkipLocation(config),
+        };
+      }
+
       if (!isScopedRequestConfig(config) || !config.skipLocationScope) {
         return {
           url: buildScopedUrl(path, apiScope, locationId),
@@ -81,7 +93,7 @@ export function useApiScope() {
       locationId,
       buildUrl: (path: string) => buildScopedUrl(path, apiScope, locationId),
       get: <T>(path: string, config?: unknown) => {
-        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        const cfg = isTenantRequest(path) ? withSkipLocation(config) : (shouldSkip(config) ? withSkipLocation(config) : config);
         return api.get<T>(normalizePath(path), cfg);
       },
       post: <T>(path: string, data?: unknown, config?: unknown) => {
@@ -89,15 +101,15 @@ export function useApiScope() {
         return api.post<T>(request.url, data, request.config);
       },
       put: <T>(path: string, data?: unknown, config?: unknown) => {
-        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        const cfg = isTenantRequest(path) ? withSkipLocation(config) : (shouldSkip(config) ? withSkipLocation(config) : config);
         return api.put<T>(normalizePath(path), data, cfg);
       },
       patch: <T>(path: string, data?: unknown, config?: unknown) => {
-        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        const cfg = isTenantRequest(path) ? withSkipLocation(config) : (shouldSkip(config) ? withSkipLocation(config) : config);
         return api.patch<T>(normalizePath(path), data, cfg);
       },
       delete: <T>(path: string, config?: unknown) => {
-        const cfg = shouldSkip(config) ? withSkipLocation(config) : config;
+        const cfg = isTenantRequest(path) ? withSkipLocation(config) : (shouldSkip(config) ? withSkipLocation(config) : config);
         return api.delete<T>(normalizePath(path), cfg);
       },
     };

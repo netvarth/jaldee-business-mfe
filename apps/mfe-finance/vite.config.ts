@@ -31,6 +31,6 @@ export default defineConfig({
     cssCodeSplit: true,
   },
   server: {
-    port: 3004,
+    port: 3005,
   },
 });

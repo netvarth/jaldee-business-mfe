@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   const platformServiceProxyTarget = env.VITE_PLATFORM_SERVICE_PROXY_TARGET;
   const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET;
   const bookingServiceProxyTarget = env.VITE_BOOKING_SERVICE_PROXY_TARGET;
+  const financeServiceProxyTarget = env.VITE_FINANCE_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
 
   return {
     base: "/shell/",
@@ -96,6 +97,16 @@ export default defineConfig(({ mode }) => {
           target: bookingServiceProxyTarget,
           changeOrigin: true,
           secure: false,
+        },
+        "/finance-service": {
+          target: financeServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/v1/api/tenant/settings": {
+          target: financeServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
         }
       },
     },
@@ -124,6 +135,16 @@ export default defineConfig(({ mode }) => {
         },
         "/booking-service": {
           target: bookingServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/finance-service": {
+          target: financeServiceProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/v1/api/tenant/settings": {
+          target: financeServiceProxyTarget,
           changeOrigin: true,
           secure: false,
         }

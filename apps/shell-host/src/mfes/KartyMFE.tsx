@@ -3,7 +3,7 @@ import { useBuildMFEProps } from "../hooks/useMFEProps";
 
 export function loadKartyRemote() {
   if (import.meta.env.DEV) {
-    const kartyUrl = import.meta.env.VITE_KARTY_URL ?? "http://localhost:3005";
+    const kartyUrl = import.meta.env.VITE_KARTY_URL ?? "http://localhost:3004";
     return import(/* @vite-ignore */ `${kartyUrl}/src/mount.tsx`);
   }
 

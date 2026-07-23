@@ -10,6 +10,29 @@ export default defineConfig(({ mode }) => {
   const platformServiceProxyTarget = env.VITE_PLATFORM_SERVICE_PROXY_TARGET;
   const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET;
   const bookingServiceProxyTarget = env.VITE_BOOKING_SERVICE_PROXY_TARGET;
+  const financeServiceProxyTarget = env.VITE_FINANCE_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
+  const mfeProxyTargets = {
+    "/mfe-bookings": env.VITE_BOOKINGS_DEV_PROXY_TARGET || "http://localhost:3001",
+    "/mfe-health": env.VITE_HEALTH_DEV_PROXY_TARGET || "http://localhost:3002",
+    "/mfe-golderp": env.VITE_GOLDERP_DEV_PROXY_TARGET || "http://localhost:3003",
+    "/mfe-karty": env.VITE_KARTY_DEV_PROXY_TARGET || "http://localhost:3004",
+    "/mfe-finance": env.VITE_FINANCE_DEV_PROXY_TARGET || "http://localhost:3005",
+    "/mfe-lending": env.VITE_LENDING_DEV_PROXY_TARGET || "http://localhost:3006",
+    "/mfe-hr": env.VITE_HR_DEV_PROXY_TARGET || "http://localhost:3007",
+  } as const;
+
+  function createServiceProxy(target?: string) {
+    return {
+      target,
+      changeOrigin: true,
+      secure: false,
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          proxyReq.removeHeader("origin");
+        });
+      },
+    };
+  }
 
   return {
     base: "/",
@@ -72,60 +95,74 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       proxy: {
+        ...Object.fromEntries(
+          Object.entries(mfeProxyTargets).map(([prefix, target]) => [
+            prefix,
+            {
+              target,
+              changeOrigin: true,
+              secure: false,
+              rewrite: (requestPath: string) => requestPath.replace(new RegExp(`^${prefix}`), ""),
+            },
+          ]),
+        ),
         "/auth-service": {
-          target: authServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(authServiceProxyTarget),
         },
         "/base-service": {
-          target: baseServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(baseServiceProxyTarget),
         },
         "/platform-service": {
-          target: platformServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(platformServiceProxyTarget),
         },
         "/hr-service": {
-          target: hrServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(hrServiceProxyTarget),
         },
         "/booking-service": {
-          target: bookingServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(bookingServiceProxyTarget),
+        },
+        "/finance-service": {
+          ...createServiceProxy(financeServiceProxyTarget),
+        },
+        "/v1/api/tenant/settings": {
+          ...createServiceProxy(financeServiceProxyTarget),
         }
       },
     },
     preview: {
       port: 3000,
       proxy: {
+        ...Object.fromEntries(
+          Object.entries(mfeProxyTargets).map(([prefix, target]) => [
+            prefix,
+            {
+              target,
+              changeOrigin: true,
+              secure: false,
+              rewrite: (requestPath: string) => requestPath.replace(new RegExp(`^${prefix}`), ""),
+            },
+          ]),
+        ),
         "/auth-service": {
-          target: authServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(authServiceProxyTarget),
         },
         "/base-service": {
-          target: baseServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(baseServiceProxyTarget),
         },
         "/platform-service": {
-          target: platformServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(platformServiceProxyTarget),
         },
         "/hr-service": {
-          target: hrServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(hrServiceProxyTarget),
         },
         "/booking-service": {
-          target: bookingServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
+          ...createServiceProxy(bookingServiceProxyTarget),
+        },
+        "/finance-service": {
+          ...createServiceProxy(financeServiceProxyTarget),
+        },
+        "/v1/api/tenant/settings": {
+          ...createServiceProxy(financeServiceProxyTarget),
         }
       },
     },

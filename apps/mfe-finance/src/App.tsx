@@ -12,6 +12,7 @@ import {
   Input,
   PageErrorBoundary,
   PageHeader,
+  Popover,
   SectionCard,
   StatCard,
   Select,
@@ -40,6 +41,30 @@ type QuickAction = {
 };
 
 type ExpenseBreakdownFilter = "TODAY" | "PREVIOUS_WEEK" | "CURRENT_MONTH" | "PREVIOUS_MONTH" | "DATE_RANGE";
+type SequenceTemplateFeature = "FINANCE" | "BOOKING" | "HEALTHCARE" | "BASE_CRM" | "PLATFORM" | "AUTH" | "E_COMMERCE" | "LENDING" | "HR";
+type FinanceFeatureModule = "FINANCE_CORE" | "FINANCE_INVOICE" | "FINANCE_PAYMENT" | "FINANCE_EXPENSE";
+type DiscountCalculationType = "FIXED_AMOUNT" | "FIXED_PCT";
+type DiscountType = "PREDEFINED" | "ONDEMAND";
+type DiscountStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
+
+const sequenceTemplateFeatureOptions: Array<{ value: SequenceTemplateFeature; label: string }> = [
+  { value: "FINANCE", label: "Finance" },
+  { value: "BOOKING", label: "Booking" },
+  { value: "HEALTHCARE", label: "Healthcare" },
+  { value: "BASE_CRM", label: "Base CRM" },
+  { value: "PLATFORM", label: "Platform" },
+  { value: "AUTH", label: "Auth" },
+  { value: "E_COMMERCE", label: "E-Commerce" },
+  { value: "LENDING", label: "Lending" },
+  { value: "HR", label: "HR" },
+];
+
+const financeFeatureModuleOptions: Array<{ value: FinanceFeatureModule; label: string }> = [
+  { value: "FINANCE_CORE", label: "Finance Core" },
+  { value: "FINANCE_INVOICE", label: "Finance Invoice" },
+  { value: "FINANCE_PAYMENT", label: "Finance Payment" },
+  { value: "FINANCE_EXPENSE", label: "Finance Expense" },
+];
 
 function toFinanceRoute(path: string) {
   const normalized = String(path || "").trim();
@@ -483,6 +508,7 @@ function OverviewPage() {
   const dashboardActions: QuickAction[] = [
     { label: "Create Invoice", path: "/finance/invoice/newInvoice", icon: "packagePlus", tone: "bg-indigo-50 text-indigo-600", note: "Issue new billing" },
     { label: "Create Expense", path: "/finance/expense/new", icon: "alert", tone: "bg-rose-50 text-rose-600", note: "Book operations cost" },
+    { label: "Discounts", path: "/finance/discount", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Manage discounts" },
     { label: "Add Revenue", path: "/finance/receivables/create", icon: "trend", tone: "bg-emerald-50 text-emerald-600", note: "Record collections" },
     { label: "Create Payout", path: "/finance/payable/create", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Queue vendor payout" },
     { label: "Create Vendor", path: "/finance/vendors", icon: "globe", tone: "bg-sky-50 text-sky-600", note: "Add vendor profile" },
@@ -495,6 +521,8 @@ function OverviewPage() {
     { label: "Cash Reserve", path: "/finance/cashInhand", icon: "database", tone: "bg-emerald-50 text-emerald-600", note: "Cash in hand" },
     { label: "Cash Register", path: "/finance/cashRegister", icon: "database", tone: "bg-lime-50 text-lime-700", note: "Register balances" },
     { label: "Ledger", path: "/finance/ledger", icon: "warehouse", tone: "bg-sky-50 text-sky-700", note: "Account movements" },
+    { label: "Sequence Templates", path: "/finance/sequence-template", icon: "list", tone: "bg-slate-100 text-slate-700", note: "Manage numbering templates" },
+    { label: "Sequence Settings", path: "/finance/sequence-settings", icon: "list", tone: "bg-slate-100 text-slate-700", note: "Configure sequence settings" },
     { label: "Activity Log", path: "/finance/activity-log", icon: "history", tone: "bg-slate-100 text-slate-700", note: "Audit trail" },
     { label: "Edit Actions", path: "/finance/settings", icon: "list", tone: "bg-slate-100 text-slate-700", note: "Configure dashboard" },
   ];
@@ -911,14 +939,27 @@ function InvoicesPage() {
 
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
-      { key: "id", header: "Invoice" },
+      { key: "invoiceNum", header: "Invoice No." },
       { key: "customer", header: "Customer" },
       { key: "category", header: "Category" },
       { key: "dueDate", header: "Due Date" },
       { key: "amount", header: "Amount", align: "right", render: (row) => formatCurrency(row.amount) },
       { key: "status", header: "Status", render: (row) => <Badge variant={getStatusVariant(row.status)}>{row.status}</Badge> },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`view/${row.detailUid || row.id}`)}
+          >
+            View
+          </Button>
+        ),
+      },
     ],
-    []
+    [navigate]
   );
 
   useEffect(() => {
@@ -931,6 +972,8 @@ function InvoicesPage() {
           const payload = res.data?.content || res.data || [];
           const normalized = (Array.isArray(payload) ? payload : []).map((item: any, index: number) => ({
             id: String(item.uid || item.invoiceNum || item.invoiceId || `invoice-${index}`),
+            detailUid: String(item.uid || item.invoiceUid || item.invoiceEncId || item.id || item.invoiceId || ""),
+            invoiceNum: String(item.invoiceNum || item.invoiceId || item.uid || `invoice-${index}`),
             customer: String(item.consumerName || item.customerName || item.invoiceFor || item.userName || ""),
             category: String(item.categoryName || item.invoiceCategoryName || "General"),
             amount: Number(item.netTotal || item.totalAmount || item.amountDue || 0),
@@ -990,7 +1033,7 @@ function InvoicesPage() {
       }
       aside={
         <>
-          <FeedCard title="Most Recent">
+          {/* <FeedCard title="Most Recent">
             <div className="space-y-3">
               {invoices.slice(0, 5).map((invoice) => (
                 <button
@@ -1009,8 +1052,8 @@ function InvoicesPage() {
                 </button>
               ))}
             </div>
-          </FeedCard>
-          <FeedCard title="Status Split">
+          </FeedCard> */}
+          {/* <FeedCard title="Status Split">
             <SummaryList
               rows={[
                 { label: "Paid", value: String(invoices.filter((item) => item.status === "Paid").length), note: "Settled invoices" },
@@ -1018,7 +1061,7 @@ function InvoicesPage() {
                 { label: "Overdue", value: String(invoices.filter((item) => item.status === "Overdue").length), note: "Requires follow-up" },
               ]}
             />
-          </FeedCard>
+          </FeedCard> */}
         </>
       }
     />
@@ -2418,6 +2461,363 @@ function ExpensesEditPage() {
   );
 }
 
+function DiscountsPage() {
+  const navigate = useNavigate();
+  const [discounts, setDiscounts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadDiscounts() {
+    setLoading(true);
+    try {
+      const res = await financeApi.discounts.list<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+      });
+      const payload = Array.isArray(res.data?.content)
+        ? res.data.content
+        : Array.isArray(res.data?.data?.content)
+          ? res.data.data.content
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+      setDiscounts(payload);
+    } catch (error) {
+      console.error("Failed to fetch discounts", error);
+      setDiscounts([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDiscounts();
+  }, []);
+
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      { key: "name", header: "Discount Name" },
+      { key: "calculationType", header: "Calculation Type" },
+      { key: "discountType", header: "Discount Type" },
+      { key: "discountValue", header: "Value", align: "right", render: (row) => String(row.discountValue ?? 0) },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => <Badge variant={row.status === "ACTIVE" ? "success" : row.status === "RETIRED" ? "warning" : "neutral"}>{row.status || "INACTIVE"}</Badge>,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.uid}`)}>
+              Edit
+            </Button>
+            <Popover
+              portal
+              placement="bottom"
+              align="end"
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                  aria-label="Discount actions"
+                />
+              }
+            >
+              <div className="grid min-w-[220px] p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={async () => {
+                    const nextStatus: DiscountStatus =
+                      row.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                    try {
+                      await financeApi.discounts.updateStatus(row.uid, nextStatus);
+                      loadDiscounts();
+                    } catch (error) {
+                      console.error("Failed to update discount status", error);
+                      alert("Failed to update discount status");
+                    }
+                  }}
+                >
+                  {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal text-rose-600"
+                  onClick={async () => {
+                    try {
+                      await financeApi.discounts.remove(row.uid);
+                      loadDiscounts();
+                    } catch (error) {
+                      console.error("Failed to retire discount", error);
+                      alert("Failed to retire discount");
+                    }
+                  }}
+                >
+                  Retire Discount
+                </Button>
+              </div>
+            </Popover>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
+
+  return (
+    <FinanceFeatureLayout
+      title="Discounts"
+      subtitle="Manage finance discounts used in invoices and item-level discount application."
+      actions={<Button onClick={() => navigate("create")}>Create Discount</Button>}
+      main={
+        <DataTableCard
+          title="Discount List"
+          subtitle="Available finance discounts."
+          data={discounts}
+          columns={columns}
+          getRowId={(row) => String(row.uid)}
+          emptyTitle="No discounts"
+          emptyDescription={loading ? "Loading..." : "Discounts will appear here."}
+        />
+      }
+    />
+  );
+}
+
+function DiscountCreatePage() {
+  const navigate = useNavigate();
+  const navigateToDiscountList = () => navigate("..", { relative: "path", replace: true });
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [calculationType, setCalculationType] = useState<DiscountCalculationType>("FIXED_AMOUNT");
+  const [discountType, setDiscountType] = useState<DiscountType>("PREDEFINED");
+  const [discountValue, setDiscountValue] = useState("");
+  const [status, setStatus] = useState<DiscountStatus>("ACTIVE");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!name.trim()) {
+      setFormError("Discount name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await financeApi.discounts.create({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        calculationType,
+        discountType,
+        discountValue: Number(discountValue) || 0,
+        status,
+      });
+      navigateToDiscountList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create discount", error);
+      setFormError(error instanceof Error ? error.message : "Could not create discount.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Discount"
+      subtitle="Add a finance discount for invoice and item-level application."
+      actions={<Button variant="outline" onClick={navigateToDiscountList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Discount Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input label="Value" type="number" min="0" step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+            <Select
+              label="Calculation Type"
+              value={calculationType}
+              onChange={(event) => setCalculationType(event.target.value as DiscountCalculationType)}
+              options={[
+                { value: "FIXED_AMOUNT", label: "Fixed Amount" },
+                { value: "FIXED_PCT", label: "Fixed Percentage" },
+              ]}
+            />
+            <Select
+              label="Discount Type"
+              value={discountType}
+              onChange={(event) => setDiscountType(event.target.value as DiscountType)}
+              options={[
+                { value: "PREDEFINED", label: "Predefined" },
+                { value: "ONDEMAND", label: "On Demand" },
+              ]}
+            />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as DiscountStatus)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "INACTIVE", label: "Inactive" },
+                { value: "RETIRED", label: "Retired" },
+              ]}
+            />
+          </div>
+          <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToDiscountList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Create Discount"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function DiscountEditPage() {
+  const navigate = useNavigate();
+  const navigateToDiscountList = () => navigate("../..", { relative: "path", replace: true });
+  const { id } = useParams<{ id: string }>();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [calculationType, setCalculationType] = useState<DiscountCalculationType>("FIXED_AMOUNT");
+  const [discountType, setDiscountType] = useState<DiscountType>("PREDEFINED");
+  const [discountValue, setDiscountValue] = useState("");
+  const [status, setStatus] = useState<DiscountStatus>("ACTIVE");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadDiscount() {
+      if (!id) return;
+      try {
+        const res = await financeApi.discounts.detail<any>(id);
+        const data = res.data;
+        if (active && data) {
+          setName(String(data.name || ""));
+          setDescription(String(data.description || ""));
+          setCalculationType((data.calculationType || "FIXED_AMOUNT") as DiscountCalculationType);
+          setDiscountType((data.discountType || "PREDEFINED") as DiscountType);
+          setDiscountValue(String(data.discountValue ?? data.discountedAmount ?? 0));
+          setStatus((data.status || "ACTIVE") as DiscountStatus);
+        }
+      } catch (error) {
+        console.error("Failed to load discount", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadDiscount();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!name.trim()) {
+      setFormError("Discount name is required.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await financeApi.discounts.update(id!, {
+        uid: id,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        calculationType,
+        discountType,
+        discountValue: Number(discountValue) || 0,
+        status,
+      });
+      navigateToDiscountList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update discount", error);
+      setFormError(error instanceof Error ? error.message : "Could not update discount.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading discount...</div>;
+  }
+
+  return (
+    <PageShell
+      title="Edit Discount"
+      subtitle="Update discount details for invoice use."
+      actions={<Button variant="outline" onClick={navigateToDiscountList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Discount Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input label="Value" type="number" min="0" step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+            <Select
+              label="Calculation Type"
+              value={calculationType}
+              onChange={(event) => setCalculationType(event.target.value as DiscountCalculationType)}
+              options={[
+                { value: "FIXED_AMOUNT", label: "Fixed Amount" },
+                { value: "FIXED_PCT", label: "Fixed Percentage" },
+              ]}
+            />
+            <Select
+              label="Discount Type"
+              value={discountType}
+              onChange={(event) => setDiscountType(event.target.value as DiscountType)}
+              options={[
+                { value: "PREDEFINED", label: "Predefined" },
+                { value: "ONDEMAND", label: "On Demand" },
+              ]}
+            />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as DiscountStatus)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "INACTIVE", label: "Inactive" },
+                { value: "RETIRED", label: "Retired" },
+              ]}
+            />
+          </div>
+          <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToDiscountList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Update Discount"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
 function CategoryPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
@@ -2823,51 +3223,260 @@ function CashInHandPage() {
 }
 
 function CashRegisterPage() {
-  const { financeCashRegisters } = useFinanceLiveData();
-  const columns = useMemo<ColumnDef<(typeof financeCashRegisters)[number]>[]>(
+  const mfeProps = useMFEProps();
+  const [cashRegisters, setCashRegisters] = useState<Array<{
+    id: string;
+    source: string;
+    owner: string;
+    updatedOn: string;
+    amount: number;
+    type: string;
+    category: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [cashInHandAmount, setCashInHandAmount] = useState(0);
+  const [cashUpdatedOn, setCashUpdatedOn] = useState("-");
+  const [showCashReserveDialog, setShowCashReserveDialog] = useState(false);
+  const [reserveDate, setReserveDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reserveLabel, setReserveLabel] = useState("");
+  const [reserveReferenceNo, setReserveReferenceNo] = useState("");
+  const [reserveAmount, setReserveAmount] = useState("");
+  const [reserveDescription, setReserveDescription] = useState("");
+  const [savingReserve, setSavingReserve] = useState(false);
+  const [reserveError, setReserveError] = useState("");
+
+  async function loadCashRegisters() {
+    setLoading(true);
+    try {
+      const response = await financeApi.revenue.list<any>({
+        from: 0,
+        count: 10,
+        "paymentMode-eq": "Cash",
+      });
+
+      const payload = Array.isArray(response.data?.content)
+        ? response.data.content
+        : Array.isArray(response.data?.data?.content)
+          ? response.data.data.content
+          : Array.isArray(response.data?.data)
+            ? response.data.data
+            : Array.isArray(response.data)
+              ? response.data
+              : [];
+
+      setCashRegisters(
+        payload.map((item: any, index: number) => {
+          const paymentDate = item?.paymentOn || item?.paymentDate || item?.receivedDate || item?.createdDate;
+          return {
+            id: String(item?.paymentsInUid || item?.payInOutUid || item?.uid || item?.id || `cash-register-${index}`),
+            source: String(item?.paymentLabel || item?.paymentsInLabel || item?.categoryName || item?.purpose || "Cash Payment"),
+            owner: String(item?.createdByName || item?.userName || item?.owner || "Finance"),
+            updatedOn: paymentDate
+              ? new Date(paymentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : "-",
+            amount: Number(item?.amount || item?.paymentAmount || item?.receivedAmount || item?.netTotal || 0) || 0,
+            type: String(item?.type || item?.paymentType || "Cash"),
+            category: String(item?.categoryName || item?.paymentCategory || item?.purpose || "-"),
+          };
+        })
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load cash register list", error);
+      setCashRegisters([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadCashBalance() {
+    if (!mfeProps.location?.id) {
+      setCashInHandAmount(0);
+      setCashUpdatedOn("-");
+      return;
+    }
+
+    try {
+      const response = await financeApi.cash.balance<any>(String(mfeProps.location.id));
+      const payload = response.data ?? {};
+      setCashInHandAmount(Number(payload.cashInHand ?? payload.balance ?? payload.amount ?? 0) || 0);
+      setCashUpdatedOn(
+        payload.updatedOn || payload.updatedDate || payload.lastUpdated
+          ? new Date(payload.updatedOn || payload.updatedDate || payload.lastUpdated).toLocaleString("en-US", {
+              month: "2-digit",
+              day: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
+          : "-"
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load cash balance", error);
+      setCashInHandAmount(0);
+      setCashUpdatedOn("-");
+    }
+  }
+
+  async function loadCashRegisterData() {
+    await Promise.allSettled([loadCashRegisters(), loadCashBalance()]);
+  }
+
+  useEffect(() => {
+    void loadCashRegisterData();
+  }, [mfeProps.location?.id]);
+
+  async function handleRefreshCash() {
+    if (!mfeProps.location?.id) {
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      await financeApi.cash.recalculateBalance(String(mfeProps.location.id));
+      await loadCashRegisterData();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to refresh cash balance", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function handleCreateCashReserve(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setReserveError("");
+
+    const parsedAmount = Number(reserveAmount);
+    if (!reserveLabel.trim()) {
+      setReserveError("Cash reserve label is required.");
+      return;
+    }
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setReserveError("Amount must be greater than zero.");
+      return;
+    }
+
+    setSavingReserve(true);
+    try {
+      await financeApi.cash.createReserve("paymentsIn", {
+        locationUid: mfeProps.location?.id ?? undefined,
+        locationId: mfeProps.location?.id ?? undefined,
+        locationName: mfeProps.location?.name ?? undefined,
+        amount: parsedAmount,
+        currency: "INR",
+        mode: "Cash",
+        paymentMode: "Cash",
+        acceptedBy: "CASH",
+        paymentOn: toIsoDateTime(reserveDate),
+        receivedDate: reserveDate,
+        paymentLabel: reserveLabel.trim(),
+        paymentsInLabel: reserveLabel.trim(),
+        referenceNo: reserveReferenceNo.trim() || undefined,
+        description: reserveDescription.trim() || undefined,
+        isPaymentsIn: true,
+        financeDirect: true,
+        paymentInfo: [{ paymentMode: "Cash" }],
+      });
+      setShowCashReserveDialog(false);
+      setReserveDate(new Date().toISOString().slice(0, 10));
+      setReserveLabel("");
+      setReserveReferenceNo("");
+      setReserveAmount("");
+      setReserveDescription("");
+      await loadCashRegisterData();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create cash reserve", error);
+      setReserveError(error instanceof Error ? error.message : "Could not create cash reserve.");
+    } finally {
+      setSavingReserve(false);
+    }
+  }
+
+  const columns = useMemo<ColumnDef<(typeof cashRegisters)[number]>[]>(
     () => [
-      { key: "source", header: "Register" },
-      { key: "owner", header: "Owner" },
-      { key: "updatedOn", header: "Updated On" },
+      { key: "updatedOn", header: "Date" },
+      { key: "type", header: "Type" },
       { key: "amount", header: "Amount", align: "right", render: (row) => formatCurrency(row.amount) },
+      { key: "category", header: "Category" },
     ],
     []
   );
 
   return (
-    <FinanceFeatureLayout
-      title="Cash Register"
-      subtitle="Register balances and last update snapshots."
-      actions={<Button>View Reconciliation</Button>}
-      stats={[
-        { label: "Registers", value: String(financeCashRegisters.length), accent: "indigo" },
-        { label: "Balance", value: formatCurrency(financeCashRegisters.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
-        { label: "Main Register", value: formatCurrency(financeCashRegisters[0]?.amount ?? 0), accent: "amber" },
-        { label: "Registers", value: String(financeCashRegisters.length), accent: "rose" },
-      ]}
-      main={
-        <DataTableCard
-          title="Register Snapshot"
-          subtitle="Cash register visibility for the finance workspace."
-          data={financeCashRegisters}
-          columns={columns}
-          getRowId={(row) => row.id}
-          emptyTitle="No cash register data"
-          emptyDescription="Cash register entries will appear here."
-        />
-      }
-      aside={
-        <FeedCard title="Register Owners">
-          <SummaryList
-            rows={financeCashRegisters.map((row) => ({
-              label: row.owner,
-              value: formatCurrency(row.amount),
-              note: `${row.source} | ${row.updatedOn}`,
-            }))}
-          />
-        </FeedCard>
-      }
-    />
+    <>
+      <FinanceFeatureLayout
+        title="Cash Register"
+        subtitle="Register balances and last update snapshots."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleRefreshCash} disabled={refreshing}>
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+            <Button onClick={() => setShowCashReserveDialog(true)}>+ Cash Reserve</Button>
+          </div>
+        }
+        main={
+          <>
+            <SectionCard className="border-slate-200 shadow-sm">
+              <div className="flex flex-col gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm max-w-sm">
+                  <div className="text-sm font-medium text-slate-600">Cash Inhand</div>
+                  <div className="mt-3 text-3xl font-semibold text-emerald-600">{formatCurrency(cashInHandAmount)}</div>
+                </div>
+                <div className="text-sm text-slate-600">
+                  Last Updated On {cashUpdatedOn}
+                  <button
+                    type="button"
+                    onClick={handleRefreshCash}
+                    disabled={refreshing}
+                    className="ml-3 font-semibold text-indigo-700"
+                  >
+                    {refreshing ? "Refreshing..." : "Refresh"}
+                  </button>
+                </div>
+              </div>
+            </SectionCard>
+
+            <DataTableCard
+              title={`Cash Register(${cashRegisters.length})`}
+              subtitle="Cash payments loaded from payments-in with payment mode Cash."
+              data={cashRegisters}
+              columns={columns}
+              getRowId={(row) => row.id}
+              emptyTitle="No cash register data"
+              emptyDescription={loading ? "Loading cash register entries..." : "Cash register entries will appear here."}
+            />
+          </>
+        }
+      />
+
+      <Dialog open={showCashReserveDialog} onClose={() => setShowCashReserveDialog(false)} title="Create Cash Reserve" size="md">
+        <form className="grid gap-5 pt-2" onSubmit={handleCreateCashReserve}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Date" type="date" value={reserveDate} onChange={(event) => setReserveDate(event.target.value)} required />
+            <Input label="Amount" type="number" min="0" step="0.01" value={reserveAmount} onChange={(event) => setReserveAmount(event.target.value)} required />
+            <Input label="Label" value={reserveLabel} onChange={(event) => setReserveLabel(event.target.value)} required />
+            <Input label="Reference No." value={reserveReferenceNo} onChange={(event) => setReserveReferenceNo(event.target.value)} />
+          </div>
+          <Textarea label="Description" value={reserveDescription} onChange={(event) => setReserveDescription(event.target.value)} />
+          {reserveError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">
+              {reserveError}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowCashReserveDialog(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={savingReserve}>
+              {savingReserve ? "Creating..." : "Create Cash Reserve"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+    </>
   );
 }
 
@@ -2975,6 +3584,7 @@ function ReportsPage() {
 function MasterInvoicePage() {
   const { uid = "" } = useParams();
   const mfeProps = useMFEProps();
+  const navigate = useNavigate();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -2984,13 +3594,53 @@ function MasterInvoicePage() {
       try {
         const res = await financeApi.invoices.detailGeneral<any>(uid);
         if (active && res.data) {
+          const detailList = Array.isArray(res.data.detailList) ? res.data.detailList : [];
           setInvoice({
+            uid: String(res.data.uid || uid),
             id: String(res.data.uid || res.data.invoiceNum || res.data.invoiceId || uid),
+            invoiceNum: String(res.data.invoiceNum || res.data.invoiceId || uid),
             customer: String(res.data.consumerName || res.data.customerName || res.data.invoiceFor || res.data.userName || "Unknown"),
             category: String(res.data.categoryName || res.data.invoiceCategoryName || "General"),
             amount: Number(res.data.netTotal || res.data.totalAmount || res.data.amountDue || 0),
             dueDate: res.data.dueDate ? new Date(res.data.dueDate).toLocaleDateString() : "-",
             status: String(res.data.invoiceStatus || res.data.invoicePaymentStatus || res.data.billStatus || res.data.status || "Pending"),
+            location: String(res.data.locationName || res.data.location || res.data.locationPlace || "-"),
+            referenceNo: String(res.data.referenceNo || res.data.bookingReference || "-"),
+            patientId: String(res.data.consumerId || res.data.patientId || "-"),
+            invoiceDate: res.data.invoiceDate ? new Date(res.data.invoiceDate).toLocaleDateString() : "-",
+            createdOn: res.data.createdDate || res.data.createdAt
+              ? new Date(res.data.createdDate || res.data.createdAt).toLocaleString()
+              : "-",
+            createdBy: String(res.data.createdByName || res.data.createdBy || res.data.providerName || "-"),
+            product: String(res.data.product || res.data.productName || "BOOKING"),
+            billedToAddress: String(res.data.billedToAddress || res.data.consumerGstAddress || "-"),
+            notesForCustomer: String(res.data.notesForCustomer || res.data.description || ""),
+            notesForProvider: String(res.data.notesForProvider || ""),
+            netTotal: Number(res.data.netTotal || res.data.totalAmount || 0),
+            totalAmount: Number(res.data.totalAmount || res.data.netTotal || 0),
+            amountDue: Number(res.data.amountDue || res.data.netTotal || 0),
+            totalTax: Number(res.data.totalTax || 0),
+            totalDiscount: Number(res.data.totalDiscount || 0),
+            detailList: detailList.map((item: any, index: number) => {
+              const qty = Number(item.quantity || 1);
+              const rate = Number(item.price || item.netRate || 0);
+              const totalRate = Number(item.netTotal || rate * qty);
+              const afterDiscount = Number(item.netTotalAfterDiscount || totalRate);
+              const tax = Number(item.taxAmount || item.totalTax || 0);
+              const total = Number(item.total || afterDiscount + tax);
+              return {
+                id: String(item.uid || item.itemUid || `invoice-line-${index}`),
+                itemName: String(item.itemName || item.name || "Procedure/Item"),
+                processedDate: item.processedDate ? new Date(item.processedDate).toLocaleDateString("en-GB") : "-",
+                quantity: qty,
+                rate,
+                totalRate,
+                discount: Number(item.discountAmount || 0),
+                afterDiscount,
+                tax,
+                total,
+              };
+            }),
           });
         }
       } catch (err) {
@@ -3028,51 +3678,124 @@ function MasterInvoicePage() {
   }
 
   return (
-    <PageShell
-      title={`Master Invoice ${invoice.id}`}
-      subtitle="Invoice detail shell aligned with the legacy finance route structure."
-      actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => mfeProps.navigate(`/finance/invoice/edit/${uid}`)}>Edit</Button>
-          <Button onClick={() => window.print()}>Print Invoice</Button>
-        </div>
-      }
-    >
-      <div className="grid gap-6 lg:grid-cols-3">
-        <SectionCard title="Invoice Summary" className="border-slate-200 shadow-sm lg:col-span-2">
-          <div className="space-y-4 text-sm text-slate-700">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-500">Customer</span>
-              <span className="font-semibold text-slate-900">{invoice.customer}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-500">Category</span>
-              <span className="font-semibold text-slate-900">{invoice.category}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-500">Due Date</span>
-              <span className="font-semibold text-slate-900">{invoice.dueDate}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-500">Amount</span>
-              <span className="font-semibold text-slate-900">{formatCurrency(invoice.amount)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-500">Status</span>
-              <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
-            </div>
-          </div>
-        </SectionCard>
+    <div className="min-h-screen bg-slate-100/70 py-4">
+      <div className="mx-auto flex max-w-[1840px] flex-col gap-4">
+        <button
+          type="button"
+          onClick={() => navigate("/invoice")}
+          className="w-fit px-2 text-lg font-medium text-slate-800"
+        >
+          ← Back
+        </button>
 
-        <SectionCard title="Next Actions" className="border-slate-200 shadow-sm">
-          <div className="space-y-3 text-sm text-slate-600">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">Share invoice link</div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">Capture payment</div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">Download statement</div>
+        <SectionCard className="border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-[20px] font-semibold text-slate-800">Invoice :#{invoice.invoiceNum}</div>
+                <div className="mt-1 text-sm text-slate-500">
+                  <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>
+                <Button variant="outline" onClick={() => window.print()}>Print</Button>
+                <Button variant="outline" onClick={() => navigate(`/invoice/edit/${uid}`)}>Edit</Button>
+                <Button variant="outline" disabled>Log</Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4 lg:p-6">
+              <div className="grid gap-8 lg:grid-cols-[1.2fr_0.9fr]">
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="pb-2 text-[18px] font-semibold text-slate-800">Oasis Hospital's</div>
+                  <div>{invoice.billedToAddress}</div>
+                  <div>Location : <span className="font-semibold text-slate-700">{invoice.location}</span></div>
+                  <div>Invoice To : <span className="font-semibold text-slate-700">{invoice.customer}</span></div>
+                </div>
+
+                <div className="space-y-1 text-sm text-slate-600 lg:justify-self-end">
+                  <div className="pb-2 text-right text-[18px] font-semibold text-slate-800">Invoice : #{invoice.invoiceNum}</div>
+                  <div className="flex justify-between gap-6"><span>Booking Reference :</span><span className="font-semibold text-slate-700">{invoice.referenceNo}</span></div>
+                  <div className="flex justify-between gap-6"><span>Patient Id :</span><span className="font-semibold text-slate-700">{invoice.patientId}</span></div>
+                  <div className="flex justify-between gap-6"><span>Created On :</span><span className="font-semibold text-slate-700">{invoice.createdOn}</span></div>
+                  <div className="flex justify-between gap-6"><span>Invoice Date :</span><span className="font-semibold text-slate-700">{invoice.invoiceDate}</span></div>
+                  <div className="flex justify-between gap-6"><span>Created By :</span><span className="font-semibold text-slate-700">{invoice.createdBy}</span></div>
+                  <div className="flex justify-between gap-6"><span>Category :</span><span className="font-semibold text-slate-700">{invoice.category}</span></div>
+                  <div className="flex justify-between gap-6"><span>Product :</span><span className="font-semibold text-slate-700">{invoice.product}</span></div>
+                </div>
+              </div>
+
+              <div className="mt-8 overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-700">
+                      <th className="px-4 py-3 font-semibold">Procedure/Item</th>
+                      <th className="px-4 py-3 font-semibold">Date</th>
+                      <th className="px-4 py-3 font-semibold text-right">Rate</th>
+                      <th className="px-4 py-3 font-semibold text-right">Qty</th>
+                      <th className="px-4 py-3 font-semibold text-right">Total Rate</th>
+                      <th className="px-4 py-3 font-semibold text-right">Discount</th>
+                      <th className="px-4 py-3 font-semibold text-right">After Discount</th>
+                      <th className="px-4 py-3 font-semibold text-right">Tax</th>
+                      <th className="px-4 py-3 font-semibold text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {invoice.detailList.length ? (
+                      invoice.detailList.map((item: any) => (
+                        <tr key={item.id} className="text-slate-700">
+                          <td className="px-4 py-4 font-semibold text-slate-800">{item.itemName}</td>
+                          <td className="px-4 py-4">{item.processedDate}</td>
+                          <td className="px-4 py-4 text-right">{formatCurrency(item.rate)}</td>
+                          <td className="px-4 py-4 text-right">{item.quantity}</td>
+                          <td className="px-4 py-4 text-right">{formatCurrency(item.totalRate)}</td>
+                          <td className="px-4 py-4 text-right">{formatCurrency(item.discount)}</td>
+                          <td className="px-4 py-4 text-right">{formatCurrency(item.afterDiscount)}</td>
+                          <td className="px-4 py-4 text-right">{formatCurrency(item.tax)}</td>
+                          <td className="px-4 py-4 text-right font-semibold text-slate-800">{formatCurrency(item.total)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-slate-400">No invoice items available.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <div className="w-full max-w-md space-y-2 text-sm text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <span>Total Amount :</span>
+                    <span className="font-semibold text-slate-800">{formatCurrency(invoice.totalAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Net Total :</span>
+                    <span className="font-semibold text-slate-800">{formatCurrency(invoice.netTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-lg bg-slate-100 px-4 py-4">
+                <div className="flex items-center justify-end gap-6 text-[18px] font-semibold text-slate-800">
+                  <span>Amount Due</span>
+                  <span>{formatCurrency(invoice.amountDue)}</span>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button>Get Payment</Button>
+                <Button variant="outline">Settle Invoice</Button>
+                <Button variant="outline" className="text-rose-500">Cancel Invoice</Button>
+              </div>
+            </div>
           </div>
         </SectionCard>
       </div>
-    </PageShell>
+    </div>
   );
 }
 
@@ -3248,58 +3971,77 @@ function ItemsPage() {
         key: "actions",
         header: "Actions",
         render: (row) => (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.uid}`)}>
               Edit
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                const nextStatus = row.status === "Enabled" ? "Disabled" : "Enabled";
-                try {
-                  await financeApi.items.changeStatus(row.uid, nextStatus);
-                  loadItems();
-                } catch (err) {
-                  console.error(err);
-                  alert("Failed to update status");
-                }
-              }}
+            <Popover
+              portal
+              placement="bottom"
+              align="end"
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                  aria-label="Item actions"
+                />
+              }
             >
-              {row.status === "Enabled" ? "Disable" : "Enable"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={row.couponApplicable ? "bg-indigo-50 border-indigo-200" : ""}
-              onClick={async () => {
-                try {
-                  await financeApi.items.updateCouponApplicable(row.uid, !row.couponApplicable);
-                  loadItems();
-                } catch (err) {
-                  console.error(err);
-                  alert("Failed to update coupon setting");
-                }
-              }}
-            >
-              Coupon: {row.couponApplicable ? "On" : "Off"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={row.discountApplicable ? "bg-indigo-50 border-indigo-200" : ""}
-              onClick={async () => {
-                try {
-                  await financeApi.items.updateDiscountApplicable(row.uid, !row.discountApplicable);
-                  loadItems();
-                } catch (err) {
-                  console.error(err);
-                  alert("Failed to update discount setting");
-                }
-              }}
-            >
-              Discount: {row.discountApplicable ? "On" : "Off"}
-            </Button>
+              <div className="grid min-w-[220px] p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={async () => {
+                    const nextStatus = row.status === "Enabled" ? "Disabled" : "Enabled";
+                    try {
+                      await financeApi.items.changeStatus(row.uid, nextStatus);
+                      loadItems();
+                    } catch (err) {
+                      console.error(err);
+                      alert("Failed to update status");
+                    }
+                  }}
+                >
+                  {row.status === "Enabled" ? "Disable" : "Enable"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={async () => {
+                    try {
+                      await financeApi.items.updateCouponApplicable(row.uid, !row.couponApplicable);
+                      loadItems();
+                    } catch (err) {
+                      console.error(err);
+                      alert("Failed to update coupon setting");
+                    }
+                  }}
+                >
+                  Coupon Applicable: {row.couponApplicable ? "On" : "Off"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={async () => {
+                    try {
+                      await financeApi.items.updateDiscountApplicable(row.uid, !row.discountApplicable);
+                      loadItems();
+                    } catch (err) {
+                      console.error(err);
+                      alert("Failed to update discount setting");
+                    }
+                  }}
+                >
+                  Discount Applicable: {row.discountApplicable ? "On" : "Off"}
+                </Button>
+              </div>
+            </Popover>
           </div>
         ),
       },
@@ -3633,6 +4375,979 @@ function ItemsEditPage() {
   );
 }
 
+function SequenceTemplatesPage() {
+  const navigate = useNavigate();
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadTemplates() {
+    setLoading(true);
+    try {
+      const res = await financeApi.sequenceTemplates.list<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "feature",
+          operator: "EQ",
+          values: ["FINANCE"],
+        }
+        // view: "SUMMARY",
+      });
+      const payload = Array.isArray(res.data?.content)
+        ? res.data.content
+        : Array.isArray(res.data?.data?.content)
+          ? res.data.data.content
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+      setTemplates(payload);
+    } catch (error) {
+      console.error("Failed to fetch sequence templates", error);
+      setTemplates([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      { key: "name", header: "Template Name" },
+      { key: "feature", header: "Feature", render: (row) => String(row.feature || "FINANCE") },
+      { key: "prefix", header: "Prefix" },
+      { key: "suffix", header: "Suffix" },
+      { key: "remarks", header: "Remarks" },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => <Badge variant={row.status === "Enabled" ? "success" : "neutral"}>{row.status || "Disabled"}</Badge>,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.uid}`)}>
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const nextStatus = row.status === "Enabled" ? "Disabled" : "Enabled";
+                try {
+                  await financeApi.sequenceTemplates.updateStatus(row.uid, nextStatus);
+                  loadTemplates();
+                } catch (error) {
+                  console.error("Failed to update sequence template status", error);
+                  alert("Failed to update sequence template status");
+                }
+              }}
+            >
+              {row.status === "Enabled" ? "Disable" : "Enable"}
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
+
+  return (
+    <FinanceFeatureLayout
+      title="Sequence Templates"
+      subtitle="Manage finance numbering templates used by sequence settings and invoice numbering."
+      actions={<Button onClick={() => navigate("create")}>Create Sequence Template</Button>}
+      main={
+        <DataTableCard
+          title="Sequence Template List"
+          subtitle="Finance sequence templates."
+          data={templates}
+          columns={columns}
+          getRowId={(row) => String(row.uid)}
+          emptyTitle="No sequence templates"
+          emptyDescription={loading ? "Loading..." : "Sequence templates will appear here."}
+        />
+      }
+    />
+  );
+}
+
+function SequenceTemplateCreatePage() {
+  const navigate = useNavigate();
+  const navigateToSequenceTemplateList = () => navigate("..", { relative: "path", replace: true });
+  const [name, setName] = useState("");
+  const [feature, setFeature] = useState<SequenceTemplateFeature>("FINANCE");
+  const [prefix, setPrefix] = useState("");
+  const [suffix, setSuffix] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [status, setStatus] = useState("Enabled");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!name.trim()) {
+      setFormError("Template name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await financeApi.sequenceTemplates.create({
+        name: name.trim(),
+        feature,
+        prefix: prefix.trim() || undefined,
+        suffix: suffix.trim() || undefined,
+        remarks: remarks.trim() || undefined,
+        status,
+      });
+      navigateToSequenceTemplateList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create sequence template", error);
+      setFormError(error instanceof Error ? error.message : "Could not create sequence template.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Sequence Template"
+      subtitle="Add a finance sequence template for numbering flows."
+      actions={<Button variant="outline" onClick={navigateToSequenceTemplateList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Template Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Select
+              label="Feature"
+              value={feature}
+              onChange={(event) => setFeature(event.target.value as SequenceTemplateFeature)}
+              options={sequenceTemplateFeatureOptions}
+            />
+            <Input label="Prefix" value={prefix} maxLength={4} onChange={(event) => setPrefix(event.target.value)} />
+            <Input label="Suffix" value={suffix} maxLength={6} onChange={(event) => setSuffix(event.target.value)} />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              options={[
+                { value: "Enabled", label: "Enabled" },
+                { value: "Disabled", label: "Disabled" },
+              ]}
+            />
+          </div>
+          <Textarea label="Remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToSequenceTemplateList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Create Template"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function SequenceTemplateEditPage() {
+  const navigate = useNavigate();
+  const navigateToSequenceTemplateList = () => navigate("../..", { relative: "path", replace: true });
+  const { id } = useParams<{ id: string }>();
+  const [name, setName] = useState("");
+  const [feature, setFeature] = useState<SequenceTemplateFeature>("FINANCE");
+  const [prefix, setPrefix] = useState("");
+  const [suffix, setSuffix] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [status, setStatus] = useState("Enabled");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadTemplate() {
+      if (!id) return;
+      try {
+        const res = await financeApi.sequenceTemplates.detail<any>(id);
+        const data = res.data;
+        if (active && data) {
+          setName(String(data.name || ""));
+          setFeature((data.feature || "FINANCE") as SequenceTemplateFeature);
+          setPrefix(String(data.prefix || ""));
+          setSuffix(String(data.suffix || ""));
+          setRemarks(String(data.remarks || ""));
+          setStatus(String(data.status || "Enabled"));
+        }
+      } catch (error) {
+        console.error("Failed to load sequence template", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadTemplate();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!name.trim()) {
+      setFormError("Template name is required.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await financeApi.sequenceTemplates.update(id!, {
+        uid: id,
+        name: name.trim(),
+        feature,
+        prefix: prefix.trim() || undefined,
+        suffix: suffix.trim() || undefined,
+        remarks: remarks.trim() || undefined,
+        status,
+      });
+      navigateToSequenceTemplateList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update sequence template", error);
+      setFormError(error instanceof Error ? error.message : "Could not update sequence template.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading sequence template...</div>;
+  }
+
+  return (
+    <PageShell
+      title="Edit Sequence Template"
+      subtitle="Update finance sequence template details."
+      actions={<Button variant="outline" onClick={navigateToSequenceTemplateList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Template Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Select
+              label="Feature"
+              value={feature}
+              onChange={(event) => setFeature(event.target.value as SequenceTemplateFeature)}
+              options={sequenceTemplateFeatureOptions}
+            />
+            <Input label="Prefix" value={prefix} maxLength={4} onChange={(event) => setPrefix(event.target.value)} />
+            <Input label="Suffix" value={suffix} maxLength={6} onChange={(event) => setSuffix(event.target.value)} />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              options={[
+                { value: "Enabled", label: "Enabled" },
+                { value: "Disabled", label: "Disabled" },
+              ]}
+            />
+          </div>
+          <Textarea label="Remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToSequenceTemplateList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Update Template"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function SequenceSettingsPage() {
+  const navigate = useNavigate();
+  const [settingsRows, setSettingsRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadSettings() {
+    setLoading(true);
+    try {
+      const res = await financeApi.sequenceSettings.list<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "feature",
+          operator: "EQ",
+          values: ["FINANCE"],
+        },
+        // view: "SUMMARY",
+      });
+      const payload = Array.isArray(res.data?.content)
+        ? res.data.content
+        : Array.isArray(res.data?.data?.content)
+          ? res.data.data.content
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+      setSettingsRows(payload);
+    } catch (error) {
+      console.error("Failed to fetch sequence settings", error);
+      setSettingsRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      { key: "locationUid", header: "Location UID" },
+      { key: "storeUid", header: "Store UID" },
+      { key: "feature", header: "Feature" },
+      { key: "featureModule", header: "Feature Module" },
+      {
+        key: "details",
+        header: "Details",
+        align: "right",
+        render: (row) => String(Array.isArray(row.details) ? row.details.length : 0),
+      },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => <Badge variant={row.status === "Enabled" ? "success" : "neutral"}>{row.status || "Disabled"}</Badge>,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.uid}`)}>
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const nextStatus = row.status === "Enabled" ? "Disabled" : "Enabled";
+                try {
+                  await financeApi.sequenceSettings.updateStatus(row.uid, nextStatus);
+                  loadSettings();
+                } catch (error) {
+                  console.error("Failed to update sequence setting status", error);
+                  alert("Failed to update sequence setting status");
+                }
+              }}
+            >
+              {row.status === "Enabled" ? "Disable" : "Enable"}
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
+
+  return (
+    <FinanceFeatureLayout
+      title="Sequence Settings"
+      subtitle="Manage finance sequence settings that drive numbering contexts."
+      actions={<Button onClick={() => navigate("create")}>Create Sequence Setting</Button>}
+      main={
+        <DataTableCard
+          title="Sequence Settings List"
+          subtitle="Finance sequence settings."
+          data={settingsRows}
+          columns={columns}
+          getRowId={(row) => String(row.uid)}
+          emptyTitle="No sequence settings"
+          emptyDescription={loading ? "Loading..." : "Sequence settings will appear here."}
+        />
+      }
+    />
+  );
+}
+
+function SequenceSettingCreatePage() {
+  const mfeProps = useMFEProps();
+  const navigate = useNavigate();
+  const navigateToSequenceSettingsList = () => navigate("..", { relative: "path", replace: true });
+  const locationRecord = (mfeProps.location ?? {}) as Record<string, unknown>;
+  const defaultLocationUid = String(locationRecord.uid ?? locationRecord.locationUid ?? locationRecord.id ?? "");
+  const defaultStoreUid = String(locationRecord.storeUid ?? locationRecord.storeId ?? "");
+
+  const [locationUid, setLocationUid] = useState(defaultLocationUid);
+  const [storeUid, setStoreUid] = useState(defaultStoreUid);
+  const [feature, setFeature] = useState<SequenceTemplateFeature>("FINANCE");
+  const [subFeature, setSubFeature] = useState<SequenceTemplateFeature>("FINANCE");
+  const [featureModule, setFeatureModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
+  const [financeModule, setFinanceModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
+  const [remarks, setRemarks] = useState("");
+  const [status, setStatus] = useState("Enabled");
+  const [sequenceTemplateOptions, setSequenceTemplateOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [details, setDetails] = useState<any[]>([
+    {
+      sequenceTemplateUid: "",
+      prefix: "",
+      suffix: "",
+      status: "Enabled",
+      isDefault: true,
+    },
+  ]);
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSequenceTemplates() {
+      try {
+        const res = await financeApi.sequenceTemplates.list<any>({
+          page: 0,
+          size: 100,
+          sort: [{ field: "createdAt", direction: "DESC" }],
+          filters: {
+            field: "feature",
+            operator: "EQ",
+            values: ["FINANCE"],
+          },
+          // view: "SUMMARY",
+        });
+        const payload = Array.isArray(res.data?.content)
+          ? res.data.content
+          : Array.isArray(res.data?.data?.content)
+            ? res.data.data.content
+            : Array.isArray(res.data)
+              ? res.data
+              : [];
+        if (!active) return;
+        setSequenceTemplateOptions(
+          payload.map((item: any) => ({
+            value: String(item.uid),
+            label: String(item.name || item.templateName || item.uid),
+          }))
+        );
+      } catch (error) {
+        console.error("Failed to load sequence templates", error);
+      }
+    }
+    loadSequenceTemplates();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!locationUid.trim()) {
+      setFormError("Location UID is required.");
+      return;
+    }
+    if (details.length === 0) {
+      setFormError("At least one detail is required.");
+      return;
+    }
+    if (details.some((item) => !String(item.sequenceTemplateUid || "").trim())) {
+      setFormError("Sequence template is required for every detail.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await financeApi.sequenceSettings.create({
+        locationUid: locationUid.trim(),
+        storeUid: storeUid.trim() || undefined,
+        feature,
+        subFeature,
+        featureModule,
+        financeModule,
+        remarks: remarks.trim() || undefined,
+        status,
+        details: details.map((item) => ({
+          locationUid: locationUid.trim(),
+          storeUid: storeUid.trim() || undefined,
+          feature,
+          subFeature,
+          featureModule,
+          financeModule,
+          sequenceTemplateUid: String(item.sequenceTemplateUid).trim(),
+          prefix: String(item.prefix || "").trim() || undefined,
+          suffix: String(item.suffix || "").trim() || undefined,
+          status: item.status || "Enabled",
+          isDefault: Boolean(item.isDefault),
+        })),
+      });
+      navigateToSequenceSettingsList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create sequence setting", error);
+      setFormError(error instanceof Error ? error.message : "Could not create sequence setting.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Sequence Setting"
+      subtitle="Create a finance sequence setting."
+      actions={<Button variant="outline" onClick={navigateToSequenceSettingsList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Location UID *" value={locationUid} onChange={(event) => setLocationUid(event.target.value)} required />
+            <Input label="Store UID" value={storeUid} onChange={(event) => setStoreUid(event.target.value)} />
+            <Select label="Feature" value={feature} onChange={(event) => setFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
+            <Select label="Sub Feature" value={subFeature} onChange={(event) => setSubFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
+            <Select label="Feature Module" value={featureModule} onChange={(event) => setFeatureModule(event.target.value as FinanceFeatureModule)} options={financeFeatureModuleOptions} />
+            <Select label="Finance Module" value={financeModule} onChange={(event) => setFinanceModule(event.target.value as FinanceFeatureModule)} options={financeFeatureModuleOptions} />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              options={[
+                { value: "Enabled", label: "Enabled" },
+                { value: "Disabled", label: "Disabled" },
+              ]}
+            />
+          </div>
+          <Textarea label="Remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+          <SectionCard title="Details" className="border-slate-200 shadow-none">
+            <div className="grid gap-4">
+              {details.map((detail, index) => (
+                <div key={`sequence-detail-${index}`} className="grid gap-4 rounded-lg border border-slate-200 p-4 md:grid-cols-2">
+                  <Select
+                    label="Sequence Template *"
+                    value={detail.sequenceTemplateUid}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, sequenceTemplateUid: event.target.value } : item
+                        )
+                      )
+                    }
+                    options={[{ value: "", label: "Select template" }, ...sequenceTemplateOptions]}
+                  />
+                  <Select
+                    label="Detail Status"
+                    value={detail.status}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) => (itemIndex === index ? { ...item, status: event.target.value } : item))
+                      )
+                    }
+                    options={[
+                      { value: "Enabled", label: "Enabled" },
+                      { value: "Disabled", label: "Disabled" },
+                    ]}
+                  />
+                  <Input
+                    label="Prefix"
+                    maxLength={4}
+                    value={detail.prefix}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) => (itemIndex === index ? { ...item, prefix: event.target.value } : item))
+                      )
+                    }
+                  />
+                  <Input
+                    label="Suffix"
+                    maxLength={6}
+                    value={detail.suffix}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) => (itemIndex === index ? { ...item, suffix: event.target.value } : item))
+                      )
+                    }
+                  />
+                  <div className="flex items-center gap-3 pt-2">
+                    <Switch
+                      checked={Boolean(detail.isDefault)}
+                      onChange={(checked) =>
+                        setDetails((current) =>
+                          current.map((item, itemIndex) => ({
+                            ...item,
+                            isDefault: itemIndex === index ? checked : checked ? false : item.isDefault,
+                          }))
+                        )
+                      }
+                    />
+                    <label className="text-sm font-semibold text-slate-700">Default Detail</label>
+                  </div>
+                  <div className="flex items-end justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setDetails((current) => (current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index)))
+                      }
+                      disabled={details.length === 1}
+                    >
+                      Remove Detail
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setDetails((current) => [
+                      ...current,
+                      {
+                        sequenceTemplateUid: "",
+                        prefix: "",
+                        suffix: "",
+                        status: "Enabled",
+                        isDefault: current.length === 0,
+                      },
+                    ])
+                  }
+                >
+                  Add Detail
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToSequenceSettingsList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Create Setting"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function SequenceSettingEditPage() {
+  const navigate = useNavigate();
+  const navigateToSequenceSettingsList = () => navigate("../..", { relative: "path", replace: true });
+  const { id } = useParams<{ id: string }>();
+  const [locationUid, setLocationUid] = useState("");
+  const [storeUid, setStoreUid] = useState("");
+  const [feature, setFeature] = useState<SequenceTemplateFeature>("FINANCE");
+  const [subFeature, setSubFeature] = useState<SequenceTemplateFeature>("FINANCE");
+  const [featureModule, setFeatureModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
+  const [financeModule, setFinanceModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
+  const [remarks, setRemarks] = useState("");
+  const [status, setStatus] = useState("Enabled");
+  const [sequenceTemplateOptions, setSequenceTemplateOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [details, setDetails] = useState<any[]>([]);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSequenceTemplates() {
+      try {
+        const res = await financeApi.sequenceTemplates.list<any>({
+          page: 0,
+          size: 100,
+          sort: [{ field: "createdAt", direction: "DESC" }],
+          filters: {
+            field: "feature",
+            operator: "EQ",
+            values: ["FINANCE"],
+          },
+          // view: "SUMMARY",
+        });
+        const payload = Array.isArray(res.data?.content)
+          ? res.data.content
+          : Array.isArray(res.data?.data?.content)
+            ? res.data.data.content
+            : Array.isArray(res.data)
+              ? res.data
+              : [];
+        if (!active) return;
+        setSequenceTemplateOptions(
+          payload.map((item: any) => ({
+            value: String(item.uid),
+            label: String(item.name || item.templateName || item.uid),
+          }))
+        );
+      } catch (error) {
+        console.error("Failed to load sequence templates", error);
+      }
+    }
+    loadSequenceTemplates();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSetting() {
+      if (!id) return;
+      try {
+        const res = await financeApi.sequenceSettings.detail<any>(id);
+        const data = res.data;
+        if (active && data) {
+          setLocationUid(String(data.locationUid || ""));
+          setStoreUid(String(data.storeUid || ""));
+          setFeature((data.feature || "FINANCE") as SequenceTemplateFeature);
+          setSubFeature((data.subFeature || "FINANCE") as SequenceTemplateFeature);
+          setFeatureModule((data.featureModule || "FINANCE_CORE") as FinanceFeatureModule);
+          setFinanceModule((data.financeModule || data.featureModule || "FINANCE_CORE") as FinanceFeatureModule);
+          setRemarks(String(data.remarks || ""));
+          setStatus(String(data.status || "Enabled"));
+          setDetails(
+            Array.isArray(data.details) && data.details.length > 0
+              ? data.details.map((item: any) => ({
+                  uid: item.uid,
+                  sequenceTemplateUid: String(item.sequenceTemplateUid || ""),
+                  prefix: String(item.prefix || ""),
+                  suffix: String(item.suffix || ""),
+                  status: String(item.status || "Enabled"),
+                  isDefault: Boolean(item.isDefault),
+                }))
+              : [
+                  {
+                    sequenceTemplateUid: "",
+                    prefix: "",
+                    suffix: "",
+                    status: "Enabled",
+                    isDefault: true,
+                  },
+                ]
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load sequence setting", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadSetting();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!locationUid.trim()) {
+      setFormError("Location UID is required.");
+      return;
+    }
+    if (details.length === 0) {
+      setFormError("At least one detail is required.");
+      return;
+    }
+    if (details.some((item) => !String(item.sequenceTemplateUid || "").trim())) {
+      setFormError("Sequence template is required for every detail.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await financeApi.sequenceSettings.update(id!, {
+        uid: id,
+        locationUid: locationUid.trim(),
+        storeUid: storeUid.trim() || undefined,
+        feature,
+        subFeature,
+        featureModule,
+        financeModule,
+        remarks: remarks.trim() || undefined,
+        status,
+        details: details.map((item) => ({
+          uid: item.uid || undefined,
+          locationUid: locationUid.trim(),
+          storeUid: storeUid.trim() || undefined,
+          feature,
+          subFeature,
+          featureModule,
+          financeModule,
+          sequenceTemplateUid: String(item.sequenceTemplateUid).trim(),
+          prefix: String(item.prefix || "").trim() || undefined,
+          suffix: String(item.suffix || "").trim() || undefined,
+          status: item.status || "Enabled",
+          isDefault: Boolean(item.isDefault),
+        })),
+      });
+      navigateToSequenceSettingsList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update sequence setting", error);
+      setFormError(error instanceof Error ? error.message : "Could not update sequence setting.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading sequence setting...</div>;
+  }
+
+  return (
+    <PageShell
+      title="Edit Sequence Setting"
+      subtitle="Update finance sequence setting details."
+      actions={<Button variant="outline" onClick={navigateToSequenceSettingsList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Location UID *" value={locationUid} onChange={(event) => setLocationUid(event.target.value)} required />
+            <Input label="Store UID" value={storeUid} onChange={(event) => setStoreUid(event.target.value)} />
+            <Select label="Feature" value={feature} onChange={(event) => setFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
+            <Select label="Sub Feature" value={subFeature} onChange={(event) => setSubFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
+            <Select label="Feature Module" value={featureModule} onChange={(event) => setFeatureModule(event.target.value as FinanceFeatureModule)} options={financeFeatureModuleOptions} />
+            <Select label="Finance Module" value={financeModule} onChange={(event) => setFinanceModule(event.target.value as FinanceFeatureModule)} options={financeFeatureModuleOptions} />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              options={[
+                { value: "Enabled", label: "Enabled" },
+                { value: "Disabled", label: "Disabled" },
+              ]}
+            />
+          </div>
+          <Textarea label="Remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+          <SectionCard title="Details" className="border-slate-200 shadow-none">
+            <div className="grid gap-4">
+              {details.map((detail, index) => (
+                <div key={detail.uid || `sequence-setting-detail-${index}`} className="grid gap-4 rounded-lg border border-slate-200 p-4 md:grid-cols-2">
+                  <Select
+                    label="Sequence Template *"
+                    value={detail.sequenceTemplateUid}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, sequenceTemplateUid: event.target.value } : item
+                        )
+                      )
+                    }
+                    options={[{ value: "", label: "Select template" }, ...sequenceTemplateOptions]}
+                  />
+                  <Select
+                    label="Detail Status"
+                    value={detail.status}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) => (itemIndex === index ? { ...item, status: event.target.value } : item))
+                      )
+                    }
+                    options={[
+                      { value: "Enabled", label: "Enabled" },
+                      { value: "Disabled", label: "Disabled" },
+                    ]}
+                  />
+                  <Input
+                    label="Prefix"
+                    maxLength={4}
+                    value={detail.prefix}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) => (itemIndex === index ? { ...item, prefix: event.target.value } : item))
+                      )
+                    }
+                  />
+                  <Input
+                    label="Suffix"
+                    maxLength={6}
+                    value={detail.suffix}
+                    onChange={(event) =>
+                      setDetails((current) =>
+                        current.map((item, itemIndex) => (itemIndex === index ? { ...item, suffix: event.target.value } : item))
+                      )
+                    }
+                  />
+                  <div className="flex items-center gap-3 pt-2">
+                    <Switch
+                      checked={Boolean(detail.isDefault)}
+                      onChange={(checked) =>
+                        setDetails((current) =>
+                          current.map((item, itemIndex) => ({
+                            ...item,
+                            isDefault: itemIndex === index ? checked : checked ? false : item.isDefault,
+                          }))
+                        )
+                      }
+                    />
+                    <label className="text-sm font-semibold text-slate-700">Default Detail</label>
+                  </div>
+                  <div className="flex items-end justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setDetails((current) => (current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index)))
+                      }
+                      disabled={details.length === 1}
+                    >
+                      Remove Detail
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setDetails((current) => [
+                      ...current,
+                      {
+                        sequenceTemplateUid: "",
+                        prefix: "",
+                        suffix: "",
+                        status: "Enabled",
+                        isDefault: current.length === 0,
+                      },
+                    ])
+                  }
+                >
+                  Add Detail
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToSequenceSettingsList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Update Setting"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
 function PlaceholderPage() {
   const location = useLocation();
   const title = useMemo(() => {
@@ -3705,9 +5420,19 @@ export default function App() {
         <Route path="expense" element={withBoundary(<ExpensesPage />)} />
         <Route path="expense/new" element={withBoundary(<ExpensesCreatePage />)} />
         <Route path="expense/edit/:id" element={withBoundary(<ExpensesEditPage />)} />
+        <Route path="discount" element={withBoundary(<DiscountsPage />)} />
+        <Route path="discount/create" element={withBoundary(<DiscountCreatePage />)} />
+        <Route path="discount/edit/:id" element={withBoundary(<DiscountEditPage />)} />
         <Route path="invoice" element={withBoundary(<InvoicesPage />)} />
         <Route path="invoice/newInvoice" element={withBoundary(<FinanceInvoiceForm />)} />
         <Route path="invoice/edit/:id" element={withBoundary(<FinanceInvoiceForm />)} />
+        <Route path="invoice/view/:uid" element={withBoundary(<MasterInvoicePage />)} />
+        <Route path="sequence-template" element={withBoundary(<SequenceTemplatesPage />)} />
+        <Route path="sequence-template/create" element={withBoundary(<SequenceTemplateCreatePage />)} />
+        <Route path="sequence-template/edit/:id" element={withBoundary(<SequenceTemplateEditPage />)} />
+        <Route path="sequence-settings" element={withBoundary(<SequenceSettingsPage />)} />
+        <Route path="sequence-settings/create" element={withBoundary(<SequenceSettingCreatePage />)} />
+        <Route path="sequence-settings/edit/:id" element={withBoundary(<SequenceSettingEditPage />)} />
         <Route path="items" element={withBoundary(<ItemsPage />)} />
         <Route path="items/create" element={withBoundary(<ItemsCreatePage />)} />
         <Route path="items/edit/:id" element={withBoundary(<ItemsEditPage />)} />

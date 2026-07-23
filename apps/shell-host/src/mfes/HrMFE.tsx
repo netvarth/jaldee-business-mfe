@@ -3,7 +3,7 @@ import { useBuildMFEProps } from "../hooks/useMFEProps";
 
 export function loadHrRemote() {
   if (import.meta.env.DEV) {
-    const hrUrl = import.meta.env.VITE_HR_URL ?? "http://localhost:4008";
+    const hrUrl = import.meta.env.VITE_HR_URL ?? "http://localhost:3007";
     return import(/* @vite-ignore */ `${hrUrl}/src/mount.tsx`);
   }
 

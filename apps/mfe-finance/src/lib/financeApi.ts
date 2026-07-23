@@ -102,7 +102,9 @@ function buildTenantApiUrl(path: string) {
 }
 
 const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/category");
+const TENANT_CATEGORY_SEARCH_ENDPOINT = `${TENANT_CATEGORY_ENDPOINT}/search`;
 const TENANT_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/status");
+const TENANT_STATUS_SEARCH_ENDPOINT = `${TENANT_STATUS_ENDPOINT}/search`;
 const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item");
 const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
 const TENANT_PAYMENTS_OUT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-out");
@@ -119,6 +121,10 @@ const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenan
 const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`;
 const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates");
 const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
+const TENANT_SEQUENCE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/template");
+const TENANT_SEQUENCE_TEMPLATE_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/search`;
+const TENANT_SEQUENCE_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/settings");
+const TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/search`;
 
 const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/expenses");
 const TENANT_EXPENSES_SEARCH_ENDPOINT = `${TENANT_EXPENSES_ENDPOINT}/search`;
@@ -126,6 +132,8 @@ const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/
 const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
 const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
 const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer");
+const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts");
+const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
 
 export function sanitizeFinancePayload<T extends Record<string, unknown>>(data: T) {
   const sanitized = { ...data };
@@ -266,7 +274,7 @@ export const financeApi = {
       return post<T>(`${TENANT_CATEGORY_ENDPOINT}/${uid}/documents`, data);
     },
     search<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_CATEGORY_ENDPOINT, toMsQuery(filter));
+      return post<T>(TENANT_CATEGORY_SEARCH_ENDPOINT, filter);
     },
     byType<T = unknown>(type: string, filter: ApiFilter = {}) {
       return get<T>(`${TENANT_CATEGORY_ENDPOINT}/type/${type}`, filter);
@@ -297,7 +305,7 @@ export const financeApi = {
   statuses: {
     ...statuses,
     search<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_STATUS_ENDPOINT, toMsQuery(filter));
+      return post<T>(TENANT_STATUS_SEARCH_ENDPOINT, filter);
     },
     byType<T = unknown>(type: string, filter: ApiFilter = {}) {
       return get<T>(`${TENANT_STATUS_ENDPOINT}/type/${type}`, filter);
@@ -400,7 +408,8 @@ export const financeApi = {
   invoices: {
     ...invoices,
     // Compatibility aliases for callers that still use the legacy *General names.
-    // The MS list endpoint uses Spring Pageable, so translate from/count -> page/size.
+    // Invoice listing is served by the dedicated POST /search route and uses
+    // Spring Pageable, so translate from/count -> page/size.
     listGeneral<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_INVOICE_SEARCH_ENDPOINT, toMsQuery(filter));
     },
@@ -673,6 +682,63 @@ export const financeApi = {
     },
     updateDiscountApplicable<T = unknown>(uid: string, applicable: boolean) {
       return put<T>(`${TENANT_ITEM_ENDPOINT}/${uid}/discount-applicable/${applicable}`);
+    },
+  },
+  sequenceTemplates: {
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_SEQUENCE_TEMPLATE_SEARCH_ENDPOINT, filter);
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/${uid}`);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_SEQUENCE_TEMPLATE_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/${uid}`, data);
+    },
+    updateStatus<T = unknown>(uid: string, status: string) {
+      return put<T>(`${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/${uid}/${status}`);
+    },
+  },
+  sequenceSettings: {
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, filter);
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/${uid}`);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_SEQUENCE_SETTINGS_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/${uid}`, data);
+    },
+    updateStatus<T = unknown>(uid: string, status: string) {
+      return put<T>(`${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/${uid}/${status}`);
+    },
+  },
+  discounts: {
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_DISCOUNTS_SEARCH_ENDPOINT, filter);
+    },
+    listBill<T = unknown>() {
+      return get<T>("provider/bill/discounts");
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_DISCOUNTS_ENDPOINT}/${uid}`);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_DISCOUNTS_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_DISCOUNTS_ENDPOINT}/${uid}`, data);
+    },
+    updateStatus<T = unknown>(uid: string, status: string) {
+      return put<T>(`${TENANT_DISCOUNTS_ENDPOINT}/${uid}/${status}`);
+    },
+    remove<T = unknown>(id: string) {
+      return put<T>(`${TENANT_DISCOUNTS_ENDPOINT}/${id}/remove`);
     },
   },
 };

@@ -419,31 +419,7 @@ export default function App() {
         }
       />
       <Route
-        path="finance"
-        element={
-          <PageErrorBoundary>
-            <FinancePage />
-          </PageErrorBoundary>
-        }
-      />
-      <Route
-        path="finance/:view"
-        element={
-          <PageErrorBoundary>
-            <FinancePage />
-          </PageErrorBoundary>
-        }
-      />
-      <Route
-        path="finance/:view/:subview"
-        element={
-          <PageErrorBoundary>
-            <FinancePage />
-          </PageErrorBoundary>
-        }
-      />
-      <Route
-        path="finance/:view/:subview/:recordId"
+        path="finance/*"
         element={
           <PageErrorBoundary>
             <FinancePage />
