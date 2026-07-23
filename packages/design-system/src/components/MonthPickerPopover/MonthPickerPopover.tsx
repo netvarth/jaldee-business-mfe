@@ -70,9 +70,13 @@ export function MonthPickerPopover({
       const spaceAbove = rect.top - 12;
       const shouldOpenAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
 
-      const computedTop = shouldOpenAbove
+      const preferredTop = shouldOpenAbove
         ? Math.max(8, rect.top - estimatedHeight - 6)
         : rect.bottom + 6;
+      const computedTop = Math.min(
+        Math.max(8, preferredTop),
+        Math.max(8, innerHeight - estimatedHeight - 8)
+      );
 
       const anchorLeft = align === "end" ? rect.right - width : rect.left;
       const computedLeft = Math.min(Math.max(8, anchorLeft), innerWidth - width - 16);
@@ -116,6 +120,7 @@ export function MonthPickerPopover({
 
   const content = (
     <div
+      data-testid="month-picker-popover"
       className={cn("fixed inset-0 z-[9999] pointer-events-auto", overlayClassName)}
       onClick={onClose}
     >
@@ -204,6 +209,7 @@ export function MonthPickerPopover({
             Clear
           </Button>
           <Button
+            data-testid="month-picker-this-month"
             type="button"
             variant="ghost"
             className="h-auto p-0 text-xs font-bold text-[var(--color-primary)] hover:bg-transparent hover:text-[var(--color-primary-hover)]"

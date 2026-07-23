@@ -18,7 +18,7 @@ const card: CSSProperties = { background: "var(--surface-bg)", border: "1px soli
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const th: CSSProperties = { textAlign: "left", padding: "12px 16px", ...lbl, background: "rgba(100,116,139,0.04)" };
 const td: CSSProperties = { padding: "13px 16px", fontSize: 12.5, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
-const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 };
+const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 };
 const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 20, width: "100%", maxWidth: 720, maxHeight: "88vh", overflowY: "auto" };
 const infoBox: CSSProperties = { background: "rgba(100,116,139,0.05)", borderRadius: 12, padding: "10px 14px" };
 
@@ -142,7 +142,7 @@ export default function Separation() {
           <div data-testid="hr-separation-raise-modal" onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 560 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
               <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>Raise Exit Request</h3>
-              <button onClick={() => setRaiseOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+              <button data-testid="hr-separation-raise-close" aria-label="Close separation request dialog" onClick={() => setRaiseOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
               <Select id="hr-separation-employee" testId="hr-separation-employee" label="Employee" value={form.employeeUid} onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
@@ -173,7 +173,7 @@ export default function Separation() {
                 <h3 style={{ fontSize: 19, fontWeight: 900, color: TEAL, margin: 0 }}>{current.employeeName || "Exit Request"}</h3>
                 <p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{current.separationType} · <StatusPill s={current.status} /></p>
               </div>
-              <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+              <button data-testid="hr-separation-detail-close" aria-label="Close separation details" onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
             </div>
 
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>

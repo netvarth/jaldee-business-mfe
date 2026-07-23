@@ -53,8 +53,8 @@ async function uploadCandidateResumeFile(
   const descriptor = {
     action: "ADD",
     caption: file.name,
-    contextType: "CANDIDATE",
-    featureModuleName: "HR_RECRUITMENT",
+    contextType: "CAREERS",
+    featureModuleName: "HR_CAREERS",
     featureServiceName: "HR",
     fileName: file.name,
     fileType: resolveFileType(file),

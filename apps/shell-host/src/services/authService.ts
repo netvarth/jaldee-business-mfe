@@ -58,6 +58,7 @@ interface TenantSettingsResponse {
   lending?: boolean | null;
   ecommerce?: boolean | null;
   eCommerce?: boolean | null;
+  hr?: boolean | null;
   lead?: boolean | null;
   membership?: boolean | null;
   task?: boolean | null;
@@ -582,6 +583,7 @@ function normalizeTenantSettings(raw: unknown): TenantSettingsResponse {
     lending: readTenantBoolean(candidate, ["lending", "lendingCrm", "lendingCrmEnabled", "lendingCrmStatus"]),
     ecommerce: readTenantBoolean(candidate, ["ecommerce", "eCommerce", "karty", "kartyEnabled", "kartyStatus"]),
     eCommerce: readTenantBoolean(candidate, ["eCommerce", "ecommerce", "karty", "kartyEnabled", "kartyStatus"]),
+    hr: readTenantBoolean(candidate, ["hr"]),
     lead: readTenantBoolean(candidate, ["lead"]),
     membership: readTenantBoolean(candidate, ["membership"]),
     task: readTenantBoolean(candidate, ["task"]),
@@ -704,6 +706,7 @@ function deriveLicensedProductsFromTenantSettings(
     settings.lending,
     settings.ecommerce,
     settings.eCommerce,
+    settings.hr,
   ];
 
   const hasRecognizedSetting = recognizedFlags.some((value) => typeof value === "boolean");
@@ -727,6 +730,9 @@ function deriveLicensedProductsFromTenantSettings(
   }
   if (settings.ecommerce || settings.eCommerce) {
     products.push("karty");
+  }
+  if (settings.hr) {
+    products.push("hr");
   }
 
   return products;

@@ -69,6 +69,7 @@ export function Dialog({
           className={cn(
             "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
             "bg-white rounded-xl shadow-xl z-[201] w-full p-6",
+            "max-sm:!inset-0 max-sm:!h-[100dvh] max-sm:!max-h-[100dvh] max-sm:!w-screen max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none max-sm:!overflow-y-auto",
             "animate-in fade-in-0 zoom-in-95",
             sizeMap[size],
             contentClassName

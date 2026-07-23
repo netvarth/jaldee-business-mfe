@@ -127,14 +127,14 @@ function ApplyCard({ companySlug, jobSlug, title, interactive }: { companySlug?:
   };
 
   return (
-    <div className="apply-card">
+    <div className="apply-card" data-testid="careers-public-application-card">
       <div className="apply-head">
         <div className="t">Apply for this role</div>
         <div className="s">Takes ~2 minutes · Attach your resume</div>
       </div>
 
       {done ? (
-        <div className="success show">
+        <div className="success show" data-testid="careers-public-application-success">
           <div className="ok">✓</div>
           <h3>Application received</h3>
           <p>Thanks for applying to {title}. We'll review your profile and be in touch by email.</p>
@@ -143,12 +143,12 @@ function ApplyCard({ companySlug, jobSlug, title, interactive }: { companySlug?:
         <form className="apply-body" onSubmit={submit}>
           {error && <div className="err">{error}</div>}
           <div className="field"><label>Full name <span className="req">*</span></label>
-            <input value={form.name} onChange={set("name")} placeholder="e.g. Ananya Nair" /></div>
+            <input data-testid="careers-public-candidate-name" value={form.name} onChange={set("name")} placeholder="e.g. Ananya Nair" /></div>
           <div className="row2">
             <div className="field"><label>Email <span className="req">*</span></label>
-              <input type="email" value={form.email} onChange={set("email")} placeholder="you@email.com" /></div>
+              <input data-testid="careers-public-candidate-email" type="email" value={form.email} onChange={set("email")} placeholder="you@email.com" /></div>
             <div className="field"><label>Phone</label>
-              <input value={form.phone} onChange={set("phone")} placeholder="+91 …" /></div>
+              <input data-testid="careers-public-candidate-phone" value={form.phone} onChange={set("phone")} placeholder="+91 …" /></div>
           </div>
           <div className="field"><label>Portfolio / LinkedIn</label>
             <input value={form.portfolioUrl} onChange={set("portfolioUrl")} placeholder="https://…" /></div>
@@ -159,13 +159,13 @@ function ApplyCard({ companySlug, jobSlug, title, interactive }: { companySlug?:
               <span className="dz-ic">⬆</span>
               <div className="dz-main">{resume?.name || "Click to upload your resume"}</div>
               <div className="dz-sub">PDF, DOC or DOCX · up to 5 MB</div>
-              <input type="file" accept=".pdf,.doc,.docx" hidden disabled={!interactive} onChange={(e) => setResume(e.target.files?.[0] || null)} />
+              <input data-testid="careers-public-candidate-resume" type="file" accept=".pdf,.doc,.docx" hidden disabled={!interactive} onChange={(e) => setResume(e.target.files?.[0] || null)} />
             </label>
           </div>
           <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")}
             style={{ position: "absolute", left: "-9999px", width: 1, height: 1 }} aria-hidden="true" />
-          <label className="consent"><input type="checkbox" /> I agree to my application data being stored for recruitment purposes.</label>
-          <button className="btn-apply" type="submit" disabled={loading || !interactive}>{loading ? "Submitting…" : "Submit application"}</button>
+          <label className="consent"><input data-testid="careers-public-candidate-consent" type="checkbox" /> I agree to my application data being stored for recruitment purposes.</label>
+          <button data-testid="careers-public-candidate-submit" className="btn-apply" type="submit" disabled={loading || !interactive}>{loading ? "Submitting…" : "Submit application"}</button>
         </form>
       )}
       <div className="apply-foot">🔒 Your information is kept private.</div>

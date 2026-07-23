@@ -96,7 +96,7 @@ export default function Tickets() {
   const [ticketsPageSize, setTicketsPageSize] = useState(20);
   const { schema: ticketSchema, loading: schemaLoading } = useTicketSearchSchema();
   const tickets = useTickets(advancedFilters, ticketSchema, { enabled: !schemaLoading, page: ticketsPage - 1, pageSize: ticketsPageSize });
-  const { data: myProfile } = useMyProfile();
+  const { data: myProfile } = useMyProfile({ enabled: isEmployeeView });
 
   useEffect(() => {
     if (tickets.error) {
@@ -117,11 +117,14 @@ export default function Tickets() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Ticket | null>(null);
+  const [closeTarget, setCloseTarget] = useState<Ticket | null>(null);
   const [form, setForm] = useState({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeRemarks, setCloseRemarks] = useState("");
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, ticketSchema).length,
     [advancedFilters, ticketSchema]
@@ -210,6 +213,31 @@ export default function Tickets() {
     }
   };
 
+  const closeTicket = async () => {
+    if (!closeTarget || closing) return;
+    if (!closeRemarks.trim()) {
+      setMsg("Closure remarks are required.");
+      return;
+    }
+    setClosing(true);
+    setMsg(null);
+    try {
+      await tickets.close(closeTarget.id, closeRemarks.trim());
+      setSelected((current) => current?.id === closeTarget.id ? { ...current, status: "Closed" } : current);
+      setCloseRemarks("");
+      setCloseTarget(null);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Helpdesk",
+        message: "Ticket closed successfully.",
+      });
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to close ticket.");
+    } finally {
+      setClosing(false);
+    }
+  };
+
   const liveSelected = selected ? tickets.data.find((t) => t.id === selected.id) ?? selected : null;
 
   return (
@@ -242,6 +270,7 @@ export default function Tickets() {
               id="hr-tickets-create-button"
               data-testid="hr-tickets-create-button"
               variant="primary"
+              className="bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90"
               icon={<Plus size={16} />}
               onClick={() => {
                 setMsg(null);
@@ -280,16 +309,18 @@ export default function Tickets() {
             containerClassName="flex-1"
             className="h-12 rounded-xl bg-white text-base font-semibold shadow-sm"
           />
-          <Button
-            id="hr-tickets-filter-button"
-            data-testid="hr-tickets-filter-button"
-            variant={appliedFilterCount > 0 ? "primary" : "outline"}
-            icon={<Filter size={16} />}
-            aria-label="Filter tickets"
-            onClick={openFilters}
-          >
-            Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-          </Button>
+          {!isEmployeeView ? (
+            <Button
+              id="hr-tickets-filter-button"
+              data-testid="hr-tickets-filter-button"
+              variant={appliedFilterCount > 0 ? "primary" : "outline"}
+              icon={<Filter size={16} />}
+              aria-label="Filter tickets"
+              onClick={openFilters}
+            >
+              Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+            </Button>
+          ) : null}
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
@@ -315,6 +346,7 @@ export default function Tickets() {
                   ) : (
                     <Button
                       variant="primary"
+                      className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined}
                       icon={<Plus size={16} />}
                       onClick={() => {
                         setMsg(null);
@@ -434,6 +466,22 @@ export default function Tickets() {
                       >
                         {sb.icon} {t.status}
                       </span>
+                      {String(t.status || "").toLowerCase() !== "closed" ? (
+                        <Button
+                          id={`hr-ticket-card-close-${t.id}`}
+                          data-testid={`hr-ticket-card-close-${t.id}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMsg(null);
+                            setCloseRemarks("");
+                            setCloseTarget(t);
+                          }}
+                        >
+                          Close Ticket
+                        </Button>
+                      ) : null}
                       <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--light-text)" }}>
                         <MessageSquare size={16} />
                         <span style={{ fontSize: 13, fontWeight: 900 }}>{t.responses?.length || 0}</span>
@@ -533,7 +581,7 @@ export default function Tickets() {
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <Button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button id="hr-tickets-submit" data-testid="hr-tickets-submit" variant="primary" onClick={raise} loading={saving}>Submit Ticket</Button>
+          <Button id="hr-tickets-submit" data-testid="hr-tickets-submit" variant="primary" className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined} onClick={raise} loading={saving}>Submit Ticket</Button>
         </div>
       </Dialog>
 
@@ -561,6 +609,39 @@ export default function Tickets() {
           </div>
         </div>
       </Drawer>
+
+      <Dialog
+        open={!!closeTarget}
+        onClose={() => {
+          if (!closing) {
+            setCloseTarget(null);
+            setCloseRemarks("");
+            setMsg(null);
+          }
+        }}
+        testId="hr-tickets-close-modal"
+        title="Close Ticket"
+        description={closeTarget ? `Add a closure reason for ticket ${(closeTarget.id || "").slice(-6).toUpperCase()}.` : undefined}
+        contentClassName="max-w-[520px]"
+      >
+        <div className="space-y-5">
+          <Textarea
+            id="hr-tickets-close-reason"
+            data-testid="hr-tickets-close-reason"
+            label="Closure reason"
+            placeholder="Explain why this ticket is being closed..."
+            value={closeRemarks}
+            onChange={(event) => setCloseRemarks(event.target.value)}
+            rows={5}
+            disabled={closing}
+          />
+          {msg ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{msg}</div> : null}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setCloseTarget(null)} disabled={closing}>Cancel</Button>
+            <Button id="hr-tickets-close-confirm" data-testid="hr-tickets-close-confirm" variant="primary" onClick={closeTicket} loading={closing} disabled={!closeRemarks.trim()}>Close Ticket</Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={!!liveSelected}

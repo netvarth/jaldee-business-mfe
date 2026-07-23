@@ -13,6 +13,8 @@ async function run() {
   const suffix = `${Date.now()}`.slice(-6);
   let managedEmployeeLoginId = "";
   let currentRunEmployeeUid = "";
+  let recruitmentPublicCandidateName = "";
+  let recruitmentDirectCandidateName = "";
   const futureDate = (daysAhead) => {
     const date = new Date();
     date.setDate(date.getDate() + daysAhead);
@@ -993,6 +995,31 @@ async function run() {
     await confirmDialogSubmission('[data-testid="hr-recruitment-requisition-dialog"]', title, `Requisition ${i + 1}`);
   }
 
+  console.log("\n>>> RECRUITMENT - PUBLISH AND APPLY FROM PUBLIC LINK...");
+  const requisitionRow = page.locator("tr").filter({ hasText: reqList[0] }).first();
+  await requisitionRow.waitFor({ state: "visible", timeout: 30000 });
+  await requisitionRow.locator('[data-testid^="hr-recruitment-publish-"]').click();
+  await page.locator('[data-testid="hr-careers-publish-page"]').waitFor({ state: "visible", timeout: 30000 });
+  await slowClick('[data-testid="hr-careers-template-classic"]', "Choose Classic Template");
+  await slowClick('[data-testid="hr-careers-publish-get-link"]', "Publish and Get Link");
+  await page.locator('[data-testid="hr-careers-publish-success"]').waitFor({ state: "visible", timeout: 30000 });
+  const popupPromise = context.waitForEvent("page");
+  await page.locator('[data-testid="hr-careers-open-public-page"]').click();
+  const publicPage = await popupPromise;
+  await publicPage.waitForLoadState("domcontentloaded");
+  await publicPage.locator('[data-testid="careers-public-application-card"]').waitFor({ state: "visible", timeout: 30000 });
+  recruitmentPublicCandidateName = `Public Candidate ${suffix}`;
+  await publicPage.locator('[data-testid="careers-public-candidate-name"]').fill(recruitmentPublicCandidateName);
+  await publicPage.locator('[data-testid="careers-public-candidate-email"]').fill(`public.${suffix}.test@jaldee.com`);
+  await publicPage.locator('[data-testid="careers-public-candidate-phone"]').fill(`5555${suffix}`);
+  await publicPage.locator('[data-testid="careers-public-candidate-resume"]').setInputFiles("automation/fixtures/employee-experience-certificate.pdf");
+  await publicPage.locator('[data-testid="careers-public-candidate-consent"]').check();
+  await publicPage.locator('[data-testid="careers-public-candidate-submit"]').click();
+  await publicPage.locator('[data-testid="careers-public-application-success"]').waitFor({ state: "visible", timeout: 60000 });
+  console.log(`   [Verified] Public application submitted for "${recruitmentPublicCandidateName}"`);
+  await publicPage.close();
+  await page.bringToFront();
+
   console.log("\n>>> 15. RECRUITMENT - CREATE 5 IT CANDIDATES...");
   await page.goto("http://localhost:3000/hr/recruitment/candidates", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1000);
@@ -1006,6 +1033,7 @@ async function run() {
   for (let i = 0; i < candidateList.length; i++) {
     const cName = candidateList[i];
     const candidateName = `${cName} ${suffix}`;
+    if (i === 0) recruitmentDirectCandidateName = candidateName;
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-recruitment-new-candidate"]', `New Candidate ${i + 1}`);
     await slowType('[data-testid="hr-candidate-name"]', candidateName, `Candidate Name ${i + 1}`);
@@ -1127,39 +1155,89 @@ async function run() {
   await visitHr("/hr/recruitment", "RECRUITMENT OVERVIEW");
   await slowClick('[data-testid="hr-recruitment-view-requisitions"]', "View Requisitions");
   await visitHr("/hr/recruitment/applications", "VIEW APPLICATIONS");
-  if (await clickFirstPrefix("hr-recruitment-application-actions-trigger-", "Open Application Actions")) {
-    const screeningAction = page.locator('[data-testid$="-move-screening"]').first();
-    if (await screeningAction.isVisible().catch(() => false)) await screeningAction.click();
-  }
-  const notesAction = page.locator('[data-testid$="-notes"][data-testid^="hr-recruitment-application-"]').first();
-  if (await notesAction.isVisible().catch(() => false)) {
-    await notesAction.click();
-    await slowType('[data-testid="hr-recruitment-application-notes-input"]', `Automation review ${suffix}`, "Application Notes");
-    await slowClick('[data-testid="hr-recruitment-application-notes-save"]', "Save Application Notes");
-  }
-  const ratingAction = page.locator('[data-testid$="-rating"][data-testid^="hr-recruitment-application-"]').first();
-  if (await ratingAction.isVisible().catch(() => false)) {
-    await ratingAction.click();
-    await slowType('[data-testid="hr-recruitment-application-rating-input"]', "4", "Application Rating");
-    await slowClick('[data-testid="hr-recruitment-application-rating-save"]', "Save Application Rating");
+  const applicationCard = page.locator('[data-testid^="hr-recruitment-application-card-"]').filter({ hasText: recruitmentPublicCandidateName }).first();
+  await applicationCard.waitFor({ state: "visible", timeout: 30000 });
+  const applicationTestId = await applicationCard.getAttribute("data-testid");
+  const applicationId = applicationTestId?.replace("hr-recruitment-application-card-", "");
+  if (!applicationId) throw new Error(`Could not resolve the application ID for "${recruitmentPublicCandidateName}"`);
+  const applicationSelector = (actionName) => `[data-testid="hr-recruitment-application-${applicationId}-${actionName}"]`;
+  const openApplicationActions = async (label) => slowClick(`[data-testid="hr-recruitment-application-actions-trigger-${applicationId}"]`, label);
+  const scheduleStageInterview = async (label, daysAhead) => {
+    const dialog = page.locator('[data-testid="hr-recruitment-schedule-interview-dialog"]');
+    await dialog.waitFor({ state: "visible", timeout: 20000 });
+    const scheduledAt = new Date(Date.now() + daysAhead * 86400000);
+    scheduledAt.setMinutes(scheduledAt.getMinutes() - scheduledAt.getTimezoneOffset());
+    await slowType('[data-testid="hr-recruitment-schedule-interview-at"]', scheduledAt.toISOString().slice(0, 16), `${label} Date and Time`);
+    await slowType('[data-testid="hr-recruitment-schedule-interview-location"]', "Automation video interview", `${label} Location / Link`);
+    await slowClick('[data-testid="hr-recruitment-schedule-interview-submit"]', `Confirm ${label}`);
+    await dialog.waitFor({ state: "hidden", timeout: 30000 });
+    await applicationCard.waitFor({ state: "visible", timeout: 30000 });
+  };
+  console.log(`   [Application] Using current-run candidate: "${recruitmentPublicCandidateName}"`);
+  await openApplicationActions("Open Application Actions for Notes");
+  await slowClick(applicationSelector("notes"), "Open Application Notes");
+  await slowType('[data-testid="hr-recruitment-application-notes-input"]', `Automation recruitment note ${suffix}`, "Application Notes");
+  await slowClick('[data-testid="hr-recruitment-application-notes-save"]', "Save Application Notes");
+  await page.locator('[data-testid="hr-recruitment-application-notes-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
+  await openApplicationActions("Open Application Actions for Rating");
+  await slowClick(applicationSelector("rating"), "Open Application Rating");
+  await slowType('[data-testid="hr-recruitment-application-rating-input"]', "8", "Application Rating");
+  await slowClick('[data-testid="hr-recruitment-application-rating-save"]', "Save Application Rating");
+  await page.locator('[data-testid="hr-recruitment-application-rating-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
+  await openApplicationActions("Open Application Actions for Screening");
+  await slowClick(applicationSelector("move-screening"), "Move Application to Screening");
+  await scheduleStageInterview("Screening Interview", 1);
+  await openApplicationActions("Open Application Actions for Interview");
+  await slowClick(applicationSelector("move-interview"), "Move Application to Interview");
+  await scheduleStageInterview("Technical Interview", 2);
+  const rejectTriggerId = await page.locator('[data-testid^="hr-recruitment-application-actions-trigger-"]').evaluateAll(
+    (triggers, currentId) => triggers.map((trigger) => trigger.getAttribute("data-testid")).find((id) => id && !id.endsWith(currentId)) || "",
+    applicationId,
+  );
+  if (rejectTriggerId) {
+    const rejectApplicationId = rejectTriggerId.replace("hr-recruitment-application-actions-trigger-", "");
+    await slowClick(`[data-testid="${rejectTriggerId}"]`, "Open Another Application for Rejection");
+    await slowClick(`[data-testid="hr-recruitment-application-${rejectApplicationId}-reject"]`, "Reject Application");
+    await slowType('[data-testid="hr-recruitment-application-reject-reason"]', `Position requirements not matched ${suffix}`, "Rejection Reason");
+    await slowClick('[data-testid="hr-recruitment-application-reject-confirm"]', "Confirm Application Rejection");
+    await page.locator('[data-testid="hr-recruitment-application-reject-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
+  } else {
+    console.log("   [Skip] Reject Application: a second application record is not available");
   }
 
   await visitHr("/hr/recruitment/candidates", "VIEW CANDIDATES");
-  if (await clickFirstPrefix("hr-recruitment-candidate-view-", "View Candidate")) {
-    console.log("   [Manual Action Required] Choose a resume file in the browser upload dialog");
-    await page.locator('[data-testid="hr-recruitment-candidate-resume-upload"]').click();
+  const directCandidateRow = page.locator("tr").filter({ hasText: recruitmentDirectCandidateName }).first();
+  await directCandidateRow.waitFor({ state: "visible", timeout: 20000 });
+  const directCandidateView = directCandidateRow.locator('[data-testid^="hr-recruitment-candidate-view-"]');
+  if (await directCandidateView.isVisible().catch(() => false)) {
+    await directCandidateView.click();
+    const careersUploadRequestPromise = page.waitForRequest((request) => request.method() === "POST" && request.url().includes("/drive/initiate-upload"), { timeout: 30000 });
+    const resumeSaveResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && /\/recruitment\/candidates\/[^/?]+\/resume/.test(response.url()), { timeout: 60000 });
+    const candidateResumeFile = page.locator('[data-testid="hr-recruitment-candidate-resume-file"]');
+    await candidateResumeFile.setInputFiles("automation/fixtures/employee-experience-certificate.pdf");
+    const careersUploadRequest = await careersUploadRequestPromise;
+    const careersUploadPayload = careersUploadRequest.postDataJSON();
+    if (careersUploadPayload?.contextType !== "CAREERS") throw new Error(`Candidate resume contextType was "${careersUploadPayload?.contextType || "missing"}" instead of "CAREERS"`);
+    if (careersUploadPayload?.featureModuleName !== "HR_CAREERS") throw new Error(`Candidate resume featureModuleName was "${careersUploadPayload?.featureModuleName || "missing"}" instead of "HR_CAREERS"`);
+    console.log('   [File] Candidate resume selected automatically with contextType "CAREERS" and featureModuleName "HR_CAREERS"');
+    const resumeSaveResponse = await resumeSaveResponsePromise;
+    console.log(`   [Response] Save Candidate Resume: ${resumeSaveResponse.status()} ${resumeSaveResponse.statusText()}`);
+    if (!resumeSaveResponse.ok()) throw new Error(`Candidate resume save failed (${resumeSaveResponse.status()}): ${await resumeSaveResponse.text()}`);
     const resumeDownload = page.locator('[data-testid="hr-recruitment-candidate-resume-download"]');
-    const resumeUploaded = await resumeDownload.waitFor({ state: "visible", timeout: 300000 }).then(() => true).catch(() => false);
+    const resumeUploaded = await resumeDownload.waitFor({ state: "visible", timeout: 60000 }).then(() => true).catch(() => false);
     if (!resumeUploaded) {
       const uploadError = await page.locator('.text-red-700').last().textContent().catch(() => "");
-      throw new Error(`Candidate resume was not uploaded within 5 minutes${uploadError ? `: ${uploadError}` : ""}`);
+      throw new Error(`Candidate resume was not uploaded${uploadError ? `: ${uploadError}` : ""}`);
     }
     console.log("   [Verified] Candidate resume uploaded; continuing automation");
     await slowClick('[data-testid="hr-recruitment-candidate-resume-download"]', "Download Resume");
   }
   await visitHr("/hr/recruitment/interviews", "INTERVIEWS");
   await slowClick('[data-testid="hr-recruitment-schedule-interview"]', "Schedule Interview");
-  await closeAnyOpenModal();
+  const interviewScheduleDialog = page.locator('[data-testid="hr-recruitment-schedule-interview-dialog"]');
+  await interviewScheduleDialog.waitFor({ state: "visible", timeout: 10000 });
+  await page.locator('[data-testid="hr-recruitment-schedule-interview-dialog-close"]').click();
+  await interviewScheduleDialog.waitFor({ state: "hidden", timeout: 10000 });
   if (await clickFirstPrefix("hr-recruitment-interview-update-", "Update Interview")) {
     await slowSelect('[data-testid="hr-recruitment-interview-update-status"]', "PROCEED", "Interview Status");
     await slowType('[data-testid="hr-recruitment-interview-update-score"]', "4", "Interview Score");
@@ -1381,7 +1459,8 @@ async function run() {
   const runMonthValue = new Date().toISOString().slice(0, 7);
   const runMonthField = page.locator('label[for="run-month"]').locator("..");
   await runMonthField.locator('input:not([type="hidden"])').click();
-  await page.getByRole("button", { name: "This month", exact: true }).click();
+  await page.getByTestId("month-picker-this-month").click();
+  await page.getByTestId("month-picker-popover").waitFor({ state: "hidden", timeout: 10000 });
   await page.locator('#run-month[type="hidden"]').waitFor({ state: "attached", timeout: 10000 });
   const selectedRunMonth = await page.locator('#run-month[type="hidden"]').inputValue();
   if (selectedRunMonth !== runMonthValue) {
@@ -1467,7 +1546,8 @@ async function run() {
         await slowClick('[data-testid="hr-separation-approve"]', "Approve Separation Request");
       }
       await page.waitForTimeout(3000);
-      await page.locator('[data-testid="hr-separation-detail-overlay"]').click({ position: { x: 5, y: 5 } });
+      await page.locator('[data-testid="hr-separation-detail-close"]').click();
+      await page.locator('[data-testid="hr-separation-detail-modal"]').waitFor({ state: "hidden", timeout: 10000 });
       await page.locator('[data-testid^="hr-separation-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: outcome }).first().waitFor({ state: "visible", timeout: 20000 });
       console.log(`   [Verified] Separation request ${outcome}`);
     };

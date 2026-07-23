@@ -21,6 +21,7 @@ const PoshGrievance = lazy(() =>
   import("./pages/posh/PoshGrievance").then((module) => ({ default: module.PoshGrievance }))
 );
 const Reports = lazy(() => import("./pages/reports/Reports"));
+const AuditLogs = lazy(() => import("./pages/audit/AuditLogs"));
 const Settings = lazy(() => import("./pages/settings/Settings"));
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
 const EssPortal = lazy(() => import("./pages/ess/EssPortal"));
@@ -94,6 +95,7 @@ export default function App() {
             <Route path="/careers/:companySlug" element={<PublicListRoute />} />
             <Route path="/careers/:companySlug/:jobSlug" element={<PublicJobRoute />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/audit-logs" element={<AuditLogs />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/:section" element={<Settings />} />
             <Route path="/settings/:section/:subsection" element={<Settings />} />

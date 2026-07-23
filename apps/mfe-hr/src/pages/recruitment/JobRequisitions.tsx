@@ -52,6 +52,7 @@ export default function JobRequisitions() {
         <Button
           variant="primary"
           size="sm"
+          data-testid={`hr-recruitment-publish-${row.id}`}
           onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
         >
           Manage careers page
@@ -63,14 +64,16 @@ export default function JobRequisitions() {
   if (error) {
     return (
       <RecruitmentLayout title="Job Requisitions" subtitle="Manage open roles and headcount requests.">
-        <ErrorState title="Failed to load Requisitions" description={error} />
+        <div data-testid="hr-recruitment-requisitions-error">
+          <ErrorState title="Failed to load Requisitions" description={error} />
+        </div>
       </RecruitmentLayout>
     );
   }
 
   return (
     <RecruitmentLayout title="Job Requisitions" subtitle="Manage open roles and headcount requests.">
-      <div>
+      <div data-testid="hr-recruitment-requisitions-page" data-loading={loading ? "true" : "false"}>
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">

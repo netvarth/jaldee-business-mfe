@@ -127,8 +127,8 @@ export function ScheduleInterviewModal({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} title="Schedule Interview" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Dialog open={isOpen} onClose={onClose} title="Schedule Interview" size="md" testId="hr-recruitment-schedule-interview-dialog">
+      <form data-testid="hr-recruitment-schedule-interview-form" onSubmit={handleSubmit} className="space-y-4">
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -145,6 +145,8 @@ export function ScheduleInterviewModal({
           </div>
         ) : (
           <Select
+            id="hr-recruitment-schedule-interview-application"
+            testId="hr-recruitment-schedule-interview-application"
             label="Application"
             required
             options={applicationOptions}
@@ -155,17 +157,19 @@ export function ScheduleInterviewModal({
 
         <div className={`grid gap-4 ${hideRound ? "grid-cols-1" : "grid-cols-2"}`}>
           {!hideRound ? (
-            <Select label="Round" options={roundOptions} value={form.round} onChange={set("round")} />
+            <Select id="hr-recruitment-schedule-interview-round" testId="hr-recruitment-schedule-interview-round" label="Round" options={roundOptions} value={form.round} onChange={set("round")} />
           ) : null}
-          <Select label="Mode" options={modeOptions} value={form.mode} onChange={set("mode")} />
+          <Select id="hr-recruitment-schedule-interview-mode" testId="hr-recruitment-schedule-interview-mode" label="Mode" options={modeOptions} value={form.mode} onChange={set("mode")} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Scheduled At" type="datetime-local" required value={form.scheduledAt} onChange={set("scheduledAt")} />
-          <Input label="Duration (min)" type="number" min={0} value={form.durationMinutes} onChange={set("durationMinutes")} />
+          <Input id="hr-recruitment-schedule-interview-at" data-testid="hr-recruitment-schedule-interview-at" label="Scheduled At" type="datetime-local" required value={form.scheduledAt} onChange={set("scheduledAt")} />
+          <Input id="hr-recruitment-schedule-interview-duration" data-testid="hr-recruitment-schedule-interview-duration" label="Duration (min)" type="number" min={0} value={form.durationMinutes} onChange={set("durationMinutes")} />
         </div>
 
         <Input
+          id="hr-recruitment-schedule-interview-location"
+          data-testid="hr-recruitment-schedule-interview-location"
           label="Location / Link"
           value={form.locationOrLink}
           onChange={set("locationOrLink")}
@@ -173,10 +177,10 @@ export function ScheduleInterviewModal({
         />
 
         <DialogFooter>
-          <Button variant="outline" type="button" onClick={onClose} disabled={loading}>
+          <Button data-testid="hr-recruitment-schedule-interview-cancel" variant="outline" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit" loading={loading}>
+          <Button data-testid="hr-recruitment-schedule-interview-submit" variant="primary" type="submit" loading={loading}>
             Schedule
           </Button>
         </DialogFooter>

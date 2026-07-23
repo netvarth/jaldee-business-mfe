@@ -3,6 +3,44 @@ export type InternalStatus = 'ACTIVE' | 'REJECTED' | 'COMPLETED' | 'NO_RESPONSE'
 export type ChannelType = 'DIRECT' | 'QRCODE' | 'WHATSAPP' | 'TELEGRAM' | 'IVR' | 'BRANDEDAPP' | 'FACEBOOK' | 'INSTAGRAM' | 'SDK';
 export type TerminalType = 'WON' | 'LOST' | 'JUNK';
 
+export type LeadAnalyticsFrequency = 'TODAY' | 'WEEKLY' | 'MONTHLY' | 'TILL_NOW';
+
+export interface LeadAnalyticsRequest {
+  tenantUid: string;
+  frequency: LeadAnalyticsFrequency;
+  filters: Record<string, unknown>;
+  includeTotals: false;
+  featureModule: 'CRM_LEAD';
+  getDimensionWiseValue: false;
+}
+
+export interface LeadAnalyticsMetric {
+  metricName: string;
+  value?: number;
+  amount?: number;
+  isAmt?: boolean;
+}
+
+export interface LeadAnalyticsBreakdown {
+  name?: string;
+  value?: number;
+  count?: number;
+  channelUid?: string;
+  productUid?: string;
+  pipelineStageUid?: string;
+}
+
+export interface LeadAnalyticsData {
+  metricWiseValues?: LeadAnalyticsMetric[];
+  channelWiseValues?: LeadAnalyticsBreakdown[];
+  leadsByChannel?: LeadAnalyticsBreakdown[];
+  productWiseValues?: LeadAnalyticsBreakdown[];
+  leadsByProduct?: LeadAnalyticsBreakdown[];
+  stageWiseValues?: LeadAnalyticsBreakdown[];
+  pipelineSaturationData?: LeadAnalyticsBreakdown[];
+  [key: string]: unknown;
+}
+
 export interface Assignee {
   userId: string;
   userName: string;

@@ -249,6 +249,7 @@ export default function Expenses() {
               id="hr-expenses-submit-open"
               data-testid="hr-expenses-submit-open"
               variant="primary"
+              className="bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90"
               icon={<Plus size={16} />}
               onClick={() => { setMsg(null); setAddOpen(true); }}
             >
@@ -443,7 +444,7 @@ export default function Expenses() {
         {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
         <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <Button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} variant="primary" onClick={submit} loading={saving}>Submit Claim Proposal</Button>
+          <Button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} variant="primary" className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined} onClick={submit} loading={saving}>Submit Claim Proposal</Button>
         </div>
       </Dialog>
 

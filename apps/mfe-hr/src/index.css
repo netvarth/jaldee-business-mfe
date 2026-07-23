@@ -561,9 +561,8 @@ a:hover {
 
 .employee-master-toolbar {
     gap: 16px;
-    padding-top: 14px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 42%, white);
+    padding-top: 8px;
+    padding-bottom: 16px;
 }
 
 .employee-master-filters {
@@ -636,21 +635,10 @@ a:hover {
 }
 
 @media (max-width: 700px) {
-    .employee-master-header,
     .employee-master-toolbar,
     .employee-master-table-container {
         padding-left: 16px;
         padding-right: 16px;
-    }
-
-    .employee-master-tabs {
-        gap: 24px;
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
-
-    .employee-master-tabs::-webkit-scrollbar {
-        display: none;
     }
 
     .customer-tab {
@@ -792,6 +780,7 @@ a:hover {
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
+    overflow: hidden;
 }
 
 .attendance-stats-summary-card {
@@ -808,9 +797,11 @@ a:hover {
 
 .attendance-console-layout {
     display: grid;
-    grid-template-columns: minmax(220px, 1.05fr) minmax(260px, 0.95fr);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: 24px;
     align-items: stretch;
+    width: 100%;
+    min-width: 0;
 }
 
 .attendance-console-clock {
@@ -832,6 +823,19 @@ a:hover {
     min-width: 0;
     margin-top: 0 !important;
     padding-left: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.attendance-console-fields > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.attendance-face-row > div:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 @media (max-width: 1500px) {

@@ -784,7 +784,8 @@ export default function Leave() {
         onClose={() => setSelected(null)}
         testId="hr-leave-detail-modal"
         hideHeader
-        contentClassName="max-w-[620px] p-0 overflow-hidden"
+        contentClassName="max-w-[900px] sm:h-[88vh] sm:max-h-[900px] p-0 overflow-hidden flex flex-col"
+        bodyClassName="flex min-h-0 flex-1 flex-col"
       >
         {selected && (
           <>
@@ -792,7 +793,7 @@ export default function Leave() {
               <div><h3 style={{ fontSize: 20, fontWeight: 900, color: TEAL, margin: 0 }}>Leave Request Detail</h3><p style={{ ...lbl, color: TEAL, marginTop: 4 }}>{empName(selected.employeeUid)} · {empCode(selected.employeeUid)}</p></div>
               <button id="hr-leave-detail-close" data-testid="hr-leave-detail-close" onClick={() => setSelected(null)} style={iconBtn}><X size={20} /></button>
             </div>
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto" }}>
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, flex: 1, minHeight: 0, overflowY: "auto" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Applicant</span><span style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)", display: "block", marginTop: 4 }}>{empName(selected.employeeUid)}</span></div>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Department</span><span style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)", display: "block", marginTop: 4 }}>{empDept(selected.employeeUid)}</span></div>

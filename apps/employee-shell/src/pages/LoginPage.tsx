@@ -130,6 +130,8 @@ export default function LoginPage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Login ID</span>
                   <input
+                    id="ess-login-id"
+                    data-testid="ess-login-id"
                     value={loginId}
                     onChange={(event) => setLoginId(event.target.value)}
                     className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#2f6b55] focus:ring-2 focus:ring-[#dce86c]/40"
@@ -140,6 +142,8 @@ export default function LoginPage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Password</span>
                   <input
+                    id="ess-login-password"
+                    data-testid="ess-login-password"
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -149,6 +153,7 @@ export default function LoginPage() {
                 </label>
 
                 <button
+                  data-testid="ess-login-logout-existing-session"
                   type="button"
                   disabled={loading || loggingOut}
                   onClick={() => void handleManualLogout()}
@@ -161,6 +166,8 @@ export default function LoginPage() {
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">OTP</span>
                 <input
+                  id="ess-login-otp"
+                  data-testid="ess-login-otp"
                   value={otp}
                   onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, otpLength))}
                   className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#2f6b55] focus:ring-2 focus:ring-[#dce86c]/40"
@@ -174,6 +181,7 @@ export default function LoginPage() {
             {requiresMfa ? (
               <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
                 <button
+                  data-testid="ess-login-otp-back"
                   type="button"
                   disabled={loading}
                   onClick={handleBackToLogin}
@@ -182,6 +190,7 @@ export default function LoginPage() {
                   Back
                 </button>
                 <button
+                  data-testid="ess-login-otp-submit"
                   type="submit"
                   disabled={loading || otp.trim().length < otpLength}
                   className="min-h-12 rounded-md bg-[#245640] px-5 text-sm font-semibold text-white transition hover:bg-[#1d4735] disabled:cursor-not-allowed disabled:opacity-60"
@@ -191,6 +200,7 @@ export default function LoginPage() {
               </div>
             ) : (
               <button
+                data-testid="ess-login-submit"
                 type="submit"
                 disabled={loading}
                 className="min-h-12 w-full rounded-md bg-[#245640] px-5 text-sm font-semibold text-white transition hover:bg-[#1d4735] disabled:cursor-not-allowed disabled:opacity-60"

@@ -172,5 +172,11 @@ export function useTickets(
     void load();
   }, [api, load]);
   const reply = useCallback(async (uid: string, message: string) => { await api.post(`/tickets/${uid}/reply`, { message }); await load(); }, [api, load]);
-  return { data, loading, error, reload: load, create, reply, totalElements, totalPages };
+  const close = useCallback(async (uid: string, remarks: string, file?: File | null) => {
+    const formData = new FormData();
+    if (file) formData.append("file", file, file.name);
+    await api.post(`/tickets/${uid}/close?remarks=${encodeURIComponent(remarks)}`, formData as any);
+    await load();
+  }, [api, load]);
+  return { data, loading, error, reload: load, create, reply, close, totalElements, totalPages };
 }

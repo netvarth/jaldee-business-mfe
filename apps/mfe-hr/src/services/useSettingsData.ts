@@ -6,13 +6,13 @@ import type { ClockType } from "../types";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 
-export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; }
-export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; }
+export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; status?: string; }
+export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; status?: string; }
 export interface Consent { id: string; uid?: string; employeeUid?: string; purpose?: string; status?: string; policyVersion?: string; grantedAt?: string; }
 export interface BranchRow { id: string; uid?: string; name?: string; code?: string; address?: string; latitude?: number; longitude?: number; radius?: number; }
-export interface Department { id: string; uid?: string; name?: string; code?: string; headEmployeeUid?: string; }
-export interface LeaveType { id: string; uid?: string; name?: string; category?: string; annualQuota?: number; carryForward?: boolean; carryForwardMax?: number; accrualType?: string; paid?: boolean; colorHex?: string; }
-export interface Holiday { id: string; uid?: string; name?: string; date?: string; type?: string; }
+export interface Department { id: string; uid?: string; name?: string; code?: string; headEmployeeUid?: string; status?: string; }
+export interface LeaveType { id: string; uid?: string; name?: string; category?: string; annualQuota?: number; carryForward?: boolean; carryForwardMax?: number; accrualType?: string; paid?: boolean; colorHex?: string; status?: string; }
+export interface Holiday { id: string; uid?: string; name?: string; date?: string; type?: string; status?: string; }
 
 export interface CompanyProfile {
   uid?: string; name?: string; legalName?: string; logoUrl?: string; email?: string; phone?: string;
@@ -118,19 +118,59 @@ export const useDesignations = (
   filters: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
   schema: SearchSchema | null | undefined = null,
   options: { enabled?: boolean; page?: number; pageSize?: number } = {}
-) => useCrud<Designation>("/designations", { search: true, filters, schema, ...options });
-export const useShifts = () => useCrud<Shift>("/shifts");
+) => {
+  const api = useHrApi();
+  const designations = useCrud<Designation>("/designations", { search: true, filters, schema, ...options });
+  const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
+    await api.patch(`/designations/${uid}/status`, { status });
+    await designations.reload(true);
+  }, [api, designations.reload]);
+  return { ...designations, setStatus };
+};
+export const useShifts = () => {
+  const api = useHrApi();
+  const shifts = useCrud<Shift>("/shifts");
+  const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
+    await api.patch(`/shifts/${uid}/status`, { status });
+    await shifts.reload(true);
+  }, [api, shifts.reload]);
+  return { ...shifts, setStatus };
+};
 export const useDepartments = (
   filters: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
   schema: SearchSchema | null | undefined = null,
   options: { enabled?: boolean; page?: number; pageSize?: number } = {}
-) => useCrud<Department>("/departments", { search: true, filters, schema, ...options });
-export const useLeaveTypes = () => useCrud<LeaveType>("/leave-types");
+) => {
+  const api = useHrApi();
+  const departments = useCrud<Department>("/departments", { search: true, filters, schema, ...options });
+  const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
+    await api.patch(`/departments/${uid}/status`, { status });
+    await departments.reload(true);
+  }, [api, departments.reload]);
+  return { ...departments, setStatus };
+};
+export const useLeaveTypes = () => {
+  const api = useHrApi();
+  const leaveTypes = useCrud<LeaveType>("/leave-types");
+  const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
+    await api.patch(`/leave-types/${uid}/status`, { status });
+    await leaveTypes.reload(true);
+  }, [api, leaveTypes.reload]);
+  return { ...leaveTypes, setStatus };
+};
 export const useHolidays = (
   filters: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
   schema: SearchSchema | null | undefined = null,
   options: { enabled?: boolean; page?: number; pageSize?: number } = {}
-) => useCrud<Holiday>("/holidays", { search: true, filters, schema, ...options });
+) => {
+  const api = useHrApi();
+  const holidays = useCrud<Holiday>("/holidays", { search: true, filters, schema, ...options });
+  const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
+    await api.patch(`/holidays/${uid}/status`, { status });
+    await holidays.reload(true);
+  }, [api, holidays.reload]);
+  return { ...holidays, setStatus };
+};
 
 const BRANCHES_READONLY_MSG =
   "Branches are owned by Jaldee base locations and are read-only in HR. Manage them in the Jaldee business console.";

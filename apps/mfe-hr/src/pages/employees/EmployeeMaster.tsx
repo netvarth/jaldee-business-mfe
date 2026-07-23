@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, DataTable, Drawer, EmptyState, PageHeader, cn } from "@jaldee/design-system";
+import { Badge, Button, DataTable, Dialog, Drawer, EmptyState, PageHeader, SectionCard, cn } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -9,7 +9,7 @@ import {
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { Download, LayoutGrid, Plus, Rows3, Upload } from "lucide-react";
+import { Download, LayoutGrid, Plus, Rows3, ToggleLeft, ToggleRight, Upload } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
 import { useEmployeeSearchSchema } from "../../services/useEmployeeSearchSchema";
 import { useHrApi } from "../../services/useHrApi";
@@ -36,7 +36,7 @@ export default function EmployeeMaster() {
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
-  const { data: employees, loading, error, remove } = useEmployees(
+  const { data: employees, loading, error, setStatus } = useEmployees(
     advancedFilters,
     employeeSearchSchema,
     { enabled: !schemaLoading }
@@ -45,11 +45,12 @@ export default function EmployeeMaster() {
   const { data: allDesignations } = useDesignations();
   const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [importing, setImporting] = useState(false);
+  const [statusEmployee, setStatusEmployee] = useState<Employee | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const appliedFilterCount = useMemo(
@@ -225,19 +226,20 @@ export default function EmployeeMaster() {
     reader.readAsText(file);
   };
 
-  const handleDelete = async (e: Employee) => {
-    if (!window.confirm(`Delete ${e.name}? This cannot be undone.`)) return;
+  const confirmStatusChange = async () => {
+    if (!statusEmployee) return;
+    const enabled = (statusEmployee.status || "Active").toLowerCase() === "active";
+    const nextStatus = enabled ? "Inactive" : "Active";
+    setStatusSaving(true);
     try {
-      await remove(e.id);
-    } catch {
-      emitToast("error", "Could not delete employee. Please try again.");
+      await setStatus(statusEmployee, nextStatus);
+      emitToast("success", `${statusEmployee.name || "Employee"} ${nextStatus === "Active" ? "enabled" : "disabled"} successfully.`);
+      setStatusEmployee(null);
+    } catch (error) {
+      emitToast("error", error instanceof Error ? error.message : "Could not update employee status.");
+    } finally {
+      setStatusSaving(false);
     }
-  };
-
-  const toggleEmployeeSelection = (employeeId: string) => {
-    setSelectedRowKeys((current) =>
-      current.includes(employeeId) ? current.filter((key) => key !== employeeId) : [...current, employeeId]
-    );
   };
 
   const columns: ColumnDef<Employee>[] = [
@@ -313,22 +315,7 @@ export default function EmployeeMaster() {
           <Button size="sm" variant="outline" className="!h-8 !px-3 text-xs" data-testid={`hr-employee-edit-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}?edit=true`)}>
             Edit
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            iconOnly
-            className="!h-8 !w-8 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
-            aria-label={`Delete ${employee.name}`}
-            data-testid={`hr-employee-delete-${employee.id}`}
-            onClick={() => handleDelete(employee)}
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18" />
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-              </svg>
-            }
-          />
+          <EmployeeStatusButton employee={employee} scope="hr-employee" onClick={() => setStatusEmployee(employee)} />
         </div>
       ),
     },
@@ -376,15 +363,9 @@ export default function EmployeeMaster() {
           </div>
         }
       />
-      <div className="customers-header employee-master-header">
-        <div className="customers-tabs employee-master-tabs">
-          <div className="customer-tab active" id="hr-employees-tab" data-testid="hr-employees-tab" data-active="true">Employees ({employees.length})</div>
-          <div className="customer-tab" id="hr-contractors-tab" data-testid="hr-contractors-tab" data-active="false">Contractors</div>
-        </div>
-      </div>
-
-      <div className="customers-toolbar employee-master-toolbar" data-testid="hr-employees-toolbar">
-        <div className="employee-master-filters">
+      <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+      <div className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] px-4 py-4" data-testid="hr-employees-toolbar">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="c-search-bar employee-master-search">
             <input
               id="hr-employees-search"
@@ -400,22 +381,28 @@ export default function EmployeeMaster() {
             />
             <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
           </div>
-          <Button
-            type="button"
-            id="hr-employees-filter-indicator"
-            data-testid="hr-employees-filter-indicator"
-            variant={appliedFilterCount > 0 ? "primary" : "outline"}
-            icon={<FilterIcon />}
-            aria-label="Open employee filters"
-            onClick={openFilters}
-          >
-            Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-          </Button>
-          <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
+          <div className="flex w-full items-center justify-end gap-3 lg:w-auto">
+            <Button
+              type="button"
+              id="hr-employees-filter-indicator"
+              data-testid="hr-employees-filter-indicator"
+              variant={appliedFilterCount > 0 ? "primary" : "outline"}
+              className={cn(
+                appliedFilterCount === 0 &&
+                  "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]"
+              )}
+              icon={<FilterIcon />}
+              aria-label="Open employee filters"
+              onClick={openFilters}
+            >
+              Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+            </Button>
+            <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
       </div>
 
-      <div className="customers-table-container employee-master-table-container" data-testid="hr-employees-table-container">
+      <div data-testid="hr-employees-table-container">
         {viewMode === "table" ? (
           <DataTable
             data-testid="hr-employees-table"
@@ -424,7 +411,6 @@ export default function EmployeeMaster() {
             getRowId={(employee) => employee.id}
             loading={loading}
             onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
-            selection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
             pagination={{
               page,
               pageSize,
@@ -436,7 +422,7 @@ export default function EmployeeMaster() {
                 setPage(1);
               },
             }}
-            className="rounded-none border-0 shadow-none"
+            className="rounded-none border-0 bg-transparent shadow-none"
             tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
             emptyState={
               <EmptyState
@@ -464,15 +450,15 @@ export default function EmployeeMaster() {
             description={error ? "Please retry after checking the HR service connection." : "Adjust the search or filters to find an employee."}
           />
         ) : (
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="space-y-5 p-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {pagedEmployees.map((employee) => (
                 <article
                   key={employee.id}
                   data-testid={`hr-employees-card-${employee.id}`}
                   className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] p-5 shadow-sm"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       {employee.photoUrl ? (
                         <img src={employee.photoUrl} alt={employee.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
@@ -486,12 +472,6 @@ export default function EmployeeMaster() {
                         <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
                       </div>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={selectedRowKeys.includes(employee.id)}
-                      onChange={() => toggleEmployeeSelection(employee.id)}
-                      aria-label={`Select ${employee.name || employee.employeeId || "employee"}`}
-                    />
                   </div>
                   <div className="mt-4 grid gap-3">
                     <div className="flex items-start justify-between gap-3">
@@ -529,22 +509,7 @@ export default function EmployeeMaster() {
                     <Button size="sm" variant="outline" className="!h-9 !px-3 text-xs" data-testid={`hr-employee-card-edit-${employee.id}`} onClick={() => navigate(`/employees/${employee.id}?edit=true`)}>
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      iconOnly
-                      className="!h-9 !w-9 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
-                      aria-label={`Delete ${employee.name}`}
-                      data-testid={`hr-employee-card-delete-${employee.id}`}
-                      onClick={() => handleDelete(employee)}
-                      icon={
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 6h18" />
-                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                        </svg>
-                      }
-                    />
+                    <EmployeeStatusButton employee={employee} scope="hr-employee-card" onClick={() => setStatusEmployee(employee)} />
                   </div>
                 </article>
               ))}
@@ -588,6 +553,20 @@ export default function EmployeeMaster() {
           </div>
         )}
       </div>
+      </SectionCard>
+      <Dialog
+        open={!!statusEmployee}
+        onClose={() => !statusSaving && setStatusEmployee(null)}
+        testId="hr-employee-status-modal"
+        title={`${(statusEmployee?.status || "Active").toLowerCase() === "active" ? "Disable" : "Enable"} Employee`}
+        description={`Are you sure you want to ${(statusEmployee?.status || "Active").toLowerCase() === "active" ? "disable" : "enable"} ${statusEmployee?.name || "this employee"}?`}
+        size="sm"
+      >
+        <div className="flex justify-end gap-3 pt-4">
+          <Button data-testid="hr-employee-status-cancel" variant="outline" onClick={() => setStatusEmployee(null)} disabled={statusSaving}>Cancel</Button>
+          <Button data-testid="hr-employee-status-confirm" variant="primary" onClick={() => void confirmStatusChange()} loading={statusSaving}>Confirm</Button>
+        </div>
+      </Dialog>
       <Drawer
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
@@ -632,6 +611,28 @@ export default function EmployeeMaster() {
   );
 }
 
+function EmployeeStatusButton({ employee, scope, onClick }: { employee: Employee; scope: string; onClick: () => void }) {
+  const enabled = (employee.status || "Active").toLowerCase() === "active";
+  const action = enabled ? "disable" : "enable";
+  return (
+    <button
+      type="button"
+      data-testid={`${scope}-${action}-${employee.id}`}
+      onClick={onClick}
+      title={`${enabled ? "Disable" : "Enable"} employee`}
+      aria-label={`${enabled ? "Disable" : "Enable"} ${employee.name || "employee"}`}
+      className={cn(
+        "inline-flex h-9 w-[38px] items-center justify-center rounded-lg border-0 transition-colors",
+        enabled
+          ? "bg-[rgba(5,150,105,0.07)] text-[#059669]"
+          : "bg-[rgba(100,116,139,0.07)] text-[#64748b]"
+      )}
+    >
+      {enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}
+    </button>
+  );
+}
+
 function EmployeeViewToggle({
   value,
   onChange,
@@ -640,13 +641,13 @@ function EmployeeViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       <button
         type="button"
         data-testid="hr-employees-view-table"
         onClick={() => onChange("table")}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
           value === "table"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"
@@ -661,7 +662,7 @@ function EmployeeViewToggle({
         data-testid="hr-employees-view-cards"
         onClick={() => onChange("cards")}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
           value === "cards"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"

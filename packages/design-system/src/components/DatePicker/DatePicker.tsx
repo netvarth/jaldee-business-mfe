@@ -75,6 +75,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
     ref
   ) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+    const automationId = props["data-testid"] ?? inputId;
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const fieldRef = useRef<HTMLDivElement | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -149,6 +150,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
 
         <div ref={fieldRef} className={cn("relative", fullWidth && "w-full")}>
           <input
+            data-testid={automationId ? `${automationId}-display` : undefined}
             value={selectedDate ? formatDisplayValue(selectedDate) : ""}
             readOnly
             disabled={disabled}
@@ -175,6 +177,7 @@ const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           />
 
           <button
+            data-testid={automationId ? `${automationId}-trigger` : undefined}
             ref={triggerRef}
             type="button"
             disabled={disabled}

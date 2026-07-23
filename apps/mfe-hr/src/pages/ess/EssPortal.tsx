@@ -1,12 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, FileText, Filter, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
-import { Button, DataTable, DataTablePagination, DatePicker, Dialog, Drawer, FileUpload, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
-import {
-  SchemaFilterBuilder,
-  buildDefaultSearchClauses,
-  compactSearchClauses,
-} from "@jaldee/shared-modules";
-import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -18,7 +12,6 @@ import {
 } from "../../services/useEss";
 import { useBranches } from "../../services/useBranches";
 import { useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
-import { useDocumentRequestSearchSchema } from "../../services/useHrSearchSchema";
 import Announcements from "../announcements/Announcements";
 import Expenses from "../expenses/Expenses";
 import Tickets from "../tickets/Tickets";
@@ -118,6 +111,7 @@ const pageStack: CSSProperties = {
 };
 
 type ViewMode = "table" | "cards";
+const EMPTY_DOCUMENT_FILTERS: [] = [];
 
 function getPreferredViewMode() {
   if (typeof window === "undefined") return "table" as ViewMode;
@@ -143,9 +137,6 @@ export default function EssPortal() {
   const [documentSubmitError, setDocumentSubmitError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<DocumentRequest | null>(null);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
-  const [documentFilters, setDocumentFilters] = useState<SearchFilterClause[]>([]);
-  const [documentDraftFilters, setDocumentDraftFilters] = useState<SearchFilterClause[]>([]);
-  const [documentFiltersOpen, setDocumentFiltersOpen] = useState(false);
   const [documentPage, setDocumentPage] = useState(1);
   const [documentPageSize, setDocumentPageSize] = useState(20);
   const [leaveApplyForm, setLeaveApplyForm] = useState({
@@ -163,27 +154,11 @@ export default function EssPortal() {
   const leaves = useMyLeaves();
   const balances = useMyLeaveBalances();
   const payslips = useMyPayslips();
-  const { schema: documentSearchSchema, loading: documentSchemaLoading } = useDocumentRequestSearchSchema();
-  const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid, documentFilters, documentSearchSchema, { enabled: !documentSchemaLoading, page: documentPage - 1, pageSize: documentPageSize });
-  const documentAppliedFilterCount = useMemo(
-    () => compactSearchClauses(documentFilters, documentSearchSchema).length,
-    [documentFilters, documentSearchSchema]
-  );
-  const openDocumentFilters = () => {
-    setDocumentDraftFilters(documentFilters.length ? documentFilters : buildDefaultSearchClauses(documentSearchSchema));
-    setDocumentFiltersOpen(true);
-  };
-  const clearDocumentFilters = () => {
-    const reset = buildDefaultSearchClauses(documentSearchSchema);
-    setDocumentDraftFilters(reset);
-    setDocumentFilters(reset);
-    setDocumentPage(1);
-  };
-  const applyDocumentFilters = () => {
-    setDocumentFilters(documentDraftFilters);
-    setDocumentPage(1);
-    setDocumentFiltersOpen(false);
-  };
+  const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid, EMPTY_DOCUMENT_FILTERS, null, {
+    enabled: section === "documents",
+    page: documentPage - 1,
+    pageSize: documentPageSize,
+  });
   const activeBalances = useMemo(
     () => mergeLeaveBalanceBuckets(balances.data.filter((item) => (item.status || "ACTIVE").toUpperCase() === "ACTIVE")),
     [balances.data],
@@ -709,6 +684,8 @@ export default function EssPortal() {
                             <div className="grid gap-4">
                               <div className={`grid gap-4 ${shouldShowLocationSelect ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
                                 <Select
+                                  id="ess-attendance-work-mode"
+                                  testId="ess-attendance-work-mode"
                                   label="Work mode"
                                   value={mode}
                                   onChange={(event) => setMode(event.target.value)}
@@ -716,6 +693,8 @@ export default function EssPortal() {
                                 />
                                 {shouldShowLocationSelect ? (
                                   <Select
+                                    id="ess-attendance-location"
+                                    testId="ess-attendance-location"
                                     label="Location"
                                     value={selectedLocationUid}
                                     onChange={(event) => setSelectedLocationUid(event.target.value)}
@@ -732,6 +711,7 @@ export default function EssPortal() {
                               </div>
                               {!todayAttendance?.clockIn ? (
                                 <Button
+                                  data-testid="ess-attendance-punch-in"
                                   onClick={() => (faceRequired ? setFaceOpen(true) : void punchIn())}
                                   disabled={punchBusy}
                                   className="w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 sm:w-auto sm:justify-self-start"
@@ -740,6 +720,7 @@ export default function EssPortal() {
                                 </Button>
                               ) : !todayAttendance.clockOut ? (
                                 <Button
+                                  data-testid="ess-attendance-punch-out"
                                   onClick={() => void attendance.punchOut(todayAttendance.id)}
                                   disabled={punchBusy}
                                   className="w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 sm:w-auto sm:justify-self-start"
@@ -880,11 +861,12 @@ export default function EssPortal() {
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
                       <Button
+                        data-testid="ess-leave-apply-open"
                         onClick={() => {
                           setLeaveApplyError(null);
                           setLeaveApplyOpen(true);
                         }}
-                        className="bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800"
+                        className="bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90"
                       >
                         <Plus size={16} /> Apply for Leave
                       </Button>
@@ -932,16 +914,6 @@ export default function EssPortal() {
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-3 sm:ml-auto">
                       <AttendanceViewToggle value={documentViewMode} onChange={setDocumentViewMode} />
-                      <Button
-                        type="button"
-                        data-testid="ess-documents-filter-button"
-                        variant={documentAppliedFilterCount > 0 ? "primary" : "outline"}
-                        icon={<Filter size={16} />}
-                        aria-label="Open document filters"
-                        onClick={openDocumentFilters}
-                      >
-                        Filter{documentAppliedFilterCount > 0 ? ` (${documentAppliedFilterCount})` : ""}
-                      </Button>
                     </div>
                   </div>
                   <div className="mt-5">
@@ -1120,28 +1092,6 @@ export default function EssPortal() {
         </div>
       </div>
       <Dialog
-        open={documentFiltersOpen}
-        onClose={() => setDocumentFiltersOpen(false)}
-        title="Document Filters"
-        size="md"
-      >
-        <div className="space-y-5">
-          <SchemaFilterBuilder
-            schema={documentSearchSchema}
-            value={documentDraftFilters}
-            onChange={setDocumentDraftFilters}
-            appliedCount={documentAppliedFilterCount}
-            onClearAll={clearDocumentFilters}
-            emptyStateMessage="No document request filters are available from the schema."
-          />
-          <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
-            <Button type="button" variant="outline" onClick={() => { clearDocumentFilters(); setDocumentFiltersOpen(false); }}>Reset All</Button>
-            <Button type="button" onClick={applyDocumentFilters}>Apply Filters</Button>
-          </div>
-        </div>
-      </Dialog>
-
-      <Dialog
         open={documentDialogOpen}
         onClose={() => setDocumentDialogOpen(false)}
         title="Submit Document"
@@ -1186,7 +1136,7 @@ export default function EssPortal() {
       >
         <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: "var(--primary-color)", margin: 0 }}>Apply for Leave</h3>
+            <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: "#0f766e", margin: 0 }}>Apply for Leave</h3>
             <p style={{ fontSize: 13, fontWeight: 600, color: "var(--primary-color)", opacity: 0.8, margin: "4px 0 0" }}>Submit your absence request from the employee portal.</p>
           </div>
           <button
@@ -1225,12 +1175,14 @@ export default function EssPortal() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <DatePicker
                 id="ess-leave-start-date"
+                data-testid="ess-leave-start-date"
                 label="Start Date"
                 value={leaveApplyForm.startDate}
                 onChange={(e) => setLeaveApplyForm((current) => ({ ...current, startDate: e.target.value }))}
               />
               <DatePicker
                 id="ess-leave-end-date"
+                data-testid="ess-leave-end-date"
                 label="End Date"
                 value={leaveApplyForm.endDate}
                 onChange={(e) => setLeaveApplyForm((current) => ({ ...current, endDate: e.target.value }))}
@@ -1287,8 +1239,8 @@ export default function EssPortal() {
           </div>
         )}
         <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <Button variant="outline" onClick={() => setLeaveApplyOpen(false)}>Close</Button>
-          <Button onClick={() => void submitEssLeaveApply()} disabled={leaveApplyBusy || leaveTypes.loading} loading={leaveApplyBusy}>
+          <Button data-testid="ess-leave-apply-close" variant="outline" onClick={() => setLeaveApplyOpen(false)}>Close</Button>
+          <Button data-testid="ess-leave-apply-submit" className="bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" onClick={() => void submitEssLeaveApply()} disabled={leaveApplyBusy || leaveTypes.loading} loading={leaveApplyBusy}>
             Submit Application
           </Button>
         </div>

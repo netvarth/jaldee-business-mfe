@@ -377,6 +377,10 @@ export default function Assets() {
                 id="hr-assets-filter-indicator"
                 data-testid="hr-assets-filter-indicator"
                 variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                className={cn(
+                  appliedFilterCount === 0 &&
+                    "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]"
+                )}
                 icon={<FilterIcon />}
                 aria-label="Open asset filters"
                 onClick={openFilters}
@@ -908,13 +912,13 @@ function AssetsViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
+    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       <button
         type="button"
         data-testid="hr-assets-view-table"
         onClick={() => onChange("table")}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
           value === "table"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"
@@ -929,7 +933,7 @@ function AssetsViewToggle({
         data-testid="hr-assets-view-cards"
         onClick={() => onChange("cards")}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border-0",
+          "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
           value === "cards"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"

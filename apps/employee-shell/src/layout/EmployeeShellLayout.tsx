@@ -55,6 +55,7 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
               <div className="truncate text-[11px] font-bold text-slate-400">Signed in</div>
             </div>
             <Button
+              data-testid="ess-logout"
               type="button"
               variant="outline"
               onClick={() => void logout()}
@@ -219,6 +220,7 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
 
           <div className="mt-8 border-t border-slate-200 pt-4">
             <button
+              data-testid="ess-mobile-logout"
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);

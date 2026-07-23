@@ -329,6 +329,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "hr-expenses", label: "Expenses", icon: sidebarIcon(DollarSign), path: "/hr/expenses" },
     { id: "hr-staffspace", label: "StaffSpace", icon: sidebarIcon(Megaphone), path: "/hr/announcements" },
     { id: "hr-helpdesk", label: "Helpdesk", icon: sidebarIcon(HelpCircle), path: "/hr/tickets" },
+    { id: "hr-audit-logs", label: "Audit Log", icon: "\u{1F4DD}", path: "/hr/audit-logs" },
     // Keep routes/pages in place; hide these admin links for now.
     // { id: "hr-grievances", label: "Grievances", icon: "\u{1F512}", path: "/hr/grievances" },
     // { id: "hr-posh", label: "POSH", icon: "\u{1F6E1}", path: "/hr/posh" },

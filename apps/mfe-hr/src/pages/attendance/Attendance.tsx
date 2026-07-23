@@ -131,7 +131,7 @@ function AttendanceViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+    <div style={{ display: "inline-flex", alignItems: "center", height: 40, gap: 2, padding: 2, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
       <button
         type="button"
         id="hr-attendance-view-table"

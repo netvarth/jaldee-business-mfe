@@ -107,18 +107,18 @@ export default function CareersPublishPage() {
   // ---- generated-link success screen ----
   if (publishedSlug) {
     return (
-      <div style={{ padding: 24, maxWidth: 560, margin: "40px auto", textAlign: "center" }}>
+      <div data-testid="hr-careers-publish-success" style={{ padding: 24, maxWidth: 560, margin: "40px auto", textAlign: "center" }}>
         <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#D1FAE5", color: "#059669", display: "grid", placeItems: "center", margin: "0 auto 14px", fontSize: 26, fontWeight: 800 }}>✓</div>
         <h2 style={{ color: "#1E1B4B", margin: "0 0 4px" }}>Published to your careers site</h2>
         <p style={{ color: "#6b7280", margin: 0, fontSize: 14 }}>{requisition?.title} is now live. Share this link anywhere.</p>
         <div style={{ display: "flex", gap: 10, alignItems: "center", border: "1px dashed #b9a9e6", borderRadius: 11, padding: "11px 14px", margin: "16px 0" }}>
-          <code style={{ flex: 1, textAlign: "left", color: "#4C1DB3", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</code>
+          <code data-testid="hr-careers-generated-link" style={{ flex: 1, textAlign: "left", color: "#4C1DB3", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</code>
           <button onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
             style={{ border: "1px solid #E5E7EB", background: "#fff", borderRadius: 8, padding: "6px 11px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>{copied ? "Copied ✓" : "Copy"}</button>
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Done</button>
-          <button onClick={() => window.open(link, "_blank", "noopener,noreferrer")} style={btnPrimary}>Open public page →</button>
+          <button data-testid="hr-careers-publish-done" onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Done</button>
+          <button data-testid="hr-careers-open-public-page" onClick={() => window.open(link, "_blank", "noopener,noreferrer")} style={btnPrimary}>Open public page →</button>
         </div>
       </div>
     );
@@ -126,7 +126,7 @@ export default function CareersPublishPage() {
 
   // ---- publish + live preview screen ----
   return (
-    <div style={{ padding: "22px 24px 60px" }}>
+    <div data-testid="hr-careers-publish-page" style={{ padding: "22px 24px 60px" }}>
       <button onClick={() => navigate("/recruitment/requisitions")} style={backLink}>← Back to requisitions</button>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1E1B4B", margin: "8px 0 2px" }}>Publish to careers</h1>
       <p style={{ color: "#6b7280", fontSize: 13.5, margin: 0 }}>Add the public-facing copy. Core details come straight from the requisition.</p>
@@ -156,7 +156,7 @@ export default function CareersPublishPage() {
           <Field label="Template">
             <div style={{ display: "inline-flex", background: "#f3f0fa", borderRadius: 9, padding: 3, gap: 3 }}>
               {templates.map((t) => (
-                <button key={t.value} onClick={() => setForm((p) => ({ ...p, templateKey: t.value }))}
+                <button key={t.value} data-testid={`hr-careers-template-${t.value}`} onClick={() => setForm((p) => ({ ...p, templateKey: t.value }))}
                   style={{ border: 0, background: form.templateKey === t.value ? "#5B21D1" : "transparent", color: form.templateKey === t.value ? "#fff" : "#6b7280", fontWeight: 700, fontSize: 12.5, padding: "6px 12px", borderRadius: 7, cursor: "pointer" }}>{t.label}</button>
               ))}
             </div>
@@ -164,7 +164,7 @@ export default function CareersPublishPage() {
 
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
             <button onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Cancel</button>
-            <button onClick={publish} disabled={publishing} style={btnPrimary}>{publishing ? "Publishing…" : "Publish & get link"}</button>
+            <button data-testid="hr-careers-publish-get-link" onClick={publish} disabled={publishing} style={btnPrimary}>{publishing ? "Publishing…" : "Publish & get link"}</button>
           </div>
         </div>
 

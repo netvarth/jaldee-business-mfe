@@ -86,6 +86,23 @@ async function refreshSessionOnce(): Promise<RefreshResult | void> {
   return _refreshInFlight;
 }
 
+function getResponseErrorCode(data: unknown): string {
+  if (typeof data === "object" && data !== null && "code" in data) {
+    const code = (data as { code?: unknown }).code;
+    return typeof code === "string" ? code.trim().toUpperCase() : "";
+  }
+
+  if (typeof data === "string") {
+    try {
+      return getResponseErrorCode(JSON.parse(data));
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
 export function createApiClient(baseURL: string): AxiosInstance {
   const client = axios.create({
     baseURL,
@@ -181,10 +198,13 @@ export function createApiClient(baseURL: string): AxiosInstance {
     },
     async (error) => {
       const status = error.response?.status;
+      const responseCode = getResponseErrorCode(error.response?.data);
       const originalRequest = error.config as RequestConfigWithMeta | undefined;
 
       if (status === 401 || status === 419) {
+        const isExpiredToken = status === 401 && responseCode === "TOKEN_EXPIRED";
         const canRefresh =
+          isExpiredToken &&
           Boolean(_refreshSessionHandler) &&
           originalRequest &&
           !originalRequest._retry &&
@@ -194,6 +214,7 @@ export function createApiClient(baseURL: string): AxiosInstance {
           originalRequest._retry = true;
 
           try {
+            console.info("[api-client] 401 TOKEN_EXPIRED received; refreshing the session and retrying the request");
             const refreshResult = await refreshSessionOnce();
             _sessionExpired = false;
 
@@ -202,7 +223,9 @@ export function createApiClient(baseURL: string): AxiosInstance {
               originalRequest.headers["Authorization"] = `Bearer ${refreshResult.authToken}`;
             }
 
-            return client.request(originalRequest);
+            const retriedResponse = await client.request(originalRequest);
+            console.info(`[api-client] Session refreshed; retried request completed with ${retriedResponse.status}`);
+            return retriedResponse;
           } catch (refreshError) {
             notifySessionExpired();
             return Promise.reject(refreshError);

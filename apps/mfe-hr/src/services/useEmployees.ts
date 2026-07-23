@@ -81,9 +81,9 @@ export function useEmployees(
     void load();
   }, [load]);
 
-  const remove = useCallback(
-    async (id: string) => {
-      await api.del(`/employees/${id}`);
+  const setStatus = useCallback(
+    async (emp: Employee, status: "Active" | "Inactive") => {
+      await api.patch(`/employees/${emp.id}/status`, { status });
       await load();
     },
     [api, load]
@@ -123,5 +123,5 @@ export function useEmployees(
     [api, load]
   );
 
-  return { data, loading, error, reload: load, remove, assignStructure };
+  return { data, loading, error, reload: load, setStatus, assignStructure };
 }

@@ -198,6 +198,8 @@ export default function CandidateView() {
               <div className="mb-4 flex flex-wrap justify-end gap-2">
                 <input
                   ref={uploadInputRef}
+                  id="hr-recruitment-candidate-resume-file"
+                  data-testid="hr-recruitment-candidate-resume-file"
                   type="file"
                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
                   className="hidden"

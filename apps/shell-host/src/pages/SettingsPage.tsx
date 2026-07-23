@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Badge, Button, Checkbox, Dialog, DialogFooter, EmptyState, Input, PageHeader, SectionCard, Select, Switch, Textarea } from "@jaldee/design-system";
 import { apiClient } from "@jaldee/api-client";
+import { SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
+import { eventBus } from "../eventBus/eventBus";
 import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../services/serviceUrls";
 import { getTenantSettingsForShell, updateTenantSettingsForShell } from "../services/authService";
 import { useShellStore } from "../store/shellStore";
@@ -190,6 +192,26 @@ const CORE_PRODUCTS: ProductCardItem[] = [
     statusLabel: "Available",
     statusMeta: "Click to enable",
   },
+  {
+    id: "hr",
+    name: "Jaldee HR",
+    description: "Human resources, recruitment, attendance, and employee self-service",
+    icon: "users",
+    accent: "indigo",
+    enabled: false,
+    statusLabel: "Available",
+    statusMeta: "Click to enable",
+  },
+  {
+    id: "finance",
+    name: "Jaldee Finance",
+    description: "Accounting, invoicing, payments, expenses, and financial reporting",
+    icon: "currency",
+    accent: "slate",
+    enabled: false,
+    statusLabel: "Available",
+    statusMeta: "Click to enable",
+  },
 ];
 
 const ADD_ON_MODULES: ProductCardItem[] = [
@@ -236,18 +258,6 @@ const ADD_ON_MODULES: ProductCardItem[] = [
 ];
 
 const PLATFORM_SERVICES: ProductCardItem[] = [
-  {
-    id: "finance",
-    name: "Jaldee Pay & Finance",
-    description: "GST Invoicing, Payments, and Billing",
-    icon: "currency",
-    accent: "slate",
-    enabled: true,
-    statusLabel: "Active",
-    statusMeta: "Included in plan",
-    actionLabel: "Configure",
-    locked: true,
-  },
   {
     id: "comms",
     name: "Smart Comms",
@@ -359,6 +369,8 @@ function readProductFlag(settings: TenantSettingsRecord, id: string, fallback: b
     health: ["health", "healthCrm", "healthCrmEnabled", "healthCrmStatus"],
     karty: ["karty", "eCommerce", "ecommerce", "kartyEnabled", "kartyStatus"],
     lending: ["lending", "lendingCrm", "lendingCrmEnabled", "lendingCrmStatus"],
+    hr: ["hr"],
+    finance: ["finance", "financeEnabled", "financeStatus"],
     membership: ["membership"],
     leads: ["lead"],
     tasks: ["task"],
@@ -504,7 +516,7 @@ function formatPlanName(value: string) {
 }
 
 function buildLicensedProductsFromSelection(selectedCoreProducts: Record<string, boolean>) {
-  const products: Array<"health" | "bookings" | "karty" | "finance" | "lending"> = [];
+  const products: Array<"health" | "bookings" | "karty" | "finance" | "lending" | "hr"> = [];
 
   if (selectedCoreProducts.health) {
     products.push("health");
@@ -512,12 +524,17 @@ function buildLicensedProductsFromSelection(selectedCoreProducts: Record<string,
   if (selectedCoreProducts.booking) {
     products.push("bookings");
   }
-  products.push("finance");
+  if (selectedCoreProducts.finance) {
+    products.push("finance");
+  }
   if (selectedCoreProducts.karty) {
     products.push("karty");
   }
   if (selectedCoreProducts.lending) {
     products.push("lending");
+  }
+  if (selectedCoreProducts.hr) {
+    products.push("hr");
   }
 
   return products;
@@ -1061,8 +1078,15 @@ export default function SettingsPage() {
       setEditingLocation(null);
       setLocationForm(EMPTY_LOCATION_FORM);
       await loadLocations();
+      eventBus.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: editingLocation ? "Location updated" : "Location created",
+        message: `${locationName} was saved successfully.`,
+      });
     } catch (error) {
-      setLocationsError(readErrorMessage(error, `Unable to ${editingLocation ? "update" : "create"} location.`));
+      const message = readErrorMessage(error, `Unable to ${editingLocation ? "update" : "create"} location.`);
+      setLocationsError(message);
+      eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Save failed", message });
     } finally {
       setLocationSaving(false);
     }
@@ -1076,8 +1100,15 @@ export default function SettingsPage() {
         buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.setAsBase(locationItem.id)),
       );
       await loadLocations();
+      eventBus.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Base location updated",
+        message: `${locationItem.name} is now the base location.`,
+      });
     } catch (error) {
-      setLocationsError(readErrorMessage(error, "Unable to set base location."));
+      const message = readErrorMessage(error, "Unable to set base location.");
+      setLocationsError(message);
+      eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Update failed", message });
     } finally {
       setLocationSaving(false);
     }
@@ -1099,8 +1130,15 @@ export default function SettingsPage() {
         buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.locations.status(locationItem.id, "Disabled")),
       );
       await loadLocations();
+      eventBus.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Location disabled",
+        message: `${locationItem.name} was disabled successfully.`,
+      });
     } catch (error) {
-      setLocationsError(readErrorMessage(error, "Unable to disable location."));
+      const message = readErrorMessage(error, "Unable to disable location.");
+      setLocationsError(message);
+      eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Update failed", message });
     } finally {
       setLocationSaving(false);
     }
@@ -1132,8 +1170,15 @@ export default function SettingsPage() {
             },
           });
         }
+        eventBus.emit(SHELL_TOAST_EVENT, {
+          intent: "success",
+          title: "Branding saved",
+          message: "Branding settings were saved successfully.",
+        });
       } catch {
-        setSettingsError("Unable to save branding settings.");
+        const message = "Unable to save branding settings.";
+        setSettingsError(message);
+        eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Save failed", message });
       } finally {
         setSettingsSaving(false);
       }
@@ -1143,7 +1188,8 @@ export default function SettingsPage() {
     const selectedCoreProducts = Object.fromEntries(coreProducts.map((item) => [item.id, item.enabled]));
     const selectedAddOns = Object.fromEntries(addOnModules.map((item) => [item.id, item.enabled]));
     const payload = {
-      finance: true,
+      finance: Boolean(selectedCoreProducts.finance),
+      hr: Boolean(selectedCoreProducts.hr),
       booking: Boolean(selectedCoreProducts.booking),
       health: Boolean(selectedCoreProducts.health),
       eCommerce: Boolean(selectedCoreProducts.karty),
@@ -1164,8 +1210,15 @@ export default function SettingsPage() {
           enabledModules: buildEnabledModulesFromSelection(account.enabledModules, selectedAddOns),
         });
       }
+      eventBus.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: `${activeItem.label} saved`,
+        message: `${activeItem.label} settings were saved successfully.`,
+      });
     } catch {
-      setSettingsError("Unable to save tenant settings.");
+      const message = `Unable to save ${activeItem.label.toLowerCase()} settings.`;
+      setSettingsError(message);
+      eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Save failed", message });
     } finally {
       setSettingsSaving(false);
     }

@@ -36,7 +36,7 @@ export function RecruitmentViewToggle({
   cardsTestId: string;
 }) {
   return (
-    <div className="inline-flex shrink-0 items-center gap-[3px] rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] p-[3px]">
+    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       <button
         type="button"
         data-testid={tableTestId}

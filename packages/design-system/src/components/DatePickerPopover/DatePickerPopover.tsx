@@ -168,6 +168,7 @@ export function DatePickerPopover({
 
           <div className="flex gap-1.5">
             <Button
+              data-testid="date-picker-previous-month"
               type="button"
               variant="ghost"
               size="md"
@@ -178,6 +179,7 @@ export function DatePickerPopover({
               ‹
             </Button>
             <Button
+              data-testid="date-picker-next-month"
               type="button"
               variant="ghost"
               size="md"
@@ -233,6 +235,7 @@ export function DatePickerPopover({
               return (
                 <Button
                   key={`${index}-${day?.toDateString() ?? "empty"}`}
+                  data-testid={day ? `date-picker-day-${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}` : undefined}
                   type="button"
                   variant="ghost"
                   size="sm"
