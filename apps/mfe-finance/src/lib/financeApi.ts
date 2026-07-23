@@ -4,7 +4,9 @@ type ApiFilter = Record<string, unknown>;
 type ApiResponse<T> = Promise<{ data: T }>;
 
 function isTenantFinanceEndpoint(url: string) {
-  return url.includes("/finance-service/v1/api/tenant/") || url.includes("/v1/api/tenant/");
+  return url.includes("/finance-service/v1/api/tenant/")
+    || url.includes("/base-service/v1/api/tenant/")
+    || url.includes("/v1/api/tenant/");
 }
 
 function withTenantConfig(config?: { params?: ApiFilter }) {
@@ -134,6 +136,7 @@ const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tena
 const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer");
 const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts");
 const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
+const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
 
 export function sanitizeFinancePayload<T extends Record<string, unknown>>(data: T) {
   const sanitized = { ...data };
@@ -530,6 +533,15 @@ export const financeApi = {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT, toMsQuery(filter));
     },
+    listOut<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT, toMsQuery(filter));
+    },
+    detailIn<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/${uid}`);
+    },
+    detailOut<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/${uid}`);
+    },
     count<T = number>(filter: ApiFilter = {}) {
       return get<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_COUNT_ENDPOINT, filter);
     },
@@ -618,6 +630,9 @@ export const financeApi = {
   locations: {
     provider<T = unknown>() {
       return get<T>("provider/locations");
+    },
+    tenant<T = unknown>(filter: ApiFilter = {}) {
+      return get<T>(TENANT_LOCATIONS_ENDPOINT, filter);
     },
     list<T = unknown>(filter: ApiFilter = {}) {
       return get<T>("provider/locations", filter);

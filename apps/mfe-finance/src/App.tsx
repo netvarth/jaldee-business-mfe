@@ -7,6 +7,8 @@ import {
   Button,
   DataTable,
   DatePicker,
+  Dialog,
+  DialogFooter,
   EmptyState,
   Icon,
   Input,
@@ -278,25 +280,24 @@ function QuickActions({
 
   return (
     <SectionCard className="border-slate-200 shadow-sm">
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div>
           <div className="text-[22px] font-semibold tracking-tight text-[#312E81]">Finance Manager Dashboard</div>
           <div className="mt-1 text-sm text-slate-500">Keep a tab on your finance and manage your finance operations smoothly.</div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-8">
+        <div className="flex flex-wrap gap-3">
           {actions.map((action) => (
             <button
               key={action.label}
               type="button"
               onClick={() => navigate(toFinanceRoute(action.path))}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+              className="min-h-[92px] w-[110px] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
             >
-              <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.tone}`}>
-                <Icon name={action.icon} className="h-5 w-5" />
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${action.tone}`}>
+                <Icon name={action.icon} className="h-4 w-4" />
               </div>
-              <div className="mt-4 text-sm font-semibold text-slate-900">{action.label}</div>
-              <div className="mt-1 text-xs text-slate-500">{action.note}</div>
+              <div className="mt-3 text-xs font-semibold leading-4 text-slate-900">{action.label}</div>
             </button>
           ))}
         </div>
@@ -591,21 +592,29 @@ function OverviewPage() {
   const payoutTotal = filteredFinancePayables.reduce((sum, entry) => sum + entry.amountDue, 0);
   const latestCashUpdate = financeCashInHand.at(-1)?.updatedOn ?? "-";
   const recentInvoices = financeInvoices.slice(0, 5);
-  const recentVendors = financeVendors.slice(0, 1);
+  const recentVendors = financeVendors.slice(0, 5);
 
   return (
-    <PageShell
-      title="Finance Manager Dashboard"
-      subtitle="Keep a tab on your Finance and manage your finance operations smoothly."
-    >
+    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
+        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <div className="text-base font-semibold text-slate-900">
+            Welcome back
+            {mfeProps.location?.name ? `, ${mfeProps.location.name}` : ""}
+          </div>
+          <div className="mt-1 text-sm text-slate-500">
+            {mfeProps.location?.name ? `Finance overview for ${mfeProps.location.name}.` : "Finance overview for your current workspace."}
+          </div>
+        </div>
+
       <QuickActions actions={dashboardActions} />
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_1.05fr] lg:items-start">
         <div className="space-y-6">
-          <SectionCard className="border-slate-200 shadow-sm">
+          <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[22px] font-semibold text-slate-900">Account Balance</div>
-              <div className="w-40">
+              <div className="text-[18px] font-semibold text-slate-900">Account Balance</div>
+              <div className="w-28">
                 <Select
                   options={[
                     { value: "today", label: "Today" },
@@ -618,21 +627,33 @@ function OverviewPage() {
                 />
               </div>
             </div>
-            <div className="mt-4 rounded-2xl bg-[#3B07B8] px-6 py-5 text-white shadow-sm">
-              <div className="text-sm font-medium text-indigo-100">Your Account Balance</div>
-              <div className="mt-1 text-xl font-semibold">{formatCurrency(accountBalance)}</div>
+            <div className="mt-4 flex min-h-[78px] items-start justify-between rounded-md bg-[#3F08B5] px-4 py-5 text-white shadow-sm">
+              <div>
+                <div className="text-sm font-semibold text-indigo-100">Your Account</div>
+                <div className="text-[15px] font-semibold text-white">Balance</div>
+              </div>
+              <div className="pt-3 text-right text-2xl font-semibold">{formatCurrency(accountBalance)}</div>
             </div>
           </SectionCard>
 
-          <SectionCard className="border-slate-200 shadow-sm">
-            <div className="text-[22px] font-semibold text-slate-900">Recent Transaction</div>
+          <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <div className="text-[18px] font-semibold text-slate-900">Recent Transaction</div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <StatCard label="Revenue" value={formatCurrency(revenueTotal)} accent="emerald" />
-              <StatCard label="Expenses" value={formatCurrency(expenseTotal)} accent="rose" />
-              <StatCard label="Payout" value={formatCurrency(payoutTotal)} accent="amber" />
+              <div className="rounded-lg border border-emerald-200 bg-white px-4 py-4 shadow-sm">
+                <div className="text-sm text-slate-600">Revenue</div>
+                <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(revenueTotal)}</div>
+              </div>
+              <div className="rounded-lg border border-rose-200 bg-white px-4 py-4 shadow-sm">
+                <div className="text-sm text-slate-600">Expenses</div>
+                <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(expenseTotal)}</div>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-white px-4 py-4 shadow-sm">
+                <div className="text-sm text-slate-600">Payout</div>
+                <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(payoutTotal)}</div>
+              </div>
             </div>
 
-            <div className="mt-6 flex gap-8 border-b border-slate-200 text-base font-semibold">
+            <div className="mt-5 flex gap-7 border-b border-slate-200 text-[15px] font-semibold">
               {(["All", "Revenue", "Payout"] as const).map((tab) => (
                 <button
                   key={tab}
@@ -655,11 +676,11 @@ function OverviewPage() {
                   key={row.id}
                   type="button"
                   onClick={() => mfeProps.navigate(row.kind === "Revenue" ? "/finance/payments" : "/finance/payable")}
-                  className="grid w-full gap-4 py-5 text-left transition hover:bg-slate-50 md:grid-cols-[1.5fr_0.9fr_auto] md:items-start"
+                  className="grid w-full gap-4 py-6 text-left transition hover:bg-slate-50 md:grid-cols-[1.5fr_0.9fr_auto] md:items-start"
                 >
                   <div>
                     <div className="text-[16px] font-semibold text-slate-900">{row.title}</div>
-                    <div className="text-[16px] font-semibold text-slate-900">{row.subtitle}</div>
+                    <div className="text-[16px] font-semibold text-slate-900">{row.subtitle || "-"}</div>
                     <div className={`mt-1 text-[14px] font-medium ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
                       {row.note}
                     </div>
@@ -689,13 +710,13 @@ function OverviewPage() {
         </div>
 
         <div className="space-y-6">
-          <SectionCard className="border-slate-200 shadow-sm">
+          <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <div className="text-[22px] font-semibold text-slate-900">Cash Inhand</div>
+              <div className="text-[18px] font-semibold text-slate-900">Cash Inhand</div>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="text-slate-500 hover:text-slate-900 transition p-1"
+                className="rounded-md p-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                 title="Refresh"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -703,15 +724,15 @@ function OverviewPage() {
                 </svg>
               </button>
             </div>
-            <div className="mt-4 rounded-2xl bg-slate-600 px-6 py-5 text-white shadow-sm flex items-center justify-between">
+            <div className="mt-4 flex min-h-[78px] items-start justify-between rounded-md bg-[#90959B] px-4 py-5 text-white shadow-sm">
               <div>
-                <div className="text-sm font-medium text-slate-200">Amount</div>
-                <div className="mt-1 text-xl font-semibold">{formatCurrency(cashInHandTotal)}</div>
+                <div className="text-sm font-semibold text-slate-100">Amount</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{formatCurrency(cashInHandTotal)}</div>
               </div>
               <button
                 type="button"
                 onClick={() => mfeProps.navigate("/finance/cashRegister")}
-                className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100 transition shadow"
+                className="mt-1 rounded-md bg-white px-4 py-2 text-xs font-semibold text-[#4B1FCF] transition hover:bg-slate-100"
               >
                 Cash Register ↗
               </button>
@@ -721,31 +742,7 @@ function OverviewPage() {
             </div>
           </SectionCard>
 
-          <SectionCard className="border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="text-[22px] font-semibold text-slate-900">Statistics</div>
-              <div className="w-40">
-                <Select
-                  options={[
-                    { value: "week", label: "Last 7 Days" },
-                    { value: "month", label: "Past 12 Months" },
-                  ]}
-                  value={statsChartRange}
-                  onChange={(e) => setStatsChartRange(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-5 text-sm text-slate-600">
-              <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-400" />Revenue</div>
-              <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-amber-400" />Payout</div>
-              <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-rose-400" />Expense</div>
-            </div>
-            <div className="mt-4">
-              <BarChart data={statisticsData} />
-            </div>
-          </SectionCard>
-
-          <SectionCard className="border-slate-200 shadow-sm">
+          <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="text-[22px] font-semibold text-slate-900">Expenses Breakdown</div>
               <div className="w-48">
@@ -804,8 +801,32 @@ function OverviewPage() {
                 onClick={() => mfeProps.navigate("/finance/expense")}
                 className="text-[16px] font-semibold text-indigo-700 hover:text-indigo-800"
               >
-                See AllExpenses({expenseBreakdownRows.length})
+                See All Expenses({expenseBreakdownRows.length})
               </button>
+            </div>
+          </SectionCard>
+
+          <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-[22px] font-semibold text-slate-900">Statistics</div>
+              <div className="w-40">
+                <Select
+                  options={[
+                    { value: "week", label: "Last 7 Days" },
+                    { value: "month", label: "Past 12 Months" },
+                  ]}
+                  value={statsChartRange}
+                  onChange={(e) => setStatsChartRange(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-5 text-sm text-slate-600">
+              <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-emerald-400" />Revenue</div>
+              <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-amber-400" />Payout</div>
+              <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-rose-400" />Expense</div>
+            </div>
+            <div className="mt-4">
+              <BarChart data={statisticsData} />
             </div>
           </SectionCard>
 
@@ -867,7 +888,8 @@ function OverviewPage() {
           </div>
         </div>
       </div>
-    </PageShell>
+      </div>
+    </div>
   );
 }
 
@@ -3160,70 +3182,232 @@ function TotalListPage() {
 }
 
 function CashInHandPage() {
-  const { financeCashInHand } = useFinanceLiveData();
   const mfeProps = useMFEProps();
+  const navigate = useNavigate();
+  const [financeCashInHand, setFinanceCashInHand] = useState<Array<{
+    id: string;
+    date: string;
+    amount: number;
+    type: string;
+    referenceNo: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  async function loadCashInHand() {
+    setLoading(true);
+    try {
+      const filter = mfeProps.location?.id
+        ? { from: 0, count: 100, "locationId-eq": String(mfeProps.location.id) }
+        : { from: 0, count: 100 };
+      const response = await financeApi.cash.list<any>(filter);
+      const payload = Array.isArray(response.data?.content)
+        ? response.data.content
+        : Array.isArray(response.data?.data?.content)
+          ? response.data.data.content
+          : Array.isArray(response.data?.data)
+            ? response.data.data
+            : Array.isArray(response.data)
+              ? response.data
+              : [];
+
+      setFinanceCashInHand(
+        payload.map((item: any, index: number) => {
+          const paymentDate = item?.paymentOn || item?.createdDate || item?.updatedDate || item?.updatedAt;
+          return {
+            id: String(item?.paymentsInUid || item?.payInOutUid || item?.uid || item?.id || `cash-in-${index}`),
+            date: paymentDate ? new Date(paymentDate).toLocaleDateString("en-GB") : "-",
+            amount: Number(item?.amount || item?.paymentAmount || item?.netTotal || 0) || 0,
+            type: item?.isPaymentsIn === false ? "Cash OUT" : "Cash IN",
+            referenceNo: String(item?.referenceNo || "-"),
+          };
+        })
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load cash in hand list", error);
+      setFinanceCashInHand([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadCashInHand();
+  }, [mfeProps.location?.id]);
+
   const handleRefreshCash = async () => {
     setRefreshing(true);
     try {
       if (mfeProps.location?.id) {
         await financeApi.cash.recalculateBalance(mfeProps.location.id);
       }
-      window.location.reload();
+      await loadCashInHand();
     } catch (err) {
       console.error("Failed to refresh cash balance", err);
+    } finally {
       setRefreshing(false);
     }
   };
   const columns = useMemo<ColumnDef<(typeof financeCashInHand)[number]>[]>(
     () => [
-      { key: "source", header: "Source" },
-      { key: "owner", header: "Owner" },
-      { key: "updatedOn", header: "Updated On" },
-      { key: "amount", header: "Amount", align: "right", render: (row) => formatCurrency(row.amount) },
+      { key: "date", header: "Date" },
+      { key: "amount", header: "Amount (₹)", align: "right", render: (row) => formatCurrency(row.amount) },
+      { key: "type", header: "Cash IN/OUT" },
+      { key: "referenceNo", header: "Reference No." },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <Button variant="outline" onClick={() => navigate(`view/${row.id}`, { relative: "path" })}>
+            View
+          </Button>
+        ),
+      },
     ],
-    []
+    [navigate]
   );
 
   return (
-    <FinanceFeatureLayout
-      title="Cash In Hand"
-      subtitle="Current cash availability and custody visibility."
-      actions={<Button onClick={handleRefreshCash} disabled={refreshing}>{refreshing ? "Refreshing..." : "Refresh Cash"}</Button>}
-      stats={[
-        { label: "Cash Sources", value: String(financeCashInHand.length), accent: "indigo" },
-        { label: "Total Cash", value: formatCurrency(financeCashInHand.reduce((sum, row) => sum + row.amount, 0)), accent: "emerald" },
-        { label: "Largest Source", value: formatCurrency(financeCashInHand.length ? Math.max(...financeCashInHand.map((row) => row.amount)) : 0), accent: "amber" },
-        { label: "Custodians", value: String(new Set(financeCashInHand.map((row) => row.owner)).size), accent: "rose" },
-      ]}
-      main={
-        <DataTableCard
-          title="Cash Sources"
-          subtitle="Cash reserve locations and accountable owners."
-          data={financeCashInHand}
-          columns={columns}
-          getRowId={(row) => row.id}
-          emptyTitle="No cash in hand records"
-          emptyDescription="Cash in hand entries will appear here."
-        />
+    <PageShell
+      title="Cash Reserve"
+      subtitle="Cash reserve entries for the selected location."
+      actions={
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleRefreshCash} disabled={refreshing}>
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+          <Button onClick={() => navigate("reserve/new", { relative: "path" })}>+ Cash Reserve</Button>
+        </div>
       }
-      aside={
-        <FeedCard title="Latest Snapshots">
-          <SummaryList
-            rows={financeCashInHand.map((row) => ({
-              label: row.source,
-              value: formatCurrency(row.amount),
-              note: `${row.owner} | ${row.updatedOn}`,
-            }))}
-          />
-        </FeedCard>
+    >
+      <DataTableCard
+        title={`Cash Reserve(${financeCashInHand.length})`}
+        subtitle="Cash reserve list with quick access to reserve details."
+        data={financeCashInHand}
+        columns={columns}
+        getRowId={(row) => row.id}
+        emptyTitle="No cash reserve records"
+        emptyDescription={loading ? "Loading cash reserve entries..." : "Cash reserve entries will appear here."}
+      />
+    </PageShell>
+  );
+}
+
+function CashReserveViewPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const [reserve, setReserve] = useState<{
+    reserveType: "Cash IN" | "Cash OUT";
+    locationName: string;
+    referenceNo: string;
+    amount: number;
+    notes: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadReserve() {
+      if (!id) {
+        setReserve(null);
+        setLoading(false);
+        return;
       }
-    />
+
+      setLoading(true);
+      try {
+        const [cashInResponse, cashOutResponse] = await Promise.allSettled([
+          financeApi.cash.detailIn<any>(id),
+          financeApi.cash.detailOut<any>(id),
+        ]);
+
+        const payload =
+          cashInResponse.status === "fulfilled"
+            ? cashInResponse.value.data
+            : cashOutResponse.status === "fulfilled"
+              ? cashOutResponse.value.data
+              : null;
+
+        if (!active) {
+          return;
+        }
+
+        if (!payload) {
+          setReserve(null);
+          return;
+        }
+
+        setReserve({
+          reserveType: payload?.isPaymentsIn === false ? "Cash OUT" : "Cash IN",
+          locationName: String(payload?.locationName || "-"),
+          referenceNo: String(payload?.referenceNo || "-"),
+          amount: Number(payload?.amount || payload?.paymentAmount || 0) || 0,
+          notes: String(payload?.description || payload?.notes || "-"),
+        });
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load cash reserve detail", error);
+        if (active) {
+          setReserve(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadReserve();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  return (
+    <PageShell
+      title="Cash Reserve"
+      subtitle="View cash reserve details."
+      actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        {loading ? (
+          <div className="text-sm text-slate-500">Loading cash reserve details...</div>
+        ) : !reserve ? (
+          <EmptyState title="Cash reserve not found" description="The selected cash reserve record could not be loaded." />
+        ) : (
+          <div className="grid gap-5">
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-slate-700">Reserve Type *</label>
+              <div className="flex flex-wrap gap-5">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="radio" checked={reserve.reserveType === "Cash IN"} readOnly />
+                  Cash IN
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="radio" checked={reserve.reserveType === "Cash OUT"} readOnly />
+                  Cash OUT
+                </label>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input label="Location *" value={reserve.locationName} readOnly />
+              <Input label="Reference No." value={reserve.referenceNo} readOnly />
+              <Input label="Amount(₹) *" value={String(reserve.amount)} readOnly />
+            </div>
+
+            <Textarea label="Notes" value={reserve.notes} readOnly rows={4} />
+          </div>
+        )}
+      </SectionCard>
+    </PageShell>
   );
 }
 
 function CashRegisterPage() {
   const mfeProps = useMFEProps();
+  const navigate = useNavigate();
   const [cashRegisters, setCashRegisters] = useState<Array<{
     id: string;
     source: string;
@@ -3237,46 +3421,47 @@ function CashRegisterPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [cashInHandAmount, setCashInHandAmount] = useState(0);
   const [cashUpdatedOn, setCashUpdatedOn] = useState("-");
-  const [showCashReserveDialog, setShowCashReserveDialog] = useState(false);
-  const [reserveDate, setReserveDate] = useState(new Date().toISOString().slice(0, 10));
-  const [reserveLabel, setReserveLabel] = useState("");
-  const [reserveReferenceNo, setReserveReferenceNo] = useState("");
-  const [reserveAmount, setReserveAmount] = useState("");
-  const [reserveDescription, setReserveDescription] = useState("");
-  const [savingReserve, setSavingReserve] = useState(false);
-  const [reserveError, setReserveError] = useState("");
 
   async function loadCashRegisters() {
     setLoading(true);
     try {
-      const response = await financeApi.revenue.list<any>({
-        from: 0,
-        count: 10,
-        "paymentMode-eq": "Cash",
-      });
+      const locationFilter = mfeProps.location?.id
+        ? { from: 0, count: 100, "locationId-eq": String(mfeProps.location.id) }
+        : { from: 0, count: 100 };
+      const [cashInResponse, cashOutResponse] = await Promise.allSettled([
+        financeApi.cash.list<any>(locationFilter),
+        financeApi.cash.listOut<any>(locationFilter),
+      ]);
 
-      const payload = Array.isArray(response.data?.content)
-        ? response.data.content
-        : Array.isArray(response.data?.data?.content)
-          ? response.data.data.content
-          : Array.isArray(response.data?.data)
-            ? response.data.data
-            : Array.isArray(response.data)
-              ? response.data
-              : [];
+      const readList = (payload: any) =>
+        Array.isArray(payload?.content)
+          ? payload.content
+          : Array.isArray(payload?.data?.content)
+            ? payload.data.content
+            : Array.isArray(payload?.data)
+              ? payload.data
+              : Array.isArray(payload)
+                ? payload
+                : [];
+
+      const cashInPayload = cashInResponse.status === "fulfilled" ? readList(cashInResponse.value.data) : [];
+      const cashOutPayload = cashOutResponse.status === "fulfilled" ? readList(cashOutResponse.value.data) : [];
 
       setCashRegisters(
-        payload.map((item: any, index: number) => {
-          const paymentDate = item?.paymentOn || item?.paymentDate || item?.receivedDate || item?.createdDate;
+        [
+          ...cashInPayload.map((item: any, index: number) => ({ item, type: "Cash IN", index, direction: "in" })),
+          ...cashOutPayload.map((item: any, index: number) => ({ item, type: "Cash OUT", index, direction: "out" })),
+        ].map(({ item, type, index, direction }) => {
+          const paymentDate = item?.paymentOn || item?.paymentDate || item?.receivedDate || item?.createdDate || item?.updatedAt;
           return {
-            id: String(item?.paymentsInUid || item?.payInOutUid || item?.uid || item?.id || `cash-register-${index}`),
-            source: String(item?.paymentLabel || item?.paymentsInLabel || item?.categoryName || item?.purpose || "Cash Payment"),
+            id: String(item?.paymentsInUid || item?.paymentsOutUid || item?.payInOutUid || item?.uid || item?.id || `cash-register-${direction}-${index}`),
+            source: String(item?.paymentLabel || item?.paymentsInLabel || item?.paymentsOutLabel || item?.categoryName || item?.purpose || type),
             owner: String(item?.createdByName || item?.userName || item?.owner || "Finance"),
             updatedOn: paymentDate
               ? new Date(paymentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
               : "-",
             amount: Number(item?.amount || item?.paymentAmount || item?.receivedAmount || item?.netTotal || 0) || 0,
-            type: String(item?.type || item?.paymentType || "Cash"),
+            type,
             category: String(item?.categoryName || item?.paymentCategory || item?.purpose || "-"),
           };
         })
@@ -3299,10 +3484,12 @@ function CashRegisterPage() {
     try {
       const response = await financeApi.cash.balance<any>(String(mfeProps.location.id));
       const payload = response.data ?? {};
+      const rawUpdatedAt = payload.updatedAt ?? payload.updatedDate ?? payload.lastUpdatedAt;
+      const rawUpdatedOn = payload.updatedOn ?? payload.lastUpdated;
       setCashInHandAmount(Number(payload.cashInHand ?? payload.balance ?? payload.amount ?? 0) || 0);
       setCashUpdatedOn(
-        payload.updatedOn || payload.updatedDate || payload.lastUpdated
-          ? new Date(payload.updatedOn || payload.updatedDate || payload.lastUpdated).toLocaleString("en-US", {
+        rawUpdatedAt
+          ? new Date(rawUpdatedAt).toLocaleString("en-US", {
               month: "2-digit",
               day: "2-digit",
               year: "numeric",
@@ -3311,6 +3498,8 @@ function CashRegisterPage() {
               second: "2-digit",
               hour12: true,
             })
+          : rawUpdatedOn
+            ? String(rawUpdatedOn)
           : "-"
       );
     } catch (error) {
@@ -3344,56 +3533,6 @@ function CashRegisterPage() {
     }
   }
 
-  async function handleCreateCashReserve(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setReserveError("");
-
-    const parsedAmount = Number(reserveAmount);
-    if (!reserveLabel.trim()) {
-      setReserveError("Cash reserve label is required.");
-      return;
-    }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setReserveError("Amount must be greater than zero.");
-      return;
-    }
-
-    setSavingReserve(true);
-    try {
-      await financeApi.cash.createReserve("paymentsIn", {
-        locationUid: mfeProps.location?.id ?? undefined,
-        locationId: mfeProps.location?.id ?? undefined,
-        locationName: mfeProps.location?.name ?? undefined,
-        amount: parsedAmount,
-        currency: "INR",
-        mode: "Cash",
-        paymentMode: "Cash",
-        acceptedBy: "CASH",
-        paymentOn: toIsoDateTime(reserveDate),
-        receivedDate: reserveDate,
-        paymentLabel: reserveLabel.trim(),
-        paymentsInLabel: reserveLabel.trim(),
-        referenceNo: reserveReferenceNo.trim() || undefined,
-        description: reserveDescription.trim() || undefined,
-        isPaymentsIn: true,
-        financeDirect: true,
-        paymentInfo: [{ paymentMode: "Cash" }],
-      });
-      setShowCashReserveDialog(false);
-      setReserveDate(new Date().toISOString().slice(0, 10));
-      setReserveLabel("");
-      setReserveReferenceNo("");
-      setReserveAmount("");
-      setReserveDescription("");
-      await loadCashRegisterData();
-    } catch (error) {
-      console.error("[mfe-finance] Failed to create cash reserve", error);
-      setReserveError(error instanceof Error ? error.message : "Could not create cash reserve.");
-    } finally {
-      setSavingReserve(false);
-    }
-  }
-
   const columns = useMemo<ColumnDef<(typeof cashRegisters)[number]>[]>(
     () => [
       { key: "updatedOn", header: "Date" },
@@ -3411,10 +3550,7 @@ function CashRegisterPage() {
         subtitle="Register balances and last update snapshots."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleRefreshCash} disabled={refreshing}>
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </Button>
-            <Button onClick={() => setShowCashReserveDialog(true)}>+ Cash Reserve</Button>
+            <Button onClick={() => navigate("reserve/new", { relative: "path" })}>+ Cash Reserve</Button>
           </div>
         }
         main={
@@ -3425,13 +3561,13 @@ function CashRegisterPage() {
                   <div className="text-sm font-medium text-slate-600">Cash Inhand</div>
                   <div className="mt-3 text-3xl font-semibold text-emerald-600">{formatCurrency(cashInHandAmount)}</div>
                 </div>
-                <div className="text-sm text-slate-600">
-                  Last Updated On {cashUpdatedOn}
+                <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                  <span>Last Updated On {cashUpdatedOn}</span>
                   <button
                     type="button"
                     onClick={handleRefreshCash}
                     disabled={refreshing}
-                    className="ml-3 font-semibold text-indigo-700"
+                    className="font-semibold text-indigo-700"
                   >
                     {refreshing ? "Refreshing..." : "Refresh"}
                   </button>
@@ -3441,7 +3577,7 @@ function CashRegisterPage() {
 
             <DataTableCard
               title={`Cash Register(${cashRegisters.length})`}
-              subtitle="Cash payments loaded from payments-in with payment mode Cash."
+              subtitle="Cash reserve entries showing both cash in and cash out."
               data={cashRegisters}
               columns={columns}
               getRowId={(row) => row.id}
@@ -3451,38 +3587,271 @@ function CashRegisterPage() {
           </>
         }
       />
-
-      <Dialog open={showCashReserveDialog} onClose={() => setShowCashReserveDialog(false)} title="Create Cash Reserve" size="md">
-        <form className="grid gap-5 pt-2" onSubmit={handleCreateCashReserve}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Date" type="date" value={reserveDate} onChange={(event) => setReserveDate(event.target.value)} required />
-            <Input label="Amount" type="number" min="0" step="0.01" value={reserveAmount} onChange={(event) => setReserveAmount(event.target.value)} required />
-            <Input label="Label" value={reserveLabel} onChange={(event) => setReserveLabel(event.target.value)} required />
-            <Input label="Reference No." value={reserveReferenceNo} onChange={(event) => setReserveReferenceNo(event.target.value)} />
-          </div>
-          <Textarea label="Description" value={reserveDescription} onChange={(event) => setReserveDescription(event.target.value)} />
-          {reserveError ? (
-            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">
-              {reserveError}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowCashReserveDialog(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={savingReserve}>
-              {savingReserve ? "Creating..." : "Create Cash Reserve"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </Dialog>
     </>
   );
 }
 
+function CashReserveCreatePage() {
+  const mfeProps = useMFEProps();
+  const navigate = useNavigate();
+  const [reserveType, setReserveType] = useState<"paymentsIn" | "paymentsOut">("paymentsIn");
+  const [locationUid, setLocationUid] = useState(String(mfeProps.location?.id ?? ""));
+  const [referenceNo, setReferenceNo] = useState("");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [locationOptions, setLocationOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadLocations() {
+      try {
+        const response = await financeApi.locations.tenant<any>({
+          page: 0,
+          size: 100,
+        });
+        if (!active) {
+          return;
+        }
+        const locations = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray((response.data as any)?.content)
+            ? (response.data as any).content
+            : Array.isArray((response.data as any)?.data)
+              ? (response.data as any).data
+              : Array.isArray((response.data as any)?.data?.content)
+                ? (response.data as any).data.content
+                : [];
+        const nextOptions = locations.map((item: any) => ({
+          value: String(item.locationUid ?? item.uid ?? item.id ?? item.locationId ?? ""),
+          label: String(item.place ?? item.name ?? item.locationName ?? "Location"),
+        })).filter((item) => item.value);
+        setLocationOptions(nextOptions);
+        if (!locationUid) {
+          setLocationUid(nextOptions[0]?.value || "");
+        }
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load locations for cash reserve", error);
+      }
+    }
+    void loadLocations();
+    return () => {
+      active = false;
+    };
+  }, [locationUid]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    const parsedAmount = Number(amount);
+    if (!locationUid) {
+      setFormError("Location is required.");
+      return;
+    }
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setFormError("Amount must be greater than zero.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const selectedLocation = locationOptions.find((item) => item.value === locationUid);
+      const payload = {
+        locationUid,
+        locationId: locationUid,
+        locationName: selectedLocation?.label || mfeProps.location?.name || undefined,
+        amount: parsedAmount,
+        currency: "INR",
+        mode: "Cash",
+        paymentMode: "Cash",
+        acceptedBy: "CASH",
+        referenceNo: referenceNo.trim() || undefined,
+        description: notes.trim() || undefined,
+        paymentLabel: reserveType === "paymentsIn" ? "Cash IN" : "Cash OUT",
+        isPaymentsIn: reserveType === "paymentsIn",
+        financeDirect: true,
+        paymentInfo: [{ paymentMode: "Cash" }],
+      };
+      await financeApi.cash.createReserve(reserveType, payload);
+      navigate("../..", { relative: "path" });
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create cash reserve", error);
+      setFormError(error instanceof Error ? error.message : "Could not create cash reserve.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Cash Reserve"
+      subtitle="Create a cash in or cash out reserve entry."
+      actions={<Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-slate-700">Reserve Type *</label>
+            <div className="flex flex-wrap gap-5">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="reserveType"
+                  checked={reserveType === "paymentsIn"}
+                  onChange={() => setReserveType("paymentsIn")}
+                />
+                Cash IN
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="reserveType"
+                  checked={reserveType === "paymentsOut"}
+                  onChange={() => setReserveType("paymentsOut")}
+                />
+                Cash OUT
+              </label>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label="Location *"
+              value={locationUid}
+              onChange={(event) => setLocationUid(event.target.value)}
+              options={[{ value: "", label: "Select Location" }, ...locationOptions]}
+            />
+            <Input
+              label="Reference No."
+              value={referenceNo}
+              onChange={(event) => setReferenceNo(event.target.value)}
+              placeholder="Reference No"
+            />
+            <Input
+              label="Amount(₹) *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="Enter Amount"
+            />
+          </div>
+
+          <Textarea
+            label="Notes"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Notes"
+          />
+
+          {formError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">
+              {formError}
+            </div>
+          ) : null}
+
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("../..", { relative: "path" })}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
 function ActivityLogPage() {
-  const { financeActivityLogs } = useFinanceLiveData();
-  const columns = useMemo<ColumnDef<(typeof financeActivityLogs)[number]>[]>(
+  const mfeProps = useMFEProps();
+  const [activityLogs, setActivityLogs] = useState<Array<{
+    id: string;
+    action: string;
+    actor: string;
+    target: string;
+    timestamp: string;
+  }>>([]);
+  const [activityCount, setActivityCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadActivityLogs() {
+      setLoading(true);
+      try {
+        const filter = mfeProps.location?.id
+          ? { "locationId-eq": mfeProps.location.id, from: 0, count: 100 }
+          : { from: 0, count: 100 };
+
+        const [listResponse, countResponse] = await Promise.allSettled([
+          financeApi.activity.list<any>(filter),
+          financeApi.activity.count<any>(mfeProps.location?.id ? { "locationId-eq": mfeProps.location.id } : {}),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const payload =
+          listResponse.status === "fulfilled"
+            ? Array.isArray(listResponse.value.data)
+              ? listResponse.value.data
+              : Array.isArray(listResponse.value.data?.content)
+                ? listResponse.value.data.content
+                : Array.isArray(listResponse.value.data?.data)
+                  ? listResponse.value.data.data
+                  : Array.isArray(listResponse.value.data?.logs)
+                    ? listResponse.value.data.logs
+                    : []
+            : [];
+
+        setActivityLogs(
+          payload.map((item: any, index: number) => ({
+            id: String(item?.uid || item?.id || item?.logId || `activity-${index}`),
+            action: String(item?.message || item?.action || item?.event || item?.activity || item?.description || "-"),
+            actor: String(item?.actorUserName || item?.actor || item?.userName || item?.createdByName || "System"),
+            target: String(item?.target || item?.referenceId || item?.entityName || item?.module || "-"),
+            timestamp: String(item?.createdAt || item?.timestamp || item?.createdDate || item?.updatedDate || "-"),
+          }))
+        );
+
+        setActivityCount(
+          countResponse.status === "fulfilled"
+            ? Number(
+              countResponse.value.data?.count ??
+              countResponse.value.data?.totalElements ??
+              countResponse.value.data ??
+              payload.length
+            ) || payload.length
+            : payload.length
+        );
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load activity logs", error);
+        if (active) {
+          setActivityLogs([]);
+          setActivityCount(0);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadActivityLogs();
+
+    return () => {
+      active = false;
+    };
+  }, [mfeProps.location?.id]);
+
+  const columns = useMemo<ColumnDef<(typeof activityLogs)[number]>[]>(
     () => [
       { key: "action", header: "Action" },
       { key: "actor", header: "Actor" },
@@ -3497,33 +3866,33 @@ function ActivityLogPage() {
       title="Activity Log"
       subtitle="Audit visibility for the finance workspace."
       stats={[
-        { label: "Events", value: String(financeActivityLogs.length), accent: "indigo" },
-        { label: "Human Actions", value: String(financeActivityLogs.filter((item) => item.actor !== "Finance Bot").length), accent: "emerald" },
-        { label: "Automation", value: String(financeActivityLogs.filter((item) => item.actor === "Finance Bot").length), accent: "amber" },
-        { label: "Tracked Targets", value: String(new Set(financeActivityLogs.map((item) => item.target)).size), accent: "rose" },
+        { label: "Events", value: String(activityCount || activityLogs.length), accent: "indigo" },
+        { label: "Human Actions", value: String(activityLogs.filter((item) => item.actor !== "Finance Bot" && item.actor !== "System").length), accent: "emerald" },
+        { label: "Automation", value: String(activityLogs.filter((item) => item.actor === "Finance Bot" || item.actor === "System").length), accent: "amber" },
+        { label: "Tracked Targets", value: String(new Set(activityLogs.map((item) => item.target)).size), accent: "rose" },
       ]}
       main={
         <DataTableCard
           title="Audit Trail"
           subtitle="Recent finance activity across invoices, vendors, and ledger."
-          data={financeActivityLogs}
+          data={activityLogs}
           columns={columns}
           getRowId={(row) => row.id}
           emptyTitle="No finance activity"
-          emptyDescription="Activity entries will appear here."
+          emptyDescription={loading ? "Loading activity entries..." : "Activity entries will appear here."}
         />
       }
-      aside={
-        <FeedCard title="Recent Events">
-          <SummaryList
-            rows={financeActivityLogs.map((item) => ({
-              label: item.action,
-              value: item.timestamp,
-              note: `${item.actor} -> ${item.target}`,
-            }))}
-          />
-        </FeedCard>
-      }
+      // aside={
+      //   <FeedCard title="Recent Events">
+      //     <SummaryList
+      //       rows={financeActivityLogs.map((item) => ({
+      //         label: item.action,
+      //         value: item.timestamp,
+      //         note: `${item.actor} -> ${item.target}`,
+      //       }))}
+      //     />
+      //   </FeedCard>
+      // }
     />
   );
 }
@@ -3711,19 +4080,19 @@ function MasterInvoicePage() {
                 <div className="space-y-2 text-sm text-slate-600">
                   <div className="pb-2 text-[18px] font-semibold text-slate-800">Oasis Hospital's</div>
                   <div>{invoice.billedToAddress}</div>
-                  <div>Location : <span className="font-semibold text-slate-700">{invoice.location}</span></div>
+                  <div><span className="font-semibold text-slate-700">{invoice.location}</span></div>
                   <div>Invoice To : <span className="font-semibold text-slate-700">{invoice.customer}</span></div>
                 </div>
 
                 <div className="space-y-1 text-sm text-slate-600 lg:justify-self-end">
                   <div className="pb-2 text-right text-[18px] font-semibold text-slate-800">Invoice : #{invoice.invoiceNum}</div>
-                  <div className="flex justify-between gap-6"><span>Booking Reference :</span><span className="font-semibold text-slate-700">{invoice.referenceNo}</span></div>
-                  <div className="flex justify-between gap-6"><span>Patient Id :</span><span className="font-semibold text-slate-700">{invoice.patientId}</span></div>
-                  <div className="flex justify-between gap-6"><span>Created On :</span><span className="font-semibold text-slate-700">{invoice.createdOn}</span></div>
-                  <div className="flex justify-between gap-6"><span>Invoice Date :</span><span className="font-semibold text-slate-700">{invoice.invoiceDate}</span></div>
-                  <div className="flex justify-between gap-6"><span>Created By :</span><span className="font-semibold text-slate-700">{invoice.createdBy}</span></div>
-                  <div className="flex justify-between gap-6"><span>Category :</span><span className="font-semibold text-slate-700">{invoice.category}</span></div>
-                  <div className="flex justify-between gap-6"><span>Product :</span><span className="font-semibold text-slate-700">{invoice.product}</span></div>
+                  {/* <div className="flex justify-between gap-6"><span>Booking Reference :</span><span className="font-semibold text-slate-700">{invoice.referenceNo}</span></div> */}
+                  {/* <div className="flex justify-between gap-6"><span>Patient Id :</span><span className="font-semibold text-slate-700">{invoice.patientId}</span></div> */}
+                  {/* <div className="flex justify-between gap-6"><span>Created On :</span><span className="font-semibold text-slate-700">{invoice.createdOn}</span></div> */}
+                  <div className="pb-2 text-right text-[18px] font-semibold text-slate-800"><span>Invoice Date :</span><span className="font-semibold text-slate-700">{invoice.invoiceDate}</span></div>
+                  {/* <div className="flex justify-between gap-6"><span>Created By :</span><span className="font-semibold text-slate-700">{invoice.createdBy}</span></div> */}
+                  <div className="pb-2 text-right text-[18px] font-semibold text-slate-800"><span>Category :</span><span className="font-semibold text-slate-700">{invoice.category}</span></div>
+                  {/* <div className="flex justify-between gap-6"><span>Product :</span><span className="font-semibold text-slate-700">{invoice.product}</span></div> */}
                 </div>
               </div>
 
@@ -3899,7 +4268,7 @@ function SettingsPage() {
             </div>
           </SectionCard>
 
-          <SectionCard className="border-slate-200 shadow-sm">
+          {/* <SectionCard className="border-slate-200 shadow-sm">
             <div className="text-[22px] font-semibold text-slate-900">Settings Areas</div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
@@ -3917,21 +4286,21 @@ function SettingsPage() {
                 </div>
               ))}
             </div>
-          </SectionCard>
+          </SectionCard> */}
         </div>
       }
-      aside={
-        <FeedCard title="Migration Notes">
-          <SummaryList
-            rows={[
-              { label: "Dashboard", value: "Migrated", note: "Legacy action grid and cards are now present." },
-              { label: "Invoices", value: "Migrated", note: "List, detail shell, and dashboard block added." },
-              { label: "Vendors", value: "Migrated", note: "Directory and dashboard feed added." },
-              { label: "Deep Forms", value: "Pending", note: "Backend-connected create/edit flows still need service wiring." },
-            ]}
-          />
-        </FeedCard>
-      }
+      // aside={
+      //   <FeedCard title="Migration Notes">
+      //     <SummaryList
+      //       rows={[
+      //         { label: "Dashboard", value: "Migrated", note: "Legacy action grid and cards are now present." },
+      //         { label: "Invoices", value: "Migrated", note: "List, detail shell, and dashboard block added." },
+      //         { label: "Vendors", value: "Migrated", note: "Directory and dashboard feed added." },
+      //         { label: "Deep Forms", value: "Pending", note: "Backend-connected create/edit flows still need service wiring." },
+      //       ]}
+      //     />
+      //   </FeedCard>
+      // }
     />
   );
 }
@@ -5442,7 +5811,10 @@ export default function App() {
         <Route path="status/create" element={withBoundary(<StatusCreatePage />)} />
         <Route path="total" element={withBoundary(<TotalListPage />)} />
         <Route path="cashInhand" element={withBoundary(<CashInHandPage />)} />
+        <Route path="cashInhand/reserve/new" element={withBoundary(<CashReserveCreatePage />)} />
+        <Route path="cashInhand/view/:id" element={withBoundary(<CashReserveViewPage />)} />
         <Route path="cashRegister" element={withBoundary(<CashRegisterPage />)} />
+        <Route path="cashRegister/reserve/new" element={withBoundary(<CashReserveCreatePage />)} />
         <Route path="activity-log" element={withBoundary(<ActivityLogPage />)} />
         <Route path="master-invoice/:uid" element={withBoundary(<MasterInvoicePage />)} />
         <Route path="reports" element={withBoundary(<ReportsPage />)} />
