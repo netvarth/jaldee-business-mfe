@@ -4093,12 +4093,82 @@ function ReportsPage() {
 
 function MasterInvoicePage() {
   const { uid = "" } = useParams();
-  const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusError, setStatusError] = useState("");
+  const [paymentAction, setPaymentAction] = useState<"" | "paylink" | "paycash" | "payothers">("");
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
+  const [paymentMode, setPaymentMode] = useState("UPI");
+  const [paymentTransactionId, setPaymentTransactionId] = useState("");
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareMobile, setShareMobile] = useState("");
+  const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
+  const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
+  const [paymentHistoryError, setPaymentHistoryError] = useState("");
+  const [paymentEntries, setPaymentEntries] = useState<any[]>([]);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [editPaymentAmount, setEditPaymentAmount] = useState("");
+  const [editPaymentDate, setEditPaymentDate] = useState("");
+  const [editPaymentMode, setEditPaymentMode] = useState("Cash");
+  const [editPaymentNote, setEditPaymentNote] = useState("");
+  const [editPaymentTransactionId, setEditPaymentTransactionId] = useState("");
+  const [editPaymentError, setEditPaymentError] = useState("");
+  const [editPaymentSubmitting, setEditPaymentSubmitting] = useState(false);
+
+  function normalizePaymentEntries(payload: any) {
+    const rawEntries = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.content)
+        ? payload.content
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.payments)
+            ? payload.payments
+            : [];
+
+    return rawEntries.map((item: any, index: number) => {
+      const amount = Number(
+        item?.amount
+        ?? item?.paymentAmount
+        ?? item?.receivedAmount
+        ?? item?.paidAmount
+        ?? 0
+      );
+      const paymentDateValue = item?.paymentDate ?? item?.paymentOn ?? item?.createdAt ?? item?.updatedAt ?? "";
+      const parsedDate = paymentDateValue ? new Date(paymentDateValue) : null;
+      const mode = String(item?.mode ?? item?.paymentMode ?? item?.acceptedBy ?? "-");
+      const acceptedBy = String(item?.acceptedBy ?? "");
+      const gateway = String(item?.gateway ?? item?.gatewayName ?? item?.paymentGateway ?? "Nil");
+      const status = String(item?.gatewayStatus ?? item?.status ?? item?.paymentStatus ?? "SUCCESS");
+      const note = String(item?.note ?? item?.paymentNote ?? item?.description ?? "");
+      const transactionId = String(item?.transactionId ?? item?.paymentRefId ?? item?.referenceNo ?? "");
+
+      return {
+        uid: String(item?.uid ?? item?.id ?? item?.paymentUid ?? `payment-${index}`),
+        amount: Number.isFinite(amount) ? amount : 0,
+        mode,
+        acceptedBy,
+        gateway,
+        status,
+        note,
+        transactionId,
+        paymentDateRaw: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : "",
+        paymentDateLabel: parsedDate && !Number.isNaN(parsedDate.getTime())
+          ? parsedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "-",
+        paymentTimeLabel: parsedDate && !Number.isNaN(parsedDate.getTime())
+          ? parsedDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+          : "",
+      };
+    });
+  }
 
   async function loadInvoiceDetail(invoiceUid: string) {
     const res = await financeApi.invoices.detailGeneral<any>(invoiceUid);
@@ -4125,6 +4195,9 @@ function MasterInvoicePage() {
         : "-",
       createdBy: String(res.data.createdByName || res.data.createdBy || res.data.providerName || "-"),
       product: String(res.data.product || res.data.productName || "BOOKING"),
+      consumerPhone: String(res.data.consumerPhone || ""),
+      consumerEmail: String(res.data.consumerEmail || ""),
+      paymentLink: String(res.data.paymentLink || ""),
       billedToAddress: String(res.data.billedToAddress || res.data.consumerGstAddress || "-"),
       notesForCustomer: String(res.data.notesForCustomer || res.data.description || ""),
       notesForProvider: String(res.data.notesForProvider || ""),
@@ -4175,6 +4248,15 @@ function MasterInvoicePage() {
     return () => { active = false; };
   }, [uid]);
 
+  useEffect(() => {
+    if (!invoice) {
+      return;
+    }
+    setPaymentAmount(String(invoice.amountDue || ""));
+    setShareEmail(String(invoice.consumerEmail || ""));
+    setShareMobile(String(invoice.consumerPhone || ""));
+  }, [invoice]);
+
   async function handleInvoiceStatusUpdate(nextStatus: "Settled" | "Cancel") {
     if (!invoice?.uid || statusUpdating) {
       return;
@@ -4192,7 +4274,7 @@ function MasterInvoicePage() {
         return;
       }
       payload = {
-        reason: reason.trim(),
+        reasonForCancel: reason.trim(),
       };
     }
 
@@ -4216,6 +4298,176 @@ function MasterInvoicePage() {
       setStatusError(error instanceof Error ? error.message : "Could not update invoice status.");
     } finally {
       setStatusUpdating(false);
+    }
+  }
+
+  function closePaymentDialog() {
+    setPaymentDialogOpen(false);
+    setPaymentAction("");
+    setPaymentError("");
+    setPaymentNote("");
+    setPaymentDate("");
+    setPaymentMode("UPI");
+    setPaymentTransactionId("");
+    setPaymentAmount(String(invoice?.amountDue || ""));
+  }
+
+  async function loadPaymentEntries(openDialog = false) {
+    if (!invoice?.uid) {
+      return;
+    }
+
+    if (openDialog) {
+      setPaymentHistoryOpen(true);
+    }
+    setPaymentHistoryLoading(true);
+    setPaymentHistoryError("");
+    try {
+      const response = await financeApi.invoices.paymentByInvoice<any>(invoice.uid);
+      setPaymentEntries(normalizePaymentEntries(response.data));
+    } catch (error) {
+      console.error("Failed to load invoice payment history", error);
+      setPaymentHistoryError(error instanceof Error ? error.message : "Could not load paid entries.");
+    } finally {
+      setPaymentHistoryLoading(false);
+    }
+  }
+
+  function openEditPaymentDialog(entry: any) {
+    setEditingPayment(entry);
+    setEditPaymentError("");
+    setEditPaymentAmount(String(entry.amount || ""));
+    setEditPaymentDate(entry.paymentDateRaw ? entry.paymentDateRaw.slice(0, 10) : "");
+    setEditPaymentMode(entry.mode || "Cash");
+    setEditPaymentNote(entry.note || "");
+    setEditPaymentTransactionId(entry.transactionId || "");
+  }
+
+  function closeEditPaymentDialog() {
+    setEditingPayment(null);
+    setEditPaymentError("");
+    setEditPaymentSubmitting(false);
+    setEditPaymentAmount("");
+    setEditPaymentDate("");
+    setEditPaymentMode("Cash");
+    setEditPaymentNote("");
+    setEditPaymentTransactionId("");
+  }
+
+  async function submitEditedPayment() {
+    if (!invoice?.uid || !editingPayment?.uid) {
+      return;
+    }
+
+    const parsedAmount = Number(editPaymentAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setEditPaymentError("Payment amount must be greater than zero.");
+      return;
+    }
+
+    setEditPaymentError("");
+    setEditPaymentSubmitting(true);
+
+    try {
+      const normalizedPaymentDate = editPaymentDate
+        ? new Date(`${editPaymentDate}T00:00:00`).toISOString()
+        : editingPayment.paymentDateRaw || new Date().toISOString();
+      const isCashMode = String(editPaymentMode).toLowerCase() === "cash";
+      const trimmedTransactionId = editPaymentTransactionId.trim();
+
+      await financeApi.invoices.updateOfflinePayment(editingPayment.uid, {
+        amount: parsedAmount,
+        mode: editPaymentMode,
+        paymentDate: normalizedPaymentDate,
+        note: editPaymentNote.trim() || undefined,
+        acceptedBy: isCashMode ? "CASH" : "Other",
+        paymentForUid: invoice.uid,
+        transactionId: isCashMode ? undefined : trimmedTransactionId || undefined,
+        isUpdate: true,
+      });
+
+      await loadPaymentEntries(false);
+      const detail = await loadInvoiceDetail(invoice.uid);
+      setInvoice(detail);
+      closeEditPaymentDialog();
+    } catch (error) {
+      console.error("Failed to update invoice payment entry", error);
+      setEditPaymentError(error instanceof Error ? error.message : "Could not update paid entry.");
+    } finally {
+      setEditPaymentSubmitting(false);
+    }
+  }
+
+  async function submitPaymentAction() {
+    if (!invoice?.uid || !paymentAction) {
+      return;
+    }
+
+    setPaymentError("");
+    setPaymentSubmitting(true);
+    try {
+      if (paymentAction === "paylink") {
+        const trimmedEmail = shareEmail.trim();
+        const trimmedMobile = shareMobile.trim();
+        const mobileNumber = trimmedMobile.replace(/^\+/, "");
+        await financeApi.invoices.sharePaymentLink(invoice.uid, {
+          sendEmail: Boolean(trimmedEmail),
+          emails: trimmedEmail ? [trimmedEmail] : [],
+          sendSms: Boolean(mobileNumber),
+          phoneNumbers: mobileNumber
+            ? [
+              {
+                countryCode: "91",
+                number: mobileNumber,
+              },
+            ]
+            : [],
+          sendWhatsapp: Boolean(mobileNumber),
+          whatsappNumbers: mobileNumber
+            ? [
+              {
+                countryCode: "91",
+                number: mobileNumber,
+              },
+            ]
+            : [],
+          html: "",
+          driveId: 0,
+        });
+      } else {
+        const parsedAmount = Number(paymentAmount);
+        if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+          setPaymentError("Payment amount must be greater than zero.");
+          setPaymentSubmitting(false);
+          return;
+        }
+
+        const trimmedTransactionId = paymentTransactionId.trim();
+        const normalizedPaymentDate = paymentDate
+          ? new Date(`${paymentDate}T00:00:00`).toISOString()
+          : new Date().toISOString();
+
+        await financeApi.invoices.createOfflinePayment({
+          amount: parsedAmount,
+          mode: paymentAction === "paycash" ? "Cash" : paymentMode,
+          paymentDate: normalizedPaymentDate,
+          note: paymentNote.trim() || undefined,
+          acceptedBy: paymentAction === "paycash" ? "CASH" : "Other",
+          paymentForUid: invoice.uid,
+          transactionId: trimmedTransactionId || undefined,
+          isUpdate: false,
+        });
+      }
+
+      const detail = await loadInvoiceDetail(invoice.uid);
+      setInvoice(detail);
+      await loadPaymentEntries(false);
+      closePaymentDialog();
+    } catch (error) {
+      console.error("Failed to process invoice payment action", error);
+      setPaymentError(error instanceof Error ? error.message : "Could not process payment action.");
+    } finally {
+      setPaymentSubmitting(false);
     }
   }
 
@@ -4246,6 +4498,11 @@ function MasterInvoicePage() {
   const normalizedInvoiceStatus = String(invoice.status || "").toLowerCase();
   const isInvoiceSettled = normalizedInvoiceStatus.includes("settled") || normalizedInvoiceStatus.includes("paid");
   const isInvoiceCancelled = normalizedInvoiceStatus.includes("cancel");
+  const amountPaid = Math.max(Number(invoice.netTotal || invoice.totalAmount || 0) - Number(invoice.amountDue || 0), 0);
+  const canShowGetPayment =
+    !isInvoiceSettled &&
+    !isInvoiceCancelled &&
+    Number(invoice.amountDue || 0) > 0;
   const invoiceBadgeVariant =
     isInvoiceSettled
       ? "success"
@@ -4352,6 +4609,24 @@ function MasterInvoicePage() {
                     <span>Net Total :</span>
                     <span className="font-semibold text-slate-800">{formatCurrency(invoice.netTotal)}</span>
                   </div>
+                  {amountPaid > 0 ? (
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        className="font-semibold text-slate-600 underline decoration-slate-300 underline-offset-4"
+                        onClick={() => void loadPaymentEntries(true)}
+                      >
+                        Amount Paid :
+                      </button>
+                      <button
+                        type="button"
+                        className="font-semibold text-slate-800 underline decoration-slate-300 underline-offset-4"
+                        onClick={() => void loadPaymentEntries(true)}
+                      >
+                        {formatCurrency(amountPaid)}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -4376,7 +4651,53 @@ function MasterInvoicePage() {
 
               {!isInvoiceSettled && !isInvoiceCancelled ? (
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Button>Get Payment</Button>
+                  {canShowGetPayment ? (
+                    <Popover
+                      portal
+                      placement="top"
+                      align="start"
+                      trigger={<Button>Get Payment</Button>}
+                    >
+                      <div className="grid min-w-[220px] p-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start font-normal"
+                          onClick={() => {
+                            setPaymentAction("paylink");
+                            setPaymentDialogOpen(true);
+                            setPaymentError("");
+                          }}
+                        >
+                          Share Payment Link
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start font-normal"
+                          onClick={() => {
+                            setPaymentAction("paycash");
+                            setPaymentDialogOpen(true);
+                            setPaymentError("");
+                          }}
+                        >
+                          Pay by Cash
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start font-normal"
+                          onClick={() => {
+                            setPaymentAction("payothers");
+                            setPaymentDialogOpen(true);
+                            setPaymentError("");
+                          }}
+                        >
+                          Pay by Others
+                        </Button>
+                      </div>
+                    </Popover>
+                  ) : null}
                   <Button
                     variant="outline"
                     onClick={() => void handleInvoiceStatusUpdate("Settled")}
@@ -4398,6 +4719,232 @@ function MasterInvoicePage() {
           </div>
         </SectionCard>
       </div>
+
+      <Dialog
+        open={paymentDialogOpen}
+        onClose={closePaymentDialog}
+        title={
+          paymentAction === "paylink"
+            ? "Share Payment Link"
+            : paymentAction === "paycash"
+              ? "Pay by Cash"
+              : "Pay by Others"
+        }
+        size="md"
+      >
+        <div className="space-y-4 pt-2">
+          {paymentAction === "paylink" ? (
+            <>
+              <Input
+                label="Email"
+                value={shareEmail}
+                onChange={(event) => setShareEmail(event.target.value)}
+                placeholder="Customer email"
+              />
+              <Input
+                label="Mobile"
+                value={shareMobile}
+                onChange={(event) => setShareMobile(event.target.value)}
+                placeholder="Customer mobile number"
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                label="Amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={paymentAmount}
+                onChange={(event) => setPaymentAmount(event.target.value)}
+                placeholder="Payment amount"
+              />
+              {paymentAction === "payothers" ? (
+                <Select
+                  label="Payment Mode"
+                  value={paymentMode}
+                  onChange={(event) => setPaymentMode(event.target.value)}
+                  options={[
+                    { value: "UPI", label: "UPI" },
+                    { value: "Card", label: "Card" },
+                    { value: "Bank Transfer", label: "Bank Transfer" },
+                    { value: "Cheque", label: "Cheque" },
+                    { value: "Other", label: "Other" },
+                  ]}
+                />
+              ) : null}
+              <DatePicker
+                label="Payment Date"
+                value={paymentDate}
+                onChange={(event) => setPaymentDate(event.target.value)}
+              />
+              {paymentAction === "payothers" ? (
+                <Input
+                  label="Transaction ID"
+                  value={paymentTransactionId}
+                  onChange={(event) => setPaymentTransactionId(event.target.value)}
+                  placeholder="Transaction ID"
+                />
+              ) : null}
+              <Textarea
+                label="Payment Note"
+                value={paymentNote}
+                onChange={(event) => setPaymentNote(event.target.value)}
+                rows={4}
+                placeholder="Add payment note"
+              />
+            </>
+          )}
+
+          {paymentError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {paymentError}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closePaymentDialog} disabled={paymentSubmitting}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void submitPaymentAction()} disabled={paymentSubmitting}>
+              {paymentSubmitting ? "Processing..." : paymentAction === "paylink" ? "Share Link" : "Submit Payment"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={paymentHistoryOpen}
+        onClose={() => setPaymentHistoryOpen(false)}
+        title="Amount Paid"
+        size="lg"
+      >
+        <div className="space-y-4 pt-2">
+          {paymentHistoryError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {paymentHistoryError}
+            </div>
+          ) : null}
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-600">
+                  <th className="px-3 py-3 font-semibold uppercase tracking-wide">Status</th>
+                  <th className="px-3 py-3 font-semibold uppercase tracking-wide">Mode</th>
+                  <th className="px-3 py-3 font-semibold uppercase tracking-wide">Gateway</th>
+                  <th className="px-3 py-3 font-semibold uppercase tracking-wide">Date & Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {paymentHistoryLoading ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-8 text-center text-slate-500">Loading paid entries...</td>
+                  </tr>
+                ) : paymentEntries.length ? (
+                  paymentEntries.map((entry) => (
+                    <tr key={entry.uid} className="align-top text-slate-700">
+                      <td className="px-3 py-4 font-medium text-slate-800">{entry.status}</td>
+                      <td className="px-3 py-4">{entry.mode}</td>
+                      <td className="px-3 py-4">{entry.gateway}</td>
+                      <td className="px-3 py-4">
+                        <div>{entry.paymentDateLabel}</div>
+                        {entry.paymentTimeLabel ? <div>{entry.paymentTimeLabel}</div> : null}
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{formatCurrency(entry.amount)}</span>
+                          <button
+                            type="button"
+                            className="text-sm font-medium text-indigo-700 underline underline-offset-4"
+                            onClick={() => openEditPaymentDialog(entry)}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        {entry.note ? <div className="mt-1 text-xs text-slate-500">{entry.note}</div> : null}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-8 text-center text-slate-400">No paid entries available.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" onClick={() => setPaymentHistoryOpen(false)}>Close</Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(editingPayment)}
+        onClose={closeEditPaymentDialog}
+        title="Edit Paid Amount"
+        size="md"
+      >
+        <div className="space-y-4 pt-2">
+          <Input
+            label="Amount"
+            type="number"
+            min="0"
+            step="0.01"
+            value={editPaymentAmount}
+            onChange={(event) => setEditPaymentAmount(event.target.value)}
+            placeholder="Payment amount"
+          />
+          <Select
+            label="Payment Mode"
+            value={editPaymentMode}
+            onChange={(event) => setEditPaymentMode(event.target.value)}
+            options={[
+              { value: "Cash", label: "Cash" },
+              { value: "UPI", label: "UPI" },
+              { value: "Card", label: "Card" },
+              { value: "Bank Transfer", label: "Bank Transfer" },
+              { value: "Cheque", label: "Cheque" },
+              { value: "Other", label: "Other" },
+            ]}
+          />
+          <DatePicker
+            label="Payment Date"
+            value={editPaymentDate}
+            onChange={(event) => setEditPaymentDate(event.target.value)}
+          />
+          {String(editPaymentMode).toLowerCase() !== "cash" ? (
+            <Input
+              label="Transaction ID"
+              value={editPaymentTransactionId}
+              onChange={(event) => setEditPaymentTransactionId(event.target.value)}
+              placeholder="Transaction ID"
+            />
+          ) : null}
+          <Textarea
+            label="Payment Note"
+            value={editPaymentNote}
+            onChange={(event) => setEditPaymentNote(event.target.value)}
+            rows={4}
+            placeholder="Add payment note"
+          />
+
+          {editPaymentError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {editPaymentError}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeEditPaymentDialog} disabled={editPaymentSubmitting}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void submitEditedPayment()} disabled={editPaymentSubmitting}>
+              {editPaymentSubmitting ? "Updating..." : "Update Payment"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
     </div>
   );
 }
