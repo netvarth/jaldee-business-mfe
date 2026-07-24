@@ -36,12 +36,14 @@ interface InvoiceItem {
   afterDiscount?: number;
   taxAmount?: number;
   totalAmount?: number;
+  discountApplicable?: boolean;
 }
 
 interface FinanceCatalogOption extends ComboboxOption {
   itemUid?: string;
   itemType?: "FINANCE_ITEM";
   price?: number;
+  discountApplicable?: boolean;
 }
 
 interface LocationOption {
@@ -160,6 +162,7 @@ function mapInvoiceItem(item: any, index: number): InvoiceItem {
     afterDiscount,
     taxAmount,
     totalAmount: Number(item.total || afterDiscount + taxAmount),
+    discountApplicable: item.discountApplicable !== undefined ? Boolean(item.discountApplicable) : undefined,
   };
 }
 
@@ -302,31 +305,21 @@ export default function FinanceInvoiceForm() {
   async function loadDiscountOptions() {
     setDiscountOptionsLoading(true);
     try {
-      const [tenantDiscountsResponse, billDiscountsResponse] = await Promise.allSettled([
-        financeApi.discounts.list<any>({
-          page: 0,
-          size: 1000,
-          sort: [
-            {
-              field: "createdAt",
-              direction: "DESC",
-            },
-          ],
-          view: "SUMMARY",
-        }),
-        financeApi.discounts.listBill<any>(),
-      ]);
+      const response = await financeApi.discounts.list<any>({
+        page: 0,
+        size: 1000,
+        sort: [
+          {
+            field: "createdAt",
+            direction: "DESC",
+          },
+        ],
+        view: "SUMMARY",
+      });
 
-      const tenantDiscounts = tenantDiscountsResponse.status === "fulfilled"
-        ? readArrayPayload(tenantDiscountsResponse.value?.data)
-        : [];
-      const billDiscounts = billDiscountsResponse.status === "fulfilled"
-        ? readArrayPayload(billDiscountsResponse.value?.data)
-        : [];
-
-      const merged = [...tenantDiscounts, ...billDiscounts];
+      const tenantDiscounts = readArrayPayload(response?.data);
       const nextDiscountOptions = mapDiscountOptions(
-        merged.filter((item, index, array) => {
+        tenantDiscounts.filter((item, index, array) => {
           const value = String(
             item?.uid ??
             item?.id ??
@@ -350,7 +343,7 @@ export default function FinanceInvoiceForm() {
       );
 
       if (nextDiscountOptions.length === 0) {
-        console.warn("[mfe-finance] No discount options returned from tenant or bill discount endpoints");
+        console.warn("[mfe-finance] No discount options returned from tenant search endpoint");
       }
 
       setDiscountOptions(nextDiscountOptions);
@@ -428,7 +421,7 @@ export default function FinanceInvoiceForm() {
     };
   }, [selectedDiscountId, discountDialogItem, discountOptions]);
 
-  async function loadInvoiceDetail(invoiceId: string) {
+  async function loadInvoiceDetail(invoiceId: string, catalogItems?: any[]) {
     const invoiceRes = await financeApi.invoices.detailGeneral<any>(invoiceId);
     const invoiceData = invoiceRes.data;
     if (!invoiceData) {
@@ -451,8 +444,24 @@ export default function FinanceInvoiceForm() {
     setNotesForCustomer(String(invoiceData.notesForCustomer || invoiceData.description || ""));
     setTermsConditions(String(invoiceData.termsConditions || ""));
 
+    const itemsSource = catalogItems && catalogItems.length > 0 ? catalogItems : financeCatalogOptions;
+
     if (Array.isArray(invoiceData.detailList)) {
-      setItems(invoiceData.detailList.map(mapInvoiceItem));
+      setItems(
+        invoiceData.detailList.map((item: any, index: number) => {
+          const mapped = mapInvoiceItem(item, index);
+          if (mapped.itemUid) {
+            const catalogItem = itemsSource.find((ci: any) => String(ci.uid ?? ci.id ?? ci.itemUid ?? ci.value) === mapped.itemUid);
+            if (catalogItem) {
+              mapped.discountApplicable = catalogItem.discountApplicable !== undefined ? Boolean(catalogItem.discountApplicable) : true;
+            }
+          }
+          if (mapped.discountApplicable === undefined) {
+            mapped.discountApplicable = true;
+          }
+          return mapped;
+        })
+      );
     } else {
       setItems([]);
     }
@@ -617,6 +626,7 @@ export default function FinanceInvoiceForm() {
               price,
               itemUid: uid,
               itemType: "FINANCE_ITEM",
+              discountApplicable: item.discountApplicable !== undefined ? Boolean(item.discountApplicable) : true,
             };
           })
           .filter(Boolean) as FinanceCatalogOption[];
@@ -625,7 +635,7 @@ export default function FinanceInvoiceForm() {
         await loadDiscountOptions();
 
         if (isEditing && id) {
-          await loadInvoiceDetail(id);
+          await loadInvoiceDetail(id, financeItemOptions);
         }
       } catch (error) {
         if (!active) return;
@@ -736,11 +746,19 @@ export default function FinanceInvoiceForm() {
     setFormError("");
     setDiscountSubmitting(true);
     try {
+      const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+      const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
+      const discountValueNum = discountAmountInput.trim() ? Number(discountAmountInput) : activeDiscount?.discountValue ?? 0;
       await financeApi.invoices.applyDiscountInDetail(discountDialogItem.detailUid, {
-        id: selectedDiscountId,
-        discountValue: discountAmountInput.trim() ? Number(discountAmountInput) : activeDiscount?.discountValue ?? "",
-        privateNote: discountPrivateNote.trim() || "",
-        displayNote: discountDisplayNote.trim() || "",
+        tenantUid: activeDiscount?.tenantUid || tenantUid || undefined,
+        name: activeDiscount?.name || "",
+        description: activeDiscount?.description || undefined,
+        calculationType: activeDiscount?.calculationType || "FIXED_AMOUNT",
+        discountType: activeDiscount?.discountType || "PREDEFINED",
+        discountValue: discountValueNum,
+        status: activeDiscount?.status || "ACTIVE",
+        uid: activeDiscount?.uid || selectedDiscountId,
+        discountedAmount: discountValueNum,
       });
       await loadInvoiceDetail(id);
       resetDiscountDialog();
@@ -983,7 +1001,14 @@ export default function FinanceInvoiceForm() {
                   ) : (
                     items.map((item) => (
                       <tr key={item.id}>
-                        <td className="px-4 py-3 font-semibold text-slate-900">{item.name}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">
+                          {item.name}
+                          {item.discountApplicable === false && (
+                            <span className="ml-2 inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
+                              Discount Disabled
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-center">{item.qty}</td>
                         <td className="px-4 py-3 text-right">{formatCurrency(item.price)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(item.totalAmount ?? item.price * item.qty)}</td>
@@ -1011,7 +1036,7 @@ export default function FinanceInvoiceForm() {
                                 variant="ghost"
                                 size="sm"
                                 className="justify-start font-normal"
-                                disabled={!isEditing || !item.detailUid}
+                                disabled={!isEditing || !item.detailUid || item.discountApplicable === false}
                                 onClick={() => void openDiscountDialog(item)}
                               >
                                 Apply Discount
@@ -1092,6 +1117,7 @@ export default function FinanceInvoiceForm() {
                         price: newItemPrice,
                         date: newItemDate,
                         totalAmount: newItemPrice * newItemQty,
+                        discountApplicable: selectedCatalogOption?.discountApplicable,
                       },
                     ]);
                     resetItemBuilder();

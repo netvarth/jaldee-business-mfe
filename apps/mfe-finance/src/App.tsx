@@ -276,34 +276,24 @@ function QuickActions({
 }: {
   actions: QuickAction[];
 }) {
-  const mfeProps = useMFEProps();
   const navigate = useNavigate();
 
   return (
-    <SectionCard className="border-slate-200 shadow-sm">
-      <div className="space-y-4">
-        <div>
-          <div className="text-[22px] font-semibold tracking-tight text-[#312E81]">Finance Manager Dashboard</div>
-          <div className="mt-1 text-sm text-slate-500">Keep a tab on your finance and manage your finance operations smoothly.</div>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          {actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => navigate(toFinanceRoute(action.path))}
-              className="min-h-[92px] w-[110px] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
-            >
-              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${action.tone}`}>
-                <Icon name={action.icon} className="h-4 w-4" />
-              </div>
-              <div className="mt-3 text-xs font-semibold leading-4 text-slate-900">{action.label}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </SectionCard>
+    <div className="flex flex-wrap gap-3">
+      {actions.map((action) => (
+        <button
+          key={action.label}
+          type="button"
+          onClick={() => navigate(toFinanceRoute(action.path))}
+          className="min-h-[92px] w-[110px] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+        >
+          <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${action.tone}`}>
+            <Icon name={action.icon} className="h-4 w-4" />
+          </div>
+          <div className="mt-3 text-xs font-semibold leading-4 text-slate-900">{action.label}</div>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -596,22 +586,24 @@ function OverviewPage() {
   const recentInvoices = financeInvoices.slice(0, 5);
   const recentVendors = financeVendors.slice(0, 5);
 
+  const userRecord = (mfeProps.user ?? {}) as Record<string, unknown>;
+  const userName = String(userRecord.firstName || userRecord.name || userRecord.userName || "Sachin Sathish").trim();
+
   return (
     <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <div className="text-base font-semibold text-slate-900">
-            Welcome back
-            {mfeProps.location?.name ? `, ${mfeProps.location.name}` : ""}
-          </div>
-          <div className="mt-1 text-sm text-slate-500">
-            {mfeProps.location?.name ? `Finance overview for ${mfeProps.location.name}.` : "Finance overview for your current workspace."}
-          </div>
+        <div className="text-base font-semibold text-slate-800">
+          Welcome back, {userName} 👋
         </div>
 
-      <QuickActions actions={dashboardActions} />
+        <div>
+          <div className="text-2xl font-bold text-indigo-950">Finance Manager Dashboard</div>
+          <div className="mt-1 text-sm text-slate-500">Keep a tab on your Finance and manage your finance operations smoothly.</div>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_1.05fr] lg:items-start">
+        <QuickActions actions={dashboardActions} />
+
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <div className="space-y-6">
           <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between">
@@ -629,28 +621,26 @@ function OverviewPage() {
                 />
               </div>
             </div>
-            <div className="mt-4 flex min-h-[78px] items-start justify-between rounded-md bg-[#3F08B5] px-4 py-5 text-white shadow-sm">
+            <div className="mt-4 flex min-h-[78px] items-start justify-between rounded-xl bg-[#33009c] px-5 py-5 text-white shadow-sm">
               <div>
-                <div className="text-sm font-semibold text-indigo-100">Your Account</div>
+                <div className="text-sm font-semibold text-white/70">Your Account</div>
                 <div className="text-[15px] font-semibold text-white">Balance</div>
               </div>
-              <div className="pt-3 text-right text-2xl font-semibold">{formatCurrency(accountBalance)}</div>
+              <div className="pt-2 text-right text-2xl font-bold">{formatCurrency(accountBalance)}</div>
             </div>
-          </SectionCard>
 
-          <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <div className="text-[18px] font-semibold text-slate-900">Recent Transaction</div>
+            <div className="mt-6 text-[18px] font-semibold text-slate-900">Recent Transaction</div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="rounded-lg border border-emerald-200 bg-white px-4 py-4 shadow-sm">
-                <div className="text-sm text-slate-600">Revenue</div>
+              <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                <div className="text-sm text-slate-500">Revenue</div>
                 <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(revenueTotal)}</div>
               </div>
-              <div className="rounded-lg border border-rose-200 bg-white px-4 py-4 shadow-sm">
-                <div className="text-sm text-slate-600">Expenses</div>
+              <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                <div className="text-sm text-slate-500">Expenses</div>
                 <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(expenseTotal)}</div>
               </div>
-              <div className="rounded-lg border border-amber-200 bg-white px-4 py-4 shadow-sm">
-                <div className="text-sm text-slate-600">Payout</div>
+              <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                <div className="text-sm text-slate-500">Payout</div>
                 <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(payoutTotal)}</div>
               </div>
             </div>
@@ -678,17 +668,17 @@ function OverviewPage() {
                   key={row.id}
                   type="button"
                   onClick={() => mfeProps.navigate(row.kind === "Revenue" ? "/finance/payments" : "/finance/payable")}
-                  className="grid w-full gap-4 py-6 text-left transition hover:bg-slate-50 md:grid-cols-[1.5fr_0.9fr_auto] md:items-start"
+                  className="grid w-full gap-4 py-5 text-left transition hover:bg-slate-50 md:grid-cols-[1.5fr_0.9fr_auto] md:items-start"
                 >
                   <div>
-                    <div className="text-[16px] font-semibold text-slate-900">{row.title}</div>
-                    <div className="text-[16px] font-semibold text-slate-900">{row.subtitle || "-"}</div>
-                    <div className={`mt-1 text-[14px] font-medium ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
+                    <div className="text-[14px] font-semibold text-slate-900">{row.title}</div>
+                    <div className="text-[14px] text-slate-500">{row.subtitle || "-"}</div>
+                    <div className={`mt-1 text-[12px] font-semibold ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
                       {row.note}
                     </div>
                   </div>
-                  <div className="text-[16px] text-slate-700 md:pt-1">{row.date}</div>
-                  <div className="text-right text-[16px] font-semibold text-slate-900 md:pt-1">{formatCurrency(row.amount)}</div>
+                  <div className="text-[14px] text-slate-500 md:pt-1">{row.date}</div>
+                  <div className="text-right text-[14px] font-bold text-slate-900 md:pt-1">{formatCurrency(row.amount)}</div>
                 </button>
               ))}
             </div>
@@ -704,7 +694,7 @@ function OverviewPage() {
                       : "/finance/total",
                 )
               }
-              className="mt-4 text-[18px] font-semibold text-indigo-700"
+              className="mt-4 text-sm font-semibold text-indigo-700 hover:text-indigo-800"
             >
               See All({totalTransactionCount || transactionRows.length})
             </button>
@@ -726,20 +716,20 @@ function OverviewPage() {
                 </svg>
               </button>
             </div>
-            <div className="mt-4 flex min-h-[78px] items-start justify-between rounded-md bg-[#90959B] px-4 py-5 text-white shadow-sm">
+            <div className="mt-4 flex min-h-[78px] items-center justify-between rounded-xl bg-[#768087] px-5 py-5 text-white shadow-sm">
               <div>
-                <div className="text-sm font-semibold text-slate-100">Amount</div>
-                <div className="mt-1 text-2xl font-semibold text-white">{formatCurrency(cashInHandTotal)}</div>
+                <div className="text-sm font-medium text-slate-200">Amount</div>
+                <div className="mt-1 text-2xl font-bold text-white">{formatCurrency(cashInHandTotal)}</div>
               </div>
               <button
                 type="button"
                 onClick={() => mfeProps.navigate("/finance/cashRegister")}
-                className="mt-1 rounded-md bg-white px-4 py-2 text-xs font-semibold text-[#4B1FCF] transition hover:bg-slate-100"
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#4B1FCF] transition hover:bg-slate-50 shadow-sm"
               >
-                Cash Register ↗
+                Cash Register &rarr;
               </button>
             </div>
-            <div className="mt-3 text-xs font-medium text-slate-500">
+            <div className="mt-3 text-xs font-medium text-slate-400">
               Last Updated On {latestCashUpdate}
             </div>
           </SectionCard>
@@ -791,17 +781,22 @@ function OverviewPage() {
                   </div>
                 ))
               ) : (
-                <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 px-6 py-10 text-center">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-3xl">🧾</div>
-                  <div className="mt-4 text-[16px] font-semibold text-slate-900">No Expense Breakdown Found</div>
+                <div className="py-8 text-center">
+                  <img
+                    src="/assets/images/finance/no-data.gif"
+                    alt="No Data Found"
+                    className="h-36 w-36 object-contain mx-auto"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  <div className="mt-4 text-[15px] font-bold text-slate-900">No Expenses Found for Today</div>
                 </div>
               )}
             </div>
-            <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="mt-4 text-left">
               <button
                 type="button"
                 onClick={() => mfeProps.navigate("/finance/expense")}
-                className="text-[16px] font-semibold text-indigo-700 hover:text-indigo-800"
+                className="text-sm font-semibold text-[#4B1FCF] hover:text-indigo-800"
               >
                 See All Expenses({expenseBreakdownRows.length})
               </button>
@@ -3019,6 +3014,9 @@ function DiscountsPage() {
 
 function DiscountCreatePage() {
   const navigate = useNavigate();
+  const mfeProps = useMFEProps();
+  const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+  const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
   const navigateToDiscountList = () => navigate("..", { relative: "path", replace: true });
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -3041,11 +3039,13 @@ function DiscountCreatePage() {
     setSubmitting(true);
     try {
       await financeApi.discounts.create({
+        tenantUid: tenantUid || undefined,
         name: name.trim(),
         description: description.trim() || undefined,
         calculationType,
         discountType,
         discountValue: Number(discountValue) || 0,
+        discountedAmount: Number(discountValue) || 0,
         status,
       });
       navigateToDiscountList();
@@ -3115,6 +3115,9 @@ function DiscountCreatePage() {
 
 function DiscountEditPage() {
   const navigate = useNavigate();
+  const mfeProps = useMFEProps();
+  const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+  const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
   const navigateToDiscountList = () => navigate("../..", { relative: "path", replace: true });
   const { id } = useParams<{ id: string }>();
   const [name, setName] = useState("");
@@ -3167,11 +3170,13 @@ function DiscountEditPage() {
     try {
       await financeApi.discounts.update(id!, {
         uid: id,
+        tenantUid: tenantUid || undefined,
         name: name.trim(),
         description: description.trim() || undefined,
         calculationType,
         discountType,
         discountValue: Number(discountValue) || 0,
+        discountedAmount: Number(discountValue) || 0,
         status,
       });
       navigateToDiscountList();

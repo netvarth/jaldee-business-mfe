@@ -60,16 +60,17 @@ function TransactionList({
   }, [filter, rows]);
 
   return (
-    <div className="mt-6">
-      <div className="text-[20px] font-semibold text-slate-900">Recent Transactions</div>
-      <div className="mt-4 flex gap-3 text-xs font-semibold">
+    <div className="mt-4">
+      <div className="flex gap-7 border-b border-slate-200 text-[15px] font-semibold">
         {(["All", "Revenue", "Payout"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setFilter(tab)}
-            className={`rounded-full px-4 py-2 transition ${
-              filter === tab ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
+            className={`border-b-2 px-0 pb-3 transition ${
+              filter === tab
+                ? "border-indigo-700 text-indigo-700"
+                : "border-transparent text-slate-800 hover:text-indigo-700"
             }`}
           >
             {tab}
@@ -77,20 +78,20 @@ function TransactionList({
         ))}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         {filteredRows.length ? (
           <div className="divide-y divide-slate-100">
             {filteredRows.slice(0, 15).map((row) => (
               <div key={row.id} className="grid gap-4 py-5 md:grid-cols-[1.5fr_1fr_auto] md:items-start text-left">
                 <div>
                   <div className="text-[14px] font-semibold text-slate-900">{row.title}</div>
-                  <div className="text-[14px] font-semibold text-slate-900">{row.subtitle}</div>
-                  <div className={`mt-1 text-[13px] font-medium ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
+                  <div className="text-[14px] text-slate-500">{row.subtitle}</div>
+                  <div className={`mt-1 text-[12px] font-semibold ${row.kind === "Revenue" ? "text-[#42A89D]" : "text-rose-500"}`}>
                     {row.kind === "Revenue" ? "Revenue ↙" : "Payout ↗"}
                   </div>
                 </div>
-                <div className="text-[14px] text-slate-700 md:pt-1">{row.date}</div>
-                <div className="text-right text-[14px] font-semibold text-slate-900 md:pt-1">{formatFinanceCurrency(row.amount)}</div>
+                <div className="text-[14px] text-slate-500 md:pt-1">{row.date}</div>
+                <div className="text-right text-[14px] font-bold text-slate-900 md:pt-1">{formatFinanceCurrency(row.amount)}</div>
               </div>
             ))}
           </div>
@@ -102,7 +103,7 @@ function TransactionList({
             <button
               type="button"
               onClick={() => onNavigate("/finance/transactions")}
-              className="text-[14px] font-semibold text-indigo-700 hover:text-indigo-800"
+              className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
             >
               See All({filteredRows.length})
             </button>
@@ -182,7 +183,7 @@ export function FinanceOverview() {
             ))}
           </div>
         </SectionCard>
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="space-y-4">
               <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-100" />
@@ -235,7 +236,7 @@ export function FinanceOverview() {
     >
       <QuickActions actions={dataset?.actions ?? []} onNavigate={navigate} />
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <SectionCard className="border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
@@ -253,19 +254,24 @@ export function FinanceOverview() {
                 />
               </div>
             </div>
-            <div className="mt-4 rounded-2xl bg-[#3B07B8] px-6 py-5 text-white shadow-sm">
-              <div className="text-sm font-medium text-indigo-100">Your Account Balance</div>
-              <div className="mt-1 text-lg font-semibold">{formatFinanceCurrency(dataset?.accountBalance ?? 0)}</div>
+            <div className="mt-4 flex min-h-[78px] items-start justify-between rounded-xl bg-[#33009c] px-5 py-5 text-white shadow-sm">
+              <div>
+                <div className="text-sm font-semibold text-white/70">Your Account</div>
+                <div className="text-[15px] font-semibold text-white">Balance</div>
+              </div>
+              <div className="pt-2 text-right text-2xl font-bold">{formatFinanceCurrency(dataset?.accountBalance ?? 0)}</div>
             </div>
-          </SectionCard>
 
-          <SectionCard className="border-slate-200 shadow-sm">
-            <div className="text-[20px] font-semibold text-slate-900">Recent Transaction</div>
+            <div className="mt-6 text-[18px] font-semibold text-slate-900">Recent Transaction</div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               {filteredSummaries.map((summary) => (
-                <StatCard key={summary.label} label={summary.label} value={summary.value} accent={summary.accent} />
+                <div key={summary.label} className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                  <div className="text-sm text-slate-500">{summary.label}</div>
+                  <div className="mt-1 text-[22px] font-semibold text-slate-900">{summary.value}</div>
+                </div>
               ))}
             </div>
+
             <div className="mt-6">
               <TransactionList rows={dataset?.transactions ?? []} onNavigate={navigate} />
             </div>
@@ -287,20 +293,20 @@ export function FinanceOverview() {
                 </svg>
               </button>
             </div>
-            <div className="mt-4 rounded-2xl bg-slate-600 px-6 py-5 text-white shadow-sm flex items-center justify-between">
+            <div className="mt-4 rounded-xl bg-[#768087] px-5 py-5 text-white shadow-sm flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-slate-200">Amount</div>
-                <div className="mt-1 text-lg font-semibold">{formatFinanceCurrency(dataset?.cashInHand ?? 0)}</div>
+                <div className="mt-1 text-2xl font-bold text-white">{formatFinanceCurrency(dataset?.cashInHand ?? 0)}</div>
               </div>
               <button
                 type="button"
                 onClick={() => navigate("/finance/cashRegister")}
-                className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100 transition shadow"
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#4B1FCF] transition hover:bg-slate-50 shadow-sm"
               >
                 Cash Register ↗
               </button>
             </div>
-            <div className="mt-3 text-xs font-medium text-slate-500">
+            <div className="mt-3 text-xs font-medium text-slate-400">
               Last Updated On {dataset?.cashUpdatedOn ?? "-"}
             </div>
           </SectionCard>
@@ -373,19 +379,22 @@ export function FinanceOverview() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 px-6 py-10 text-center">
-                  <EmptyState 
-                    icon={<img src="/assets/images/expense.svg" alt="no expense" className="h-24 w-24 object-contain mx-auto" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
-                    title="No Expense Breakdown Found" 
+                <div className="py-8 text-center">
+                  <img
+                    src="/assets/images/finance/no-data.gif"
+                    alt="No Data Found"
+                    className="h-36 w-36 object-contain mx-auto"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
+                  <div className="mt-4 text-[15px] font-bold text-slate-900">No Expenses Found for Today</div>
                 </div>
               )}
             </div>
-            <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="mt-4 text-left">
               <button
                 type="button"
                 onClick={() => navigate(basePath + "/expense")}
-                className="text-[14px] font-semibold text-indigo-700 hover:text-indigo-800"
+                className="text-sm font-semibold text-[#4B1FCF] hover:text-indigo-800"
               >
                 See All Expenses({expenseCount})
               </button>
