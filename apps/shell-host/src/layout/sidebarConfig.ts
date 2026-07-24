@@ -284,6 +284,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "finance-customers", label: "Finance Consumers", icon: "\u{1F465}", path: "/finance/customers" },
     { id: "finance-invoices", label: "Invoices", icon: "\u{1F9FE}", path: "/finance/invoice" },
     { id: "finance-discount", label: "Discounts", icon: "\u{1F4B8}", path: "/finance/discount" },
+    { id: "finance-coupons", label: "Coupons", icon: "\u{1F3F7}", path: "/finance/coupons" },
     { id: "finance-items", label: "Items", icon: "\u{1F4E6}", path: "/finance/items" },
     { id: "finance-category", label: "Category", icon: "\u{1F4C1}", path: "/finance/category" },
     { id: "finance-status", label: "Status", icon: "\u2705", path: "/finance/status" },

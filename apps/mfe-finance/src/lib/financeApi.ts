@@ -137,6 +137,8 @@ const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tena
 const TENANT_CONSUMER_SEARCH_ENDPOINT = `${TENANT_CONSUMER_ENDPOINT}/search`;
 const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts");
 const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
+const TENANT_COUPONS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/coupons");
+const TENANT_COUPONS_SEARCH_ENDPOINT = `${TENANT_COUPONS_ENDPOINT}/search`;
 const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
 
 export function sanitizeFinancePayload<T extends Record<string, unknown>>(data: T) {
@@ -758,6 +760,38 @@ export const financeApi = {
     },
     remove<T = unknown>(id: string) {
       return put<T>(`${TENANT_DISCOUNTS_ENDPOINT}/${id}/remove`);
+    },
+  },
+  coupons: {
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_COUPONS_SEARCH_ENDPOINT, filter);
+    },
+    listBill<T = unknown>() {
+      return get<T>("provider/bill/coupons/nonexpired");
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_COUPONS_ENDPOINT}/${uid}`);
+    },
+    byCode<T = unknown>(feature: string, couponCode: string) {
+      return get<T>(`${TENANT_COUPONS_ENDPOINT}/${feature}/by-code/${couponCode}`);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_COUPONS_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_COUPONS_ENDPOINT}/${uid}`, data);
+    },
+    remove<T = unknown>(uid: string) {
+      return del<T>(`${TENANT_COUPONS_ENDPOINT}/${uid}`);
+    },
+    publish<T = unknown>(uid: string) {
+      return put<T>(`${TENANT_COUPONS_ENDPOINT}/${uid}/publish`);
+    },
+    updateStatus<T = unknown>(uid: string, status: string) {
+      return put<T>(`${TENANT_COUPONS_ENDPOINT}/${uid}/status/${status}`);
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_COUPONS_ENDPOINT}/search/schema`);
     },
   },
 };

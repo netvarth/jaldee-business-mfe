@@ -8,6 +8,7 @@ export type FinanceRouteKey =
   | "expense"
   | "invoice"
   | "discount"
+  | "coupons"
   | "category"
   | "status"
   | "total"
@@ -35,6 +36,7 @@ export const financeRoutes: FinanceRouteDefinition[] = [
   { key: "expense", path: "expense", label: "Expense", angularModule: "./expense/expense.module" },
   { key: "invoice", path: "invoice", label: "Invoice", angularModule: "./invoice/invoice.module" },
   { key: "discount", path: "discount", label: "Discount", angularModule: "./discount/discount.module" },
+  { key: "coupons", path: "coupons", label: "Coupons" },
   { key: "category", path: "category", label: "Category", angularModule: "./category/category.module" },
   { key: "status", path: "status", label: "Status", angularModule: "./status/status.module" },
   { key: "total", path: "total", label: "Total", angularModule: "./total-list/total-list.module" },

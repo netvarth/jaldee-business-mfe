@@ -48,6 +48,7 @@ type FinanceFeatureModule = "FINANCE_CORE" | "FINANCE_INVOICE" | "FINANCE_PAYMEN
 type DiscountCalculationType = "FIXED_AMOUNT" | "FIXED_PCT";
 type DiscountType = "PREDEFINED" | "ONDEMAND";
 type DiscountStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
+type CouponStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
 
 const sequenceTemplateFeatureOptions: Array<{ value: SequenceTemplateFeature; label: string }> = [
   { value: "FINANCE", label: "Finance" },
@@ -510,6 +511,7 @@ function OverviewPage() {
     { label: "Create Invoice", path: "/finance/invoice/newInvoice", icon: "packagePlus", tone: "bg-indigo-50 text-indigo-600", note: "Issue new billing" },
     { label: "Create Expense", path: "/finance/expense/new", icon: "alert", tone: "bg-rose-50 text-rose-600", note: "Book operations cost" },
     { label: "Discounts", path: "/finance/discount", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Manage discounts" },
+    { label: "Coupons", path: "/finance/coupons", icon: "history", tone: "bg-lime-50 text-lime-700", note: "Manage coupons" },
     { label: "Add Revenue", path: "/finance/receivables/create", icon: "trend", tone: "bg-emerald-50 text-emerald-600", note: "Record collections" },
     { label: "Create Payout", path: "/finance/payable/create", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Queue vendor payout" },
     { label: "Create Vendor", path: "/finance/vendors", icon: "globe", tone: "bg-sky-50 text-sky-600", note: "Add vendor profile" },
@@ -1032,37 +1034,180 @@ function CustomersPage() {
     { key: "phone", header: "Phone" },
     { key: "email", header: "Email" },
     { key: "address", header: "Address" },
-    {
-      key: "actions",
-      header: "Actions",
-      render: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/invoice/newInvoice?consumerUid=${encodeURIComponent(row.uid)}`)}
-        >
-          Create Invoice
-        </Button>
-      ),
-    },
-  ], [navigate]);
+  ], []);
 
   return (
     <PageShell
       title="Finance Consumers"
-      subtitle="Consumers available for finance invoices and billing flows."
-      actions={<Button onClick={() => navigate("/invoice/newInvoice")}>Create Invoice</Button>}
+      subtitle="Manage consumers available in the finance module."
+      actions={<Button onClick={() => navigate("create")}>Create Consumer</Button>}
     >
       <DataTableCard
         title={`Consumers (${customers.length})`}
-        subtitle="Select a finance consumer and create an invoice against that consumer."
+        subtitle="Finance consumer directory."
         actions={loading ? <span className="text-sm text-slate-500">Loading consumers...</span> : undefined}
         data={customers}
         columns={columns}
         emptyTitle="No finance consumers found"
-        emptyDescription="Finance consumers will appear here once available from the tenant consumer API."
+        emptyDescription="Finance consumers will appear here once available from the finance consumer API."
         getRowId={(row) => row.uid}
       />
+    </PageShell>
+  );
+}
+
+function CustomerCreatePage() {
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("Mr");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [consumerType, setConsumerType] = useState("NONE");
+  const [status, setStatus] = useState("INACTIVE");
+  const [countryCode, setCountryCode] = useState("+91");
+  const [phoneNo, setPhoneNo] = useState("");
+  const [email, setEmail] = useState("");
+  const [gender, setGender] = useState("MALE");
+  const [dob, setDob] = useState("");
+  const [address, setAddress] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!firstName.trim()) {
+      setFormError("First name is required.");
+      return;
+    }
+
+    if (!phoneNo.trim() && !email.trim()) {
+      setFormError("Phone number or email is required.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const displayName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ").trim();
+      const normalizedPhone = phoneNo.trim().replace(/\s+/g, "");
+      const normalizedCountryCode = countryCode.trim() || "+91";
+      const phoneE164 = normalizedPhone ? `${normalizedCountryCode}${normalizedPhone}`.replace(/\s+/g, "") : undefined;
+      const statusEnum = status === "ACTIVE" ? "Enabled" : "Disabled";
+
+      await financeApi.customers.create({
+        consumerType,
+        title: title.trim() || undefined,
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || undefined,
+        phoneNumber: normalizedPhone ? {
+          countryCode: normalizedCountryCode,
+          number: normalizedPhone,
+        } : undefined,
+        email: email.trim() || undefined,
+        status,
+        consumerSnapshot: {
+          title: title.trim() || undefined,
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || undefined,
+          displayName: displayName || firstName.trim(),
+          statusEnum,
+          phoneE164,
+          email: email.trim() || undefined,
+          gender,
+          dob: dob || undefined,
+          systemGeneratedDob: false,
+          address: address.trim() || undefined,
+          allowLogin: false,
+          internationalConsumer: normalizedCountryCode !== "+91",
+        },
+      });
+
+      navigate("..", { relative: "path", replace: true });
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create consumer", error);
+      setFormError(error instanceof Error ? error.message : "Could not create consumer.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Consumer"
+      subtitle="Create a finance consumer using the finance consumer API."
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-4 md:max-w-2xl" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label="Title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              options={[
+                { value: "Mr", label: "Mr" },
+                { value: "Ms", label: "Ms" },
+                { value: "Mrs", label: "Mrs" },
+                { value: "Dr", label: "Dr" },
+              ]}
+              fullWidth
+            />
+            <Select
+              label="Consumer Type"
+              value={consumerType}
+              onChange={(event) => setConsumerType(event.target.value)}
+              options={[{ value: "NONE", label: "None" }]}
+              fullWidth
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="First Name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="John" fullWidth />
+            <Input label="Last Name" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Doe" fullWidth />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "INACTIVE", label: "Inactive" },
+              ]}
+              fullWidth
+            />
+            <Select
+              label="Gender"
+              value={gender}
+              onChange={(event) => setGender(event.target.value)}
+              options={[
+                { value: "MALE", label: "Male" },
+                { value: "FEMALE", label: "Female" },
+                { value: "OTHER", label: "Other" },
+              ]}
+              fullWidth
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} placeholder="+91" fullWidth />
+            <Input label="Phone Number" value={phoneNo} onChange={(event) => setPhoneNo(event.target.value)} placeholder="9876543210" fullWidth />
+          </div>
+          <Input label="Date of Birth" type="date" value={dob} onChange={(event) => setDob(event.target.value)} fullWidth />
+          <Input label="Email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="john@example.com" fullWidth />
+          <Textarea label="Address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Add address" />
+          {formError ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {formError}
+            </div>
+          ) : null}
+          <div className="flex gap-3">
+            <Button type="button" variant="secondary" onClick={() => navigate("..", { relative: "path" })}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Creating" : "Create Consumer"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
     </PageShell>
   );
 }
@@ -3090,6 +3235,428 @@ function DiscountEditPage() {
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? "Saving..." : "Update Discount"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function CouponsPage() {
+  const navigate = useNavigate();
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadCoupons() {
+    setLoading(true);
+    try {
+      const res = await financeApi.coupons.list<any>({ from: 0, count: 100 });
+      const payload = res.data?.content || res.data?.data?.content || res.data?.data || res.data || [];
+      const records = Array.isArray(payload) ? payload : [];
+      setCoupons(records.map((item: any, index: number) => ({
+        uid: String(item.uid ?? item.couponId ?? item.id ?? `coupon-${index}`),
+        code: String(item.couponCode ?? item.code ?? item.name ?? `COUPON-${index + 1}`),
+        name: String(item.name ?? item.displayName ?? item.couponCode ?? item.code ?? "Coupon"),
+        feature: String(item.feature ?? item.featureModule ?? item.module ?? "FINANCE"),
+        calculationType: String(item.calculationType ?? "FIXED_AMOUNT"),
+        discountType: String(item.discountType ?? "PREDEFINED"),
+        discountValue: Number(item.discountValue ?? item.discount ?? item.value ?? item.amount ?? 0),
+        status: String(item.status ?? "INACTIVE"),
+        published: Boolean(item.published ?? item.isPublished ?? false),
+      })));
+    } catch (error) {
+      console.error("Failed to fetch coupons", error);
+      setCoupons([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadCoupons();
+  }, []);
+
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      { key: "code", header: "Coupon Code" },
+      { key: "name", header: "Coupon Name" },
+      { key: "feature", header: "Feature" },
+      { key: "calculationType", header: "Calculation Type" },
+      { key: "discountType", header: "Coupon Type" },
+      { key: "discountValue", header: "Value", align: "right", render: (row) => String(row.discountValue ?? 0) },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => <Badge variant={row.status === "ACTIVE" ? "success" : row.status === "RETIRED" ? "warning" : "neutral"}>{row.status || "INACTIVE"}</Badge>,
+      },
+      {
+        key: "published",
+        header: "Published",
+        render: (row) => <Badge variant={row.published ? "success" : "neutral"}>{row.published ? "Published" : "Draft"}</Badge>,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.uid}`)}>
+              Edit
+            </Button>
+            <Popover
+              portal
+              placement="bottom"
+              align="end"
+              trigger={(
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                  aria-label="Coupon actions"
+                />
+              )}
+            >
+              <div className="grid min-w-[220px] p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={async () => {
+                    const nextStatus: CouponStatus = row.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                    try {
+                      await financeApi.coupons.updateStatus(row.uid, nextStatus);
+                      await loadCoupons();
+                    } catch (error) {
+                      console.error("Failed to update coupon status", error);
+                      alert("Failed to update coupon status");
+                    }
+                  }}
+                >
+                  {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                </Button>
+                {!row.published ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start font-normal"
+                    onClick={async () => {
+                      try {
+                        await financeApi.coupons.publish(row.uid);
+                        await loadCoupons();
+                      } catch (error) {
+                        console.error("Failed to publish coupon", error);
+                        alert("Failed to publish coupon");
+                      }
+                    }}
+                  >
+                    Publish Coupon
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal text-rose-600"
+                  onClick={async () => {
+                    try {
+                      await financeApi.coupons.remove(row.uid);
+                      await loadCoupons();
+                    } catch (error) {
+                      console.error("Failed to remove coupon", error);
+                      alert("Failed to remove coupon");
+                    }
+                  }}
+                >
+                  Delete Coupon
+                </Button>
+              </div>
+            </Popover>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
+
+  return (
+    <FinanceFeatureLayout
+      title="Coupons"
+      subtitle="Manage finance coupons used in invoice and billing flows."
+      actions={<Button onClick={() => navigate("create")}>Create Coupon</Button>}
+      main={(
+        <DataTableCard
+          title="Coupon List"
+          subtitle="Available finance coupons."
+          data={coupons}
+          columns={columns}
+          getRowId={(row) => String(row.uid)}
+          emptyTitle="No coupons"
+          emptyDescription={loading ? "Loading..." : "Coupons will appear here."}
+        />
+      )}
+    />
+  );
+}
+
+function CouponCreatePage() {
+  const navigate = useNavigate();
+  const navigateToCouponList = () => navigate("..", { relative: "path", replace: true });
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [feature, setFeature] = useState("FINANCE");
+  const [calculationType, setCalculationType] = useState<DiscountCalculationType>("FIXED_AMOUNT");
+  const [discountType, setDiscountType] = useState<DiscountType>("PREDEFINED");
+  const [discountValue, setDiscountValue] = useState("");
+  const [status, setStatus] = useState<CouponStatus>("ACTIVE");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!code.trim()) {
+      setFormError("Coupon code is required.");
+      return;
+    }
+    if (!name.trim()) {
+      setFormError("Coupon name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await financeApi.coupons.create({
+        couponCode: code.trim(),
+        code: code.trim(),
+        name: name.trim(),
+        description: description.trim() || undefined,
+        feature,
+        calculationType,
+        discountType,
+        discountValue: Number(discountValue) || 0,
+        status,
+      });
+      navigateToCouponList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create coupon", error);
+      setFormError(error instanceof Error ? error.message : "Could not create coupon.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Coupon"
+      subtitle="Add a finance coupon using the tenant coupons API."
+      actions={<Button variant="outline" onClick={navigateToCouponList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Coupon Code *" value={code} onChange={(event) => setCode(event.target.value)} required />
+            <Input label="Coupon Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input label="Value" type="number" min="0" step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+            <Select
+              label="Feature"
+              value={feature}
+              onChange={(event) => setFeature(event.target.value)}
+              options={[
+                { value: "FINANCE", label: "Finance" },
+                { value: "BASE_CRM", label: "Base CRM" },
+              ]}
+            />
+            <Select
+              label="Calculation Type"
+              value={calculationType}
+              onChange={(event) => setCalculationType(event.target.value as DiscountCalculationType)}
+              options={[
+                { value: "FIXED_AMOUNT", label: "Fixed Amount" },
+                { value: "FIXED_PCT", label: "Fixed Percentage" },
+              ]}
+            />
+            <Select
+              label="Coupon Type"
+              value={discountType}
+              onChange={(event) => setDiscountType(event.target.value as DiscountType)}
+              options={[
+                { value: "PREDEFINED", label: "Predefined" },
+                { value: "ONDEMAND", label: "On Demand" },
+              ]}
+            />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as CouponStatus)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "INACTIVE", label: "Inactive" },
+                { value: "RETIRED", label: "Retired" },
+              ]}
+            />
+          </div>
+          <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToCouponList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Create Coupon"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function CouponEditPage() {
+  const navigate = useNavigate();
+  const navigateToCouponList = () => navigate("../..", { relative: "path", replace: true });
+  const { id } = useParams<{ id: string }>();
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [feature, setFeature] = useState("FINANCE");
+  const [calculationType, setCalculationType] = useState<DiscountCalculationType>("FIXED_AMOUNT");
+  const [discountType, setDiscountType] = useState<DiscountType>("PREDEFINED");
+  const [discountValue, setDiscountValue] = useState("");
+  const [status, setStatus] = useState<CouponStatus>("ACTIVE");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadCoupon() {
+      if (!id) return;
+      try {
+        const res = await financeApi.coupons.detail<any>(id);
+        const data = res.data;
+        if (active && data) {
+          setCode(String(data.couponCode ?? data.code ?? ""));
+          setName(String(data.name ?? ""));
+          setDescription(String(data.description ?? ""));
+          setFeature(String(data.feature ?? data.featureModule ?? "FINANCE"));
+          setCalculationType((data.calculationType || "FIXED_AMOUNT") as DiscountCalculationType);
+          setDiscountType((data.discountType || "PREDEFINED") as DiscountType);
+          setDiscountValue(String(data.discountValue ?? data.discount ?? data.value ?? 0));
+          setStatus((data.status || "ACTIVE") as CouponStatus);
+        }
+      } catch (error) {
+        console.error("Failed to load coupon", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadCoupon();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!code.trim()) {
+      setFormError("Coupon code is required.");
+      return;
+    }
+    if (!name.trim()) {
+      setFormError("Coupon name is required.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await financeApi.coupons.update(id!, {
+        uid: id,
+        couponCode: code.trim(),
+        code: code.trim(),
+        name: name.trim(),
+        description: description.trim() || undefined,
+        feature,
+        calculationType,
+        discountType,
+        discountValue: Number(discountValue) || 0,
+        status,
+      });
+      navigateToCouponList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update coupon", error);
+      setFormError(error instanceof Error ? error.message : "Could not update coupon.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading coupon...</div>;
+  }
+
+  return (
+    <PageShell
+      title="Edit Coupon"
+      subtitle="Update coupon details for invoice use."
+      actions={<Button variant="outline" onClick={navigateToCouponList}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Coupon Code *" value={code} onChange={(event) => setCode(event.target.value)} required />
+            <Input label="Coupon Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input label="Value" type="number" min="0" step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+            <Select
+              label="Feature"
+              value={feature}
+              onChange={(event) => setFeature(event.target.value)}
+              options={[
+                { value: "FINANCE", label: "Finance" },
+                { value: "BASE_CRM", label: "Base CRM" },
+              ]}
+            />
+            <Select
+              label="Calculation Type"
+              value={calculationType}
+              onChange={(event) => setCalculationType(event.target.value as DiscountCalculationType)}
+              options={[
+                { value: "FIXED_AMOUNT", label: "Fixed Amount" },
+                { value: "FIXED_PCT", label: "Fixed Percentage" },
+              ]}
+            />
+            <Select
+              label="Coupon Type"
+              value={discountType}
+              onChange={(event) => setDiscountType(event.target.value as DiscountType)}
+              options={[
+                { value: "PREDEFINED", label: "Predefined" },
+                { value: "ONDEMAND", label: "On Demand" },
+              ]}
+            />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as CouponStatus)}
+              options={[
+                { value: "ACTIVE", label: "Active" },
+                { value: "INACTIVE", label: "Inactive" },
+                { value: "RETIRED", label: "Retired" },
+              ]}
+            />
+          </div>
+          <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={navigateToCouponList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Update Coupon"}
             </Button>
           </div>
         </form>
@@ -6751,6 +7318,7 @@ export default function App() {
         <Route path="estimates/new" element={withBoundary(<EstimatesPage />)} />
         <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
         <Route path="customers" element={withBoundary(<CustomersPage />)} />
+        <Route path="customers/create" element={withBoundary(<CustomerCreatePage />)} />
         <Route path="vendors" element={withBoundary(<VendorsPage />)} />
         <Route path="ledger" element={withBoundary(<LedgerPage />)} />
         <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />
@@ -6765,6 +7333,9 @@ export default function App() {
         <Route path="discount" element={withBoundary(<DiscountsPage />)} />
         <Route path="discount/create" element={withBoundary(<DiscountCreatePage />)} />
         <Route path="discount/edit/:id" element={withBoundary(<DiscountEditPage />)} />
+        <Route path="coupons" element={withBoundary(<CouponsPage />)} />
+        <Route path="coupons/create" element={withBoundary(<CouponCreatePage />)} />
+        <Route path="coupons/edit/:id" element={withBoundary(<CouponEditPage />)} />
         <Route path="invoice" element={withBoundary(<InvoicesPage />)} />
         <Route path="invoice/newInvoice" element={withBoundary(<FinanceInvoiceForm />)} />
         <Route path="invoice/edit/:id" element={withBoundary(<FinanceInvoiceForm />)} />
