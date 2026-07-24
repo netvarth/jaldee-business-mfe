@@ -6,3 +6,4 @@ export { LeavePolicySettingsPage } from "./LeavePolicySettingsPage";
 export { HolidaySettingsPage } from "./HolidaySettingsPage";
 export { AttendanceSettingsPage } from "./AttendanceSettingsPage";
 export { PayrollSettingsPage } from "./PayrollSettingsPage";
+export { LevelsSettingsPage } from "./LevelsSettingsPage";

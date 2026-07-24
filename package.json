@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "preview": "turbo run preview",
     "serve": "turbo run serve",
+    "automation:enterprise": "node automation/run-enterprise-automation.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

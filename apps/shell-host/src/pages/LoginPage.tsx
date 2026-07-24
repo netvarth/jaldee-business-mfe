@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button, Input } from "@jaldee/design-system";
+import { ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { setStoredMUniqueId } from "../services/authService";
 import { useShellStore } from "../store/shellStore";
@@ -17,7 +18,6 @@ export default function LoginPage() {
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const { login, logout } = useAuth();
   const isAuthenticated = useShellStore((s) => s.isAuthenticated);
@@ -82,21 +82,6 @@ export default function LoginPage() {
     setError("");
   }
 
-  async function handleManualLogout() {
-    setError("");
-    setLoggingOut(true);
-
-    try {
-      await logout();
-      setRequiresMfa(false);
-      setOtp("");
-    } catch (logoutError) {
-      setError(getErrorMessage(logoutError));
-    } finally {
-      setLoggingOut(false);
-    }
-  }
-
   if (hasHydrated && isAuthenticated) {
     return <Navigate to={getPreferredLandingPath(account)} replace />;
   }
@@ -107,9 +92,13 @@ export default function LoginPage() {
         <div className="auth-form-wrap">
           <div className="login-card auth-card-flat">
             <div className="login-header auth-header-left">
-              <div className="login-badge auth-brand-badge">J</div>
+              <div className="auth-login-visual" aria-hidden="true">
+                <div className="auth-login-visual-glow" />
+                <ShieldCheck size={34} strokeWidth={1.8} />
+              </div>
+              <div className="auth-portal-label">Business Portal</div>
               <h1 className="login-title">
-                {requiresMfa ? "Verify your sign in" : "Welcome back to Jaldee"}
+                {requiresMfa ? "Verify your sign in" : "Welcome back"}
               </h1>
               <p className="login-subtitle">
                 {requiresMfa
@@ -169,22 +158,6 @@ export default function LoginPage() {
 
               {error && <div className="login-error">{error}</div>}
 
-              {!requiresMfa ? (
-                <div className="login-field">
-                  <Button
-                    data-testid="auth-login-logout-existing-session"
-                    type="button"
-                    variant="secondary"
-                    size="md"
-                    disabled={loading || loggingOut}
-                    onClick={() => void handleManualLogout()}
-                    fullWidth
-                  >
-                    {loggingOut ? "Signing out..." : "Logout existing session"}
-                  </Button>
-                </div>
-              ) : null}
-
               {requiresMfa ? (
                 <div className="login-actions">
                   <Button
@@ -225,7 +198,7 @@ export default function LoginPage() {
                     {loading ? "Signing in..." : "Sign in"}
                   </Button>
                   <div className="auth-inline-footer">
-                    <span className="auth-inline-copy">New to Jaldee?</span>
+                    <span className="auth-inline-copy">New here?</span>
                     <button type="button" className="auth-inline-link" onClick={() => navigate("/signup")}>
                       Create account
                     </button>
@@ -241,8 +214,7 @@ export default function LoginPage() {
         <div className="auth-showcase-content">
           <h2 className="auth-showcase-title">One platform for everything your business needs</h2>
           <p className="auth-showcase-copy">
-            From bookings to billing, inventory to invoices, Jaldee gives Indian businesses the complete
-            operating system they&apos;ve been missing.
+            Bring bookings, billing, inventory, teams, and reporting together in one streamlined workspace.
           </p>
 
           <div className="auth-feature-list">
@@ -271,7 +243,7 @@ export default function LoginPage() {
 
           <div className="auth-showcase-footer">
             <div className="auth-showcase-trust">TRUSTED BY 2,500+ INDIAN BUSINESSES</div>
-            <div className="auth-showcase-brands">Acme Healthcare · Karty Stores · Lino Lending · Prasis Clinic</div>
+            <div className="auth-showcase-brands">Jaldee Soft Private Limited</div>
           </div>
         </div>
       </aside>

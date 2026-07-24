@@ -513,8 +513,8 @@ export default function EssPortal() {
         </Suspense>
       )}
       <div style={pageStack}>
-        <div style={contentPanel}>
-          <div className="overflow-hidden rounded-t-2xl rounded-b-none border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+        <div style={contentPanel} className="ess-mobile-unified-card">
+          <div className="ess-mobile-hero overflow-hidden rounded-t-2xl rounded-b-none border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
             <div className="bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.18),_transparent_22%),radial-gradient(circle_at_75%_20%,_rgba(59,130,246,0.14),_transparent_24%),linear-gradient(135deg,#fff8ef_0%,#f4fbff_48%,#eefbf6_100%)] px-6 py-8">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-3xl">
@@ -567,10 +567,10 @@ export default function EssPortal() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
-            <div className="min-w-0 flex-1">
+          <div className="ess-mobile-content flex flex-col gap-6 xl:flex-row xl:items-stretch">
+            <div className="ess-mobile-main min-w-0 flex-1">
               {section === "overview" && (
-                <div className="mt-6 flex flex-col gap-6">
+                <div className="ess-overview-content mt-6 flex flex-col gap-6">
                   <div>
                     <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
                       <div>

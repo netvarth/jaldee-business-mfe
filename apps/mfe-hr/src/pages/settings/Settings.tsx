@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, MoreVertical } from "lucide-react";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, MoreVertical, Layers } from "lucide-react";
 import { Popover } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { TEAL, card } from "./SettingsComponents";
@@ -13,11 +13,13 @@ import {
   HolidaySettingsPage,
   AttendanceSettingsPage,
   PayrollSettingsPage,
+  LevelsSettingsPage,
 } from "./settingsPages";
 
 const SECTIONS = [
   { key: "company", label: "Company Profile", icon: <Building2 size={18} /> },
   { key: "departments", label: "Departments", icon: <Users2 size={18} /> },
+  { key: "levels", label: "Seniority Bands (Levels)", icon: <Layers size={18} /> },
   { key: "designations", label: "Roles & Designations", icon: <BadgeCheck size={18} /> },
   { key: "shifts", label: "Shifts", icon: <Clock size={18} /> },
   { key: "leavetypes", label: "Leave Policy", icon: <Plane size={18} /> },
@@ -30,6 +32,7 @@ type SectionKey = (typeof SECTIONS)[number]["key"];
 const SECTION_CONTENT: Record<SectionKey, () => JSX.Element> = {
   company: CompanySettingsPage,
   departments: DepartmentsSettingsPage,
+  levels: LevelsSettingsPage,
   designations: DesignationsSettingsPage,
   shifts: ShiftsSettingsPage,
   leavetypes: LeavePolicySettingsPage,

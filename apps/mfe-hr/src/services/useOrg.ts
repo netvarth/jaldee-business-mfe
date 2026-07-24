@@ -40,50 +40,52 @@ function withId<T extends { uid?: string; id?: string }>(r: Record<string, unkno
   return { ...(r as object), id: String(uid ?? ""), uid } as T;
 }
 
-function useOrgList<T extends { uid?: string; id?: string }>(endpoint: string, failMsg: string) {
+function useOrgList<T extends { uid?: string; id?: string }>(endpoint: string, failMsg: string, enabled = true) {
   const api = useHrApi();
   const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>(endpoint);
       setData(Array.isArray(res) ? res.map((r) => withId<T>(r)) : []);
     } catch (e) { setError(e instanceof Error ? e.message : failMsg); setData([]); }
     finally { setLoading(false); }
-  }, [api, endpoint, failMsg]);
-  useEffect(() => { void load(); }, [load]);
+  }, [api, endpoint, failMsg, enabled]);
+  useEffect(() => { if (enabled) { void load(); } }, [load, enabled]);
   const create = useCallback(async (p: Record<string, unknown>) => { await api.post(endpoint, p); await load(); }, [api, endpoint, load]);
   const update = useCallback(async (uid: string, p: Record<string, unknown>) => { await api.put(`${endpoint}/${uid}`, p); await load(); }, [api, endpoint, load]);
   const remove = useCallback(async (uid: string) => { await api.del(`${endpoint}/${uid}`); await load(); }, [api, endpoint, load]);
   return { api, data, loading, error, reload: load, create, update, remove };
 }
 
-export const usePositions = () => useOrgList<Position>("/org/positions", "Failed to load positions");
-export const useHierarchyLevels = () => useOrgList<HierarchyLevel>("/org/levels", "Failed to load levels");
-export const useAreaManagers = () => useOrgList<AreaManagerBranch>("/org/area-managers", "Failed to load mappings");
+export const usePositions = (enabled = true) => useOrgList<Position>("/org/positions", "Failed to load positions", enabled);
+export const useHierarchyLevels = (enabled = true) => useOrgList<HierarchyLevel>("/org/levels", "Failed to load levels", enabled);
+export const useAreaManagers = (enabled = true) => useOrgList<AreaManagerBranch>("/org/area-managers", "Failed to load mappings", enabled);
 
-export function useTransfers() {
-  const base = useOrgList<Transfer>("/org/transfers", "Failed to load transfers");
+export function useTransfers(enabled = true) {
+  const base = useOrgList<Transfer>("/org/transfers", "Failed to load transfers", enabled);
   const effect = useCallback(async (uid: string) => { await base.api.post(`/org/transfers/${uid}/effect`); await base.reload(); }, [base.api, base.reload]);
   const cancel = useCallback(async (uid: string) => { await base.api.post(`/org/transfers/${uid}/cancel`); await base.reload(); }, [base.api, base.reload]);
   return { ...base, effect, cancel };
 }
 
-export function useBranchNorms() {
+export function useBranchNorms(enabled = true) {
   const api = useHrApi();
   const [data, setData] = useState<BranchNorm[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
       const res = await api.get<BranchNorm[]>("/org/norms");
       setData(Array.isArray(res) ? res : []);
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load norms"); setData([]); }
     finally { setLoading(false); }
-  }, [api]);
-  useEffect(() => { void load(); }, [load]);
+  }, [api, enabled]);
+  useEffect(() => { if (enabled) { void load(); } }, [load, enabled]);
   return { data, loading, error, reload: load };
 }

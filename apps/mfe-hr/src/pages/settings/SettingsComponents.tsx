@@ -102,7 +102,7 @@ function buildPayload(fields: Field[], form: Row): Row {
           ? v.split(",").map((item) => item.trim()).filter(Boolean).join(",")
           : "";
     }
-    else if (f.type === "number") out[f.key] = v === "" || v == null ? null : Number(v);
+    else if (f.type === "number" || f.key === "level") out[f.key] = v === "" || v == null ? null : Number(v);
     else if (f.type === "checkbox") out[f.key] = !!v;
     else if (f.type === "multiselect") {
       out[f.key] = Array.isArray(v)
@@ -444,11 +444,12 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
       render: (row: Row & { id: string }) => (
         <div className="flex items-center justify-end gap-2">
           <button id={`${automationScope}-edit-${row.id}`} data-testid={`${automationScope}-edit-${row.id}`} onClick={() => openEdit(row)} title="Edit" aria-label={`Edit ${title} record`} style={iconAction}><Pencil size={15} /></button>
-          {statusToggle ? (() => {
+          {statusToggle && (() => {
             const enabled = statusToggle.isEnabled(row);
             const action = enabled ? "disable" : "enable";
-            return <button id={`${automationScope}-${action}-${row.id}`} data-testid={`${automationScope}-${action}-${row.id}`} onClick={() => setStatusRow(row)} title={enabled ? "Disable department" : "Enable department"} aria-label={`${enabled ? "Disable" : "Enable"} ${title} record`} style={{ ...iconAction, width: 38, color: enabled ? "#059669" : "#64748b", background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)" }}>{enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}</button>;
-          })() : <button id={`${automationScope}-delete-${row.id}`} data-testid={`${automationScope}-delete-${row.id}`} onClick={() => handleDelete(row.id)} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>}
+            return <button id={`${automationScope}-${action}-${row.id}`} data-testid={`${automationScope}-${action}-${row.id}`} onClick={() => setStatusRow(row)} title={enabled ? "Disable record" : "Enable record"} aria-label={`${enabled ? "Disable" : "Enable"} ${title} record`} style={{ ...iconAction, width: 38, color: enabled ? "#059669" : "#64748b", background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)" }}>{enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}</button>;
+          })()}
+          <button id={`${automationScope}-delete-${row.id}`} data-testid={`${automationScope}-delete-${row.id}`} onClick={() => handleDelete(row.id)} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
         </div>
       ),
     },
@@ -456,7 +457,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
 
   return (
     <div>
-      <PanelHeader title={title} subtitle={subtitle} icon={icon} action={
+      <PanelHeader title={title === "Roles & Designations" ? `${title} (${totalRecords})` : title} subtitle={subtitle} icon={icon} action={
         <div className="flex flex-wrap justify-end gap-2">
           {searchSchema && onFilterClausesChange ? (
             <Button type="button" id={`${automationScope}-filter`} data-testid={`${automationScope}-filter`} variant={appliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label={`Open ${title} filters`} onClick={openFilters}>
@@ -475,12 +476,14 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
         </SectionCard>
       ) : (
         <SectionCard id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} className="overflow-hidden border-slate-200 shadow-sm" padding={false}>
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] px-5 py-4">
-            <div>
-              <div className="text-sm font-bold text-slate-900">{title}</div>
-              <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{totalRecords} record{totalRecords === 1 ? "" : "s"}</div>
+          {title !== "Roles & Designations" && (
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] px-5 py-4">
+              <div>
+                <div className="text-sm font-bold text-slate-900">{title}</div>
+                <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{totalRecords} record{totalRecords === 1 ? "" : "s"}</div>
+              </div>
             </div>
-          </div>
+          )}
           <DataTable
             data={hook.data}
             columns={tableColumns}

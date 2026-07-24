@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button, Checkbox, Icon, Input, OtpInput, PhoneInput } from "@jaldee/design-system";
 import type { PhoneInputValue } from "@jaldee/design-system";
+import { ShieldCheck } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useShellStore } from "../store/shellStore";
 import { getPreferredLandingPath } from "../utils/landing";
@@ -198,8 +199,12 @@ export default function SignupPage() {
             {step === "details" ? (
               <>
                 <div className="login-header auth-header-left">
-                  <div className="login-badge auth-brand-badge">J</div>
-                  <h1 className="login-title">Create your Jaldee account</h1>
+                  <div className="auth-login-visual" aria-hidden="true">
+                    <div className="auth-login-visual-glow" />
+                    <ShieldCheck size={34} strokeWidth={1.8} />
+                  </div>
+                  <div className="auth-portal-label">Business Portal</div>
+                  <h1 className="login-title">Create your account</h1>
                   <p className="login-subtitle">Start your trial and verify with email or phone OTP.</p>
                 </div>
                 <form data-testid="signup-details-form" className="login-form" onSubmit={handleIssueOtp}>
@@ -430,8 +435,7 @@ export default function SignupPage() {
         <div className="auth-showcase-content">
           <h2 className="auth-showcase-title">One platform for everything your business needs</h2>
           <p className="auth-showcase-copy">
-            From bookings to billing, inventory to invoices, Jaldee gives Indian businesses the complete
-            operating system they've been missing.
+            Bring bookings, billing, inventory, teams, and reporting together in one streamlined workspace.
           </p>
 
           <div className="auth-feature-list">
@@ -460,7 +464,7 @@ export default function SignupPage() {
 
           <div className="auth-showcase-footer">
             <div className="auth-showcase-trust">TRUSTED BY 2,500+ INDIAN BUSINESSES</div>
-            <div className="auth-showcase-brands">Acme Healthcare · Karty Stores · Lino Lending · Prasis Clinic</div>
+            <div className="auth-showcase-brands">Jaldee Soft Private Limited</div>
           </div>
         </div>
       </aside>

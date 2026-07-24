@@ -65,7 +65,7 @@ export default function NewEmployeeWizard() {
 
     try {
       const payload: Record<string, unknown> = {
-        employeeId: `EMP${Math.floor(1000 + Math.random() * 9000)}`,
+        employeeId: `EMP${Date.now().toString().slice(-6)}${Math.floor(1000 + Math.random() * 9000)}`,
         name: personal.name,
         email: personal.email,
         contactNumber: contactNumber.e164Number || `${contactNumber.countryCode}${contactNumber.number}`,

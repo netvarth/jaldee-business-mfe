@@ -629,6 +629,7 @@ a:hover {
     }
 
     .employee-master-search {
+        flex: 0 0 auto;
         max-width: none;
     }
 
@@ -1955,3 +1956,36 @@ a:hover {
     to { transform: translateY(0); opacity: 1; }
 }
 
+@media (max-width: 767px) {
+    #hr-ess-page .ess-mobile-unified-card {
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        background: var(--surface-bg);
+        box-shadow: var(--shadow-sm);
+    }
+
+    #hr-ess-page .ess-mobile-hero {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    #hr-ess-page .ess-mobile-content {
+        gap: 0;
+        padding: 0 12px 12px;
+    }
+
+    #hr-ess-page .ess-mobile-main > [data-testid="section-card"],
+    #hr-ess-page .ess-overview-content > [data-testid="section-card"] {
+        margin-top: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    #hr-ess-page .ess-overview-content {
+        margin-top: 0;
+        gap: 0;
+    }
+}

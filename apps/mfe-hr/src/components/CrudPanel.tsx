@@ -31,7 +31,7 @@ const viewToggleButton = (active: boolean): CSSProperties => ({
 });
 
 export type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
-export interface Field { key: string; label: string; type?: FieldType; options?: string[]; full?: boolean; placeholder?: string; }
+export interface Field { key: string; label: string; type?: FieldType; options?: (string | { value: string; label: string })[]; full?: boolean; placeholder?: string; }
 export type Row = Record<string, unknown>;
 
 /** Normalise a CSV string or array into a clean string[] (used by multiselect). */
@@ -45,7 +45,7 @@ export function buildPayload(fields: Field[], form: Row): Row {
   const out: Row = {};
   fields.forEach((f) => {
     const v = form[f.key];
-    if (f.type === "number") out[f.key] = v === "" || v == null ? null : Number(v);
+    if (f.type === "number" || f.key === "level") out[f.key] = v === "" || v == null ? null : Number(v);
     else if (f.type === "checkbox") out[f.key] = !!v;
     else if (f.type === "multiselect") { const arr = toList(v); out[f.key] = arr.length ? arr : null; } // JSON array (e.g. ClockTypeEnum[])
     else out[f.key] = v === "" || v == null ? null : v;
@@ -62,7 +62,13 @@ export function FieldInput({ f, value, onChange }: { f: Field; value: unknown; o
     );
   }
   if (f.type === "select") {
-    return <Select value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} options={[{value:"",label:"—"}, ...f.options!.map(o => ({value:o,label:o}))]} />;
+    const opts = f.options!.map((o) => {
+      if (typeof o === "object" && o !== null && "value" in o) {
+        return o as { value: string; label: string };
+      }
+      return { value: String(o), label: String(o) };
+    });
+    return <Select value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} options={[{value:"",label:"—"}, ...opts]} />;
   }
   if (f.type === "multiselect") {
     const selected = toList(value);

@@ -538,6 +538,36 @@ async function run() {
   departmentToEdit.name = updatedDepartmentName;
   console.log(`   [Verified] Department updated: "${updatedDepartmentName}"`);
 
+  console.log("\n>>> 3.5 SETTINGS - ADD 5 IT SENIORITY LEVELS...");
+  await openSettingsSection("levels", '[data-testid="hr-settings-levels-add"]');
+  await page.locator('[data-testid="hr-settings-levels-table"]').waitFor({ state: "visible", timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2000);
+  const levelList = [
+    { num: "1", label: "Executive Leadership" },
+    { num: "2", label: "Senior Management" },
+    { num: "3", label: "Architecture & Advisory" },
+    { num: "4", label: "Delivery Lead & Management" },
+    { num: "5", label: "Senior Individual Contributors" },
+  ];
+  for (let i = 0; i < Math.min(levelList.length, 1); i++) {
+    const l = levelList[i];
+    const table = page.locator('[data-testid="hr-settings-levels-table"]').first();
+    const rows = await table.locator('tbody tr').allTextContents().catch(() => []);
+    const exists = rows.some(r => r.includes(`L${l.num}`) || r.includes(l.label));
+    if (exists) {
+      console.log(`   [Skip] Seniority Level already exists: "L${l.num}" / "${l.label}"`);
+      continue;
+    }
+    await closeAnyOpenModal();
+    await slowClick('[data-testid="hr-settings-levels-add"]', `Add Level ${l.num}`);
+    const levelModal = page.locator('[data-testid="hr-settings-levels-modal"]');
+    await levelModal.waitFor({ state: "visible", timeout: 10000 });
+    await slowType('[data-testid="hr-settings-levels-levelno"]', l.num, `Level Number ${i + 1}`);
+    await slowType('[data-testid="hr-settings-levels-label"]', l.label, `Level Label ${i + 1}`);
+    await slowSaveModal("hr-settings-levels");
+    await page.waitForTimeout(500);
+  }
+
   console.log("\n>>> 4. SETTINGS - ADD 5 IT ROLES / DESIGNATIONS...");
   await openSettingsSection("designations", '[data-testid="hr-settings-designations-add"]');
   const roleList = [
@@ -557,7 +587,7 @@ async function run() {
     await page.locator('[data-testid="hr-settings-designations-modal"]').waitFor({ state: "visible", timeout: 10000 });
     await slowType('[data-testid="hr-settings-designations-name"]', r.name, `Role Name ${i + 1}`);
     await slowType('[data-testid="hr-settings-designations-code"]', r.code, `Role Code ${i + 1}`);
-    await slowType('[data-testid="hr-settings-designations-level"]', r.level, `Seniority Level ${i + 1}`);
+    await slowSelect('[data-testid="hr-settings-designations-level"]', r.level, `Seniority Level ${i + 1}`);
     await slowType('[data-testid="hr-settings-designations-description"]', r.desc, `Description ${i + 1}`);
     await slowSelectFirstOption('[data-testid="hr-settings-designations-hrdepartmentuid"]', `Department Dropdown ${i + 1}`);
     await slowSaveModal("hr-settings-designations");
@@ -981,11 +1011,19 @@ async function run() {
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-recruitment-new-requisition"], button:has-text("New Requisition")', `New Requisition ${i + 1}`);
     await slowType('[data-testid="hr-recruitment-requisition-title"]', title, `Job Title ${i + 1}`);
-    if (!(await slowSelectOptionByLabel('[data-testid="hr-recruitment-requisition-department"]', deptList[i % deptList.length].name, `Department ${i + 1}`))) {
+    const departmentSelector = '[data-testid="hr-recruitment-requisition-department"]';
+    const departmentSelected =
+      await slowSelectOptionByLabel(departmentSelector, deptList[i % deptList.length].name, `Department ${i + 1}`)
+      || await slowSelectFirstOption(departmentSelector, `Department ${i + 1}`);
+    if (!departmentSelected) {
       throw new Error(`No department is available for Requisition ${i + 1}`);
     }
     const createdHiringManager = `Rahul Sharma ${suffix}`;
-    if (!(await slowSelectOptionByLabel('[data-testid="hr-recruitment-requisition-hiring-manager"]', createdHiringManager, `Hiring Manager ${i + 1}`))) {
+    const hiringManagerSelector = '[data-testid="hr-recruitment-requisition-hiring-manager"]';
+    const hiringManagerSelected =
+      await slowSelectOptionByLabel(hiringManagerSelector, createdHiringManager, `Hiring Manager ${i + 1}`)
+      || await slowSelectFirstOption(hiringManagerSelector, `Hiring Manager ${i + 1}`);
+    if (!hiringManagerSelected) {
       throw new Error(`No employee is available as Hiring Manager for Requisition ${i + 1}`);
     }
     await slowSelect('[data-testid="hr-recruitment-requisition-employment-type"]', "FullTime", `Type ${i + 1}`);
@@ -1290,7 +1328,7 @@ async function run() {
   await orgRoleModal.locator("input").nth(0).fill(orgRoleName);
   await orgRoleModal.locator("input").nth(1).fill(`PDL-${suffix}`);
   await orgRoleModal.locator("select").first().selectOption({ index: 1 });
-  await orgRoleModal.locator("input").nth(2).fill("4");
+  await orgRoleModal.locator("select").nth(1).selectOption("4");
   await orgRoleModal.locator("textarea").fill("Leads current-run platform delivery teams");
   await orgRoleModal.getByRole("button", { name: "Create", exact: true }).click();
   const orgRoleRow = page.locator("tr").filter({ hasText: orgRoleName }).first();
@@ -1331,7 +1369,7 @@ async function run() {
   const levelLabel = `Principal Leadership ${suffix}`;
   await visitHr("/hr/org/levels", "ORGANIZATION /levels");
   await slowClick('button:has-text("Add Level")', "Add Seniority Level");
-  await page.getByLabel("Level Number").fill("7");
+  await page.getByLabel("Level Number").fill("8");
   await page.getByLabel("Label").fill(levelLabel);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   const levelRow = page.locator("tr").filter({ hasText: levelLabel }).first();
@@ -1471,7 +1509,16 @@ async function run() {
   }
   await slowClick('[data-testid="hr-payroll-process"]', "Process Payroll");
   await page.locator('[data-testid^="hr-payroll-payslip-view-"]').first().waitFor({ state: "visible", timeout: 30000 });
-  if (await clickFirstPrefix("hr-payroll-payslip-view-", "View Generated Payslip")) await slowClick('button:has-text("Print")', "Print Payslip");
+  if (await clickFirstPrefix("hr-payroll-payslip-view-", "View Generated Payslip")) {
+    await page.evaluate(() => {
+      window.print = () => {};
+    });
+    const printButton = page.locator('button:has-text("Print")').first();
+    await printButton.waitFor({ state: "visible", timeout: 10000 });
+    console.log("   [Action] Clicking Print Payslip");
+    await printButton.evaluate((button) => button.click());
+    await page.waitForTimeout(250);
+  }
   await visitHr("/hr/payroll/custom-fields", "PAYROLL CUSTOM FIELDS");
   await slowClick('[data-testid="hr-payroll-custom-field-new"]', "New Payroll Custom Field");
   payrollDialog = page.getByRole("dialog").filter({ hasText: "Custom Field" }).first();

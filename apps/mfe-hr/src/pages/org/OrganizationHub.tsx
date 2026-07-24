@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Briefcase,
   Layers,
+  Users,
   MapPinned,
   ArrowLeftRight,
   Gauge,
@@ -45,10 +46,10 @@ const ORG_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: LucideIc
   { key: "chart", route: "chart", label: "Org Chart", Icon: MapPinned },
   { key: "headcount", route: "headcount", label: "Headcount & Norms", Icon: Gauge },
   { key: "departments", route: "departments", label: "Departments", Icon: Briefcase },
+  { key: "levels", route: "levels", label: "Seniority Bands (Levels)", Icon: Layers },
   { key: "designations", route: "designations", label: "Job Roles (Designations)", Icon: Briefcase },
   { key: "branches", route: "branches", label: "Branches", Icon: MapPinned },
   { key: "positions", route: "positions", label: "Headcount Planning (Seats)", Icon: Briefcase },
-  { key: "levels", route: "levels", label: "Seniority Bands (Levels)", Icon: Layers },
   { key: "transfers", route: "transfers", label: "Transfers", Icon: ArrowLeftRight },
 ];
 
@@ -218,16 +219,28 @@ export default function OrgStructure() {
   const routeState = useMemo(() => orgRouteState(location.pathname), [location.pathname]);
   const tab = routeState.tab;
 
-  const positions = usePositions();
-  const levels = useHierarchyLevels();
-  const areaMgrs = useAreaManagers();
-  const transfers = useTransfers();
-  const departments = useDepartments();
-  const designations = useDesignations();
-  const branchesAdmin = useBranchesAdmin();
-  const shifts = useShifts();
-  const { data: employees } = useEmployees();
-  const { data: branches } = useBranches();
+  const positions = usePositions(tab === "positions" || tab === "headcount");
+  const levels = useHierarchyLevels(tab === "levels" || tab === "designations");
+  const areaMgrs = useAreaManagers(tab === "branches");
+  const transfers = useTransfers(tab === "transfers");
+  const departments = useDepartments(undefined, undefined, {
+    enabled: tab === "departments" || tab === "positions" || tab === "transfers" || tab === "designations" || tab === "chart"
+  });
+  const designations = useDesignations(undefined, undefined, {
+    enabled: tab === "designations" || tab === "positions" || tab === "chart"
+  });
+  const branchesAdmin = useBranchesAdmin({
+    enabled: tab === "branches" || tab === "positions" || tab === "transfers"
+  });
+  const shifts = useShifts({
+    enabled: tab === "transfers"
+  });
+  const { data: employees } = useEmployees(undefined, undefined, {
+    enabled: tab === "transfers" || tab === "branches" || tab === "chart"
+  });
+  const { data: branches } = useBranches({
+    enabled: tab === "branches" || tab === "positions" || tab === "transfers"
+  });
 
   const [positionsView, setPositionsView] = useState<ViewMode>(() => getPreferredViewMode());
   const [departmentsView, setDepartmentsView] = useState<ViewMode>(() => getPreferredViewMode());
@@ -320,30 +333,37 @@ export default function OrgStructure() {
     return (uid?: string | null) => (uid ? m.get(uid) ?? uid : "Unknown");
   }, [designations.data]);
 
+  const employeesLoaded = tab !== "departments";
+  const designationsLoaded = tab !== "departments";
+
   const departmentInsights = useMemo(() => {
     const employeeCounts = new Map<string, number>();
     const roleCounts = new Map<string, number>();
 
-    employees.forEach((employee) => {
-      const key = String(employee.department || "").trim().toLowerCase();
-      if (!key) return;
-      employeeCounts.set(key, (employeeCounts.get(key) ?? 0) + 1);
-    });
+    if (employeesLoaded) {
+      employees.forEach((employee) => {
+        const key = String(employee.department || "").trim().toLowerCase();
+        if (!key) return;
+        employeeCounts.set(key, (employeeCounts.get(key) ?? 0) + 1);
+      });
+    }
 
-    designations.data.forEach((designation) => {
-      const key = String(designation.department || "").trim().toLowerCase();
-      if (!key) return;
-      roleCounts.set(key, (roleCounts.get(key) ?? 0) + 1);
-    });
+    if (designationsLoaded) {
+      designations.data.forEach((designation) => {
+        const key = String(designation.department || "").trim().toLowerCase();
+        if (!key) return;
+        roleCounts.set(key, (roleCounts.get(key) ?? 0) + 1);
+      });
+    }
 
     return (departmentName: string | null | undefined) => {
       const key = String(departmentName || "").trim().toLowerCase();
       return {
-        employees: employeeCounts.get(key) ?? 0,
-        roles: roleCounts.get(key) ?? 0,
+        employees: employeesLoaded ? (employeeCounts.get(key) ?? 0) : null,
+        roles: designationsLoaded ? (roleCounts.get(key) ?? 0) : null,
       };
     };
-  }, [designations.data, employees]);
+  }, [designations.data, employees, employeesLoaded, designationsLoaded]);
 
   const departmentName = useMemo(() => {
     const m = new Map(departments.data.map((d) => [d.id, d.name] as const));
@@ -615,7 +635,6 @@ export default function OrgStructure() {
                           <th className="px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#587398]">Code</th>
                           <th className="px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#587398]">Employees</th>
                           <th className="px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#587398]">Roles</th>
-                          <th className="px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#587398]">Status</th>
                           <th className="px-4 py-3 text-right text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#587398]">Actions</th>
                         </tr>
                       </thead>
@@ -632,20 +651,17 @@ export default function OrgStructure() {
                               <td className="px-4 py-4 align-middle">
                                 <div className="min-w-0">
                                   <div className="truncate text-[15px] font-bold text-slate-900">{department.name || "-"}</div>
-                                  <div className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-amber-700">
-                                    {insights.employees > 0 ? `${insights.employees} employee${insights.employees === 1 ? "" : "s"} mapped` : "Awaiting employee mapping"}
-                                  </div>
+                                  {insights.employees !== null && (
+                                    <div className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-amber-700">
+                                      {insights.employees > 0 ? `${insights.employees} employee${insights.employees === 1 ? "" : "s"} mapped` : "Awaiting employee mapping"}
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-4 text-sm font-semibold text-slate-700">{department.code || "-"}</td>
-                              <td className="px-4 py-4 text-sm font-semibold text-slate-900">{insights.employees}</td>
-                              <td className="px-4 py-4 text-sm font-semibold text-slate-900">{insights.roles}</td>
-                              <td className="px-4 py-4">
-                                <span className={hasCode ? "inline-flex rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-emerald-700" : "inline-flex rounded-xl border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-amber-700"}>
-                                  {hasCode ? "Configured" : "Needs code"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 text-right">
+                              <td className="px-4 py-4 text-sm font-semibold text-slate-900">{insights.employees !== null ? insights.employees : "—"}</td>
+                              <td className="px-4 py-4 text-sm font-semibold text-slate-900">{insights.roles !== null ? insights.roles : "—"}</td>
+                               <td className="px-4 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <Button
                                     variant="ghost"
@@ -682,67 +698,77 @@ export default function OrgStructure() {
                       description="Departments added for your organization will appear here."
                     />
                   </div>
-                ) : departments.data.map((department) => (
-                  <article
-                    key={department.id}
-                    data-testid={`hr-org-department-card-${department.id}`}
-                    className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] p-5 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-base font-semibold text-[var(--color-text-primary)]">{department.name || "-"}</div>
-                        <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
-                          Department
+                ) : departments.data.map((department) => {
+                  const insights = departmentInsights(String(department.name));
+                  return (
+                    <article
+                      key={department.id}
+                      data-testid={`hr-org-department-card-${department.id}`}
+                      className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] p-5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-base font-semibold text-[var(--color-text-primary)]">{department.name || "-"}</div>
+                          <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
+                            Department
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            iconOnly
+                            className="!h-8 !w-8 !px-0 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]"
+                            aria-label={`Edit ${department.name || "department"}`}
+                            onClick={() => openDepartmentEditor(department)}
+                            icon={<Pencil size={14} />}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            iconOnly
+                            className="!h-8 !w-8 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
+                            aria-label={`Delete ${department.name || "department"}`}
+                            onClick={() => deleteDepartment(department.id)}
+                            icon={
+                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                              </svg>
+                            }
+                          />
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="mt-5 rounded-xl border border-[color:color-mix(in_srgb,var(--color-border)_60%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_35%,white)] px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">Code</span>
+                          <span className="truncate text-sm font-medium text-[var(--color-text-primary)]">{department.code || "-"}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-2.5 py-1">
+                          <Users size={12} />
+                          {insights.employees !== null ? `${insights.employees} Employee${insights.employees === 1 ? "" : "s"}` : "—"}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1">
+                          <Briefcase size={12} />
+                          {insights.roles !== null ? `${insights.roles} Role${insights.roles === 1 ? "" : "s"}` : "—"}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex items-center justify-end gap-3">
                         <Button
                           size="sm"
-                          variant="ghost"
-                          iconOnly
-                          className="!h-8 !w-8 !px-0 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]"
-                          aria-label={`Edit ${department.name || "department"}`}
+                          variant="outline"
+                          className="!h-9 !px-3 text-xs"
                           onClick={() => openDepartmentEditor(department)}
-                          icon={<Pencil size={14} />}
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          iconOnly
-                          className="!h-8 !w-8 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
-                          aria-label={`Delete ${department.name || "department"}`}
-                          onClick={() => deleteDepartment(department.id)}
-                          icon={
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M3 6h18" />
-                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                            </svg>
-                          }
-                        />
+                        >
+                          Edit
+                        </Button>
                       </div>
-                    </div>
-                    <div className="mt-5 rounded-xl border border-[color:color-mix(in_srgb,var(--color-border)_60%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_35%,white)] px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">Code</span>
-                        <span className="truncate text-sm font-medium text-[var(--color-text-primary)]">{department.code || "-"}</span>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <span className="text-xs text-[var(--color-text-secondary)]">
-                        {department.code ? "Configured department code" : "No department code"}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="!h-9 !px-3 text-xs"
-                        onClick={() => openDepartmentEditor(department)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </SectionCard>
@@ -751,7 +777,7 @@ export default function OrgStructure() {
 
         {tab === "designations" && (
         <CrudPanel
-          title="Roles & Designations"
+          title={`Roles & Designations (${designations.data.length})`}
           subtitle="Job roles, titles, bands, and owning department."
           icon={<Briefcase size={20} />}
           addLabel="Add Role / Designation"
@@ -759,14 +785,14 @@ export default function OrgStructure() {
           fields={[
             { key: "name", label: "Role / Designation" },
             { key: "code", label: "Code" },
-            { key: "department", label: "Department", type: "select", options: departments.data.map((d) => (d.name as string)).filter(Boolean) },
-            { key: "level", label: "Level / Band", type: "number" },
+            { key: "hrDepartmentUid", label: "Department", type: "select", options: departments.data.map((d) => ({ value: d.id, label: (d.name as string) || "" })).filter((o) => o.label) },
+            { key: "level", label: "Level / Band", type: "select", options: levels.data.map((l) => ({ value: String(l.levelNo), label: l.label ? `L${l.levelNo} - ${l.label}` : `L${l.levelNo}` })) },
             { key: "description", label: "Description", type: "textarea", full: true },
           ]}
           columns={[
             { label: "Role / Designation", render: (r) => <b>{r.name as string}</b> },
             { label: "Code", render: (r) => (r.code as string) || "-" },
-            { label: "Department", render: (r) => (r.department as string) || "-" },
+            { label: "Department", render: (r) => departments.data.find((d) => d.id === r.hrDepartmentUid)?.name || (r.hrDepartment as string) || (r.department as string) || "-" },
             { label: "Level", render: (r) => (r.level != null ? `L${r.level}` : "-") },
           ]}
           viewMode={designationsView}
@@ -778,7 +804,7 @@ export default function OrgStructure() {
           cardTitle={(row) => row.name as ReactNode}
           cardRows={(row) => [
             { label: "Code", value: (row.code as string) || "-" },
-            { label: "Department", value: (row.department as string) || "-" },
+            { label: "Department", value: departments.data.find((d) => d.id === row.hrDepartmentUid)?.name || (row.hrDepartment as string) || (row.department as string) || "-" },
             { label: "Level", value: row.level != null ? `L${row.level}` : "-" },
           ]}
           emptyText="No designations yet."

@@ -6,7 +6,7 @@ import type { ClockType } from "../types";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 
-export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartmentUid?: string | null; level?: number; description?: string; status?: string; }
+export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartment?: string; hrDepartmentUid?: string | null; level?: number; description?: string; status?: string; }
 export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; status?: string; }
 export interface Consent { id: string; uid?: string; employeeUid?: string; purpose?: string; status?: string; policyVersion?: string; grantedAt?: string; }
 export interface BranchRow { id: string; uid?: string; name?: string; code?: string; address?: string; latitude?: number; longitude?: number; radius?: number; }
@@ -131,9 +131,9 @@ export const useDesignations = (
   }, [api, designations.reload]);
   return { ...designations, setStatus };
 };
-export const useShifts = () => {
+export const useShifts = (options: { enabled?: boolean } = {}) => {
   const api = useHrApi();
-  const shifts = useCrud<Shift>("/shifts");
+  const shifts = useCrud<Shift>("/shifts", options);
   const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
     await api.patch(`/shifts/${uid}/status`, { status });
     await shifts.reload(true);
@@ -179,8 +179,8 @@ export const useHolidays = (
 const BRANCHES_READONLY_MSG =
   "Branches are owned by Jaldee base locations and are read-only in HR. Manage them in the Jaldee business console.";
 
-export function useBranchesAdmin() {
-  const branches = useBranches();
+export function useBranchesAdmin(options: { enabled?: boolean } = {}) {
+  const branches = useBranches(options);
 
   const reject = useCallback(async () => {
     throw new Error(BRANCHES_READONLY_MSG);
