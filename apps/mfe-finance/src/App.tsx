@@ -951,45 +951,77 @@ function EstimatesPage() {
 }
 
 function InvoicesPage() {
-  const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
-  const size = 15;
+  const [pageSize, setPageSize] = useState(10);
 
-  const columns = useMemo<ColumnDef<any>[]>(
-    () => [
-      { key: "invoiceNum", header: "Invoice No." },
-      { key: "customer", header: "Customer" },
-      { key: "category", header: "Category" },
-      { key: "dueDate", header: "Due Date" },
-      { key: "amount", header: "Amount", align: "right", render: (row) => formatCurrency(row.amount) },
-      { key: "status", header: "Status", render: (row) => <Badge variant={getStatusVariant(row.status)}>{row.status}</Badge> },
-      {
-        key: "actions",
-        header: "Actions",
-        render: (row) => (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`view/${row.detailUid || row.id}`)}
-          >
-            View
-          </Button>
-        ),
-      },
-    ],
-    [navigate]
-  );
+  function getInvoiceTypeMeta(type: string) {
+    const normalized = String(type || "").toUpperCase();
+    if (normalized.includes("MASTER")) {
+      return { label: "Master Invoice", className: "text-[#0F3D91]" };
+    }
+    if (normalized.includes("LINKED")) {
+      return { label: "Linked Invoice", className: "text-emerald-500" };
+    }
+    return { label: "Individual Invoice", className: "text-amber-500" };
+  }
+
+  function formatInvoicePaymentStatus(value: string) {
+    const normalized = String(value || "").trim();
+    if (!normalized) {
+      return "-";
+    }
+    return normalized
+      .replace(/_/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\bnotpaid\b/i, "Not Paid")
+      .replace(/\bpartiallypaid\b/i, "Partially Paid")
+      .replace(/\bfullypaid\b/i, "Fully Paid")
+      .replace(/\bpaid\b/i, "Paid");
+  }
+
+  function formatInvoiceStatus(value: string) {
+    const normalized = String(value || "").trim();
+    if (!normalized) {
+      return "-";
+    }
+    if (/cancel/i.test(normalized)) {
+      return "Cancelled";
+    }
+    return normalized
+      .replace(/_/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2");
+  }
+
+  function getStatusText(row: any) {
+    const invoiceStatus = String(row.invoiceStatus || row.status || "");
+    const paymentStatus = String(row.invoicePaymentStatus || "");
+    const formattedPaymentStatus = formatInvoicePaymentStatus(paymentStatus);
+    const formattedInvoiceStatus = formatInvoiceStatus(invoiceStatus);
+    const invoiceStatusClass =
+      /settled/i.test(invoiceStatus)
+        ? "text-emerald-600"
+        : /cancel/i.test(invoiceStatus)
+          ? "text-rose-600"
+          : "text-slate-700";
+
+    return (
+      <span className="text-slate-800">
+        {formattedPaymentStatus}{" "}
+        <span className={invoiceStatusClass}>({formattedInvoiceStatus})</span>
+      </span>
+    );
+  }
 
   useEffect(() => {
     let active = true;
     async function loadInvoices() {
       setLoading(true);
       try {
-        const res = await financeApi.invoices.listGeneral<any>({ from: page * size, count: size });
+        const res = await financeApi.invoices.listGeneral<any>({ from: page * pageSize, count: pageSize });
         if (active) {
           const payload = res.data?.content || res.data || [];
           const normalized = (Array.isArray(payload) ? payload : []).map((item: any, index: number) => ({
@@ -997,10 +1029,24 @@ function InvoicesPage() {
             detailUid: String(item.uid || item.invoiceUid || item.invoiceEncId || item.id || item.invoiceId || ""),
             invoiceNum: String(item.invoiceNum || item.invoiceId || item.uid || `invoice-${index}`),
             customer: String(item.consumerName || item.customerName || item.invoiceFor || item.userName || ""),
-            category: String(item.categoryName || item.invoiceCategoryName || "General"),
-            amount: Number(item.netTotal || item.totalAmount || item.amountDue || 0),
-            dueDate: item.dueDate ? new Date(item.dueDate).toLocaleDateString() : "-",
-            status: String(item.invoiceStatus || item.invoicePaymentStatus || item.billStatus || item.status || "Pending"),
+            customerCode:
+              item.consumerUid &&
+              String(item.consumerUid) !== "00000000-0000-0000-0000-000000000000"
+                ? String(item.consumerUid)
+                : "",
+            assignedFor: String(item.assignedUserName || item.createdByName || item.userName || item.consumerPhone || "-"),
+            category: String(item.categoryName || item.invoiceCategoryName || "Finance"),
+            product: String(item.product || item.productName || item.featureModule || "FINANCE"),
+            invoiceType: String(item.internalInvoiceType || item.invoiceType || item.type || "INDIVIDUAL_INVOICE"),
+            amount: Number(item.netRate || item.netTotal || item.totalAmount || item.amountDue || 0),
+            amountDue: Number(item.amountDue || item.netRate || item.netTotal || item.totalAmount || 0),
+            date: item.invoiceDate || item.createdDate || item.createdAt
+              ? new Date(item.invoiceDate || item.createdDate || item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : "-",
+            location: String(item.locationName || item.location || item.locationPlace || item.locationUid || "-"),
+            invoiceStatus: String(item.invoiceStatus || item.billStatus || item.status || "New"),
+            invoicePaymentStatus: String(item.invoicePaymentStatus || item.paymentStatus || "NotPaid"),
+            status: String(item.invoiceStatus || item.billStatus || item.status || item.invoicePaymentStatus || "New"),
           }));
           setInvoices(normalized);
           setTotalRecords(res.data?.totalElements ?? res.data?.length ?? 0);
@@ -1013,80 +1059,175 @@ function InvoicesPage() {
     }
     loadInvoices();
     return () => { active = false; };
-  }, [page]);
+  }, [page, pageSize]);
 
-  const paidTotal = invoices.filter((invoice) => invoice.status === "Paid").reduce((sum, invoice) => sum + invoice.amount, 0);
-  const pendingTotal = invoices.filter((invoice) => invoice.status !== "Paid").reduce((sum, invoice) => sum + invoice.amount, 0);
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const startRecord = totalRecords === 0 ? 0 : page * pageSize + 1;
+  const endRecord = Math.min(totalRecords, (page + 1) * pageSize);
+  const visiblePages = Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
+    if (totalPages <= 5) {
+      return index;
+    }
+    const start = Math.min(Math.max(page - 2, 0), totalPages - 5);
+    return start + index;
+  });
 
   return (
-    <FinanceFeatureLayout
-      title="Invoices"
-      subtitle="Invoice operations rebuilt from the legacy finance module."
-      actions={<Button onClick={() => navigate("newInvoice")}>New Invoice</Button>}
-      stats={[
-        { label: "Invoice Count", value: String(totalRecords), accent: "indigo" },
-        { label: "Collected", value: formatCurrency(paidTotal), accent: "emerald" },
-        { label: "Open Amount", value: formatCurrency(pendingTotal), accent: "amber" },
-        { label: "Overdue", value: String(invoices.filter((invoice) => invoice.status === "Overdue").length), accent: "rose" },
-      ]}
-      main={
-        <div className="space-y-4">
-          <DataTableCard
-            title="Invoice List"
-            subtitle="Recent and active finance invoices."
-            data={invoices}
-            columns={columns}
-            getRowId={(row) => row.id}
-            emptyTitle="No invoices"
-            emptyDescription={loading ? "Loading..." : "Invoices will appear here."}
-          />
-          <div className="flex items-center justify-between px-2">
-            <Button variant="outline" disabled={page === 0 || loading} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </Button>
-            <div className="text-sm font-medium text-slate-600">
-              Page {page + 1}
-            </div>
-            <Button variant="outline" disabled={invoices.length < size || loading} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </Button>
+    <PageShell
+      title={`Invoice (${totalRecords})`}
+      subtitle=" "
+      actions={
+        <div className="flex items-center gap-3">
+          <div className="w-48">
+            <Select
+              value="Finance"
+              onChange={() => undefined}
+              options={[{ value: "Finance", label: "Finance" }]}
+            />
           </div>
+          <Button onClick={() => navigate("newInvoice")}>Create Invoice</Button>
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-transparent text-[#4B1FCF] transition hover:bg-slate-100"
+            aria-label="Filter invoices"
+          >
+            <Icon name="filter" className="h-5 w-5" />
+          </button>
         </div>
       }
-      aside={
-        <>
-          {/* <FeedCard title="Most Recent">
-            <div className="space-y-3">
-              {invoices.slice(0, 5).map((invoice) => (
-                <button
-                  key={invoice.id}
-                  type="button"
-                  onClick={() => mfeProps.navigate(`/finance/master-invoice/${invoice.id}`)}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-slate-900">Invoice : #{invoice.id.replace("INV-", "")}</div>
-                      <div className="text-sm text-slate-500">{invoice.customer}</div>
-                    </div>
-                    <div className="text-base font-semibold text-slate-900">{formatCurrency(invoice.amount)}</div>
-                  </div>
-                </button>
-              ))}
+    >
+      <SectionCard className="border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1380px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-800">
+                <th className="px-4 py-4 font-semibold">ID</th>
+                <th className="px-4 py-4 font-semibold">Date</th>
+                <th className="px-4 py-4 font-semibold">Invoice For</th>
+                <th className="px-4 py-4 font-semibold">Assigned For</th>
+                <th className="px-4 py-4 font-semibold">Location</th>
+                <th className="px-4 py-4 font-semibold text-right">Amount (₹)</th>
+                <th className="px-4 py-4 font-semibold text-right">Amount Due (₹)</th>
+                <th className="px-4 py-4 font-semibold">Category</th>
+                <th className="px-4 py-4 font-semibold">Product</th>
+                <th className="px-4 py-4 font-semibold">Invoice Type</th>
+                <th className="px-4 py-4 font-semibold">Status</th>
+                <th className="px-4 py-4 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {invoices.length ? invoices.map((row) => {
+                const typeMeta = getInvoiceTypeMeta(row.invoiceType);
+                return (
+                  <tr key={row.id} className="text-slate-800">
+                    <td className="px-4 py-4 font-medium">{row.invoiceNum}</td>
+                    <td className="px-4 py-4">{row.date}</td>
+                    <td className="px-4 py-4">
+                      <div className="font-medium text-slate-900">{row.customer || "-"}</div>
+                      {row.customerCode ? <div className="mt-1 text-xs text-[#4B1FCF]">{row.customerCode}</div> : null}
+                    </td>
+                    <td className="px-4 py-4">{row.assignedFor || "-"}</td>
+                    <td className="px-4 py-4">{row.location || "-"}</td>
+                    <td className="px-4 py-4 text-right">{formatCurrency(row.amount).replace("₹", "").trim()}</td>
+                    <td className="px-4 py-4 text-right">{formatCurrency(row.amountDue).replace("₹", "").trim()}</td>
+                    <td className="px-4 py-4">{row.category}</td>
+                    <td className="px-4 py-4">{row.product}</td>
+                    <td className={`px-4 py-4 font-semibold ${typeMeta.className}`}>{typeMeta.label}</td>
+                    <td className="px-4 py-4">{getStatusText(row)}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <Button variant="outline" size="sm" onClick={() => navigate(`view/${row.detailUid || row.id}`)}>
+                          View
+                        </Button>
+                        <button
+                          type="button"
+                          className="flex h-9 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50"
+                          aria-label={`More actions for invoice ${row.invoiceNum}`}
+                        >
+                          <Icon name="moreVertical" className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={12} className="px-4 py-10 text-center text-slate-500">
+                    {loading ? "Loading invoices..." : "No invoices found."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-slate-200 px-4 py-4 text-sm text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            Showing {startRecord} to {endRecord} of {totalRecords} Invoices
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="px-2 text-lg text-slate-400 disabled:opacity-40"
+              onClick={() => setPage(0)}
+              disabled={page === 0 || loading}
+            >
+              «
+            </button>
+            <button
+              type="button"
+              className="px-2 text-lg text-slate-400 disabled:opacity-40"
+              onClick={() => setPage((current) => Math.max(0, current - 1))}
+              disabled={page === 0 || loading}
+            >
+              ‹
+            </button>
+            {visiblePages.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                onClick={() => setPage(pageNumber)}
+                className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                  page === pageNumber ? "bg-indigo-100 font-semibold text-[#4B1FCF]" : "text-slate-700"
+                }`}
+              >
+                {pageNumber + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="px-2 text-lg text-slate-400 disabled:opacity-40"
+              onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
+              disabled={page >= totalPages - 1 || loading}
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              className="px-2 text-lg text-slate-400 disabled:opacity-40"
+              onClick={() => setPage(totalPages - 1)}
+              disabled={page >= totalPages - 1 || loading}
+            >
+              »
+            </button>
+            <div className="w-20">
+              <Select
+                value={String(pageSize)}
+                onChange={(event) => {
+                  setPage(0);
+                  setPageSize(Number(event.target.value) || 10);
+                }}
+                options={[
+                  { value: "10", label: "10" },
+                  { value: "15", label: "15" },
+                  { value: "20", label: "20" },
+                ]}
+              />
             </div>
-          </FeedCard> */}
-          {/* <FeedCard title="Status Split">
-            <SummaryList
-              rows={[
-                { label: "Paid", value: String(invoices.filter((item) => item.status === "Paid").length), note: "Settled invoices" },
-                { label: "Pending", value: String(invoices.filter((item) => item.status === "Pending").length), note: "Awaiting payment" },
-                { label: "Overdue", value: String(invoices.filter((item) => item.status === "Overdue").length), note: "Requires follow-up" },
-              ]}
-            />
-          </FeedCard> */}
-        </>
-      }
-    />
+          </div>
+        </div>
+      </SectionCard>
+    </PageShell>
   );
 }
 
@@ -3956,61 +4097,73 @@ function MasterInvoicePage() {
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusError, setStatusError] = useState("");
+
+  async function loadInvoiceDetail(invoiceUid: string) {
+    const res = await financeApi.invoices.detailGeneral<any>(invoiceUid);
+    if (!res.data) {
+      return null;
+    }
+
+    const detailList = Array.isArray(res.data.detailList) ? res.data.detailList : [];
+    return {
+      uid: String(res.data.uid || invoiceUid),
+      id: String(res.data.uid || res.data.invoiceNum || res.data.invoiceId || invoiceUid),
+      invoiceNum: String(res.data.invoiceNum || res.data.invoiceId || invoiceUid),
+      customer: String(res.data.consumerName || res.data.customerName || res.data.invoiceFor || res.data.userName || "Unknown"),
+      category: String(res.data.categoryName || res.data.invoiceCategoryName || "General"),
+      amount: Number(res.data.netTotal || res.data.totalAmount || res.data.amountDue || 0),
+      dueDate: res.data.dueDate ? new Date(res.data.dueDate).toLocaleDateString() : "-",
+      status: String(res.data.invoiceStatus || res.data.invoicePaymentStatus || res.data.billStatus || res.data.status || "Pending"),
+      location: String(res.data.locationName || res.data.location || res.data.locationPlace || "-"),
+      referenceNo: String(res.data.referenceNo || res.data.bookingReference || "-"),
+      patientId: String(res.data.consumerId || res.data.patientId || "-"),
+      invoiceDate: res.data.invoiceDate ? new Date(res.data.invoiceDate).toLocaleDateString() : "-",
+      createdOn: res.data.createdDate || res.data.createdAt
+        ? new Date(res.data.createdDate || res.data.createdAt).toLocaleString()
+        : "-",
+      createdBy: String(res.data.createdByName || res.data.createdBy || res.data.providerName || "-"),
+      product: String(res.data.product || res.data.productName || "BOOKING"),
+      billedToAddress: String(res.data.billedToAddress || res.data.consumerGstAddress || "-"),
+      notesForCustomer: String(res.data.notesForCustomer || res.data.description || ""),
+      notesForProvider: String(res.data.notesForProvider || ""),
+      reasonForCancel: String(res.data.reasonForCancel || res.data.billStatusNote || ""),
+      netTotal: Number(res.data.netTotal || res.data.totalAmount || 0),
+      totalAmount: Number(res.data.totalAmount || res.data.netTotal || 0),
+      amountDue: Number(res.data.amountDue || res.data.netTotal || 0),
+      totalTax: Number(res.data.totalTax || 0),
+      totalDiscount: Number(res.data.totalDiscount || 0),
+      detailList: detailList.map((item: any, index: number) => {
+        const qty = Number(item.quantity || 1);
+        const rate = Number(item.price || item.netRate || 0);
+        const totalRate = Number(item.netTotal || rate * qty);
+        const afterDiscount = Number(item.netTotalAfterDiscount || totalRate);
+        const tax = Number(item.taxAmount || item.totalTax || 0);
+        const total = Number(item.total || afterDiscount + tax);
+        return {
+          id: String(item.uid || item.itemUid || `invoice-line-${index}`),
+          itemName: String(item.itemName || item.name || "Procedure/Item"),
+          processedDate: item.processedDate ? new Date(item.processedDate).toLocaleDateString("en-GB") : "-",
+          quantity: qty,
+          rate,
+          totalRate,
+          discount: Number(item.discountAmount || 0),
+          afterDiscount,
+          tax,
+          total,
+        };
+      }),
+    };
+  }
 
   useEffect(() => {
     let active = true;
     async function fetchDetail() {
       try {
-        const res = await financeApi.invoices.detailGeneral<any>(uid);
-        if (active && res.data) {
-          const detailList = Array.isArray(res.data.detailList) ? res.data.detailList : [];
-          setInvoice({
-            uid: String(res.data.uid || uid),
-            id: String(res.data.uid || res.data.invoiceNum || res.data.invoiceId || uid),
-            invoiceNum: String(res.data.invoiceNum || res.data.invoiceId || uid),
-            customer: String(res.data.consumerName || res.data.customerName || res.data.invoiceFor || res.data.userName || "Unknown"),
-            category: String(res.data.categoryName || res.data.invoiceCategoryName || "General"),
-            amount: Number(res.data.netTotal || res.data.totalAmount || res.data.amountDue || 0),
-            dueDate: res.data.dueDate ? new Date(res.data.dueDate).toLocaleDateString() : "-",
-            status: String(res.data.invoiceStatus || res.data.invoicePaymentStatus || res.data.billStatus || res.data.status || "Pending"),
-            location: String(res.data.locationName || res.data.location || res.data.locationPlace || "-"),
-            referenceNo: String(res.data.referenceNo || res.data.bookingReference || "-"),
-            patientId: String(res.data.consumerId || res.data.patientId || "-"),
-            invoiceDate: res.data.invoiceDate ? new Date(res.data.invoiceDate).toLocaleDateString() : "-",
-            createdOn: res.data.createdDate || res.data.createdAt
-              ? new Date(res.data.createdDate || res.data.createdAt).toLocaleString()
-              : "-",
-            createdBy: String(res.data.createdByName || res.data.createdBy || res.data.providerName || "-"),
-            product: String(res.data.product || res.data.productName || "BOOKING"),
-            billedToAddress: String(res.data.billedToAddress || res.data.consumerGstAddress || "-"),
-            notesForCustomer: String(res.data.notesForCustomer || res.data.description || ""),
-            notesForProvider: String(res.data.notesForProvider || ""),
-            netTotal: Number(res.data.netTotal || res.data.totalAmount || 0),
-            totalAmount: Number(res.data.totalAmount || res.data.netTotal || 0),
-            amountDue: Number(res.data.amountDue || res.data.netTotal || 0),
-            totalTax: Number(res.data.totalTax || 0),
-            totalDiscount: Number(res.data.totalDiscount || 0),
-            detailList: detailList.map((item: any, index: number) => {
-              const qty = Number(item.quantity || 1);
-              const rate = Number(item.price || item.netRate || 0);
-              const totalRate = Number(item.netTotal || rate * qty);
-              const afterDiscount = Number(item.netTotalAfterDiscount || totalRate);
-              const tax = Number(item.taxAmount || item.totalTax || 0);
-              const total = Number(item.total || afterDiscount + tax);
-              return {
-                id: String(item.uid || item.itemUid || `invoice-line-${index}`),
-                itemName: String(item.itemName || item.name || "Procedure/Item"),
-                processedDate: item.processedDate ? new Date(item.processedDate).toLocaleDateString("en-GB") : "-",
-                quantity: qty,
-                rate,
-                totalRate,
-                discount: Number(item.discountAmount || 0),
-                afterDiscount,
-                tax,
-                total,
-              };
-            }),
-          });
+        const detail = await loadInvoiceDetail(uid);
+        if (active) {
+          setInvoice(detail);
         }
       } catch (err) {
         console.error("Failed to load invoice detail", err);
@@ -4021,6 +4174,50 @@ function MasterInvoicePage() {
     if (uid) fetchDetail();
     return () => { active = false; };
   }, [uid]);
+
+  async function handleInvoiceStatusUpdate(nextStatus: "Settled" | "Cancel") {
+    if (!invoice?.uid || statusUpdating) {
+      return;
+    }
+
+    let payload: Record<string, unknown> = {};
+
+    if (nextStatus === "Cancel") {
+      const reason = window.prompt("Enter the reason for cancelling this invoice:", invoice.reasonForCancel || "");
+      if (reason === null) {
+        return;
+      }
+      if (!reason.trim()) {
+        setStatusError("Cancellation reason is required.");
+        return;
+      }
+      payload = {
+        reason: reason.trim(),
+      };
+    }
+
+    const confirmMessage =
+      nextStatus === "Settled"
+        ? `Settle invoice #${invoice.invoiceNum}?`
+        : `Cancel invoice #${invoice.invoiceNum}?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setStatusError("");
+    setStatusUpdating(true);
+    try {
+      await financeApi.invoices.updateInvoiceStatus(invoice.uid, nextStatus, payload);
+      const detail = await loadInvoiceDetail(invoice.uid);
+      setInvoice(detail);
+    } catch (error) {
+      console.error("Failed to update invoice status", error);
+      setStatusError(error instanceof Error ? error.message : "Could not update invoice status.");
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -4046,6 +4243,16 @@ function MasterInvoicePage() {
     );
   }
 
+  const normalizedInvoiceStatus = String(invoice.status || "").toLowerCase();
+  const isInvoiceSettled = normalizedInvoiceStatus.includes("settled") || normalizedInvoiceStatus.includes("paid");
+  const isInvoiceCancelled = normalizedInvoiceStatus.includes("cancel");
+  const invoiceBadgeVariant =
+    isInvoiceSettled
+      ? "success"
+      : isInvoiceCancelled
+        ? "danger"
+        : getStatusVariant(invoice.status);
+
   return (
     <div className="min-h-screen bg-slate-100/70 py-4">
       <div className="mx-auto flex max-w-[1840px] flex-col gap-4">
@@ -4063,7 +4270,7 @@ function MasterInvoicePage() {
               <div>
                 <div className="text-[20px] font-semibold text-slate-800">Invoice :#{invoice.invoiceNum}</div>
                 <div className="mt-1 text-sm text-slate-500">
-                  <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                  <Badge variant={invoiceBadgeVariant}>{invoice.status}</Badge>
                 </div>
               </div>
 
@@ -4155,11 +4362,38 @@ function MasterInvoicePage() {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button>Get Payment</Button>
-                <Button variant="outline">Settle Invoice</Button>
-                <Button variant="outline" className="text-rose-500">Cancel Invoice</Button>
-              </div>
+              {String(invoice.status).toLowerCase().includes("cancel") && invoice.reasonForCancel ? (
+                <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  <span className="font-semibold">Cancellation Reason:</span> {invoice.reasonForCancel}
+                </div>
+              ) : null}
+
+              {statusError ? (
+                <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                  {statusError}
+                </div>
+              ) : null}
+
+              {!isInvoiceSettled && !isInvoiceCancelled ? (
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Button>Get Payment</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleInvoiceStatusUpdate("Settled")}
+                    disabled={statusUpdating}
+                  >
+                    {statusUpdating ? "Updating..." : "Settle Invoice"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-rose-500"
+                    onClick={() => void handleInvoiceStatusUpdate("Cancel")}
+                    disabled={statusUpdating}
+                  >
+                    {statusUpdating ? "Updating..." : "Cancel Invoice"}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         </SectionCard>

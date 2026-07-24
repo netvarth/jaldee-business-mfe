@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Select } from "@jaldee/design-system";
-import { ChevronDown } from "lucide-react";
 import { useShellStore } from "../store/shellStore";
 import { BASE_CRM_SIDEBAR_SECTIONS, PRODUCT_SIDEBAR_BEHAVIOR, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
@@ -192,6 +191,7 @@ function SidebarItemRow({
         onClick={() => {
           if (hasChildren) {
             onToggle(section.id);
+            onNavigate(section.path);
             return;
           }
           onNavigate(section.path);
@@ -203,7 +203,7 @@ function SidebarItemRow({
         </span>
         {hasChildren && (
           <span className="sidebar-item-chevron" data-open={isOpen}>
-            <ChevronDown size={15} strokeWidth={2.25} aria-hidden="true" />
+            v
           </span>
         )}
       </button>
