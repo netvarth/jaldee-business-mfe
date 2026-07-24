@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import {
   Button,
@@ -63,6 +63,13 @@ interface DiscountDetail {
   discountType: string;
   calculationType: string;
   discountValue: number;
+}
+
+interface ConsumerOption extends ComboboxOption {
+  consumerUid: string;
+  phone?: string;
+  email?: string;
+  address?: string;
 }
 
 function readArrayPayload(value: any): any[] {
@@ -160,6 +167,7 @@ export default function FinanceInvoiceForm() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const isEditing = Boolean(id);
   const navigateToInvoiceList = () => {
     navigate("..", { relative: "path", replace: true });
@@ -176,6 +184,7 @@ export default function FinanceInvoiceForm() {
   const [invoiceDate, setInvoiceDate] = useState(todayIsoDate());
   const [dueDate, setDueDate] = useState("");
   const [invoiceLabel, setInvoiceLabel] = useState("");
+  const [consumerUid, setConsumerUid] = useState("");
   const [consumerName, setConsumerName] = useState("");
   const [consumerPhone, setConsumerPhone] = useState("");
   const [billedToAddress, setBilledToAddress] = useState("");
@@ -187,6 +196,7 @@ export default function FinanceInvoiceForm() {
   const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
+  const [consumerOptions, setConsumerOptions] = useState<ConsumerOption[]>([]);
   const [financeCatalogOptions, setFinanceCatalogOptions] = useState<FinanceCatalogOption[]>([]);
   const [discountOptions, setDiscountOptions] = useState<DiscountOption[]>([]);
 
@@ -215,6 +225,8 @@ export default function FinanceInvoiceForm() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const preselectedConsumerUid = String(searchParams.get("consumerUid") || "");
+
   useEffect(() => {
     const total = items.reduce((sum, item) => sum + (item.totalAmount ?? item.price * item.qty), 0);
     setAmount(String(total));
@@ -223,6 +235,10 @@ export default function FinanceInvoiceForm() {
   const selectedCatalogOption = useMemo(
     () => financeCatalogOptions.find((option) => option.value === newItemCatalogValue),
     [financeCatalogOptions, newItemCatalogValue]
+  );
+  const selectedConsumerOption = useMemo(
+    () => consumerOptions.find((option) => option.value === consumerUid),
+    [consumerOptions, consumerUid]
   );
   const selectedDiscountOption = useMemo(
     () => discountOptions.find((option) => option.value === selectedDiscountId),
@@ -427,6 +443,7 @@ export default function FinanceInvoiceForm() {
     setInvoiceDate(invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate).toISOString().slice(0, 10) : todayIsoDate());
     setDueDate(invoiceData.dueDate ? new Date(invoiceData.dueDate).toISOString().slice(0, 10) : "");
     setInvoiceLabel(String(invoiceData.invoiceLabel || ""));
+    setConsumerUid(String(invoiceData.consumerUid || invoiceData.consumerId || ""));
     setConsumerName(String(invoiceData.consumerName || invoiceData.customerName || ""));
     setConsumerPhone(String(invoiceData.consumerPhone || ""));
     setBilledToAddress(String(invoiceData.billedToAddress || invoiceData.consumerGstAddress || ""));
@@ -446,7 +463,12 @@ export default function FinanceInvoiceForm() {
 
     async function loadFormData() {
       try {
-        const [categoriesResult, statusesResult, itemsResult, locationsResult] = await Promise.allSettled([
+        const [customersResult, categoriesResult, statusesResult, itemsResult, locationsResult] = await Promise.allSettled([
+          financeApi.customers.search<any>({
+            page: 0,
+            size: 200,
+            view: "SUMMARY",
+          }),
           financeApi.categories.search<any>({
             page: 0,
             size: 20,
@@ -485,11 +507,13 @@ export default function FinanceInvoiceForm() {
 
         if (!active) return;
 
+        const customersResponse = customersResult.status === "fulfilled" ? customersResult.value : null;
         const categoriesResponse = categoriesResult.status === "fulfilled" ? categoriesResult.value : null;
         const statusesResponse = statusesResult.status === "fulfilled" ? statusesResult.value : null;
         const itemsResponse = itemsResult.status === "fulfilled" ? itemsResult.value : null;
         const locationsResponse = locationsResult.status === "fulfilled" ? locationsResult.value : null;
 
+        const customers = readArrayPayload(customersResponse?.data);
         const categories = Array.isArray(categoriesResponse?.data?.content)
           ? categoriesResponse.data.content
           : Array.isArray(categoriesResponse?.data)
@@ -523,9 +547,49 @@ export default function FinanceInvoiceForm() {
           value: String(location.id ?? location.uid ?? location.locationId),
           label: String(location.place ?? location.name ?? location.locationName ?? "Location"),
         }));
+        const nextConsumerOptions: ConsumerOption[] = customers
+          .map((item: any, index: number) => {
+            const uid = String(item.uid ?? item.consumerUid ?? item.id ?? item.userId ?? `consumer-${index}`);
+            const label = readString(
+              item.name,
+              item.consumerName,
+              [item.firstName, item.lastName].filter(Boolean).join(" "),
+              item.displayName
+            );
+            if (!uid || !label) {
+              return null;
+            }
+            const phone = readString(
+              item.consumerPhone,
+              item.mobile,
+              item.mobileNo,
+              item.phoneNo,
+              item.phone,
+              item.primaryPhone
+            );
+            const email = readString(item.consumerEmail, item.email, item.primaryEmail);
+            const address = readString(
+              item.billedToAddress,
+              item.consumerGstAddress,
+              item.address,
+              item.addressLine1,
+              item.location
+            );
+            return {
+              value: uid,
+              label,
+              consumerUid: uid,
+              phone,
+              email,
+              address,
+              description: [phone, email].filter(Boolean).join(" | ") || undefined,
+            };
+          })
+          .filter(Boolean) as ConsumerOption[];
 
         setCategoryOptions(nextCategoryOptions);
         setStatusOptions(nextStatusOptions);
+        setConsumerOptions(nextConsumerOptions);
         setLocationOptions(
           nextLocationOptions.length > 0
             ? nextLocationOptions
@@ -537,6 +601,7 @@ export default function FinanceInvoiceForm() {
         setCategoryId((current) => current || nextCategoryOptions[0]?.value || "");
         setStatusId((current) => current || nextStatusOptions[0]?.value || "");
         setLocationId((current) => current || nextLocationOptions[0]?.value || defaultLocationId);
+        setConsumerUid((current) => current || preselectedConsumerUid || "");
 
         const financeItemOptions: FinanceCatalogOption[] = financeItems
           .map((item: any, index: number) => {
@@ -574,7 +639,17 @@ export default function FinanceInvoiceForm() {
     return () => {
       active = false;
     };
-  }, [defaultLocationId, defaultLocationName, id, isEditing]);
+  }, [defaultLocationId, defaultLocationName, id, isEditing, preselectedConsumerUid]);
+
+  useEffect(() => {
+    if (!selectedConsumerOption) {
+      return;
+    }
+
+    setConsumerName(selectedConsumerOption.label);
+    setConsumerPhone((current) => current || selectedConsumerOption.phone || "");
+    setBilledToAddress((current) => current || selectedConsumerOption.address || "");
+  }, [selectedConsumerOption]);
 
   useEffect(() => {
     let active = true;
@@ -730,6 +805,7 @@ export default function FinanceInvoiceForm() {
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         invoiceLabel: invoiceLabel.trim() || undefined,
         referenceNo: referenceNo.trim() || undefined,
+        consumerUid: consumerUid || undefined,
         consumerName: consumerName.trim(),
         consumerPhone: consumerPhone.trim() || undefined,
         billedToAddress: billedToAddress.trim() || undefined,
@@ -801,6 +877,27 @@ export default function FinanceInvoiceForm() {
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <Combobox
+                label="Finance Consumer"
+                placeholder="Choose finance consumer"
+                searchPlaceholder="Search finance consumer"
+                emptyMessage="No finance consumers found"
+                options={consumerOptions}
+                value={consumerUid}
+                onValueChange={(value) => {
+                  setConsumerUid(value);
+                  const option = consumerOptions.find((entry) => entry.value === value);
+                  if (!option) {
+                    return;
+                  }
+                  setConsumerName(option.label);
+                  setConsumerPhone(option.phone || "");
+                  setBilledToAddress(option.address || "");
+                }}
+                hint={selectedConsumerOption?.description ?? "Select a finance consumer to auto-fill customer details."}
+              />
+            </div>
             <Input label="Customer Name *" value={consumerName} onChange={(event) => setConsumerName(event.target.value)} required />
             <Input label="Customer Phone" value={consumerPhone} onChange={(event) => setConsumerPhone(event.target.value)} />
           </div>

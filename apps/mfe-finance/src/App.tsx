@@ -950,6 +950,123 @@ function EstimatesPage() {
   // );
 }
 
+function CustomersPage() {
+  const navigate = useNavigate();
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCustomers() {
+      try {
+        const response = await financeApi.customers.search<any>({
+          page: 0,
+          size: 200,
+          // view: "SUMMARY",
+        });
+        if (!active) {
+          return;
+        }
+
+        const records = Array.isArray(response.data?.content)
+          ? response.data.content
+          : Array.isArray(response.data?.data?.content)
+            ? response.data.data.content
+            : Array.isArray(response.data?.data)
+              ? response.data.data
+              : Array.isArray(response.data)
+                ? response.data
+                : [];
+
+        setCustomers(
+          records.map((item: any, index: number) => ({
+            uid: String(item.uid ?? item.consumerUid ?? item.id ?? item.userId ?? `consumer-${index}`),
+            name: String(
+              item.name
+              || item.consumerName
+              || [item.firstName, item.lastName].filter(Boolean).join(" ")
+              || "Consumer"
+            ).trim(),
+            phone: String(
+              item.consumerPhone
+              || item.mobile
+              || item.mobileNo
+              || item.phoneNo
+              || item.phone
+              || item.primaryPhone
+              || "-"
+            ).trim(),
+            email: String(item.consumerEmail || item.email || item.primaryEmail || "-").trim(),
+            address: String(
+              item.billedToAddress
+              || item.consumerGstAddress
+              || item.address
+              || item.addressLine1
+              || item.location
+              || "-"
+            ).trim(),
+          }))
+        );
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        console.error("Failed to fetch finance consumers", error);
+        setCustomers([]);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadCustomers();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const columns = useMemo<ColumnDef<any>[]>(() => [
+    { key: "name", header: "Consumer Name", render: (row) => <span className="font-medium text-slate-900">{row.name}</span> },
+    { key: "phone", header: "Phone" },
+    { key: "email", header: "Email" },
+    { key: "address", header: "Address" },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate(`/invoice/newInvoice?consumerUid=${encodeURIComponent(row.uid)}`)}
+        >
+          Create Invoice
+        </Button>
+      ),
+    },
+  ], [navigate]);
+
+  return (
+    <PageShell
+      title="Finance Consumers"
+      subtitle="Consumers available for finance invoices and billing flows."
+      actions={<Button onClick={() => navigate("/invoice/newInvoice")}>Create Invoice</Button>}
+    >
+      <DataTableCard
+        title={`Consumers (${customers.length})`}
+        subtitle="Select a finance consumer and create an invoice against that consumer."
+        actions={loading ? <span className="text-sm text-slate-500">Loading consumers...</span> : undefined}
+        data={customers}
+        columns={columns}
+        emptyTitle="No finance consumers found"
+        emptyDescription="Finance consumers will appear here once available from the tenant consumer API."
+        getRowId={(row) => row.uid}
+      />
+    </PageShell>
+  );
+}
+
 function InvoicesPage() {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -4398,6 +4515,80 @@ function MasterInvoicePage() {
     }
   }
 
+  function handlePrintInvoice() {
+    const invoiceContent = document.getElementById("finance-invoice-print");
+    if (!invoiceContent) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=1024,height=768");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const invoiceTitle = `Invoice-${invoice.invoiceNum}`;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <title>${invoiceTitle}</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 24px;
+              background: #ffffff;
+              color: #0f172a;
+              font-family: Arial, sans-serif;
+            }
+            * {
+              box-sizing: border-box;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            th, td {
+              padding: 12px 16px;
+              border-bottom: 1px solid #e2e8f0;
+              text-align: left;
+              vertical-align: top;
+            }
+            th.text-right, td.text-right {
+              text-align: right;
+            }
+            .rounded-xl, .rounded-lg {
+              border-radius: 0;
+            }
+            .shadow-sm, .shadow, .drop-shadow, .border-slate-200 {
+              box-shadow: none !important;
+            }
+            .bg-slate-50, .bg-slate-100, .bg-slate-100\\/70 {
+              background: #ffffff !important;
+            }
+            button {
+              display: none !important;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${invoiceContent.innerHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  }
+
   async function submitPaymentAction() {
     if (!invoice?.uid || !paymentAction) {
       return;
@@ -4533,13 +4724,13 @@ function MasterInvoicePage() {
 
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>
-                <Button variant="outline" onClick={() => window.print()}>Print</Button>
+                <Button variant="outline" onClick={handlePrintInvoice}>Print</Button>
                 <Button variant="outline" onClick={() => navigate(`/invoice/edit/${uid}`)}>Edit</Button>
                 <Button variant="outline" disabled>Log</Button>
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 lg:p-6">
+            <div id="finance-invoice-print" className="rounded-xl border border-slate-200 bg-white p-4 lg:p-6">
               <div className="grid gap-8 lg:grid-cols-[1.2fr_0.9fr]">
                 <div className="space-y-2 text-sm text-slate-600">
                   <div className="pb-2 text-[18px] font-semibold text-slate-800">Oasis Hospital's</div>
@@ -6559,6 +6750,7 @@ export default function App() {
         <Route path="estimates" element={withBoundary(<EstimatesPage />)} />
         <Route path="estimates/new" element={withBoundary(<EstimatesPage />)} />
         <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
+        <Route path="customers" element={withBoundary(<CustomersPage />)} />
         <Route path="vendors" element={withBoundary(<VendorsPage />)} />
         <Route path="ledger" element={withBoundary(<LedgerPage />)} />
         <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />

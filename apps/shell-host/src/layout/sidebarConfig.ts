@@ -276,11 +276,12 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "karty-audit-log", label: "Audit Log", icon: "\u{1F4DD}", path: "/karty/audit-log" },
     { id: "karty-settings", label: "Settings", icon: "\u2699", path: "/karty/settings" },
   ],
- finance: [
+  finance: [
     { id: "finance-overview", label: "Overview", icon: "\u25A6", path: "/finance" },
     { id: "finance-receivables", label: "Receivables", icon: "\u{1F4B5}", path: "/finance/receivables" },
     { id: "finance-payouts", label: "Payouts", icon: "\u{1F4B8}", path: "/finance/payable" },
     { id: "finance-expense", label: "Expenses", icon: "\u{1F4B3}", path: "/finance/expense" },
+    { id: "finance-customers", label: "Finance Consumers", icon: "\u{1F465}", path: "/finance/customers" },
     { id: "finance-invoices", label: "Invoices", icon: "\u{1F9FE}", path: "/finance/invoice" },
     { id: "finance-discount", label: "Discounts", icon: "\u{1F4B8}", path: "/finance/discount" },
     { id: "finance-items", label: "Items", icon: "\u{1F4E6}", path: "/finance/items" },

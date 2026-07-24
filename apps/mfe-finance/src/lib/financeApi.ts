@@ -134,6 +134,7 @@ const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/
 const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
 const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
 const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer");
+const TENANT_CONSUMER_SEARCH_ENDPOINT = `${TENANT_CONSUMER_ENDPOINT}/search`;
 const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts");
 const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
 const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
@@ -652,8 +653,11 @@ export const financeApi = {
   },
 
   customers: {
-    list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>(TENANT_CONSUMER_ENDPOINT, filter);
+    search<T = unknown>(data: unknown) {
+      return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, data);
+    },
+    list<T = unknown>(data: unknown) {
+      return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, data);
     },
     detail<T = unknown>(id: string) {
       return get<T>(`${TENANT_CONSUMER_ENDPOINT}/${id}`);

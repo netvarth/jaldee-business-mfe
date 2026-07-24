@@ -1,5 +1,6 @@
 export type FinanceRouteKey =
   | "dashboard"
+  | "customers"
   | "vendors"
   | "ledger"
   | "receivables"
@@ -26,6 +27,7 @@ export interface FinanceRouteDefinition {
 
 export const financeRoutes: FinanceRouteDefinition[] = [
   { key: "dashboard", path: "dashboard", label: "Dashboard", angularModule: "./dashboard/dashboard.module" },
+  { key: "customers", path: "customers", label: "Customers", angularModule: "./customers/customers.module" },
   { key: "vendors", path: "vendors", label: "Vendors", angularModule: "./vendors/vendors.module" },
   { key: "ledger", path: "ledger", label: "Ledger", angularModule: "./ledger/ledger.module" },
   { key: "receivables", path: "receivables", label: "Receivables", angularModule: "./receivable/receivable.module" },
