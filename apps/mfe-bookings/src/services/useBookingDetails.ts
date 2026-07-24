@@ -81,7 +81,7 @@ function actionRequest(
       return { path: `/bookings/${uid}/complete`, body: {} };
     case "CANCEL":
       return {
-        path: `/bookings/${uid}/cancel`,
+        path: `/v1/api/tenant/bookings/${uid}/cancel`,
         body: {
           cancelReason: extra?.reason ?? "",
           cancelledBy: "staff",

@@ -350,11 +350,11 @@ export default function CalendarDetails() {
                                         className={`sm:px-3 sm:py-1 px-2.5 py-1.5 flex items-center justify-center text-xs font-semibold rounded-md border ${
                                           isActive 
                                             ? "border-indigo-200 text-indigo-700 bg-indigo-50/50" 
-                                            : "border-slate-200 text-slate-300 bg-white"
+                                            : "border-slate-200 text-slate-400 bg-slate-50"
                                         }`}
                                       >
-                                        <span className="hidden sm:inline">{weekdayName[day]}</span>
-                                        <span className="sm:hidden">{weekdayName[day].charAt(0)}</span>
+                                        <span className="hidden sm:block">{weekdayName[day]}</span>
+                                        <span className="block sm:hidden">{weekdayName[day].charAt(0)}</span>
                                       </span>
                                     );
                                   })}

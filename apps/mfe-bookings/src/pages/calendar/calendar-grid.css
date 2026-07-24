@@ -1414,3 +1414,175 @@
   font-weight: 800;
   letter-spacing: 0.02em;
 }
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  :root {
+    --hour-col-width: 60px;
+    --day-col-width: 45vw; /* Roughly 2 columns when sidebar hidden */
+  }
+
+  .calendar-grid-content {
+    --hour-col-width: 60px;
+    --day-col-width: 45vw;
+  }
+
+  .hour-column {
+    height: 50px;
+    padding-left: 6px;
+    font-size: 0.65rem;
+    width: var(--hour-col-width);
+  }
+
+  .calendar-timezone {
+    padding: 8px;
+    font-size: 0.7rem;
+    width: var(--hour-col-width);
+  }
+  
+  .timezone-label {
+    font-size: 0.55rem;
+  }
+
+  .calendar-cell {
+    min-height: 50px;
+    padding: 2px 4px;
+  }
+  
+  .week-view-cell {
+    min-height: 70px;
+    padding: 4px;
+  }
+  
+  /* Month grid sizing adjustments */
+  .month-grid .calendar-cell {
+    min-height: 70px;
+    padding: 4px 2px;
+  }
+  
+  .month-day-select {
+    padding: 2px !important;
+  }
+  
+  .month-date-number {
+    font-size: 0.75rem !important;
+  }
+  
+  .month-day-booking {
+    font-size: 0.65rem !important;
+    padding: 1px 3px !important;
+    min-height: 18px !important;
+  }
+
+  /* Booking chips smaller on mobile */
+  .booking-chip {
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    min-height: 32px;
+  }
+  
+  .booking-chip-text strong {
+    font-size: 0.65rem;
+  }
+  
+  .booking-chip-time {
+    font-size: 0.55rem;
+  }
+
+  .week-slot-entry {
+    padding: 2px !important;
+    font-size: 0.65rem;
+  }
+
+  /* Sidebar tweaks for mobile */
+  .sidebar-option-label {
+    font-size: 0.8rem;
+  }
+  
+  .sidebar-user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
+  }
+  
+  .group-title {
+    font-size: 0.8rem;
+  }
+
+  /* Header scaling */
+  .weekday-date {
+    font-size: 0.8rem;
+  }
+  
+  .weekday-label {
+    font-size: 0.6rem;
+  }
+  
+  .doctor-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+  
+  .doctor-info strong {
+    font-size: 0.8rem;
+  }
+  
+  .doctor-info span {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .month-day-card {
+    min-height: 80px !important;
+    padding: 4px !important;
+  }
+  
+  .month-day-number button span {
+    font-size: 0.75rem !important;
+  }
+  
+  .month-day-bookings > div {
+    height: 18px !important;
+    margin-bottom: 2px !important;
+  }
+  
+  .month-day-bookings > div > div:first-child {
+    font-size: 8px !important;
+    width: 18px !important;
+  }
+  
+  .month-day-bookings > div > div:nth-child(2) span {
+    font-size: 9px !important;
+  }
+  
+  .month-day-bookings > div > div:last-child {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .view-pill {
+    font-size: 0.7rem !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    height: auto !important;
+  }
+  
+  #mobile-group-view-by {
+    font-size: 0.75rem !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    min-height: 28px !important;
+    height: auto !important;
+  }
+  
+  .sidebar-group-header {
+    padding: 8px 10px !important;
+  }
+  
+  .sidebar-option-row {
+    padding: 4px 10px !important;
+  }
+}

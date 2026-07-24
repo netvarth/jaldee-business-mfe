@@ -58,6 +58,7 @@ interface ServiceGroupSearchDto {
   durationMode?: string;
   combinedDuration?: string | number;
   duration?: string | number;
+  fixedPriceAmount?: string | number;
 }
 
 const EMPTY_FILTER_CLAUSES: SearchFilterClause[] = [];
@@ -125,7 +126,7 @@ function normalizeServiceGroupSearchResult(group: ServiceGroupSearchDto): Servic
           ? normalizeServiceIds(group.services)
           : normalizeServiceIds(group.linkedServices),
     priceMode,
-    price: toNumber(group.packagePrice ?? group.price),
+    price: toNumber(group.fixedPriceAmount ?? group.packagePrice ?? group.price),
     durationMode,
     duration: toNumber(group.combinedDuration ?? group.duration),
     status: toUiStatus(group.status),
@@ -219,7 +220,7 @@ export function useServiceGroups(
       
       if (groupId && input.status) {
         try {
-          await patch(`/service-groups/${groupId}/status?status=${input.status === "Active" ? "ACTIVE" : "INACTIVE"}`);
+          await put(`/service-groups/${groupId}/status`, { status: input.status === "Active" ? "Enabled" : "Disabled" });
         } catch (statusError) {
           console.error("Failed to update status on create:", statusError);
         }
@@ -262,7 +263,7 @@ export function useServiceGroups(
       await put(`/service-groups/${groupId}`, payload);
       
       if (input.status) {
-        await patch(`/service-groups/${groupId}/status?status=${input.status === "Active" ? "ACTIVE" : "INACTIVE"}`);
+        await put(`/service-groups/${groupId}/status`, { status: input.status === "Active" ? "Enabled" : "Disabled" });
       }
 
       const updated: ServiceGroupItem = {
@@ -285,10 +286,28 @@ export function useServiceGroups(
     }
   }, [put, patch]);
 
+  const toggleStatus = useCallback(async (group: ServiceGroupItem) => {
+    const nextStatus = group.status === "Active" ? "Inactive" : "Active";
+    const apiStatus = nextStatus === "Active" ? "Enabled" : "Disabled";
+    
+    setRemoteGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, status: nextStatus } : g)));
+    updateCreatedServiceGroup({ ...group, status: nextStatus });
+    setVersion((v) => v + 1);
+
+    try {
+      await put(`/service-groups/${group.id}/status`, { status: apiStatus });
+    } catch (error) {
+      setRemoteGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
+      updateCreatedServiceGroup(group);
+      setVersion((v) => v + 1);
+      throw error;
+    }
+  }, [put]);
+
   const deleteGroup = useCallback((groupId: string) => {
     removeCreatedServiceGroup(groupId);
     setVersion((current) => current + 1);
   }, []);
 
-  return { groups, loading, error, createGroup, updateGroup, deleteGroup, refresh: fetchGroups };
+  return { groups, loading, error, createGroup, updateGroup, deleteGroup, toggleStatus, refresh: fetchGroups };
 }

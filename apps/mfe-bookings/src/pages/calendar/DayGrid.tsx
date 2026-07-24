@@ -68,7 +68,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                 <div className="calendar-scroll flex-1 custom-scrollbar">
                     <div className="calendar-grid-inner min-w-max">
                         {/* Header */}
-                        <div className="calendar-header" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
+                        <div className="calendar-header" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(${columnsList.length}, minmax(var(--day-col-width, 300px), 1fr))` }}>
                             <div className="calendar-timezone flex flex-col justify-center items-center">
                                 <div className="timezone-label text-[11px] font-bold text-slate-500 tracking-wide text-center uppercase" style={{ color: '#6B7280' }}>UTC<br/>+05:30</div>
                             </div>
@@ -108,14 +108,14 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                         </div>
 
                         {/* Body */}
-                        <div className="calendar-body" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
+                        <div className="calendar-body" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(${columnsList.length}, minmax(var(--day-col-width, 300px), 1fr))` }}>
                             {hours.map((hour) => {
                                 const ampm = hour >= 12 ? 'PM' : 'AM';
                                 const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
                                 const timeLabel = `${displayHour.toString().padStart(2, '0')}:00 ${ampm}`;
 
                                 return (
-                                    <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `120px repeat(${columnsList.length}, minmax(300px, 1fr))` }}>
+                                    <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(${columnsList.length}, minmax(var(--day-col-width, 300px), 1fr))` }}>
                                         <div className="hour-column text-slate-400 font-medium">{displayHour}.00 {ampm}</div>
                                         {columnsList.map((col: any) => {
                                             const id = col.uid || col.id;

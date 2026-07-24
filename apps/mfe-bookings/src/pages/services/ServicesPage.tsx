@@ -32,7 +32,11 @@ export default function ServicesPage() {
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { schema: serviceSearchSchema, loading: serviceSearchSchemaLoading } = useServiceSearchSchema();
-  const { services, loading, toggleStatus } = useServices(advancedFilters, serviceSearchSchema, {
+  const combinedFilters = useMemo(() => {
+    return [...advancedFilters.filter(f => f.field !== "isGroup"), { id: "sys-isgroup", field: "isGroup", operator: "EQ", values: ["false"] }];
+  }, [advancedFilters]);
+
+  const { services, loading, toggleStatus } = useServices(combinedFilters, serviceSearchSchema, {
     enabled: !serviceSearchSchemaLoading,
   });
 

@@ -37,7 +37,7 @@ export default function ServiceGroupsPage() {
     schema: serviceGroupSearchSchema,
     loading: serviceGroupSearchSchemaLoading,
   } = useServiceGroupSearchSchema();
-  const { groups, loading, deleteGroup } = useServiceGroups(
+  const { groups, loading, toggleStatus } = useServiceGroups(
     advancedFilters,
     serviceGroupSearchSchema,
     { enabled: !serviceGroupSearchSchemaLoading }
@@ -87,26 +87,14 @@ export default function ServiceGroupsPage() {
     {
       key: "services",
       header: "INCLUDED SERVICES",
+      width: "50%",
       render: (group) => (
         <div className="flex flex-wrap gap-1.5">
           {group.serviceIds.length ? group.serviceIds.map((serviceId) => (
-            <span key={serviceId} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+            <span key={serviceId} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
               {serviceMap.get(serviceId)?.name ?? serviceId}
             </span>
           )) : <span className="text-sm text-slate-400">No services linked</span>}
-        </div>
-      ),
-    },
-    {
-      key: "labels",
-      header: "LABELS",
-      render: (group) => (
-        <div className="flex flex-wrap gap-1.5">
-          {["Popular", "Specialty"].map((label, idx) => (
-            <span key={idx} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
-              {label}
-            </span>
-          ))}
         </div>
       ),
     },
@@ -116,62 +104,53 @@ export default function ServiceGroupsPage() {
       render: (group) => <Badge variant={groupStatusVariant(group.status)}>{formatGroupStatus(group.status)}</Badge>,
     },
     {
-      key: "pricing",
-      header: "FEE",
-      render: (group) => (
-        <span className="font-bold text-slate-900">
-          {group.priceMode === "fixed" ? `₹${group.price ?? 0}` : "Dynamic"}
-        </span>
-      ),
-    },
-    {
       key: "actions",
       header: "ACTIONS",
       align: "right",
-      width: 120,
+      width: 140,
       render: (group) => (
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={(event) => {
               event.stopPropagation();
-              navigate(`/services/groups/${group.id}/details`);
+              navigate("/services/groups/create", { state: { group } });
             }}
+            className="font-semibold"
           >
-            {/* Eye Icon */}
-            <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-          </button>
-          
+            Edit
+          </Button>
           <Popover
             trigger={
-              <button className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-                <svg className="h-[18px] w-[18px]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+              >
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                </svg>
               </button>
             }
             placement="bottom"
             align="end"
             portal
           >
-            <div className="flex min-w-[120px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+            <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
               <button
                 className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                onClick={() => navigate("/services/groups/create", { state: { group } })}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleStatus(group);
+                }}
               >
-                Edit
-              </button>
-              <button
-                className="px-4 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
-                onClick={() => deleteGroup(group.id)}
-              >
-                Delete
+                {group.status === "Active" ? "Inactive" : "Active"}
               </button>
             </div>
           </Popover>
         </div>
       ),
     },
-  ], [deleteGroup, navigate, serviceMap]);
+  ], [toggleStatus, navigate, serviceMap]);
 
   return (
     <section className="flex h-full flex-col overflow-y-auto bg-slate-50 p-4 md:p-6">

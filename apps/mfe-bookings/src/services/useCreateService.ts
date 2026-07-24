@@ -178,9 +178,10 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     } : {}),
     bookingMode: input.apptType === "Request" ? "REQUEST" : "BOOKING",
     ...(input.apptType === "Request" ? {
-      date: input.requestType === "With Date Only",
-      dateTime: input.requestType === "With Date & Time",
-      noDateTime: input.requestType === "No Date & Time",
+      serviceRequestType: 
+        input.requestType === "With Date Only" ? "WITH_DATE_ONLY" :
+        input.requestType === "With Date & Time" ? "WITH_DATE_AND_TIME" :
+        "NO_DATE_AND_TIME"
     } : {}),
     ...(userEntries.length ? { users: userEntries } : {}),
     displayOrder: input.displayOrder,

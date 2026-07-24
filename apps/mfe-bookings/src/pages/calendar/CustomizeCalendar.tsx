@@ -195,27 +195,10 @@ export default function CustomizeCalendar() {
     () => new Map(users.map((user) => [user.userUid, user.userDisplayName ?? user.displayName])),
     [users],
   );
-  const defaultUserIds = useMemo(
-    () => unique(normalizeList(calendar?.users as unknown[], ["userUid", "uid", "id", "displayName", "name"])),
-    [calendar?.users],
-  );
+
   const calendarServiceSources = useMemo(
     () => normalizeServiceSources(calendar?.services as unknown[]),
     [calendar?.services],
-  );
-
-  const defaultAssignments = useMemo<Record<string, ServiceAssignment[]>>(
-    () =>
-      Object.fromEntries(
-        selectedServiceIds.map((serviceId) => [
-          serviceId,
-          defaultUserIds.map((id) => ({
-            userUid: id,
-            userName: userMap.get(id) ?? id,
-          })),
-        ]),
-      ),
-    [defaultUserIds, selectedServiceIds, userMap],
   );
 
   const serviceRows = useMemo(() => {
@@ -223,7 +206,6 @@ export default function CustomizeCalendar() {
       const assignedUsers =
         serviceAssignments[serviceId] ??
         initialServiceAssignments[serviceId] ??
-        defaultAssignments[serviceId] ??
         [];
       return {
         serviceId,
@@ -232,7 +214,7 @@ export default function CustomizeCalendar() {
         users: assignedUsers,
       };
     });
-  }, [defaultAssignments, initialServiceAssignments, selectedServiceIds, serviceAssignments, serviceMap]);
+  }, [initialServiceAssignments, selectedServiceIds, serviceAssignments, serviceMap]);
 
   const visibleSchedules = useMemo(
     () => (selectedSchedule ? schedules.filter((schedule) => schedule.uid === selectedSchedule.uid) : schedules),
@@ -356,18 +338,18 @@ export default function CustomizeCalendar() {
     const serviceDiff = diffList(selectedServiceIds, initialServiceIds);
 
     const addServices = serviceDiff.add.map((serviceUid) => {
-      const currentUsers = unique((serviceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      const currentUsers = unique((serviceAssignments[serviceUid] ?? []).map((item) => item.userUid));
       return { serviceUid, addUsers: currentUsers, removeUsers: [] };
     });
 
     const removeServices = serviceDiff.remove.map((serviceUid) => {
-      const removedUsers = unique((initialServiceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      const removedUsers = unique((initialServiceAssignments[serviceUid] ?? []).map((item) => item.userUid));
       return { serviceUid, addUsers: [], removeUsers: removedUsers };
     });
 
     for (const serviceUid of selectedServiceIds.filter((id) => initialServiceIds.includes(id))) {
-      const currentUsers = unique((serviceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
-      const initialUsers = unique((initialServiceAssignments[serviceUid] ?? defaultAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      const currentUsers = unique((serviceAssignments[serviceUid] ?? []).map((item) => item.userUid));
+      const initialUsers = unique((initialServiceAssignments[serviceUid] ?? []).map((item) => item.userUid));
       const userDiff = diffList(currentUsers, initialUsers);
       if (userDiff.add.length || userDiff.remove.length) {
         addServices.push({
@@ -744,7 +726,7 @@ export default function CustomizeCalendar() {
           name: u.userDisplayName || u.displayName || u.firstName || "Unknown",
           role: u.title || "Practitioner",
         }))}
-        initialSelectedUsers={(serviceAssignments[usersModalServiceId ?? ""] ?? initialServiceAssignments[usersModalServiceId ?? ""] ?? defaultAssignments[usersModalServiceId ?? ""] ?? []).map((assignment) => {
+        initialSelectedUsers={(serviceAssignments[usersModalServiceId ?? ""] ?? initialServiceAssignments[usersModalServiceId ?? ""] ?? []).map((assignment) => {
           const u = users.find((user) => user.userUid === assignment.userUid);
           return {
             id: String(assignment.userUid),
