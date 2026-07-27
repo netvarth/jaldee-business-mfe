@@ -319,6 +319,7 @@ function DataTableCard<T extends object>({
   emptyTitle,
   emptyDescription,
   getRowId,
+  loading = false,
 }: {
   title: string;
   subtitle: string;
@@ -328,7 +329,19 @@ function DataTableCard<T extends object>({
   emptyTitle: string;
   emptyDescription: string;
   getRowId: (row: T) => string;
+  loading?: boolean;
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const total = data.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   return (
     <SectionCard className="border-slate-200 shadow-sm">
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -342,6 +355,15 @@ function DataTableCard<T extends object>({
         data={data}
         columns={columns}
         getRowId={getRowId}
+        loading={loading}
+        pagination={{
+          page,
+          pageSize,
+          total,
+          onChange: setPage,
+          onPageSizeChange: setPageSize,
+          mode: "client",
+        }}
         emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
       />
     </SectionCard>
@@ -1565,6 +1587,9 @@ function VendorsPage() {
     status: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -1573,8 +1598,8 @@ function VendorsPage() {
       setLoading(true);
       try {
         const response = await financeApi.vendors.search<any>({
-          page: 0,
-          size: 20,
+          page: page - 1,
+          size: pageSize,
           sort: [
             {
               field: "createdAt",
@@ -1598,6 +1623,7 @@ function VendorsPage() {
                 ? (response.data as any).data.content
                 : [];
 
+        setTotalRecords(Number((response.data as any)?.totalElements ?? (response.data as any)?.total ?? records.length ?? 0) || 0);
         setVendors(
           records.map((item: any, index: number) => {
             const rawDate = item.createdDate ?? item.createdOn ?? item.createdAt ?? item.updatedDate ?? item.date;
@@ -1616,6 +1642,7 @@ function VendorsPage() {
         console.error("[mfe-finance] Failed to load vendors", error);
         if (active) {
           setVendors([]);
+          setTotalRecords(0);
         }
       } finally {
         if (active) {
@@ -1628,7 +1655,31 @@ function VendorsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [page, pageSize]);
+
+  const columns = useMemo<ColumnDef<(typeof vendors)[number]>[]>(
+    () => [
+      { key: "date", header: "Date" },
+      { key: "name", header: "Name" },
+      { key: "category", header: "Category" },
+      { key: "status", header: "Status" },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" size="sm" onClick={() => navigate(row.id)}>
+              View
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" aria-label={`More actions for ${row.name}`}>
+              <Icon name="moreHorizontal" className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
 
   return (
     <FinanceFeatureLayout
@@ -1638,53 +1689,21 @@ function VendorsPage() {
       main={
         <SectionCard className="border-slate-200 shadow-sm">
           <div className="mb-4 text-xl font-semibold text-slate-900">{`Vendors(${vendors.length})`}</div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
-                  <th className="px-4 py-4">Date</th>
-                  <th className="px-4 py-4">Name</th>
-                  <th className="px-4 py-4">Category</th>
-                  <th className="px-4 py-4">Status</th>
-                  <th className="px-4 py-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-sm text-slate-800">
-                {vendors.map((vendor) => (
-                  <tr key={vendor.id}>
-                    <td className="px-4 py-4">{vendor.date}</td>
-                    <td className="px-4 py-4">{vendor.name}</td>
-                    <td className="px-4 py-4">{vendor.category}</td>
-                    <td className="px-4 py-4">{vendor.status}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <Button type="button" variant="outline" size="sm" onClick={() => navigate(vendor.id)}>
-                          View
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" aria-label={`More actions for ${vendor.name}`}>
-                          <Icon name="moreHorizontal" className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && vendors.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                      No vendors found.
-                    </td>
-                  </tr>
-                ) : null}
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                      Loading vendors...
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={vendors}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            pagination={{
+              page,
+              pageSize,
+              total: totalRecords,
+              onChange: setPage,
+              onPageSizeChange: setPageSize,
+              mode: "server",
+            }}
+            emptyState={<EmptyState title="No vendors" description={loading ? "Loading vendors..." : "Vendor records will appear here."} />}
+          />
         </SectionCard>
       }
     />
