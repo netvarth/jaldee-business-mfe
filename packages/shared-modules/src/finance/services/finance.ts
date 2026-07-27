@@ -11,6 +11,7 @@ import type {
   FinanceQuickAction,
   FinanceReportRow,
   FinanceRevenueRow,
+  FinanceVendorCategoryOption,
   FinanceSummary,
   FinanceTransactionRow,
   FinanceVendorRow,
@@ -275,6 +276,16 @@ export function normalizeFinanceVendorStatuses(payload: unknown): FinanceVendorS
     return {
       id: financeText(i["id"] ?? i["uid"] ?? i["encId"] ?? `vendor-status-${index}`),
       name: financeText(i["name"] ?? i["statusName"] ?? i["vendorStatusName"]),
+    };
+  });
+}
+
+export function normalizeFinanceVendorCategories(payload: unknown): FinanceVendorCategoryOption[] {
+  return financeExtractList(payload).map((item, index) => {
+    const i = item as Record<string, unknown>;
+    return {
+      id: financeText(i["id"] ?? i["uid"] ?? i["encId"] ?? `vendor-category-${index}`),
+      name: financeText(i["name"] ?? i["categoryName"] ?? i["vendorCategoryName"]),
     };
   });
 }

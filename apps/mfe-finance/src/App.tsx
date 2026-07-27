@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Badge,
@@ -49,6 +49,19 @@ type DiscountCalculationType = "FIXED_AMOUNT" | "FIXED_PCT";
 type DiscountType = "PREDEFINED" | "ONDEMAND";
 type DiscountStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
 type CouponStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
+
+const vendorPaymentModeOptions = [
+  { value: "", label: "Select payment mode" },
+  { value: "Cash", label: "Cash" },
+  { value: "DC", label: "Debit Card" },
+  { value: "CC", label: "Credit Card" },
+  { value: "NB", label: "Net Banking" },
+  { value: "UPI", label: "UPI" },
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "CREDIT", label: "Credit" },
+  { value: "Offline", label: "Offline" },
+  { value: "Other", label: "Other" },
+];
 
 const sequenceTemplateFeatureOptions: Array<{ value: SequenceTemplateFeature; label: string }> = [
   { value: "FINANCE", label: "Finance" },
@@ -504,7 +517,7 @@ function OverviewPage() {
     { label: "Coupons", path: "/finance/coupons", icon: "history", tone: "bg-lime-50 text-lime-700", note: "Manage coupons" },
     { label: "Add Revenue", path: "/finance/receivables/create", icon: "trend", tone: "bg-emerald-50 text-emerald-600", note: "Record collections" },
     { label: "Create Payout", path: "/finance/payable/create", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Queue vendor payout" },
-    { label: "Create Vendor", path: "/finance/vendors", icon: "globe", tone: "bg-sky-50 text-sky-600", note: "Add vendor profile" },
+    { label: "Create Vendor", path: "/finance/vendors/create", icon: "globe", tone: "bg-sky-50 text-sky-600", note: "Add vendor profile" },
     { label: "Invoices", path: "/finance/invoice", icon: "list", tone: "bg-indigo-50 text-indigo-600", note: "See all invoices" },
     { label: "Order Invoices", path: "/finance/receivables", icon: "layers", tone: "bg-violet-50 text-violet-600", note: "Track order billing" },
     { label: "Expenses", path: "/finance/expense", icon: "alert", tone: "bg-rose-50 text-rose-600", note: "Monitor spends" },
@@ -856,7 +869,7 @@ function OverviewPage() {
               </button>
             </FeedCard>
 
-            <FeedCard title="Vendors" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/vendors")}>
+            <FeedCard title="Vendors" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/vendors/create")}>
               <div className="space-y-3">
                 {recentVendors.map((vendor) => (
                   <button
@@ -1543,52 +1556,592 @@ function PaymentsPage() {
 }
 
 function VendorsPage() {
-  const { financeVendors } = useFinanceLiveData();
-  const columns = useMemo<ColumnDef<(typeof financeVendors)[number]>[]>(
-    () => [
-      { key: "name", header: "Vendor" },
-      { key: "category", header: "Category" },
-      { key: "payable", header: "Payable", align: "right", render: (row) => formatCurrency(row.payable) },
-      { key: "lastPayment", header: "Last Payment" },
-      { key: "status", header: "Status" },
-    ],
-    []
-  );
+  const navigate = useNavigate();
+  const [vendors, setVendors] = useState<Array<{
+    id: string;
+    date: string;
+    name: string;
+    category: string;
+    status: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadVendors() {
+      setLoading(true);
+      try {
+        const response = await financeApi.vendors.search<any>({
+          page: 0,
+          size: 20,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          view: "SUMMARY",
+        });
+
+        if (!active) {
+          return;
+        }
+
+        const records = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray((response.data as any)?.content)
+            ? (response.data as any).content
+            : Array.isArray((response.data as any)?.data)
+              ? (response.data as any).data
+              : Array.isArray((response.data as any)?.data?.content)
+                ? (response.data as any).data.content
+                : [];
+
+        setVendors(
+          records.map((item: any, index: number) => {
+            const rawDate = item.createdDate ?? item.createdOn ?? item.createdAt ?? item.updatedDate ?? item.date;
+            return {
+              id: String(item.uid ?? item.id ?? item.vendorId ?? `vendor-${index}`),
+              date: rawDate
+                ? new Date(rawDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                : "-",
+              name: String(item.name ?? item.vendorName ?? "-"),
+              category: String(item.vendorCategoryName ?? item.categoryName ?? item.vendorCategory ?? item.category ?? "-"),
+              status: String(item.vendorStatusName ?? item.statusName ?? item.vendorStatus ?? item.status ?? "-"),
+            };
+          }),
+        );
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load vendors", error);
+        if (active) {
+          setVendors([]);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadVendors();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <FinanceFeatureLayout
       title="Vendors"
-      subtitle="Vendor-facing finance operations migrated into the new app."
-      actions={<Button>Add Vendor</Button>}
-      // stats={[
-      //   { label: "Vendors", value: String(financeVendors.length), accent: "indigo" },
-      //   { label: "Active", value: String(financeVendors.filter((vendor) => vendor.status === "Active").length), accent: "emerald" },
-      //   { label: "On Hold", value: String(financeVendors.filter((vendor) => vendor.status === "On Hold").length), accent: "amber" },
-      //   { label: "Payables", value: formatCurrency(financeVendors.reduce((sum, vendor) => sum + vendor.payable, 0)), accent: "rose" },
-      // ]}
+      subtitle="Vendor directory for finance operations."
+      actions={<Button onClick={() => navigate("create")}>Create Vendor</Button>}
       main={
-        <DataTableCard
-          title="Vendor Directory"
-          subtitle="Recently used and outstanding vendor records."
-          data={financeVendors}
-          columns={columns}
-          getRowId={(row) => row.id}
-          emptyTitle="No vendors"
-          emptyDescription="Vendor records will appear here."
-        />
+        <SectionCard className="border-slate-200 shadow-sm">
+          <div className="mb-4 text-xl font-semibold text-slate-900">{`Vendors(${vendors.length})`}</div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
+                  <th className="px-4 py-4">Date</th>
+                  <th className="px-4 py-4">Name</th>
+                  <th className="px-4 py-4">Category</th>
+                  <th className="px-4 py-4">Status</th>
+                  <th className="px-4 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-sm text-slate-800">
+                {vendors.map((vendor) => (
+                  <tr key={vendor.id}>
+                    <td className="px-4 py-4">{vendor.date}</td>
+                    <td className="px-4 py-4">{vendor.name}</td>
+                    <td className="px-4 py-4">{vendor.category}</td>
+                    <td className="px-4 py-4">{vendor.status}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          View
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" aria-label={`More actions for ${vendor.name}`}>
+                          <Icon name="moreHorizontal" className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!loading && vendors.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                      No vendors found.
+                    </td>
+                  </tr>
+                ) : null}
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                      Loading vendors...
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       }
-      // aside={
-      //   <FeedCard title="Priority Vendors">
-      //     <SummaryList
-      //       rows={financeVendors.slice(0, 6).map((vendor) => ({
-      //         label: vendor.name,
-      //         value: formatCurrency(vendor.payable),
-      //         note: `${vendor.category} | ${vendor.status}`,
-      //       }))}
-      //     />
-      //   </FeedCard>
-      // }
     />
+  );
+}
+
+function VendorCreatePage() {
+  const mfeProps = useMFEProps();
+  const navigate = useNavigate();
+  const [locationUid, setLocationUid] = useState(String(mfeProps.location?.id ?? ""));
+  const [locationOptions, setLocationOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [vendorCategoryId, setVendorCategoryId] = useState("");
+  const [vendorStatusId, setVendorStatusId] = useState("");
+  const [vendorCategoryOptions, setVendorCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [vendorStatusOptions, setVendorStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [name, setName] = useState("");
+  const [vendorId, setVendorId] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [alternativePhoneNum, setAlternativePhoneNum] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [bankaccountNo, setBankaccountNo] = useState("");
+  const [ifscCode, setIfscCode] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [upiId, setUpiId] = useState("");
+  const [pancardNo, setPancardNo] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [preferredPaymentMode, setPreferredPaymentMode] = useState("");
+  const [currency, setCurrency] = useState("INR");
+  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [newVendorCategoryName, setNewVendorCategoryName] = useState("");
+  const [newVendorStatusName, setNewVendorStatusName] = useState("");
+  const [creatingVendorCategory, setCreatingVendorCategory] = useState(false);
+  const [creatingVendorStatus, setCreatingVendorStatus] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    function extractRecords(payload: any) {
+      return Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.content)
+          ? payload.content
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.data?.content)
+              ? payload.data.content
+              : [];
+    }
+
+    async function loadFormData(selectNew?: { categoryId?: string; statusId?: string }) {
+      try {
+        const [locationsResponse, categoriesResponse, statusesResponse] = await Promise.all([
+          financeApi.locations.tenant<any>({
+            page: 0,
+            size: 100,
+          }),
+          financeApi.vendors.categories<any>({
+            page: 0,
+            size: 100,
+            sort: [
+              {
+                field: "createdAt",
+                direction: "DESC",
+              },
+            ],
+            view: "SUMMARY",
+          }),
+          financeApi.vendors.statuses<any>({
+            page: 0,
+            size: 100,
+            sort: [
+              {
+                field: "createdAt",
+                direction: "DESC",
+              },
+            ],
+            view: "SUMMARY",
+          }),
+        ]);
+        if (!active) {
+          return;
+        }
+        const locations = extractRecords(locationsResponse.data);
+        const categories = extractRecords(categoriesResponse.data);
+        const statuses = extractRecords(statusesResponse.data);
+        const nextOptions = locations
+          .map((item: any) => ({
+            value: String(item.locationUid ?? item.uid ?? item.id ?? item.locationId ?? ""),
+            label: String(item.place ?? item.name ?? item.locationName ?? "Location"),
+          }))
+          .filter((item) => item.value);
+        const nextVendorCategoryOptions = categories
+          .map((item: any, index: number) => ({
+            value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `vendor-category-${index}`),
+            label: String(item.name ?? item.categoryName ?? item.vendorCategoryName ?? "Vendor Category"),
+          }))
+          .filter((item) => item.value);
+        const nextVendorStatusOptions = statuses
+          .filter((item: any) => isVendorLinkedType(item))
+          .map((item: any, index: number) => ({
+            value: String(item.id ?? item.uid ?? item.encId ?? item.statusId ?? `vendor-status-${index}`),
+            label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Vendor Status"),
+          }))
+          .filter((item) => item.value);
+        setLocationOptions(nextOptions);
+        setVendorCategoryOptions(nextVendorCategoryOptions);
+        setVendorStatusOptions(nextVendorStatusOptions);
+        setLocationUid((current) => current || nextOptions[0]?.value || "");
+        setVendorCategoryId(selectNew?.categoryId || vendorCategoryId || nextVendorCategoryOptions[0]?.value || "");
+        setVendorStatusId(selectNew?.statusId || vendorStatusId || nextVendorStatusOptions[0]?.value || "");
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load vendor create form data", error);
+      }
+    }
+
+    void loadFormData();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleCreateVendorCategory() {
+    setFormError("");
+    if (!newVendorCategoryName.trim()) {
+      setFormError("Vendor category name is required.");
+      return;
+    }
+
+    setCreatingVendorCategory(true);
+    try {
+      const response = await financeApi.vendors.createCategory<any>({
+        categoryName: newVendorCategoryName.trim(),
+        name: newVendorCategoryName.trim(),
+      });
+      const created = (response as any)?.data ?? response;
+      const nextId = String(
+        created?.categoryId ??
+        created?.configCategoryId ??
+        created?.id ??
+        created?.uid ??
+        created?.encId ??
+        ""
+      );
+      setShowCategoryDialog(false);
+      setNewVendorCategoryName("");
+
+      const refreshed = await financeApi.vendors.categories<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        view: "SUMMARY",
+      });
+      const categories = Array.isArray(refreshed.data)
+        ? refreshed.data
+        : Array.isArray((refreshed.data as any)?.content)
+          ? (refreshed.data as any).content
+          : Array.isArray((refreshed.data as any)?.data)
+            ? (refreshed.data as any).data
+            : Array.isArray((refreshed.data as any)?.data?.content)
+              ? (refreshed.data as any).data.content
+              : [];
+      const nextVendorCategoryOptions = categories
+        .map((item: any, index: number) => ({
+          value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `vendor-category-${index}`),
+          label: String(item.name ?? item.categoryName ?? item.vendorCategoryName ?? "Vendor Category"),
+        }))
+        .filter((item) => item.value);
+      setVendorCategoryOptions(nextVendorCategoryOptions);
+      setVendorCategoryId(nextId || nextVendorCategoryOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create vendor category", error);
+      setFormError(error instanceof Error ? error.message : "Could not create vendor category.");
+    } finally {
+      setCreatingVendorCategory(false);
+    }
+  }
+
+  async function handleCreateVendorStatus() {
+    setFormError("");
+    if (!newVendorStatusName.trim()) {
+      setFormError("Vendor status name is required.");
+      return;
+    }
+
+    setCreatingVendorStatus(true);
+    try {
+      const response = await financeApi.vendors.createStatus<any>({
+        statusName: newVendorStatusName.trim(),
+        name: newVendorStatusName.trim(),
+      });
+      const created = (response as any)?.data ?? response;
+      const nextId = String(
+        created?.statusId ??
+        created?.id ??
+        created?.uid ??
+        created?.encId ??
+        ""
+      );
+      setShowStatusDialog(false);
+      setNewVendorStatusName("");
+
+      const refreshed = await financeApi.vendors.statuses<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        view: "SUMMARY",
+      });
+      const statuses = Array.isArray(refreshed.data)
+        ? refreshed.data
+        : Array.isArray((refreshed.data as any)?.content)
+          ? (refreshed.data as any).content
+          : Array.isArray((refreshed.data as any)?.data)
+            ? (refreshed.data as any).data
+            : Array.isArray((refreshed.data as any)?.data?.content)
+              ? (refreshed.data as any).data.content
+              : [];
+      const nextVendorStatusOptions = statuses
+        .map((item: any, index: number) => ({
+          value: String(item.id ?? item.uid ?? item.encId ?? item.statusId ?? `vendor-status-${index}`),
+          label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Vendor Status"),
+        }))
+        .filter((item) => item.value);
+      setVendorStatusOptions(nextVendorStatusOptions);
+      setVendorStatusId(nextId || nextVendorStatusOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create vendor status", error);
+      setFormError(error instanceof Error ? error.message : "Could not create vendor status.");
+    } finally {
+      setCreatingVendorStatus(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!name.trim()) {
+      setFormError("Vendor name is required.");
+      return;
+    }
+    if (!vendorCategoryId) {
+      setFormError("Vendor category is required.");
+      return;
+    }
+    if (!vendorStatusId) {
+      setFormError("Vendor status is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const locationRecord = (mfeProps.location ?? {}) as Record<string, unknown>;
+      const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+      const fallbackLocationUid = String(
+        locationRecord.uid ??
+        locationRecord.locationUid ??
+        locationRecord.id ??
+        locationRecord.locationId ??
+        ""
+      ).trim();
+      const selectedLocation = locationOptions.find((item) => item.value === locationUid);
+      const resolvedLocationUid = String(locationUid || fallbackLocationUid).trim();
+      const locationName = String(
+        selectedLocation?.label ??
+        locationRecord.name ??
+        locationRecord.place ??
+        ""
+      ).trim();
+      const tenantUid = String(
+        accountRecord.tenantUid ??
+        accountRecord.uid ??
+        accountRecord.id ??
+        ""
+      ).trim();
+
+      if (!resolvedLocationUid) {
+        setFormError("Location is required.");
+        setSubmitting(false);
+        return;
+      }
+
+      await financeApi.vendors.create({
+        tenantUid: tenantUid || undefined,
+        sourceService: "API_GATEWAY",
+        feature: "BASE_CRM",
+        subFeature: "BASE_CRM",
+        featureModule: "BASE_CRM_CORE",
+        vendorCategoryId: Number(vendorCategoryId) || undefined,
+        vendorStatusId: Number(vendorStatusId) || undefined,
+        vendorId: vendorId.trim() || undefined,
+        name: name.trim(),
+        contactName: contactName.trim() || undefined,
+        phoneNumber: phoneNumber.trim() || undefined,
+        alternativePhoneNum: alternativePhoneNum.trim() || undefined,
+        email: email.trim() || undefined,
+        address: address.trim() || undefined,
+        state: state.trim() || undefined,
+        pincode: pincode.trim() || undefined,
+        bankaccountNo: bankaccountNo.trim() || undefined,
+        ifscCode: ifscCode.trim() || undefined,
+        bankName: bankName.trim() || undefined,
+        upiId: upiId.trim() || undefined,
+        locationUid: resolvedLocationUid || undefined,
+        locationName: locationName || undefined,
+        pancardNo: pancardNo.trim() || undefined,
+        gstNumber: gstNumber.trim() || undefined,
+        preferredPaymentMode: preferredPaymentMode ? [preferredPaymentMode] : undefined,
+        lastPaymentModeUsed: preferredPaymentMode || undefined,
+        currency: currency.trim() || undefined,
+        timezone: timezone.trim() || undefined,
+        uploadedDocuments: [],
+      });
+      navigate("..", { relative: "path" });
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create vendor", error);
+      setFormError(error instanceof Error ? error.message : "Could not create vendor.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Create Vendor"
+        subtitle="Add a vendor profile for payouts and expense tracking."
+        actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+      />
+
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Vendor Name *" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input label="Vendor ID" value={vendorId} onChange={(event) => setVendorId(event.target.value)} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Vendor Category *</label>
+              <div className="flex items-center">
+                <Select
+                  value={vendorCategoryId}
+                  onChange={(event) => setVendorCategoryId(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Select vendor category" }, ...vendorCategoryOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
+                  +
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Vendor Status *</label>
+              <div className="flex items-center">
+                <Select
+                  value={vendorStatusId}
+                  onChange={(event) => setVendorStatusId(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Select vendor status" }, ...vendorStatusOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
+                  +
+                </Button>
+              </div>
+            </div>
+            <Select
+              label="Location *"
+              value={locationUid}
+              onChange={(event) => setLocationUid(event.target.value)}
+              options={[{ value: "", label: "Select location" }, ...locationOptions]}
+            />
+            <Input label="Contact Name" value={contactName} onChange={(event) => setContactName(event.target.value)} />
+            <Input label="Phone Number" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} />
+            <Input label="Alternative Phone" value={alternativePhoneNum} onChange={(event) => setAlternativePhoneNum(event.target.value)} />
+            <Input label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <Input label="State" value={state} onChange={(event) => setState(event.target.value)} />
+            <Input label="Pincode" value={pincode} onChange={(event) => setPincode(event.target.value)} />
+            <Input label="PAN Card No" value={pancardNo} onChange={(event) => setPancardNo(event.target.value)} />
+            <Input label="GST Number" value={gstNumber} onChange={(event) => setGstNumber(event.target.value)} />
+            <Input label="Bank Account No" value={bankaccountNo} onChange={(event) => setBankaccountNo(event.target.value)} />
+            <Input label="IFSC Code" value={ifscCode} onChange={(event) => setIfscCode(event.target.value)} />
+            <Input label="Bank Name" value={bankName} onChange={(event) => setBankName(event.target.value)} />
+            <Input label="UPI ID" value={upiId} onChange={(event) => setUpiId(event.target.value)} />
+            <Select
+              label="Preferred Payment Mode"
+              value={preferredPaymentMode}
+              onChange={(event) => setPreferredPaymentMode(event.target.value)}
+              options={vendorPaymentModeOptions}
+            />
+            <Input label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} />
+            <Input label="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
+          </div>
+
+          <Textarea label="Address" value={address} onChange={(event) => setAddress(event.target.value)} />
+
+          {formError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {formError}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("..", { relative: "path" })}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Creating..." : "Create Vendor"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+
+      <Dialog open={showCategoryDialog} onClose={() => setShowCategoryDialog(false)} title="Create Vendor Category" size="md">
+        <div className="space-y-5 pt-2">
+          <Input
+            label="Category Name"
+            placeholder="Enter Category Name"
+            value={newVendorCategoryName}
+            onChange={(event) => setNewVendorCategoryName(event.target.value)}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowCategoryDialog(false)}>
+              Close
+            </Button>
+            <Button type="button" onClick={() => void handleCreateVendorCategory()} disabled={creatingVendorCategory || !newVendorCategoryName.trim()}>
+              {creatingVendorCategory ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showStatusDialog} onClose={() => setShowStatusDialog(false)} title="Create Vendor Status" size="md">
+        <div className="space-y-5 pt-2">
+          <Input
+            label="Status Name"
+            placeholder="Enter Status Name"
+            value={newVendorStatusName}
+            onChange={(event) => setNewVendorStatusName(event.target.value)}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowStatusDialog(false)}>
+              Close
+            </Button>
+            <Button type="button" onClick={() => void handleCreateVendorStatus()} disabled={creatingVendorStatus || !newVendorStatusName.trim()}>
+              {creatingVendorStatus ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+    </div>
   );
 }
 
@@ -1767,19 +2320,49 @@ function ReceivablesCreatePage() {
     async function loadFormData() {
       try {
         const [categoriesResult, statusesResult, vendorsResult] = await Promise.allSettled([
-          financeApi.categories.byFilter<any>({
-            "categoryType-eq": "PaymentsInOut",
-            "status-eq": "Enabled",
-            from: 0,
-            count: 100,
+          financeApi.categories.search<any>({
+            page: 0,
+            size: 100,
+            sort: [
+              {
+                field: "createdAt",
+                direction: "DESC",
+              },
+            ],
+            filters: {
+              field: "categoryType",
+              operator: "IN",
+              values: ["PaymentsInOut"],
+            },
+            view: "SUMMARY",
           }),
-          financeApi.statuses.byFilter<any>({
-            "categoryType-eq": "PaymentsInOut",
-            "status-eq": "Enabled",
-            from: 0,
-            count: 100,
+          financeApi.statuses.search<any>({
+            page: 0,
+            size: 100,
+            sort: [
+              {
+                field: "createdAt",
+                direction: "DESC",
+              },
+            ],
+            filters: {
+              field: "categoryType",
+              operator: "IN",
+              values: ["PaymentsInOut"],
+            },
+            view: "SUMMARY",
           }),
-          financeApi.vendors.list<any>({ from: 0, count: 100 }),
+          financeApi.vendors.search<any>({
+            page: 0,
+            size: 100,
+            sort: [
+              {
+                field: "createdAt",
+                direction: "DESC",
+              },
+            ],
+            view: "SUMMARY",
+          }),
         ]);
 
         if (!active) return;
@@ -1798,7 +2381,15 @@ function ReceivablesCreatePage() {
           : Array.isArray(statusesResponse?.data?.content)
             ? statusesResponse.data.content
             : [];
-        const vendors = Array.isArray(vendorsResponse?.data) ? vendorsResponse.data : [];
+        const vendors = Array.isArray(vendorsResponse?.data)
+          ? vendorsResponse.data
+          : Array.isArray(vendorsResponse?.data?.content)
+            ? vendorsResponse.data.content
+            : Array.isArray(vendorsResponse?.data?.data)
+              ? vendorsResponse.data.data
+              : Array.isArray(vendorsResponse?.data?.data?.content)
+                ? vendorsResponse.data.data.content
+                : [];
 
         const filteredCategories = categories.filter((item: any) => {
           const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
@@ -2074,19 +2665,49 @@ function ReceivablesEditPage() {
 
     async function loadFormData() {
       const [categoriesResult, statusesResult, vendorsResult, detailResult] = await Promise.allSettled([
-        financeApi.categories.byFilter<any>({
-          "categoryType-eq": "PaymentsInOut",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+        financeApi.categories.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["PaymentsInOut"],
+          },
+          view: "SUMMARY",
         }),
-        financeApi.statuses.byFilter<any>({
-          "categoryType-eq": "PaymentsInOut",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+        financeApi.statuses.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["PaymentsInOut"],
+          },
+          view: "SUMMARY",
         }),
-        financeApi.vendors.list<any>({ from: 0, count: 100 }),
+        financeApi.vendors.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          view: "SUMMARY",
+        }),
         financeApi.revenue.detail<any>(uid),
       ]);
 
@@ -2107,7 +2728,15 @@ function ReceivablesEditPage() {
         : Array.isArray(statusesResponse?.data?.content)
           ? statusesResponse.data.content
           : [];
-      const vendors = Array.isArray(vendorsResponse?.data) ? vendorsResponse.data : [];
+      const vendors = Array.isArray(vendorsResponse?.data)
+        ? vendorsResponse.data
+        : Array.isArray(vendorsResponse?.data?.content)
+          ? vendorsResponse.data.content
+          : Array.isArray(vendorsResponse?.data?.data)
+            ? vendorsResponse.data.data
+            : Array.isArray(vendorsResponse?.data?.data?.content)
+              ? vendorsResponse.data.data.content
+              : [];
 
       const filteredCategories = categories.filter((item: any) => {
         const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
@@ -2253,19 +2882,49 @@ function PayablesCreatePage() {
 
     async function loadFormData() {
       const [categoriesResult, statusesResult, vendorsResult] = await Promise.allSettled([
-        financeApi.categories.byFilter<any>({
-          "categoryType-eq": "PaymentsInOut",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+        financeApi.categories.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["PaymentsInOut"],
+          },
+          view: "SUMMARY",
         }),
-        financeApi.statuses.byFilter<any>({
-          "categoryType-eq": "PaymentsInOut",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+        financeApi.statuses.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["PaymentsInOut"],
+          },
+          view: "SUMMARY",
         }),
-        financeApi.vendors.list<any>({ from: 0, count: 100 }),
+        financeApi.vendors.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          view: "SUMMARY",
+        }),
       ]);
 
       if (!active) return;
@@ -2284,7 +2943,15 @@ function PayablesCreatePage() {
         : Array.isArray(statusesResponse?.data?.content)
           ? statusesResponse.data.content
           : [];
-      const vendors = Array.isArray(vendorsResponse?.data) ? vendorsResponse.data : [];
+      const vendors = Array.isArray(vendorsResponse?.data)
+        ? vendorsResponse.data
+        : Array.isArray(vendorsResponse?.data?.content)
+          ? vendorsResponse.data.content
+          : Array.isArray(vendorsResponse?.data?.data)
+            ? vendorsResponse.data.data
+            : Array.isArray(vendorsResponse?.data?.data?.content)
+              ? vendorsResponse.data.data.content
+              : [];
 
       const nextCategoryOptions = categories.map((item: any, index: number) => ({
         value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
@@ -2492,19 +3159,49 @@ function PayablesEditPage() {
 
     async function loadFormData() {
       const [categoriesResult, statusesResult, vendorsResult, detailResult] = await Promise.allSettled([
-        financeApi.categories.byFilter<any>({
-          "categoryType-eq": "PaymentsInOut",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+        financeApi.categories.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["PaymentsInOut"],
+          },
+          view: "SUMMARY",
         }),
-        financeApi.statuses.byFilter<any>({
-          "categoryType-eq": "PaymentsInOut",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+        financeApi.statuses.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["PaymentsInOut"],
+          },
+          view: "SUMMARY",
         }),
-        financeApi.vendors.list<any>({ from: 0, count: 100 }),
+        financeApi.vendors.search<any>({
+          page: 0,
+          size: 100,
+          sort: [
+            {
+              field: "createdAt",
+              direction: "DESC",
+            },
+          ],
+          view: "SUMMARY",
+        }),
         financeApi.payables.detail<any>(uid),
       ]);
 
@@ -2525,7 +3222,15 @@ function PayablesEditPage() {
         : Array.isArray(statusesResponse?.data?.content)
           ? statusesResponse.data.content
           : [];
-      const vendors = Array.isArray(vendorsResponse?.data) ? vendorsResponse.data : [];
+      const vendors = Array.isArray(vendorsResponse?.data)
+        ? vendorsResponse.data
+        : Array.isArray(vendorsResponse?.data?.content)
+          ? vendorsResponse.data.content
+          : Array.isArray(vendorsResponse?.data?.data)
+            ? vendorsResponse.data.data
+            : Array.isArray(vendorsResponse?.data?.data?.content)
+              ? vendorsResponse.data.data.content
+              : [];
 
       const nextCategoryOptions = categories.map((item: any, index: number) => ({
         value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
@@ -7324,7 +8029,8 @@ export default function App() {
         <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
         <Route path="customers" element={withBoundary(<CustomersPage />)} />
         <Route path="customers/create" element={withBoundary(<CustomerCreatePage />)} />
-        <Route path="vendors" element={withBoundary(<VendorsPage />)} />
+          <Route path="vendors" element={withBoundary(<VendorsPage />)} />
+          <Route path="vendors/create" element={withBoundary(<VendorCreatePage />)} />
         <Route path="ledger" element={withBoundary(<LedgerPage />)} />
         <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />
         <Route path="receivables/create" element={withBoundary(<ReceivablesCreatePage />)} />
