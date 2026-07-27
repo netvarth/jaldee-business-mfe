@@ -319,6 +319,15 @@ export default function Assets() {
     },
   ], [assets, busy]);
 
+  const statusOptions = [
+    { value: "all", label: `All (${assets.data.length})` },
+    { value: "Available", label: `Available (${counts.Available || 0})` },
+    { value: "Allocated", label: `Allocated (${counts.Allocated || 0})` },
+    { value: "UnderRepair", label: `UnderRepair (${counts.UnderRepair || 0})` },
+    { value: "Lost", label: `Lost (${counts.Lost || 0})` },
+    { value: "Retired", label: `Retired (${counts.Retired || 0})` },
+  ] as Array<{ value: "all" | AssetStatus; label: string }>;
+
   return (
     <section className="page-section active hr-page-shell">
       <PageHeader
@@ -343,16 +352,23 @@ export default function Assets() {
                 searchPlaceholder="Search name, tag, serial, holder..."
               />
             </div>
-            <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center lg:justify-end">
-              <div className="flex flex-wrap items-center gap-2">
-                {([
-                  { value: "all", label: `All (${assets.data.length})` },
-                  { value: "Available", label: `Available (${counts.Available || 0})` },
-                  { value: "Allocated", label: `Allocated (${counts.Allocated || 0})` },
-                  { value: "UnderRepair", label: `UnderRepair (${counts.UnderRepair || 0})` },
-                  { value: "Lost", label: `Lost (${counts.Lost || 0})` },
-                  { value: "Retired", label: `Retired (${counts.Retired || 0})` },
-                ] as Array<{ value: "all" | AssetStatus; label: string }>).map((option) => (
+            <div className="flex w-full items-center gap-2 lg:w-auto lg:justify-end">
+              <div className="min-w-0 flex-1 md:hidden">
+                <Select
+                  id="hr-assets-status-filter"
+                  testId="hr-assets-status-filter"
+                  aria-label="Asset status"
+                  value={filter}
+                  onChange={(event) => {
+                    const value = event.target.value as "all" | AssetStatus;
+                    setFilter(value);
+                    setDraftFilter(value);
+                  }}
+                  options={statusOptions}
+                />
+              </div>
+              <div className="hidden flex-wrap items-center gap-2 md:flex">
+                {statusOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"
@@ -379,6 +395,7 @@ export default function Assets() {
                 data-testid="hr-assets-filter-indicator"
                 variant={appliedFilterCount > 0 ? "primary" : "outline"}
                 className={cn(
+                  "shrink-0",
                   appliedFilterCount === 0 &&
                     "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]"
                 )}
@@ -388,7 +405,9 @@ export default function Assets() {
               >
                 Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
               </Button>
-              <AssetsViewToggle value={viewMode} onChange={setViewMode} />
+              <div className="shrink-0">
+                <AssetsViewToggle value={viewMode} onChange={setViewMode} />
+              </div>
             </div>
           </div>
         </div>

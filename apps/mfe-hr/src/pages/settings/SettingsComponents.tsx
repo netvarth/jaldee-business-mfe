@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight } from "lucide-react";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight } from "lucide-react";
 import { Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
@@ -396,24 +396,6 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this record?")) return;
-    try {
-      await hook.remove(id);
-      eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "success",
-        title: title,
-        message: "Deleted successfully.",
-      });
-    } catch (e) {
-      eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "error",
-        title: title,
-        message: e instanceof Error ? e.message : "Delete failed.",
-      });
-    }
-  };
-
   const confirmStatusChange = async () => {
     if (!statusRow || !statusToggle) return;
     const nextStatus = statusToggle.isEnabled(statusRow) ? "Disabled" : "Enabled";
@@ -449,7 +431,6 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
             const action = enabled ? "disable" : "enable";
             return <button id={`${automationScope}-${action}-${row.id}`} data-testid={`${automationScope}-${action}-${row.id}`} onClick={() => setStatusRow(row)} title={enabled ? "Disable record" : "Enable record"} aria-label={`${enabled ? "Disable" : "Enable"} ${title} record`} style={{ ...iconAction, width: 38, color: enabled ? "#059669" : "#64748b", background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)" }}>{enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}</button>;
           })()}
-          <button id={`${automationScope}-delete-${row.id}`} data-testid={`${automationScope}-delete-${row.id}`} onClick={() => handleDelete(row.id)} title="Delete" aria-label={`Delete ${title} record`} style={{ ...iconAction, color: "#e11d48" }}><Trash2 size={15} /></button>
         </div>
       ),
     },
@@ -457,7 +438,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
 
   return (
     <div>
-      <PanelHeader title={title === "Roles & Designations" ? `${title} (${totalRecords})` : title} subtitle={subtitle} icon={icon} action={
+      <PanelHeader title={`${title} (${totalRecords})`} subtitle={subtitle} icon={icon} action={
         <div className="flex flex-wrap justify-end gap-2">
           {searchSchema && onFilterClausesChange ? (
             <Button type="button" id={`${automationScope}-filter`} data-testid={`${automationScope}-filter`} variant={appliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label={`Open ${title} filters`} onClick={openFilters}>
@@ -476,14 +457,6 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
         </SectionCard>
       ) : (
         <SectionCard id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} className="overflow-hidden border-slate-200 shadow-sm" padding={false}>
-          {title !== "Roles & Designations" && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] px-5 py-4">
-              <div>
-                <div className="text-sm font-bold text-slate-900">{title}</div>
-                <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{totalRecords} record{totalRecords === 1 ? "" : "s"}</div>
-              </div>
-            </div>
-          )}
           <DataTable
             data={hook.data}
             columns={tableColumns}

@@ -23,17 +23,24 @@ interface OrgNode {
 }
 
 function buildForest(employees: Employee[]): { roots: OrgNode[]; orphanCount: number } {
-  const byId = new Map(employees.map((e) => [e.id, e] as const));
   const nodes = new Map<string, OrgNode>(employees.map((e) => [e.id, { emp: e, children: [], orphaned: false }] as const));
+  const employeeKeyByAlias = new Map<string, string>();
+  employees.forEach((employee) => {
+    [employee.id, employee.uid, employee.employeeId].forEach((identifier) => {
+      const alias = String(identifier ?? "").trim();
+      if (alias) employeeKeyByAlias.set(alias, employee.id);
+    });
+  });
   const roots: OrgNode[] = [];
   let orphanCount = 0;
 
   nodes.forEach((node) => {
-    const mgr = node.emp.reportingManagerUid;
-    if (mgr && byId.has(mgr) && mgr !== node.emp.id) {
-      nodes.get(mgr)!.children.push(node);
+    const managerReference = String(node.emp.reportingManagerUid ?? "").trim();
+    const managerKey = employeeKeyByAlias.get(managerReference);
+    if (managerKey && managerKey !== node.emp.id) {
+      nodes.get(managerKey)!.children.push(node);
     } else {
-      if (mgr && !byId.has(mgr)) { node.orphaned = true; orphanCount += 1; }
+      if (managerReference && !managerKey) { node.orphaned = true; orphanCount += 1; }
       roots.push(node);
     }
   });
@@ -125,7 +132,7 @@ function NodeRow({ node, depth, q, expanded, toggle, onOpen }: {
 }
 
 export default function OrgChartTab() {
-  const { data: employees, loading, error } = useEmployees();
+  const { data: employees, loading, error } = useEmployees({ pageSize: 10_000 });
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

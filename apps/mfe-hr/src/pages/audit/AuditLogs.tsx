@@ -65,6 +65,7 @@ export default function AuditLogs() {
     setLoading(true);
     setError("");
     const conditions = [
+      { field: "feature", operator: "EQ", values: ["HR"] },
       ...(context !== "ALL" ? [{ field: "featureModule", operator: "EQ", values: [context] }] : []),
       ...compactSearchClauses(filters, schema).map((filter) => ({
         field: filter.field,

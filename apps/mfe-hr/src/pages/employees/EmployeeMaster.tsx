@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, DataTable, Dialog, Drawer, EmptyState, SectionCard, cn } from "@jaldee/design-system";
+import { Button, Checkbox, DataTable, Dialog, Drawer, EmptyState, SectionCard, Select, Tooltip, cn } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -10,8 +10,9 @@ import {
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { Download, LayoutGrid, Plus, Rows3, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
+import { Download, LayoutGrid, MapPin, Plus, Rows3, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
+import { useBranches } from "../../services/useBranches";
 import { useEmployeeSearchSchema } from "../../services/useEmployeeSearchSchema";
 import { useHrApi } from "../../services/useHrApi";
 import { exportToCSV } from "../../lib/utils";
@@ -65,6 +66,11 @@ export default function EmployeeMaster() {
   const [importDragging, setImportDragging] = useState(false);
   const [statusEmployee, setStatusEmployee] = useState<Employee | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [selectedEmployeeUids, setSelectedEmployeeUids] = useState<string[]>([]);
+  const [assignLocationOpen, setAssignLocationOpen] = useState(false);
+  const [selectedLocationUid, setSelectedLocationUid] = useState("");
+  const [assigningLocation, setAssigningLocation] = useState(false);
+  const branches = useBranches();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInFlightRef = useRef(false);
 
@@ -103,6 +109,16 @@ export default function EmployeeMaster() {
 
   const totalPages = Math.max(1, serverTotalPages);
   const pagedEmployees = filtered;
+  const selectedUnassignedEmployeeUids = selectedEmployeeUids.filter((uid) => {
+      const employee = employees.find((item) => item.id === uid);
+      return employee && !employee.locationUid && !employee.locationName;
+    });
+  const visibleUnassignedEmployeeUids = filtered
+    .filter((employee) => !employee.locationUid && !employee.locationName)
+    .map((employee) => employee.id);
+  const allVisibleUnassignedSelected =
+    visibleUnassignedEmployeeUids.length > 0 &&
+    visibleUnassignedEmployeeUids.every((uid) => selectedEmployeeUids.includes(uid));
 
   const openFilters = () => {
     setDraftFilters(
@@ -238,11 +254,34 @@ export default function EmployeeMaster() {
     }
   };
 
+  const assignSelectedEmployeesToLocation = async () => {
+    if (!selectedUnassignedEmployeeUids.length || !selectedLocationUid) return;
+    setAssigningLocation(true);
+    try {
+      await api.post("/employees/locations/assign", {
+        employeeUids: selectedUnassignedEmployeeUids,
+        locationUids: [selectedLocationUid],
+      });
+      await reload();
+      emitToast(
+        "success",
+        `${selectedUnassignedEmployeeUids.length} employee${selectedUnassignedEmployeeUids.length === 1 ? "" : "s"} assigned to the selected location.`
+      );
+      setSelectedEmployeeUids([]);
+      setSelectedLocationUid("");
+      setAssignLocationOpen(false);
+    } catch (error) {
+      emitToast("error", error instanceof Error ? error.message : "Could not assign employees to the location.");
+    } finally {
+      setAssigningLocation(false);
+    }
+  };
+
   const columns: ColumnDef<Employee>[] = [
     {
       key: "name",
       header: "Employee & ID",
-      width: "28%",
+      width: "30%",
       sortable: true,
       render: (employee) => (
         <div className="flex min-w-0 items-center gap-3">
@@ -257,6 +296,19 @@ export default function EmployeeMaster() {
             <div className="flex min-w-0 items-center gap-2">
               <div className="truncate font-semibold">{employee.name || "Unknown"}</div>
               <EmployeeStatusIndicator employee={employee} />
+              {(employee.locationUid || employee.locationName) && (
+                <Tooltip
+                  content={`Assigned location: ${employee.locationName || branches.data.find((branch) => (branch.uid || branch.id) === employee.locationUid)?.name || "Assigned"}`}
+                >
+                  <span
+                    tabIndex={0}
+                    className="inline-flex shrink-0 text-[var(--color-primary)]"
+                    aria-label={`Assigned to ${employee.locationName || "a location"}`}
+                  >
+                    <MapPin size={15} strokeWidth={2.25} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              )}
             </div>
             <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
           </div>
@@ -266,7 +318,7 @@ export default function EmployeeMaster() {
     {
       key: "department",
       header: "Department / Designation",
-      width: "25%",
+      width: "32%",
       render: (employee) => (
         <div className="min-w-0">
           <div className="truncate font-medium">{employee.department || "—"}</div>
@@ -283,7 +335,7 @@ export default function EmployeeMaster() {
     {
       key: "actions",
       header: "Actions",
-      width: "20%",
+      width: "24%",
       align: "right",
       render: (employee) => (
         <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
@@ -347,22 +399,36 @@ export default function EmployeeMaster() {
       <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
       <div className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] px-4 py-4" data-testid="hr-employees-toolbar">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="c-search-bar employee-master-search">
-            <input
-              id="hr-employees-search"
-              data-testid="hr-employees-search"
-              type="text"
-              placeholder="Enter name, email or ID"
-              className="c-search-input"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-            />
-            <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
+          <div className="flex items-center gap-4">
+            <div className="c-search-bar employee-master-search">
+              <input
+                id="hr-employees-search"
+                data-testid="hr-employees-search"
+                type="text"
+                placeholder="Enter name, email or ID"
+                className="c-search-input"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
+              />
+              <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
+            </div>
           </div>
           <div className="flex w-full items-center justify-end gap-3 lg:w-auto">
+            {selectedUnassignedEmployeeUids.length > 0 && (
+              <Button
+                type="button"
+                id="hr-employees-assign-location"
+                data-testid="hr-employees-assign-location"
+                variant="primary"
+                icon={<MapPin size={16} />}
+                onClick={() => setAssignLocationOpen(true)}
+              >
+                Assign to Location
+              </Button>
+            )}
             <Button
               type="button"
               id="hr-employees-filter-indicator"
@@ -392,6 +458,10 @@ export default function EmployeeMaster() {
             getRowId={(employee) => employee.id}
             loading={loading}
             onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
+            selection={{
+              selectedRowKeys: selectedEmployeeUids,
+              onChange: setSelectedEmployeeUids,
+            }}
             sorting={{
               sortKey,
               sortDir,
@@ -441,6 +511,18 @@ export default function EmployeeMaster() {
           />
         ) : (
           <div className="space-y-5 p-4">
+            <div className="flex items-center border-b border-[var(--color-border)] px-1 pb-3">
+              <Checkbox
+                label="Select all"
+                checked={allVisibleUnassignedSelected}
+                disabled={visibleUnassignedEmployeeUids.length === 0}
+                onChange={() => setSelectedEmployeeUids((current) =>
+                  allVisibleUnassignedSelected
+                    ? current.filter((uid) => !visibleUnassignedEmployeeUids.includes(uid))
+                    : Array.from(new Set([...current, ...visibleUnassignedEmployeeUids]))
+                )}
+              />
+            </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {pagedEmployees.map((employee) => (
                 <article
@@ -448,7 +530,7 @@ export default function EmployeeMaster() {
                   data-testid={`hr-employees-card-${employee.id}`}
                   className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] p-5 shadow-sm"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       {employee.photoUrl ? (
                         <img src={employee.photoUrl} alt={employee.name} className="h-11 w-11 shrink-0 rounded-full object-cover" />
@@ -465,6 +547,15 @@ export default function EmployeeMaster() {
                         <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
                       </div>
                     </div>
+                    <Checkbox
+                      checked={selectedEmployeeUids.includes(employee.id)}
+                      aria-label={`Select ${employee.name || "employee"}`}
+                      onChange={() => setSelectedEmployeeUids((current) =>
+                        current.includes(employee.id)
+                          ? current.filter((uid) => uid !== employee.id)
+                          : [...current, employee.id]
+                      )}
+                    />
                   </div>
                   <div className="mt-4 grid gap-3">
                     <div className="flex items-start justify-between gap-3">
@@ -592,6 +683,53 @@ export default function EmployeeMaster() {
               className="shrink-0"
             >
               Download CSV
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+      <Dialog
+        open={assignLocationOpen}
+        onClose={() => !assigningLocation && setAssignLocationOpen(false)}
+        testId="hr-employees-assign-location-modal"
+        title="Assign Location"
+        description={`Assign ${selectedUnassignedEmployeeUids.length} selected employee${selectedUnassignedEmployeeUids.length === 1 ? "" : "s"} to a location.`}
+        size="sm"
+      >
+        <div className="space-y-5">
+          <Select
+            label="Location"
+            value={selectedLocationUid}
+            onChange={(event) => setSelectedLocationUid(event.target.value)}
+            disabled={branches.loading || assigningLocation}
+            options={[
+              {
+                value: "",
+                label: branches.loading ? "Loading locations..." : "Select location",
+              },
+              ...branches.data.map((branch) => ({
+                value: branch.uid || branch.id,
+                label: branch.name,
+              })),
+            ]}
+          />
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAssignLocationOpen(false)}
+              disabled={assigningLocation}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              data-testid="hr-employees-assign-location-confirm"
+              onClick={() => void assignSelectedEmployeesToLocation()}
+              disabled={!selectedLocationUid}
+              loading={assigningLocation}
+            >
+              Assign Location
             </Button>
           </div>
         </div>

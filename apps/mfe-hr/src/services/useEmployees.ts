@@ -6,6 +6,8 @@ import { buildEmployeeSearchBody } from "./employeeSearch";
 import { unwrapHrSearchPage } from "./hrSearch";
 
 const EMPTY_FILTERS: SearchFilterClause[] = [];
+const employeeSearchRequests = new Map<string, { promise: Promise<unknown>; timestamp: number }>();
+const EMPLOYEE_SEARCH_DEDUPE_MS = 1000;
 type UseEmployeesOptions = {
   enabled?: boolean;
   page?: number;
@@ -27,10 +29,27 @@ function unwrapEmployees(response: unknown): Record<string, unknown>[] {
   return [];
 }
 
+function asIdentifier(value: unknown): string | null {
+  if (typeof value === "string" || typeof value === "number") {
+    const identifier = String(value).trim();
+    return identifier || null;
+  }
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  return asIdentifier(record.uid ?? record.id ?? record.employeeUid ?? record.employeeId);
+}
+
 /** Backend returns `uid`; the UI keys on `id`. Normalize once here. */
 function normalize(e: Record<string, unknown>): Employee {
   const uid = (e.uid ?? e.id) as string | undefined;
   const hrDepartment = (e.hrDepartment ?? e.department) as string | undefined;
+  const reportingManagerUid = asIdentifier(
+    e.reportingManagerUid
+      ?? e.reportingManagerId
+      ?? e.managerUid
+      ?? e.reportingManager
+      ?? e.manager
+  );
   return {
     ...(e as object),
     id: String(uid ?? ""),
@@ -41,6 +60,7 @@ function normalize(e: Record<string, unknown>): Employee {
     designationUid: (e.designationUid ?? null) as string | null,
     locationUid: (e.locationUid ?? null) as string | null,
     locationName: (e.locationName ?? null) as string | null,
+    reportingManagerUid,
   } as Employee;
 }
 
@@ -75,10 +95,17 @@ export function useEmployees(
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post<unknown>(
-        "/employees/search",
-        buildEmployeeSearchBody(filterClauses, schema, page, pageSize, sort)
-      );
+      const requestBody = buildEmployeeSearchBody(filterClauses, schema, page, pageSize, sort);
+      const requestKey = JSON.stringify(requestBody);
+      const existingRequest = employeeSearchRequests.get(requestKey);
+      const now = Date.now();
+      const request = existingRequest && now - existingRequest.timestamp < EMPLOYEE_SEARCH_DEDUPE_MS
+        ? existingRequest.promise
+        : api.post<unknown>("/employees/search", requestBody);
+      if (request !== existingRequest?.promise) {
+        employeeSearchRequests.set(requestKey, { promise: request, timestamp: now });
+      }
+      const res = await request;
       const pageResult = unwrapHrSearchPage(res);
       setData(pageResult.content.map(normalize));
       setTotalElements(pageResult.totalElements);

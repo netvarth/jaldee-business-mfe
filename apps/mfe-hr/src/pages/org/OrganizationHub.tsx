@@ -2,8 +2,10 @@ import { Fragment, useMemo, useState, useEffect, type CSSProperties, type ReactN
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Briefcase,
+  BadgeCheck,
   Layers,
   Users,
+  Users2,
   MapPinned,
   ArrowLeftRight,
   Gauge,
@@ -13,6 +15,8 @@ import {
   Pencil,
   Loader2,
   AlertCircle,
+  ToggleLeft,
+  ToggleRight,
   Play,
   LayoutGrid,
   MoreVertical,
@@ -21,17 +25,20 @@ import {
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, type ColumnDef } from "@jaldee/design-system";
+import { Button, Checkbox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { usePositions, useHierarchyLevels, useAreaManagers, useTransfers } from "../../services/useOrg";
 import { useEmployees } from "../../services/useEmployees";
 import { useBranches } from "../../services/useBranches";
 import { useDepartments, useDesignations, useBranchesAdmin, useShifts } from "../../services/useSettingsData";
-import { CrudPanel } from "../../components/CrudPanel";
+import { useShellFeedback } from "../../services/useShellFeedback";
+import { useDepartmentSearchSchema } from "../../services/useHrSearchSchema";
+import { CrudPanel, PanelHeader } from "../../components/CrudPanel";
 import OrgChartTab from "./OrgChartTab";
 import HeadcountDashboardTab from "./HeadcountDashboardTab";
 
 const TEAL = "var(--primary-color)";
+const EMPTY_DEPARTMENT_FILTERS: [] = [];
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, overflow: "hidden" };
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const th: CSSProperties = { textAlign: "left", padding: "12px 16px", ...lbl, background: "rgba(100,116,139,0.04)" };
@@ -45,9 +52,9 @@ type ViewMode = "table" | "cards";
 const ORG_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: LucideIcon }> = [
   { key: "chart", route: "chart", label: "Org Chart", Icon: MapPinned },
   { key: "headcount", route: "headcount", label: "Headcount & Norms", Icon: Gauge },
-  { key: "departments", route: "departments", label: "Departments", Icon: Briefcase },
+  { key: "departments", route: "departments", label: "Departments", Icon: Users2 },
   { key: "levels", route: "levels", label: "Seniority Bands (Levels)", Icon: Layers },
-  { key: "designations", route: "designations", label: "Job Roles (Designations)", Icon: Briefcase },
+  { key: "designations", route: "designations", label: "Job Roles (Designations)", Icon: BadgeCheck },
   { key: "branches", route: "branches", label: "Branches", Icon: MapPinned },
   { key: "positions", route: "positions", label: "Headcount Planning (Seats)", Icon: Briefcase },
   { key: "transfers", route: "transfers", label: "Transfers", Icon: ArrowLeftRight },
@@ -216,19 +223,92 @@ function statusPill(status?: string) {
 export default function OrgStructure() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useShellFeedback("organization");
   const routeState = useMemo(() => orgRouteState(location.pathname), [location.pathname]);
   const tab = routeState.tab;
+  const [designationDepartmentPage, setDesignationDepartmentPage] = useState(0);
+  const [designationDepartmentOptions, setDesignationDepartmentOptions] = useState<Array<{ id: string; name?: string }>>([]);
+  const [designationDepartmentTotal, setDesignationDepartmentTotal] = useState(0);
+  const [departmentSearch, setDepartmentSearch] = useState("");
+  const [debouncedDepartmentSearch, setDebouncedDepartmentSearch] = useState("");
+  const { schema: departmentSearchSchema } = useDepartmentSearchSchema(tab === "designations");
 
   const positions = usePositions(tab === "positions" || tab === "headcount");
   const levels = useHierarchyLevels(tab === "levels" || tab === "designations");
   const areaMgrs = useAreaManagers(tab === "branches");
   const transfers = useTransfers(tab === "transfers");
-  const departments = useDepartments(undefined, undefined, {
-    enabled: tab === "departments" || tab === "positions" || tab === "transfers" || tab === "designations" || tab === "chart"
+  const normalizedDepartmentSearch = debouncedDepartmentSearch.trim();
+  const useDepartmentServerSearch =
+    designationDepartmentTotal > 100 && normalizedDepartmentSearch.length >= 3;
+  const departmentFilters = useMemo(() => tab === "designations" && useDepartmentServerSearch
+    ? [{
+        id: "designation-department-search",
+        field: "name",
+        operator: "CONTAINS",
+        values: [normalizedDepartmentSearch],
+      }]
+    : EMPTY_DEPARTMENT_FILTERS, [normalizedDepartmentSearch, tab, useDepartmentServerSearch]);
+  const departments = useDepartments(departmentFilters, departmentSearchSchema, {
+    enabled: tab === "departments" || tab === "positions" || tab === "transfers" || tab === "designations",
+    page: tab === "designations" ? designationDepartmentPage : 0,
+    pageSize: 100,
   });
   const designations = useDesignations(undefined, undefined, {
-    enabled: tab === "designations" || tab === "positions" || tab === "chart"
+    enabled: tab === "designations" || tab === "positions"
   });
+  useEffect(() => {
+    if (departmentSearch === debouncedDepartmentSearch) return;
+    const timeout = window.setTimeout(() => {
+      setDesignationDepartmentPage(0);
+      setDesignationDepartmentOptions([]);
+      setDebouncedDepartmentSearch(departmentSearch);
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [departmentSearch]);
+  useEffect(() => {
+    if (tab !== "designations") {
+      setDesignationDepartmentPage(0);
+      setDesignationDepartmentOptions([]);
+      setDesignationDepartmentTotal(0);
+      setDepartmentSearch("");
+      setDebouncedDepartmentSearch("");
+      return;
+    }
+    if (designationDepartmentPage === 0 && !normalizedDepartmentSearch) {
+      setDesignationDepartmentTotal(departments.totalElements);
+    }
+    setDesignationDepartmentOptions((current) => {
+      const loaded = designationDepartmentPage === 0 ? [] : current;
+      const merged = new Map(loaded.map((department) => [department.id, department]));
+      departments.data.forEach((department) => merged.set(department.id, department));
+      return Array.from(merged.values());
+    });
+  }, [departments.data, departments.totalElements, designationDepartmentPage, normalizedDepartmentSearch, tab]);
+  const wrappedDesignations = useMemo(() => {
+    return {
+      ...designations,
+      create: async (payload: Record<string, unknown>) => {
+        const levelUid = payload.orgLevelUid as string;
+        const matchingLevel = levels.data.find(l => l.id === levelUid);
+        const finalPayload = {
+          ...payload,
+          level: matchingLevel ? Number(matchingLevel.levelNo) : null,
+          orgLevelUid: levelUid || null
+        };
+        return designations.create(finalPayload);
+      },
+      update: async (uid: string, payload: Record<string, unknown>) => {
+        const levelUid = payload.orgLevelUid as string;
+        const matchingLevel = levels.data.find(l => l.id === levelUid);
+        const finalPayload = {
+          ...payload,
+          level: matchingLevel ? Number(matchingLevel.levelNo) : null,
+          orgLevelUid: levelUid || null
+        };
+        return designations.update(uid, finalPayload);
+      }
+    };
+  }, [designations, levels.data]);
   const branchesAdmin = useBranchesAdmin({
     enabled: tab === "branches" || tab === "positions" || tab === "transfers"
   });
@@ -236,7 +316,7 @@ export default function OrgStructure() {
     enabled: tab === "transfers"
   });
   const { data: employees } = useEmployees(undefined, undefined, {
-    enabled: tab === "transfers" || tab === "branches" || tab === "chart"
+    enabled: tab === "transfers" || tab === "branches"
   });
   const { data: branches } = useBranches({
     enabled: tab === "branches" || tab === "positions" || tab === "transfers"
@@ -293,13 +373,16 @@ export default function OrgStructure() {
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const act = async (fn: () => Promise<void>) => {
+  const act = async (fn: () => Promise<void>, successMessage: string) => {
     setBusy(true);
     setMsg(null);
     try {
       await fn();
+      toast("success", "Organization updated", successMessage);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Action failed.");
+      const message = e instanceof Error ? e.message : "Action failed.";
+      setMsg(message);
+      toast("error", "Organization update failed", message);
     } finally {
       setBusy(false);
     }
@@ -312,6 +395,10 @@ export default function OrgStructure() {
   const employeeName = useMemo(() => {
     const m = new Map(employees.map((employee) => [employee.id, employee.name] as const));
     return (uid?: string | null) => (uid ? m.get(uid) ?? uid : "-");
+  }, [employees]);
+  const employeeCode = useMemo(() => {
+    const codes = new Map(employees.map((employee) => [employee.id, employee.employeeId] as const));
+    return (uid?: string | null) => (uid ? codes.get(uid) || "-" : "-");
   }, [employees]);
   const branchAssignments = useMemo(() => {
     const grouped = new Map<string, typeof areaMgrs.data>();
@@ -381,6 +468,7 @@ export default function OrgStructure() {
 
   const [depOpen, setDepOpen] = useState(false);
   const [depEditing, setDepEditing] = useState<string | null>(null);
+  const [depStatusTarget, setDepStatusTarget] = useState<(typeof departments.data)[number] | null>(null);
   const [dep, setDep] = useState({ name: "", code: "" });
 
   const [lvlOpen, setLvlOpen] = useState(false);
@@ -388,7 +476,8 @@ export default function OrgStructure() {
   const [lvl, setLvl] = useState({ levelNo: "", label: "" });
 
   const [amOpen, setAmOpen] = useState(false);
-  const [am, setAm] = useState({ managerEmployeeUid: "", locationUid: "" });
+  const [amSearch, setAmSearch] = useState("");
+  const [am, setAm] = useState({ managerEmployeeUids: [] as string[], locationUid: "" });
 
   const [trOpen, setTrOpen] = useState(false);
   const [tr, setTr] = useState({ employeeUid: "", toLocationUid: "", toDepartmentUid: "", toShiftUid: "", toManagerUid: "", effectiveDate: "", reason: "" });
@@ -399,9 +488,27 @@ export default function OrgStructure() {
     setDepOpen(true);
   };
 
-  const deleteDepartment = (departmentId: string) => {
-    if (confirm("Delete this department?")) void act(() => departments.remove(departmentId));
+  const isDepartmentEnabled = (department: (typeof departments.data)[number]) =>
+    String(department.status || "Enabled").toLowerCase() !== "disabled";
+
+  const confirmDepartmentStatusChange = () => {
+    if (!depStatusTarget) return;
+    const nextStatus = isDepartmentEnabled(depStatusTarget) ? "Disabled" : "Enabled";
+    void act(async () => {
+      await departments.setStatus(depStatusTarget.id, nextStatus);
+      setDepStatusTarget(null);
+    }, `Department ${nextStatus.toLowerCase()} successfully.`);
   };
+
+  const assignableEmployees = useMemo(() => {
+    const query = amSearch.trim().toLowerCase();
+    if (!query) return employees;
+    return employees.filter((employee) =>
+      [employee.name, employee.employeeId, employee.email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [amSearch, employees]);
 
   const positionColumns = useMemo<ColumnDef<(typeof positions.data)[number]>[]>(() => [
     {
@@ -489,18 +596,10 @@ export default function OrgStructure() {
           >
             <Pencil size={15} />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            style={{ color: "#e11d48" }}
-            onClick={() => { if (confirm("Delete this level label?")) void act(() => levels.remove(row.id)); }}
-          >
-            <Trash2 size={15} />
-          </Button>
         </div>
       ),
     },
-  ], [levels, act]);
+  ], []);
 
   const goToTab = (nextTab: Tab) => {
     const route = ORG_ROUTES.find((item) => item.key === nextTab)?.route || "chart";
@@ -544,7 +643,7 @@ export default function OrgStructure() {
           }
         >
           <div className="attendance-tabs-mobile__menu">
-            {ORG_ROUTES.map(({ key, label }) => (
+            {ORG_ROUTES.map(({ key, label, Icon }) => (
               <button
                 key={key}
                 type="button"
@@ -555,7 +654,10 @@ export default function OrgStructure() {
                   setMobileTabsOpen(false);
                 }}
               >
-                {label}
+                <span style={{ color: tab === key ? TEAL : "var(--light-text)", display: "inline-flex", flexShrink: 0 }}>
+                  <Icon size={18} />
+                </span>
+                <span>{label}</span>
               </button>
             ))}
           </div>
@@ -566,7 +668,9 @@ export default function OrgStructure() {
         <div style={tabBar}>
           {ORG_ROUTES.map(({ key, label, Icon }) => (
             <button key={key} type="button" onClick={() => goToTab(key)} data-active={tab === key ? "true" : "false"} style={tabButton(tab === key)}>
-              <Icon size={15} />
+              <span style={{ color: tab === key ? TEAL : "var(--light-text)", display: "inline-flex", flexShrink: 0 }}>
+                <Icon size={18} />
+              </span>
               {label}
             </button>
           ))}
@@ -579,6 +683,7 @@ export default function OrgStructure() {
         {tab === "chart" && <OrgChartTab />}
         {tab === "headcount" && (
           <HeadcountDashboardTab
+            positions={positions.data}
             onRequestTransfer={(loc, dept, shift) => {
               const params = new URLSearchParams();
               if (loc !== "global_branch") params.set("toLocation", loc);
@@ -596,7 +701,7 @@ export default function OrgStructure() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 44 }}>
               <div style={{ height: 44, width: 44, borderRadius: 14, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Briefcase size={20} />
+                <Users2 size={20} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.4px", color: "var(--dark-text)", margin: 0 }}>
@@ -642,6 +747,7 @@ export default function OrgStructure() {
                         {departments.data.map((department) => {
                           const insights = departmentInsights(String(department.name));
                           const hasCode = Boolean(department.code);
+                          const enabled = isDepartmentEnabled(department);
                           return (
                             <tr
                               key={department.id}
@@ -666,17 +772,26 @@ export default function OrgStructure() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    disabled={busy}
                                     onClick={() => openDepartmentEditor(department)}
                                   >
                                     <Pencil size={15} />
                                   </Button>
                                   <Button
+                                    id={`hr-org-department-${enabled ? "disable" : "enable"}-${department.id}`}
+                                    data-testid={`hr-org-department-${enabled ? "disable" : "enable"}-${department.id}`}
                                     variant="ghost"
                                     size="icon"
-                                    style={{ color: "#e11d48" }}
-                                    onClick={() => deleteDepartment(department.id)}
+                                    title={enabled ? "Disable record" : "Enable record"}
+                                    aria-label={`${enabled ? "Disable" : "Enable"} department`}
+                                    disabled={busy}
+                                    style={{
+                                      color: enabled ? "#059669" : "#64748b",
+                                      background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)",
+                                    }}
+                                    onClick={() => setDepStatusTarget(department)}
                                   >
-                                    <Trash2 size={15} />
+                                    {enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}
                                   </Button>
                                 </div>
                               </td>
@@ -700,6 +815,7 @@ export default function OrgStructure() {
                   </div>
                 ) : departments.data.map((department) => {
                   const insights = departmentInsights(String(department.name));
+                  const enabled = isDepartmentEnabled(department);
                   return (
                     <article
                       key={department.id}
@@ -720,23 +836,26 @@ export default function OrgStructure() {
                             iconOnly
                             className="!h-8 !w-8 !px-0 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]"
                             aria-label={`Edit ${department.name || "department"}`}
+                            disabled={busy}
                             onClick={() => openDepartmentEditor(department)}
                             icon={<Pencil size={14} />}
                           />
                           <Button
+                            id={`hr-org-department-card-${enabled ? "disable" : "enable"}-${department.id}`}
+                            data-testid={`hr-org-department-card-${enabled ? "disable" : "enable"}-${department.id}`}
                             size="sm"
                             variant="ghost"
                             iconOnly
-                            className="!h-8 !w-8 !px-0 text-[var(--color-danger)] hover:bg-[color:color-mix(in_srgb,var(--color-danger)_7%,white)]"
-                            aria-label={`Delete ${department.name || "department"}`}
-                            onClick={() => deleteDepartment(department.id)}
-                            icon={
-                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 6h18" />
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                              </svg>
-                            }
+                            className="!h-8 !w-8 !px-0"
+                            style={{
+                              color: enabled ? "#059669" : "#64748b",
+                              background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)",
+                            }}
+                            title={enabled ? "Disable record" : "Enable record"}
+                            aria-label={`${enabled ? "Disable" : "Enable"} ${department.name || "department"}`}
+                            disabled={busy}
+                            onClick={() => setDepStatusTarget(department)}
+                            icon={enabled ? <ToggleRight size={20} strokeWidth={2.2} /> : <ToggleLeft size={20} strokeWidth={2.2} />}
                           />
                         </div>
                       </div>
@@ -761,9 +880,19 @@ export default function OrgStructure() {
                           size="sm"
                           variant="outline"
                           className="!h-9 !px-3 text-xs"
+                          disabled={busy}
                           onClick={() => openDepartmentEditor(department)}
                         >
                           Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="!h-9 !px-3 text-xs"
+                          disabled={busy}
+                          onClick={() => setDepStatusTarget(department)}
+                        >
+                          {enabled ? "Disable" : "Enable"}
                         </Button>
                       </div>
                     </article>
@@ -779,21 +908,45 @@ export default function OrgStructure() {
         <CrudPanel
           title={`Roles & Designations (${designations.data.length})`}
           subtitle="Job roles, titles, bands, and owning department."
-          icon={<Briefcase size={20} />}
+          icon={<BadgeCheck size={20} />}
           addLabel="Add Role / Designation"
-          hook={designations}
+          hook={wrappedDesignations}
+          hideDelete
+          automationScope="hr-org-designation"
+          statusToggle={{ isEnabled: (row) => String(row.status || "Enabled").toLowerCase() !== "disabled", onChange: designations.setStatus }}
           fields={[
             { key: "name", label: "Role / Designation" },
             { key: "code", label: "Code" },
-            { key: "hrDepartmentUid", label: "Department", type: "select", options: departments.data.map((d) => ({ value: d.id, label: (d.name as string) || "" })).filter((o) => o.label) },
-            { key: "level", label: "Level / Band", type: "select", options: levels.data.map((l) => ({ value: String(l.levelNo), label: l.label ? `L${l.levelNo} - ${l.label}` : `L${l.levelNo}` })) },
+            {
+              key: "hrDepartmentUid",
+              label: "Department",
+              type: "async-select",
+              placeholder: "Select department",
+              options: designationDepartmentOptions.map((department) => ({
+                value: department.id,
+                label: department.name || "",
+              })).filter((option) => option.label),
+              loading: departments.loading,
+              hasMore: designationDepartmentPage + 1 < departments.totalPages,
+              onLoadMore: () => setDesignationDepartmentPage((page) =>
+                page + 1 < departments.totalPages ? page + 1 : page
+              ),
+              searchValue: departmentSearch,
+              onSearchChange: setDepartmentSearch,
+            },
+            { key: "orgLevelUid", label: "Level / Band", type: "select", options: levels.data.map((l) => ({ value: l.id, label: l.label ? `L${l.levelNo} - ${l.label}` : `L${l.levelNo}` })) },
             { key: "description", label: "Description", type: "textarea", full: true },
           ]}
           columns={[
             { label: "Role / Designation", render: (r) => <b>{r.name as string}</b> },
             { label: "Code", render: (r) => (r.code as string) || "-" },
-            { label: "Department", render: (r) => departments.data.find((d) => d.id === r.hrDepartmentUid)?.name || (r.hrDepartment as string) || (r.department as string) || "-" },
-            { label: "Level", render: (r) => (r.level != null ? `L${r.level}` : "-") },
+            { label: "Department", render: (r) => designationDepartmentOptions.find((d) => d.id === r.hrDepartmentUid)?.name || (r.hrDepartment as string) || (r.department as string) || "-" },
+            { label: "Level", render: (r) => {
+              const byUid = levels.data.find((l) => l.id === r.orgLevelUid);
+              const byNo = !byUid && r.level != null ? levels.data.find((l) => l.levelNo === r.level) : null;
+              const found = byUid || byNo;
+              return found ? (found.label ? `L${found.levelNo} - ${found.label}` : `L${found.levelNo}`) : (r.level != null ? `L${r.level}` : "-");
+            } },
           ]}
           viewMode={designationsView}
           onViewModeChange={setDesignationsView}
@@ -804,7 +957,7 @@ export default function OrgStructure() {
           cardTitle={(row) => row.name as ReactNode}
           cardRows={(row) => [
             { label: "Code", value: (row.code as string) || "-" },
-            { label: "Department", value: departments.data.find((d) => d.id === row.hrDepartmentUid)?.name || (row.hrDepartment as string) || (row.department as string) || "-" },
+            { label: "Department", value: designationDepartmentOptions.find((d) => d.id === row.hrDepartmentUid)?.name || (row.hrDepartment as string) || (row.department as string) || "-" },
             { label: "Level", value: row.level != null ? `L${row.level}` : "-" },
           ]}
           emptyText="No designations yet."
@@ -901,7 +1054,12 @@ export default function OrgStructure() {
                               </span>
                             </td>
                             <td style={{ ...td, textAlign: "right" }}>
-                              <Button size="sm" onClick={(event) => { event.stopPropagation(); setAm({ managerEmployeeUid: "", locationUid: branch.id }); setAmOpen(true); }}>
+                              <Button size="sm" onClick={(event) => {
+                                event.stopPropagation();
+                                setAm({ managerEmployeeUids: [], locationUid: branch.id });
+                                setAmSearch("");
+                                setAmOpen(true);
+                              }}>
                                 Assign Employee
                               </Button>
                             </td>
@@ -934,7 +1092,7 @@ export default function OrgStructure() {
                                     }}
                                   >
                                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>{assignment.managerName || employeeName(assignment.managerEmployeeUid)}</div>
-                                    <div style={{ fontSize: 12.5, color: "var(--light-text)" }}>{assignment.managerEmployeeUid || "-"}</div>
+                                    <div style={{ fontSize: 12.5, color: "var(--light-text)" }}>{employeeCode(assignment.managerEmployeeUid)}</div>
                                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                                       <Button variant="ghost" size="icon" style={{ color: "#e11d48" }} onClick={() => { if (confirm("Remove this assignment?")) void act(() => areaMgrs.remove(assignment.id)); }}>
                                         <Trash2 size={15} />
@@ -988,7 +1146,11 @@ export default function OrgStructure() {
                             </div>
                           </div>
                         </div>
-                        <Button size="sm" onClick={() => { setAm({ managerEmployeeUid: "", locationUid: branch.id }); setAmOpen(true); }}>
+                        <Button size="sm" onClick={() => {
+                          setAm({ managerEmployeeUids: [], locationUid: branch.id });
+                          setAmSearch("");
+                          setAmOpen(true);
+                        }}>
                           Assign Employee
                         </Button>
                       </div>
@@ -1026,7 +1188,7 @@ export default function OrgStructure() {
                                   {assignment.managerName || employeeName(assignment.managerEmployeeUid)}
                                 </div>
                                 <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-                                  {assignment.managerEmployeeUid || "-"}
+                                  {employeeCode(assignment.managerEmployeeUid)}
                                 </div>
                               </div>
                               <Button variant="ghost" size="icon" style={{ color: "#e11d48" }} onClick={() => { if (confirm("Remove this assignment?")) void act(() => areaMgrs.remove(assignment.id)); }}>
@@ -1139,8 +1301,10 @@ export default function OrgStructure() {
 
         {tab === "levels" && (
         <div>
-          <SectionHeader
-            label="Labels for hierarchy levels used in org chart and approvals."
+          <PanelHeader
+            title={`Seniority Bands (Levels) (${levels.data.length})`}
+            subtitle="Labels for hierarchy levels used in org chart and approvals."
+            icon={<Layers size={20} />}
             action={
               <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
                 <Button icon={<Plus size={15} />} onClick={() => { setLvlEditing(null); setLvl({ levelNo: "", label: "" }); setLvlOpen(true); }}>
@@ -1191,8 +1355,7 @@ export default function OrgStructure() {
                     rows={[{ label: "Label", value: l.label || "-" }]}
                     footer={
                       <>
-                        <Button variant="ghost" size="icon" onClick={() => { setLvlEditing(l.id); setLvl({ levelNo: String(l.levelNo ?? ""), label: l.label || "" }); setLvlOpen(true); }}><Pencil size={15} /></Button>
-                        <Button variant="ghost" size="icon" style={{ color: "#e11d48" }} onClick={() => { if (confirm("Delete this level label?")) void act(() => levels.remove(l.id)); }}><Trash2 size={15} /></Button>
+                        <Button variant="ghost" size="icon" disabled={busy} onClick={() => { setLvlEditing(l.id); setLvl({ levelNo: String(l.levelNo ?? ""), label: l.label || "" }); setLvlOpen(true); }}><Pencil size={15} /></Button>
                       </>
                     }
                   />
@@ -1314,7 +1477,7 @@ export default function OrgStructure() {
                 if (posEditing) await positions.update(posEditing, payload);
                 else await positions.create(payload);
                 setPosOpen(false);
-              })}>{posEditing ? "Save" : "Create"}</Button>
+              }, `Position ${posEditing ? "updated" : "created"} successfully.`)}>{posEditing ? "Save" : "Create"}</Button>
             </>
           }
         >
@@ -1340,7 +1503,7 @@ export default function OrgStructure() {
                   if (depEditing) await departments.update(depEditing, payload);
                   else await departments.create(payload);
                   setDepOpen(false);
-                })}
+                }, `Department ${depEditing ? "updated" : "created"} successfully.`)}
               >
                 {depEditing ? "Save" : "Create"}
               </Button>
@@ -1349,6 +1512,44 @@ export default function OrgStructure() {
         >
           <Input label="Department Name" value={dep.name} onChange={(e) => setDep({ ...dep, name: e.target.value })} />
           <Input label="Code" value={dep.code} onChange={(e) => setDep({ ...dep, code: e.target.value })} />
+        </Modal>
+      )}
+
+      {depStatusTarget && (
+        <Modal
+          title={`${isDepartmentEnabled(depStatusTarget) ? "Disable" : "Enable"} Department`}
+          onClose={() => {
+            if (!busy) setDepStatusTarget(null);
+          }}
+          footer={
+            <>
+              <Button
+                id="hr-org-department-status-cancel"
+                data-testid="hr-org-department-status-cancel"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => setDepStatusTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                id="hr-org-department-status-confirm"
+                data-testid="hr-org-department-status-confirm"
+                loading={busy}
+                onClick={confirmDepartmentStatusChange}
+              >
+                Confirm
+              </Button>
+            </>
+          }
+        >
+          <p
+            id="hr-org-department-status-message"
+            data-testid="hr-org-department-status-message"
+            style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--dark-text)" }}
+          >
+            Are you sure you want to {isDepartmentEnabled(depStatusTarget) ? "disable" : "enable"} this department?
+          </p>
         </Modal>
       )}
 
@@ -1364,7 +1565,7 @@ export default function OrgStructure() {
                 if (lvlEditing) await levels.update(lvlEditing, payload);
                 else await levels.create(payload);
                 setLvlOpen(false);
-              })}>{lvlEditing ? "Save" : "Create"}</Button>
+              }, `Seniority level ${lvlEditing ? "updated" : "created"} successfully.`)}>{lvlEditing ? "Save" : "Create"}</Button>
             </>
           }
         >
@@ -1375,19 +1576,76 @@ export default function OrgStructure() {
 
       {amOpen && (
         <Modal
-          title="Assign Employee to Branch"
-          onClose={() => setAmOpen(false)}
+          title="Assign Employees to Branch"
+          onClose={() => !busy && setAmOpen(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setAmOpen(false)}>Cancel</Button>
-              <Button disabled={busy || !am.managerEmployeeUid || !am.locationUid} loading={busy} onClick={() => act(async () => {
-                await areaMgrs.create({ managerEmployeeUid: am.managerEmployeeUid, locationUid: am.locationUid });
-                setAmOpen(false);
-              })}>Save</Button>
+              <Button variant="secondary" onClick={() => setAmOpen(false)} disabled={busy}>Cancel</Button>
+              <Button
+                disabled={busy || am.managerEmployeeUids.length === 0 || !am.locationUid}
+                loading={busy}
+                onClick={() => act(async () => {
+                  await areaMgrs.createMany(am.managerEmployeeUids, am.locationUid);
+                  setAmOpen(false);
+                }, `${am.managerEmployeeUids.length} employee${am.managerEmployeeUids.length === 1 ? "" : "s"} assigned to branch successfully.`)}
+              >
+                Assign {am.managerEmployeeUids.length || ""}
+              </Button>
             </>
           }
         >
-          <Select label="Employee" value={am.managerEmployeeUid} onChange={(e) => setAm({ ...am, managerEmployeeUid: e.target.value })} options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-bold text-[var(--color-text-primary)]">Select Employees</div>
+              <div className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                {am.managerEmployeeUids.length} selected
+              </div>
+            </div>
+            {am.managerEmployeeUids.length > 0 && (
+              <Button size="sm" variant="ghost" onClick={() => setAm({ ...am, managerEmployeeUids: [] })}>
+                Clear
+              </Button>
+            )}
+          </div>
+          <Input
+            value={amSearch}
+            onChange={(event) => setAmSearch(event.target.value)}
+            placeholder="Search by name, ID or email"
+          />
+          <div className="max-h-[320px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+            {assignableEmployees.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                No employees found.
+              </div>
+            ) : assignableEmployees.map((employee) => {
+              const selected = am.managerEmployeeUids.includes(employee.id);
+              return (
+                <label
+                  key={employee.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[var(--color-surface-secondary)]"
+                >
+                  <Checkbox
+                    checked={selected}
+                    aria-label={`Select ${employee.name}`}
+                    onChange={() => setAm({
+                      ...am,
+                      managerEmployeeUids: selected
+                        ? am.managerEmployeeUids.filter((uid) => uid !== employee.id)
+                        : [...am.managerEmployeeUids, employee.id],
+                    })}
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[var(--color-text-primary)]">
+                      {employee.name || "Unnamed employee"}
+                    </span>
+                    <span className="block truncate text-xs text-[var(--color-text-secondary)]">
+                      {[employee.employeeId, employee.email].filter(Boolean).join(" · ") || "No employee ID"}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
         </Modal>
       )}
 
@@ -1409,7 +1667,7 @@ export default function OrgStructure() {
                   reason: tr.reason || null,
                 });
                 setTrOpen(false);
-              })}>Schedule</Button>
+              }, "Employee transfer scheduled successfully.")}>Schedule</Button>
             </>
           }
         >

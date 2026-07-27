@@ -22,6 +22,8 @@ interface UseAnnouncementsOptions {
 }
 
 const EMPTY_FILTERS: SearchFilterClause[] = [];
+const ticketSearchRequests = new Map<string, { promise: Promise<unknown>; timestamp: number }>();
+const TICKET_SEARCH_DEDUPE_MS = 1000;
 
 function isUseAnnouncementsOptions(value: unknown): value is UseAnnouncementsOptions {
   return Boolean(value && typeof value === "object" && ("scope" in value || "enabled" in value));
@@ -151,7 +153,17 @@ export function useTickets(
     if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
-      const res = await api.post<unknown>("/tickets/search", buildHrSearchBody(filterClauses, schema, page, pageSize));
+      const requestBody = buildHrSearchBody(filterClauses, schema, page, pageSize);
+      const requestKey = JSON.stringify(requestBody);
+      const existingRequest = ticketSearchRequests.get(requestKey);
+      const now = Date.now();
+      const request = existingRequest && now - existingRequest.timestamp < TICKET_SEARCH_DEDUPE_MS
+        ? existingRequest.promise
+        : api.post<unknown>("/tickets/search", requestBody);
+      if (request !== existingRequest?.promise) {
+        ticketSearchRequests.set(requestKey, { promise: request, timestamp: now });
+      }
+      const res = await request;
       const pageResult = unwrapHrSearchPage(res);
       setData(pageResult.content.map((item) => withId<Ticket>(item)));
       setTotalElements(pageResult.totalElements);

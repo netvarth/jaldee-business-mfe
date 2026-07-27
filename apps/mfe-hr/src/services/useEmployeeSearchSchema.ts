@@ -14,7 +14,17 @@ export function useEmployeeSearchSchema() {
     setError(null);
     try {
       const response = await api.get<SearchSchema>("/employees/search/schema");
-      setSchema(normalizeSearchSchema(response));
+      const normalized = normalizeSearchSchema(response);
+      setSchema({
+        ...normalized,
+        fields: normalized.fields.map((field) => ({
+          ...field,
+          values: field.values?.filter((value) => {
+            const option = value.trim();
+            return option !== "" && option !== "-" && option !== "—" && !option.startsWith("â€");
+          }),
+        })),
+      });
     } catch (loadError) {
       setSchema(null);
       setError(loadError instanceof Error ? loadError.message : "Failed to load employee filters.");

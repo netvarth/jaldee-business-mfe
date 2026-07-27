@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from "react";
 import { Loader2, Users, Briefcase, AlertCircle, TrendingDown, CheckCircle2 } from "lucide-react";
-import { useBranchNorms, usePositions } from "../../services/useOrg";
+import { useBranchNorms, type Position } from "../../services/useOrg";
 import { useBranches } from "../../services/useBranches";
 import { useDepartments, useShifts } from "../../services/useSettingsData";
 
@@ -9,9 +9,14 @@ const card: CSSProperties = { background: "var(--surface-bg)", border: "1px soli
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)" };
 const statVal: CSSProperties = { fontSize: 28, fontWeight: 900, color: "var(--dark-text)", lineHeight: 1 };
 
-export default function HeadcountDashboardTab({ onRequestTransfer }: { onRequestTransfer?: (locId: string, deptId: string, shiftId: string) => void }) {
+export default function HeadcountDashboardTab({
+  positions,
+  onRequestTransfer,
+}: {
+  positions: Position[];
+  onRequestTransfer?: (locId: string, deptId: string, shiftId: string) => void;
+}) {
   const norms = useBranchNorms();
-  const positions = usePositions();
   const { data: branches } = useBranches();
   const { data: departments } = useDepartments();
   const { data: shifts } = useShifts();
@@ -33,13 +38,13 @@ export default function HeadcountDashboardTab({ onRequestTransfer }: { onRequest
 
   const positionName = useMemo(() => {
     const m = new Map(
-      positions.data.map((position) => [
+      positions.map((position) => [
         position.id,
         position.name || position.designationName || position.code || "",
       ] as const)
     );
     return (uid?: string | null) => (uid ? m.get(uid) ?? uid : "");
-  }, [positions.data]);
+  }, [positions]);
 
   const kpis = useMemo(() => {
     if (!norms.data) return { sanctioned: 0, actual: 0, notice: 0, projected: 0, shortage: 0, excess: 0 };

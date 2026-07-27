@@ -141,7 +141,7 @@ export default function AuditLogScreen() {
     leadService.getLogs({
       page: page - 1,
       size: pageSize,
-      ...(filterCategory !== 'ALL' && { auditlogContext: filterCategory }),
+      ...(filterCategory !== 'ALL' && { featureModule: filterCategory }),
       ...(filterAction.trim() && { action: filterAction.trim() }),
       ...(filterUpdatedBy.trim() && { updatedByName: filterUpdatedBy.trim() }),
       ...(filterUpdatedFrom && { fromDate: filterUpdatedFrom }),

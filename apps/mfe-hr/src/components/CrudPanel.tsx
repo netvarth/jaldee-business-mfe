@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Rows3, LayoutGrid, Filter } from "lucide-react";
-import { Button, Input, Select, Checkbox, Textarea, DataTable, DataTablePagination, Drawer, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Rows3, LayoutGrid, Filter, ToggleLeft, ToggleRight } from "lucide-react";
+import { Button, Combobox, Input, Select, Checkbox, Textarea, DataTable, DataTablePagination, Drawer, SectionCard, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
   compactSearchClauses,
 } from "@jaldee/shared-modules";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { useShellFeedback } from "../services/useShellFeedback";
 
 export const TEAL = "var(--primary-color)";
 export const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -30,8 +31,20 @@ const viewToggleButton = (active: boolean): CSSProperties => ({
   color: active ? "#fff" : "var(--light-text)",
 });
 
-export type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
-export interface Field { key: string; label: string; type?: FieldType; options?: (string | { value: string; label: string })[]; full?: boolean; placeholder?: string; }
+export type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "async-select" | "multiselect" | "color" | "textarea";
+export interface Field {
+  key: string;
+  label: string;
+  type?: FieldType;
+  options?: (string | { value: string; label: string })[];
+  full?: boolean;
+  placeholder?: string;
+  loading?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+}
 export type Row = Record<string, unknown>;
 
 /** Normalise a CSV string or array into a clean string[] (used by multiselect). */
@@ -59,6 +72,26 @@ export function FieldInput({ f, value, onChange }: { f: Field; value: unknown; o
       <div style={{ height: 44, display: "flex", alignItems: "center" }}>
         <Checkbox label={f.label} checked={!!value} onCheckedChange={(v) => onChange(v as boolean)} />
       </div>
+    );
+  }
+  if (f.type === "async-select") {
+    const options = (f.options ?? []).map((option) =>
+      typeof option === "object" && option !== null && "value" in option
+        ? option as { value: string; label: string }
+        : { value: String(option), label: String(option) }
+    );
+    return (
+      <Combobox
+        value={(value as string) ?? ""}
+        onValueChange={onChange}
+        options={options}
+        placeholder={f.placeholder ?? "Select an option"}
+        loading={f.loading}
+        hasMore={f.hasMore}
+        onEndReached={f.onLoadMore}
+        searchValue={f.searchValue}
+        onSearchChange={f.onSearchChange}
+      />
     );
   }
   if (f.type === "select") {
@@ -196,12 +229,18 @@ const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius:
 // (TS interfaces aren't assignable to Record<string, unknown> without an index signature).
 export interface Crud { data: any[]; loading: boolean; error: string | null; totalElements?: number; create: (p: Row) => Promise<void>; update: (uid: string, p: Row) => Promise<void>; remove: (uid: string) => Promise<void>; }
 type CrudViewMode = "table" | "cards";
-export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, readOnly, viewMode, onViewModeChange, viewScope, cardTitle, cardRows, emptyText, tableContainerClassName, tableClassName, cardGridClassName, searchSchema, filterClauses, onFilterClausesChange, page, pageSize, onPageChange, onPageSizeChange }: {
+export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, locationPicker, readOnly, hideDelete, statusToggle, automationScope, viewMode, onViewModeChange, viewScope, cardTitle, cardRows, emptyText, tableContainerClassName, tableClassName, cardGridClassName, searchSchema, filterClauses, onFilterClausesChange, page, pageSize, onPageChange, onPageSizeChange }: {
   title: string; subtitle: string; icon: ReactNode; addLabel: string; fields: Field[];
   columns: { label: string; render: (r: Row) => ReactNode; align?: "right" }[]; hook: Crud;
   locationPicker?: boolean;
   /** When set, hides add/edit/delete and shows this note (data managed elsewhere). */
   readOnly?: string;
+  hideDelete?: boolean;
+  statusToggle?: {
+    isEnabled: (row: Row & { id: string }) => boolean;
+    onChange: (uid: string, status: "Enabled" | "Disabled") => Promise<void>;
+  };
+  automationScope?: string;
   viewMode?: CrudViewMode;
   onViewModeChange?: (value: CrudViewMode) => void;
   viewScope?: string;
@@ -219,13 +258,19 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
 }) {
+  const { toast } = useShellFeedback("crud-panel");
   const [open, setOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [editing, setEditing] = useState<(Row & { id: string }) | null>(null);
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
+  const [statusRow, setStatusRow] = useState<(Row & { id: string }) | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const resolvedAutomationScope = automationScope ?? viewScope ?? title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const entityLabel = addLabel.replace(/^Add\s+/i, "").trim() || "Item";
+  const entityLabelLower = entityLabel.toLocaleLowerCase();
 
   const openAdd = () => { setEditing(null); setForm({}); setMsg(null); setOpen(true); };
   const openEdit = (r: Row & { id: string }) => { setEditing(r); setForm({ ...r }); setMsg(null); setOpen(true); };
@@ -248,6 +293,23 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
     onPageChange?.(1);
     setFiltersOpen(false);
   };
+  const confirmStatusChange = async () => {
+    if (!statusRow || !statusToggle) return;
+    const nextStatus = statusToggle.isEnabled(statusRow) ? "Disabled" : "Enabled";
+    setStatusSaving(true);
+    setMsg(null);
+    try {
+      await statusToggle.onChange(statusRow.id, nextStatus);
+      setStatusRow(null);
+      toast("success", `${entityLabel} updated`, `${entityLabel} ${nextStatus.toLowerCase()} successfully.`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Status update failed.";
+      setMsg(message);
+      toast("error", "Status update failed", message);
+    } finally {
+      setStatusSaving(false);
+    }
+  };
 
   const tableColumns: ColumnDef<Row & { id: string }>[] = [
     ...columns.map((column, index) => ({
@@ -265,15 +327,38 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           render: (row: Row & { id: string }) => (
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => { if (confirm("Delete this record?")) void hook.remove(row.id); }}
-                title="Delete"
-                style={{ color: "#e11d48" }}
-              >
-                <Trash2 size={15} />
-              </Button>
+              {statusToggle ? (() => {
+                const enabled = statusToggle.isEnabled(row);
+                const action = enabled ? "disable" : "enable";
+                return (
+                  <Button
+                    id={`${resolvedAutomationScope}-${action}-${row.id}`}
+                    data-testid={`${resolvedAutomationScope}-${action}-${row.id}`}
+                    variant="ghost"
+                    size="icon"
+                    title={enabled ? "Disable record" : "Enable record"}
+                    aria-label={`${enabled ? "Disable" : "Enable"} ${title} record`}
+                    style={{
+                      color: enabled ? "#059669" : "#64748b",
+                      background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)",
+                    }}
+                    onClick={() => setStatusRow(row)}
+                  >
+                    {enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}
+                  </Button>
+                );
+              })() : null}
+              {!hideDelete ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { if (confirm(`Are you sure you want to delete this ${entityLabelLower}?`)) void hook.remove(row.id); }}
+                  title="Delete"
+                  style={{ color: "#e11d48" }}
+                >
+                  <Trash2 size={15} />
+                </Button>
+              ) : null}
             </div>
           ),
         }]
@@ -286,7 +371,13 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
       const payload = buildPayload(fields, form);
       if (editing) await hook.update(editing.id, payload); else await hook.create(payload);
       setOpen(false);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Save failed."); }
+      const action = editing ? "updated" : "created";
+      toast("success", `${entityLabel} ${action}`, `${entityLabel} ${action} successfully.`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Save failed.";
+      setMsg(message);
+      toast("error", "Save failed", message);
+    }
     finally { setSaving(false); }
   };
 
@@ -364,7 +455,28 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
                   {!readOnly ? (
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this record?")) void hook.remove(row.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
+                      {statusToggle ? (() => {
+                        const enabled = statusToggle.isEnabled(row);
+                        const action = enabled ? "disable" : "enable";
+                        return (
+                          <Button
+                            id={`${resolvedAutomationScope}-card-${action}-${row.id}`}
+                            data-testid={`${resolvedAutomationScope}-card-${action}-${row.id}`}
+                            variant="ghost"
+                            size="icon"
+                            title={enabled ? "Disable record" : "Enable record"}
+                            aria-label={`${enabled ? "Disable" : "Enable"} ${title} record`}
+                            style={{
+                              color: enabled ? "#059669" : "#64748b",
+                              background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)",
+                            }}
+                            onClick={() => setStatusRow(row)}
+                          >
+                            {enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}
+                          </Button>
+                        );
+                      })() : null}
+                      {!hideDelete ? <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Are you sure you want to delete this ${entityLabelLower}?`)) void hook.remove(row.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button> : null}
                     </div>
                   ) : null}
                 </div>
@@ -443,6 +555,31 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           </div>
         </div>
       )}
+      {statusRow && statusToggle ? (
+        <div style={overlay} onClick={() => !statusSaving && setStatusRow(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...modalBox, maxWidth: 420 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
+              <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>
+                {statusToggle.isEnabled(statusRow) ? "Disable" : "Enable"} {entityLabel}
+              </h3>
+              <button onClick={() => !statusSaving && setStatusRow(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+            </div>
+            <div style={{ padding: 24 }}>
+              <p
+                id={`${resolvedAutomationScope}-status-message`}
+                data-testid={`${resolvedAutomationScope}-status-message`}
+                style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--dark-text)" }}
+              >
+                Are you sure you want to {statusToggle.isEnabled(statusRow) ? "disable" : "enable"} this {entityLabelLower}?
+              </p>
+            </div>
+            <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+              <Button id={`${resolvedAutomationScope}-status-cancel`} data-testid={`${resolvedAutomationScope}-status-cancel`} variant="secondary" disabled={statusSaving} onClick={() => setStatusRow(null)}>Cancel</Button>
+              <Button id={`${resolvedAutomationScope}-status-confirm`} data-testid={`${resolvedAutomationScope}-status-confirm`} loading={statusSaving} onClick={confirmStatusChange}>Confirm</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <Drawer
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}

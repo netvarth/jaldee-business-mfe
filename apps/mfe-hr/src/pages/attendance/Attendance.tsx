@@ -261,7 +261,6 @@ export default function Attendance() {
     return () => media.removeEventListener("change", syncViewMode);
   }, []);
 
-  useEffect(() => { if (!actor && employees.length) setActor(employees[0].id); }, [employees, actor]);
   useEffect(() => {
     if (selectedLocationUid) return;
     if (activeLocation?.id) {
@@ -272,6 +271,16 @@ export default function Attendance() {
       setSelectedLocationUid(branches.data[0].id);
     }
   }, [activeLocation?.id, branches.data, selectedLocationUid]);
+  const locationEmployees = useMemo(
+    () => selectedLocationUid
+      ? employees.filter((employee) => employee.locationUid === selectedLocationUid)
+      : employees,
+    [employees, selectedLocationUid]
+  );
+  useEffect(() => {
+    if (actor && locationEmployees.some((employee) => employee.id === actor)) return;
+    setActor(locationEmployees[0]?.id ?? "");
+  }, [actor, locationEmployees]);
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
 
   const empName = useMemo(() => { const m = new Map(employees.map((e) => [e.id, e.name] as const)); return (uid?: string) => (uid ? m.get(uid) ?? uid : "—"); }, [employees]);
@@ -487,22 +496,6 @@ export default function Attendance() {
 
             {/* Fields Column (Left Side on desktop, but bottom on mobile) */}
             <div className="attendance-console-fields" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Select
-                id="hr-attendance-actor"
-                testId="hr-attendance-actor"
-                label="Acting Employee"
-                value={actor}
-                onChange={(e) => setActor(e.target.value)}
-                options={employees.map((e) => ({ value: e.id, label: e.name }))}
-              />
-              <Select
-                id="hr-attendance-mode"
-                testId="hr-attendance-mode"
-                label="Work Mode"
-                value={mode}
-                onChange={(e) => setMode(e.target.value as ClockType)}
-                options={CLOCK_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
-              />
               {shouldShowLocationSelect ? (
                 <Select
                   id="hr-attendance-location"
@@ -520,6 +513,26 @@ export default function Attendance() {
                   ]}
                 />
               ) : null}
+              <Select
+                id="hr-attendance-actor"
+                testId="hr-attendance-actor"
+                label="Acting Employee"
+                value={actor}
+                onChange={(e) => setActor(e.target.value)}
+                placeholder={selectedLocationUid ? "Select employee" : "Select location first"}
+                options={locationEmployees.map((employee) => ({
+                  value: employee.id,
+                  label: employee.name,
+                }))}
+              />
+              <Select
+                id="hr-attendance-mode"
+                testId="hr-attendance-mode"
+                label="Work Mode"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as ClockType)}
+                options={CLOCK_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
+              />
               <div className="attendance-face-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", border: "1px solid var(--border-color)", borderRadius: 12, background: "rgba(100,116,139,0.03)" }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "var(--dark-text)", letterSpacing: "0.04em" }}>FACE RECOGNITION SCAN</div>

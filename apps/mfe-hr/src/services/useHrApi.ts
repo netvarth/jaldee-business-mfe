@@ -42,6 +42,8 @@ interface CacheEntry {
 }
 const getCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 2000; // 2 seconds cache
+const searchRequestCache = new Map<string, CacheEntry>();
+const SEARCH_DEDUPE_TTL_MS = 1000;
 
 export function useHrApi() {
   const { authToken } = useMFEProps();
@@ -91,30 +93,43 @@ export function useHrApi() {
         return promise;
       }
 
-      // If mutating (POST, PUT, DELETE), invalidate cache to load fresh values next time
-      getCache.clear();
-
-      try {
-        const res = await apiClient.request<any>({
-          url: buildHrServiceUrl(endpoint),
-          method,
-          data: body,
-          timeout,
-          _skipLocationParam: true,
-        });
-
-        const parsed = res.data;
-        // Unwrap ApiResponse<T> = { status, data, timestamp }
-        return parsed && typeof parsed === "object" && "data" in parsed
-          ? (parsed as { data: T }).data
-          : (parsed as T);
-      } catch (err: any) {
-        if (err.code === "ECONNABORTED") {
-          throw new Error(`Request timed out after ${timeout}ms. Ensure the backend is running and reachable.`);
-        }
-        const readable = getReadableApiError(err, "HR request failed.");
-        throw Object.assign(new Error(readable.message), readable);
+      const requestUrl = buildHrServiceUrl(endpoint);
+      const isSearchRequest = method === "POST" && /\/search(?:\?|$)/.test(endpoint);
+      const searchKey = isSearchRequest ? `${requestUrl}:${JSON.stringify(body ?? null)}` : "";
+      const cachedSearch = isSearchRequest ? searchRequestCache.get(searchKey) : undefined;
+      const now = Date.now();
+      if (cachedSearch && now - cachedSearch.timestamp < SEARCH_DEDUPE_TTL_MS) {
+        return cachedSearch.promise as Promise<T>;
       }
+
+      const mutationPromise = (async () => {
+        getCache.clear();
+        try {
+          const res = await apiClient.request<any>({
+            url: requestUrl,
+            method,
+            data: body,
+            timeout,
+            _skipLocationParam: true,
+          });
+
+          const parsed = res.data;
+          return parsed && typeof parsed === "object" && "data" in parsed
+            ? (parsed as { data: T }).data
+            : (parsed as T);
+        } catch (err: any) {
+          if (err.code === "ECONNABORTED") {
+            throw new Error(`Request timed out after ${timeout}ms. Ensure the backend is running and reachable.`);
+          }
+          const readable = getReadableApiError(err, "HR request failed.");
+          throw Object.assign(new Error(readable.message), readable);
+        }
+      })();
+
+      if (isSearchRequest) {
+        searchRequestCache.set(searchKey, { promise: mutationPromise, timestamp: now });
+      }
+      return mutationPromise;
     }
 
     return {

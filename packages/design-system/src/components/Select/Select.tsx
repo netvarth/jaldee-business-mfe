@@ -21,6 +21,15 @@ export interface SelectProps
   fullWidth?: string | boolean;
 }
 
+function normalizeOptionLabel(label: string) {
+  return label
+    .replace(/\u00e2\u20ac\u201d/g, "\u2014")
+    .replace(/\u00e2\u20ac\u201c/g, "\u2013")
+    .replace(/\u00e2\u20ac\u2122/g, "\u2019")
+    .replace(/\u00e2\u20ac\u0153/g, "\u201c")
+    .replace(/\u00e2\u20ac\u009d/g, "\u201d");
+}
+
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
   (
     {
@@ -97,7 +106,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
           {options.map((opt) => (
             <option key={opt.value} value={opt.value} disabled={opt.disabled}>
-              {opt.label}
+              {normalizeOptionLabel(opt.label)}
             </option>
           ))}
         </select>

@@ -24,6 +24,8 @@ export interface ComboboxProps {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   loading?: boolean;
+  hasMore?: boolean;
+  onEndReached?: () => void;
   disabled?: boolean;
   id?: string;
   "data-testid"?: string;
@@ -43,6 +45,8 @@ export function Combobox({
   searchValue,
   onSearchChange,
   loading = false,
+  hasMore = false,
+  onEndReached,
   disabled,
   id,
   "data-testid": testId = "combobox",
@@ -203,7 +207,19 @@ export function Combobox({
               className="mb-2 h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
 
-            <div className="max-h-60 space-y-1 overflow-y-auto">
+            <div
+              className="max-h-40 space-y-1 overflow-y-auto"
+              onScroll={(event) => {
+                const element = event.currentTarget;
+                if (
+                  hasMore &&
+                  !loading &&
+                  element.scrollHeight - element.scrollTop - element.clientHeight <= 24
+                ) {
+                  onEndReached?.();
+                }
+              }}
+            >
               {filteredOptions.length === 0 && (
                 <div className="rounded-md px-3 py-2 text-sm text-gray-500">
                   {loading ? "Searching..." : emptyMessage}
@@ -240,6 +256,11 @@ export function Combobox({
                   </button>
                 );
               })}
+              {loading && filteredOptions.length > 0 && (
+                <div className="px-3 py-2 text-center text-xs text-gray-500">
+                  Loading more...
+                </div>
+              )}
             </div>
           </div>
         )}

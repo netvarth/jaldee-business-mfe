@@ -9,7 +9,13 @@ const HR_ANALYTICS_FEATURE_MODULES = [
   "HR_EMPLOYEE",
   "HR_ATTENDANCE",
   "HR_PAYROLL",
+  "HR_HELPDESK",
 ] as const;
+const ANALYTICS_CACHE_TTL_MS = 5_000;
+const analyticsRequestCache = new Map<string, {
+  expiresAt: number;
+  request: Promise<HrAnalyticsData>;
+}>();
 
 function dateString(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -48,6 +54,43 @@ function mergeAnalyticsData(items: HrAnalyticsData[]): HrAnalyticsData {
   return merged;
 }
 
+function loadAnalytics(
+  tenantUid: string,
+  featureModule: typeof HR_ANALYTICS_FEATURE_MODULES[number],
+  frequency: HrAnalyticsFrequency,
+  range: { dateFrom: string; dateTo: string },
+) {
+  const payload = {
+    tenantUid,
+    featureModule,
+    groupBy: [],
+    frequency,
+    dateFrom: range.dateFrom,
+    dateTo: range.dateTo,
+    filters: {},
+    includeTotals: true,
+    getDimensionWiseValue: true,
+  };
+  const cacheKey = JSON.stringify(payload);
+  const cached = analyticsRequestCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
+
+  const request = apiClient.post(
+    buildBaseServiceUrl(`/platform-service/v1/api/analytics?frequency=${frequency}`),
+    payload,
+    { _skipLocationParam: true },
+  ).then((response) => unwrap(response.data)).catch((reason) => {
+    analyticsRequestCache.delete(cacheKey);
+    throw reason;
+  });
+
+  analyticsRequestCache.set(cacheKey, {
+    expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS,
+    request,
+  });
+  return request;
+}
+
 export function useHrAnalytics(frequency: HrAnalyticsFrequency) {
   const { account } = useMFEProps();
   const tenantUid =
@@ -71,21 +114,7 @@ export function useHrAnalytics(frequency: HrAnalyticsFrequency) {
     setError(null);
 
     void Promise.all(HR_ANALYTICS_FEATURE_MODULES.map((featureModule) =>
-      apiClient.post(
-        buildBaseServiceUrl(`/platform-service/v1/api/analytics?frequency=${frequency}`),
-        {
-          tenantUid,
-          featureModule,
-          groupBy: [],
-          frequency,
-          dateFrom: range.dateFrom,
-          dateTo: range.dateTo,
-          filters: {},
-          includeTotals: true,
-          getDimensionWiseValue: true,
-        },
-        { _skipLocationParam: true },
-      ).then((response) => unwrap(response.data))
+      loadAnalytics(tenantUid, featureModule, frequency, range)
     )).then((responses) => {
       if (active) setData(mergeAnalyticsData(responses));
     }).catch((reason: unknown) => {

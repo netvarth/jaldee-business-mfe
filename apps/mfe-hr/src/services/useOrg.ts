@@ -12,7 +12,7 @@ export interface Position {
   sanctionedCount?: number;
 }
 export interface HierarchyLevel {
-  id: string; uid?: string; levelNo?: number; label?: string;
+  id: string; uid?: string; levelNo?: number; label?: string; status?: string;
 }
 export interface AreaManagerBranch {
   id: string; uid?: string; managerEmployeeUid?: string; managerName?: string;
@@ -62,8 +62,25 @@ function useOrgList<T extends { uid?: string; id?: string }>(endpoint: string, f
 }
 
 export const usePositions = (enabled = true) => useOrgList<Position>("/org/positions", "Failed to load positions", enabled);
-export const useHierarchyLevels = (enabled = true) => useOrgList<HierarchyLevel>("/org/levels", "Failed to load levels", enabled);
-export const useAreaManagers = (enabled = true) => useOrgList<AreaManagerBranch>("/org/area-managers", "Failed to load mappings", enabled);
+export function useHierarchyLevels(enabled = true) {
+  const levels = useOrgList<HierarchyLevel>("/org/levels", "Failed to load levels", enabled);
+  const setStatus = useCallback(async (uid: string, status: "Enabled" | "Disabled") => {
+    await levels.api.patch(`/org/levels/${uid}/status`, { status });
+    await levels.reload();
+  }, [levels.api, levels.reload]);
+  return { ...levels, setStatus };
+}
+export function useAreaManagers(enabled = true) {
+  const areaManagers = useOrgList<AreaManagerBranch>("/org/area-managers", "Failed to load mappings", enabled);
+  const createMany = useCallback(async (employeeUids: string[], locationUid: string) => {
+    await areaManagers.api.post("/employees/locations/assign", {
+      employeeUids,
+      locationUids: [locationUid],
+    });
+    await areaManagers.reload();
+  }, [areaManagers.api, areaManagers.reload]);
+  return { ...areaManagers, createMany };
+}
 
 export function useTransfers(enabled = true) {
   const base = useOrgList<Transfer>("/org/transfers", "Failed to load transfers", enabled);

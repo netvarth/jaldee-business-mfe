@@ -263,10 +263,16 @@ export function DataTable<T extends object>({
           data-testid={`${testId}-table`}
           className={cn("w-full table-fixed border-collapse text-[length:var(--text-sm)]", tableClassName)}
         >
+          <colgroup>
+            {selection && <col style={{ width: 44, minWidth: 44, maxWidth: 44 }} />}
+            {visibleColumns.map((column) => (
+              <col key={String(column.key)} style={{ width: column.width }} />
+            ))}
+          </colgroup>
           <thead>
             <tr className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
               {selection && (
-                <th scope="col" className="w-9 px-2 py-2 text-left md:px-3">
+                <th scope="col" style={{ width: 44, minWidth: 44, maxWidth: 44 }} className="px-2 py-2 text-left md:px-3">
                   <input
                     type="checkbox"
                     data-testid={`${testId}-select-all`}
@@ -395,6 +401,7 @@ export function DataTable<T extends object>({
                   >
                     {selection && (
                       <td
+                        style={{ width: 44, minWidth: 44, maxWidth: 44 }}
                         className="px-2 py-2.5 md:px-3"
                         onClick={(e) => e.stopPropagation()}
                       >
