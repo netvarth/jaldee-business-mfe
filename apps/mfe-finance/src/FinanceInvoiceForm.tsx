@@ -217,6 +217,7 @@ export default function FinanceInvoiceForm() {
   const [discountOptions, setDiscountOptions] = useState<DiscountOption[]>([]);
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [newItemCatalogValue, setNewItemCatalogValue] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQty, setNewItemQty] = useState(1);
@@ -297,11 +298,80 @@ export default function FinanceInvoiceForm() {
   }, [locationId, mfeProps.account, mfeProps.location]);
 
   function resetItemBuilder() {
+    setEditingItemId(null);
     setNewItemCatalogValue("");
     setNewItemName("");
     setNewItemQty(1);
     setNewItemPrice(0);
     setNewItemDate(todayIsoDate());
+  }
+
+  function openItemEditor(item?: InvoiceItem) {
+    if (!item) {
+      resetItemBuilder();
+      return;
+    }
+
+    setEditingItemId(item.id);
+    setNewItemCatalogValue(item.itemUid || "");
+    setNewItemName(item.name);
+    setNewItemQty(item.qty);
+    setNewItemPrice(item.price);
+    setNewItemDate(item.date);
+  }
+
+  function handleSaveItem() {
+    if (!newItemName.trim()) {
+      return;
+    }
+
+    const selectedOption = financeCatalogOptions.find((entry) => entry.value === newItemCatalogValue);
+
+    if (editingItemId) {
+      setItems((current) =>
+        current.map((item) => {
+          if (item.id !== editingItemId) {
+            return item;
+          }
+
+          const nextDiscountAmount = item.discountAmount ?? 0;
+          const nextAfterDiscount = Math.max(newItemPrice * newItemQty - nextDiscountAmount, 0);
+          const nextTaxAmount = item.taxAmount ?? 0;
+
+          return {
+            ...item,
+            itemUid: selectedOption?.itemUid ?? item.itemUid,
+            itemType: selectedOption?.itemType ?? item.itemType,
+            name: newItemName.trim(),
+            qty: newItemQty,
+            price: newItemPrice,
+            date: newItemDate,
+            discountApplicable: selectedOption?.discountApplicable ?? item.discountApplicable,
+            afterDiscount: nextAfterDiscount,
+            totalAmount: nextAfterDiscount + nextTaxAmount,
+          };
+        })
+      );
+      resetItemBuilder();
+      return;
+    }
+
+    setItems((current) => [
+      ...current,
+      {
+        id: `item-${Date.now()}`,
+        itemUid: selectedOption?.itemUid,
+        itemType: selectedOption?.itemType || "ADHOC_ITEM",
+        name: newItemName.trim(),
+        qty: newItemQty,
+        price: newItemPrice,
+        date: newItemDate,
+        afterDiscount: newItemPrice * newItemQty,
+        totalAmount: newItemPrice * newItemQty,
+        discountApplicable: selectedOption?.discountApplicable,
+      },
+    ]);
+    resetItemBuilder();
   }
 
   function resetDiscountDialog() {
@@ -992,23 +1062,61 @@ export default function FinanceInvoiceForm() {
           />
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-slate-100 p-4 lg:grid-cols-[minmax(0,2.2fr)_120px_1.4fr_1.6fr_auto] lg:items-end">
+              <div className="min-w-0">
+                <Combobox
+                  label="Procedure/Item *"
+                  placeholder="Choose Procedure/Item"
+                  searchPlaceholder="Search finance items"
+                  emptyMessage="No matching finance item found"
+                  options={financeCatalogOptions}
+                  value={newItemCatalogValue}
+                  onValueChange={(value) => {
+                    setNewItemCatalogValue(value);
+                    const option = financeCatalogOptions.find((entry) => entry.value === value);
+                    if (!option) return;
+                    setNewItemName(option.label);
+                    setNewItemPrice(option.price ?? 0);
+                  }}
+                  hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
+                  id="invoice-item-picker"
+                />
+              </div>
+
+              <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
+              <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
+              <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
+
+              <div className="flex gap-2 lg:pb-[2px]">
+                <Button type="button" onClick={handleSaveItem}>
+                  {editingItemId ? "Change" : "Add"}
+                </Button>
+                <Button type="button" variant="outline" onClick={resetItemBuilder}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+
             <div className="mb-5 overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-600">
                     <th className="px-4 py-3">Procedure/Item</th>
-                    <th className="px-4 py-3 text-center">Qty</th>
-                    <th className="px-4 py-3 text-right">Price</th>
-                    <th className="px-4 py-3 text-right">Total</th>
                     <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3 text-right">Price</th>
+                    <th className="px-4 py-3 text-center">Qty</th>
+                    <th className="px-4 py-3 text-right">Discount</th>
+                    <th className="px-4 py-3 text-right">After Discount</th>
+                    <th className="px-4 py-3 text-right">Tax</th>
+                    <th className="px-4 py-3 text-right">Total</th>
                     <th className="px-4 py-3 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                        No items added yet. Please add at least one item below.
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                        No items added yet.
                       </td>
                     </tr>
                   ) : (
@@ -1022,10 +1130,13 @@ export default function FinanceInvoiceForm() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">{item.qty}</td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(item.price)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(item.totalAmount ?? item.price * item.qty)}</td>
                         <td className="px-4 py-3">{item.date}</td>
+                        <td className="px-4 py-3 text-right">{formatCurrency(item.price)}</td>
+                        <td className="px-4 py-3 text-center">{item.qty}</td>
+                        <td className="px-4 py-3 text-right">{formatCurrency(item.discountAmount ?? 0)}</td>
+                        <td className="px-4 py-3 text-right">{formatCurrency(item.afterDiscount ?? item.price * item.qty)}</td>
+                        <td className="px-4 py-3 text-right">{formatCurrency(item.taxAmount ?? 0)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(item.totalAmount ?? item.price * item.qty)}</td>
                         <td className="px-4 py-3 text-center">
                           <Popover
                             portal
@@ -1045,6 +1156,17 @@ export default function FinanceInvoiceForm() {
                             }
                           >
                             <div className="grid min-w-[180px] p-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  setOpenItemActionId(null);
+                                  openItemEditor(item);
+                                }}
+                              >
+                                Edit
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1085,63 +1207,6 @@ export default function FinanceInvoiceForm() {
                   )}
                 </tbody>
               </table>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,2.2fr)_120px_1.4fr_1.6fr_auto] lg:items-end">
-              <div className="min-w-0">
-                <Combobox
-                  label="Procedure/Item *"
-                  placeholder="Choose Procedure/Item"
-                  searchPlaceholder="Search finance items"
-                  emptyMessage="No matching finance item found"
-                  options={financeCatalogOptions}
-                  value={newItemCatalogValue}
-                  onValueChange={(value) => {
-                    setNewItemCatalogValue(value);
-                    const option = financeCatalogOptions.find((entry) => entry.value === value);
-                    if (!option) return;
-                    setNewItemName(option.label);
-                    setNewItemPrice(option.price ?? 0);
-                  }}
-                  hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
-                  id="invoice-item-picker"
-                />
-              </div>
-
-              <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
-              <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
-              <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
-
-              <div className="flex gap-2 lg:pb-[2px]">
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (!newItemName.trim()) {
-                      return;
-                    }
-                    setItems((current) => [
-                      ...current,
-                      {
-                        id: `item-${Date.now()}`,
-                        itemUid: selectedCatalogOption?.itemUid,
-                        itemType: selectedCatalogOption?.itemType || "ADHOC_ITEM",
-                        name: newItemName.trim(),
-                        qty: newItemQty,
-                        price: newItemPrice,
-                        date: newItemDate,
-                        totalAmount: newItemPrice * newItemQty,
-                        discountApplicable: selectedCatalogOption?.discountApplicable,
-                      },
-                    ]);
-                    resetItemBuilder();
-                  }}
-                >
-                  Add
-                </Button>
-                <Button type="button" variant="outline" onClick={resetItemBuilder}>
-                  Clear
-                </Button>
-              </div>
             </div>
           </div>
 

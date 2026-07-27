@@ -288,8 +288,6 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "finance-discount", label: "Discounts", icon: "\u{1F4B8}", path: "/finance/discount" },
     { id: "finance-coupons", label: "Coupons", icon: "\u{1F3F7}", path: "/finance/coupons" },
     { id: "finance-items", label: "Items", icon: "\u{1F4E6}", path: "/finance/items" },
-    { id: "finance-category", label: "Category", icon: "\u{1F4C1}", path: "/finance/category" },
-    { id: "finance-status", label: "Status", icon: "\u2705", path: "/finance/status" },
     { id: "finance-sequence-template", label: "Sequence Template", icon: "\u{1F522}", path: "/finance/sequence-template" },
     { id: "finance-sequence-settings", label: "Sequence Settings", icon: "\u2699", path: "/finance/sequence-settings" },
     { id: "finance-cash-in-hand", label: "Cash In Hand", icon: "\u{1F4B0}", path: "/finance/cashInhand" },

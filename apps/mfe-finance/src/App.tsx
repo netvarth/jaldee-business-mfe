@@ -5566,8 +5566,8 @@ function CategoryPage() {
   const columns = useMemo<ColumnDef<(typeof financeCategories)[number]>[]>(
     () => [
       { key: "name", header: "Category" },
-      { key: "usageCount", header: "Usage", align: "right" },
-      { key: "linkedTo", header: "Linked To" },
+      // { key: "usageCount", header: "Usage", align: "right" },
+      { key: "linkedTo", header: "Applies To" },
     ],
     []
   );
@@ -5763,8 +5763,9 @@ function StatusCreatePage() {
 function StatusPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [financeStatuses, setFinanceStatuses] = useState<Array<{ id: string; name: string; appliesTo: string; colorHint: string }>>([]);
+  const [financeStatuses, setFinanceStatuses] = useState<Array<{ id: string; name: string; status: string; colorHint: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingStatusId, setUpdatingStatusId] = useState("");
 
   const categoryTypeFilter = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -5818,7 +5819,7 @@ function StatusPage() {
           records.map((item: any, index: number) => ({
             id: String(item.uid ?? item.id ?? item.statusId ?? `status-${index}`),
             name: String(item.statusName ?? item.name ?? "-"),
-            appliesTo: String(item.categoryType ?? item.appliesTo ?? item.type ?? "General"),
+            status: String(item.status ?? item.statusValue ?? item.state ?? "Enabled"),
             colorHint: String(item.colorHint ?? item.color ?? item.statusColor ?? "Default"),
           })),
         );
@@ -5840,19 +5841,53 @@ function StatusPage() {
     };
   }, [categoryTypeFilter]);
 
+  async function handleStatusChange(row: (typeof financeStatuses)[number]) {
+    const currentStatus = row.status.trim().toLowerCase();
+    const nextStatus = currentStatus === "enabled" || currentStatus === "enable" ? "Disabled" : "Enabled";
+
+    setUpdatingStatusId(row.id);
+    try {
+      await financeApi.statuses.updateStatus(row.id, nextStatus);
+      setFinanceStatuses((current) =>
+        current.map((item) => (item.id === row.id ? { ...item, status: nextStatus } : item))
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update status", error);
+    } finally {
+      setUpdatingStatusId("");
+    }
+  }
+
   const columns = useMemo<ColumnDef<(typeof financeStatuses)[number]>[]>(
     () => [
-      { key: "name", header: "Status" },
-      { key: "appliesTo", header: "Applies To" },
-      { key: "colorHint", header: "Color Hint" },
+      { key: "name", header: "Status Name" },
+      { key: "status", header: "Status" },
+      {
+        key: "actions",
+        header: "Action",
+        render: (row) => {
+          const currentStatus = row.status.trim().toLowerCase();
+          const nextStatus = currentStatus === "enabled" || currentStatus === "enable" ? "Disable" : "Enable";
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={updatingStatusId === row.id}
+              onClick={() => void handleStatusChange(row)}
+            >
+              {updatingStatusId === row.id ? "Updating..." : nextStatus}
+            </Button>
+          );
+        },
+      },
     ],
-    []
+    [updatingStatusId]
   );
 
   return (
     <FinanceFeatureLayout
       title="Statuses"
-      subtitle="Manage finance workflow statuses across module entities."
+      subtitle={categoryTypeFilter === "PaymentsInOut" ? "Manage receivable statuses." : "Manage finance workflow statuses."}
       actions={<Button onClick={() => navigate("create")}>Create Status</Button>}
       // stats={[
       //   { label: "Statuses", value: String(financeStatuses.length), accent: "indigo" },
@@ -5863,7 +5898,7 @@ function StatusPage() {
       main={
         <DataTableCard
           title="Status Registry"
-          subtitle="Status values used across the finance product."
+          subtitle={categoryTypeFilter === "PaymentsInOut" ? "Status values used in receivables." : "Status values used across the finance product."}
           data={financeStatuses}
           columns={columns}
           getRowId={(row) => row.id}
