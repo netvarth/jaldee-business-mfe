@@ -13,6 +13,7 @@ import {
   normalizeFinanceInvoices,
   normalizeFinancePayments,
   normalizeFinanceRevenue,
+  normalizeFinanceVendorCategories,
   normalizeFinanceVendorStatuses,
   normalizeFinanceVendors,
 } from "../services/finance";
@@ -495,6 +496,18 @@ export function useFinanceVendorStatuses() {
     queryFn: async () => {
       const response = await api.get<unknown>("provider/vendor/status", { params: { "isEnabled-eq": "Enable" } });
       return normalizeFinanceVendorStatuses((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceVendorCategories() {
+  const api = useApiScope();
+
+  return useQuery({
+    queryKey: ["finance-vendor-categories"],
+    queryFn: async () => {
+      const response = await api.get<unknown>("provider/vendor/category");
+      return normalizeFinanceVendorCategories((response as { data: unknown }).data);
     },
   });
 }

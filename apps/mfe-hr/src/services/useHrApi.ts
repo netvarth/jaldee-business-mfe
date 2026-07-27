@@ -14,10 +14,7 @@ import { apiClient, getReadableApiError } from "@jaldee/api-client";
  * All responses are wrapped in `ApiResponse<T> = { status, data, timestamp }`,
  * so we unwrap `.data` here and hand callers the raw payload.
  */
-const GATEWAY_PREFIX = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX
-  ? `/${import.meta.env.VITE_SERVICE_GATEWAY_PREFIX.replace(/^\/+|\/+$/g, "")}`
-  : "";
-export const HR_SERVICE_API_ROOT = `${GATEWAY_PREFIX}/hr-service/v1/api`;
+export const HR_SERVICE_API_ROOT = "/hr-service/v1/api";
 const BASE =
   import.meta.env.VITE_HR_API_BASE_PATH ||
   `${HR_SERVICE_API_ROOT}/tenant`;
@@ -27,13 +24,13 @@ type RequestBody = Record<string, unknown> | unknown[] | FormData | string | num
 function buildHrServiceUrl(endpoint: string) {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
   if (/^\/?(provider|base-service|auth-service)\//i.test(endpoint)) {
-    return new URL(endpoint.startsWith("/") ? endpoint : `/${endpoint}`, window.location.origin).toString();
+    return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   }
-  if (endpoint.startsWith(`${GATEWAY_PREFIX}/hr-service/`) || endpoint.startsWith("/hr-service/")) {
-    return new URL(endpoint, window.location.origin).toString();
+  if (endpoint.startsWith("/hr-service/")) {
+    return endpoint;
   }
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  return new URL(`${BASE}${normalizedEndpoint}`, window.location.origin).toString();
+  return `${BASE}${normalizedEndpoint}`;
 }
 
 interface CacheEntry {
@@ -46,7 +43,7 @@ const searchRequestCache = new Map<string, CacheEntry>();
 const SEARCH_DEDUPE_TTL_MS = 1000;
 
 export function useHrApi() {
-  const { authToken } = useMFEProps();
+  const { authToken, api } = useMFEProps();
 
   return useMemo(() => {
     async function request<T>(
@@ -67,13 +64,15 @@ export function useHrApi() {
 
         const promise = (async () => {
           try {
-            const res = await apiClient.request<any>({
-              url: cacheKey,
-              method,
-              data: body,
-              timeout,
-              _skipLocationParam: true,
-            });
+            const res = api
+              ? await api.get<any>(cacheKey, { timeout, _skipLocationParam: true })
+              : await apiClient.request<any>({
+                  url: cacheKey,
+                  method,
+                  data: body,
+                  timeout,
+                  _skipLocationParam: true,
+                });
 
             const parsed = res.data;
             return parsed && typeof parsed === "object" && "data" in parsed
@@ -105,13 +104,22 @@ export function useHrApi() {
       const mutationPromise = (async () => {
         getCache.clear();
         try {
-          const res = await apiClient.request<any>({
-            url: requestUrl,
-            method,
-            data: body,
-            timeout,
-            _skipLocationParam: true,
-          });
+          const requestConfig = { timeout, _skipLocationParam: true };
+          const res = api
+            ? method === "POST"
+              ? await api.post<any>(requestUrl, body, requestConfig)
+              : method === "PUT"
+                ? await api.put<any>(requestUrl, body, requestConfig)
+                : method === "PATCH"
+                  ? await api.patch<any>(requestUrl, body, requestConfig)
+                  : await api.delete<any>(requestUrl, requestConfig)
+            : await apiClient.request<any>({
+                url: requestUrl,
+                method,
+                data: body,
+                timeout,
+                _skipLocationParam: true,
+              });
 
           const parsed = res.data;
           return parsed && typeof parsed === "object" && "data" in parsed
@@ -139,5 +147,5 @@ export function useHrApi() {
       patch: <T>(endpoint: string, body?: RequestBody) => request<T>(endpoint, "PATCH", body),
       del: <T>(endpoint: string) => request<T>(endpoint, "DELETE"),
     };
-  }, [authToken]);
+  }, [api, authToken]);
 }

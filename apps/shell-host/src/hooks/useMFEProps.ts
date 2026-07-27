@@ -13,6 +13,26 @@ declare global {
   }
 }
 
+function buildMfeApiUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+
+  const normalizedUrl = url.startsWith("/") ? url : `/${url}`;
+  const configuredPrefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
+  const gatewayPrefix = configuredPrefix && configuredPrefix !== "/"
+    ? `/${configuredPrefix.replace(/^\/+|\/+$/g, "")}`
+    : "";
+
+  if (
+    gatewayPrefix &&
+    !normalizedUrl.startsWith(`${gatewayPrefix}/`) &&
+    /^\/(auth-service|base-service|booking-service|finance-service|hr-service|platform-service)\//.test(normalizedUrl)
+  ) {
+    return `${gatewayPrefix}${normalizedUrl}`;
+  }
+
+  return normalizedUrl;
+}
+
 export function useBuildMFEProps(
   mfeName: string,
   basePath: string
@@ -54,11 +74,11 @@ export function useBuildMFEProps(
       navigate: (route: string) => navigate(route),
       eventBus,
       api: {
-        get: (url, config) => apiClient.get(url, config),
-        post: (url, data, config) => apiClient.post(url, data, config),
-        put: (url, data, config) => apiClient.put(url, data, config),
-        patch: (url, data, config) => apiClient.patch(url, data, config),
-        delete: (url, config) => apiClient.delete(url, config),
+        get: (url, config) => apiClient.get(buildMfeApiUrl(url), config),
+        post: (url, data, config) => apiClient.post(buildMfeApiUrl(url), data, config),
+        put: (url, data, config) => apiClient.put(buildMfeApiUrl(url), data, config),
+        patch: (url, data, config) => apiClient.patch(buildMfeApiUrl(url), data, config),
+        delete: (url, config) => apiClient.delete(buildMfeApiUrl(url), config),
       },
       onError: (error) => {
         console.error(`[${mfeName}] MFE Error:`, error);
