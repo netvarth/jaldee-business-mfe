@@ -2698,24 +2698,39 @@ function ReceivablesPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const [financeReceivables, setFinanceReceivables] = useState<FinanceReceivable[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadReceivables() {
-      const filter = mfeProps.location?.id
-        ? { "locationId-eq": mfeProps.location.id, from: 0, count: 15 }
-        : { from: 0, count: 15 };
-
+      setLoading(true);
       try {
-        const response = await financeApi.revenue.list(filter);
-        if (active) {
-          setFinanceReceivables(normalizeReceivableRows(response.data));
+        const response = await financeApi.revenue.list<any>({
+          page: page - 1,
+          size: pageSize,
+          ...(mfeProps.location?.id ? { locationUid: mfeProps.location.id } : {}),
+        });
+        if (!active) {
+          return;
         }
+
+        const payload = response.data;
+        const normalizedRows = normalizeReceivableRows(payload);
+        setFinanceReceivables(normalizedRows);
+        setTotalRecords(Number((payload as any)?.totalElements ?? (payload as any)?.total ?? normalizedRows.length ?? 0) || 0);
       } catch (error) {
         console.error("[mfe-finance] Failed to load receivables", error);
         if (active) {
           setFinanceReceivables([]);
+          setTotalRecords(0);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
         }
       }
     }
@@ -2725,7 +2740,7 @@ function ReceivablesPage() {
     return () => {
       active = false;
     };
-  }, [mfeProps.location?.id]);
+  }, [mfeProps.location?.id, page, pageSize]);
 
   const columns = useMemo<ColumnDef<(typeof financeReceivables)[number]>[]>(
     () => [
@@ -2754,37 +2769,29 @@ function ReceivablesPage() {
 
   return (
     <FinanceFeatureLayout
-      title="Revenues"
+      title="Revenue"
       subtitle="Outstanding incoming balances and collections ownership."
       actions={<Button onClick={() => navigate("create")}>Add Revenue</Button>}
-      // stats={[
-      //   { label: "Receivable Accounts", value: String(financeReceivables.length), accent: "indigo" },
-      //   { label: "Outstanding", value: formatCurrency(financeReceivables.reduce((sum, row) => sum + row.amountDue, 0)), accent: "amber" },
-      //   { label: "Largest Dues", value: formatCurrency(financeReceivables.length ? Math.max(...financeReceivables.map((row) => row.amountDue)) : 0), accent: "rose" },
-      //   { label: "Collections Owners", value: String(new Set(financeReceivables.map((row) => row.owner)).size), accent: "emerald" },
-      // ]}
       main={
-        <DataTableCard
-          title={`Revenue(${financeReceivables.length})`}
-          subtitle=""
-          data={financeReceivables}
-          columns={columns}
-          getRowId={(row) => row.id}
-          emptyTitle="No Revenue"
-          emptyDescription="Revenue will appear here."
-        />
+        <SectionCard className="border-slate-200 shadow-sm">
+          <div className="mb-4 text-xl font-semibold text-slate-900">{`Revenue(${totalRecords})`}</div>
+          <DataTable
+            data={financeReceivables}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            pagination={{
+              page,
+              pageSize,
+              total: totalRecords,
+              onChange: setPage,
+              onPageSizeChange: setPageSize,
+              mode: "server",
+            }}
+            emptyState={<EmptyState title="No Revenue" description={loading ? "Loading revenue..." : "Revenue will appear here."} />}
+          />
+        </SectionCard>
       }
-      // aside={
-      //   <FeedCard title="Ageing View">
-      //     <SummaryList
-      //       rows={financeReceivables.map((row) => ({
-      //         label: row.patientName || row.customer,
-      //         value: formatCurrency(row.amountDue),
-      //         note: `${row.reference || row.invoiceId} | ${row.location || row.ageing}`,
-      //       }))}
-      //     />
-      //   </FeedCard>
-      // }
     />
   );
 }
@@ -4225,49 +4232,196 @@ function ExpensesCreatePage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [statusId, setStatusId] = useState("");
   const [amount, setAmount] = useState("");
   const [bookedOn, setBookedOn] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newStatusName, setNewStatusName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [creatingStatus, setCreatingStatus] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    async function loadCategories() {
+    async function loadFormData(selectNew?: { categoryId?: string; statusId?: string }) {
       const result = await Promise.allSettled([
         financeApi.categories.search<any>({
-          "categoryType-eq": "Expense",
-          "status-eq": "Enabled",
-          from: 0,
-          count: 100,
+          page: 0,
+          size: 100,
+          sort: [{ field: "createdAt", direction: "DESC" }],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["Expense"],
+          },
+          view: "SUMMARY",
+        }),
+        financeApi.statuses.search<any>({
+          page: 0,
+          size: 100,
+          sort: [{ field: "createdAt", direction: "DESC" }],
+          filters: {
+            field: "categoryType",
+            operator: "IN",
+            values: ["Expense"],
+          },
+          view: "SUMMARY",
         }),
       ]);
 
       if (!active) return;
 
       const categoriesResponse = result[0].status === "fulfilled" ? result[0].value : null;
+      const statusesResponse = result[1].status === "fulfilled" ? result[1].value : null;
       const categories = Array.isArray(categoriesResponse?.data)
         ? categoriesResponse.data
         : Array.isArray(categoriesResponse?.data?.content)
           ? categoriesResponse.data.content
           : [];
+      const statuses = Array.isArray(statusesResponse?.data)
+        ? statusesResponse.data
+        : Array.isArray(statusesResponse?.data?.content)
+          ? statusesResponse.data.content
+          : [];
 
-      const nextCategoryOptions = categories.map((item: any, index: number) => ({
+      const filteredCategories = categories.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "expense" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const filteredStatuses = statuses.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "expense" && (status === "" || status === "enabled" || status === "enable");
+      });
+
+      const nextCategoryOptions = filteredCategories.map((item: any, index: number) => ({
         value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
         label: String(item.name ?? item.categoryName ?? item.displayName ?? "Category"),
       }));
+      const nextStatusOptions = filteredStatuses.map((item: any, index: number) => ({
+        value: String(item.id ?? item.uid ?? item.encId ?? `status-${index}`),
+        label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Status"),
+      }));
 
       setCategoryOptions(nextCategoryOptions);
-      setCategoryId((current) => current || nextCategoryOptions[0]?.value || "");
+      setStatusOptions(nextStatusOptions);
+      setCategoryId((current) => selectNew?.categoryId || current || nextCategoryOptions[0]?.value || "");
+      setStatusId((current) => selectNew?.statusId || current || nextStatusOptions[0]?.value || "");
     }
 
-    void loadCategories();
+    void loadFormData();
     return () => {
       active = false;
     };
   }, []);
+
+  async function handleCreateCategory() {
+    setFormError("");
+    if (!newCategoryName.trim()) {
+      setFormError("Category name is required.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const response = await financeApi.categories.create<any>({
+        categoryName: newCategoryName.trim(),
+        name: newCategoryName.trim(),
+        categoryType: "Expense",
+      });
+      const created = response.data ?? response;
+      const nextId = String(created?.categoryId ?? created?.configCategoryId ?? created?.id ?? created?.uid ?? created?.encId ?? "");
+      setShowCategoryDialog(false);
+      setNewCategoryName("");
+
+      const categoriesResponse = await financeApi.categories.search<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["Expense"],
+        },
+        view: "SUMMARY",
+      });
+      const categories = Array.isArray(categoriesResponse.data?.content) ? categoriesResponse.data.content : [];
+      const filteredCategories = categories.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "expense" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const nextCategoryOptions = filteredCategories.map((item: any, index: number) => ({
+        value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
+        label: String(item.name ?? item.categoryName ?? item.displayName ?? "Category"),
+      }));
+      setCategoryOptions(nextCategoryOptions);
+      setCategoryId(nextId || nextCategoryOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create expense category", error);
+      setFormError(error instanceof Error ? error.message : "Could not create category.");
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
+
+  async function handleCreateStatus() {
+    setFormError("");
+    if (!newStatusName.trim()) {
+      setFormError("Status name is required.");
+      return;
+    }
+
+    setCreatingStatus(true);
+    try {
+      const response = await financeApi.statuses.create<any>({
+        statusName: newStatusName.trim(),
+        name: newStatusName.trim(),
+        categoryType: "Expense",
+      });
+      const created = response.data ?? response;
+      const nextId = String(created?.statusId ?? created?.id ?? created?.uid ?? created?.encId ?? "");
+      setShowStatusDialog(false);
+      setNewStatusName("");
+
+      const statusesResponse = await financeApi.statuses.search<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["Expense"],
+        },
+        view: "SUMMARY",
+      });
+      const statuses = Array.isArray(statusesResponse.data?.content) ? statusesResponse.data.content : [];
+      const filteredStatuses = statuses.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "expense" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const nextStatusOptions = filteredStatuses.map((item: any, index: number) => ({
+        value: String(item.id ?? item.uid ?? item.encId ?? `status-${index}`),
+        label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Status"),
+      }));
+      setStatusOptions(nextStatusOptions);
+      setStatusId(nextId || nextStatusOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create expense status", error);
+      setFormError(error instanceof Error ? error.message : "Could not create status.");
+    } finally {
+      setCreatingStatus(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -4289,6 +4443,7 @@ function ExpensesCreatePage() {
         expenseFor: title.trim(),
         title: title.trim(),
         categoryId: categoryId || undefined,
+        statusId: Number(statusId) || undefined,
         amount: parsedAmount,
         expenseDate: toIsoDateTime(bookedOn),
         createdDate: toIsoDateTime(bookedOn),
@@ -4306,23 +4461,95 @@ function ExpensesCreatePage() {
   }
 
   return (
-    <PageShell
-      title="Create Expense"
-      subtitle="Create a finance expense record."
-      actions={<Button variant="outline" onClick={() => navigate("/expense")}>Back</Button>}
-    >
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Create Expense"
+        subtitle="Create a finance expense record."
+        actions={
+          <div className="flex items-center gap-2">
+            <Popover
+              portal
+              placement="bottom"
+              align="end"
+              trigger={
+                <Button type="button" variant="outline">
+                  Actions
+                </Button>
+              }
+            >
+              <div className="grid min-w-[220px] p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=Expense`)}
+                >
+                  Expense category
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}
+                >
+                  Create Vendor
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=Expense`)}
+                >
+                  Expense Status
+                </Button>
+              </div>
+            </Popover>
+            <Button variant="outline" onClick={() => navigate(toFinanceRoute("/finance/expense"))}>Back</Button>
+          </div>
+        }
+      />
+
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Expense Title" value={title} onChange={(event) => setTitle(event.target.value)} required />
-            <Select label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} options={[{ value: "", label: "Select category" }, ...categoryOptions]} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Category</label>
+              <div className="flex items-center">
+                <Select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Select category" }, ...categoryOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
+                  +
+                </Button>
+              </div>
+            </div>
             <Input label="Booked On" type="date" value={bookedOn} onChange={(event) => setBookedOn(event.target.value)} required />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Status</label>
+              <div className="flex items-center">
+                <Select
+                  value={statusId}
+                  onChange={(event) => setStatusId(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Select status" }, ...statusOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
+                  +
+                </Button>
+              </div>
+            </div>
             <Input label="Amount" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required />
           </div>
           <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">{formError}</div> : null}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/expense")}>
+            <Button type="button" variant="outline" onClick={() => navigate(toFinanceRoute("/finance/expense"))}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -4331,7 +4558,31 @@ function ExpensesCreatePage() {
           </div>
         </form>
       </SectionCard>
-    </PageShell>
+
+      <Dialog open={showCategoryDialog} onClose={() => setShowCategoryDialog(false)} title="Create Expense Category" size="md">
+        <div className="space-y-5 pt-2">
+          <Input label="Category Name" placeholder="Enter Category Name" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowCategoryDialog(false)}>Close</Button>
+            <Button type="button" onClick={() => void handleCreateCategory()} disabled={creatingCategory || !newCategoryName.trim()}>
+              {creatingCategory ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showStatusDialog} onClose={() => setShowStatusDialog(false)} title="Create Expense Status" size="md">
+        <div className="space-y-5 pt-2">
+          <Input label="Status Name" placeholder="Enter Status Name" value={newStatusName} onChange={(event) => setNewStatusName(event.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowStatusDialog(false)}>Close</Button>
+            <Button type="button" onClick={() => void handleCreateStatus()} disabled={creatingStatus || !newStatusName.trim()}>
+              {creatingStatus ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+    </div>
   );
 }
 
