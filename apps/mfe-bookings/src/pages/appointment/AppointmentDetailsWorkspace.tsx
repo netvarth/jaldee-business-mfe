@@ -207,7 +207,18 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     setRescheduleSeries(false);
   };
 
+  const getDerivedActions = (status: string, allowed: AllowedAction[]): AllowedAction[] => {
+    switch (status) {
+      case "REQUESTED": return ["CONFIRM", "CANCEL"];
+      case "CONFIRMED": return ["CHECK_IN", "CANCEL"];
+      case "CHECKED_IN": return ["START", "CANCEL"];
+      case "IN_PROGRESS": return ["COMPLETE", "CANCEL"];
+      default: return allowed;
+    }
+  };
+
   const st = details ? STATUS_STYLE[details.status] : null;
+  const actionsToShow = details ? getDerivedActions(details.status, details.allowedActions) : [];
 
   return (
     <div data-testid={`bookings-appointment-details-${bookingId}`} data-state={loading || !details ? "loading" : details.status} className="relative z-40 mx-4 flex max-h-[88vh] w-full max-w-[452px] flex-col overflow-hidden rounded-[28px] border border-[#dfe6f4] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)]" onClick={(e) => e.stopPropagation()}>
@@ -425,7 +436,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
         {/* Footer Actions */}
         {!loading && details && (
             <div className="shrink-0 px-6 pb-6 pt-4">
-                {details.allowedActions.includes("START") && (
+                {actionsToShow.includes("START") && (
                   <Button
                     variant="primary"
                     className="mb-3 h-11 w-full rounded-[14px] border-0 bg-[#5f3aa8] text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(95,58,168,0.26)] hover:bg-[#533197]"
@@ -436,7 +447,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   </Button>
                 )}
                 <div className="grid grid-cols-3 gap-2">
-                {details.allowedActions.filter((action) => action !== "START").slice(0, 3).map((action) => {
+                {actionsToShow.filter((action) => action !== "START").slice(0, 3).map((action) => {
                     const meta = ACTION_META[action];
                     const Icon = meta?.icon || Play;
                     const isBusy = acting === action;

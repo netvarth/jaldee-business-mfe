@@ -7,6 +7,7 @@ import AppShell from "./components/AppShell";
 
 const CalendarDashboard = lazy(() => import("./pages/calendar/CalendarDashboard"));
 const AppointmentDetailsWorkspace = lazy(() => import("./pages/appointment/AppointmentDetailsWorkspace"));
+const BookingListPage = lazy(() => import("./pages/bookings/BookingListPage"));
 const CalendarList = lazy(() => import("./pages/calendar/CalendarList"));
 const CalendarWizard = lazy(() => import("./pages/calendar/CalendarWizard"));
 const CalendarDetails = lazy(() => import("./pages/calendar/CalendarDetails"));
@@ -60,6 +61,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<CalendarPage />} />
             <Route path="/calendar" element={<Navigate to="/" replace />} />
+            <Route path="/bookings" element={<BookingListPage />} />
             <Route path="/calendars" element={<CalendarList />} />
             <Route path="/calendars/create" element={<CalendarWizard />} />
             <Route path="/calendars/details" element={<CalendarDetails />} />

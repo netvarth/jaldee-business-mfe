@@ -107,6 +107,12 @@ const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tena
 const TENANT_CATEGORY_SEARCH_ENDPOINT = `${TENANT_CATEGORY_ENDPOINT}/search`;
 const TENANT_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/status");
 const TENANT_STATUS_SEARCH_ENDPOINT = `${TENANT_STATUS_ENDPOINT}/search`;
+const TENANT_VENDOR_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor");
+const TENANT_VENDOR_SEARCH_ENDPOINT = `${TENANT_VENDOR_ENDPOINT}/search`;
+const TENANT_VENDOR_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/category");
+const TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT = `${TENANT_VENDOR_CATEGORY_ENDPOINT}/search`;
+const TENANT_VENDOR_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/status");
+const TENANT_VENDOR_STATUS_SEARCH_ENDPOINT = `${TENANT_VENDOR_STATUS_ENDPOINT}/search`;
 const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item");
 const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
 const TENANT_PAYMENTS_OUT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-out");
@@ -245,6 +251,24 @@ export const financeApi = {
 
   vendors: {
     ...vendors,
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_VENDOR_ENDPOINT, data);
+    },
+    search<T = unknown>(data: unknown) {
+      return post<T>(TENANT_VENDOR_SEARCH_ENDPOINT, data);
+    },
+    createCategory<T = unknown>(data: unknown) {
+      return post<T>(TENANT_VENDOR_CATEGORY_ENDPOINT, data);
+    },
+    categories<T = unknown>(data: unknown) {
+      return post<T>(TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT, data);
+    },
+    createStatus<T = unknown>(data: unknown) {
+      return post<T>(TENANT_VENDOR_STATUS_ENDPOINT, data);
+    },
+    statuses<T = unknown>(data: unknown) {
+      return post<T>(TENANT_VENDOR_STATUS_SEARCH_ENDPOINT, data);
+    },
     uploadPhoto<T = unknown>(vendorId: string, data: unknown) {
       return put<T>(`provider/jp/finance/vendor/${vendorId}/attachments`, data);
     },

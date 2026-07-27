@@ -429,7 +429,7 @@ export const useCalendars = (
       prev.map((item) => (item.uid === calendar.uid ? { ...item, status: next } : item))
     );
     try {
-      await api.put(`/calendars/${calendar.uid}/status`, next === "ACTIVE" ? "Enabled" : "Disabled");
+      await api.put(`/calendars/${calendar.uid}/status`, { status: next });
     } catch {
       // Local-only update is fine for the prototype.
     }

@@ -130,9 +130,9 @@ export const useServices = (
     const next: ServiceItem["status"] = service.status === "Active" ? "Inactive" : "Active";
     setServices((prev) => prev.map((item) => (item.id === service.id ? { ...item, status: next } : item)));
     try {
-      await api.put(`/services/${service.id}/status`, toApiStatus(next));
+      await api.patch(`/services/${service.id}/status`, { status: toApiStatus(next) });
     } catch {
-      // Local-only update is fine for the prototype.
+      setServices((prev) => prev.map((item) => (item.id === service.id ? service : item)));
     }
   };
 

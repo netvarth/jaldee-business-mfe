@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Button, DatePickerPopover, PageHeader, Select } from "@jaldee/design-system";
+import { Button, DatePickerPopover, PageHeader, Select, Popover } from "@jaldee/design-system";
 import {
   buildDefaultSearchClauses,
   compactSearchClauses,
@@ -22,7 +22,6 @@ import CreateAppointmentDrawer from "../booking/CreateAppointmentDrawer";
 import BlockSlotModal from "../booking/BlockSlotModal";
 import DayGrid from "./DayGrid";
 import { useDashboardFilters } from "../../services/useDashboardFilters";
-import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SaveDashboardFilterModal from "./SaveDashboardFilterModal";
 import "./calendar-grid.css";
 import "./list-view.css";
@@ -86,6 +85,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
   const { filters: savedFilters, saveFilter: createSavedFilter, deleteFilter: removeSavedFilter } = useDashboardFilters();
   const [activeFilterUid, setActiveFilterUid] = useState<string | undefined>();
   const [pendingSavedFilterSearch, setPendingSavedFilterSearch] = useState(false);
+  const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
   const dateTriggerRef = React.useRef<HTMLButtonElement | null>(null);
 
   const { bookings: liveBookings, refresh: refreshBookings } = useBookings(
@@ -178,22 +178,23 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
     return true;
   });
 
-  const formattedDate = `${format(date, "dd MMM yyyy")}${
-    format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") ? ", Today" : ""
-  }`;
+  const formattedDate = `${format(date, "dd MMM yyyy")}`;
 
-  const openSchemaFilters = () => {
-    const baseFilters =
-      advancedFilters.length > 0
-        ? advancedFilters
-        : buildDefaultSearchClauses(bookingSearchSchema);
+  const openSchemaFilters = (initialFilters?: SearchFilterClause[]) => {
+    const defaultClauses = buildDefaultSearchClauses(bookingSearchSchema);
+    const savedClauses = initialFilters || (advancedFilters.length > 0 ? advancedFilters : []);
 
-    setDraftFilters(baseFilters);
+    const mergedFilters = defaultClauses.map((defaultClause) => {
+      const savedClause = savedClauses.find((sc) => sc.field === defaultClause.field);
+      return savedClause ? { ...defaultClause, ...savedClause } : defaultClause;
+    });
+
+    setDraftFilters(mergedFilters);
 
       openDrawer(
         <BookingSearchFiltersDrawer
           schema={bookingSearchSchema}
-          draftFilters={baseFilters}
+          draftFilters={mergedFilters}
           appliedCount={appliedAdvancedFilterCount}
           appliedSummary={appliedAdvancedFilterSummary}
           onChange={setDraftFilters}
@@ -205,17 +206,17 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           }}
           onApply={(filters) => {
             setDraftFilters(filters);
-            setAdvancedFilters(filters.length > 0 ? filters : baseFilters);
+            setAdvancedFilters(filters.length > 0 ? filters : mergedFilters);
             setActiveFilterUid(undefined);
           }}
           onSaveFilter={(filters) => {
             openModal(
               <SaveDashboardFilterModal
                 onSave={async (name) => {
-                  await createSavedFilter(name, filters.length > 0 ? filters : baseFilters);
+                  await createSavedFilter(name, filters.length > 0 ? filters : mergedFilters);
                 }}
                 onSaveAndApply={async (name) => {
-                  const created = await createSavedFilter(name, filters.length > 0 ? filters : baseFilters);
+                  const created = await createSavedFilter(name, filters.length > 0 ? filters : mergedFilters);
                   setAdvancedFilters(created.filter.filters);
                   setActiveFilterUid(created.uid);
                 }}
@@ -239,48 +240,115 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           className="mb-4"
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <SavedFiltersDropdown
-                filters={savedFilters}
-                activeFilterUid={activeFilterUid}
-                onSelect={(filter) => {
-                  if (filter) {
-                    setAdvancedFilters(filter.filter.filters);
-                    setActiveFilterUid(filter.uid);
-                  } else {
-                    setAdvancedFilters(buildDefaultSearchClauses(bookingSearchSchema));
-                    setActiveFilterUid(undefined);
+              {savedFilters.length > 0 ? (
+                <Popover
+                  open={isFilterPopoverOpen}
+                  onOpenChange={setIsFilterPopoverOpen}
+                  placement="bottom"
+                  align="end"
+                  contentClassName="!w-[300px] !p-0 overflow-hidden shadow-lg border border-slate-200"
+                  trigger={
+                    <Button
+                      type="button"
+                      variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
+                      size="sm"
+                      className={`filter-applied-btn flex items-center gap-2 rounded-md px-4 py-2 font-semibold ${
+                        appliedAdvancedFilterCount > 0
+                          ? ""
+                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+                      }`}
+                      id="filter-panel-toggle"
+                      data-testid="bookings-filter-panel-toggle"
+                    >
+                      <FilterIcon />
+                      <span id="filter-btn-text">Filter</span>
+                      {appliedAdvancedFilterCount > 0 ? (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                          {appliedAdvancedFilterCount}
+                        </span>
+                      ) : null}
+                    </Button>
                   }
-                  setPendingSavedFilterSearch(true);
-                }}
-                onDelete={(uid) => {
-                  removeSavedFilter(uid);
-                  if (activeFilterUid === uid) {
-                    setAdvancedFilters(buildDefaultSearchClauses(bookingSearchSchema));
-                    setActiveFilterUid(undefined);
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
-                size="sm"
-                className={`filter-applied-btn flex items-center gap-2 rounded-md px-4 py-2 font-semibold ${
-                  appliedAdvancedFilterCount > 0
-                    ? ""
-                    : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
-                }`}
-                id="filter-panel-toggle"
-                data-testid="bookings-filter-panel-toggle"
-                onClick={openSchemaFilters}
-              >
-                <FilterIcon />
-                <span id="filter-btn-text">Filter</span>
-                {appliedAdvancedFilterCount > 0 ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
-                    {appliedAdvancedFilterCount}
-                  </span>
-                ) : null}
-              </Button>
+                >
+                  <div className="flex flex-col bg-white">
+                    <div className="flex items-center justify-between border-b border-slate-100 p-4">
+                      <h3 className="font-bold text-slate-800 text-base">Filters</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsFilterPopoverOpen(false);
+                          openSchemaFilters(buildDefaultSearchClauses(bookingSearchSchema));
+                        }}
+                        className="rounded-md px-3 py-1.5 text-xs font-bold text-white transition-colors hover:opacity-90"
+                        style={{ backgroundColor: "#311090" }}
+                      >
+                        +Create
+                      </button>
+                    </div>
+                    <div className="flex flex-col py-2">
+                      {savedFilters.map((filter) => {
+                        const isActive = filter.uid === activeFilterUid;
+                        return (
+                          <div
+                            key={filter.uid}
+                            className={`flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-slate-50`}
+                          >
+                            <label className="flex items-center gap-3 cursor-pointer flex-1">
+                              <input
+                                type="radio"
+                                name="savedFilter"
+                                className="h-4 w-4 border-slate-300 text-[#311090] focus:ring-[#311090]"
+                                style={{ accentColor: "#311090" }}
+                                checked={isActive}
+                                onChange={() => {
+                                  setAdvancedFilters(filter.filter.filters);
+                                  setActiveFilterUid(filter.uid);
+                                  setPendingSavedFilterSearch(true);
+                                  setIsFilterPopoverOpen(false);
+                                }}
+                              />
+                              <span className="text-sm font-semibold text-slate-700">{filter.name}</span>
+                            </label>
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2 ml-4"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsFilterPopoverOpen(false);
+                                openSchemaFilters(filter.filter.filters);
+                              }}
+                            >
+                              Manage
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Popover>
+              ) : (
+                <Button
+                  type="button"
+                  variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
+                  size="sm"
+                  className={`filter-applied-btn flex items-center gap-2 rounded-md px-4 py-2 font-semibold ${
+                    appliedAdvancedFilterCount > 0
+                      ? ""
+                      : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
+                  }`}
+                  id="filter-panel-toggle"
+                  data-testid="bookings-filter-panel-toggle"
+                  onClick={() => openSchemaFilters()}
+                >
+                  <FilterIcon />
+                  <span id="filter-btn-text">Filter</span>
+                  {appliedAdvancedFilterCount > 0 ? (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
+                      {appliedAdvancedFilterCount}
+                    </span>
+                  ) : null}
+                </Button>
+              )}
               <div className="relative">
                 <Button
                   id="bookings-create-appointment"
@@ -335,7 +403,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                           <line x1="8" y1="2" x2="8" y2="6" />
                           <line x1="3" y1="10" x2="21" y2="10" />
                         </svg>
-                        Calendar
+                        <span className="hidden md:inline">Calendar</span>
                       </button>
                     </div>
                   </>
@@ -357,7 +425,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               variant="ghost"
               size="sm"
               className="view-pill"
-              onClick={() => navigate("/calendars")}
+              onClick={() => navigate("/bookings")}
               aria-label="List View"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -374,13 +442,13 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               size="sm"
               className="view-pill active"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="md:mr-1">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                 <line x1="16" y1="2" x2="16" y2="6"></line>
                 <line x1="8" y1="2" x2="8" y2="6"></line>
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
-              Calendar
+              <span className="hidden md:inline">Calendar</span>
             </Button>
           </div>
           <div className="mx-2 h-6 w-px bg-slate-200 hidden md:block" />
@@ -539,7 +607,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           />
 
           <div className="sidebar-scrollable-content">
-            <div className="md:hidden flex flex-col gap-3 p-4 border-b border-slate-200">
+            <div className="md:hidden flex flex-col gap-2 p-2 border-b border-slate-200">
               <div className="view-pill-group w-full flex">
                 <Button
                   variant="ghost"

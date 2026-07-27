@@ -57,7 +57,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                 <div className="calendar-scroll flex-1 custom-scrollbar">
                     <div className="calendar-grid-inner min-w-max">
                         {/* Header */}
-                        <div className="calendar-header" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
+                        <div className="calendar-header" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(7, minmax(0, 1fr))` }}>
                             <div className="calendar-timezone">
                                 <div className="timezone-label">IST<br/>+05:30</div>
                             </div>
@@ -75,14 +75,14 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                         </div>
 
                         {/* Body */}
-                        <div className="calendar-body" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
+                        <div className="calendar-body" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(7, minmax(0, 1fr))` }}>
                             {hours.map((hour) => {
                                 const ampm = hour >= 12 ? 'PM' : 'AM';
                                 const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
                                 const timeLabel = `${displayHour.toString().padStart(2, '0')}:00 ${ampm}`;
 
                                 return (
-                                    <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `120px repeat(7, minmax(0, 1fr))` }}>
+                                    <div key={hour} className="calendar-row" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(7, minmax(0, 1fr))` }}>
                                         <div className="hour-column">{timeLabel}</div>
                                         {days.map((dayDate, dayIndex) => {
                                             // Filter bookings for this slot

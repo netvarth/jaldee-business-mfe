@@ -184,10 +184,10 @@ function toUiApptType(value: unknown): ServiceFormPrefill["apptType"] {
 }
 
 function toUiRequestType(value: unknown, raw: Record<string, unknown> = {}): ServiceFormPrefill["requestType"] {
-  const normalized = asString(value).toUpperCase();
-  if (normalized === "DATE_TIME" || raw.dateTime === true) return "With Date & Time";
-  if (normalized === "DATE_ONLY" || raw.date === true) return "With Date Only";
-  if (normalized === "NONE" || raw.noDateTime === true) return "No Date & Time";
+  const normalized = asString(value || raw.serviceRequestType).toUpperCase();
+  if (normalized === "WITH_DATE_AND_TIME" || normalized === "DATE_TIME" || raw.dateTime === true) return "With Date & Time";
+  if (normalized === "WITH_DATE_ONLY" || normalized === "DATE_ONLY" || raw.date === true) return "With Date Only";
+  if (normalized === "NO_DATE_AND_TIME" || normalized === "NONE" || raw.noDateTime === true) return "No Date & Time";
   return undefined;
 }
 
@@ -248,7 +248,7 @@ export function normalizeServiceDetails(payload: unknown): ServiceDetailsRecord 
     serviceCategory: asString(raw.serviceCategory ?? raw.category) || undefined,
     serviceType: asString(raw.serviceType) || undefined,
     appointmentType: asString(raw.bookingMode ?? raw.appointmentType ?? raw.apptType) || undefined,
-    requestType: asString(raw.requestType) || undefined,
+    requestType: asString(raw.serviceRequestType ?? raw.requestType) || undefined,
     durationMinutes: durationMinutes || undefined,
     displayOrder: toNumber(raw.displayOrder),
     color: asString(raw.color) || undefined,

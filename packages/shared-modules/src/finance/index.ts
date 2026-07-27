@@ -1,5 +1,7 @@
 export type {
   FinanceActivityLogRow,
+  FinanceVendorCategoryOption,
+  FinanceVendorCreatePayload,
   FinanceDataset,
   FinanceInvoiceCategoryOption,
   FinanceInvoiceCreatePayload,
@@ -51,6 +53,7 @@ export {
   useFinanceReports,
   useFinanceSummaries,
   useFinanceStatuses,
+  useFinanceVendorCategories,
   useFinanceVendorStatuses,
   useFinanceVendorsCount,
   useFinanceTenantSettings,

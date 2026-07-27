@@ -224,11 +224,21 @@ export function useFinanceInvoiceCategories() {
   return useQuery({
     queryKey: ["finance-invoice-categories"],
     queryFn: async () => {
-      const response = await api.get<unknown>("provider/jp/finance/category/list", {
-        params: {
-          "categoryType-eq": "Invoice",
-          "status-eq": "Enable",
+      const response = await api.post<unknown>("/finance-service/v1/api/tenant/category/search", {
+        page: 0,
+        size: 20,
+        sort: [
+          {
+            field: "createdAt",
+            direction: "DESC",
+          },
+        ],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["Invoice"],
         },
+        view: "SUMMARY",
       });
       return normalizeFinanceInvoiceCategories((response as { data: unknown }).data);
     },
@@ -241,11 +251,21 @@ export function useFinanceCategories(categoryType: "Expense" | "PaymentsInOut" |
   return useQuery({
     queryKey: ["finance-categories", categoryType],
     queryFn: async () => {
-      const response = await api.get<unknown>("provider/jp/finance/category/list", {
-        params: {
-          "categoryType-eq": categoryType,
-          "status-eq": "Enable",
+      const response = await api.post<unknown>("/finance-service/v1/api/tenant/category/search", {
+        page: 0,
+        size: 20,
+        sort: [
+          {
+            field: "createdAt",
+            direction: "DESC",
+          },
+        ],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: [categoryType],
         },
+        view: "SUMMARY",
       });
       return normalizeFinanceInvoiceCategories((response as { data: unknown }).data);
     },
@@ -258,11 +278,21 @@ export function useFinanceStatuses(categoryType: "Expense" | "PaymentsInOut" | "
   return useQuery({
     queryKey: ["finance-statuses", categoryType],
     queryFn: async () => {
-      const response = await api.get<unknown>("provider/jp/finance/status/list", {
-        params: {
-          "categoryType-eq": categoryType,
-          "status-eq": "Enable",
+      const response = await api.post<unknown>("/finance-service/v1/api/tenant/status/search", {
+        page: 0,
+        size: 20,
+        sort: [
+          {
+            field: "createdAt",
+            direction: "DESC",
+          },
+        ],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: [categoryType],
         },
+        view: "SUMMARY",
       });
       return normalizeFinanceInvoiceCategories((response as { data: unknown }).data);
     },
@@ -331,7 +361,7 @@ export function useCreateFinanceCategory() {
 }
 
 export function useCreateFinanceVendor() {
-  return useFinanceCreateMutation("provider/vendor", [
+  return useFinanceCreateMutation("/v1/api/tenant/vendor", [
     "finance-paginated-vendors",
     "finance-paginated-vendors-count",
   ]);

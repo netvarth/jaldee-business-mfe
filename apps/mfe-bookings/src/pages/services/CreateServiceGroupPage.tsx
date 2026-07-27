@@ -5,6 +5,7 @@ import { useServices } from "../../services/useServices";
 import { useServiceGroups } from "../../services/useServiceGroups";
 import { useToast } from "../../contexts/ToastContext";
 import type { ServiceGroupItem } from "../../types";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import DualListServicesModal from "../calendar/components/DualListServicesModal";
 
 const TrashIcon = ({ className }: { className?: string }) => (
@@ -15,7 +16,8 @@ export default function CreateServiceGroupPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const editGroup = (state as { group?: ServiceGroupItem } | null)?.group;
-  const { services } = useServices();
+  const filterClauses = useMemo<SearchFilterClause[]>(() => [{ id: "sys-isgroup", field: "isGroup", operator: "EQ", values: ["false"] }], []);
+  const { services } = useServices(filterClauses);
   const { createGroup, updateGroup } = useServiceGroups();
   const { showToast } = useToast();
 
@@ -111,8 +113,8 @@ export default function CreateServiceGroupPage() {
         />
       </div>
       
-      <div className="mx-auto w-full max-w-[1200px] p-6">
-        <form onSubmit={handleSubmit} className="rounded-xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden flex flex-col">
+      <div className="mx-auto w-full max-w-[1200px] p-0 md:p-6">
+        <form onSubmit={handleSubmit} className="md:rounded-xl md:border border-[#e2e8f0] border-y md:border-y md:border-x bg-white md:shadow-sm overflow-hidden flex flex-col">
           
           <div className="p-8 pb-6 border-b border-[#e2e8f0]">
             <h2 className="text-[13px] font-bold uppercase tracking-wider text-[#6b21a8] mb-6">Basic Package Info</h2>
@@ -152,7 +154,7 @@ export default function CreateServiceGroupPage() {
           </div>
 
           <div className="p-8 pb-4 border-b border-[#e2e8f0]">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 sm:gap-0">
               <div className="flex items-center gap-3">
                 <h2 className="text-[13px] font-bold uppercase tracking-wider text-[#6b21a8]">Bundle Clinical Services *</h2>
                 {selectedServiceIds.length > 0 && (
@@ -164,7 +166,7 @@ export default function CreateServiceGroupPage() {
               <button
                 type="button"
                 onClick={() => setIsServicesModalOpen(true)}
-                className="bg-[#f3e8ff] text-[#6b21a8] hover:bg-[#e9d5ff] font-semibold text-[13px] px-4 py-2 rounded-md transition-colors"
+                className="bg-[#f3e8ff] text-[#6b21a8] hover:bg-[#e9d5ff] font-semibold text-[13px] px-4 py-2 rounded-md transition-colors w-full sm:w-auto text-center"
               >
                 + Add Service
               </button>
@@ -178,29 +180,31 @@ export default function CreateServiceGroupPage() {
                   const initials = service.name.substring(0, 2).toUpperCase();
                   
                   return (
-                    <div key={serviceId} className="flex items-center justify-between py-4 border-b border-[#f1f5f9] last:border-0 group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-[#f3e8ff] text-[#6b21a8] flex items-center justify-center font-bold text-[14px]">
+                    <div key={serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between py-4 gap-4 sm:gap-0 border-b border-[#f1f5f9] last:border-0 group">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-[#f3e8ff] text-[#6b21a8] flex shrink-0 items-center justify-center font-bold text-[14px]">
                           {initials}
                         </div>
-                        <div>
-                          <div className="font-bold text-[14px] text-[#0f172a]">{service.name}</div>
-                          <div className="text-[13px] text-[#64748b]">{service.description || "General Medicine • Consultation"}</div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-[14px] text-[#0f172a] truncate">{service.name}</div>
+                          <div className="text-[13px] text-[#64748b] truncate">{service.description || "General Medicine • Consultation"}</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-12">
-                        <div className="text-right">
-                          <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wide">Duration</div>
-                          <div className="font-bold text-[14px] text-[#334155]">{service.duration} mins</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wide">Price</div>
-                          <div className="font-bold text-[14px] text-[#334155]">₹{service.price}</div>
+                      <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-12 w-full sm:w-auto pl-14 sm:pl-0">
+                        <div className="flex items-center gap-8 sm:gap-12">
+                          <div className="text-left sm:text-right">
+                            <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wide">Duration</div>
+                            <div className="font-bold text-[14px] text-[#334155]">{service.duration} mins</div>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wide">Price</div>
+                            <div className="font-bold text-[14px] text-[#334155]">₹{service.price}</div>
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => setSelectedServiceIds((current) => current.filter((id) => id !== serviceId))}
-                          className="text-[#94a3b8] hover:text-[#ef4444] transition-colors p-2"
+                          className="text-[#94a3b8] hover:text-[#ef4444] transition-colors p-2 shrink-0"
                         >
                           <TrashIcon className="w-[18px] h-[18px]" />
                         </button>
@@ -227,7 +231,7 @@ export default function CreateServiceGroupPage() {
           <div className="p-8">
             <h2 className="text-[13px] font-bold uppercase tracking-wider text-[#6b21a8] mb-6">Pricing &amp; Status</h2>
             
-            <div className="grid grid-cols-2 gap-8 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b]">Package Fee Mode</label>
@@ -309,17 +313,7 @@ export default function CreateServiceGroupPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-2">Package Labels (optional)</label>
-                <input 
-                  type="text" 
-                  value={labels} 
-                  onChange={(e) => setLabels(e.target.value)} 
-                  placeholder="e.g. Popular, Preventive, OPD"
-                  className="w-full h-11 px-4 text-[14px] bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#7c3aed] focus:border-[#7c3aed]"
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-2">Status</label>
                 <div className="relative">

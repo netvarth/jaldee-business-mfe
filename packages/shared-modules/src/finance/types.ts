@@ -130,6 +130,35 @@ export type FinanceVendorStatusOption = {
   name: string;
 };
 
+export type FinanceVendorCategoryOption = {
+  id: string;
+  name: string;
+};
+
+export type FinanceVendorCreatePayload = {
+  vendorCategoryId?: number;
+  vendorStatusId?: number;
+  vendorId?: string;
+  name: string;
+  contactName?: string;
+  address?: string;
+  state?: string;
+  pincode?: string;
+  phoneNumber?: string;
+  alternativePhoneNum?: string;
+  email?: string;
+  bankaccountNo?: string;
+  ifscCode?: string;
+  bankName?: string;
+  upiId?: string;
+  pancardNo?: string;
+  gstNumber?: string;
+  preferredPaymentMode?: string[];
+  currency?: string;
+  timezone?: string;
+  uploadedDocuments?: unknown[];
+};
+
 export type FinanceQuickAction = {
   label: string;
   route: string;
