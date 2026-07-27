@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMFEProps } from "@jaldee/auth-context";
-import { financeApi } from "./financeApi";
 import type {
   FinanceActivity,
   FinanceCashEntry,
@@ -296,157 +295,10 @@ function buildReportMetrics(invoices: FinanceInvoice[], payments: FinancePayment
 
 export function FinanceLiveProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FinanceLiveState>(defaultState);
-  const mfeProps = useMFEProps();
+  useMFEProps();
 
   useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      const locFilter = mfeProps.location?.id ? { "locationId-eq": mfeProps.location.id } : {};
-      const listFilter = mfeProps.location?.id ? { "locationId-eq": mfeProps.location.id, from: 0, count: 15 } : { from: 0, count: 15 };
-
-      const analyticsFilter = mfeProps.location?.id ? { frequency: "TODAY", config_metric_type: "FINANCE_GRAPH", locationId: mfeProps.location.id } : { frequency: "TODAY", config_metric_type: "FINANCE_GRAPH" };
-
-      const graphWeeklyPayload = {
-        category: "WEEKLY",
-        type: "BARCHART",
-        filter: mfeProps.location?.id ? { config_metric_type: "FINANCE_GRAPH", locationId: mfeProps.location.id } : { config_metric_type: "FINANCE_GRAPH" },
-      };
-
-      const graphMonthlyPayload = {
-        category: "MONTHLY",
-        type: "BARCHART",
-        filter: mfeProps.location?.id ? { config_metric_type: "FINANCE_GRAPH", locationId: mfeProps.location.id } : { config_metric_type: "FINANCE_GRAPH" },
-      };
-
-      const [
-        invoicesResult,
-        paymentsResult,
-        vendorsResult,
-        ledgerResult,
-        payablesResult,
-        expensesResult,
-        categoriesResult,
-        statusesResult,
-        cashResult,
-        activityResult,
-        totalsResult,
-        totalsCountResult,
-        analyticsResult,
-        graphWeeklyResult,
-        graphMonthlyResult,
-      ] = await Promise.allSettled([
-        financeApi.invoices.listGeneral(listFilter),
-        financeApi.revenue.list(listFilter),
-        financeApi.vendors.list({ from: 0, count: 8 }),
-        financeApi.ledger.list(listFilter),
-        financeApi.payables.list(listFilter),
-        financeApi.expenses.list(listFilter),
-        financeApi.categories.byFilter({}),
-        financeApi.statuses.byFilter({}),
-        mfeProps.location?.id ? financeApi.cash.balance(mfeProps.location.id) : Promise.resolve({ data: [] }),
-        financeApi.activity.list(listFilter),
-        financeApi.totals.list(listFilter),
-        financeApi.totals.count(locFilter),
-        financeApi.analytics.all(analyticsFilter),
-        financeApi.analytics.graph([graphWeeklyPayload]),
-        financeApi.analytics.graph([graphMonthlyPayload]),
-      ]);
-
-      if (!mounted) {
-        return;
-      }
-
-      const financeInvoices = invoicesResult.status === "fulfilled" ? normalizeInvoices(invoicesResult.value.data) : [];
-      const paymentsNormal = paymentsResult.status === "fulfilled" ? normalizePayments(paymentsResult.value.data) : [];
-      const totalsData = totalsResult.status === "fulfilled" ? extractList(totalsResult.value.data) : [];
-      const totalsPayments = normalizePayments(totalsData.filter((t) => t?.isPaymentsIn === true || String(t?.paymentType || t?.type || "").toLowerCase().includes("in") || t?.paymentsInUid));
-      const financePayments = [...paymentsNormal, ...totalsPayments];
-
-      const financeVendors = vendorsResult.status === "fulfilled" ? normalizeVendors(vendorsResult.value.data) : [];
-      const financeLedgerEntries = ledgerResult.status === "fulfilled" ? normalizeLedger(ledgerResult.value.data) : [];
-
-      const payablesNormal = payablesResult.status === "fulfilled" ? normalizePayables(payablesResult.value.data) : [];
-      const totalsPayables = normalizePayables(totalsData.filter((t) => t?.isPaymentsIn === false || (!t?.isPaymentsIn && !String(t?.paymentType || t?.type || "").toLowerCase().includes("in") && !t?.paymentsInUid)));
-      const financePayables = [...payablesNormal, ...totalsPayables];
-
-      const expensesNormal = expensesResult.status === "fulfilled" ? normalizeExpenses(expensesResult.value.data) : [];
-      const totalsExpenses = normalizeExpenses(totalsData.filter((t) => t?.isPaymentsIn === false || (!t?.isPaymentsIn && !String(t?.paymentType || t?.type || "").toLowerCase().includes("in") && !t?.paymentsInUid)));
-      const financeExpenses = [...expensesNormal, ...totalsExpenses];
-
-      const financeCategories = categoriesResult.status === "fulfilled" ? normalizeCategories(categoriesResult.value.data) : [];
-      const financeStatuses = statusesResult.status === "fulfilled" ? normalizeStatuses(statusesResult.value.data) : [];
-      const financeCashInHand = cashResult.status === "fulfilled" ? normalizeCashEntries(cashResult.value.data) : [];
-      const financeActivityLogs = activityResult.status === "fulfilled" ? normalizeActivity(activityResult.value.data) : [];
-      const financeReceivables = normalizeReceivables(financeInvoices);
-      const totalTransactionCount = totalsCountResult.status === "fulfilled" ? Number(totalsCountResult.value.data) || 0 : 0;
-
-      const analyticsData = analyticsResult.status === "fulfilled" ? (analyticsResult.value.data as any)?.metricValues || [] : [];
-      const accountBalanceObj = analyticsData.find((m: any) => m.metricId === 178);
-      const accountBalance = accountBalanceObj ? Number(accountBalanceObj.amount || 0) : 10;
-
-      const graphRes = graphWeeklyResult.status === "fulfilled" ? graphWeeklyResult.value : [];
-      const graphItem = Array.isArray(graphRes) ? graphRes[0] : graphRes;
-      const labels = graphItem?.labels || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-      const expAmounts = graphItem?.datasets?.[0]?.data?.[0]?.amount || [80, 150, 100, 200, 250, 120, 180];
-      const revAmounts = graphItem?.datasets?.[0]?.data?.[1]?.amount || [120, 250, 180, 320, 450, 210, 390];
-      const payoutAmounts = graphItem?.datasets?.[0]?.data?.[2]?.amount || [40, 90, 70, 110, 160, 80, 140];
-      const financeStatistics = labels.map((label: string, idx: number) => ({
-        label: String(label).slice(0, 3),
-        value: Number(revAmounts[idx] || [120, 250, 180, 320, 450, 210, 390][idx] || 0),
-        revenue: Number(revAmounts[idx] || [120, 250, 180, 320, 450, 210, 390][idx] || 0),
-        payout: Number(payoutAmounts[idx] || [40, 90, 70, 110, 160, 80, 140][idx] || 0),
-        expense: Number(expAmounts[idx] || [80, 150, 100, 200, 250, 120, 180][idx] || 0),
-      }));
-
-      const graphMonthlyRes = graphMonthlyResult.status === "fulfilled" ? graphMonthlyResult.value : [];
-      const graphMonthlyItem = Array.isArray(graphMonthlyRes) ? graphMonthlyRes[0] : graphMonthlyRes;
-      const monthlyLabels = graphMonthlyItem?.labels || ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const mExpAmounts = graphMonthlyItem?.datasets?.[0]?.data?.[0]?.amount || [300, 400, 350, 500, 600, 450, 700, 800, 750, 900, 850, 950];
-      const mRevAmounts = graphMonthlyItem?.datasets?.[0]?.data?.[1]?.amount || [500, 700, 600, 850, 950, 800, 1100, 1250, 1150, 1400, 1300, 1550];
-      const mPayoutAmounts = graphMonthlyItem?.datasets?.[0]?.data?.[2]?.amount || [150, 250, 200, 300, 400, 250, 450, 500, 450, 600, 550, 650];
-      const monthlyStatistics = monthlyLabels.map((label: string, idx: number) => ({
-        label: String(label).slice(0, 3),
-        value: Number(mRevAmounts[idx] || 0),
-        revenue: Number(mRevAmounts[idx] || 0),
-        payout: Number(mPayoutAmounts[idx] || 0),
-        expense: Number(mExpAmounts[idx] || 0),
-      }));
-
-      setState({
-        financeInvoices,
-        financePayments,
-        financeEstimates: [],
-        financeReportMetrics: buildReportMetrics(financeInvoices, financePayments, financeReceivables),
-        financeVendors,
-        financeLedgerEntries,
-        financeReceivables,
-        financePayables,
-        financeExpenses,
-        financeCategories,
-        financeStatuses,
-        financeCashInHand,
-        financeCashRegisters: financeCashInHand,
-        financeActivityLogs,
-        financeStatistics,
-        monthlyStatistics,
-        financeSummaryCards: buildSummaryCards(financeInvoices, financeReceivables, financePayables),
-        totalTransactionCount,
-        accountBalance,
-        loading: false,
-      });
-    }
-
-    load().catch((error) => {
-      console.error("[mfe-finance] Failed to load finance data", error);
-      if (mounted) {
-        setState((prev) => ({ ...prev, loading: false }));
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
+    setState((prev) => ({ ...prev, loading: false }));
   }, []);
 
   const value = useMemo(() => state, [state]);
