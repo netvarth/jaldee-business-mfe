@@ -76,6 +76,38 @@ function toMsQuery(filter: ApiFilter = {}): ApiFilter {
   return out;
 }
 
+function toTenantSearchBody(
+  filter: ApiFilter = {},
+  options?: {
+    defaultSort?: Array<{ field: string; direction: string }>;
+  },
+) {
+  const page = Number(filter.page ?? 0);
+  const size = Number(filter.size ?? 10);
+  const sort = Array.isArray(filter.sort) && filter.sort.length
+    ? filter.sort
+    : options?.defaultSort;
+
+  const body: Record<string, unknown> = {
+    page: Number.isNaN(page) ? 0 : page,
+    size: Number.isNaN(size) ? 10 : size,
+  };
+
+  if (sort && sort.length) {
+    body.sort = sort;
+  }
+
+  if (filter.locationUid) {
+    body.locationUid = filter.locationUid;
+  }
+
+  if (filter.filters) {
+    body.filters = filter.filters;
+  }
+
+  return body;
+}
+
 function createCrudApi(basePath: string) {
   return {
     create<T = unknown>(data: unknown) {
@@ -366,9 +398,8 @@ export const financeApi = {
 
   expenses: {
     ...expenses,
-    // MS ExpenseController pages via ExpenseFilter.page/size, not from/count.
     list<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_EXPENSES_SEARCH_ENDPOINT, toMsQuery(filter));
+      return post<T>(TENANT_EXPENSES_SEARCH_ENDPOINT, toTenantSearchBody(filter));
     },
     createPayout<T = unknown>(data: unknown) {
       return post<T>(TENANT_PAYMENTS_OUT_ENDPOINT, data);
@@ -384,7 +415,10 @@ export const financeApi = {
       return post<T>(TENANT_PAYMENTS_OUT_ENDPOINT, data);
     },
     list<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT, toMsQuery(filter));
+      return post<T>(
+        TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT,
+        toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] }),
+      );
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_PAYMENTS_OUT_ENDPOINT}/${uid}`);
@@ -420,7 +454,10 @@ export const financeApi = {
   revenue: {
     ...revenue,
     list<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_PAYMENTS_IN_SEARCH_ENDPOINT, toMsQuery(filter));
+      return post<T>(
+        TENANT_PAYMENTS_IN_SEARCH_ENDPOINT,
+        toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] }),
+      );
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_PAYMENTS_IN_ENDPOINT}/${uid}`);
@@ -435,7 +472,10 @@ export const financeApi = {
 
   totals: {
     list<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_PAYMENTS_IN_SEARCH_ENDPOINT, toMsQuery(filter));
+      return post<T>(
+        TENANT_PAYMENTS_IN_SEARCH_ENDPOINT,
+        toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] }),
+      );
     },
     count<T = number>(filter: ApiFilter = {}) {
       return get<T>(TENANT_PAYMENTS_IN_COUNT_ENDPOINT, toMsQuery(filter));
@@ -686,11 +726,11 @@ export const financeApi = {
   },
 
   customers: {
-    search<T = unknown>(data: unknown) {
-      return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, data);
+    search<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, toTenantSearchBody(filter));
     },
-    list<T = unknown>(data: unknown) {
-      return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, data);
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, toTenantSearchBody(filter));
     },
     detail<T = unknown>(id: string) {
       return get<T>(`${TENANT_CONSUMER_ENDPOINT}/${id}`);

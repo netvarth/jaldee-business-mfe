@@ -135,7 +135,14 @@ function mapInvoiceItem(item: any, index: number): InvoiceItem {
     item.discountList?.[0];
   const qty = Number(item.quantity || 1);
   const price = Number(item.price || 0);
-  const discountAmount = Number(item.discountAmount || appliedDiscount?.discountAmount || 0);
+  const discountAmount = Number(
+    item.discountAmount ??
+    item.discountTotal ??
+    appliedDiscount?.discountAmount ??
+    appliedDiscount?.discountedAmount ??
+    appliedDiscount?.discountValue ??
+    0,
+  );
   const afterDiscount = Number(item.netTotalAfterDiscount || item.afterDiscount || price * qty - discountAmount);
   const taxAmount = Number(item.taxAmount || item.totalTax || 0);
   return {
@@ -155,7 +162,13 @@ function mapInvoiceItem(item: any, index: number): InvoiceItem {
     discountId: readString(appliedDiscount?.id, appliedDiscount?.uid, item.discountId, item.discountUid) || undefined,
     discountName: readString(appliedDiscount?.name, item.discountName) || undefined,
     discountType: readString(appliedDiscount?.discountType, appliedDiscount?.discType, item.discountType) || undefined,
-    discountValue: Number(appliedDiscount?.discountValue ?? item.discountValue ?? 0),
+    discountValue: Number(
+      appliedDiscount?.discountValue ??
+      appliedDiscount?.discountedAmount ??
+      item.discountValue ??
+      item.discountTotal ??
+      0,
+    ),
     privateNote: readString(appliedDiscount?.privateNote, item.privateNote) || undefined,
     displayNote: readString(appliedDiscount?.displayNote, item.displayNote) || undefined,
     discountAmount,

@@ -475,22 +475,19 @@ function OverviewPage() {
 
       try {
         const [invoiceResponse, vendorResponse, paymentInResponse, paymentOutResponse] = await Promise.allSettled([
-          financeApi.invoices.listGeneral<any>({ from: 0, count: 5 }),
+          financeApi.invoices.listGeneral<any>({ page: 0, size: 5 }),
           financeApi.vendors.search<any>({
             page: 0,
             size: 5,
             sort: [{ field: "createdAt", direction: "DESC" }],
-            view: "SUMMARY",
           }),
           financeApi.revenue.list<any>({
             page: 0,
             size: 100,
-            sort: [{ field: "createdAt", direction: "DESC" }],
           }),
           financeApi.payables.list<any>({
             page: 0,
             size: 100,
-            sort: [{ field: "createdAt", direction: "DESC" }],
           }),
         ]);
 
@@ -6828,6 +6825,13 @@ function MasterInvoicePage() {
         const afterDiscount = Number(item.netTotalAfterDiscount || totalRate);
         const tax = Number(item.taxAmount || item.totalTax || 0);
         const total = Number(item.total || afterDiscount + tax);
+        const appliedDiscount =
+          item.discount ??
+          item.appliedDiscount ??
+          item.discountDetail ??
+          item.discountDto ??
+          item.discounts?.[0] ??
+          item.discountList?.[0];
         return {
           id: String(item.uid || item.itemUid || `invoice-line-${index}`),
           itemName: String(item.itemName || item.name || "Procedure/Item"),
@@ -6835,7 +6839,14 @@ function MasterInvoicePage() {
           quantity: qty,
           rate,
           totalRate,
-          discount: Number(item.discountAmount || 0),
+          discount: Number(
+            item.discountAmount ??
+            item.discountTotal ??
+            appliedDiscount?.discountAmount ??
+            appliedDiscount?.discountedAmount ??
+            appliedDiscount?.discountValue ??
+            0,
+          ),
           afterDiscount,
           tax,
           total,
