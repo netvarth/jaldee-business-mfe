@@ -420,17 +420,35 @@ function SummaryList({
 
 function OverviewPage() {
   const mfeProps = useMFEProps();
-  const {
-    financeCashInHand,
-    financeInvoices,
-    financePayments,
-    financePayables,
-    financeExpenses,
-    financeVendors,
-    financeStatistics,
-    monthlyStatistics,
-    totalTransactionCount,
-  } = useFinanceLiveData();
+  const navigate = useNavigate();
+  const { financeCashInHand, financeExpenses, financeStatistics, monthlyStatistics } = useFinanceLiveData();
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [financeInvoices, setFinanceInvoices] = useState<Array<{
+    id: string;
+    detailUid: string;
+    customer: string;
+    amount: number;
+    status: string;
+  }>>([]);
+  const [invoiceCount, setInvoiceCount] = useState(0);
+  const [financePayments, setFinancePayments] = useState<Array<{
+    id: string;
+    payer: string;
+    amount: number;
+    receivedOn: string;
+  }>>([]);
+  const [financePayables, setFinancePayables] = useState<Array<{
+    id: string;
+    vendor: string;
+    amountDue: number;
+    dueOn: string;
+  }>>([]);
+  const [financeVendors, setFinanceVendors] = useState<Array<{
+    id: string;
+    name: string;
+    category: string;
+  }>>([]);
+  const [vendorCount, setVendorCount] = useState(0);
   const [transactionFilter, setTransactionFilter] = useState<"All" | "Revenue" | "Payout">("All");
   const [statsRange, setStatsRange] = useState("today");
   const [statsChartRange, setStatsChartRange] = useState("week");
@@ -438,6 +456,123 @@ function OverviewPage() {
   const [expenseBreakdownFrom, setExpenseBreakdownFrom] = useState("");
   const [expenseBreakdownTo, setExpenseBreakdownTo] = useState("");
   const [expenseBreakdownRows, setExpenseBreakdownRows] = useState<FinanceExpenseBreakdown[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    function extractRecords(payload: any) {
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload?.content)) return payload.content;
+      if (Array.isArray(payload?.data)) return payload.data;
+      if (Array.isArray(payload?.data?.content)) return payload.data.content;
+      if (Array.isArray(payload?.items)) return payload.items;
+      if (Array.isArray(payload?.results)) return payload.results;
+      return [];
+    }
+
+    async function loadOverview() {
+      setOverviewLoading(true);
+
+      try {
+        const [invoiceResponse, vendorResponse, paymentInResponse, paymentOutResponse] = await Promise.allSettled([
+          financeApi.invoices.listGeneral<any>({ from: 0, count: 5 }),
+          financeApi.vendors.search<any>({
+            page: 0,
+            size: 5,
+            sort: [{ field: "createdAt", direction: "DESC" }],
+            view: "SUMMARY",
+          }),
+          financeApi.revenue.list<any>({
+            page: 0,
+            size: 100,
+            sort: [{ field: "createdAt", direction: "DESC" }],
+          }),
+          financeApi.payables.list<any>({
+            page: 0,
+            size: 100,
+            sort: [{ field: "createdAt", direction: "DESC" }],
+          }),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        if (invoiceResponse.status === "fulfilled") {
+          const invoiceRecords = extractRecords(invoiceResponse.value.data);
+          setFinanceInvoices(
+            invoiceRecords.map((item: any, index: number) => ({
+              id: String(item.invoiceNum || item.invoiceId || item.uid || `invoice-${index}`),
+              detailUid: String(item.uid || item.invoiceUid || item.invoiceEncId || item.id || item.invoiceId || `invoice-${index}`),
+              customer: String(item.consumerName || item.customerName || item.invoiceFor || item.userName || "-"),
+              amount: Number(item.netRate || item.netTotal || item.totalAmount || item.amountDue || 0) || 0,
+              status: String(item.invoiceStatus || item.invoicePaymentStatus || item.billStatus || item.status || "New"),
+            })),
+          );
+          setInvoiceCount(Number(invoiceResponse.value.data?.totalElements ?? invoiceResponse.value.data?.total ?? invoiceRecords.length ?? 0) || 0);
+        } else {
+          console.error("[mfe-finance] Failed to load overview invoices", invoiceResponse.reason);
+          setFinanceInvoices([]);
+          setInvoiceCount(0);
+        }
+
+        if (vendorResponse.status === "fulfilled") {
+          const vendorRecords = extractRecords(vendorResponse.value.data);
+          setFinanceVendors(
+            vendorRecords.map((item: any, index: number) => ({
+              id: String(item.uid ?? item.id ?? item.vendorId ?? `vendor-${index}`),
+              name: String(item.name ?? item.vendorName ?? "-"),
+              category: String(item.vendorCategoryName ?? item.categoryName ?? item.vendorCategory ?? item.category ?? "-"),
+            })),
+          );
+          setVendorCount(Number(vendorResponse.value.data?.totalElements ?? vendorResponse.value.data?.total ?? vendorRecords.length ?? 0) || 0);
+        } else {
+          console.error("[mfe-finance] Failed to load overview vendors", vendorResponse.reason);
+          setFinanceVendors([]);
+          setVendorCount(0);
+        }
+
+        if (paymentInResponse.status === "fulfilled") {
+          const paymentInRecords = extractRecords(paymentInResponse.value.data);
+          setFinancePayments(
+            normalizeReceivableRows(paymentInRecords).map((item) => ({
+              id: item.id,
+              payer: item.customer,
+              amount: item.amountDue,
+              receivedOn: item.date,
+            })),
+          );
+        } else {
+          console.error("[mfe-finance] Failed to load overview payments-in", paymentInResponse.reason);
+          setFinancePayments([]);
+        }
+
+        if (paymentOutResponse.status === "fulfilled") {
+          const paymentOutRecords = extractRecords(paymentOutResponse.value.data);
+          setFinancePayables(
+            normalizePayableRows(paymentOutRecords).map((item) => ({
+              id: item.id,
+              vendor: item.vendor,
+              amountDue: item.amountDue,
+              dueOn: item.date,
+            })),
+          );
+        } else {
+          console.error("[mfe-finance] Failed to load overview payments-out", paymentOutResponse.reason);
+          setFinancePayables([]);
+        }
+      } finally {
+        if (active) {
+          setOverviewLoading(false);
+        }
+      }
+    }
+
+    void loadOverview();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredFinancePayments = useMemo(() => {
     if (statsRange === "all") return financePayments;
@@ -482,55 +617,6 @@ function OverviewPage() {
       return true;
     });
   }, [financePayables, statsRange]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadExpenseBreakdown() {
-      const filter: Record<string, unknown> = {
-        metricId: 168,
-        categoryType: "Expense",
-        from: 0,
-        count: 6,
-      };
-
-      if (mfeProps.location?.id) {
-        filter.locationId = mfeProps.location.id;
-      }
-
-      if (expenseBreakdownFilter === "DATE_RANGE") {
-        if (!expenseBreakdownFrom || !expenseBreakdownTo) {
-          if (active) {
-            setExpenseBreakdownRows([]);
-          }
-          return;
-        }
-        filter.frequency = "DATE_RANGE";
-        filter["date-ge"] = expenseBreakdownFrom;
-        filter["date-le"] = expenseBreakdownTo;
-      } else {
-        filter.frequency = expenseBreakdownFilter;
-      }
-
-      try {
-        const response = await financeApi.expenses.listByCategory(filter);
-        if (active) {
-          setExpenseBreakdownRows(normalizeExpenseBreakdownResponse(response.data));
-        }
-      } catch (error) {
-        console.error("[mfe-finance] Failed to load expense breakdown", error);
-        if (active) {
-          setExpenseBreakdownRows([]);
-        }
-      }
-    }
-
-    loadExpenseBreakdown();
-
-    return () => {
-      active = false;
-    };
-  }, [expenseBreakdownFilter, expenseBreakdownFrom, expenseBreakdownTo, mfeProps.location?.id]);
 
   const dashboardActions: QuickAction[] = [
     { label: "Create Invoice", path: "/finance/invoice/newInvoice", icon: "packagePlus", tone: "bg-indigo-50 text-indigo-600", note: "Issue new billing" },
@@ -716,22 +802,27 @@ function OverviewPage() {
                   <div className="text-right text-[14px] font-bold text-slate-900 md:pt-1">{formatCurrency(row.amount)}</div>
                 </button>
               ))}
+              {!transactionRows.length ? (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  {overviewLoading ? "Loading transactions..." : "No transactions found."}
+                </div>
+              ) : null}
             </div>
 
             <button
               type="button"
               onClick={() =>
-                mfeProps.navigate(
+                navigate(
                   transactionFilter === "Revenue"
-                    ? "/finance/payments"
+                    ? toFinanceRoute("/finance/receivables")
                     : transactionFilter === "Payout"
-                      ? "/finance/payable"
-                      : "/finance/total",
+                      ? toFinanceRoute("/finance/payable")
+                      : toFinanceRoute("/finance/total"),
                 )
               }
               className="mt-4 text-sm font-semibold text-indigo-700 hover:text-indigo-800"
             >
-              See All({totalTransactionCount || transactionRows.length})
+              See All({transactionRows.length})
             </button>
           </SectionCard>
         </div>
@@ -863,58 +954,67 @@ function OverviewPage() {
           </SectionCard>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <FeedCard title="Invoices" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/invoice")}>
+            <FeedCard title="Invoices" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/invoice/newInvoice")}>
               <div className="space-y-0">
                 {recentInvoices.map((invoice, index) => (
                   <button
                     key={invoice.id}
                     type="button"
-                    onClick={() => mfeProps.navigate(`/finance/master-invoice/${invoice.id}`)}
-                    className="block w-full border-b border-slate-200 py-3 text-left last:border-b-0 last:pb-0"
+                    onClick={() => mfeProps.navigate(`/finance/invoice/view/${invoice.detailUid || invoice.id}`)}
+                    className="block w-full border-b border-slate-200 py-3 text-left transition hover:bg-slate-50 last:border-b-0 last:pb-0"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        {index === 0 ? <div className="text-sm font-semibold text-indigo-700">Most Recent</div> : null}
-                        <div className="font-semibold text-slate-900">Invoice : #{invoice.id.replace("INV-", "")}</div>
-                        <div className="font-semibold text-slate-800">{invoice.customer}</div>
-                        <div className="mt-1 text-sm text-slate-500">
+                      <div className="min-w-0">
+                        {index === 0 ? <div className="text-xs font-semibold text-indigo-700">Most Recent</div> : null}
+                        <div className="truncate text-sm font-semibold text-slate-700">Invoice : #{invoice.id.replace("INV-", "")}</div>
+                        <div className="mt-1 truncate text-sm font-semibold text-slate-900">{invoice.customer}</div>
+                        <div className="mt-1 text-xs text-slate-500">
                           {invoice.status === "Paid" ? "Fully Paid" : invoice.status}
                         </div>
                       </div>
-                      <div className="pt-1 font-medium text-slate-700">{formatCurrency(invoice.amount)}</div>
+                      <div className="pt-1 text-sm font-medium text-slate-700">{formatCurrency(invoice.amount)}</div>
                     </div>
                   </button>
                 ))}
+                {!recentInvoices.length ? (
+                  <div className="py-6 text-sm text-slate-500">
+                    {overviewLoading ? "Loading invoices..." : "No invoices found."}
+                  </div>
+                ) : null}
               </div>
-              <button type="button" onClick={() => mfeProps.navigate("/finance/invoice")} className="mt-4 text-lg font-semibold text-indigo-700">
-                See All({financeInvoices.length})
+              <button type="button" onClick={() => navigate(toFinanceRoute("/finance/invoice"))} className="mt-4 text-lg font-semibold text-indigo-700">
+                See All({invoiceCount})
               </button>
             </FeedCard>
 
             <FeedCard title="Vendors" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/vendors/create")}>
-              <div className="space-y-3">
+              <div className="space-y-0">
                 {recentVendors.map((vendor) => (
                   <button
                     key={vendor.id}
                     type="button"
-                    onClick={() => mfeProps.navigate("/finance/vendors")}
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"
+                    onClick={() => mfeProps.navigate(`/finance/vendors/${vendor.id}`)}
+                    className="flex w-full items-center justify-between border-b border-slate-200 py-3 text-left transition hover:bg-slate-50 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                         <Icon name="globe" />
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-900">{vendor.name}</div>
-                        <div className="text-sm text-slate-500">{vendor.category}</div>
+                        <div className="text-sm font-medium text-slate-900">{vendor.name}</div>
                       </div>
                     </div>
                     <div className="text-xl text-slate-400">→</div>
                   </button>
                 ))}
+                {!recentVendors.length ? (
+                  <div className="py-6 text-sm text-slate-500">
+                    {overviewLoading ? "Loading vendors..." : "No vendors found."}
+                  </div>
+                ) : null}
               </div>
-              <button type="button" onClick={() => mfeProps.navigate("/finance/vendors")} className="mt-4 text-lg font-semibold text-indigo-700">
-                See All({financeVendors.length})
+              <button type="button" onClick={() => navigate(toFinanceRoute("/finance/vendors"))} className="mt-4 text-lg font-semibold text-indigo-700">
+                See All({vendorCount})
               </button>
             </FeedCard>
           </div>
@@ -1015,13 +1115,16 @@ function CustomersPage() {
           records.map((item: any, index: number) => ({
             uid: String(item.uid ?? item.consumerUid ?? item.id ?? item.userId ?? `consumer-${index}`),
             name: String(
-              item.name
+              item.displayName
+              || item.name
               || item.consumerName
               || [item.firstName, item.lastName].filter(Boolean).join(" ")
               || "Consumer"
             ).trim(),
             phone: String(
-              item.consumerPhone
+              item.phoneE164
+              || item.whatsAppE164
+              || item.consumerPhone
               || item.mobile
               || item.mobileNo
               || item.phoneNo
@@ -1029,15 +1132,7 @@ function CustomersPage() {
               || item.primaryPhone
               || "-"
             ).trim(),
-            email: String(item.consumerEmail || item.email || item.primaryEmail || "-").trim(),
-            address: String(
-              item.billedToAddress
-              || item.consumerGstAddress
-              || item.address
-              || item.addressLine1
-              || item.location
-              || "-"
-            ).trim(),
+            status: String(item.status || (item.deleted ? "DELETED" : "ACTIVE")).trim(),
           }))
         );
       } catch (error) {
@@ -1061,9 +1156,8 @@ function CustomersPage() {
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     { key: "name", header: "Consumer Name", render: (row) => <span className="font-medium text-slate-900">{row.name}</span> },
-    { key: "phone", header: "Phone" },
-    { key: "email", header: "Email" },
-    { key: "address", header: "Address" },
+    { key: "phone", header: "Phone Number" },
+    { key: "status", header: "Status" },
   ], []);
 
   return (
@@ -1246,7 +1340,7 @@ function InvoicesPage() {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
@@ -1313,7 +1407,7 @@ function InvoicesPage() {
     async function loadInvoices() {
       setLoading(true);
       try {
-        const res = await financeApi.invoices.listGeneral<any>({ from: page * pageSize, count: pageSize });
+        const res = await financeApi.invoices.listGeneral<any>({ from: (page - 1) * pageSize, count: pageSize });
         if (active) {
           const payload = res.data?.content || res.data || [];
           const normalized = (Array.isArray(payload) ? payload : []).map((item: any, index: number) => ({
@@ -1353,14 +1447,64 @@ function InvoicesPage() {
     return () => { active = false; };
   }, [page, pageSize]);
 
+  const columns = useMemo<ColumnDef<(typeof invoices)[number]>[]>(
+    () => [
+      { key: "invoiceNum", header: "ID" },
+      { key: "date", header: "Date" },
+      {
+        key: "customer",
+        header: "Invoice For",
+        render: (row) => (
+          <div>
+            <div className="font-medium text-slate-900">{row.customer || "-"}</div>
+            {row.customerCode ? <div className="mt-1 text-xs text-[#4B1FCF]">{row.customerCode}</div> : null}
+          </div>
+        ),
+      },
+      { key: "assignedFor", header: "Assigned For" },
+      { key: "location", header: "Location" },
+      { key: "amount", header: "Amount (INR)", align: "right", render: (row) => formatCurrency(row.amount).replace("â‚¹", "").trim() },
+      { key: "amountDue", header: "Amount Due (INR)", align: "right", render: (row) => formatCurrency(row.amountDue).replace("â‚¹", "").trim() },
+      { key: "category", header: "Category" },
+      { key: "product", header: "Product" },
+      {
+        key: "invoiceType",
+        header: "Invoice Type",
+        render: (row) => {
+          const typeMeta = getInvoiceTypeMeta(row.invoiceType);
+          return <span className={`font-semibold ${typeMeta.className}`}>{typeMeta.label}</span>;
+        },
+      },
+      { key: "status", header: "Status", render: (row) => getStatusText(row) },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate(`view/${row.detailUid || row.id}`)}>
+              View
+            </Button>
+            <button
+              type="button"
+              className="flex h-9 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50"
+              aria-label={`More actions for invoice ${row.invoiceNum}`}
+            >
+              <Icon name="moreVertical" className="h-4 w-4" />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const startRecord = totalRecords === 0 ? 0 : page * pageSize + 1;
-  const endRecord = Math.min(totalRecords, (page + 1) * pageSize);
+  const startRecord = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endRecord = Math.min(totalRecords, page * pageSize);
   const visiblePages = Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
     if (totalPages <= 5) {
-      return index;
+      return index + 1;
     }
-    const start = Math.min(Math.max(page - 2, 0), totalPages - 5);
+    const start = Math.min(Math.max(page - 2, 1), totalPages - 4);
     return start + index;
   });
 
@@ -1461,16 +1605,16 @@ function InvoicesPage() {
             <button
               type="button"
               className="px-2 text-lg text-slate-400 disabled:opacity-40"
-              onClick={() => setPage(0)}
-              disabled={page === 0 || loading}
+              onClick={() => setPage(1)}
+              disabled={page === 1 || loading}
             >
               «
             </button>
             <button
               type="button"
               className="px-2 text-lg text-slate-400 disabled:opacity-40"
-              onClick={() => setPage((current) => Math.max(0, current - 1))}
-              disabled={page === 0 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page === 1 || loading}
             >
               ‹
             </button>
@@ -1483,22 +1627,22 @@ function InvoicesPage() {
                   page === pageNumber ? "bg-indigo-100 font-semibold text-[#4B1FCF]" : "text-slate-700"
                 }`}
               >
-                {pageNumber + 1}
+                  {pageNumber}
               </button>
             ))}
             <button
               type="button"
               className="px-2 text-lg text-slate-400 disabled:opacity-40"
-              onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
-              disabled={page >= totalPages - 1 || loading}
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={page >= totalPages || loading}
             >
               ›
             </button>
             <button
               type="button"
               className="px-2 text-lg text-slate-400 disabled:opacity-40"
-              onClick={() => setPage(totalPages - 1)}
-              disabled={page >= totalPages - 1 || loading}
+                onClick={() => setPage(totalPages)}
+                disabled={page >= totalPages || loading}
             >
               »
             </button>
@@ -1506,7 +1650,7 @@ function InvoicesPage() {
               <Select
                 value={String(pageSize)}
                 onChange={(event) => {
-                  setPage(0);
+                  setPage(1);
                   setPageSize(Number(event.target.value) || 10);
                 }}
                 options={[
@@ -1671,9 +1815,33 @@ function VendorsPage() {
             <Button type="button" variant="outline" size="sm" onClick={() => navigate(row.id)}>
               View
             </Button>
-            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" aria-label={`More actions for ${row.name}`}>
-              <Icon name="moreHorizontal" className="h-4 w-4" />
-            </Button>
+            <Popover
+              portal
+              placement="bottom"
+              align="end"
+              trigger={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0 text-slate-700"
+                  aria-label={`More actions for ${row.name}`}
+                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                >
+                </Button>
+              }
+            >
+              <div className="grid min-w-[200px] p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={() => navigate(`edit/${row.id}`)}
+                >
+                  Edit
+                </Button>
+              </div>
+            </Popover>
           </div>
         ),
       },
@@ -1950,6 +2118,9 @@ function VendorDetailPage() {
 function VendorCreatePage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
+  const [existingVendor, setExistingVendor] = useState<Record<string, any> | null>(null);
   const [locationUid, setLocationUid] = useState(String(mfeProps.location?.id ?? ""));
   const [locationOptions, setLocationOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [vendorCategoryId, setVendorCategoryId] = useState("");
@@ -1982,6 +2153,7 @@ function VendorCreatePage() {
   const [creatingVendorStatus, setCreatingVendorStatus] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [loadingVendor, setLoadingVendor] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -2069,6 +2241,64 @@ function VendorCreatePage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isEditMode || !id) {
+      return;
+    }
+
+    let active = true;
+
+    async function loadVendorForEdit() {
+      setLoadingVendor(true);
+      try {
+        const response = await financeApi.vendors.detail<any>(id);
+        if (!active) {
+          return;
+        }
+
+        const vendor = response.data ?? {};
+        setExistingVendor(vendor);
+        setName(String(vendor.name ?? vendor.vendorName ?? ""));
+        setVendorId(String(vendor.vendorId ?? ""));
+        setContactName(String(vendor.contactName ?? ""));
+        setAddress(String(vendor.address ?? ""));
+        setState(String(vendor.state ?? ""));
+        setPincode(String(vendor.pincode ?? ""));
+        setPhoneNumber(String(vendor.phoneNumber ?? ""));
+        setAlternativePhoneNum(String(vendor.alternativePhoneNum ?? ""));
+        setEmail(String(vendor.email ?? ""));
+        setBankaccountNo(String(vendor.bankaccountNo ?? ""));
+        setIfscCode(String(vendor.ifscCode ?? ""));
+        setBankName(String(vendor.bankName ?? ""));
+        setUpiId(String(vendor.upiId ?? ""));
+        setLocationUid(String(vendor.locationUid ?? ""));
+        setPancardNo(String(vendor.pancardNo ?? ""));
+        setGstNumber(String(vendor.gstNumber ?? ""));
+        setPreferredPaymentMode(
+          String(Array.isArray(vendor.preferredPaymentMode) ? vendor.preferredPaymentMode[0] ?? "" : vendor.preferredPaymentMode ?? ""),
+        );
+        setCurrency(String(vendor.currency ?? "INR"));
+        setTimezone(String(vendor.timezone ?? "Asia/Kolkata"));
+        setVendorCategoryId(String(vendor.vendorCategoryId ?? ""));
+        setVendorStatusId(String(vendor.vendorStatusId ?? ""));
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load vendor for edit", error);
+        if (active) {
+          setFormError(error instanceof Error ? error.message : "Could not load vendor.");
+        }
+      } finally {
+        if (active) {
+          setLoadingVendor(false);
+        }
+      }
+    }
+
+    void loadVendorForEdit();
+    return () => {
+      active = false;
+    };
+  }, [id, isEditMode]);
 
   async function handleCreateVendorCategory() {
     setFormError("");
@@ -2210,9 +2440,12 @@ function VendorCreatePage() {
         ""
       ).trim();
       const selectedLocation = locationOptions.find((item) => item.value === locationUid);
+      const selectedVendorCategory = vendorCategoryOptions.find((item) => item.value === vendorCategoryId);
+      const selectedVendorStatus = vendorStatusOptions.find((item) => item.value === vendorStatusId);
       const resolvedLocationUid = String(locationUid || fallbackLocationUid).trim();
       const locationName = String(
         selectedLocation?.label ??
+        existingVendor?.locationName ??
         locationRecord.name ??
         locationRecord.place ??
         ""
@@ -2230,14 +2463,17 @@ function VendorCreatePage() {
         return;
       }
 
-      await financeApi.vendors.create({
-        tenantUid: tenantUid || undefined,
-        sourceService: "API_GATEWAY",
-        feature: "BASE_CRM",
-        subFeature: "BASE_CRM",
-        featureModule: "BASE_CRM_CORE",
+      const payload = {
+        uid: isEditMode ? String(id || existingVendor?.uid || "") || undefined : undefined,
+        tenantUid: tenantUid || existingVendor?.tenantUid || undefined,
+        sourceService: String(existingVendor?.sourceService ?? "API_GATEWAY") || undefined,
+        feature: String(existingVendor?.feature ?? "BASE_CRM") || undefined,
+        subFeature: String(existingVendor?.subFeature ?? "BASE_CRM") || undefined,
+        featureModule: String(existingVendor?.featureModule ?? "BASE_CRM_CORE") || undefined,
         vendorCategoryId: Number(vendorCategoryId) || undefined,
+        vendorCategoryName: selectedVendorCategory?.label || existingVendor?.vendorCategoryName || undefined,
         vendorStatusId: Number(vendorStatusId) || undefined,
+        vendorStatusName: selectedVendorStatus?.label || existingVendor?.vendorStatusName || undefined,
         vendorId: vendorId.trim() || undefined,
         name: name.trim(),
         contactName: contactName.trim() || undefined,
@@ -2259,12 +2495,18 @@ function VendorCreatePage() {
         lastPaymentModeUsed: preferredPaymentMode || undefined,
         currency: currency.trim() || undefined,
         timezone: timezone.trim() || undefined,
-        uploadedDocuments: [],
-      });
-      navigate("..", { relative: "path" });
+        uploadedDocuments: Array.isArray(existingVendor?.uploadedDocuments) ? existingVendor.uploadedDocuments : [],
+      };
+
+      if (isEditMode && id) {
+        await financeApi.vendors.update(id, payload);
+      } else {
+        await financeApi.vendors.create(payload);
+      }
+      navigate(toFinanceRoute("/finance/vendors"));
     } catch (error) {
-      console.error("[mfe-finance] Failed to create vendor", error);
-      setFormError(error instanceof Error ? error.message : "Could not create vendor.");
+      console.error(`[mfe-finance] Failed to ${isEditMode ? "update" : "create"} vendor`, error);
+      setFormError(error instanceof Error ? error.message : `Could not ${isEditMode ? "update" : "create"} vendor.`);
     } finally {
       setSubmitting(false);
     }
@@ -2273,12 +2515,13 @@ function VendorCreatePage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Create Vendor"
-        subtitle="Add a vendor profile for payouts and expense tracking."
+        title={isEditMode ? "Edit Vendor" : "Create Vendor"}
+        subtitle={isEditMode ? "Update vendor profile details." : "Add a vendor profile for payouts and expense tracking."}
         actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
       />
 
       <SectionCard className="border-slate-200 shadow-sm">
+        {loadingVendor ? <div className="pb-4 text-sm text-slate-500">Loading vendor...</div> : null}
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Vendor Name *" value={name} onChange={(event) => setName(event.target.value)} required />
@@ -2354,7 +2597,7 @@ function VendorCreatePage() {
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Creating..." : "Create Vendor"}
+              {submitting ? (isEditMode ? "Saving..." : "Creating...") : (isEditMode ? "Save Vendor" : "Create Vendor")}
             </Button>
           </div>
         </form>
@@ -2567,13 +2810,31 @@ function ReceivablesCreatePage() {
   const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [vendorOptions, setVendorOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newStatusName, setNewStatusName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [creatingStatus, setCreatingStatus] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    async function loadFormData() {
+    function extractRecords(payload: any) {
+      return Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.content)
+          ? payload.content
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.data?.content)
+              ? payload.data.content
+              : [];
+    }
+
+    async function loadFormData(selectNew?: { categoryId?: string; statusId?: string }) {
       try {
         const [categoriesResult, statusesResult, vendorsResult] = await Promise.allSettled([
           financeApi.categories.search<any>({
@@ -2627,25 +2888,9 @@ function ReceivablesCreatePage() {
         const statusesResponse = statusesResult.status === "fulfilled" ? statusesResult.value : null;
         const vendorsResponse = vendorsResult.status === "fulfilled" ? vendorsResult.value : null;
 
-        const categories = Array.isArray(categoriesResponse?.data)
-          ? categoriesResponse.data
-          : Array.isArray(categoriesResponse?.data?.content)
-            ? categoriesResponse.data.content
-            : [];
-        const statuses = Array.isArray(statusesResponse?.data)
-          ? statusesResponse.data
-          : Array.isArray(statusesResponse?.data?.content)
-            ? statusesResponse.data.content
-            : [];
-        const vendors = Array.isArray(vendorsResponse?.data)
-          ? vendorsResponse.data
-          : Array.isArray(vendorsResponse?.data?.content)
-            ? vendorsResponse.data.content
-            : Array.isArray(vendorsResponse?.data?.data)
-              ? vendorsResponse.data.data
-              : Array.isArray(vendorsResponse?.data?.data?.content)
-                ? vendorsResponse.data.data.content
-                : [];
+        const categories = extractRecords(categoriesResponse?.data);
+        const statuses = extractRecords(statusesResponse?.data);
+        const vendors = extractRecords(vendorsResponse?.data);
 
         const filteredCategories = categories.filter((item: any) => {
           const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
@@ -2674,19 +2919,119 @@ function ReceivablesCreatePage() {
         setCategoryOptions(nextCategoryOptions);
         setStatusOptions(nextStatusOptions);
         setVendorOptions(nextVendorOptions);
-        setCategoryId((current) => current || nextCategoryOptions[0]?.value || "");
-        setStatusId((current) => current || nextStatusOptions[0]?.value || "");
+        setCategoryId((current) => selectNew?.categoryId || current || nextCategoryOptions[0]?.value || "");
+        setStatusId((current) => selectNew?.statusId || current || nextStatusOptions[0]?.value || "");
       } catch (error) {
         if (!active) return;
         console.error("[mfe-finance] Failed to load receivable create form", error);
       }
     }
 
-    loadFormData();
+    void loadFormData();
     return () => {
       active = false;
     };
   }, []);
+
+  async function handleCreateCategory() {
+    setFormError("");
+    if (!newCategoryName.trim()) {
+      setFormError("Category name is required.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const response = await financeApi.categories.create<any>({
+        categoryName: newCategoryName.trim(),
+        name: newCategoryName.trim(),
+        categoryType: "PaymentsInOut",
+      });
+      const created = response.data ?? response;
+      const nextId = String(created?.categoryId ?? created?.configCategoryId ?? created?.id ?? created?.uid ?? created?.encId ?? "");
+      setShowCategoryDialog(false);
+      setNewCategoryName("");
+
+      const categoriesResponse = await financeApi.categories.search<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["PaymentsInOut"],
+        },
+        view: "SUMMARY",
+      });
+      const categories = Array.isArray(categoriesResponse.data?.content) ? categoriesResponse.data.content : [];
+      const filteredCategories = categories.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "paymentsinout" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const nextCategoryOptions = filteredCategories.map((item: any, index: number) => ({
+        value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
+        label: String(item.name ?? item.categoryName ?? item.displayName ?? "Category"),
+      }));
+      setCategoryOptions(nextCategoryOptions);
+      setCategoryId(nextId || nextCategoryOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create receivable category", error);
+      setFormError(error instanceof Error ? error.message : "Could not create category.");
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
+
+  async function handleCreateStatus() {
+    setFormError("");
+    if (!newStatusName.trim()) {
+      setFormError("Status name is required.");
+      return;
+    }
+
+    setCreatingStatus(true);
+    try {
+      const response = await financeApi.statuses.create<any>({
+        statusName: newStatusName.trim(),
+        name: newStatusName.trim(),
+        categoryType: "PaymentsInOut",
+      });
+      const created = response.data ?? response;
+      const nextId = String(created?.statusId ?? created?.id ?? created?.uid ?? created?.encId ?? "");
+      setShowStatusDialog(false);
+      setNewStatusName("");
+
+      const statusesResponse = await financeApi.statuses.search<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["PaymentsInOut"],
+        },
+        view: "SUMMARY",
+      });
+      const statuses = Array.isArray(statusesResponse.data?.content) ? statusesResponse.data.content : [];
+      const filteredStatuses = statuses.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "paymentsinout" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const nextStatusOptions = filteredStatuses.map((item: any, index: number) => ({
+        value: String(item.id ?? item.uid ?? item.encId ?? `status-${index}`),
+        label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Status"),
+      }));
+      setStatusOptions(nextStatusOptions);
+      setStatusId(nextId || nextStatusOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create receivable status", error);
+      setFormError(error instanceof Error ? error.message : "Could not create status.");
+    } finally {
+      setCreatingStatus(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2739,23 +3084,82 @@ function ReceivablesCreatePage() {
     <PageShell
       title="Create Revenue"
       subtitle="Create a finance record for incoming revenue."
-      actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+      actions={
+        <div className="flex items-center gap-2">
+          <Popover
+            portal
+            placement="bottom"
+            align="end"
+            trigger={
+              <Button type="button" variant="outline">
+                Actions
+              </Button>
+            }
+          >
+            <div className="grid min-w-[220px] p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start font-normal"
+                onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=PaymentsInOut`)}
+              >
+                Revenue category
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start font-normal"
+                onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}
+              >
+                Create Vendor
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start font-normal"
+                onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=PaymentsInOut`)}
+              >
+                Revenue Status
+              </Button>
+            </div>
+          </Popover>
+          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
+        </div>
+      }
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Select
-              label="Category"
-              value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-              options={[{ value: "", label: "Select category" }, ...categoryOptions]}
-            />
-            <Select
-              label="Status"
-              value={statusId}
-              onChange={(event) => setStatusId(event.target.value)}
-              options={[{ value: "", label: "Select status" }, ...statusOptions]}
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Category</label>
+              <div className="flex items-center">
+                <Select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Select category" }, ...categoryOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
+                  +
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Status</label>
+              <div className="flex items-center">
+                <Select
+                  value={statusId}
+                  onChange={(event) => setStatusId(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Select status" }, ...statusOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
+                  +
+                </Button>
+              </div>
+            </div>
             <Input label="Received Date" type="date" value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} required />
             <Input label="Revenue From" value={label} onChange={(event) => setLabel(event.target.value)} required />
             <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} />
@@ -2798,6 +3202,30 @@ function ReceivablesCreatePage() {
           </div>
         </form>
       </SectionCard>
+
+      <Dialog open={showCategoryDialog} onClose={() => setShowCategoryDialog(false)} title="Create Revenue Category" size="md">
+        <div className="space-y-5 pt-2">
+          <Input label="Category Name" placeholder="Enter Category Name" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowCategoryDialog(false)}>Close</Button>
+            <Button type="button" onClick={() => void handleCreateCategory()} disabled={creatingCategory || !newCategoryName.trim()}>
+              {creatingCategory ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showStatusDialog} onClose={() => setShowStatusDialog(false)} title="Create Revenue Status" size="md">
+        <div className="space-y-5 pt-2">
+          <Input label="Status Name" placeholder="Enter Status Name" value={newStatusName} onChange={(event) => setNewStatusName(event.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowStatusDialog(false)}>Close</Button>
+            <Button type="button" onClick={() => void handleCreateStatus()} disabled={creatingStatus || !newStatusName.trim()}>
+              {creatingStatus ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
     </PageShell>
   );
 }
@@ -3130,11 +3558,29 @@ function PayablesCreatePage() {
   const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [vendorOptions, setVendorOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newStatusName, setNewStatusName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [creatingStatus, setCreatingStatus] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
+
+    function extractRecords(payload: any) {
+      return Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.content)
+          ? payload.content
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.data?.content)
+              ? payload.data.content
+              : [];
+    }
 
     async function loadFormData() {
       const [categoriesResult, statusesResult, vendorsResult] = await Promise.allSettled([
@@ -3189,31 +3635,26 @@ function PayablesCreatePage() {
       const statusesResponse = statusesResult.status === "fulfilled" ? statusesResult.value : null;
       const vendorsResponse = vendorsResult.status === "fulfilled" ? vendorsResult.value : null;
 
-      const categories = Array.isArray(categoriesResponse?.data)
-        ? categoriesResponse.data
-        : Array.isArray(categoriesResponse?.data?.content)
-          ? categoriesResponse.data.content
-          : [];
-      const statuses = Array.isArray(statusesResponse?.data)
-        ? statusesResponse.data
-        : Array.isArray(statusesResponse?.data?.content)
-          ? statusesResponse.data.content
-          : [];
-      const vendors = Array.isArray(vendorsResponse?.data)
-        ? vendorsResponse.data
-        : Array.isArray(vendorsResponse?.data?.content)
-          ? vendorsResponse.data.content
-          : Array.isArray(vendorsResponse?.data?.data)
-            ? vendorsResponse.data.data
-            : Array.isArray(vendorsResponse?.data?.data?.content)
-              ? vendorsResponse.data.data.content
-              : [];
+      const categories = extractRecords(categoriesResponse?.data);
+      const statuses = extractRecords(statusesResponse?.data);
+      const vendors = extractRecords(vendorsResponse?.data);
 
-      const nextCategoryOptions = categories.map((item: any, index: number) => ({
+      const filteredCategories = categories.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "paymentsinout" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const filteredStatuses = statuses.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "paymentsinout" && (status === "" || status === "enabled" || status === "enable");
+      });
+
+      const nextCategoryOptions = filteredCategories.map((item: any, index: number) => ({
         value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
         label: String(item.name ?? item.categoryName ?? item.displayName ?? "Category"),
       }));
-      const nextStatusOptions = statuses.map((item: any, index: number) => ({
+      const nextStatusOptions = filteredStatuses.map((item: any, index: number) => ({
         value: String(item.id ?? item.uid ?? item.encId ?? `status-${index}`),
         label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Status"),
       }));
@@ -3234,6 +3675,106 @@ function PayablesCreatePage() {
       active = false;
     };
   }, []);
+
+  async function handleCreateCategory() {
+    setFormError("");
+    if (!newCategoryName.trim()) {
+      setFormError("Category name is required.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const response = await financeApi.categories.create<any>({
+        categoryName: newCategoryName.trim(),
+        name: newCategoryName.trim(),
+        categoryType: "PaymentsInOut",
+      });
+      const created = response.data ?? response;
+      const nextId = String(created?.categoryId ?? created?.configCategoryId ?? created?.id ?? created?.uid ?? created?.encId ?? "");
+      setShowCategoryDialog(false);
+      setNewCategoryName("");
+
+      const refreshed = await financeApi.categories.search<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["PaymentsInOut"],
+        },
+        view: "SUMMARY",
+      });
+      const categories = Array.isArray(refreshed.data?.content) ? refreshed.data.content : [];
+      const filteredCategories = categories.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "paymentsinout" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const nextCategoryOptions = filteredCategories.map((item: any, index: number) => ({
+        value: String(item.categoryId ?? item.configCategoryId ?? item.id ?? item.uid ?? item.encId ?? `category-${index}`),
+        label: String(item.name ?? item.categoryName ?? item.displayName ?? "Category"),
+      }));
+      setCategoryOptions(nextCategoryOptions);
+      setCategoryId(nextId || nextCategoryOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create payout category", error);
+      setFormError(error instanceof Error ? error.message : "Could not create category.");
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
+
+  async function handleCreateStatus() {
+    setFormError("");
+    if (!newStatusName.trim()) {
+      setFormError("Status name is required.");
+      return;
+    }
+
+    setCreatingStatus(true);
+    try {
+      const response = await financeApi.statuses.create<any>({
+        statusName: newStatusName.trim(),
+        name: newStatusName.trim(),
+        categoryType: "PaymentsInOut",
+      });
+      const created = response.data ?? response;
+      const nextId = String(created?.statusId ?? created?.id ?? created?.uid ?? created?.encId ?? "");
+      setShowStatusDialog(false);
+      setNewStatusName("");
+
+      const refreshed = await financeApi.statuses.search<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+        filters: {
+          field: "categoryType",
+          operator: "IN",
+          values: ["PaymentsInOut"],
+        },
+        view: "SUMMARY",
+      });
+      const statuses = Array.isArray(refreshed.data?.content) ? refreshed.data.content : [];
+      const filteredStatuses = statuses.filter((item: any) => {
+        const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
+        const status = String(item?.status ?? "").toLowerCase();
+        return type === "paymentsinout" && (status === "" || status === "enabled" || status === "enable");
+      });
+      const nextStatusOptions = filteredStatuses.map((item: any, index: number) => ({
+        value: String(item.id ?? item.uid ?? item.encId ?? `status-${index}`),
+        label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Status"),
+      }));
+      setStatusOptions(nextStatusOptions);
+      setStatusId(nextId || nextStatusOptions[0]?.value || "");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create payout status", error);
+      setFormError(error instanceof Error ? error.message : "Could not create status.");
+    } finally {
+      setCreatingStatus(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3284,13 +3825,66 @@ function PayablesCreatePage() {
     <PageShell
       title="Create Payout"
       subtitle="Create an outgoing payment using the tenant payments-out API."
-      actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+      actions={
+        <div className="flex items-center gap-2">
+          <Popover
+            portal
+            placement="bottom"
+            align="end"
+            trigger={
+              <Button type="button" variant="outline">
+                Actions
+              </Button>
+            }
+          >
+            <div className="grid min-w-[220px] p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start font-normal"
+                onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=PaymentsInOut`)}
+              >
+                Payout category
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start font-normal"
+                onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}
+              >
+                Create Vendor
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start font-normal"
+                onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=PaymentsInOut`)}
+              >
+                Payout Status
+              </Button>
+            </div>
+          </Popover>
+          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
+        </div>
+      }
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Select label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} options={[{ value: "", label: "Select category" }, ...categoryOptions]} />
-            <Select label="Status" value={statusId} onChange={(event) => setStatusId(event.target.value)} options={[{ value: "", label: "Select status" }, ...statusOptions]} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Category</label>
+              <div className="flex items-center">
+                <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" options={[{ value: "", label: "Select category" }, ...categoryOptions]} />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>+</Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Status</label>
+              <div className="flex items-center">
+                <Select value={statusId} onChange={(event) => setStatusId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" options={[{ value: "", label: "Select status" }, ...statusOptions]} />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>+</Button>
+              </div>
+            </div>
             <Input label="Payment Date" type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
             <Input label="Payout Label" value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Vendor payout" />
             <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} />
@@ -3313,6 +3907,30 @@ function PayablesCreatePage() {
           </div>
         </form>
       </SectionCard>
+
+      <Dialog open={showCategoryDialog} onClose={() => setShowCategoryDialog(false)} title="Create Payout Category" size="md">
+        <div className="space-y-5 pt-2">
+          <Input label="Category Name" placeholder="Enter Category Name" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowCategoryDialog(false)}>Close</Button>
+            <Button type="button" onClick={() => void handleCreateCategory()} disabled={creatingCategory || !newCategoryName.trim()}>
+              {creatingCategory ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showStatusDialog} onClose={() => setShowStatusDialog(false)} title="Create Payout Status" size="md">
+        <div className="space-y-5 pt-2">
+          <Input label="Status Name" placeholder="Enter Status Name" value={newStatusName} onChange={(event) => setNewStatusName(event.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowStatusDialog(false)}>Close</Button>
+            <Button type="button" onClick={() => void handleCreateStatus()} disabled={creatingStatus || !newStatusName.trim()}>
+              {creatingStatus ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
     </PageShell>
   );
 }
@@ -4634,15 +5252,33 @@ function CouponEditPage() {
 function CategoryPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
+  const location = useLocation();
   const [financeCategories, setFinanceCategories] = useState<Array<{ id: string; name: string; usageCount: number; linkedTo: string }>>([]);
+
+  const categoryTypeFilter = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("categoryType") || "";
+  }, [location.search]);
 
   useEffect(() => {
     let active = true;
 
     async function loadCategories() {
-      const filter = mfeProps.location?.id
+      const filter: Record<string, unknown> = mfeProps.location?.id
         ? { "locationId-eq": mfeProps.location.id, from: 0, count: 100 }
         : { from: 0, count: 100 };
+
+      if (categoryTypeFilter) {
+        filter.page = 0;
+        filter.size = 100;
+        filter.sort = [{ field: "createdAt", direction: "DESC" }];
+        filter.filters = {
+          field: "categoryType",
+          operator: "IN",
+          values: [categoryTypeFilter],
+        };
+        filter.view = "SUMMARY";
+      }
 
       try {
         const response = await financeApi.categories.search<any>(filter);
@@ -4677,7 +5313,7 @@ function CategoryPage() {
     return () => {
       active = false;
     };
-  }, [mfeProps.location?.id]);
+  }, [categoryTypeFilter, mfeProps.location?.id]);
 
   const columns = useMemo<ColumnDef<(typeof financeCategories)[number]>[]>(
     () => [
@@ -4878,8 +5514,14 @@ function StatusCreatePage() {
 
 function StatusPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [financeStatuses, setFinanceStatuses] = useState<Array<{ id: string; name: string; appliesTo: string; colorHint: string }>>([]);
   const [loading, setLoading] = useState(true);
+
+  const categoryTypeFilter = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("categoryType") || "";
+  }, [location.search]);
 
   useEffect(() => {
     let active = true;
@@ -4896,7 +5538,18 @@ function StatusPage() {
               direction: "DESC",
             },
           ],
-          view: "SUMMARY",
+          ...(categoryTypeFilter
+            ? {
+                filters: {
+                  field: "categoryType",
+                  operator: "IN",
+                  values: [categoryTypeFilter],
+                },
+                view: "SUMMARY",
+              }
+            : {
+                view: "SUMMARY",
+              }),
         });
 
         if (!active) {
@@ -4937,7 +5590,7 @@ function StatusPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [categoryTypeFilter]);
 
   const columns = useMemo<ColumnDef<(typeof financeStatuses)[number]>[]>(
     () => [
@@ -8347,6 +9000,7 @@ export default function App() {
         <Route path="customers/create" element={withBoundary(<CustomerCreatePage />)} />
           <Route path="vendors" element={withBoundary(<VendorsPage />)} />
           <Route path="vendors/create" element={withBoundary(<VendorCreatePage />)} />
+          <Route path="vendors/edit/:id" element={withBoundary(<VendorCreatePage />)} />
           <Route path="vendors/:id" element={withBoundary(<VendorDetailPage />)} />
           <Route path="ledger" element={withBoundary(<LedgerPage />)} />
         <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />

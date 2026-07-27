@@ -255,6 +255,9 @@ export const financeApi = {
     create<T = unknown>(data: unknown) {
       return post<T>(TENANT_VENDOR_ENDPOINT, data);
     },
+    update<T = unknown>(id: string, data: unknown) {
+      return put<T>(`${TENANT_VENDOR_ENDPOINT}/${id}`, data);
+    },
     search<T = unknown>(data: unknown) {
       return post<T>(TENANT_VENDOR_SEARCH_ENDPOINT, data);
     },
