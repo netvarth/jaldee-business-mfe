@@ -7,3 +7,6 @@ export { HolidaySettingsPage } from "./HolidaySettingsPage";
 export { AttendanceSettingsPage } from "./AttendanceSettingsPage";
 export { PayrollSettingsPage } from "./PayrollSettingsPage";
 export { LevelsSettingsPage } from "./LevelsSettingsPage";
+export { default as ApprovalsPanel } from "./ApprovalsPanel";
+export { default as PolicyRules } from "./PolicyRules";
+export { default as ShiftsManager } from "./ShiftsManager";

@@ -132,7 +132,7 @@ function createCrudApi(basePath: string) {
 }
 
 function buildTenantApiUrl(path: string) {
-  return new URL(path, window.location.origin).toString();
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/category");
@@ -488,7 +488,10 @@ export const financeApi = {
     // Invoice listing is served by the dedicated POST /search route and uses
     // Spring Pageable, so translate from/count -> page/size.
     listGeneral<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(TENANT_INVOICE_SEARCH_ENDPOINT, toMsQuery(filter));
+      return post<T>(
+        TENANT_INVOICE_SEARCH_ENDPOINT,
+        toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] })
+      );
     },
     countGeneral<T = number>(filter: ApiFilter = {}) {
       return invoices.count<T>(filter);

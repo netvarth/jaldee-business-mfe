@@ -7,18 +7,6 @@ declare global {
 }
 
 function resolveApiBaseUrl() {
-  const configuredUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (configuredUrl) {
-    const normalized = configuredUrl.replace(/\/$/, "");
-    if (normalized.endsWith("/provider/golderp")) {
-      return normalized;
-    }
-    if (normalized.endsWith("/provider")) {
-      return `${normalized}/golderp`;
-    }
-    return `${normalized}/provider/golderp`;
-  }
-
   const providerBaseUrl = window.__JALDEE_PROVIDER_BASE_URL__?.trim();
   if (providerBaseUrl) {
     try {
@@ -28,7 +16,7 @@ function resolveApiBaseUrl() {
     }
   }
 
-  return "/api/provider/golderp";
+  return new URL("/api/provider/golderp", window.location.origin).toString();
 }
 
 export function ensureApiClientInitialized(mfeName = "mfe_golderp", authToken = "") {

@@ -389,7 +389,7 @@ async function refreshSession(): Promise<SessionResponse> {
 }
 
 async function logout(): Promise<void> {
-  const method = (import.meta.env.VITE_LOGOUT_METHOD?.trim().toUpperCase() || (authMode === "session" ? "DELETE" : "POST")) as "POST" | "DELETE";
+  const method = (import.meta.env.VITE_LOGOUT_METHOD?.trim().toUpperCase() || "POST") as "POST" | "DELETE";
   try {
     if (method === "DELETE") {
       await apiClient.delete(buildAuthServiceUrl(authPath("logout")), { _skipAuthRefresh: true } as unknown);
@@ -405,7 +405,7 @@ async function logout(): Promise<void> {
 }
 
 export function configureApiClient(onSessionExpired: () => void) {
-  initApiClient(import.meta.env.VITE_API_BASE_URL);
+  initApiClient(new URL("/api/", window.location.origin).toString().replace(/\/$/, ""));
   setApiClientAuthHandlers({
     refreshSession,
     onSessionExpired: () => {
@@ -421,7 +421,7 @@ export function configureApiClient(onSessionExpired: () => void) {
 }
 
 export function hasStoredAuthSession() {
-  return authMode === "token" ? Boolean(readStoredSession()?.token) : Boolean(readStoredCredentials());
+  return Boolean(readStoredSession()?.token);
 }
 
 export const employeeAuthService = {

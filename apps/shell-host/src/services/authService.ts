@@ -107,7 +107,7 @@ export interface TenantSignupVerifyRequest {
 }
 
 const isMock = import.meta.env.VITE_USE_MOCK === "true";
-const authMode = import.meta.env.VITE_AUTH_MODE === "token" ? "token" : "session";
+const authMode = "token";
 const M_UNIQUE_ID_KEY = "mUniqueId";
 const LOGIN_CREDENTIALS_KEY = "ynw-credentials";
 const TOKEN_SESSION_KEY = "jaldee-token-session";

@@ -10,7 +10,7 @@ import type {
 } from "../types";
 
 const audience = "consumer";
-const authMode = import.meta.env.VITE_AUTH_MODE === "token" ? "token" : "session";
+const authMode = "token";
 const storageKey = `jaldee-${audience}-session`;
 
 interface StoredSession {
@@ -278,7 +278,7 @@ async function logout(): Promise<void> {
 }
 
 export function configureApiClient(onSessionExpired: () => void) {
-  initApiClient(import.meta.env.VITE_API_BASE_URL);
+  initApiClient(new URL("/api/", window.location.origin).toString().replace(/\/$/, ""));
   setApiClientAuthHandlers({
     refreshSession,
     onSessionExpired: () => {

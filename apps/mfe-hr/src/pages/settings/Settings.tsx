@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, MoreVertical, Layers } from "lucide-react";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, MoreVertical, Layers, Workflow, GitBranch } from "lucide-react";
 import { Popover } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { TEAL, card } from "./SettingsComponents";
@@ -8,20 +8,24 @@ import {
   CompanySettingsPage,
   DepartmentsSettingsPage,
   DesignationsSettingsPage,
-  ShiftsSettingsPage,
   LeavePolicySettingsPage,
   HolidaySettingsPage,
   AttendanceSettingsPage,
   PayrollSettingsPage,
   LevelsSettingsPage,
 } from "./settingsPages";
+import ApprovalsPanel from "./ApprovalsPanel";
+import PolicyRules from "./PolicyRules";
+import ShiftsManager from "./ShiftsManager";
 
 const SECTIONS = [
   { key: "company", label: "Company Profile", icon: <Building2 size={18} /> },
   { key: "departments", label: "Departments", icon: <Users2 size={18} /> },
   { key: "levels", label: "Seniority Bands (Levels)", icon: <Layers size={18} /> },
   { key: "designations", label: "Roles & Designations", icon: <BadgeCheck size={18} /> },
-  { key: "shifts", label: "Shifts", icon: <Clock size={18} /> },
+  { key: "policyrules", label: "Policy Rules", icon: <Workflow size={18} /> },
+  { key: "shifts", label: "Shifts & Rotations", icon: <Clock size={18} /> },
+  { key: "approvals", label: "Approval Chains", icon: <GitBranch size={18} /> },
   { key: "leavetypes", label: "Leave Policy", icon: <Plane size={18} /> },
   { key: "holidays", label: "Holiday Calendar", icon: <CalendarDays size={18} /> },
   { key: "attendance", label: "Attendance Rules", icon: <Fingerprint size={18} /> },
@@ -34,7 +38,9 @@ const SECTION_CONTENT: Record<SectionKey, () => JSX.Element> = {
   departments: DepartmentsSettingsPage,
   levels: LevelsSettingsPage,
   designations: DesignationsSettingsPage,
-  shifts: ShiftsSettingsPage,
+  policyrules: PolicyRules,
+  shifts: ShiftsManager,
+  approvals: ApprovalsPanel,
   leavetypes: LeavePolicySettingsPage,
   holidays: HolidaySettingsPage,
   attendance: AttendanceSettingsPage,

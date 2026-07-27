@@ -374,13 +374,10 @@ function getServiceGatewayPrefix() {
 }
 
 export function isTokenAuthMode() {
-  return (
-    (typeof window !== "undefined" && (window as any).__JALDEE_AUTH_MODE__ === "token") ||
-    import.meta.env.VITE_AUTH_MODE === "token"
-  );
+  return true;
 }
 
-export const isTokenAuth = isTokenAuthMode();
+export const isTokenAuth = true;
 
 function buildServiceUrl(path: string, baseUrl: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;

@@ -8,18 +8,6 @@ declare global {
 }
 
 function resolveApiBaseUrl() {
-  const configuredUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (configuredUrl) {
-    const normalized = configuredUrl.replace(/\/$/, "");
-    if (normalized.endsWith("/provider/karty")) {
-      return normalized;
-    }
-    if (normalized.endsWith("/provider")) {
-      return `${normalized}/karty`;
-    }
-    return `${normalized}/provider/karty`;
-  }
-
   const providerBaseUrl = window.__JALDEE_PROVIDER_BASE_URL__?.trim();
   if (providerBaseUrl) {
     try {
@@ -29,7 +17,7 @@ function resolveApiBaseUrl() {
     }
   }
 
-  return "/api/provider/karty";
+  return new URL("/api/provider/karty", window.location.origin).toString();
 }
 
 export function ensureApiClientInitialized(mfeName = "mfe_karty", authToken = "") {

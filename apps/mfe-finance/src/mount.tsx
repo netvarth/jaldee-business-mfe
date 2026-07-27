@@ -1,12 +1,12 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { MFEPropsContext } from "@jaldee/auth-context";
-import type { MFEProps } from "@jaldee/auth-context";
+import { MFEPropsContext, type MFEProps } from "@jaldee/auth-context";
+import { ensureApiClientInitialized } from "./lib/apiClient";
+import "./index.css";
 import App from "./App";
 import { MFEErrorBoundary } from "./error/MFEErrorBoundary";
-import { ensureApiClientInitialized } from "./lib/apiClient";
-import { setShellHttpBridge } from "./lib/httpClient";
 
+// Contract version - shell checks this on mount. Must equal MFE_CONTRACT_VERSION.
 export const CONTRACT_VERSION = "3.4";
 
 let root: ReactDOM.Root | null = null;
@@ -32,16 +32,13 @@ function renderApp(props: MFEProps) {
 
 export function mount(container: HTMLElement, props: MFEProps) {
   ensureApiClientInitialized(props.mfeName, props.authToken);
-  setShellHttpBridge(props.api ?? null);
   currentContainer = container;
   currentProps = props;
-
   root = ReactDOM.createRoot(container);
   renderApp(props);
 }
 
 export function unmount(_container: HTMLElement) {
-  setShellHttpBridge(null);
   cleanupFns.forEach((fn) => fn());
   cleanupFns.length = 0;
   root?.unmount();
@@ -58,9 +55,7 @@ export function updateProps(nextProps: Partial<MFEProps>) {
   if (!root || !currentContainer || !currentProps) {
     return;
   }
-
   currentProps = { ...currentProps, ...nextProps };
   ensureApiClientInitialized(currentProps.mfeName, currentProps.authToken);
-  setShellHttpBridge(currentProps.api ?? null);
   renderApp(currentProps);
 }
