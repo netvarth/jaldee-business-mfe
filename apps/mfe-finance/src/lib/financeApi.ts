@@ -394,6 +394,9 @@ export const financeApi = {
     disable<T = unknown>(id: string, status: string) {
       return put<T>(`${TENANT_STATUS_ENDPOINT}/${id}/${status}`);
     },
+    updateStatus<T = unknown>(id: string, status: string) {
+      return put<T>(`${TENANT_STATUS_ENDPOINT}/${id}/${status}`);
+    },
   },
 
   expenses: {
