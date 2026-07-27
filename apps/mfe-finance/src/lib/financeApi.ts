@@ -138,6 +138,7 @@ const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tena
 const TENANT_EXPENSES_SEARCH_ENDPOINT = `${TENANT_EXPENSES_ENDPOINT}/search`;
 const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payment/cash-balance");
 const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
+const TENANT_AUDIT_LOG_SEARCH_ENDPOINT = `${TENANT_AUDIT_LOG_ENDPOINT}/search`;
 const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
 const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer");
 const TENANT_CONSUMER_SEARCH_ENDPOINT = `${TENANT_CONSUMER_ENDPOINT}/search`;
@@ -256,6 +257,9 @@ export const financeApi = {
     },
     search<T = unknown>(data: unknown) {
       return post<T>(TENANT_VENDOR_SEARCH_ENDPOINT, data);
+    },
+    detail<T = unknown>(id: string) {
+      return get<T>(`${TENANT_VENDOR_ENDPOINT}/${id}`);
     },
     createCategory<T = unknown>(data: unknown) {
       return post<T>(TENANT_VENDOR_CATEGORY_ENDPOINT, data);
@@ -647,7 +651,7 @@ export const financeApi = {
 
   activity: {
     list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>(TENANT_AUDIT_LOG_ENDPOINT, toMsQuery(filter));
+      return post<T>(TENANT_AUDIT_LOG_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     count<T = number>(filter: ApiFilter = {}) {
       return get<T>(`${TENANT_AUDIT_LOG_ENDPOINT}/count`, toMsQuery(filter));
