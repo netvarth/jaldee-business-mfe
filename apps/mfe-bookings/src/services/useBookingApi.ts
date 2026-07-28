@@ -38,7 +38,10 @@ function buildBookingServiceUrl(endpoint: string) {
       normalizedEndpoint.startsWith("/consumers")
     ) {
       basePath = `${GATEWAY_PREFIX}/base-service/v1/api/tenant`;
-    } else if (normalizedEndpoint.startsWith("/customers")) {
+    } else if (
+      normalizedEndpoint.startsWith("/customers") ||
+      normalizedEndpoint.startsWith("/finance")
+    ) {
       basePath = `${GATEWAY_PREFIX}/v1/api/tenant`;
     } else if (
       normalizedEndpoint.startsWith("/services") ||

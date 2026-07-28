@@ -267,6 +267,7 @@ export interface ServiceItem {
   status: "Active" | "Inactive";
   serviceType?: string;
   labels?: string[];
+  assignedProviders?: string[];
 }
 
 export type BookingStatus =

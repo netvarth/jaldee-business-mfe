@@ -6,6 +6,8 @@ export interface Service {
   uid?: string;
   name: string;
   code?: string;
+  assignedProviders?: string[];
+  assignedUserNames?: string;
 }
 
 interface DualListServicesModalProps {
@@ -117,7 +119,12 @@ export default function DualListServicesModal({
                             else next.delete(service.id);
                             setLeftChecked(next);
                           }}
-                          label={service.name}
+                          label={
+                            <div className="flex flex-col">
+                              <span className="block text-sm">{service.name}</span>
+                              {service.assignedUserNames && <span className="block text-xs text-slate-500 mt-0.5">Assigned to: {service.assignedUserNames}</span>}
+                            </div>
+                          }
                       />
                     ))}
                 </div>
@@ -153,7 +160,12 @@ export default function DualListServicesModal({
                             else next.delete(service.id);
                             setRightChecked(next);
                           }}
-                          label={service.name}
+                          label={
+                            <div className="flex flex-col">
+                              <span className="block text-sm">{service.name}</span>
+                              {service.assignedUserNames && <span className="block text-xs text-slate-500 mt-0.5">Assigned to: {service.assignedUserNames}</span>}
+                            </div>
+                          }
                       />
                     ))}
                 </div>
@@ -204,7 +216,10 @@ export default function DualListServicesModal({
                           <div className="bg-[#5a32a3] rounded-full w-5 h-5 flex items-center justify-center text-white shrink-0">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                           </div>
-                          <span className="text-sm text-slate-700 font-medium">{service.name}</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm text-slate-700 font-medium">{service.name}</span>
+                            {service.assignedUserNames && <span className="text-xs text-slate-500 mt-0.5">Assigned to: {service.assignedUserNames}</span>}
+                          </div>
                         </div>
                         <button type="button" aria-label="Remove" onClick={() => {
                           const next = new Set(selectedIds);
@@ -241,6 +256,7 @@ export default function DualListServicesModal({
                         <div className="flex flex-col">
                             <span className={`text-sm font-medium ${checked ? 'text-slate-900' : 'text-slate-700'}`}>{service.name}</span>
                             {service.code && <span className="text-xs text-slate-400 mt-0.5">{service.code}</span>}
+                            {service.assignedUserNames && <span className="text-xs text-slate-500 mt-0.5">Assigned to: {service.assignedUserNames}</span>}
                         </div>
                       </label>
                     );

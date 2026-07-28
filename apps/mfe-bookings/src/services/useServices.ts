@@ -28,6 +28,7 @@ interface ServiceSearchDto {
   amount?: string | number;
   status?: string;
   serviceType?: string;
+  labels?: unknown;
 }
 
 function toApiStatus(status: ServiceItem["status"]): "Enabled" | "Disabled" {
@@ -55,8 +56,11 @@ function normalizeService(service: ServiceItem): ServiceItem {
   return { ...service, status: toUiStatus(service.status) };
 }
 
-function normalizeServiceSearchResult(service: ServiceSearchDto): ServiceItem {
+function normalizeServiceSearchResult(service: ServiceSearchDto & { users?: any[], assignedProviders?: any[] }): ServiceItem {
   const id = service.uid ?? service.id ?? service.serviceId ?? service.encId;
+  const rawUsers = Array.isArray(service.assignedProviders) ? service.assignedProviders : (Array.isArray(service.users) ? service.users : []);
+  const assignedProviders = rawUsers.map(u => typeof u === 'string' ? u : (u && typeof u === 'object' && (u.userUid || u.id || u.uid) ? String(u.userUid || u.id || u.uid) : '')).filter(Boolean);
+
   return {
     id: id != null ? String(id) : `srv-${Math.random().toString(36).slice(2, 8)}`,
     uid: service.uid ?? (id != null ? String(id) : undefined),
@@ -67,6 +71,8 @@ function normalizeServiceSearchResult(service: ServiceSearchDto): ServiceItem {
     price: toNumber(service.price ?? service.serviceCharge ?? service.amount),
     status: toUiStatus(service.status),
     serviceType: service.serviceType,
+    labels: Array.isArray(service.labels) ? service.labels.map(l => typeof l === 'string' ? l : (l && typeof l === 'object' && l.id ? String(l.id) : '')).filter(Boolean) : [],
+    assignedProviders,
   };
 }
 
@@ -130,7 +136,9 @@ export const useServices = (
     const next: ServiceItem["status"] = service.status === "Active" ? "Inactive" : "Active";
     setServices((prev) => prev.map((item) => (item.id === service.id ? { ...item, status: next } : item)));
     try {
-      await api.patch(`/services/${service.id}/status`, { status: toApiStatus(next) });
+      await api.patch(`/services/${service.id}/status`, undefined, {
+        params: { status: toApiStatus(next) },
+      });
     } catch {
       setServices((prev) => prev.map((item) => (item.id === service.id ? service : item)));
     }

@@ -818,6 +818,10 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               bookings={filteredBookings as any}
               services={services}
               onBookingSelect={onBookingSelect}
+              onGroupSelect={(calendarId, userId) => {
+                if (calendarId) setSelectedCalendarIds(new Set([calendarId]));
+                if (userId) setSelectedUserIds(new Set([userId]));
+              }}
             />
           ) : viewMode === "WEEK" ? (
             <WeekGrid
@@ -828,6 +832,10 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               bookings={filteredBookings as any}
               services={services}
               onBookingSelect={onBookingSelect}
+              onGroupSelect={(calendarId, userId) => {
+                if (calendarId) setSelectedCalendarIds(new Set([calendarId]));
+                if (userId) setSelectedUserIds(new Set([userId]));
+              }}
             />
           ) : (
             <MonthGrid

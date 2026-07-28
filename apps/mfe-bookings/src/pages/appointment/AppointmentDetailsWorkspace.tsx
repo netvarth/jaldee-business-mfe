@@ -210,7 +210,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const getDerivedActions = (status: string, allowed: AllowedAction[]): AllowedAction[] => {
     switch (status) {
       case "REQUESTED": return ["CONFIRM", "CANCEL"];
-      case "CONFIRMED": return ["CHECK_IN", "CANCEL"];
+      case "CONFIRMED": return ["CHECK_IN", "CREATE_INVOICE", "CANCEL"];
       case "CHECKED_IN": return ["START", "CANCEL"];
       case "IN_PROGRESS": return ["COMPLETE", "CANCEL"];
       default: return allowed;

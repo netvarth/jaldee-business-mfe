@@ -7,6 +7,8 @@ import { useUsers } from "../../services/useUsers";
 import type { Calendar, CalendarCustomizationRequest, Schedule, ScheduleCustomizationRequest } from "../../types";
 import DualListServicesModal, { Service } from "./components/DualListServicesModal";
 import DualListUsersModal from "./components/DualListUsersModal";
+import LabelSelectorModal from "../../components/LabelSelectorModal";
+import { useCustomerLabels } from "../../services/useCustomerLabels";
 
 const channels = [
   { value: "ONLINE", title: "Online", description: "Allow customers to book appointments online" },
@@ -182,8 +184,9 @@ export default function CustomizeCalendar() {
   const [initialTags, setInitialTags] = useState<string[]>([]);
   const [initialServiceAssignments, setInitialServiceAssignments] = useState<Record<string, ServiceAssignment[]>>({});
   const [applyToAll, setApplyToAll] = useState(!isScheduleMode);
-  const [newLabel, setNewLabel] = useState("");
+  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { labels: availableLabels } = useCustomerLabels();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
@@ -200,6 +203,24 @@ export default function CustomizeCalendar() {
     () => normalizeServiceSources(calendar?.services as unknown[]),
     [calendar?.services],
   );
+
+  const availableServices = useMemo(() => {
+    return services.map(service => {
+      const assignedUserNames = (service.assignedProviders || [])
+        .map(uid => users.find(u => u.userUid === uid)?.displayName)
+        .filter(Boolean)
+        .join(', ');
+      
+      return {
+        id: service.uid ?? service.id,
+        uid: service.uid ?? service.id,
+        name: service.name,
+        code: service.serviceType,
+        assignedProviders: service.assignedProviders,
+        assignedUserNames: assignedUserNames || undefined,
+      };
+    });
+  }, [services, users]);
 
   const serviceRows = useMemo(() => {
     return selectedServiceIds.map((serviceId, index) => {
@@ -325,12 +346,7 @@ export default function CustomizeCalendar() {
     };
   }, [calendar, calendarServiceSources, calendarUid, getSchedule, searchSchedules, selectedSchedule, userMap]);
 
-  const addTag = () => {
-    const value = newLabel.trim();
-    if (!value || tags.includes(value)) return;
-    setTags((current) => [...current, value]);
-    setNewLabel("");
-  };
+  // addTag not needed
 
   const buildCalendarPayload = (): CalendarCustomizationRequest => {
     const channelDiff = diffList(selectedChannels, initialChannels);
@@ -635,44 +651,33 @@ export default function CustomizeCalendar() {
                 <h2 className="text-base font-semibold text-slate-700">Label</h2>
                 <p className="mt-1 text-sm text-slate-500">Label helps you tag a booking to a specified group. Examples: VIP, Family, etc.</p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
-                  {tags.map((tag) => (
+                  {tags.map((tagId) => {
+                    const labelObj = availableLabels.find(l => l.id === tagId || l.name === tagId);
+                    const displayName = labelObj ? labelObj.name : tagId;
+                    return (
                     <span
-                      key={tag}
-                      data-testid={`bookings-customize-tag-${token(tag)}`}
+                      key={tagId}
+                      data-testid={`bookings-customize-tag-${token(tagId)}`}
                       className="inline-flex h-[34px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
                     >
-                      {tag}
+                      {displayName}
                       <button
-                        id={`bookings-customize-tag-${token(tag)}-remove`}
-                        data-testid={`bookings-customize-tag-${token(tag)}-remove`}
+                        id={`bookings-customize-tag-${token(tagId)}-remove`}
+                        data-testid={`bookings-customize-tag-${token(tagId)}-remove`}
                         type="button"
-                        aria-label={`Remove ${tag}`}
-                        onClick={() => setTags((current) => current.filter((value) => value !== tag))}
+                        aria-label={`Remove ${displayName}`}
+                        onClick={() => setTags((current) => current.filter((value) => value !== tagId))}
                         className="text-slate-400 transition hover:text-slate-700"
                       >
                         ×
                       </button>
                     </span>
-                  ))}
+                  )})}
                   <div className="flex items-center gap-3 ml-2">
-                    <Input
-                      id="bookings-customize-tag-input"
-                      value={newLabel}
-                      onChange={(event) => setNewLabel(event.target.value)}
-                      placeholder="New label..."
-                      className="w-32 h-[34px] !min-h-[34px] text-sm"
-                    />
-                    <button
-                      id="bookings-customize-tag-add"
-                      data-testid="bookings-customize-tag-add"
-                      type="button"
-                      onClick={addTag}
-                      disabled={!newLabel.trim()}
-                      className="flex items-center gap-1.5 text-sm font-semibold text-[#5a32a3] hover:text-[#462780] disabled:opacity-50"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                    <Button type="button" variant="link" size="inline" onClick={() => setIsLabelModalOpen(true)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
                       Add Label
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </section>
@@ -709,11 +714,29 @@ export default function CustomizeCalendar() {
       <DualListServicesModal
         isOpen={isServicesModalOpen}
         onClose={() => setIsServicesModalOpen(false)}
-        allServices={services}
+        allServices={availableServices}
         initialSelectedServices={selectedServiceObjects as Service[]}
         onSave={(selected) => {
           setSelectedServiceIds(unique(selected.map((service) => service.uid ?? service.id)));
           setIsServicesModalOpen(false);
+          
+          setServiceAssignments(prev => {
+            const next = { ...prev };
+            selected.forEach(svc => {
+              if (!next[svc.id] && svc.assignedProviders && svc.assignedProviders.length > 0) {
+                const matchedUsers = svc.assignedProviders
+                  .map(uid => users.find(u => u.userUid === uid))
+                  .filter(Boolean);
+                if (matchedUsers.length > 0) {
+                  next[svc.id] = matchedUsers.map(u => ({
+                    userUid: u!.userUid,
+                    userName: resolveUserName(u!.userUid, u!.userDisplayName || u!.displayName || u!.firstName, userMap)
+                  }));
+                }
+              }
+            });
+            return next;
+          });
         }}
       />
 
@@ -753,6 +776,13 @@ export default function CustomizeCalendar() {
           }
           setUsersModalServiceId(null);
         }}
+      />
+
+      <LabelSelectorModal
+        isOpen={isLabelModalOpen}
+        onClose={() => setIsLabelModalOpen(false)}
+        selectedLabels={tags}
+        onSave={setTags}
       />
     </main>
   );

@@ -14,6 +14,7 @@ interface DayGridProps {
     bookings: Booking[];
     services: Service[];
     onBookingSelect: (id: string) => void;
+    onGroupSelect?: (calendarId: string, userId: string) => void;
 }
 
 function parseTimeValue(value?: string): { hour: number; minute: number } | null {
@@ -35,7 +36,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
     return { hour, minute };
 }
 
-export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: DayGridProps) {
+export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect }: DayGridProps) {
     const { openModal, openDrawer } = useModal();
     const startHour = 0;
     const endHour = 23;
@@ -171,7 +172,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                     const bgTheme = '#db2777';
                                                                                     return (
-                                                                                        <div key={uid} className="flex flex-col items-center rounded-full py-0.5 px-0.5 shadow-sm" style={{ backgroundColor: bgTheme, border: `1px solid ${bgTheme}` }}>
+                                                                                        <div key={uid} className="flex flex-col items-center rounded-full py-0.5 px-0.5 shadow-sm cursor-pointer" style={{ backgroundColor: bgTheme, border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(id, uid); }}>
                                                                                             <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: bgTheme }}>
                                                                                                 {initials}
                                                                                             </div>
@@ -194,7 +195,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 const bgTheme = '#db2777'; // Dark pink background/border
                                                                                 
                                                                                 return (
-                                                                                    <div key={uid} className="relative flex flex-col w-[52px] shrink rounded-[6px] shadow-sm h-[64px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }}>
+                                                                                    <div key={uid} className="relative flex flex-col w-[52px] shrink rounded-[6px] shadow-sm h-[64px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(id, uid); }}>
                                                                                         {/* Top Half */}
                                                                                         <div className="w-full h-[30px] rounded-t-[5px] flex items-center justify-center" style={{ backgroundColor: bgTheme }}>
                                                                                             <span className="text-[14px] font-bold text-white">{initials}</span>
@@ -235,7 +236,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     const cal = calendars.find(c => (c.uid || c.id) === calId);
                                                                                     const calColor = cal?.color || '#9333EA';
                                                                                     return (
-                                                                                        <div key={calId} className="w-2.5 h-10 rounded-sm shadow-sm" style={{ backgroundColor: toRgba(calColor, 0.7) }} title={`${bks.length} Bookings`} />
+                                                                                        <div key={calId} className="w-2.5 h-10 rounded-sm shadow-sm cursor-pointer" style={{ backgroundColor: toRgba(calColor, 0.7) }} title={`${bks.length} Bookings`} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(calId, id); }} />
                                                                                     );
                                                                                 })}
                                                                             </div>
@@ -259,7 +260,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                             key={calId}
                                                                                             className="pointer-events-auto flex flex-col flex-1 min-w-[50px] max-w-full rounded-md transition-all hover:opacity-90 cursor-pointer overflow-hidden shadow-sm"
                                                                                             style={{ border: `1px solid ${toRgba(calColor, 0.3)}` }}
-                                                                                            onClick={(e) => { e.stopPropagation(); }}
+                                                                                            onClick={(e) => { e.stopPropagation(); onGroupSelect?.(calId, id); }}
                                                                                         >
                                                                                             <div className="flex flex-col items-center justify-center w-full py-1.5" style={{ backgroundColor: toRgba(calColor, 0.1) }}>
                                                                                                 <span className="text-[17px] font-bold text-slate-900 leading-none">{bks.length}</span>

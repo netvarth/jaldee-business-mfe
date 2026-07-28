@@ -293,12 +293,12 @@ export default function CreateAppointmentDrawer({
 
   useEffect(() => {
     setSlot(null);
-    if (serviceUid && scheduleUid && dateStr) {
-      fetchSlots({ serviceUid, scheduleUid, calendarUid, date: dateStr });
+    if (serviceUid && dateStr) {
+      fetchSlots({ serviceUid, calendarUid, date: dateStr });
     } else {
       clearSlots();
     }
-  }, [serviceUid, scheduleUid, dateStr, fetchSlots, clearSlots]);
+  }, [serviceUid, dateStr, fetchSlots, clearSlots, calendarUid]);
 
   useEffect(() => {
     if (!calendarUid) {

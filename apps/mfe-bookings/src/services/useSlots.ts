@@ -3,7 +3,7 @@ import { useBookingApi } from "../services/useBookingApi";
 import type { Slot } from "../types";
 
 interface SlotQuery {
-  scheduleUid: string;
+  scheduleUid?: string;
   serviceUid: string;
   calendarUid?: string;
   date?: string;
@@ -27,14 +27,15 @@ export function useSlots() {
 
   const fetchSlots = useCallback(
     async ({ scheduleUid, serviceUid, calendarUid, date, startDate, endDate, providerUid }: SlotQuery) => {
-      if (!scheduleUid || !serviceUid || (!date && !startDate)) {
+      if (!serviceUid || (!date && !startDate)) {
         setSlots([]);
         return;
       }
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ scheduleUid, serviceUid });
+        const params = new URLSearchParams({ serviceUid });
+        if (scheduleUid) params.append("scheduleUid", scheduleUid);
         if (calendarUid) params.append("calendarUid", calendarUid);
         if (date) params.append("date", date);
         if (startDate) params.append("startDate", startDate);

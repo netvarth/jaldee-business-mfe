@@ -7,6 +7,8 @@ import { useUsers } from "../../services/useUsers";
 import type { Calendar, Schedule, TimeWindow, TimeWindowCustomizationRequest } from "../../types";
 import DualListServicesModal from "./components/DualListServicesModal";
 import DualListUsersModal from "./components/DualListUsersModal";
+import LabelSelectorModal from "../../components/LabelSelectorModal";
+import { useCustomerLabels } from "../../services/useCustomerLabels";
 
 const channels = [
   { value: "ONLINE", title: "Online", description: "Allow customers to book appointments online" },
@@ -203,8 +205,9 @@ export default function CustomizeTimeWindow() {
   const [initialServiceIds, setInitialServiceIds] = useState<string[]>([]);
   const [serviceAssignments, setServiceAssignments] = useState<Record<string, TimeWindowUserAssignment[]>>({});
   const [initialServiceAssignments, setInitialServiceAssignments] = useState<Record<string, TimeWindowUserAssignment[]>>({});
-  const [newLabel, setNewLabel] = useState("");
+  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [applyToAll, setApplyToAll] = useState(false);
+  const { labels: availableLabels } = useCustomerLabels();
 
   const serviceMap = useMemo(
     () => new Map(allServices.map((service) => [service.uid ?? service.id, service])),
@@ -214,6 +217,24 @@ export default function CustomizeTimeWindow() {
     () => new Map(allUsers.map((user) => [user.userUid, user])),
     [allUsers],
   );
+
+  const availableServices = useMemo(() => {
+    return allServices.map(service => {
+      const assignedUserNames = (service.assignedProviders || [])
+        .map(uid => allUsers.find(u => u.userUid === uid)?.displayName)
+        .filter(Boolean)
+        .join(', ');
+      
+      return {
+        id: service.uid ?? service.id,
+        uid: service.uid ?? service.id,
+        name: service.name,
+        code: service.serviceType,
+        assignedProviders: service.assignedProviders,
+        assignedUserNames: assignedUserNames || undefined,
+      };
+    });
+  }, [allServices, allUsers]);
 
   useEffect(() => {
     if (!calendarUid || !scheduleUid || !timeWindowUid) {
@@ -321,12 +342,7 @@ export default function CustomizeTimeWindow() {
     [selectedServiceIds, serviceAssignments, serviceMap],
   );
 
-  const addTag = () => {
-    const value = newLabel.trim();
-    if (!value || tags.includes(value)) return;
-    setTags((current) => [...current, value]);
-    setNewLabel("");
-  };
+  // addTag not needed
 
   const buildPayload = (): TimeWindowCustomizationRequest => {
     const channelDiff = diffList(selectedChannels, initialChannels);
@@ -516,36 +532,33 @@ export default function CustomizeTimeWindow() {
                   Label helps you tag a booking to a specified group. Examples: VIP, Family, etc.
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
-                  {tags.map((tag) => (
+                  {tags.map((tagId) => {
+                    const labelObj = availableLabels.find(l => l.id === tagId || l.name === tagId);
+                    const displayName = labelObj ? labelObj.name : tagId;
+                    return (
                     <span
-                      key={tag}
-                      className="inline-flex h-[34px] items-center gap-2 rounded-2xl border border-[#E3E5EE] bg-[#F5F6FA] px-4 text-sm font-medium text-slate-700"
+                      key={tagId}
+                      data-testid={`bookings-customize-tag-${token(tagId)}`}
+                      className="inline-flex h-[34px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
                     >
-                      {tag}
+                      {displayName}
                       <button
+                        id={`bookings-customize-tag-${token(tagId)}-remove`}
+                        data-testid={`bookings-customize-tag-${token(tagId)}-remove`}
                         type="button"
+                        aria-label={`Remove ${displayName}`}
+                        onClick={() => setTags((current) => current.filter((value) => value !== tagId))}
                         className="text-slate-400 transition hover:text-slate-700"
-                        onClick={() => setTags((current) => current.filter((item) => item !== tag))}
                       >
                         ×
                       </button>
                     </span>
-                  ))}
-                  <div className="flex items-center gap-3">
-                    <Input
-                      value={newLabel}
-                      onChange={(event) => setNewLabel(event.target.value)}
-                      placeholder="New label..."
-                      className="w-32 h-[34px] !min-h-[34px] text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={addTag}
-                      disabled={!newLabel.trim()}
-                      className="inline-flex h-[34px] items-center rounded-2xl px-3 text-sm font-semibold text-[#7c3aed] transition hover:bg-[#f5f3ff] disabled:opacity-50"
-                    >
-                      + Add Label
-                    </button>
+                  )})}
+                  <div className="flex items-center gap-3 ml-2">
+                    <Button type="button" variant="link" size="inline" onClick={() => setIsLabelModalOpen(true)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                      Add Label
+                    </Button>
                   </div>
                 </div>
               </section>
@@ -659,6 +672,13 @@ export default function CustomizeTimeWindow() {
                     controlClassName="items-start"
                   />
                 </label>
+                {applyToAll && (
+                  <div className="mt-3">
+                    <Alert variant="danger">
+                      Warning: Enabling "Apply to all" will replace the schedule configuration for every schedule in this calendar, including all existing time windows. This action will overwrite current settings and may affect availability across the entire calendar.
+                    </Alert>
+                  </div>
+                )}
               </section>
 
               <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -688,18 +708,34 @@ export default function CustomizeTimeWindow() {
       <DualListServicesModal
         isOpen={isServicesModalOpen}
         onClose={() => setIsServicesModalOpen(false)}
-        allServices={allServices}
-        initialSelectedServices={selectedServiceObjects}
+        allServices={availableServices}
+        initialSelectedServices={displayServices}
         onSave={(selected) => {
-          setSelectedServiceIds(unique(selected.map((service) => service.uid ?? service.id ?? "")));
-          setServiceAssignments((current) => {
-            const next = { ...current };
-            for (const service of selected) {
+          setSelectedServiceIds(unique(selected.map((service) => service.uid ?? service.id)));
+          setServiceAssignments((prev) => {
+            const next = { ...prev };
+            selected.forEach((service) => {
               const id = service.uid ?? service.id ?? "";
               if (!next[id]) {
-                next[id] = [];
+                const assignedUsers = [];
+                if (service.assignedProviders && service.assignedProviders.length > 0) {
+                  const matchedUsers = service.assignedProviders
+                    .map(uid => allUsers.find(u => u.userUid === uid))
+                    .filter(Boolean);
+                  if (matchedUsers.length > 0) {
+                    matchedUsers.forEach(u => {
+                      assignedUsers.push({
+                        userUid: u!.userUid,
+                        userName: resolveUserName(u!.userUid, u!.userDisplayName || u!.displayName || u!.firstName, userMap),
+                        price: timeWindow?.price ?? 0,
+                        capacity: timeWindow?.slotCapacity ?? 1,
+                      });
+                    });
+                  }
+                }
+                next[id] = assignedUsers;
               }
-            }
+            });
             return next;
           });
           setIsServicesModalOpen(false);
@@ -737,6 +773,13 @@ export default function CustomizeTimeWindow() {
           }
           setUsersModalServiceId(null);
         }}
+      />
+
+      <LabelSelectorModal
+        isOpen={isLabelModalOpen}
+        onClose={() => setIsLabelModalOpen(false)}
+        selectedLabels={tags}
+        onSave={setTags}
       />
 
       <Dialog

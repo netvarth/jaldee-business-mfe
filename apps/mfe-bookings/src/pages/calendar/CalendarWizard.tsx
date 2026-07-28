@@ -24,6 +24,8 @@ import {
 } from '@jaldee/design-system';
 import DualListServicesModal, { Service } from './components/DualListServicesModal';
 import DualListUsersModal, { User } from './components/DualListUsersModal';
+import LabelSelectorModal from '../../components/LabelSelectorModal';
+import { useCustomerLabels } from '../../services/useCustomerLabels';
 
 function toBookingChannels(channels: { online: boolean; walkin: boolean; phonein: boolean; ivr: boolean }) {
     const values: string[] = [];
@@ -133,6 +135,9 @@ export default function CalendarWizard() {
     // Modals State
     const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
     const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
+    const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
+    const [labels, setLabels] = useState<string[]>(initialCalendar?.label || []);
+    const { labels: availableLabels } = useCustomerLabels();
 
     // Step 3 State
     const [schedules, setSchedules] = useState<any[]>([
@@ -178,13 +183,22 @@ export default function CalendarWizard() {
     );
 
     const availableServices = useMemo<Service[]>(
-        () => services.map((service) => ({
-            id: service.uid ?? service.id,
-            uid: service.uid ?? service.id,
-            name: service.name,
-            code: service.serviceType,
-        })),
-        [services],
+        () => services.map((service) => {
+            const assignedUserNames = (service.assignedProviders || [])
+                .map(uid => users.find(u => u.userUid === uid)?.displayName)
+                .filter(Boolean)
+                .join(', ');
+
+            return {
+                id: service.uid ?? service.id,
+                uid: service.uid ?? service.id,
+                name: service.name,
+                code: service.serviceType,
+                assignedProviders: service.assignedProviders,
+                assignedUserNames: assignedUserNames || undefined,
+            };
+        }),
+        [services, users],
     );
 
     const availableUsers = useMemo<User[]>(
@@ -212,7 +226,7 @@ export default function CalendarWizard() {
             services: [],
             users: [],
             channel: bookingChannels[0] ?? 'ONLINE',
-            label: [],
+            label: labels,
             qrLinkRequired: true,
             feature: 'BASE_CRM',
             status: 'DRAFT',
@@ -252,7 +266,7 @@ export default function CalendarWizard() {
             users: [],
             channel: bookingChannels[0] ?? 'ONLINE',
             defaultServiceId: defaultServiceId || undefined,
-            label: [],
+            label: labels,
             qrLinkRequired: true,
             feature: 'BASE_CRM',
             status: 'DRAFT',
@@ -294,7 +308,7 @@ export default function CalendarWizard() {
                 users: [],
                 channel: bookingChannels[0] ?? 'ONLINE',
                 defaultServiceId: defaultServiceId || undefined,
-                label: [],
+                label: labels,
                 qrLinkRequired: true,
                 feature: 'BASE_CRM',
                 status: 'ACTIVE',
@@ -520,10 +534,20 @@ export default function CalendarWizard() {
                                 <h3 className="subsection-title label-title-color">Label</h3>
                                 <p className="subsection-help">Label helps you tag a booking to a specified group. Examples: VIP, Family, etc.</p>
                                 <div className="labels-container">
-                                    <div className="label-chips">
-                                        {/* Chips rendered dynamically */}
+                                    <div className="label-chips flex flex-wrap gap-2 mb-2">
+                                        {labels.map(labelId => {
+                                            const labelObj = availableLabels.find(l => l.id === labelId || l.name === labelId);
+                                            const displayName = labelObj ? labelObj.name : labelId;
+                                            return (
+                                            <span key={labelId} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                                                {displayName}
+                                                <button type="button" onClick={() => setLabels(labels.filter(l => l !== labelId))} className="text-slate-400 hover:text-slate-600">
+                                                    <X size={12} />
+                                                </button>
+                                            </span>
+                                        )})}
                                     </div>
-                                    <Button variant="link" size="inline" className="btn-add-label">
+                                    <Button type="button" variant="link" size="inline" className="btn-add-label" onClick={() => setIsLabelModalOpen(true)}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
                                         Add Label
                                     </Button>
@@ -826,7 +850,19 @@ export default function CalendarWizard() {
                 onClose={() => setIsServicesModalOpen(false)}
                 allServices={availableServices}
                 initialSelectedServices={selectedServices}
-                onSave={setSelectedServices}
+                onSave={(selected) => {
+                    setSelectedServices(selected);
+                    const newUsers = { ...serviceUsers };
+                    selected.forEach(svc => {
+                        if (!newUsers[svc.id] && svc.assignedProviders && svc.assignedProviders.length > 0) {
+                            const matchedUsers = availableUsers.filter(u => svc.assignedProviders?.includes(u.id));
+                            if (matchedUsers.length > 0) {
+                                newUsers[svc.id] = matchedUsers;
+                            }
+                        }
+                    });
+                    setServiceUsers(newUsers);
+                }}
             />
 
             {usersModalServiceId && (
@@ -841,6 +877,12 @@ export default function CalendarWizard() {
                     onSave={(users) => setServiceUsers(prev => ({ ...prev, [usersModalServiceId]: users }))}
                 />
             )}
+            <LabelSelectorModal
+                isOpen={isLabelModalOpen}
+                onClose={() => setIsLabelModalOpen(false)}
+                selectedLabels={labels}
+                onSave={setLabels}
+            />
         </>
     );
 }

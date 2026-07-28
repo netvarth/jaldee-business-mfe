@@ -83,5 +83,13 @@ export function useQrLinks() {
     [api],
   );
 
-  return { qrLinks, loading, error, search, create, update, getById };
+  const remove = useCallback(
+    async (id: string) => {
+      await api.delete(`/qr-links/${id}`);
+      await search();
+    },
+    [api, search],
+  );
+
+  return { qrLinks, loading, error, search, create, update, remove, getById };
 }

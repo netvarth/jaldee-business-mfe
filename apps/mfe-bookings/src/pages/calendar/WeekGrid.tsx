@@ -15,6 +15,7 @@ interface WeekGridProps {
     bookings: Booking[];
     services: Service[];
     onBookingSelect: (id: string) => void;
+    onGroupSelect?: (calendarId: string, userId: string) => void;
 }
 
 function parseTimeValue(value?: string): { hour: number; minute: number } | null {
@@ -36,7 +37,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
     return { hour, minute };
 }
 
-export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect }: WeekGridProps) {
+export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect }: WeekGridProps) {
     const { openModal, openDrawer } = useModal();
     const startHour = 0;
     const endHour = 23;
@@ -153,7 +154,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                         key={uid}
                                                                                         className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[3px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1"
                                                                                         style={{ borderColor: color, backgroundColor: '#ffffff' }}
-                                                                                        onClick={(e) => { e.stopPropagation(); }}
+                                                                                        onClick={(e) => { e.stopPropagation(); onGroupSelect?.("", uid); }}
                                                                                     >
                                                                                         <div className="flex items-center justify-center h-full w-[24px] shrink-0 text-white text-[10px] font-bold rounded-l-[3px]" style={{ backgroundColor: color }}>
                                                                                             {initials}
@@ -177,7 +178,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                             const u = users.find(u => u.uid === uid);
                                                                                             const ini = u ? (u.code || u.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                             return (
-                                                                                                <div key={uid} className="flex items-center gap-1.5 pr-2">
+                                                                                                <div key={uid} className="flex items-center gap-1.5 pr-2 cursor-pointer hover:bg-black/10 p-1 rounded" onClick={(e) => { e.stopPropagation(); onGroupSelect?.("", uid); }}>
                                                                                                     <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] bg-white/20 text-white font-bold text-[9px]">
                                                                                                         {ini}
                                                                                                     </div>
@@ -223,7 +224,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                         key={uid}
                                                                                         className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[4px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1 px-1.5"
                                                                                         style={{ backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
-                                                                                        onClick={(e) => { e.stopPropagation(); }}
+                                                                                        onClick={(e) => { e.stopPropagation(); onGroupSelect?.(uid, ""); }}
                                                                                     >
                                                                                         <span style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} Bookings</span>
                                                                                         
@@ -242,7 +243,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                             const ini = cal ? (cal.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                             const calColor = sanitizeColor(cal?.color);
                                                                                             return (
-                                                                                                <div key={uid} className="flex items-center gap-1.5 pr-2">
+                                                                                                <div key={uid} className="flex items-center gap-1.5 pr-2 cursor-pointer hover:bg-black/5 p-1 rounded" onClick={(e) => { e.stopPropagation(); onGroupSelect?.(uid, ""); }}>
                                                                                                     <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] text-white font-bold text-[9px]" style={{ backgroundColor: calColor }}>
                                                                                                         {ini}
                                                                                                     </div>

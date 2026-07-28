@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Button, DataTable, EmptyState, Input, PageHeader, Textarea, type ColumnDef,
+  Button, DataTable, EmptyState, Input, PageHeader, Textarea, type ColumnDef, Badge, Popover
 } from "@jaldee/design-system";
 import { useCustomerLabels, type CustomerLabel } from "../../services/useCustomerLabels";
 import { useToast } from "../../contexts/ToastContext";
@@ -78,18 +78,66 @@ export default function CustomerLabelsPage() {
     { key: "name", header: "Label", render: (l) => <LabelChip label={l} /> },
     { key: "description", header: "Description", render: (l) => l.description ?? "—" },
     { key: "isSystem", header: "Type", render: (l) => (l.isSystem ? "System" : "Custom") },
-    { key: "status", header: "Status", render: (l) => l.status ?? "—" },
+    { 
+      key: "status", 
+      header: "Status", 
+      render: (l) => {
+        const isActive = (l.status ?? "").toLowerCase() === "enabled";
+        return (
+          <Badge variant={isActive ? "success" : "neutral"}>
+            {isActive ? "Active" : "Inactive"}
+          </Badge>
+        );
+      } 
+    },
     {
       key: "actions", header: "", align: "right",
-      render: (l) => (
-        <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="sm" onClick={() => openEdit(l)}>Edit</Button>
-          <Button variant="ghost" size="sm" onClick={() => toggle(l)}>
-            {(l.status ?? "").toLowerCase() === "enabled" ? "Disable" : "Enable"}
-          </Button>
-          {!l.isSystem && <Button variant="ghost" size="sm" onClick={() => del(l)}>Delete</Button>}
-        </div>
-      ),
+      render: (l) => {
+        const isActive = (l.status ?? "").toLowerCase() === "enabled";
+        return (
+          <div className="flex justify-end gap-1">
+            <Popover
+              trigger={
+                <button
+                  id={`bookings-label-actions-${l.id}`}
+                  data-testid={`bookings-label-actions-${l.id}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                  </svg>
+                </button>
+              }
+              placement="bottom"
+              align="end"
+              portal
+            >
+              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
+                <button
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => openEdit(l)}
+                >
+                  Edit
+                </button>
+                <button
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => toggle(l)}
+                >
+                  {isActive ? "Disable" : "Enable"}
+                </button>
+                {!l.isSystem && (
+                  <button
+                    className="px-4 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                    onClick={() => del(l)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </Popover>
+          </div>
+        );
+      },
     },
   ];
 
@@ -121,13 +169,15 @@ export default function CustomerLabelsPage() {
 
       {error && <div className="text-sm text-red-600">{error}</div>}
 
-      <DataTable
-        data={labels}
-        columns={columns}
-        getRowId={(l) => String(l.id ?? l.name)}
-        loading={loading}
-        emptyState={<EmptyState title="No labels yet" description="Create a label to start segmenting customers." />}
-      />
+      {!formOpen && (
+        <DataTable
+          data={labels}
+          columns={columns}
+          getRowId={(l) => String(l.id ?? l.name)}
+          loading={loading}
+          emptyState={<EmptyState title="No labels yet" description="Create a label to start segmenting customers." />}
+        />
+      )}
     </div>
   );
 }

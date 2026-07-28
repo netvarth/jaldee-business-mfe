@@ -220,7 +220,9 @@ export function useServiceGroups(
       
       if (groupId && input.status) {
         try {
-          await put(`/service-groups/${groupId}/status`, { status: input.status === "Active" ? "Enabled" : "Disabled" });
+          await put(`/service-groups/${groupId}/status`, undefined, {
+            params: { status: input.status === "Active" ? "Enabled" : "Disabled" },
+          });
         } catch (statusError) {
           console.error("Failed to update status on create:", statusError);
         }
@@ -263,7 +265,9 @@ export function useServiceGroups(
       await put(`/service-groups/${groupId}`, payload);
       
       if (input.status) {
-        await put(`/service-groups/${groupId}/status`, { status: input.status === "Active" ? "Enabled" : "Disabled" });
+        await put(`/service-groups/${groupId}/status`, undefined, {
+          params: { status: input.status === "Active" ? "Enabled" : "Disabled" },
+        });
       }
 
       const updated: ServiceGroupItem = {
@@ -295,7 +299,9 @@ export function useServiceGroups(
     setVersion((v) => v + 1);
 
     try {
-      await put(`/service-groups/${group.id}/status`, { status: apiStatus });
+      await put(`/service-groups/${group.id}/status`, undefined, {
+        params: { status: apiStatus },
+      });
     } catch (error) {
       setRemoteGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
       updateCreatedServiceGroup(group);

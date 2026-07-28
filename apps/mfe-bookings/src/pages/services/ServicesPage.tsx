@@ -22,6 +22,10 @@ import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useServiceSearchSchema } from "../../services/useServiceSearchSchema";
 import { formatAppliedServiceFilterSummary } from "../../services/serviceSearch";
 import { useServices } from "../../services/useServices";
+import { useServiceDetails } from "../../services/useServiceDetails";
+import { useCustomerLabels } from "../../services/useCustomerLabels";
+import { useToast } from "../../contexts/ToastContext";
+import LabelSelectorModal from "../../components/LabelSelectorModal";
 import type { ServiceItem } from "../../types";
 
 export default function ServicesPage() {
@@ -31,14 +35,31 @@ export default function ServicesPage() {
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingLabelsService, setEditingLabelsService] = useState<ServiceItem | null>(null);
   const { schema: serviceSearchSchema, loading: serviceSearchSchemaLoading } = useServiceSearchSchema();
+  const { getService, updateService } = useServiceDetails();
+  const { labels: availableLabels } = useCustomerLabels();
+  const { showToast } = useToast();
   const combinedFilters = useMemo(() => {
     return [...advancedFilters.filter(f => f.field !== "isGroup"), { id: "sys-isgroup", field: "isGroup", operator: "EQ", values: ["false"] }];
   }, [advancedFilters]);
 
-  const { services, loading, toggleStatus } = useServices(combinedFilters, serviceSearchSchema, {
+  const { services, loading, toggleStatus, refresh } = useServices(combinedFilters, serviceSearchSchema, {
     enabled: !serviceSearchSchemaLoading,
   });
+
+  const handleSaveLabels = async (newLabels: string[]) => {
+    if (!editingLabelsService) return;
+    try {
+      const details = await getService(editingLabelsService.id);
+      
+      await updateService(editingLabelsService.id, { ...details.raw, labels: newLabels });
+      showToast("Labels updated successfully", "success");
+      refresh();
+    } catch (e) {
+      showToast("Failed to update labels", "error");
+    }
+  };
 
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, serviceSearchSchema).length,
@@ -81,17 +102,21 @@ export default function ServicesPage() {
       },
       {
         key: "labels",
-        header: "TAGS",
+        header: "LABELS",
         render: (service) => (
           <div className="flex flex-wrap gap-1.5">
-            {(service.labels?.length ? service.labels : ["OPD"]).map((label) => (
-              <span
-                key={label}
-                className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
-              >
-                {label}
-              </span>
-            ))}
+            {service.labels?.map((labelId) => {
+              const labelObj = availableLabels.find(l => l.id === labelId || l.name === labelId);
+              const displayName = labelObj ? labelObj.name : labelId;
+              return (
+                <span
+                  key={labelId}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
+                >
+                  {displayName}
+                </span>
+              );
+            })}
           </div>
         ),
       },
@@ -164,6 +189,17 @@ export default function ServicesPage() {
                   Edit
                 </button>
                 <button
+                  id={`bookings-service-labels-${service.id}`}
+                  data-testid={`bookings-service-labels-${service.id}`}
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setEditingLabelsService(service);
+                  }}
+                >
+                  Labels
+                </button>
+                <button
                   id={`bookings-service-status-${service.id}`}
                   data-testid={`bookings-service-status-${service.id}`}
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -180,7 +216,7 @@ export default function ServicesPage() {
         ),
       },
     ],
-    [navigate]
+    [navigate, availableLabels]
   );
 
   return (
@@ -325,6 +361,13 @@ export default function ServicesPage() {
           </div>
         </div>
       </Drawer>
+      
+      <LabelSelectorModal
+        isOpen={!!editingLabelsService}
+        onClose={() => setEditingLabelsService(null)}
+        selectedLabels={editingLabelsService?.labels || []}
+        onSave={handleSaveLabels}
+      />
     </section>
   );
 }
