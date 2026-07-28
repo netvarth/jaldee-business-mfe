@@ -181,6 +181,8 @@ const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/ten
 const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
 const TENANT_COUPONS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/coupons");
 const TENANT_COUPONS_SEARCH_ENDPOINT = `${TENANT_COUPONS_ENDPOINT}/search`;
+const TENANT_TAX_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/tax");
+const TENANT_TAX_SEARCH_ENDPOINT = `${TENANT_TAX_ENDPOINT}/search`;
 const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
 
 export function sanitizeFinancePayload<T extends Record<string, unknown>>(data: T) {
@@ -265,6 +267,7 @@ const categories = createCrudApi(TENANT_CATEGORY_ENDPOINT);
 const statuses = createCrudApi(TENANT_STATUS_ENDPOINT);
 const invoices = createCrudApi(TENANT_INVOICE_ENDPOINT);
 const invoiceTemplates = createCrudApi(TENANT_INVOICE_TEMPLATE_ENDPOINT);
+const taxes = createCrudApi(TENANT_TAX_ENDPOINT);
 
 export const financeApi = {
   settings: {
@@ -279,6 +282,9 @@ export const financeApi = {
     },
     invoiceFeature(status: "Enabled" | "Disabled") {
       return put(`${TENANT_SETTINGS_ENDPOINT}/invoice/${status}`);
+    },
+    taxFeature(status: "Enabled" | "Disabled") {
+      return put(`${TENANT_SETTINGS_ENDPOINT}/enable-tax/${status}`);
     },
     dashboardActions<T = unknown>(data: unknown) {
       return post<T>("provider/styleconfig/styletype/FinanceStyleConfig", data);
@@ -872,6 +878,24 @@ export const financeApi = {
     },
     searchSchema<T = unknown>() {
       return get<T>(`${TENANT_COUPONS_ENDPOINT}/search/schema`);
+    },
+  },
+  taxes: {
+    ...taxes,
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_TAX_SEARCH_ENDPOINT, filter);
+    },
+    detail<T = unknown>(uid: string) {
+      return get<T>(`${TENANT_TAX_ENDPOINT}/${uid}`);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_TAX_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_TAX_ENDPOINT}/${uid}`, data);
+    },
+    updateStatus<T = unknown>(uid: string, status: string) {
+      return put<T>(`${TENANT_TAX_ENDPOINT}/${uid}/${status}`);
     },
   },
 };

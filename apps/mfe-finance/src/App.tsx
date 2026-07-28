@@ -28,7 +28,7 @@ import {
   getStatusVariant,
 } from "./lib/financeData";
 import type { FinanceExpenseBreakdown, FinanceReceivable, FinanceExpense } from "./lib/financeData";
-import { financeApi } from "./lib/financeApi";
+import { financeApi, sanitizeFinancePayload } from "./lib/financeApi";
 import { FinanceLiveProvider, useFinanceLiveData } from "./lib/financeLive";
 import FinanceInvoiceForm from "./FinanceInvoiceForm";
 
@@ -49,6 +49,7 @@ type DiscountCalculationType = "FIXED_AMOUNT" | "FIXED_PCT";
 type DiscountType = "PREDEFINED" | "ONDEMAND";
 type DiscountStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
 type CouponStatus = "ACTIVE" | "INACTIVE" | "RETIRED";
+type TaxStatus = "Enabled" | "Disabled";
 
 const vendorPaymentModeOptions = [
   { value: "", label: "Select payment mode" },
@@ -240,6 +241,53 @@ function normalizeExpenseRows(payload: any): FinanceExpense[] {
       isEdit: Boolean(item?.isEdit),
     };
   });
+}
+
+function extractRecords(payload: any) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.content)) return payload.content;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.content)) return payload.data.content;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.results)) return payload.results;
+  return [];
+}
+
+function readTaxName(item: any) {
+  return String(item?.name ?? item?.displayName ?? item?.taxName ?? item?.label ?? item?.taxLabel ?? "").trim();
+}
+
+function readTaxPercentage(item: any) {
+  return Number(item?.percentage ?? item?.taxPercentage ?? item?.taxPercent ?? item?.gstPercentage ?? item?.gstPercent ?? item?.value ?? 0) || 0;
+}
+
+function buildTaxPayload(input: {
+  uid?: string;
+  tenantUid?: string;
+  countryCode: string;
+  taxCode: string;
+  taxName: string;
+  taxRegime: string;
+  status: TaxStatus;
+  taxPercentage: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+}) {
+  const payload = sanitizeFinancePayload({
+    uid: input.uid,
+    tenantUid: input.tenantUid,
+    countryCode: input.countryCode.trim(),
+    taxCode: input.taxCode.trim(),
+    taxName: input.taxName.trim(),
+    taxRegime: input.taxRegime,
+    status: input.status,
+    taxPercentage: input.taxPercentage,
+    cgst: input.cgst,
+    sgst: input.sgst,
+    igst: input.igst,
+  });
+  return payload;
 }
 
 function PageShell({
@@ -632,6 +680,7 @@ function OverviewPage() {
     { label: "Create Expense", path: "/finance/expense/new", icon: "alert", tone: "bg-rose-50 text-rose-600", note: "Book operations cost" },
     { label: "Discounts", path: "/finance/discount", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Manage discounts" },
     { label: "Coupons", path: "/finance/coupons", icon: "history", tone: "bg-lime-50 text-lime-700", note: "Manage coupons" },
+    { label: "Taxes", path: "/finance/taxes", icon: "list", tone: "bg-sky-50 text-sky-700", note: "Manage taxes" },
     { label: "Add Revenue", path: "/finance/receivables/create", icon: "trend", tone: "bg-emerald-50 text-emerald-600", note: "Record collections" },
     { label: "Create Payout", path: "/finance/payable/create", icon: "history", tone: "bg-amber-50 text-amber-600", note: "Queue vendor payout" },
     { label: "Create Vendor", path: "/finance/vendors/create", icon: "globe", tone: "bg-sky-50 text-sky-600", note: "Add vendor profile" },
@@ -2859,25 +2908,57 @@ function ReceivablesPage() {
 
   const columns = useMemo<ColumnDef<(typeof financeReceivables)[number]>[]>(
     () => [
-      { key: "date", header: "Date", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "amountDue", header: "Amount", align: "right", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amountDue) },
-      { key: "revenueCategory", header: "Revenue Category", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "invoiceCategory", header: "Invoice Category", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "invoiceNo", header: "Invoice No.", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "reference", header: "Reference", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "patientName", header: "Patient Name", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "vendor", header: "Vendor", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "location", header: "Location", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "status", header: "Status", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "date", header: "Date", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "amountDue", header: "Amount", align: "right", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amountDue) },
+      { key: "revenueCategory", header: "Revenue Category", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "invoiceCategory", header: "Invoice Category", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "invoiceNo", header: "Invoice No.", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "reference", header: "Reference", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "patientName", header: "Patient Name", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "vendor", header: "Vendor", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "location", header: "Location", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "status", header: "Status", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
       {
         key: "actions",
         header: "Actions",
-        headerClassName: "text-sm font-semibold text-slate-900",
-        className: "py-4",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
+        className: "py-4 text-right",
         render: (row) => (
-          <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.id}`)}>
-            Edit
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
+              data-testid={`finance-revenue-edit-${row.id}`}
+              onClick={() => navigate(`edit/${row.id}`)}
+            >
+              Edit
+            </Button>
+            <Popover
+              placement="bottom"
+              align="end"
+              portal
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label={`More actions for revenue ${row.invoiceNo || row.id}`}
+                  className="h-8 w-8 px-0"
+                  data-testid={`finance-revenue-more-${row.id}`}
+                  icon={<Icon name="moreVertical" className="text-[var(--color-text-secondary)]" aria-hidden="true" />}
+                />
+              }
+            >
+              <div className="flex min-w-[160px] flex-col gap-1">
+                <Button variant="ghost" className="w-full justify-start" data-testid={`finance-revenue-more-edit-${row.id}`} onClick={() => navigate(`edit/${row.id}`)}>
+                  Edit
+                </Button>
+              </div>
+            </Popover>
+          </div>
         ),
       },
     ],
@@ -2888,15 +2969,33 @@ function ReceivablesPage() {
     <FinanceFeatureLayout
       title="Revenue"
       subtitle="Outstanding incoming balances and collections ownership."
-      actions={<Button onClick={() => navigate("create")}>Add Revenue</Button>}
+      actions={
+        <div className="flex items-center gap-2">
+          <Button onClick={() => navigate("create")}>Add Revenue</Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Filter revenue"
+            className="h-9 w-9 px-0 text-[var(--color-primary)] hover:bg-[color:color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
+            icon={<Icon name="filter" className="h-6 w-6" aria-hidden="true" />}
+          />
+        </div>
+      }
       main={
-        <SectionCard className="border-slate-200 shadow-sm">
-          <div className="mb-4 text-xl font-semibold text-slate-900">{`Revenue(${totalRecords})`}</div>
+        <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+            <h2 className="text-[length:var(--text-base)] font-semibold text-[var(--color-text-primary)]">{`Revenue(${totalRecords})`}</h2>
+          </div>
           <DataTable
             data={financeReceivables}
             columns={columns}
             getRowId={(row) => row.id}
             loading={loading}
+            className="rounded-none border-x-0 border-b-0 shadow-none"
+            tableClassName="min-w-[1280px]"
+            data-testid="finance-revenue-table"
             pagination={{
               page,
               pageSize,
@@ -3491,24 +3590,56 @@ function PayablesPage() {
 
   const columns = useMemo<ColumnDef<(typeof financePayables)[number]>[]>(
     () => [
-      { key: "date", header: "Date", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "amountDue", header: "Amount", align: "right", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amountDue) },
-      { key: "payoutCategory", header: "Payout Category", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "expenseCategory", header: "Expense Category", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "reference", header: "Reference", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "patientName", header: "Patient Name", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "vendor", header: "Vendor", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "location", header: "Location", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "status", header: "Status", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "date", header: "Date", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "amountDue", header: "Amount", align: "right", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amountDue) },
+      { key: "payoutCategory", header: "Payout Category", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "expenseCategory", header: "Expense Category", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "reference", header: "Reference", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "patientName", header: "Patient Name", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "vendor", header: "Vendor", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "location", header: "Location", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "status", header: "Status", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
       {
         key: "actions",
         header: "Actions",
-        headerClassName: "text-sm font-semibold text-slate-900",
-        className: "py-4",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
+        className: "py-4 text-right",
         render: (row) => (
-          <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.id}`)}>
-            Edit
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
+              data-testid={`finance-payout-edit-${row.id}`}
+              onClick={() => navigate(`edit/${row.id}`)}
+            >
+              Edit
+            </Button>
+            <Popover
+              placement="bottom"
+              align="end"
+              portal
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label={`More actions for payout ${row.reference || row.id}`}
+                  className="h-8 w-8 px-0"
+                  data-testid={`finance-payout-more-${row.id}`}
+                  icon={<Icon name="moreVertical" className="text-[var(--color-text-secondary)]" aria-hidden="true" />}
+                />
+              }
+            >
+              <div className="flex min-w-[160px] flex-col gap-1">
+                <Button variant="ghost" className="w-full justify-start" data-testid={`finance-payout-more-edit-${row.id}`} onClick={() => navigate(`edit/${row.id}`)}>
+                  Edit
+                </Button>
+              </div>
+            </Popover>
+          </div>
         ),
       },
     ],
@@ -3519,15 +3650,33 @@ function PayablesPage() {
     <FinanceFeatureLayout
       title="Payouts"
       subtitle="Payouts and outgoing vendor commitments."
-      actions={<Button onClick={() => navigate("create")}>Create Payout</Button>}
+      actions={
+        <div className="flex items-center gap-2">
+          <Button onClick={() => navigate("create")}>Create Payout</Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Filter payouts"
+            className="h-9 w-9 px-0 text-[var(--color-primary)] hover:bg-[color:color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
+            icon={<Icon name="filter" className="h-6 w-6" aria-hidden="true" />}
+          />
+        </div>
+      }
       main={
-        <SectionCard className="border-slate-200 shadow-sm">
-          <div className="mb-4 text-xl font-semibold text-slate-900">{`Payout(${totalRecords})`}</div>
+        <SectionCard className="border-slate-200 shadow-sm" padding={false}>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+            <h2 className="text-[length:var(--text-base)] font-semibold text-[var(--color-text-primary)]">{`Payout(${totalRecords})`}</h2>
+          </div>
           <DataTable
             data={financePayables}
             columns={columns}
             getRowId={(row) => row.id}
             loading={loading}
+            className="rounded-none border-x-0 border-b-0 shadow-none"
+            tableClassName="min-w-[1200px]"
+            data-testid="finance-payout-table"
             pagination={{
               page,
               pageSize,
@@ -4660,12 +4809,12 @@ function ExpensesPage() {
 
   const columns = useMemo<ColumnDef<(typeof financeExpenses)[number]>[]>(
     () => [
-      { key: "bookedOn", header: "Date", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "bookedOn", header: "Date", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
       {
         key: "amount",
         header: "Amount (₹)",
         align: "right",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4",
         render: (row) => formatCurrency(row.amount).replace("₹", "").trim(),
       },
@@ -4673,7 +4822,7 @@ function ExpensesPage() {
         key: "amountPaid",
         header: "Amount Paid(₹)",
         align: "right",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4",
         render: (row) => formatCurrency(row.amountPaid).replace("₹", "").trim(),
       },
@@ -4681,29 +4830,29 @@ function ExpensesPage() {
         key: "amountDue",
         header: "Amount Due(₹)",
         align: "right",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4",
         render: (row) => formatCurrency(row.amountDue).replace("₹", "").trim(),
       },
-      { key: "category", header: "Category", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
+      { key: "category", header: "Category", headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900", className: "py-4" },
       {
         key: "expenseNum",
         header: "Expense ID",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4",
         render: (row) => row.expenseNum || row.id,
       },
       {
         key: "locationName",
         header: "Location",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4",
         render: (row) => row.locationName || "-",
       },
       {
         key: "status",
         header: "Status",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4",
         render: (row) =>
           row.payoutCreated || row.status === "Converted" ? (
@@ -4717,11 +4866,18 @@ function ExpensesPage() {
       {
         key: "actions",
         header: "Actions",
-        headerClassName: "text-sm font-semibold text-slate-900",
+        headerClassName: "whitespace-nowrap text-sm font-semibold text-slate-900",
         className: "py-4 text-right",
         render: (row) => (
           <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.id}`)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
+              data-testid={`finance-expense-view-${row.id}`}
+              onClick={() => navigate(`edit/${row.id}`)}
+            >
               View
             </Button>
             {!row.payoutCreated ? (
@@ -4732,17 +4888,18 @@ function ExpensesPage() {
                 trigger={
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     iconOnly
                     aria-label={`More actions for expense ${row.id}`}
-                    className="h-9 w-9 px-0"
+                    className="h-8 w-8 px-0"
+                    data-testid={`finance-expense-more-${row.id}`}
                     icon={<Icon name="moreVertical" className="text-[var(--color-text-secondary)]" aria-hidden="true" />}
                   />
                 }
               >
                 <div className="flex min-w-[160px] flex-col gap-1">
-                  <Button variant="ghost" size="sm" className="justify-start w-full" onClick={() => navigate(`edit/${row.id}`)}>
+                  <Button variant="ghost" size="sm" className="justify-start w-full" data-testid={`finance-expense-more-edit-${row.id}`} onClick={() => navigate(`edit/${row.id}`)}>
                     Edit Expense
                   </Button>
                 </div>
@@ -4803,7 +4960,9 @@ function ExpensesPage() {
           columns={columns}
           getRowId={(row) => row.id}
           loading={loading}
+          data-testid="finance-expense-table"
           className="rounded-none border-x-0 border-b-0 shadow-none"
+          tableClassName="min-w-[1180px]"
           pagination={{
             page,
             pageSize,
@@ -9341,9 +9500,11 @@ function MasterInvoicePage() {
 }
 
 function SettingsPage() {
+  const navigate = useNavigate();
   const { financeCategories, financeStatuses, financeVendors } = useFinanceLiveData();
   const [expenseEnabled, setExpenseEnabled] = useState(false);
   const [invoiceEnabled, setInvoiceEnabled] = useState(false);
+  const [taxEnabled, setTaxEnabled] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
@@ -9366,6 +9527,14 @@ function SettingsPage() {
             data.enableInvoice === true ||
             data.invoiceEnabled === true;
           setInvoiceEnabled(isInvoiceEnabled);
+
+          const isTaxEnabled =
+            data.enableTaxStatus === "Enabled" ||
+            data.taxStatus === "Enabled" ||
+            data.enableTax === true ||
+            data.tax === "Enabled" ||
+            data.taxEnabled === true;
+          setTaxEnabled(isTaxEnabled);
         }
       } catch (error) {
         console.error("Failed to load finance settings", error);
@@ -9396,6 +9565,19 @@ function SettingsPage() {
       setInvoiceEnabled(checked);
     } catch (error) {
       console.error("Failed to update invoice status", error);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleToggleTax(checked: boolean) {
+    setUpdating(true);
+    const nextStatus = checked ? "Enabled" : "Disabled";
+    try {
+      await financeApi.settings.taxFeature(nextStatus);
+      setTaxEnabled(checked);
+    } catch (error) {
+      console.error("Failed to update tax status", error);
     } finally {
       setUpdating(false);
     }
@@ -9437,6 +9619,22 @@ function SettingsPage() {
                   onChange={handleToggleInvoice}
                 />
               </div>
+              <div className="flex items-center justify-between py-2 pt-4">
+                <div>
+                  <div className="text-[17px] font-semibold text-slate-900">Tax Feature</div>
+                  <div className="mt-1 text-sm text-slate-500">Enable or disable tax configuration and tax usage inside the finance module.</div>
+                </div>
+                <Switch
+                  checked={taxEnabled}
+                  disabled={updating}
+                  onChange={handleToggleTax}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <Button type="button" variant="outline" onClick={() => navigate(toFinanceRoute("/finance/taxes"))}>
+                Manage Taxes
+              </Button>
             </div>
           </SectionCard>
 
@@ -9474,6 +9672,347 @@ function SettingsPage() {
       //   </FeedCard>
       // }
     />
+  );
+}
+
+function TaxesPage() {
+  const navigate = useNavigate();
+  const [taxes, setTaxes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadTaxes() {
+    setLoading(true);
+    try {
+      const res = await financeApi.taxes.list<any>({
+        page: 0,
+        size: 100,
+        sort: [{ field: "createdAt", direction: "DESC" }],
+      });
+      setTaxes(extractRecords(res.data));
+    } catch (error) {
+      console.error("Failed to fetch taxes", error);
+      setTaxes([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadTaxes();
+  }, []);
+
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      { key: "name", header: "Tax Name", render: (row) => readTaxName(row) || "-" },
+      { key: "code", header: "Code", render: (row) => String(row.code ?? row.taxCode ?? "-") },
+      { key: "percentage", header: "Percentage", align: "right", render: (row) => `${readTaxPercentage(row)}%` },
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => {
+          const status = String(row.status ?? "Enabled");
+          return <Badge variant={status === "Enabled" ? "success" : "neutral"}>{status}</Badge>;
+        },
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`edit/${row.uid}`)}>
+              Edit
+            </Button>
+            <Popover
+              portal
+              placement="bottom"
+              align="end"
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                  aria-label="Tax actions"
+                />
+              }
+            >
+              <div className="grid min-w-[220px] p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start font-normal"
+                  onClick={async () => {
+                    const nextStatus: TaxStatus = String(row.status ?? "Enabled") === "Enabled" ? "Disabled" : "Enabled";
+                    try {
+                      await financeApi.taxes.updateStatus(String(row.uid), nextStatus);
+                      await loadTaxes();
+                    } catch (error) {
+                      console.error("Failed to update tax status", error);
+                      alert("Failed to update tax status");
+                    }
+                  }}
+                >
+                  {String(row.status ?? "Enabled") === "Enabled" ? "Disable" : "Enable"}
+                </Button>
+              </div>
+            </Popover>
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
+
+  return (
+    <FinanceFeatureLayout
+      title="Taxes"
+      subtitle="Manage finance tax configurations and availability."
+      actions={<Button onClick={() => navigate("create")}>Create Tax</Button>}
+      main={
+        <DataTableCard
+          title={`Tax List (${taxes.length})`}
+          subtitle="Available finance taxes."
+          data={taxes}
+          columns={columns}
+          getRowId={(row) => String(row.uid ?? row.id)}
+          emptyTitle="No taxes"
+          emptyDescription={loading ? "Loading..." : "Tax configurations will appear here."}
+        />
+      }
+    />
+  );
+}
+
+function TaxCreatePage() {
+  const navigate = useNavigate();
+  const mfeProps = useMFEProps();
+  const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+  const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
+  const [countryCode, setCountryCode] = useState("");
+  const [taxCode, setTaxCode] = useState("");
+  const [taxName, setTaxName] = useState("");
+  const [taxRegime, setTaxRegime] = useState("GST");
+  const [status, setStatus] = useState<TaxStatus>("Enabled");
+  const [taxPercentage, setTaxPercentage] = useState("");
+  const [cgst, setCgst] = useState("");
+  const [sgst, setSgst] = useState("");
+  const [igst, setIgst] = useState("");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+    if (!taxName.trim()) {
+      setFormError("Tax name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await financeApi.taxes.create(
+        buildTaxPayload({
+          tenantUid: tenantUid || undefined,
+          countryCode,
+          taxCode,
+          taxName,
+          taxRegime,
+          status,
+          taxPercentage: Number(taxPercentage) || 0,
+          cgst: Number(cgst) || 0,
+          sgst: Number(sgst) || 0,
+          igst: Number(igst) || 0,
+        })
+      );
+      navigate("..", { relative: "path", replace: true });
+    } catch (error) {
+      console.error("[mfe-finance] Failed to create tax", error);
+      setFormError(error instanceof Error ? error.message : "Could not create tax.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Create Tax"
+      subtitle="Add a finance tax configuration."
+      actions={<Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} />
+            <Input label="Tax Code" value={taxCode} onChange={(event) => setTaxCode(event.target.value)} />
+            <Input label="Tax Name *" value={taxName} onChange={(event) => setTaxName(event.target.value)} required />
+            <Select
+              label="Tax Regime"
+              value={taxRegime}
+              onChange={(event) => setTaxRegime(event.target.value)}
+              options={[{ value: "GST", label: "GST" }]}
+            />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as TaxStatus)}
+              options={[
+                { value: "Enabled", label: "Enabled" },
+                { value: "Disabled", label: "Disabled" },
+              ]}
+            />
+            <Input label="Tax Percentage" type="number" min="0" step="0.01" value={taxPercentage} onChange={(event) => setTaxPercentage(event.target.value)} />
+            <Input label="CGST" type="number" min="0" step="0.01" value={cgst} onChange={(event) => setCgst(event.target.value)} />
+            <Input label="SGST" type="number" min="0" step="0.01" value={sgst} onChange={(event) => setSgst(event.target.value)} />
+            <Input label="IGST" type="number" min="0" step="0.01" value={igst} onChange={(event) => setIgst(event.target.value)} />
+          </div>
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("..", { relative: "path" })}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Create Tax"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+function TaxEditPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const mfeProps = useMFEProps();
+  const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+  const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
+  const [countryCode, setCountryCode] = useState("");
+  const [taxCode, setTaxCode] = useState("");
+  const [taxName, setTaxName] = useState("");
+  const [taxRegime, setTaxRegime] = useState("GST");
+  const [status, setStatus] = useState<TaxStatus>("Enabled");
+  const [taxPercentage, setTaxPercentage] = useState("");
+  const [cgst, setCgst] = useState("");
+  const [sgst, setSgst] = useState("");
+  const [igst, setIgst] = useState("");
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function loadTax() {
+      if (!id) return;
+      try {
+        const res = await financeApi.taxes.detail<any>(id);
+        const data = res.data;
+        if (!active || !data) return;
+        setCountryCode(String(data.countryCode ?? ""));
+        setTaxCode(String(data.taxCode ?? data.code ?? ""));
+        setTaxName(String(data.taxName ?? data.name ?? ""));
+        setTaxRegime(String(data.taxRegime ?? "GST"));
+        setStatus((data.status ?? "Enabled") as TaxStatus);
+        setTaxPercentage(String(data.taxPercentage ?? data.percentage ?? data.taxPercent ?? 0));
+        setCgst(String(data.cgst ?? 0));
+        setSgst(String(data.sgst ?? 0));
+        setIgst(String(data.igst ?? 0));
+      } catch (error) {
+        console.error("Failed to load tax", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadTax();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+    if (!id) return;
+    if (!taxName.trim()) {
+      setFormError("Tax name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await financeApi.taxes.update(
+        id,
+        buildTaxPayload({
+          uid: id,
+          tenantUid: tenantUid || undefined,
+          countryCode,
+          taxCode,
+          taxName,
+          taxRegime,
+          status,
+          taxPercentage: Number(taxPercentage) || 0,
+          cgst: Number(cgst) || 0,
+          sgst: Number(sgst) || 0,
+          igst: Number(igst) || 0,
+        })
+      );
+      navigate("../..", { relative: "path", replace: true });
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update tax", error);
+      setFormError(error instanceof Error ? error.message : "Could not update tax.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading tax...</div>;
+  }
+
+  return (
+    <PageShell
+      title="Edit Tax"
+      subtitle="Update finance tax configuration."
+      actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <form className="grid gap-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} />
+            <Input label="Tax Code" value={taxCode} onChange={(event) => setTaxCode(event.target.value)} />
+            <Input label="Tax Name *" value={taxName} onChange={(event) => setTaxName(event.target.value)} required />
+            <Select
+              label="Tax Regime"
+              value={taxRegime}
+              onChange={(event) => setTaxRegime(event.target.value)}
+              options={[{ value: "GST", label: "GST" }]}
+            />
+            <Select
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as TaxStatus)}
+              options={[
+                { value: "Enabled", label: "Enabled" },
+                { value: "Disabled", label: "Disabled" },
+              ]}
+            />
+            <Input label="Tax Percentage" type="number" min="0" step="0.01" value={taxPercentage} onChange={(event) => setTaxPercentage(event.target.value)} />
+            <Input label="CGST" type="number" min="0" step="0.01" value={cgst} onChange={(event) => setCgst(event.target.value)} />
+            <Input label="SGST" type="number" min="0" step="0.01" value={sgst} onChange={(event) => setSgst(event.target.value)} />
+            <Input label="IGST" type="number" min="0" step="0.01" value={igst} onChange={(event) => setIgst(event.target.value)} />
+          </div>
+          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("../..", { relative: "path" })}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Update Tax"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
   );
 }
 
@@ -10972,6 +11511,9 @@ export default function App() {
         <Route path="coupons" element={withBoundary(<CouponsPage />)} />
         <Route path="coupons/create" element={withBoundary(<CouponCreatePage />)} />
         <Route path="coupons/edit/:id" element={withBoundary(<CouponEditPage />)} />
+        <Route path="taxes" element={withBoundary(<TaxesPage />)} />
+        <Route path="taxes/create" element={withBoundary(<TaxCreatePage />)} />
+        <Route path="taxes/edit/:id" element={withBoundary(<TaxEditPage />)} />
         <Route path="invoice" element={withBoundary(<InvoicesPage />)} />
         <Route path="invoice/newInvoice" element={withBoundary(<FinanceInvoiceForm />)} />
         <Route path="invoice/edit/:id" element={withBoundary(<FinanceInvoiceForm />)} />
