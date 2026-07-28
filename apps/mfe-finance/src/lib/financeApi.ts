@@ -75,6 +75,7 @@ function toTenantSearchBody(
   filter: ApiFilter = {},
   options?: {
     defaultSort?: Array<{ field: string; direction: string }>;
+    defaultView?: string;
   },
 ) {
   const page = Number(filter.page ?? 0);
@@ -82,22 +83,29 @@ function toTenantSearchBody(
   const sort = Array.isArray(filter.sort) && filter.sort.length
     ? filter.sort
     : options?.defaultSort;
+  const view = typeof filter.view === "string" && filter.view ? filter.view : options?.defaultView;
 
   const body: Record<string, unknown> = {
     page: Number.isNaN(page) ? 0 : page,
     size: Number.isNaN(size) ? 10 : size,
   };
 
+  if (view) {
+    body.view = view;
+  }
+
   if (sort && sort.length) {
     body.sort = sort;
   }
 
-  if (filter.locationUid) {
-    body.locationUid = filter.locationUid;
-  }
-
   if (filter.filters) {
     body.filters = filter.filters;
+  } else if (filter.locationUid) {
+    body.filters = {
+      field: "locationUid",
+      operator: "IN",
+      values: [String(filter.locationUid)],
+    };
   }
 
   return body;

@@ -93,11 +93,19 @@ export type FinancePayable = {
 
 export type FinanceExpense = {
   id: string;
+  expenseNum?: string;
   title: string;
   category: string;
   owner: string;
   amount: number;
+  amountPaid: number;
+  amountDue: number;
   bookedOn: string;
+  expenseUid?: string;
+  locationName?: string;
+  status?: string;
+  payoutCreated?: boolean;
+  isEdit?: boolean;
 };
 
 export type FinanceExpenseBreakdown = {
