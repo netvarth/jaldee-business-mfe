@@ -1460,8 +1460,8 @@ function InvoicesPage() {
       },
       { key: "assignedFor", header: "Assigned For" },
       { key: "location", header: "Location" },
-      { key: "amount", header: "Amount (INR)", align: "right", render: (row) => formatCurrency(row.amount).replace("â‚¹", "").trim() },
-      { key: "amountDue", header: "Amount Due (INR)", align: "right", render: (row) => formatCurrency(row.amountDue).replace("â‚¹", "").trim() },
+      { key: "amount", header: "Amount (INR)", align: "right", render: (row) => formatCurrency(row.amount).replace("₹", "").trim() },
+      { key: "amountDue", header: "Amount Due (INR)", align: "right", render: (row) => formatCurrency(row.amountDue).replace("₹", "").trim() },
       { key: "category", header: "Category" },
       { key: "product", header: "Product" },
       {

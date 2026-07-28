@@ -2,6 +2,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { MFEPropsContext, type MFEProps } from "@jaldee/auth-context";
 import { ensureApiClientInitialized } from "./lib/apiClient";
+import { setFinanceShellApi } from "./lib/financeApi";
 import "./index.css";
 import App from "./App";
 import { MFEErrorBoundary } from "./error/MFEErrorBoundary";
@@ -32,6 +33,7 @@ function renderApp(props: MFEProps) {
 
 export function mount(container: HTMLElement, props: MFEProps) {
   ensureApiClientInitialized(props.mfeName, props.authToken);
+  setFinanceShellApi(props.api ?? null);
   currentContainer = container;
   currentProps = props;
   root = ReactDOM.createRoot(container);
@@ -41,6 +43,7 @@ export function mount(container: HTMLElement, props: MFEProps) {
 export function unmount(_container: HTMLElement) {
   cleanupFns.forEach((fn) => fn());
   cleanupFns.length = 0;
+  setFinanceShellApi(null);
   root?.unmount();
   root = null;
   currentContainer = null;
@@ -57,5 +60,6 @@ export function updateProps(nextProps: Partial<MFEProps>) {
   }
   currentProps = { ...currentProps, ...nextProps };
   ensureApiClientInitialized(currentProps.mfeName, currentProps.authToken);
+  setFinanceShellApi(currentProps.api ?? null);
   renderApp(currentProps);
 }

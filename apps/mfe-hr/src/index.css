@@ -7,7 +7,7 @@
 
 @source "../../../packages/design-system/src";
 
-/* HR design tokens â€” shadcn-style HSL channels, ported from the standalone suite
+/* HR design tokens — shadcn-style HSL channels, ported from the standalone suite
    (teal brand primary #115E59 on slate neutrals). */
 @layer base {
   :root {

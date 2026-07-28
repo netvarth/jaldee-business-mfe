@@ -16,7 +16,7 @@ function resolveApiBaseUrl() {
     }
   }
 
-  return new URL("/api/", window.location.origin).toString().replace(/\/$/, "");
+  return window.location.origin;
 }
 
 export function ensureApiClientInitialized(mfeName = "mfe_lending", authToken = "") {

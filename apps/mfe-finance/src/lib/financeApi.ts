@@ -1,38 +1,33 @@
-import { httpClient } from "./httpClient";
+import { apiClient } from "@jaldee/api-client";
+import type { MFEProps } from "@jaldee/auth-context";
 
 type ApiFilter = Record<string, unknown>;
 type ApiResponse<T> = Promise<{ data: T }>;
 
-function isTenantFinanceEndpoint(url: string) {
-  return url.includes("/finance-service/v1/api/tenant/")
-    || url.includes("/base-service/v1/api/tenant/")
-    || url.includes("/v1/api/tenant/");
+let shellApiBridge: MFEProps["api"] | null = null;
+
+export function setFinanceShellApi(api: MFEProps["api"] | null) {
+  shellApiBridge = api;
 }
 
-function withTenantConfig(config?: { params?: ApiFilter }) {
-  return {
-    ...(config ?? {}),
-    _skipLocationParam: true,
-  };
+function getActiveApi() {
+  return shellApiBridge ?? apiClient;
 }
 
 function get<T>(url: string, params?: ApiFilter): ApiResponse<T> {
-  const config = params ? { params } : undefined;
-  return httpClient.get<T>(url, isTenantFinanceEndpoint(url) ? withTenantConfig(config) : config);
+  return getActiveApi().get<T>(url, params ? { params } : undefined);
 }
 
 function post<T>(url: string, data?: unknown): ApiResponse<T> {
-  return httpClient.post<T>(url, data, isTenantFinanceEndpoint(url) ? withTenantConfig() : undefined);
+  return getActiveApi().post<T>(url, data);
 }
 
 function put<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
-  const config = params ? { params } : undefined;
-  return httpClient.put<T>(url, data, isTenantFinanceEndpoint(url) ? withTenantConfig(config) : config);
+  return getActiveApi().put<T>(url, data, params ? { params } : undefined);
 }
 
 function del<T>(url: string, params?: ApiFilter): ApiResponse<T> {
-  const config = params ? { params } : undefined;
-  return httpClient.delete<T>(url, isTenantFinanceEndpoint(url) ? withTenantConfig(config) : config);
+  return getActiveApi().delete<T>(url, params ? { params } : undefined);
 }
 
 function buildCountPath(basePath: string) {
