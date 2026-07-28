@@ -21,7 +21,7 @@ export function useEmployeeSearchSchema() {
           ...field,
           values: field.values?.filter((value) => {
             const option = value.trim();
-            return option !== "" && option !== "-" && option !== "—" && !option.startsWith("â€");
+            return option !== "" && option !== "-" && option !== "—" && !option.startsWith("”");
           }),
         })),
       });

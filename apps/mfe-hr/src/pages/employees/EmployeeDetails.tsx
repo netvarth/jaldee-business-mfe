@@ -200,9 +200,9 @@ function LegacyPayslipStatementDialog({ payslip, onClose }: { payslip: Payslip |
                   <tbody>
                     {lines.map((line, index) => (
                       <tr key={line.uid || line.id || index}>
-                        <td style={{ ...td, fontWeight: 700 }}>{line.componentName || line.componentCode || "â€”"}</td>
-                        <td style={td}>{line.componentType || "â€”"}</td>
-                        <td style={td}>{line.calculationType || "â€”"}</td>
+                        <td style={{ ...td, fontWeight: 700 }}>{line.componentName || line.componentCode || "—"}</td>
+                        <td style={td}>{line.componentType || "—"}</td>
+                        <td style={td}>{line.calculationType || "—"}</td>
                         <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{formatCurrency(line.amount ?? 0)}</td>
                       </tr>
                     ))}

@@ -102,11 +102,6 @@ export default defineConfig(({ mode }) => {
           target: financeServiceProxyTarget,
           changeOrigin: true,
           secure: false,
-        },
-        "/v1/api/tenant/settings": {
-          target: financeServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
         }
       },
     },
@@ -139,11 +134,6 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
         "/finance-service": {
-          target: financeServiceProxyTarget,
-          changeOrigin: true,
-          secure: false,
-        },
-        "/v1/api/tenant/settings": {
           target: financeServiceProxyTarget,
           changeOrigin: true,
           secure: false,

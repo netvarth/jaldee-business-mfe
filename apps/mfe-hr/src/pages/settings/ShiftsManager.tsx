@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { LayoutGrid, Table } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge } from "@jaldee/design-system";
 import { useShifts, useShiftRotations, type Shift, type ShiftRotation } from "../../services/useSettingsData";
 import { useEmployees } from "../../services/useEmployees";
@@ -14,15 +15,15 @@ type Tab = "shifts" | "rotations";
 export default function ShiftsManager() {
   const [tab, setTab] = useState<Tab>("shifts");
   return (
-    <div className="p-8">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Shifts &amp; Rotations</h1>
-        <p className="text-sm text-gray-500 mt-1">Define working hours, assign staff, and set up rotating rosters â€” all in one place.</p>
+    <div className="p-3 sm:p-4 lg:p-5">
+      <div className="mb-3">
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Shifts &amp; Rotations</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Define working hours, assign staff, and set up rotating rosters — all in one place.</p>
       </div>
-      <div className="flex gap-1 border-b border-gray-200 mb-5">
+      <div className="flex gap-1.5 border-b border-gray-200 mb-5 overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5">
         {(["shifts", "rotations"] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${tab === t ? "bg-teal-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+            className={`px-3.5 py-2 text-sm font-medium rounded-t-lg transition-colors shrink-0 ${tab === t ? "bg-teal-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
             {t === "shifts" ? "Shifts" : "Rotations"}
           </button>
         ))}
@@ -36,47 +37,97 @@ export default function ShiftsManager() {
 
 function ShiftsTab() {
   const { data, loading, error, create, update, remove } = useShifts();
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [editing, setEditing] = useState<Partial<Shift> | null>(null);
   const [assigning, setAssigning] = useState<Shift | null>(null);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-xs overflow-hidden">
+      <div className="flex flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
         <div className="text-sm text-gray-500">{data.length} shift{data.length === 1 ? "" : "s"}</div>
-        <Button variant="primary" onClick={() => setEditing({})}>+ Add Shift</Button>
+        <div className="flex items-center justify-end gap-3 shrink-0 ml-auto">
+          <Button variant="primary" onClick={() => setEditing({})}>+ Add Shift</Button>
+          <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
+              title="Table View"
+              aria-label="Table View"
+            >
+              <Table size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("card")}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
+              title="Card View"
+              aria-label="Card View"
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
+        </div>
       </div>
       {error ? <div className="p-6 text-sm text-red-600">{error}</div>
-        : loading ? <div className="p-6 text-sm text-gray-500">Loadingâ€¦</div>
+        : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
         : data.length === 0 ? <div className="py-12 text-center text-gray-500 text-sm">No shifts yet.</div>
-        : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                <th className="text-left px-6 py-3">Name</th><th className="text-left px-4 py-3">Timing</th>
-                <th className="text-left px-4 py-3">Grace</th><th className="text-left px-4 py-3">Half-day</th>
-                <th className="text-left px-4 py-3">Break</th><th className="text-left px-4 py-3">Weekly off</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((s) => (
-                <tr key={s.uid} className="border-b border-gray-50">
-                  <td className="px-6 py-3 font-medium text-gray-900">{s.name || "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-700">{hhmm(s.startTime)} â€“ {hhmm(s.endTime)}
-                    {s.startTime && s.endTime && s.endTime < s.startTime ? <span className="ml-1 text-xs text-amber-600">(overnight)</span> : null}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.graceMinutes != null ? `${s.graceMinutes}m` : "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-600">{s.breakMinutes != null ? `${s.breakMinutes}m` : "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-600">{asDays(s.weeklyOffDays).map(dayShort).join(", ") || "â€”"}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>{" "}
-                    <Button variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>{" "}
-                    <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
-                  </td>
+        : viewMode === "table" ? (
+          <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                  <th className="text-left px-6 py-3 font-semibold">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold">Timing</th>
+                  <th className="text-left px-4 py-3 font-semibold">Grace</th>
+                  <th className="text-left px-4 py-3 font-semibold">Half-day</th>
+                  <th className="text-left px-4 py-3 font-semibold">Break</th>
+                  <th className="text-left px-4 py-3 font-semibold">Weekly off</th>
+                  <th className="px-4 py-3 font-semibold"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.map((s) => (
+                  <tr key={s.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                    <td className="px-6 py-3 font-medium text-gray-900">{s.name || "—"}</td>
+                    <td className="px-4 py-3 text-gray-700">{hhmm(s.startTime)} – {hhmm(s.endTime)}
+                      {s.startTime && s.endTime && s.endTime < s.startTime ? <span className="ml-1 text-xs text-amber-600">(overnight)</span> : null}</td>
+                    <td className="px-4 py-3 text-gray-600">{s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>{" "}
+                      <Button variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>{" "}
+                      <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
+            {data.map((s) => (
+              <div key={s.uid} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
+                <div>
+                  <h4 className="font-semibold text-gray-900 text-base mb-1">{s.name || "Untitled Shift"}</h4>
+                  <p className="text-sm font-medium text-teal-700 mb-2">{hhmm(s.startTime)} – {hhmm(s.endTime)} {s.startTime && s.endTime && s.endTime < s.startTime ? "(overnight)" : ""}</p>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <p><b>Grace:</b> {s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</p>
+                    <p><b>Half-day threshold:</b> {s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</p>
+                    <p><b>Break:</b> {s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</p>
+                    <p><b>Off days:</b> {asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3 mt-1">
+                  <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>
+                  <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
       {editing && (
@@ -158,7 +209,7 @@ function RotationsTab() {
         <Button variant="primary" onClick={() => setEditing({ active: true, rotationPeriodDays: 7, shiftUids: [] })}>+ Add Rotation</Button>
       </div>
       {error ? <div className="p-6 text-sm text-red-600">{error}</div>
-        : loading ? <div className="p-6 text-sm text-gray-500">Loadingâ€¦</div>
+        : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
         : data.length === 0 ? <div className="py-12 text-center text-gray-500 text-sm">No rotations yet.</div>
         : (
           <table className="w-full text-sm">
@@ -172,10 +223,10 @@ function RotationsTab() {
             <tbody>
               {data.map((r) => (
                 <tr key={r.uid} className="border-b border-gray-50">
-                  <td className="px-6 py-3 font-medium text-gray-900">{r.name || "â€”"}</td>
-                  <td className="px-4 py-3">{(r.shiftUids ?? []).length ? (r.shiftUids ?? []).map((u, i) => <Badge key={i} variant="info">{shiftName(u)}</Badge>) : "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.rotationPeriodDays ? `${r.rotationPeriodDays} days` : "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.startDate || "â€”"}</td>
+                  <td className="px-6 py-3 font-medium text-gray-900">{r.name || "—"}</td>
+                  <td className="px-4 py-3">{(r.shiftUids ?? []).length ? (r.shiftUids ?? []).map((u, i) => <Badge key={i} variant="info">{shiftName(u)}</Badge>) : "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">{r.rotationPeriodDays ? `${r.rotationPeriodDays} days` : "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">{r.startDate || "—"}</td>
                   <td className="px-4 py-3">{r.active ? <Badge variant="success">Active</Badge> : <Badge>Off</Badge>}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <Button variant="outline" size="sm" onClick={() => setRoster(r)}>Roster</Button>{" "}
@@ -238,7 +289,7 @@ function RotationModal({ initial, shifts, onClose, onSave }:
                 </span>
               ))}
           </div>
-          <Select label="Add a shift" options={[{ value: "", label: "Select a shiftâ€¦" }, ...shifts.map((s) => ({ value: s.uid ?? "", label: s.name ?? "" }))]}
+          <Select label="Add a shift" options={[{ value: "", label: "Select a shift…" }, ...shifts.map((s) => ({ value: s.uid ?? "", label: s.name ?? "" }))]}
             value="" onChange={(e) => addShift(e.target.value)} />
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -297,15 +348,15 @@ function AssignModal({ title, entityUid, kind, onClose }:
     <Dialog open onClose={onClose} title={title} size="lg">
       <div className="space-y-3">
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
-        <Input placeholder="Search by name or employee IDâ€¦" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input placeholder="Search by name or employee ID…" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="text-xs text-gray-500">{selected.size} selected</div>
         <div className="max-h-80 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-50">
-          {employees.loading ? <div className="p-4 text-sm text-gray-500">Loading employeesâ€¦</div>
+          {employees.loading ? <div className="p-4 text-sm text-gray-500">Loading employees…</div>
             : list.length === 0 ? <div className="p-4 text-sm text-gray-400">No employees match.</div>
             : list.map((e) => (
               <label key={e.uid} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" checked={e.uid ? selected.has(e.uid) : false} onChange={() => e.uid && toggle(e.uid)} />
-                <span className="font-medium text-gray-800">{e.name || "â€”"}</span>
+                <span className="font-medium text-gray-800">{e.name || "—"}</span>
                 {e.employeeId ? <span className="text-gray-400">{e.employeeId}</span> : null}
               </label>
             ))}
@@ -343,11 +394,11 @@ function RosterModal({ rotationName, shiftName, onClose }:
   const rows = Object.keys(roster);
 
   return (
-    <Dialog open onClose={onClose} title={`Roster â€” ${rotationName}`} size="xl">
+    <Dialog open onClose={onClose} title={`Roster — ${rotationName}`} size="xl">
       <div className="space-y-3">
         <Input label="Month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
-        {loading ? <div className="p-4 text-sm text-gray-500">Generating rosterâ€¦</div>
+        {loading ? <div className="p-4 text-sm text-gray-500">Generating roster…</div>
           : rows.length === 0 ? <div className="p-6 text-center text-sm text-gray-400">No assigned employees for this rotation, or no roster for this month.</div>
           : (
             <div className="overflow-auto max-h-96 border border-gray-200 rounded-lg">

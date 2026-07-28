@@ -103,6 +103,39 @@ function getResponseErrorCode(data: unknown): string {
   return "";
 }
 
+function normalizeServiceGatewayUrl(url?: string): string {
+  if (!url) return "";
+  let normalized = url;
+
+  if (/^https?:\/\//i.test(normalized) && typeof window !== "undefined") {
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.origin === window.location.origin) {
+        normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  normalized = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  const metaEnv = (import.meta as any).env;
+  const configuredPrefix = (typeof metaEnv === "object" && metaEnv ? metaEnv.VITE_SERVICE_GATEWAY_PREFIX : "")?.trim();
+  const gatewayPrefix = configuredPrefix && configuredPrefix !== "/"
+    ? `/${configuredPrefix.replace(/^\/+|\/+$/g, "")}`
+    : "";
+
+  if (
+    gatewayPrefix &&
+    !normalized.startsWith(`${gatewayPrefix}/`) &&
+    /^\/(auth-service|base-service|booking-service|finance-service|hr-service|platform-service)\//i.test(normalized)
+  ) {
+    return `${gatewayPrefix}${normalized}`;
+  }
+
+  return normalized;
+}
+
 export function createApiClient(baseURL: string): AxiosInstance {
   const client = axios.create({
     baseURL,
@@ -114,6 +147,9 @@ export function createApiClient(baseURL: string): AxiosInstance {
 
   client.interceptors.request.use(
     (config: RequestConfigWithMeta) => {
+      if (config.url) {
+        config.url = normalizeServiceGatewayUrl(config.url);
+      }
       if (_sessionExpired && !config._skipAuthRefresh) {
         const sessionExpiredError = new Error("Session expired");
         (sessionExpiredError as Error & { code?: string }).code = "SESSION_EXPIRED";

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight } from "lucide-react";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table } from "lucide-react";
 import { Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
@@ -19,11 +19,11 @@ import { useHrApi } from "../../services/useHrApi";
 import { CLOCK_TYPE_OPTIONS } from "../../types";
 
 const TEAL = "var(--primary-color)";
-const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
-const th: CSSProperties = { textAlign: "left", padding: "11px 16px", fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)", background: "rgba(100,116,139,0.04)" };
-const tdc: CSSProperties = { padding: "13px 16px", fontSize: 13, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
-const field: CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 14, fontWeight: 600, color: "var(--dark-text)" };
-const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20, overflow: "hidden" };
+const lbl: CSSProperties = { fontSize: 9.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
+const th: CSSProperties = { textAlign: "left", padding: "10px 14px", fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)", background: "rgba(100,116,139,0.04)" };
+const tdc: CSSProperties = { padding: "11px 14px", fontSize: 12.5, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
+const field: CSSProperties = { width: "100%", height: 40, borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 13, fontWeight: 600, color: "var(--dark-text)" };
+const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 16, overflow: "hidden" };
 const LEAVE_CATEGORY_OPTIONS = [
   { value: "CASUAL", label: "Casual" },
   { value: "SICK", label: "Sick" },
@@ -86,7 +86,7 @@ function slugify(value: string) {
 
 function leaveCategoryLabel(value: unknown): string {
   const normalized = String(value || "").trim().toUpperCase();
-  return LEAVE_CATEGORY_OPTIONS.find((option) => option.value === normalized)?.label || String(value || "â€”");
+  return LEAVE_CATEGORY_OPTIONS.find((option) => option.value === normalized)?.label || String(value || "—");
 }
 
 function buildPayload(fields: Field[], form: Row): Row {
@@ -147,7 +147,7 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
         testId={automationKey}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="â€”"
+        placeholder="—"
         options={opts}
         fullWidth
         className="!h-11 rounded-xl"
@@ -337,6 +337,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
   const [saving, setSaving] = useState(false);
   const [statusRow, setStatusRow] = useState<(Row & { id: string }) | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const appliedFilterCount = compactSearchClauses(filterClauses ?? [], searchSchema).length;
   const totalRecords = hook.totalElements ?? hook.data.length;
   const hasPagination = typeof page === "number" && typeof pageSize === "number" && typeof onPageChange === "function";
@@ -439,13 +440,33 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
   return (
     <div>
       <PanelHeader title={`${title} (${totalRecords})`} subtitle={subtitle} icon={icon} action={
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          <Button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} variant="primary" icon={<Plus size={16} />} onClick={openAdd}>{addLabel}</Button>
           {searchSchema && onFilterClausesChange ? (
             <Button type="button" id={`${automationScope}-filter`} data-testid={`${automationScope}-filter`} variant={appliedFilterCount > 0 ? "primary" : "outline"} icon={<Filter size={16} />} aria-label={`Open ${title} filters`} onClick={openFilters}>
               Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
             </Button>
           ) : null}
-          <Button id={`${automationScope}-add`} data-testid={`${automationScope}-add`} variant="primary" icon={<Plus size={16} />} onClick={openAdd}>{addLabel}</Button>
+          <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--surface-bg)] p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
+              title="Table View"
+              aria-label="Table View"
+            >
+              <Table size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("card")}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
+              title="Card View"
+              aria-label="Card View"
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
         </div>
       } />
       {hook.error && <ErrorBar text={hook.error} />}
@@ -455,8 +476,8 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
           <SkeletonTable rows={4} columns={columns.length + 1} />
           </div>
         </SectionCard>
-      ) : (
-        <SectionCard id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} className="overflow-hidden border-slate-200 shadow-sm" padding={false}>
+      ) : viewMode === "table" ? (
+        <SectionCard id={`${automationScope}-panel`} data-testid={`${automationScope}-panel`} className="overflow-x-auto overflow-y-auto max-h-[600px] w-full border-slate-200 shadow-sm" padding={false}>
           <DataTable
             data={hook.data}
             columns={tableColumns}
@@ -474,10 +495,40 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
               } : undefined,
             } : undefined}
             emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">No records yet.</div>}
-            className="rounded-none border-0 shadow-none"
+            className="rounded-none border-0 shadow-none min-w-[640px]"
             tableClassName="[&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em]"
           />
         </SectionCard>
+      ) : (
+        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto border border-slate-200 bg-white rounded-xl shadow-xs">
+          {hook.data.length === 0 ? (
+            <div className="col-span-full py-12 text-center text-sm font-semibold text-slate-500">No records yet.</div>
+          ) : (
+            hook.data.map((row) => (
+              <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-base mb-2">{row.name ? String(row.name) : title}</h4>
+                  <div className="text-xs text-slate-600 space-y-1.5">
+                    {columns.map((col, idx) => (
+                      <div key={idx} className="flex justify-between items-center gap-2">
+                        <span className="text-slate-400 font-medium">{col.label}:</span>
+                        <span className="font-medium text-slate-800">{col.render(row)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3 mt-1">
+                  <button id={`${automationScope}-card-edit-${row.id}`} onClick={() => openEdit(row)} title="Edit" style={iconAction}><Pencil size={15} /></button>
+                  {statusToggle && (() => {
+                    const enabled = statusToggle.isEnabled(row);
+                    const action = enabled ? "disable" : "enable";
+                    return <button id={`${automationScope}-card-${action}-${row.id}`} onClick={() => setStatusRow(row)} title={enabled ? "Disable record" : "Enable record"} style={{ ...iconAction, width: 38, color: enabled ? "#059669" : "#64748b", background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)" }}>{enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}</button>;
+                  })()}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       )}
 
       <Dialog
@@ -546,21 +597,25 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
 }
 
 const PanelHeader = ({ title, subtitle, icon, action }: { title: string; subtitle: string; icon: ReactNode; action?: ReactNode }) => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ height: 44, width: 44, borderRadius: 14, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
-      <div><h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.4px", color: "var(--dark-text)", margin: 0 }}>{title}</h2><p style={{ ...lbl, marginTop: 2 }}>{subtitle}</p></div>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+      <div style={{ height: 38, width: 38, borderRadius: 12, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+      <div style={{ minWidth: 0 }}><h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.3px", color: "var(--dark-text)", margin: 0 }}>{title}</h2><p style={{ ...lbl, marginTop: 2 }}>{subtitle}</p></div>
     </div>
-    {action}
+    {action && (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginLeft: "auto", flexShrink: 0 }}>
+        {action}
+      </div>
+    )}
   </div>
 );
 const ErrorBar = ({ text }: { text: string }) => <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertCircle size={16} /> {text}</div>;
 const Center = ({ children }: { children: ReactNode }) => <div style={{ display: "flex", justifyContent: "center", padding: "40px 0", color: "var(--light-text)" }}>{children}</div>;
 const yesNo = (v: unknown) => <span style={{ ...lbl, color: v ? "#059669" : "var(--light-text)" }}>{v ? "Yes" : "No"}</span>;
 
-const ghostBtn: CSSProperties = { height: 42, padding: "0 20px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
-const primaryBtn: CSSProperties = { height: 42, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };
-const iconAction: CSSProperties = { height: 32, width: 32, borderRadius: 9, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--light-text)", cursor: "pointer", marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center" };
+const ghostBtn: CSSProperties = { height: 36, padding: "0 16px", borderRadius: 10, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 12, cursor: "pointer" };
+const primaryBtn: CSSProperties = { height: 36, padding: "0 18px", borderRadius: 10, border: "none", background: TEAL, color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 };
+const iconAction: CSSProperties = { height: 30, width: 30, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--light-text)", cursor: "pointer", marginLeft: 4, display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
 export { ConfigForm, CrudPanel, FieldInput, PanelHeader, ErrorBar, Center, TEAL, lbl, th, tdc, card, yesNo, LEAVE_CATEGORY_OPTIONS, leaveCategoryLabel };
 export type { Field, Row, Crud };

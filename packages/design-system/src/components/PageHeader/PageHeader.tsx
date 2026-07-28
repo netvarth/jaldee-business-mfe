@@ -58,7 +58,7 @@ export function PageHeader({
         data-testid="page-header"
         data-variant="navigation"
         className={cn(
-          "-mx-4 mb-6 flex min-h-16 flex-wrap items-center justify-between gap-3 bg-[var(--surface-bg)] px-4 py-3 shadow-[var(--shadow-sm)] sm:-mx-6 sm:flex-nowrap sm:px-6",
+          "-mx-4 mb-6 flex min-h-16 flex-nowrap items-center justify-between gap-3 bg-[var(--surface-bg)] px-4 py-3 shadow-[var(--shadow-sm)] sm:-mx-6 sm:px-6",
           className
         )}
       >
@@ -103,7 +103,7 @@ export function PageHeader({
         {actions && (
           <div
             data-testid="page-header-actions"
-            className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0 sm:flex-nowrap"
+            className="flex shrink-0 items-center justify-end gap-2"
           >
             {actions}
           </div>

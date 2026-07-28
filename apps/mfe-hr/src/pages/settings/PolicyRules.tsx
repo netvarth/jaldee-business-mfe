@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LayoutGrid, Table } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge } from "@jaldee/design-system";
 import {
   usePolicyRules, CATALOG, domainDef, actionsForCondition,
@@ -46,7 +47,7 @@ function condSummary(r: PolicyRule): string {
 function actSummary(r: PolicyRule): string {
   const a = domainDef(r.domain).actions.find((x) => x.type === r.actionType);
   if (!a) return r.actionType;
-  const parts = (a.params ?? []).map((p) => `${p.label}: ${r.actionParams?.[p.key] ?? "â€”"}`);
+  const parts = (a.params ?? []).map((p) => `${p.label}: ${r.actionParams?.[p.key] ?? "—"}`);
   return parts.length ? `${a.label} (${parts.join(", ")})` : a.label;
 }
 
@@ -63,7 +64,7 @@ export default function PolicyRules() {
   const scopeLabel = (r: PolicyRule): string => {
     if (r.scopeType === "ALL") return "Everyone";
     const v = r.scopeValue || "";
-    if (!v) return `${r.scopeType}: â€”`;
+    if (!v) return `${r.scopeType}: —`;
     const find = (list: { uid?: string; name?: string }[]) => list.find((x) => x.uid === v)?.name;
     let name: string | undefined;
     if (r.scopeType === "DEPARTMENT") name = find(departments.data);
@@ -74,69 +75,127 @@ export default function PolicyRules() {
     return `${r.scopeType === "EMPLOYMENT_TYPE" ? "Type" : r.scopeType.charAt(0) + r.scopeType.slice(1).toLowerCase()}: ${name ?? v}`;
   };
 
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const rules = useMemo(() => [...data].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)), [data]);
 
   return (
-    <div className="p-8">
+    <div className="p-3 sm:p-4 lg:p-5">
       <div className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">Policy Rules</h1>
-        <p className="text-sm text-gray-500 mt-1">One place to define condition â†’ action rules across HR.</p>
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Policy Rules</h1>
+        <p className="text-xs text-gray-500 mt-0.5">One place to define condition → action rules across HR.</p>
       </div>
 
       {/* domain tabs */}
-      <div className="flex gap-1 border-b border-gray-200 mt-4 mb-5">
+      <div className="flex gap-6 border-b border-gray-200 mt-4 mb-6 overflow-x-auto whitespace-nowrap scrollbar-none">
         {CATALOG.map((d) => (
-          <button key={d.key} onClick={() => setDomain(d.key)}
-            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${domain === d.key ? "bg-violet-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+          <button
+            key={d.key}
+            onClick={() => setDomain(d.key)}
+            className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors shrink-0 ${
+              domain === d.key
+                ? "border-teal-700 text-teal-700"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
             {d.label}
           </button>
         ))}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
           <div className="text-sm text-gray-500">{rules.length} rule{rules.length === 1 ? "" : "s"} for {domainDef(domain).label}</div>
-          <Button variant="primary" onClick={() => setEditing(emptyRule(domain))}>+ New Rule</Button>
+          <div className="flex items-center justify-end gap-3 shrink-0 ml-auto">
+            <Button variant="primary" onClick={() => setEditing(emptyRule(domain))}>+ New Rule</Button>
+            <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
+                title="Table View"
+                aria-label="Table View"
+              >
+                <Table size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("card")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
+                title="Card View"
+                aria-label="Card View"
+              >
+                <LayoutGrid size={16} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {error ? (
           <div className="p-6 text-sm text-red-600">{error}</div>
         ) : loading ? (
-          <div className="p-6 text-sm text-gray-500">Loadingâ€¦</div>
+          <div className="p-6 text-sm text-gray-500">Loading…</div>
         ) : rules.length === 0 ? (
           <div className="py-12 text-center text-gray-500 text-sm">No rules yet. Add one to start.</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                <th className="text-left px-6 py-3">Rule</th>
-                <th className="text-left px-4 py-3">When</th>
-                <th className="text-left px-4 py-3">Then</th>
-                <th className="text-left px-4 py-3">Scope</th>
-                <th className="text-left px-4 py-3">Priority</th>
-                <th className="text-left px-4 py-3">Active</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((r) => (
-                <tr key={r.uid} className="border-b border-gray-50">
-                  <td className="px-6 py-3 font-medium text-gray-900">{r.name || "â€”"}</td>
-                  <td className="px-4 py-3 text-gray-700">{condSummary(r)}</td>
-                  <td className="px-4 py-3"><Badge variant="info">{actSummary(r)}</Badge></td>
-                  <td className="px-4 py-3 text-gray-600">{scopeLabel(r)}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.priority ?? "â€”"}</td>
-                  <td className="px-4 py-3">
-                    <input type="checkbox" checked={r.active} onChange={(e) => r.uid && setActive(r.uid, e.target.checked)} />
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Button variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
-                    <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
-                  </td>
+        ) : viewMode === "table" ? (
+          <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                  <th className="text-left px-6 py-3 font-semibold">Rule</th>
+                  <th className="text-left px-4 py-3 font-semibold">When</th>
+                  <th className="text-left px-4 py-3 font-semibold">Then</th>
+                  <th className="text-left px-4 py-3 font-semibold">Scope</th>
+                  <th className="text-left px-4 py-3 font-semibold">Priority</th>
+                  <th className="text-left px-4 py-3 font-semibold">Active</th>
+                  <th className="px-4 py-3 font-semibold"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rules.map((r) => (
+                  <tr key={r.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                    <td className="px-6 py-3 font-medium text-gray-900">{r.name || "—"}</td>
+                    <td className="px-4 py-3 text-gray-700">{condSummary(r)}</td>
+                    <td className="px-4 py-3"><Badge variant="info">{actSummary(r)}</Badge></td>
+                    <td className="px-4 py-3 text-gray-600">{scopeLabel(r)}</td>
+                    <td className="px-4 py-3 text-gray-600">{r.priority ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <input type="checkbox" checked={r.active} onChange={(e) => r.uid && setActive(r.uid, e.target.checked)} />
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <Button variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
+                      <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
+            {rules.map((r) => (
+              <div key={r.uid} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <h4 className="font-semibold text-gray-900 text-sm truncate">{r.name || "Untitled Rule"}</h4>
+                    <Badge variant="info">{actSummary(r)}</Badge>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-1"><b>When:</b> {condSummary(r)}</p>
+                  <p className="text-xs text-gray-500 mb-1"><b>Scope:</b> {scopeLabel(r)}</p>
+                  <p className="text-xs text-gray-400">Priority: {r.priority ?? "—"}</p>
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-100 pt-3 mt-1">
+                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={r.active} onChange={(e) => r.uid && setActive(r.uid, e.target.checked)} className="rounded text-teal-600" />
+                    Active
+                  </label>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>
+                    <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -161,7 +220,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
   const set = <K extends keyof PolicyRule>(k: K, v: PolicyRule[K]) => setR((p) => ({ ...p, [k]: v }));
   const setParam = (k: string, v: unknown) => setR((p) => ({ ...p, actionParams: { ...(p.actionParams ?? {}), [k]: v } }));
 
-  // Real option sources for scoped rules â€” store the UID (backend matches on uid or name).
+  // Real option sources for scoped rules — store the UID (backend matches on uid or name).
   const departments = useDepartments();
   const designations = useDesignations();
   const branches = useBranches();
@@ -173,15 +232,15 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
       case "DESIGNATION": return designations.data.map((d) => ({ value: d.uid ?? "", label: d.name ?? d.uid ?? "" }));
       case "BRANCH": return branches.data.map((b) => ({ value: b.uid ?? "", label: b.name ?? b.uid ?? "" }));
       case "EMPLOYMENT_TYPE": return EMPLOYMENT_TYPE_OPTIONS;
-      case "EMPLOYEE": return employees.data.map((e) => ({ value: e.uid ?? "", label: `${e.name ?? "â€”"}${e.employeeId ? " (" + e.employeeId + ")" : ""}` }));
-      default: return null; // ALL â€” no value
+      case "EMPLOYEE": return employees.data.map((e) => ({ value: e.uid ?? "", label: `${e.name ?? "—"}${e.employeeId ? " (" + e.employeeId + ")" : ""}` }));
+      default: return null; // ALL — no value
     }
   })();
 
   // Changing the scope target clears the previously-picked value.
   const onScopeTypeChange = (v: ScopeType) => setR((p) => ({ ...p, scopeType: v, scopeValue: "" }));
 
-  // Changing the condition may change the allowed phase â€” reset operator, value,
+  // Changing the condition may change the allowed phase — reset operator, value,
   // and (if now cross-phase) the action, so an impossible rule can't be built.
   const onConditionChange = (type: string) => setR((p) => {
     const c = d.conditions.find((x) => x.type === type);
@@ -211,7 +270,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
       <form onSubmit={submit} className="space-y-4">
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
 
-        <Input label="Rule name" required value={r.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Late over 10 min â†’ LOP" />
+        <Input label="Rule name" required value={r.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Late over 10 min → LOP" />
 
         {/* WHEN */}
         <div className="rounded-lg border border-gray-200 p-4">
@@ -263,7 +322,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
           {scopeOptions && (
             <Select
               label={r.scopeType === "EMPLOYMENT_TYPE" ? "Employment type" : r.scopeType === "EMPLOYEE" ? "Employee" : r.scopeType === "BRANCH" ? "Branch" : r.scopeType === "DESIGNATION" ? "Designation" : "Department"}
-              options={[{ value: "", label: "Selectâ€¦" }, ...scopeOptions]}
+              options={[{ value: "", label: "Select…" }, ...scopeOptions]}
               value={r.scopeValue ?? ""}
               onChange={(e) => set("scopeValue", e.target.value)}
             />

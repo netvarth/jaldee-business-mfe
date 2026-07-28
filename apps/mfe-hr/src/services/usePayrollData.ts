@@ -354,7 +354,13 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
       status: payload.status || "Enabled",
       customFields: payload.customFields || {},
     };
-    const created = await api.post<unknown>(`${PAYROLL_ROOT}/structures/${structureUid}/components`, requestBody);
+    const mappingUid = payload.uid || payload.id;
+    let created: unknown;
+    if (mappingUid) {
+      created = await api.put<unknown>(`${PAYROLL_ROOT}/structures/${structureUid}/components/${mappingUid}`, requestBody);
+    } else {
+      created = await api.post<unknown>(`${PAYROLL_ROOT}/structures/${structureUid}/components`, requestBody);
+    }
     await loadComponents(structureUid);
     const optimistic = created && typeof created === "object"
       ? withId<StructureComponentMapping>(created as Record<string, unknown>)
@@ -372,7 +378,27 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
       };
     }));
   }, [api, loadComponents, setData]);
-  return { data, loading, error, reload: load, loadComponents, save, addComponent };
+
+  const toggleComponentStatus = useCallback(async (structureUid: string, componentMappingUid: string, nextStatus: "Enabled" | "Disabled") => {
+    await api.patch(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentMappingUid}/status/${nextStatus}`, {});
+    await loadComponents(structureUid);
+  }, [api, loadComponents]);
+
+  const removeComponent = useCallback(async (structureUid: string, componentMappingUid: string) => {
+    try {
+      await api.delete(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentMappingUid}`);
+    } catch {
+      await api.patch(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentMappingUid}/status/Disabled`, {});
+    }
+    await loadComponents(structureUid);
+  }, [api, loadComponents]);
+
+  const remove = useCallback(async (structureUid: string) => {
+    await api.delete(`${PAYROLL_ROOT}/structures/${structureUid}`);
+    await load();
+  }, [api, load]);
+
+  return { data, loading, error, reload: load, loadComponents, save, addComponent, toggleComponentStatus, removeComponent, remove };
 }
 
 export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOptions = {}) {

@@ -82,11 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [hasHydrated, setHasHydrated]);
 
   useLayoutEffect(() => {
-    const gatewayPrefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim() || "";
-    const apiBasePath = gatewayPrefix && gatewayPrefix !== "/"
-      ? `/${gatewayPrefix.replace(/^\/+|\/+$/g, "")}/`
-      : "/";
-    initApiClient(new URL(apiBasePath, window.location.origin).toString().replace(/\/$/, ""));
+    initApiClient(window.location.origin);
     setApiClientAuthHandlers({
       refreshSession: async () => {
         const response = await authService.refreshSession();

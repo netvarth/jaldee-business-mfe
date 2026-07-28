@@ -14,6 +14,9 @@ import {
   ReceiptText,
   Settings2,
   SlidersHorizontal,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
   UserCog,
   X,
   type LucideIcon,
@@ -753,7 +756,90 @@ export default function Payroll() {
       header: "Flags",
       render: (mapping: StructureComponentMapping) => <FlagList flags={[mapping.isMandatory && "Mandatory", mapping.allowEmployeeOverride && "Override"]} />,
     },
-  ], [componentLookup]);
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right" as const,
+      render: (mapping: StructureComponentMapping) => {
+        const isEnabled = String(mapping.status || "Enabled").toLowerCase() !== "disabled";
+        const nextStatus = isEnabled ? "Disabled" : "Enabled";
+        const mUid = mapping.uid || mapping.id;
+        return (
+          <div style={{ display: "inline-flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="btn-grid-action"
+              onClick={() => openEditStructureComponent(mapping)}
+              title="Edit component"
+              aria-label="Edit component"
+              style={smallAction}
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              className="btn-grid-action"
+              onClick={() => {
+                if (effectiveBuilderUid && mUid) {
+                  structures.toggleComponentStatus(effectiveBuilderUid, mUid, nextStatus);
+                }
+              }}
+              title={isEnabled ? "Disable component" : "Enable component"}
+              aria-label={isEnabled ? "Disable component" : "Enable component"}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 28,
+                padding: "0 6px",
+                borderRadius: 6,
+                color: isEnabled ? "#059669" : "#64748b",
+                background: isEnabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              {isEnabled ? <ToggleRight size={20} strokeWidth={2.2} /> : <ToggleLeft size={20} strokeWidth={2.2} />}
+            </button>
+          </div>
+        );
+      },
+    },
+  ], [componentLookup, effectiveBuilderUid, structures]);
+
+  const openEditStructureComponent = (mapping: StructureComponentMapping) => {
+    setMappingForm({
+      uid: mapping.uid || mapping.id,
+      componentUid: mapping.componentUid || mapping.payrollComponentUid || uidOf(mapping.component),
+      calculationType: mapping.calculationType || "FIXED_AMOUNT",
+      defaultAmount: mapping.defaultAmount ?? 0,
+      defaultPercentage: mapping.defaultPercentage ?? 0,
+      formulaExpression: mapping.formulaExpression || "",
+      minimumAmount: mapping.minimumAmount ?? 0,
+      maximumAmount: mapping.maximumAmount ?? 0,
+      isMandatory: mapping.isMandatory ?? true,
+      allowEmployeeOverride: mapping.allowEmployeeOverride ?? false,
+      displayOrder: mapping.displayOrder ?? 0,
+    });
+    setBuilderDialogOpen(true);
+  };
+
+  const removeStructureComponent = async (mapping: StructureComponentMapping) => {
+    const mUid = mapping.uid || mapping.id;
+    if (!effectiveBuilderUid || !mUid) return;
+    if (confirm(`Are you sure you want to remove mapped component "${componentName(mapping)}"?`)) {
+      setBusy(true);
+      setMessage(null);
+      try {
+        await structures.removeComponent(effectiveBuilderUid, mUid);
+        setMessage("Component removed from structure.");
+      } catch (e) {
+        setMessage(getErrorMessage(e));
+      } finally {
+        setBusy(false);
+      }
+    }
+  };
 
   const openAddComponentDialog = () => {
     setMappingForm((current) => ({
@@ -981,6 +1067,10 @@ export default function Payroll() {
             ? `${mapping.slabConfigJson?.length || 0} slabs`
             : "-";
 
+    const isEnabled = String(mapping.status || "Enabled").toLowerCase() !== "disabled";
+    const nextStatus = isEnabled ? "Disabled" : "Enabled";
+    const mUid = mapping.uid || mapping.id;
+
     return (
       <InfoCard
         key={uidOf(mapping) || mapping.componentUid || mapping.payrollComponentUid || componentName(mapping)}
@@ -992,6 +1082,35 @@ export default function Payroll() {
           { label: "Default", value: defaultValue },
         ]}
         footer={<FlagList flags={[mapping.isMandatory && "Mandatory", mapping.allowEmployeeOverride && "Override"]} />}
+        action={
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <Button variant="ghost" size="sm" onClick={() => openEditStructureComponent(mapping)} title="Edit component"><Pencil size={14} /></Button>
+            <button
+              type="button"
+              onClick={() => {
+                if (effectiveBuilderUid && mUid) {
+                  structures.toggleComponentStatus(effectiveBuilderUid, mUid, nextStatus);
+                }
+              }}
+              title={isEnabled ? "Disable component" : "Enable component"}
+              aria-label={isEnabled ? "Disable component" : "Enable component"}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 28,
+                padding: "0 6px",
+                borderRadius: 6,
+                color: isEnabled ? "#059669" : "#64748b",
+                background: isEnabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              {isEnabled ? <ToggleRight size={20} strokeWidth={2.2} /> : <ToggleLeft size={20} strokeWidth={2.2} />}
+            </button>
+          </div>
+        }
       />
     );
   });

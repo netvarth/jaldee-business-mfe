@@ -6,12 +6,7 @@ import {
   type ApprovalChain, type ApprovalChainStep, type ApprovalRequestType, type ApproverResolverType,
 } from "../../services/useApprovals";
 import { useEmployees } from "../../services/useEmployees";
-
-/**
- * W1 / R4.2 â€” approval chain configuration. A chain is an ordered list of
- * approver resolvers for one request type; requests of that type route through
- * every step before they are finally approved. No chain = legacy single-step.
- */
+import { PanelHeader } from "./SettingsComponents";
 
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -42,7 +37,7 @@ export default function ApprovalsPanel() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const empName = (uid?: string | null) => employees.find((e) => e.id === uid)?.name || uid || "â€”";
+  const empName = (uid?: string | null) => employees.find((e) => e.id === uid)?.name || uid || "—";
 
   const openAdd = () => {
     setEditing(null); setName(""); setRequestType("LEAVE"); setActive(true);
@@ -86,20 +81,18 @@ export default function ApprovalsPanel() {
       s.resolverType === "REPORTING_MANAGER" ? "Manager"
         : s.resolverType === "NAMED_EMPLOYEE" ? empName(s.resolverValue)
         : `Level ${s.resolverValue}`
-    ).join(" â†’ ") || "â€”";
+    ).join(" → ") || "—";
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: "var(--primary-light)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center" }}><GitBranch size={20} /></div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--dark-text)" }}>Approval Chains</div>
-            <div style={{ fontSize: 12, color: "var(--light-text)" }}>Ordered multi-level approval per request type Â· no chain = single-step (reporting manager)</div>
-          </div>
-        </div>
-        <Button onClick={openAdd} icon={<Plus size={16} />}>Add Chain</Button>
-      </div>
+      <PanelHeader
+        title="Approval Chains"
+        subtitle="Ordered multi-level approval per request type • no chain = single-step (reporting manager)"
+        icon={<GitBranch size={20} />}
+        action={
+          <Button onClick={openAdd} icon={<Plus size={16} />} className="whitespace-nowrap shrink-0">Add Chain</Button>
+        }
+      />
 
       {chains.error && (
         <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.2)", color: "#e11d48", fontSize: 12.5, fontWeight: 600 }}>

@@ -234,15 +234,15 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
                   <tr key={policy.id}>
                     <td style={tdc}><b>{policy.name as string}</b></td>
                     <td style={tdc}>{leaveCategoryLabel(policy.category)}</td>
-                    <td style={tdc}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "â€”"}</td>
-                    <td style={tdc}>{(policy.accrualType as string) || "â€”"}</td>
+                    <td style={tdc}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</td>
+                    <td style={tdc}>{(policy.accrualType as string) || "—"}</td>
                     <td style={tdc}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
                         <span style={miniPill(policy.carryForward ? "#2563eb" : "#64748b")}>{policy.carryForward ? `Carry ${policy.carryForwardMax || 0}d` : "No Carry"}</span>
                       </div>
                     </td>
-                    <td style={tdc}><span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ width: 18, height: 18, borderRadius: 6, border: "1px solid var(--border-color)", background: (policy.colorHex as string) || "#cbd5e1" }} />{(policy.colorHex as string) || "â€”"}</span></td>
+                    <td style={tdc}><span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ width: 18, height: 18, borderRadius: 6, border: "1px solid var(--border-color)", background: (policy.colorHex as string) || "#cbd5e1" }} />{(policy.colorHex as string) || "—"}</span></td>
                     <td style={{ ...tdc, textAlign: "right" }}>
                       <button id={`hr-settings-leave-policy-edit-${policy.id}`} data-testid={`hr-settings-leave-policy-edit-${policy.id}`} onClick={() => openEditPolicy(policy)} title="Edit" aria-label="Edit leave type" style={iconAction}><Pencil size={15} /></button>
                       {(() => {
