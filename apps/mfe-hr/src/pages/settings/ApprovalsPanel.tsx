@@ -90,7 +90,7 @@ export default function ApprovalsPanel() {
         subtitle="Ordered multi-level approval per request type • no chain = single-step (reporting manager)"
         icon={<GitBranch size={20} />}
         action={
-          <Button onClick={openAdd} icon={<Plus size={16} />} className="whitespace-nowrap shrink-0">Add Chain</Button>
+          <Button id="hr-settings-approvals-add" data-testid="hr-settings-approvals-add" onClick={openAdd} icon={<Plus size={16} />} className="whitespace-nowrap shrink-0">Add Chain</Button>
         }
       />
 
@@ -100,7 +100,7 @@ export default function ApprovalsPanel() {
         </div>
       )}
 
-      <div style={{ ...card, overflow: "hidden" }}>
+      <div id="hr-settings-approvals-table" data-testid="hr-settings-approvals-table" style={{ ...card, overflow: "hidden" }}>
         {chains.loading ? (
           <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={18} className="animate-spin" style={{ display: "inline" }} /></div>
         ) : chains.data.length === 0 ? (
@@ -128,8 +128,8 @@ export default function ApprovalsPanel() {
                     <span style={{ ...lbl, color: c.active ? "#059669" : "var(--light-text)" }}>{c.active ? "Active" : "Off"}</span>
                   </td>
                   <td style={{ padding: "13px 16px", textAlign: "right", borderTop: "1px solid var(--border-color)" }}>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)} title="Edit"><Pencil size={15} /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this chain? In-flight requests keep their existing steps.")) chains.remove(c.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
+                    <Button id={`hr-settings-approvals-edit-${c.id}`} data-testid={`hr-settings-approvals-edit-${c.id}`} variant="ghost" size="icon" onClick={() => openEdit(c)} title="Edit"><Pencil size={15} /></Button>
+                    <Button id={`hr-settings-approvals-delete-${c.id}`} data-testid={`hr-settings-approvals-delete-${c.id}`} variant="ghost" size="icon" onClick={() => { if (confirm("Delete this chain? In-flight requests keep their existing steps.")) chains.remove(c.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
                   </td>
                 </tr>
               ))}
@@ -140,20 +140,20 @@ export default function ApprovalsPanel() {
 
       {open && (
         <div style={overlay} onClick={() => setOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={modalBox}>
+          <div id="hr-settings-approvals-modal" data-testid="hr-settings-approvals-modal" onClick={(e) => e.stopPropagation()} style={modalBox}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
-              <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit Chain" : "Add Approval Chain"}</h3>
-              <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+              <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Update Approval Chain" : "Add Approval Chain"}</h3>
+              <button id="hr-settings-approvals-modal-close" data-testid="hr-settings-approvals-modal-close" onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
             </div>
 
             <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <Input label="Chain Name" placeholder="e.g. Two-level leave approval" value={name} onChange={(e) => setName(e.target.value)} />
-                <Select label="Request Type" value={requestType} onChange={(e) => setRequestType(e.target.value as ApprovalRequestType)}
+                <Input id="hr-settings-approvals-name" data-testid="hr-settings-approvals-name" label="Chain Name" placeholder="e.g. Two-level leave approval" value={name} onChange={(e) => setName(e.target.value)} />
+                <Select id="hr-settings-approvals-request-type" data-testid="hr-settings-approvals-request-type" label="Request Type" value={requestType} onChange={(e) => setRequestType(e.target.value as ApprovalRequestType)}
                   options={REQUEST_TYPES.map((t) => ({ value: t.value, label: t.label }))} />
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "var(--dark-text)", cursor: "pointer" }}>
-                <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active (routes new decisions through this chain)
+                <input id="hr-settings-approvals-active" data-testid="hr-settings-approvals-active" type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active (routes new decisions through this chain)
               </label>
 
               <div>
@@ -164,38 +164,38 @@ export default function ApprovalsPanel() {
                       <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
                         <span style={{ ...lbl, width: 44, flexShrink: 0 }}>L{i + 1}</span>
                         <div style={{ width: 190, flexShrink: 0 }}>
-                          <Select value={s.resolverType} onChange={(e) => setStep(i, { resolverType: e.target.value as ApproverResolverType, resolverValue: null })}
+                          <Select id={`hr-settings-approvals-step-resolver-${i}`} data-testid={`hr-settings-approvals-step-resolver-${i}`} value={s.resolverType} onChange={(e) => setStep(i, { resolverType: e.target.value as ApproverResolverType, resolverValue: null })}
                             options={(Object.keys(RESOLVER_LABELS) as ApproverResolverType[]).map((k) => ({ value: k, label: RESOLVER_LABELS[k] }))} />
                         </div>
                         <div style={{ flex: 1 }}>
                           {s.resolverType === "NAMED_EMPLOYEE" && (
-                            <Select value={s.resolverValue ?? ""} onChange={(e) => setStep(i, { resolverValue: e.target.value })}
+                            <Select id={`hr-settings-approvals-step-value-${i}`} data-testid={`hr-settings-approvals-step-value-${i}`} value={s.resolverValue ?? ""} onChange={(e) => setStep(i, { resolverValue: e.target.value })}
                               options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
                           )}
                           {s.resolverType === "HIERARCHY_LEVEL" && (
-                            <Input type="number" placeholder="Level (e.g. 2)" value={s.resolverValue ?? ""} onChange={(e) => setStep(i, { resolverValue: e.target.value })} />
+                            <Input id={`hr-settings-approvals-step-value-${i}`} data-testid={`hr-settings-approvals-step-value-${i}`} type="number" placeholder="Level (e.g. 2)" value={s.resolverValue ?? ""} onChange={(e) => setStep(i, { resolverValue: e.target.value })} />
                           )}
                           {s.resolverType === "REPORTING_MANAGER" && (
                             <span style={{ fontSize: 12, color: "var(--light-text)", fontWeight: 600 }}>Resolved per requester at decision time</span>
                           )}
                         </div>
                         {steps.length > 1 && (
-                          <button onClick={() => removeStep(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e11d48" }} title="Remove step"><Trash2 size={15} /></button>
+                          <button id={`hr-settings-approvals-step-remove-${i}`} data-testid={`hr-settings-approvals-step-remove-${i}`} onClick={() => removeStep(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e11d48" }} title="Remove step"><Trash2 size={15} /></button>
                         )}
                       </div>
                       {i < steps.length - 1 && <div style={{ display: "flex", justifyContent: "center", padding: 2, color: "var(--light-text)" }}><ArrowDown size={13} /></div>}
                     </div>
                   ))}
                 </div>
-                <Button variant="secondary" onClick={addStep} icon={<Plus size={14} />} style={{ marginTop: 10 }}>Add Step</Button>
+                <Button id="hr-settings-approvals-add-step" data-testid="hr-settings-approvals-add-step" variant="secondary" onClick={addStep} icon={<Plus size={14} />} style={{ marginTop: 10 }}>Add Step</Button>
               </div>
 
               {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             </div>
 
             <div style={{ padding: "18px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={save} disabled={saving} loading={saving}>{editing ? "Save Chain" : "Create Chain"}</Button>
+              <Button id="hr-settings-approvals-cancel" data-testid="hr-settings-approvals-cancel" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button id="hr-settings-approvals-save" data-testid="hr-settings-approvals-save" onClick={save} disabled={saving} loading={saving}>{editing ? "Update Chain" : "Create Chain"}</Button>
             </div>
           </div>
         </div>

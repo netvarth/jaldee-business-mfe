@@ -35,7 +35,7 @@ function getServiceGatewayPrefix() {
 }
 
 function buildPlatformServiceUrl(path: string) {
-  const configuredBase = import.meta.env.VITE_BASE_SERVICE_BASE_URL?.trim().replace(/\/$/, "") || getServiceGatewayPrefix();
+  const configuredBase = import.meta.env.VITE_PLATFORM_SERVICE_PROXY_TARGET?.trim().replace(/\/$/, "") || import.meta.env.VITE_BASE_SERVICE_BASE_URL?.trim().replace(/\/$/, "") || getServiceGatewayPrefix();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   if (!configuredBase) {
     return typeof window !== "undefined" ? `${window.location.origin}${normalizedPath}` : normalizedPath;
@@ -137,7 +137,7 @@ export const telemetryService: TelemetryService = {
         timestamp: new Date().toISOString()
       };
 
-      const reportUrl = buildPlatformServiceUrl("/platform-service/v1/api/platform/notification/health/report");
+      const reportUrl = buildPlatformServiceUrl("/platform-service/v1/api/notification/health/report");
 
       fetch(reportUrl, {
         method: "POST",

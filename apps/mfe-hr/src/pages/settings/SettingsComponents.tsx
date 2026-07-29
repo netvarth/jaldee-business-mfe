@@ -168,10 +168,13 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
         onValueChange={onChange}
         placeholder="Select days"
         searchPlaceholder="Search weekdays..."
-        options={(f.options ?? []).map((option) => ({
-          value: option,
-          label: option.charAt(0) + option.slice(1).toLowerCase(),
-        }))}
+        options={(f.options ?? []).map((option) => {
+          if (typeof option === "object" && option !== null && "value" in option) {
+            return option as { value: string; label: string };
+          }
+          const str = String(option);
+          return { value: str, label: str ? str.charAt(0) + str.slice(1).toLowerCase() : "" };
+        })}
         maxDisplay={3}
       />
     );

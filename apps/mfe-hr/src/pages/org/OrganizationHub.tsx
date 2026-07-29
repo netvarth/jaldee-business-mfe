@@ -1054,7 +1054,7 @@ export default function OrgStructure() {
                               </span>
                             </td>
                             <td style={{ ...td, textAlign: "right" }}>
-                              <Button size="sm" onClick={(event) => {
+                              <Button id={`hr-org-branch-assign-${branch.id}`} data-testid={`hr-org-branch-assign-${branch.id}`} size="sm" onClick={(event) => {
                                 event.stopPropagation();
                                 setAm({ managerEmployeeUids: [], locationUid: branch.id });
                                 setAmSearch("");
@@ -1582,6 +1582,8 @@ export default function OrgStructure() {
             <>
               <Button variant="secondary" onClick={() => setAmOpen(false)} disabled={busy}>Cancel</Button>
               <Button
+                id="hr-org-assign-submit"
+                data-testid="hr-org-assign-submit"
                 disabled={busy || am.managerEmployeeUids.length === 0 || !am.locationUid}
                 loading={busy}
                 onClick={() => act(async () => {
@@ -1608,6 +1610,8 @@ export default function OrgStructure() {
             )}
           </div>
           <Input
+            id="hr-org-assign-search"
+            data-testid="hr-org-assign-search"
             value={amSearch}
             onChange={(event) => setAmSearch(event.target.value)}
             placeholder="Search by name, ID or email"
@@ -1625,6 +1629,8 @@ export default function OrgStructure() {
                   className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-[var(--color-surface-secondary)]"
                 >
                   <Checkbox
+                    id={`hr-org-assign-employee-${employee.id}`}
+                    data-testid={`hr-org-assign-employee-${employee.id}`}
                     checked={selected}
                     aria-label={`Select ${employee.name}`}
                     onChange={() => setAm({

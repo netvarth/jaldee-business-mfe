@@ -26,7 +26,7 @@ import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
-import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
+import { PayslipStatementDialog, PayslipStatementPage } from "../../components/PayslipStatementDialog";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
 import {
@@ -52,14 +52,14 @@ import {
 } from "../../services/usePayrollData";
 import { exportToCSV, formatCurrency, formatDate } from "../../lib/utils";
 
-type Tab = "components" | "structures" | "employees" | "runs" | "fields";
+type Tab = "components" | "structures" | "employees" | "payslips" | "fields";
 type ViewMode = "table" | "cards";
 
 const PAYROLL_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: LucideIcon }> = [
   { key: "components", route: "components", label: "Components", Icon: Settings2 },
   { key: "structures", route: "structures", label: "Structures", Icon: Layers3 },
   { key: "employees", route: "employees", label: "Employees", Icon: UserCog },
-  { key: "runs", route: "runs", label: "Runs & Payslips", Icon: ReceiptText },
+  { key: "payslips", route: "payslips", label: "Payslips", Icon: ReceiptText },
   { key: "fields", route: "custom-fields", label: "Custom Fields", Icon: SlidersHorizontal },
 ];
 
@@ -157,11 +157,28 @@ function payrollRouteState(pathname: string) {
   const payrollIndex = segments.lastIndexOf("payroll");
   const payrollSegments = payrollIndex >= 0 ? segments.slice(payrollIndex + 1) : segments;
   const tabSegment = payrollSegments[0];
-  const match = PAYROLL_ROUTES.find((item) => item.route === tabSegment || item.key === tabSegment);
-  const tab = match?.key || "components";
+
+  let payslipUid: string | null = null;
+  if (tabSegment === "payslips" || tabSegment === "payslip") {
+    payslipUid = payrollSegments[1] || null;
+  } else if (tabSegment === "runs" && (payrollSegments[1] === "payslips" || payrollSegments[1] === "payslip")) {
+    payslipUid = payrollSegments[2] || null;
+  }
+
+  const normSegment = tabSegment === "runs" ? "payslips" : tabSegment;
+  const match = PAYROLL_ROUTES.find((item) => item.route === normSegment || item.key === normSegment);
+  const tab = payslipUid ? "payslips" : (match?.key || "components");
   const builderStructureUid = tab === "structures" && payrollSegments[2] === "build" ? payrollSegments[1] || null : null;
   const employeeAssignUid = tab === "employees" && payrollSegments[2] === "assign" ? payrollSegments[1] || null : null;
-  return { tab, builderStructureUid, isStructureBuilder: Boolean(builderStructureUid), employeeAssignUid, isEmployeeAssign: Boolean(employeeAssignUid) };
+  return {
+    tab,
+    payslipUid,
+    isPayslipView: Boolean(payslipUid),
+    builderStructureUid,
+    isStructureBuilder: Boolean(builderStructureUid),
+    employeeAssignUid,
+    isEmployeeAssign: Boolean(employeeAssignUid),
+  };
 }
 
 function ToggleRow({
@@ -187,17 +204,21 @@ function TextField({
   onChange,
   type = "text",
   required,
+  id,
+  testId,
 }: {
   label: string;
   value?: string | number;
   onChange: (value: string) => void;
   type?: string;
   required?: boolean;
+  id?: string;
+  testId?: string;
 }) {
   return (
     <label style={fieldWrap}>
       <span style={fieldLabel}>{label}{required ? " *" : ""}</span>
-      <input type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} style={fieldStyle} />
+      <input id={id} data-testid={testId || id} type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} style={fieldStyle} />
     </label>
   );
 }
@@ -241,13 +262,13 @@ export default function Payroll() {
   const tab = routeState.tab;
   const needsComponents = tab === "components" || tab === "structures";
   const needsStructures = tab === "structures" || tab === "employees";
-  const needsEmployees = tab === "employees" || tab === "runs";
-  const needsRuns = tab === "runs";
-  const needsPayslips = tab === "runs";
-  const needsCustomFields = tab === "fields" || tab === "employees" || tab === "runs";
+  const needsEmployees = tab === "employees" || tab === "payslips";
+  const needsRuns = tab === "payslips";
+  const needsPayslips = tab === "payslips";
+  const needsCustomFields = tab === "fields" || tab === "employees" || tab === "payslips";
   const customFieldTargets = useMemo<CustomFieldTarget[]>(() => {
     if (tab === "employees") return ["EMPLOYEE_PAYROLL_STRUCTURE"];
-    if (tab === "runs") return ["PAYSLIP"];
+    if (tab === "payslips") return ["PAYSLIP"];
     return PAYROLL_CUSTOM_FIELD_TARGETS;
   }, [tab]);
   const components = usePayrollComponents({ enabled: needsComponents });
@@ -264,6 +285,24 @@ export default function Payroll() {
   const activeEmployeeUid = routeState.employeeAssignUid || selectedEmployee;
   const employeePayroll = useEmployeePayroll(activeEmployeeUid || null, { enabled: tab === "employees" });
   const [viewSlip, setViewSlip] = useState<Payslip | null>(null);
+
+  const activePayslip = useMemo(() => {
+    if (routeState.payslipUid) {
+      const found = payslips.data.find(
+        (p) => p.uid === routeState.payslipUid || p.id === routeState.payslipUid
+      );
+      if (found) return found;
+      if (viewSlip && (viewSlip.uid === routeState.payslipUid || viewSlip.id === routeState.payslipUid)) {
+        return viewSlip;
+      }
+      return {
+        uid: routeState.payslipUid,
+        id: routeState.payslipUid,
+        status: "Generated",
+      } as Payslip;
+    }
+    return viewSlip;
+  }, [routeState.payslipUid, payslips.data, viewSlip]);
 
   const [componentOpen, setComponentOpen] = useState(false);
   const [editingComponentUid, setEditingComponentUid] = useState<string | null>(null);
@@ -763,7 +802,7 @@ export default function Payroll() {
       render: (mapping: StructureComponentMapping) => {
         const isEnabled = String(mapping.status || "Enabled").toLowerCase() !== "disabled";
         const nextStatus = isEnabled ? "Disabled" : "Enabled";
-        const mUid = mapping.uid || mapping.id;
+        const compUid = mapping.componentUid || mapping.payrollComponentUid || mapping.uid || mapping.id;
         return (
           <div style={{ display: "inline-flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
             <button
@@ -780,8 +819,8 @@ export default function Payroll() {
               type="button"
               className="btn-grid-action"
               onClick={() => {
-                if (effectiveBuilderUid && mUid) {
-                  structures.toggleComponentStatus(effectiveBuilderUid, mUid, nextStatus);
+                if (effectiveBuilderUid && compUid) {
+                  structures.toggleComponentStatus(effectiveBuilderUid, compUid, nextStatus);
                 }
               }}
               title={isEnabled ? "Disable component" : "Enable component"}
@@ -1069,7 +1108,7 @@ export default function Payroll() {
 
     const isEnabled = String(mapping.status || "Enabled").toLowerCase() !== "disabled";
     const nextStatus = isEnabled ? "Disabled" : "Enabled";
-    const mUid = mapping.uid || mapping.id;
+    const compUid = mapping.componentUid || mapping.payrollComponentUid || mapping.uid || mapping.id;
 
     return (
       <InfoCard
@@ -1088,8 +1127,8 @@ export default function Payroll() {
             <button
               type="button"
               onClick={() => {
-                if (effectiveBuilderUid && mUid) {
-                  structures.toggleComponentStatus(effectiveBuilderUid, mUid, nextStatus);
+                if (effectiveBuilderUid && compUid) {
+                  structures.toggleComponentStatus(effectiveBuilderUid, compUid, nextStatus);
                 }
               }}
               title={isEnabled ? "Disable component" : "Enable component"}
@@ -1114,6 +1153,23 @@ export default function Payroll() {
       />
     );
   });
+
+  if (activePayslip) {
+    return (
+      <section id="hr-payroll-payslip-page" data-testid="hr-payroll-payslip-page" className="page-section active hr-page-shell" style={{ flexGrow: 1 }}>
+        <PayslipStatementPage
+          payslip={activePayslip}
+          employee={activeEmployeeRecord || null}
+          fields={payslipFields}
+          employeeName={employeeName(activePayslip.employeeUid)}
+          onBack={() => {
+            setViewSlip(null);
+            navigate("/payroll/payslips");
+          }}
+        />
+      </section>
+    );
+  }
 
   return (
     <section id="hr-payroll-page" data-testid="hr-payroll-page" className="page-section active hr-page-shell" style={{ flexGrow: 1 }}>
@@ -1462,7 +1518,7 @@ export default function Payroll() {
         )
       )}
 
-      {tab === "runs" && (
+      {tab === "payslips" && (
         <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6 items-start">
           <Panel title="Payroll Run Dashboard">
             <div style={{ display: "grid", gap: 14 }}>
@@ -1500,7 +1556,18 @@ export default function Payroll() {
                     <td style={{ ...tdStyle, fontWeight: 800 }}>{money(payslip.netPay)}</td>
                     <td style={tdStyle}>{payslip.status || "-"}</td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>
-                      <button id={`hr-payroll-payslip-view-${payslip.id}`} data-testid={`hr-payroll-payslip-view-${payslip.id}`} className="btn-grid-action" onClick={() => setViewSlip(payslip)} style={smallAction}>View</button>
+                      <button
+                        id={`hr-payroll-payslip-view-${payslip.id}`}
+                        data-testid={`hr-payroll-payslip-view-${payslip.id}`}
+                        className="btn-grid-action"
+                        onClick={() => {
+                          setViewSlip(payslip);
+                          navigate(`/payroll/payslips/${payslip.uid || payslip.id}`);
+                        }}
+                        style={smallAction}
+                      >
+                        View
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1804,15 +1871,15 @@ function ComponentDialog({
   onChange: (form: Partial<PayrollComponent>) => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} hideHeader contentClassName="max-w-[720px] p-0 overflow-hidden">
+    <Dialog open={open} onClose={onClose} hideHeader contentClassName="max-w-[720px] p-0 overflow-hidden" testId="hr-payroll-component-modal">
       <DialogHeader title="Payroll Component" onClose={onClose} />
       <div style={dialogBody}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Component Name" required value={form.componentName} onChange={(v) => onChange({ ...form, componentName: v })} />
-          <TextField label="Component Code" required value={form.componentCode} onChange={(v) => onChange({ ...form, componentCode: normalizeCode(v) })} />
-          <Select label="Type" value={form.componentType} onChange={(e) => onChange({ ...form, componentType: e.target.value as ComponentType })} options={COMPONENT_TYPES.map((v) => ({ value: v, label: labelize(v) }))} />
-          <Select label="Category" value={form.componentCategory} onChange={(e) => onChange({ ...form, componentCategory: e.target.value as ComponentCategory })} options={CATEGORIES.map((v) => ({ value: v, label: labelize(v) }))} />
-          <Select label="Calculation Type" value={form.calculationType} onChange={(e) => onChange({ ...form, calculationType: e.target.value as CalculationType })} options={CALC_TYPES.map((v) => ({ value: v, label: labelize(v) }))} />
+          <TextField id="hr-payroll-component-name" data-testid="hr-payroll-component-name" label="Component Name" required value={form.componentName} onChange={(v) => onChange({ ...form, componentName: v })} />
+          <TextField id="hr-payroll-component-code" data-testid="hr-payroll-component-code" label="Component Code" required value={form.componentCode} onChange={(v) => onChange({ ...form, componentCode: normalizeCode(v) })} />
+          <Select id="hr-payroll-component-type" data-testid="hr-payroll-component-type" label="Type" value={form.componentType} onChange={(e) => onChange({ ...form, componentType: e.target.value as ComponentType })} options={COMPONENT_TYPES.map((v) => ({ value: v, label: labelize(v) }))} />
+          <Select id="hr-payroll-component-category" data-testid="hr-payroll-component-category" label="Category" value={form.componentCategory} onChange={(e) => onChange({ ...form, componentCategory: e.target.value as ComponentCategory })} options={CATEGORIES.map((v) => ({ value: v, label: labelize(v) }))} />
+          <Select id="hr-payroll-component-calc-type" data-testid="hr-payroll-component-calc-type" label="Calculation Type" value={form.calculationType} onChange={(e) => onChange({ ...form, calculationType: e.target.value as CalculationType })} options={CALC_TYPES.map((v) => ({ value: v, label: labelize(v) }))} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" style={{ marginTop: 18 }}>
           {(["isStatutory", "isTaxable", "affectsGrossPay", "affectsNetPay", "affectsCtc", "visibleInPayslip"] as const).map((key) => (
@@ -1820,7 +1887,7 @@ function ComponentDialog({
           ))}
         </div>
       </div>
-      <DialogActions busy={busy} onClose={onClose} onSave={onSave} />
+      <DialogActions saveTestId="hr-payroll-component-save" busy={busy} onClose={onClose} onSave={onSave} />
     </Dialog>
   );
 }
@@ -1841,20 +1908,20 @@ function StructureDialog({
   onChange: (form: Partial<PayrollStructure>) => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} hideHeader contentClassName="max-w-[640px] p-0 overflow-hidden">
+    <Dialog open={open} onClose={onClose} hideHeader contentClassName="max-w-[640px] p-0 overflow-hidden" testId="hr-payroll-structure-modal">
       <DialogHeader title="Payroll Structure" onClose={onClose} />
       <div style={dialogBody}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextField label="Structure Name" required value={form.structureName} onChange={(v) => onChange({ ...form, structureName: v })} />
-          <TextField label="Structure Code" required value={form.structureCode} onChange={(v) => onChange({ ...form, structureCode: normalizeCode(v) })} />
-          <Select label="Frequency" value={form.payrollFrequency || "MONTHLY"} onChange={(e) => onChange({ ...form, payrollFrequency: e.target.value as PayrollStructure["payrollFrequency"] })} options={["MONTHLY", "WEEKLY", "BIWEEKLY", "DAILY"].map((v) => ({ value: v, label: labelize(v) }))} />
-          <TextField label="Currency" value={form.currencyCode} onChange={(v) => onChange({ ...form, currencyCode: v.toUpperCase() })} />
+          <TextField id="hr-payroll-structure-name" testId="hr-payroll-structure-name" label="Structure Name" required value={form.structureName} onChange={(v) => onChange({ ...form, structureName: v })} />
+          <TextField id="hr-payroll-structure-code" testId="hr-payroll-structure-code" label="Structure Code" required value={form.structureCode} onChange={(v) => onChange({ ...form, structureCode: normalizeCode(v) })} />
+          <Select id="hr-payroll-structure-frequency" testId="hr-payroll-structure-frequency" label="Frequency" value={form.payrollFrequency || "MONTHLY"} onChange={(e) => onChange({ ...form, payrollFrequency: e.target.value as PayrollStructure["payrollFrequency"] })} options={["MONTHLY", "WEEKLY", "BIWEEKLY", "DAILY"].map((v) => ({ value: v, label: labelize(v) }))} />
+          <TextField id="hr-payroll-structure-currency" testId="hr-payroll-structure-currency" label="Currency" value={form.currencyCode} onChange={(v) => onChange({ ...form, currencyCode: v.toUpperCase() })} />
         </div>
         <div style={{ marginTop: 14 }}>
           <TextAreaField label="Description" value={form.description} onChange={(v) => onChange({ ...form, description: v })} />
         </div>
       </div>
-      <DialogActions busy={busy} onClose={onClose} onSave={onSave} />
+      <DialogActions saveTestId="hr-payroll-structure-save" busy={busy} onClose={onClose} onSave={onSave} />
     </Dialog>
   );
 }
@@ -1878,9 +1945,10 @@ function StructureBuilderDialog({
   onSave: () => void;
   onChange: (form: Partial<StructureComponentMapping>) => void;
 }) {
+  const isEditing = Boolean(form.uid || form.id);
   return (
     <Dialog open={open} onClose={onClose} hideHeader contentClassName="w-[calc(100vw-1.5rem)] max-w-[760px] p-0 overflow-hidden">
-      <DialogHeader title={`Add Component${selectedStructure?.structureName ? ` - ${selectedStructure.structureName}` : ""}`} onClose={onClose} />
+      <DialogHeader title={`${isEditing ? "Update Component" : "Add Component"}${selectedStructure?.structureName ? ` - ${selectedStructure.structureName}` : ""}`} onClose={onClose} />
       <div style={dialogBody}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
@@ -1935,7 +2003,7 @@ function StructureBuilderDialog({
       </div>
       <div style={dialogActions}>
         <Button id="hr-payroll-structure-builder-cancel" data-testid="hr-payroll-structure-builder-cancel" variant="outline" size="md" onClick={onClose}>Cancel</Button>
-        <Button id="hr-payroll-structure-add-component" data-testid="hr-payroll-structure-add-component" variant="primary" size="md" loading={busy} onClick={onSave}>Add Component</Button>
+        <Button id="hr-payroll-structure-add-component" data-testid="hr-payroll-structure-add-component" variant="primary" size="md" loading={busy} onClick={onSave}>{isEditing ? "Update Component" : "Add Component"}</Button>
       </div>
     </Dialog>
   );

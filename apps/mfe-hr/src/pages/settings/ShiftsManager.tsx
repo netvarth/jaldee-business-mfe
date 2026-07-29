@@ -42,11 +42,11 @@ function ShiftsTab() {
   const [assigning, setAssigning] = useState<Shift | null>(null);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-xs overflow-hidden">
+    <div id="hr-settings-shifts-panel" data-testid="hr-settings-shifts-panel" className="rounded-xl border border-gray-200 bg-white shadow-xs overflow-hidden">
       <div className="flex flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
         <div className="text-sm text-gray-500">{data.length} shift{data.length === 1 ? "" : "s"}</div>
         <div className="flex items-center justify-end gap-3 shrink-0 ml-auto">
-          <Button variant="primary" onClick={() => setEditing({})}>+ Add Shift</Button>
+          <Button id="hr-settings-shifts-add" data-testid="hr-settings-shifts-add" variant="primary" onClick={() => setEditing({})}>+ Add Shift</Button>
           <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
             <button
               type="button"
@@ -74,7 +74,7 @@ function ShiftsTab() {
         : data.length === 0 ? <div className="py-12 text-center text-gray-500 text-sm">No shifts yet.</div>
         : viewMode === "table" ? (
           <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
-            <table className="w-full text-sm min-w-[640px]">
+            <table id="hr-settings-shifts-table" data-testid="hr-settings-shifts-table" className="w-full text-sm min-w-[640px]">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
                   <th className="text-left px-6 py-3 font-semibold">Name</th>
@@ -98,7 +98,7 @@ function ShiftsTab() {
                     <td className="px-4 py-3 text-gray-600">{asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>{" "}
-                      <Button variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>{" "}
+                      <Button id={`hr-settings-shifts-edit-${s.uid}`} data-testid={`hr-settings-shifts-edit-${s.uid}`} variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>{" "}
                       <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
                     </td>
                   </tr>
@@ -160,32 +160,32 @@ function ShiftModal({ initial, onClose, onSave }: { initial: Partial<Shift>; onC
   };
 
   return (
-    <Dialog open onClose={onClose} title={initial.uid ? "Edit shift" : "New shift"} size="lg">
+    <Dialog testId="hr-settings-shifts-modal" open onClose={onClose} title={initial.uid ? "Update shift" : "New shift"} size="lg">
       <form onSubmit={submit} className="space-y-4">
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
-        <Input label="Shift name" required value={s.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. General / Housekeeping / Security" />
+        <Input id="hr-settings-shifts-name" data-testid="hr-settings-shifts-name" label="Shift name" required value={s.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. General / Housekeeping / Security" />
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Start time" type="time" value={hhmm(s.startTime)} onChange={(e) => set("startTime", e.target.value)} />
-          <Input label="End time" type="time" value={hhmm(s.endTime)} onChange={(e) => set("endTime", e.target.value)} />
+          <Input id="hr-settings-shifts-starttime" data-testid="hr-settings-shifts-starttime" label="Start time" type="time" value={hhmm(s.startTime)} onChange={(e) => set("startTime", e.target.value)} />
+          <Input id="hr-settings-shifts-endtime" data-testid="hr-settings-shifts-endtime" label="End time" type="time" value={hhmm(s.endTime)} onChange={(e) => set("endTime", e.target.value)} />
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Input label="Grace (min)" type="number" value={String(s.graceMinutes ?? "")} onChange={(e) => set("graceMinutes", Number(e.target.value))} />
-          <Input label="Half-day threshold (min)" type="number" value={String(s.halfDayThresholdMinutes ?? "")} onChange={(e) => set("halfDayThresholdMinutes", Number(e.target.value))} />
-          <Input label="Break (min)" type="number" value={String(s.breakMinutes ?? "")} onChange={(e) => set("breakMinutes", Number(e.target.value))} />
+          <Input id="hr-settings-shifts-graceminutes" data-testid="hr-settings-shifts-graceminutes" label="Grace (min)" type="number" value={String(s.graceMinutes ?? "")} onChange={(e) => set("graceMinutes", Number(e.target.value))} />
+          <Input id="hr-settings-shifts-halfdaythreshold" data-testid="hr-settings-shifts-halfdaythreshold" label="Half-day threshold (min)" type="number" value={String(s.halfDayThresholdMinutes ?? "")} onChange={(e) => set("halfDayThresholdMinutes", Number(e.target.value))} />
+          <Input id="hr-settings-shifts-breakminutes" data-testid="hr-settings-shifts-breakminutes" label="Break (min)" type="number" value={String(s.breakMinutes ?? "")} onChange={(e) => set("breakMinutes", Number(e.target.value))} />
         </div>
         <div>
           <div className="text-sm text-gray-600 mb-1.5">Weekly off</div>
-          <div className="flex flex-wrap gap-2">
+          <div id="hr-settings-shifts-weeklyoffdays" data-testid="hr-settings-shifts-weeklyoffdays" className="flex flex-wrap gap-2">
             {DAYS.map((d) => {
               const on = offDays.includes(d);
-              return <button type="button" key={d} onClick={() => toggleDay(d)}
+              return <button type="button" key={d} id={`hr-settings-shifts-weeklyoffdays-option-${d}`} data-testid={`hr-settings-shifts-weeklyoffdays-option-${d}`} onClick={() => toggleDay(d)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border ${on ? "bg-teal-700 text-white border-teal-700" : "bg-white text-gray-600 border-gray-300"}`}>{dayShort(d)}</button>;
             })}
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" type="submit" loading={busy}>Save shift</Button>
+          <Button id="hr-settings-shifts-save" data-testid="hr-settings-shifts-save" variant="primary" type="submit" loading={busy}>{initial.uid ? "Update shift" : "Save shift"}</Button>
         </DialogFooter>
       </form>
     </Dialog>
@@ -203,16 +203,16 @@ function RotationsTab() {
   const [roster, setRoster] = useState<ShiftRotation | null>(null);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white">
+    <div id="hr-settings-rotations-panel" data-testid="hr-settings-rotations-panel" className="rounded-xl border border-gray-200 bg-white">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
         <div className="text-sm text-gray-500">{data.length} rotation{data.length === 1 ? "" : "s"}</div>
-        <Button variant="primary" onClick={() => setEditing({ active: true, rotationPeriodDays: 7, shiftUids: [] })}>+ Add Rotation</Button>
+        <Button id="hr-settings-rotations-add" data-testid="hr-settings-rotations-add" variant="primary" onClick={() => setEditing({ active: true, rotationPeriodDays: 7, shiftUids: [] })}>+ Add Rotation</Button>
       </div>
       {error ? <div className="p-6 text-sm text-red-600">{error}</div>
         : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
         : data.length === 0 ? <div className="py-12 text-center text-gray-500 text-sm">No rotations yet.</div>
         : (
-          <table className="w-full text-sm">
+          <table id="hr-settings-rotations-table" data-testid="hr-settings-rotations-table" className="w-full text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
                 <th className="text-left px-6 py-3">Name</th><th className="text-left px-4 py-3">Shift sequence</th>
@@ -231,7 +231,7 @@ function RotationsTab() {
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <Button variant="outline" size="sm" onClick={() => setRoster(r)}>Roster</Button>{" "}
                     <Button variant="outline" size="sm" onClick={() => setAssigning(r)}>Assign</Button>{" "}
-                    <Button variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
+                    <Button id={`hr-settings-rotations-edit-${r.uid}`} data-testid={`hr-settings-rotations-edit-${r.uid}`} variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
                     <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
                   </td>
                 </tr>
@@ -274,10 +274,10 @@ function RotationModal({ initial, shifts, onClose, onSave }:
   };
 
   return (
-    <Dialog open onClose={onClose} title={initial.uid ? "Edit rotation" : "New rotation"} size="lg">
+    <Dialog testId="hr-settings-rotations-modal" open onClose={onClose} title={initial.uid ? "Edit rotation" : "New rotation"} size="lg">
       <form onSubmit={submit} className="space-y-4">
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
-        <Input label="Rotation name" required value={r.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Security 3-shift rotation" />
+        <Input id="hr-settings-rotations-name" data-testid="hr-settings-rotations-name" label="Rotation name" required value={r.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Security 3-shift rotation" />
         <div>
           <div className="text-sm text-gray-600 mb-1.5">Shift sequence (cycles in this order)</div>
           <div className="flex flex-wrap items-center gap-2 mb-2 min-h-[2rem]">
@@ -289,19 +289,19 @@ function RotationModal({ initial, shifts, onClose, onSave }:
                 </span>
               ))}
           </div>
-          <Select label="Add a shift" options={[{ value: "", label: "Select a shift…" }, ...shifts.map((s) => ({ value: s.uid ?? "", label: s.name ?? "" }))]}
+          <Select id="hr-settings-rotations-add-shift" testId="hr-settings-rotations-add-shift" label="Add a shift" options={[{ value: "", label: "Select a shift…" }, ...shifts.map((s) => ({ value: s.uid ?? "", label: s.name ?? "" }))]}
             value="" onChange={(e) => addShift(e.target.value)} />
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Input label="Period (days)" type="number" value={String(r.rotationPeriodDays ?? "")} onChange={(e) => set("rotationPeriodDays", Number(e.target.value))} />
-          <Input label="Start date" type="date" value={r.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
+          <Input id="hr-settings-rotations-period" data-testid="hr-settings-rotations-period" label="Period (days)" type="number" value={String(r.rotationPeriodDays ?? "")} onChange={(e) => set("rotationPeriodDays", Number(e.target.value))} />
+          <Input id="hr-settings-rotations-startdate" data-testid="hr-settings-rotations-startdate" label="Start date" type="date" value={r.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
           <label className="flex items-center gap-2 text-sm text-gray-600 mt-6">
             <input type="checkbox" checked={!!r.active} onChange={(e) => set("active", e.target.checked)} /> Active
           </label>
         </div>
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" type="submit" loading={busy}>Save rotation</Button>
+          <Button id="hr-settings-rotations-save" data-testid="hr-settings-rotations-save" variant="primary" type="submit" loading={busy}>Save rotation</Button>
         </DialogFooter>
       </form>
     </Dialog>

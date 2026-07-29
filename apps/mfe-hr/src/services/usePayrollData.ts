@@ -354,10 +354,11 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
       status: payload.status || "Enabled",
       customFields: payload.customFields || {},
     };
-    const mappingUid = payload.uid || payload.id;
+    const componentUid = payload.componentUid || payload.payrollComponentUid;
+    const isEdit = Boolean(payload.uid || payload.id);
     let created: unknown;
-    if (mappingUid) {
-      created = await api.put<unknown>(`${PAYROLL_ROOT}/structures/${structureUid}/components/${mappingUid}`, requestBody);
+    if (isEdit && componentUid) {
+      created = await api.put<unknown>(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentUid}`, requestBody);
     } else {
       created = await api.post<unknown>(`${PAYROLL_ROOT}/structures/${structureUid}/components`, requestBody);
     }
@@ -379,16 +380,16 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
     }));
   }, [api, loadComponents, setData]);
 
-  const toggleComponentStatus = useCallback(async (structureUid: string, componentMappingUid: string, nextStatus: "Enabled" | "Disabled") => {
-    await api.patch(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentMappingUid}/status/${nextStatus}`, {});
+  const toggleComponentStatus = useCallback(async (structureUid: string, componentUid: string, nextStatus: "Enabled" | "Disabled") => {
+    await api.patch(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentUid}/status/${nextStatus}`, {});
     await loadComponents(structureUid);
   }, [api, loadComponents]);
 
-  const removeComponent = useCallback(async (structureUid: string, componentMappingUid: string) => {
+  const removeComponent = useCallback(async (structureUid: string, componentUid: string) => {
     try {
-      await api.delete(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentMappingUid}`);
+      await api.delete(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentUid}`);
     } catch {
-      await api.patch(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentMappingUid}/status/Disabled`, {});
+      await api.patch(`${PAYROLL_ROOT}/structures/${structureUid}/components/${componentUid}/status/Disabled`, {});
     }
     await loadComponents(structureUid);
   }, [api, loadComponents]);
@@ -528,6 +529,46 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
 export function usePayslips(options?: PayrollLoadOptions) {
   const { data, loading, error, reload } = usePayrollList<Payslip>("/payslips/all", options);
   return { data, loading, error, reload };
+}
+
+export function usePayslipDetails(payslipUid?: string | null) {
+  const api = useHrApi();
+  const [lines, setLines] = useState<PayslipLine[]>([]);
+  const [loading, setLoading] = useState<boolean>(Boolean(payslipUid));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!payslipUid) {
+      setLines([]);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    api.get<unknown>(`${PAYROLL_ROOT}/payslips/${payslipUid}/lines`)
+      .then((res) => {
+        if (!active) return;
+        const list = Array.isArray(res)
+          ? res
+          : (res && typeof res === "object" && "lines" in res && Array.isArray((res as Record<string, unknown>).lines))
+          ? ((res as Record<string, unknown>).lines as PayslipLine[])
+          : [];
+        setLines(list.map((item) => withId<PayslipLine>(item as Record<string, unknown>)));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "Failed to load payslip lines");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, payslipUid]);
+
+  return { lines, loading, error };
 }
 
 export function usePayrollRuns(options?: PayrollLoadOptions) {

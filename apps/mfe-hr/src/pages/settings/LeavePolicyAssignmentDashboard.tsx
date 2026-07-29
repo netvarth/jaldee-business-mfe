@@ -27,6 +27,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
     colorHex: "#115E59",
   });
   const [savingPolicy, setSavingPolicy] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
   const [statusPolicy, setStatusPolicy] = useState<(Row & { id: string }) | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [selectedPolicyUid, setSelectedPolicyUid] = useState("");
@@ -60,6 +61,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
 
   const openCreatePolicy = () => {
     setEditing(null);
+    setPolicyError(null);
     setPolicyForm({
       name: "",
       category: "CASUAL",
@@ -75,6 +77,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
 
   const openEditPolicy = (policy: Row & { id: string }) => {
     setEditing(policy);
+    setPolicyError(null);
     setPolicyForm({
       name: policy.name || "",
       category: policy.category || "CASUAL",
@@ -90,10 +93,12 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
 
   const savePolicy = async () => {
     if (!policyForm.name) {
+      setPolicyError("Leave type name is required.");
       eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Policy", message: "Leave type name is required." });
       return;
     }
     setSavingPolicy(true);
+    setPolicyError(null);
     try {
       const payload = {
         name: policyForm.name,
@@ -104,6 +109,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
         carryForward: !!policyForm.carryForward,
         carryForwardMax: policyForm.carryForward ? Number(policyForm.carryForwardMax || 0) : 0,
         colorHex: policyForm.colorHex || "#115E59",
+        featureModule: "HR_LEAVE_TYPES",
       };
       if (editing) await leaveTypes.update(editing.id, payload);
       else await leaveTypes.create(payload);
@@ -114,10 +120,12 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
       });
       setPolicyOpen(false);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setPolicyError(msg);
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",
         title: "Leave Policy",
-        message: e instanceof Error ? e.message : "Save failed.",
+        message: msg,
       });
     } finally {
       setSavingPolicy(false);
@@ -377,6 +385,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
           </div>
           <button id="hr-settings-leave-policy-modal-close" data-testid="hr-settings-leave-policy-modal-close" onClick={() => setPolicyOpen(false)} style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer" }}><X size={20} /></button>
         </div>
+        {policyError && <div id="hr-settings-leave-policy-error" data-testid="hr-settings-leave-policy-error" className="px-6 pt-4 text-sm text-red-700">{policyError}</div>}
         <div style={{ padding: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Name</label>

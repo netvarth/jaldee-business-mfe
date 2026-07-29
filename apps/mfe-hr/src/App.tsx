@@ -62,46 +62,46 @@ export default function App() {
         <div className="flex min-h-full flex-1 flex-col">
           <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading HR...</div>}>
             <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/employees" element={<EmployeeMaster />} />
-            <Route path="/employees/new" element={<NewEmployeeWizard />} />
-            <Route path="/employees/:id" element={<EmployeeDetails />} />
-            <Route path="/employees/:id/:tab" element={<EmployeeDetails />} />
-            <Route path="/org" element={<OrganizationHub />} />
-            <Route path="/org/*" element={<OrganizationHub />} />
-            <Route path="/separation" element={<Separation />} />
-            <Route path="/separation/*" element={<Separation />} />
-            <Route path="/assets" element={<Assets />} />
-            <Route path="/assets/*" element={<Assets />} />
-            <Route path="/attendance/*" element={<Attendance />} />
-            <Route path="/leave/*" element={<Leave />} />
-            <Route path="/payroll/*" element={<Payroll />} />
-            <Route path="/expenses/*" element={<Expenses />} />
-            <Route path="/announcements" element={<Announcements />} />
-            <Route path="/tickets" element={<Tickets />} />
-            <Route path="/grievances" element={<Grievances />} />
-            <Route path="/grievances/*" element={<Grievances />} />
-            <Route path="/posh" element={<PoshGrievance />} />
-            <Route path="/posh/*" element={<PoshGrievance />} />
-            <Route path="/recruitment" element={<RecruitmentDashboard />} />
-            <Route path="/recruitment/requisitions" element={<JobRequisitions />} />
-            <Route path="/recruitment/candidates" element={<Candidates />} />
-            <Route path="/recruitment/candidates/:candidateId" element={<CandidateView />} />
-            <Route path="/recruitment/applications" element={<ApplicationsPipeline />} />
-            <Route path="/recruitment/interviews" element={<Interviews />} />
-            <Route path="/recruitment/offers" element={<Offers />} />
-            <Route path="/recruitment/careers" element={<CareersAdmin />} />
-            <Route path="/recruitment/careers/publish/:requisitionUid" element={<CareersPublishPage />} />
-            <Route path="/careers/:companySlug" element={<PublicListRoute />} />
-            <Route path="/careers/:companySlug/:jobSlug" element={<PublicJobRoute />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/audit-logs" element={<AuditLogs />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/:section" element={<Settings />} />
-            <Route path="/settings/:section/:subsection" element={<Settings />} />
-            <Route path="/me" element={<EssPortal />} />
-            <Route path="/me/*" element={<EssPortal />} />
-            <Route path="*" element={<PlaceholderPage title="Not Found" note="No HR screen for this route." />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/employees" element={<EmployeeMaster />} />
+              <Route path="/employees/new" element={<NewEmployeeWizard />} />
+              <Route path="/employees/:id" element={<EmployeeDetails />} />
+              <Route path="/employees/:id/:tab" element={<EmployeeDetails />} />
+              <Route path="/org" element={<OrganizationHub />} />
+              <Route path="/org/*" element={<OrganizationHub />} />
+              <Route path="/separation" element={<Separation />} />
+              <Route path="/separation/*" element={<Separation />} />
+              <Route path="/assets" element={<Assets />} />
+              <Route path="/assets/*" element={<Assets />} />
+              <Route path="/attendance/*" element={<Attendance />} />
+              <Route path="/leave/*" element={<Leave />} />
+              <Route path="/payroll/*" element={<Payroll />} />
+              <Route path="/expenses/*" element={<Expenses />} />
+              <Route path="/announcements" element={<Announcements />} />
+              <Route path="/tickets" element={<Tickets />} />
+              <Route path="/grievances" element={<Grievances />} />
+              <Route path="/grievances/*" element={<Grievances />} />
+              <Route path="/posh" element={<PoshGrievance />} />
+              <Route path="/posh/*" element={<PoshGrievance />} />
+              <Route path="/recruitment" element={<RecruitmentDashboard />} />
+              <Route path="/recruitment/requisitions" element={<JobRequisitions />} />
+              <Route path="/recruitment/candidates" element={<Candidates />} />
+              <Route path="/recruitment/candidates/:candidateId" element={<CandidateView />} />
+              <Route path="/recruitment/applications" element={<ApplicationsPipeline />} />
+              <Route path="/recruitment/interviews" element={<Interviews />} />
+              <Route path="/recruitment/offers" element={<Offers />} />
+              <Route path="/recruitment/careers" element={<CareersAdmin />} />
+              <Route path="/recruitment/careers/publish/:requisitionUid" element={<CareersPublishPage />} />
+              <Route path="/careers/:companySlug" element={<PublicListRoute />} />
+              <Route path="/careers/:companySlug/:jobSlug" element={<PublicJobRoute />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/:section" element={<Settings />} />
+              <Route path="/settings/:section/:subsection" element={<Settings />} />
+              <Route path="/me" element={<EssPortal />} />
+              <Route path="/me/*" element={<EssPortal />} />
+              <Route path="*" element={<PlaceholderPage title="Not Found" note="No HR screen for this route." />} />
             </Routes>
           </Suspense>
         </div>

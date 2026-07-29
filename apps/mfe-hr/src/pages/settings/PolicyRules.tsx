@@ -30,9 +30,17 @@ function emptyRule(domain: PolicyDomain): PolicyRule {
   const d = domainDef(domain);
   const firstCond = d.conditions[0];
   const firstAction = actionsForCondition(domain, firstCond.type)[0] ?? d.actions[0];
+  let defaultVal = "";
+  if (firstCond.valueType === "select" && firstCond.options?.length) {
+    defaultVal = firstCond.options[0].value;
+  } else if (firstCond.valueType === "boolean") {
+    defaultVal = "true";
+  } else if (firstCond.valueType === "number") {
+    defaultVal = "10";
+  }
   return {
     id: "", domain, name: "", scopeType: "ALL",
-    conditionType: firstCond.type, operator: firstCond.operators?.[0] ?? ">", conditionValue: "",
+    conditionType: firstCond.type, operator: firstCond.operators?.[0] ?? ">", conditionValue: defaultVal,
     actionType: firstAction.type, actionParams: {}, priority: 100, active: true,
   };
 }
@@ -79,7 +87,7 @@ export default function PolicyRules() {
   const rules = useMemo(() => [...data].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)), [data]);
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5">
+    <div id="hr-settings-policy-rules-panel" data-testid="hr-settings-policy-rules-panel" className="p-3 sm:p-4 lg:p-5">
       <div className="mb-2">
         <h1 className="text-lg sm:text-xl font-bold text-gray-900">Policy Rules</h1>
         <p className="text-xs text-gray-500 mt-0.5">One place to define condition → action rules across HR.</p>
@@ -90,6 +98,8 @@ export default function PolicyRules() {
         {CATALOG.map((d) => (
           <button
             key={d.key}
+            id={`hr-settings-policy-rules-tab-${d.key.toLowerCase()}`}
+            data-testid={`hr-settings-policy-rules-tab-${d.key.toLowerCase()}`}
             onClick={() => setDomain(d.key)}
             className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors shrink-0 ${
               domain === d.key
@@ -106,7 +116,7 @@ export default function PolicyRules() {
         <div className="flex flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
           <div className="text-sm text-gray-500">{rules.length} rule{rules.length === 1 ? "" : "s"} for {domainDef(domain).label}</div>
           <div className="flex items-center justify-end gap-3 shrink-0 ml-auto">
-            <Button variant="primary" onClick={() => setEditing(emptyRule(domain))}>+ New Rule</Button>
+            <Button id="hr-settings-policy-rules-add" data-testid="hr-settings-policy-rules-add" variant="primary" onClick={() => setEditing(emptyRule(domain))}>+ New Rule</Button>
             <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
               <button
                 type="button"
@@ -138,7 +148,7 @@ export default function PolicyRules() {
           <div className="py-12 text-center text-gray-500 text-sm">No rules yet. Add one to start.</div>
         ) : viewMode === "table" ? (
           <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
-            <table className="w-full text-sm min-w-[640px]">
+            <table id="hr-settings-policy-rules-table" data-testid="hr-settings-policy-rules-table" className="w-full text-sm min-w-[640px]">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
                   <th className="text-left px-6 py-3 font-semibold">Rule</th>
@@ -162,7 +172,7 @@ export default function PolicyRules() {
                       <input type="checkbox" checked={r.active} onChange={(e) => r.uid && setActive(r.uid, e.target.checked)} />
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Button variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
+                      <Button id={`hr-settings-policy-rules-edit-${r.uid}`} data-testid={`hr-settings-policy-rules-edit-${r.uid}`} variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
                       <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
                     </td>
                   </tr>
@@ -246,11 +256,19 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
     const c = d.conditions.find((x) => x.type === type);
     const nextActions = actionsForCondition(p.domain, type);
     const actionStillValid = nextActions.some((a) => a.type === p.actionType);
+    let defaultVal = "";
+    if (c?.valueType === "select" && c.options?.length) {
+      defaultVal = c.options[0].value;
+    } else if (c?.valueType === "boolean") {
+      defaultVal = "true";
+    } else if (c?.valueType === "number") {
+      defaultVal = "10";
+    }
     return {
       ...p,
       conditionType: type,
       operator: c?.operators?.[0] ?? p.operator ?? ">",
-      conditionValue: "",
+      conditionValue: defaultVal,
       actionType: actionStillValid ? p.actionType : (nextActions[0]?.type ?? p.actionType),
       actionParams: actionStillValid ? p.actionParams : {},
     };
@@ -259,6 +277,10 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!r.name.trim()) { setErr("Give the rule a name."); return; }
+    if (cond && cond.valueType !== "none" && !String(r.conditionValue ?? "").trim()) {
+      setErr(`Condition '${cond.label}' requires a value.`);
+      return;
+    }
     setBusy(true); setErr(null);
     try { await onSave(r); onClose(); }
     catch (e) { setErr(e instanceof Error ? e.message : "Failed to save."); }

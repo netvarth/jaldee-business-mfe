@@ -21,6 +21,8 @@ export function PayrollSettingsPage() {
       <div className="flex gap-6 border-b border-gray-200 overflow-x-auto whitespace-nowrap scrollbar-none">
         <button
           type="button"
+          id="hr-settings-payroll-tab-general"
+          data-testid="hr-settings-payroll-tab-general"
           onClick={() => setTab("general")}
           className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors shrink-0 ${
             tab === "general"
@@ -32,6 +34,8 @@ export function PayrollSettingsPage() {
         </button>
         <button
           type="button"
+          id="hr-settings-payroll-tab-structures"
+          data-testid="hr-settings-payroll-tab-structures"
           onClick={() => setTab("structures")}
           className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors shrink-0 ${
             tab === "structures"
@@ -195,12 +199,14 @@ function SalaryStructuresManager() {
         icon={<Layers size={20} />}
         action={
           <div className="flex items-center justify-end gap-2 shrink-0 ml-auto">
-            <Button variant="primary" icon={<Plus size={16} />} onClick={openCreateStructure}>
+            <Button id="hr-settings-payroll-structure-add" data-testid="hr-settings-payroll-structure-add" variant="primary" icon={<Plus size={16} />} onClick={openCreateStructure}>
               + Add Structure
             </Button>
             <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--surface-bg)] p-1">
               <button
                 type="button"
+                id="hr-settings-payroll-view-table"
+                data-testid="hr-settings-payroll-view-table"
                 onClick={() => setViewMode("table")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
                 title="Table View"
@@ -210,6 +216,8 @@ function SalaryStructuresManager() {
               </button>
               <button
                 type="button"
+                id="hr-settings-payroll-view-card"
+                data-testid="hr-settings-payroll-view-card"
                 onClick={() => setViewMode("card")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
                 title="Card View"
@@ -243,13 +251,13 @@ function SalaryStructuresManager() {
                     {structure.description && <p className="text-xs text-gray-500 mt-0.5">{structure.description}</p>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openMapComponent(structure)}>
+                    <Button id={`hr-settings-payroll-map-${structure.id}`} data-testid={`hr-settings-payroll-map-${structure.id}`} variant="outline" size="sm" onClick={() => openMapComponent(structure)}>
                       + Map Component
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEditStructure(structure)} title="Edit Structure">
+                    <Button id={`hr-settings-payroll-structure-edit-${structure.id}`} data-testid={`hr-settings-payroll-structure-edit-${structure.id}`} variant="ghost" size="sm" onClick={() => openEditStructure(structure)} title="Edit Structure">
                       <Pencil size={14} />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => deleteStructure(structure)} title="Delete Structure" className="text-rose-600 hover:text-rose-700">
+                    <Button id={`hr-settings-payroll-structure-delete-${structure.id}`} data-testid={`hr-settings-payroll-structure-delete-${structure.id}`} variant="ghost" size="sm" onClick={() => deleteStructure(structure)} title="Delete Structure" className="text-rose-600 hover:text-rose-700">
                       <Trash2 size={14} />
                     </Button>
                   </div>
@@ -292,6 +300,8 @@ function SalaryStructuresManager() {
                               <td className="px-4 py-2.5 text-right whitespace-nowrap">
                                 <button
                                   type="button"
+                                  id={`hr-settings-payroll-component-edit-${m.id}`}
+                                  data-testid={`hr-settings-payroll-component-edit-${m.id}`}
                                   onClick={() => openMapComponent(structure, m)}
                                   className="p-1 text-gray-500 hover:text-teal-700 transition-colors mr-1"
                                   title="Edit Mapped Component"
@@ -304,11 +314,13 @@ function SalaryStructuresManager() {
                                   return (
                                     <button
                                       type="button"
+                                      id={`hr-settings-payroll-component-status-${m.id}`}
+                                      data-testid={`hr-settings-payroll-component-status-${m.id}`}
                                       onClick={() => {
                                         const sUid = structure.uid || structure.id;
-                                        const mUid = m.uid || m.id;
-                                        if (sUid && mUid) {
-                                          structuresHook.toggleComponentStatus(sUid, mUid, nextStatus);
+                                        const compUid = m.componentUid || m.payrollComponentUid || m.uid || m.id;
+                                        if (sUid && compUid) {
+                                          structuresHook.toggleComponentStatus(sUid, compUid, nextStatus);
                                         }
                                       }}
                                       className={`p-1 transition-colors ${isEnabled ? "text-emerald-600 hover:text-emerald-700" : "text-slate-400 hover:text-slate-600"}`}
@@ -334,24 +346,26 @@ function SalaryStructuresManager() {
       )}
 
       {/* Structure Modal */}
-      <Dialog open={structureModalOpen} onClose={() => setStructureModalOpen(false)} title={editingStructure ? "Edit Salary Structure" : "New Salary Structure"}>
-        <div className="space-y-4 pt-2">
-          <Input label="Structure Name" required value={structureName} onChange={(e) => setStructureName(e.target.value)} placeholder="e.g. Executive Gross Package" />
-          <Input label="Structure Code" value={structureCode} onChange={(e) => setStructureCode(e.target.value)} placeholder="e.g. EXEC_GROSS" />
-          <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief summary of salary band" />
+      <Dialog open={structureModalOpen} onClose={() => setStructureModalOpen(false)} title={editingStructure ? "Update Salary Structure" : "New Salary Structure"}>
+        <div id="hr-settings-payroll-structure-modal" data-testid="hr-settings-payroll-structure-modal" className="space-y-4 pt-2">
+          <Input id="hr-settings-payroll-structure-name" data-testid="hr-settings-payroll-structure-name" label="Structure Name" required value={structureName} onChange={(e) => setStructureName(e.target.value)} placeholder="e.g. Executive Gross Package" />
+          <Input id="hr-settings-payroll-structure-code" data-testid="hr-settings-payroll-structure-code" label="Structure Code" value={structureCode} onChange={(e) => setStructureCode(e.target.value)} placeholder="e.g. EXEC_GROSS" />
+          <Input id="hr-settings-payroll-structure-desc" data-testid="hr-settings-payroll-structure-desc" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief summary of salary band" />
           <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-            <Button variant="outline" onClick={() => setStructureModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={saveStructure} disabled={savingStructure}>
-              {savingStructure ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Structure
+            <Button id="hr-settings-payroll-structure-cancel" data-testid="hr-settings-payroll-structure-cancel" variant="outline" onClick={() => setStructureModalOpen(false)}>Cancel</Button>
+            <Button id="hr-settings-payroll-structure-save" data-testid="hr-settings-payroll-structure-save" variant="primary" onClick={saveStructure} disabled={savingStructure}>
+              {savingStructure ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editingStructure ? "Update Structure" : "Save Structure"}
             </Button>
           </div>
         </div>
       </Dialog>
 
       {/* Component Mapping Modal */}
-      <Dialog open={mapModalOpen} onClose={() => setMapModalOpen(false)} title={editingMapping ? `Edit Component in ${targetStructure?.structureName}` : `Map Component to ${targetStructure?.structureName}`}>
-        <div className="space-y-4 pt-2">
+      <Dialog open={mapModalOpen} onClose={() => setMapModalOpen(false)} title={editingMapping ? `Update Component in ${targetStructure?.structureName}` : `Map Component to ${targetStructure?.structureName}`}>
+        <div id="hr-settings-payroll-map-modal" data-testid="hr-settings-payroll-map-modal" className="space-y-4 pt-2">
           <Select
+            id="hr-settings-payroll-map-component-select"
+            data-testid="hr-settings-payroll-map-component-select"
             label="Select Payroll Component"
             value={selectedCompUid}
             onChange={(e) => setSelectedCompUid(e.target.value)}
@@ -361,6 +375,8 @@ function SalaryStructuresManager() {
             }))}
           />
           <Select
+            id="hr-settings-payroll-map-calc-type"
+            data-testid="hr-settings-payroll-map-calc-type"
             label="Calculation Type"
             value={calcType}
             onChange={(e) => setCalcType(e.target.value as CalculationType)}
@@ -371,14 +387,14 @@ function SalaryStructuresManager() {
             ]}
           />
           {calcType === "FIXED_AMOUNT" ? (
-            <Input label="Default Amount (₹)" type="number" value={String(defaultAmount)} onChange={(e) => setDefaultAmount(Number(e.target.value))} />
+            <Input id="hr-settings-payroll-map-amount" data-testid="hr-settings-payroll-map-amount" label="Default Amount (₹)" type="number" value={String(defaultAmount)} onChange={(e) => setDefaultAmount(Number(e.target.value))} />
           ) : (
-            <Input label="Default Percentage (%)" type="number" value={String(defaultPercentage)} onChange={(e) => setDefaultPercentage(Number(e.target.value))} />
+            <Input id="hr-settings-payroll-map-percentage" data-testid="hr-settings-payroll-map-percentage" label="Default Percentage (%)" type="number" value={String(defaultPercentage)} onChange={(e) => setDefaultPercentage(Number(e.target.value))} />
           )}
           <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-            <Button variant="outline" onClick={() => setMapModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={saveMappedComponent} disabled={savingMapping}>
-              {savingMapping ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Mapping
+            <Button id="hr-settings-payroll-map-cancel" data-testid="hr-settings-payroll-map-cancel" variant="outline" onClick={() => setMapModalOpen(false)}>Cancel</Button>
+            <Button id="hr-settings-payroll-map-save" data-testid="hr-settings-payroll-map-save" variant="primary" onClick={saveMappedComponent} disabled={savingMapping}>
+              {savingMapping ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editingMapping ? "Update Mapping" : "Save Mapping"}
             </Button>
           </div>
         </div>
