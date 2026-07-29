@@ -641,6 +641,14 @@ export async function updateTenantSettingsForShell(data: unknown): Promise<unkno
   return response.data;
 }
 
+export async function updateFinanceTenantSettingStatusForShell(enabled: boolean): Promise<unknown> {
+  const response = await apiClient.put<unknown>(
+    buildBaseServiceUrl(`${BASE_SERVICE_ENDPOINTS.tenantSettings.update}?finance=${enabled}`),
+    { finance: enabled },
+  );
+  return response.data;
+}
+
 async function fetchTenantSettings(): Promise<TenantSettingsResponse | null> {
   const settings = await getTenantSettingsForShell();
   return settings ? normalizeTenantSettings(settings) : null;
