@@ -6,7 +6,11 @@ import { SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { eventBus } from "../eventBus/eventBus";
 import { BASE_SERVICE_ENDPOINTS, buildBaseServiceUrl } from "../services/serviceUrls";
-import { getTenantSettingsForShell, updateTenantSettingsForShell } from "../services/authService";
+import {
+  getTenantSettingsForShell,
+  updateFinanceTenantSettingStatusForShell,
+  updateTenantSettingsForShell,
+} from "../services/authService";
 import { useShellStore } from "../store/shellStore";
 import { hexToHSL } from "../theme/colorUtils";
 import "./SettingsPage.css";
@@ -1187,6 +1191,11 @@ export default function SettingsPage() {
 
     const selectedCoreProducts = Object.fromEntries(coreProducts.map((item) => [item.id, item.enabled]));
     const selectedAddOns = Object.fromEntries(addOnModules.map((item) => [item.id, item.enabled]));
+    const currentFinanceEnabled = readProductFlag(
+      toRecord(tenantSettings),
+      "finance",
+      Boolean(account?.licensedProducts?.includes("finance")),
+    );
     const payload = {
       finance: Boolean(selectedCoreProducts.finance),
       hr: Boolean(selectedCoreProducts.hr),
@@ -1201,6 +1210,9 @@ export default function SettingsPage() {
     };
 
     try {
+      if (payload.finance !== currentFinanceEnabled) {
+        await updateFinanceTenantSettingStatusForShell(payload.finance);
+      }
       const response = await updateTenantSettingsForShell(payload);
       setTenantSettings(toRecord(response) || payload);
       if (account) {

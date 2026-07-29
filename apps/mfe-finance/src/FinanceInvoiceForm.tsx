@@ -69,6 +69,7 @@ interface DiscountDetail {
 
 interface ConsumerOption extends ComboboxOption {
   consumerUid: string;
+  consumerType?: string;
   phone?: string;
   email?: string;
   address?: string;
@@ -511,9 +512,27 @@ export default function FinanceInvoiceForm() {
       return;
     }
 
+    const invoiceLocationId = String(invoiceData.locationUid || invoiceData.locationId || defaultLocationId);
+    const invoiceLocationName = String(
+      invoiceData.locationName ||
+      invoiceData.locationDisplayName ||
+      invoiceData.locationLabel ||
+      defaultLocationName ||
+      "Selected Location"
+    );
+
     setCategoryId(String(invoiceData.categoryId || ""));
     setStatusId(String(invoiceData.statusId || ""));
-    setLocationId(String(invoiceData.locationUid || invoiceData.locationId || defaultLocationId));
+    setLocationId(invoiceLocationId);
+    setLocationOptions((current) => {
+      if (!invoiceLocationId) {
+        return current;
+      }
+      if (current.some((option) => option.value === invoiceLocationId)) {
+        return current;
+      }
+      return [...current, { value: invoiceLocationId, label: invoiceLocationName }];
+    });
     setInvoiceNum(String(invoiceData.invoiceNum || invoiceData.invoiceId || ""));
     setReferenceNo(String(invoiceData.referenceNo || ""));
     setInvoiceDate(invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate).toISOString().slice(0, 10) : todayIsoDate());
@@ -555,7 +574,7 @@ export default function FinanceInvoiceForm() {
 
     async function loadFormData() {
       try {
-        const [customersResult, categoriesResult, statusesResult, itemsResult, locationsResult] = await Promise.allSettled([
+        const [customersResult, categoriesResult, statusesResult, itemsResult] = await Promise.allSettled([
           financeApi.customers.search<any>({
             page: 0,
             size: 200,
@@ -594,7 +613,6 @@ export default function FinanceInvoiceForm() {
             view: "SUMMARY",
           }),
           financeApi.items.list<any[]>(),
-          financeApi.locations.provider<any[]>(),
         ]);
 
         if (!active) return;
@@ -603,7 +621,6 @@ export default function FinanceInvoiceForm() {
         const categoriesResponse = categoriesResult.status === "fulfilled" ? categoriesResult.value : null;
         const statusesResponse = statusesResult.status === "fulfilled" ? statusesResult.value : null;
         const itemsResponse = itemsResult.status === "fulfilled" ? itemsResult.value : null;
-        const locationsResponse = locationsResult.status === "fulfilled" ? locationsResult.value : null;
 
         const customers = readArrayPayload(customersResponse?.data);
         const categories = Array.isArray(categoriesResponse?.data?.content)
@@ -625,7 +642,6 @@ export default function FinanceInvoiceForm() {
           : Array.isArray(itemsResponse?.data)
             ? itemsResponse.data
             : [];
-        const locations = Array.isArray(locationsResponse?.data) ? locationsResponse.data : [];
 
         const nextCategoryOptions = categories.map((item: any) => ({
           value: String(item.categoryId ?? item.uid ?? item.id),
@@ -635,10 +651,10 @@ export default function FinanceInvoiceForm() {
           value: String(item.id ?? item.uid ?? item.statusId),
           label: String(item.name ?? item.statusName ?? "Status"),
         }));
-        const nextLocationOptions = locations.map((location: any) => ({
-          value: String(location.id ?? location.uid ?? location.locationId),
-          label: String(location.place ?? location.name ?? location.locationName ?? "Location"),
-        }));
+        const nextLocationOptions =
+          defaultLocationId
+            ? [{ value: defaultLocationId, label: defaultLocationName || "Selected Location" }]
+            : [];
         const nextConsumerOptions: ConsumerOption[] = customers
           .map((item: any, index: number) => {
             const uid = String(item.uid ?? item.consumerUid ?? item.id ?? item.userId ?? `consumer-${index}`);
@@ -671,6 +687,11 @@ export default function FinanceInvoiceForm() {
               value: uid,
               label,
               consumerUid: uid,
+              consumerType: readString(
+                item.consumerType,
+                item.type,
+                item.consumerSnapshot?.consumerType,
+              ) || "NONE",
               phone,
               email,
               address,
@@ -683,11 +704,7 @@ export default function FinanceInvoiceForm() {
         setStatusOptions(nextStatusOptions);
         setConsumerOptions(nextConsumerOptions);
         setLocationOptions(
-          nextLocationOptions.length > 0
-            ? nextLocationOptions
-            : defaultLocationId
-              ? [{ value: defaultLocationId, label: defaultLocationName || "Selected Location" }]
-              : []
+          nextLocationOptions
         );
 
         setCategoryId((current) => current || nextCategoryOptions[0]?.value || "");
@@ -897,6 +914,7 @@ export default function FinanceInvoiceForm() {
     setSubmitting(true);
     try {
       const selectedLocation = locationOptions.find((option) => option.value === locationId);
+      const resolvedConsumerType = selectedConsumerOption?.consumerType || "NONE";
       const payload: any = {
         categoryId: Number(categoryId) || undefined,
         statusId: Number(statusId) || undefined,
@@ -906,6 +924,7 @@ export default function FinanceInvoiceForm() {
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         invoiceLabel: invoiceLabel.trim() || undefined,
         referenceNo: referenceNo.trim() || undefined,
+        consumerType: resolvedConsumerType,
         consumerUid: consumerUid || undefined,
         consumerName: consumerName.trim(),
         consumerPhone: consumerPhone.trim() || undefined,
