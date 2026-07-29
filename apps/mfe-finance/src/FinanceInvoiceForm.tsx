@@ -29,6 +29,7 @@ interface InvoiceItem {
   discountId?: string;
   discountName?: string;
   discountType?: string;
+  calculationType?: string;
   discountValue?: number;
   privateNote?: string;
   displayNote?: string;
@@ -57,6 +58,9 @@ interface DiscountOption {
   discountType: string;
   calculationType: string;
   discountValue: number;
+  description?: string;
+  tenantUid?: string;
+  status?: string;
 }
 
 interface DiscountDetail {
@@ -65,6 +69,33 @@ interface DiscountDetail {
   discountType: string;
   calculationType: string;
   discountValue: number;
+  description?: string;
+  tenantUid?: string;
+  status?: string;
+}
+
+interface CouponOption {
+  value: string;
+  label: string;
+  code: string;
+  discountType: string;
+  calculationType: string;
+  discountValue: number;
+  description?: string;
+  feature?: string;
+  status?: string;
+}
+
+interface CouponDetail {
+  uid: string;
+  code: string;
+  name: string;
+  discountType: string;
+  calculationType: string;
+  discountValue: number;
+  description?: string;
+  feature?: string;
+  status?: string;
 }
 
 interface ConsumerOption extends ComboboxOption {
@@ -102,8 +133,27 @@ function mapDiscountOptions(items: any[]): DiscountOption[] {
       discountType: String(item.discountType ?? item.discType ?? item.type ?? "PREDEFINED"),
       calculationType: String(item.calculationType ?? item.calcType ?? "FIXED_AMOUNT"),
       discountValue: Number(item.discountValue ?? item.value ?? item.amount ?? 0),
+      description: String(item.description ?? ""),
+      tenantUid: String(item.tenantUid ?? ""),
+      status: String(item.status ?? "ACTIVE"),
     }))
     .filter((item: DiscountOption) => item.value);
+}
+
+function mapCouponOptions(items: any[]): CouponOption[] {
+  return items
+    .map((item: any) => ({
+      value: String(item.uid ?? item.couponId ?? item.id ?? item.code ?? ""),
+      label: String(item.name ?? item.displayName ?? item.couponCode ?? item.code ?? "Coupon"),
+      code: String(item.couponCode ?? item.code ?? item.name ?? ""),
+      discountType: String(item.discountType ?? item.type ?? "PREDEFINED"),
+      calculationType: String(item.calculationType ?? "FIXED_AMOUNT"),
+      discountValue: Number(item.discountValue ?? item.discount ?? item.value ?? item.amount ?? 0),
+      description: String(item.description ?? ""),
+      feature: String(item.feature ?? item.featureModule ?? "FINANCE"),
+      status: String(item.status ?? "ACTIVE"),
+    }))
+    .filter((item: CouponOption) => item.value);
 }
 
 function todayIsoDate() {
@@ -163,6 +213,7 @@ function mapInvoiceItem(item: any, index: number): InvoiceItem {
     discountId: readString(appliedDiscount?.id, appliedDiscount?.uid, item.discountId, item.discountUid) || undefined,
     discountName: readString(appliedDiscount?.name, item.discountName) || undefined,
     discountType: readString(appliedDiscount?.discountType, appliedDiscount?.discType, item.discountType) || undefined,
+    calculationType: readString(appliedDiscount?.calculationType, appliedDiscount?.calcType, item.calculationType) || undefined,
     discountValue: Number(
       appliedDiscount?.discountValue ??
       appliedDiscount?.discountedAmount ??
@@ -187,7 +238,7 @@ export default function FinanceInvoiceForm() {
   const [searchParams] = useSearchParams();
   const isEditing = Boolean(id);
   const navigateToInvoiceList = () => {
-    navigate("..", { relative: "path", replace: true });
+    navigate("/invoice", { replace: true });
   };
 
   const defaultLocationId = String(mfeProps.location?.id ?? "");
@@ -216,9 +267,11 @@ export default function FinanceInvoiceForm() {
   const [consumerOptions, setConsumerOptions] = useState<ConsumerOption[]>([]);
   const [financeCatalogOptions, setFinanceCatalogOptions] = useState<FinanceCatalogOption[]>([]);
   const [discountOptions, setDiscountOptions] = useState<DiscountOption[]>([]);
+  const [couponOptions, setCouponOptions] = useState<CouponOption[]>([]);
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [showItemBuilder, setShowItemBuilder] = useState(true);
   const [newItemCatalogValue, setNewItemCatalogValue] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQty, setNewItemQty] = useState(1);
@@ -238,6 +291,18 @@ export default function FinanceInvoiceForm() {
   const [discountSubmitting, setDiscountSubmitting] = useState(false);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountOptionsLoading, setDiscountOptionsLoading] = useState(false);
+  const [showInvoiceDiscountDialog, setShowInvoiceDiscountDialog] = useState(false);
+  const [showInvoiceCouponDialog, setShowInvoiceCouponDialog] = useState(false);
+  const [selectedInvoiceDiscountId, setSelectedInvoiceDiscountId] = useState("");
+  const [selectedInvoiceDiscountDetail, setSelectedInvoiceDiscountDetail] = useState<DiscountDetail | null>(null);
+  const [invoiceDiscountAmountInput, setInvoiceDiscountAmountInput] = useState("");
+  const [invoiceDiscountSubmitting, setInvoiceDiscountSubmitting] = useState(false);
+  const [invoiceDiscountLoading, setInvoiceDiscountLoading] = useState(false);
+  const [selectedCouponId, setSelectedCouponId] = useState("");
+  const [selectedCouponDetail, setSelectedCouponDetail] = useState<CouponDetail | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponOptionsLoading, setCouponOptionsLoading] = useState(false);
+  const [couponSubmitting, setCouponSubmitting] = useState(false);
 
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -261,6 +326,14 @@ export default function FinanceInvoiceForm() {
   const selectedDiscountOption = useMemo(
     () => discountOptions.find((option) => option.value === selectedDiscountId),
     [discountOptions, selectedDiscountId]
+  );
+  const selectedInvoiceDiscountOption = useMemo(
+    () => discountOptions.find((option) => option.value === selectedInvoiceDiscountId),
+    [discountOptions, selectedInvoiceDiscountId]
+  );
+  const selectedCouponOption = useMemo(
+    () => couponOptions.find((option) => option.value === selectedCouponId),
+    [couponOptions, selectedCouponId]
   );
 
   const nextInvoiceRequest = useMemo(() => {
@@ -307,12 +380,19 @@ export default function FinanceInvoiceForm() {
     setNewItemDate(todayIsoDate());
   }
 
+  function openNewItemBuilder() {
+    resetItemBuilder();
+    setShowItemBuilder(true);
+  }
+
   function openItemEditor(item?: InvoiceItem) {
     if (!item) {
       resetItemBuilder();
+      setShowItemBuilder(true);
       return;
     }
 
+    setShowItemBuilder(true);
     setEditingItemId(item.id);
     setNewItemCatalogValue(item.itemUid || "");
     setNewItemName(item.name);
@@ -354,6 +434,7 @@ export default function FinanceInvoiceForm() {
         })
       );
       resetItemBuilder();
+      setShowItemBuilder(false);
       return;
     }
 
@@ -373,6 +454,7 @@ export default function FinanceInvoiceForm() {
       },
     ]);
     resetItemBuilder();
+    setShowItemBuilder(false);
   }
 
   function resetDiscountDialog() {
@@ -439,10 +521,57 @@ export default function FinanceInvoiceForm() {
     }
   }
 
+  async function loadCouponOptions() {
+    setCouponOptionsLoading(true);
+    try {
+      const response = await financeApi.coupons.list<any>({
+        page: 0,
+        size: 1000,
+        sort: [
+          {
+            field: "createdAt",
+            direction: "DESC",
+          },
+        ],
+      });
+
+      const coupons = readArrayPayload(response?.data);
+      setCouponOptions(
+        mapCouponOptions(
+          coupons.filter((item, index, array) => {
+            const value = String(item?.uid ?? item?.couponId ?? item?.id ?? item?.code ?? "");
+            if (!value) {
+              return false;
+            }
+            return array.findIndex((entry) => String(entry?.uid ?? entry?.couponId ?? entry?.id ?? entry?.code ?? "") === value) === index;
+          })
+        )
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load coupon options", error);
+      setCouponOptions([]);
+    } finally {
+      setCouponOptionsLoading(false);
+    }
+  }
+
   function handleDiscountChange(value: string) {
     setSelectedDiscountId(value);
     setSelectedDiscountDetail(null);
     setDiscountAmountInput("");
+    setFormError("");
+  }
+
+  function handleInvoiceDiscountChange(value: string) {
+    setSelectedInvoiceDiscountId(value);
+    setSelectedInvoiceDiscountDetail(null);
+    setInvoiceDiscountAmountInput("");
+    setFormError("");
+  }
+
+  function handleCouponChange(value: string) {
+    setSelectedCouponId(value);
+    setSelectedCouponDetail(null);
     setFormError("");
   }
 
@@ -456,6 +585,48 @@ export default function FinanceInvoiceForm() {
     setDiscountDisplayNote("");
     setFormError("");
     await loadDiscountOptions();
+  }
+
+  async function openInvoiceDiscountDialog() {
+    if (!isEditing || !id) {
+      setFormError("Save the invoice first, then apply invoice-level discount.");
+      return;
+    }
+    setShowInvoiceDiscountDialog(true);
+    setSelectedInvoiceDiscountId("");
+    setSelectedInvoiceDiscountDetail(null);
+    setInvoiceDiscountAmountInput("");
+    setFormError("");
+    await loadDiscountOptions();
+  }
+
+  async function openCouponDialog() {
+    if (!isEditing || !id) {
+      setFormError("Save the invoice first, then apply invoice-level coupon.");
+      return;
+    }
+    setShowInvoiceCouponDialog(true);
+    setSelectedCouponId("");
+    setSelectedCouponDetail(null);
+    setFormError("");
+    await loadCouponOptions();
+  }
+
+  function resetInvoiceDiscountDialog() {
+    setShowInvoiceDiscountDialog(false);
+    setSelectedInvoiceDiscountId("");
+    setSelectedInvoiceDiscountDetail(null);
+    setInvoiceDiscountAmountInput("");
+    setInvoiceDiscountSubmitting(false);
+    setInvoiceDiscountLoading(false);
+  }
+
+  function resetCouponDialog() {
+    setShowInvoiceCouponDialog(false);
+    setSelectedCouponId("");
+    setSelectedCouponDetail(null);
+    setCouponSubmitting(false);
+    setCouponLoading(false);
   }
 
   useEffect(() => {
@@ -504,6 +675,101 @@ export default function FinanceInvoiceForm() {
       active = false;
     };
   }, [selectedDiscountId, discountDialogItem, discountOptions]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadInvoiceDiscountDetail() {
+      if (!selectedInvoiceDiscountId || !showInvoiceDiscountDialog) {
+        return;
+      }
+
+      const fallbackOption = discountOptions.find((option) => option.value === selectedInvoiceDiscountId);
+      setInvoiceDiscountLoading(true);
+      try {
+        const response = await financeApi.discounts.detail<any>(selectedInvoiceDiscountId);
+        const data = response.data ?? {};
+        if (!active) {
+          return;
+        }
+        const detail: DiscountDetail = {
+          uid: String(data.uid ?? data.id ?? selectedInvoiceDiscountId),
+          name: String(data.name ?? fallbackOption?.label ?? "Discount"),
+          discountType: String(data.discountType ?? data.discType ?? fallbackOption?.discountType ?? "PREDEFINED"),
+          calculationType: String(data.calculationType ?? fallbackOption?.calculationType ?? "FIXED_AMOUNT"),
+          discountValue: Number(data.discountValue ?? fallbackOption?.discountValue ?? 0),
+          description: String(data.description ?? fallbackOption?.description ?? ""),
+          tenantUid: String(data.tenantUid ?? fallbackOption?.tenantUid ?? ""),
+          status: String(data.status ?? fallbackOption?.status ?? "ACTIVE"),
+        };
+        setSelectedInvoiceDiscountDetail(detail);
+        if (detail.discountType.toUpperCase() !== "ONDEMAND") {
+          setInvoiceDiscountAmountInput(String(detail.discountValue));
+        }
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        console.error("[mfe-finance] Failed to load invoice-level discount detail", error);
+        setFormError(error instanceof Error ? error.message : "Could not load discount details.");
+      } finally {
+        if (active) {
+          setInvoiceDiscountLoading(false);
+        }
+      }
+    }
+
+    void loadInvoiceDiscountDetail();
+    return () => {
+      active = false;
+    };
+  }, [discountOptions, selectedInvoiceDiscountId, showInvoiceDiscountDialog]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSelectedCoupon() {
+      if (!selectedCouponId || !showInvoiceCouponDialog) {
+        return;
+      }
+
+      const fallbackOption = couponOptions.find((option) => option.value === selectedCouponId);
+      setCouponLoading(true);
+      try {
+        const response = await financeApi.coupons.detail<any>(selectedCouponId);
+        const data = response.data ?? {};
+        if (!active) {
+          return;
+        }
+        setSelectedCouponDetail({
+          uid: String(data.uid ?? data.couponId ?? data.id ?? selectedCouponId),
+          code: String(data.couponCode ?? data.code ?? fallbackOption?.code ?? ""),
+          name: String(data.name ?? fallbackOption?.label ?? "Coupon"),
+          discountType: String(data.discountType ?? fallbackOption?.discountType ?? "PREDEFINED"),
+          calculationType: String(data.calculationType ?? fallbackOption?.calculationType ?? "FIXED_AMOUNT"),
+          discountValue: Number(data.discountValue ?? data.discount ?? data.value ?? fallbackOption?.discountValue ?? 0),
+          description: String(data.description ?? fallbackOption?.description ?? ""),
+          feature: String(data.feature ?? data.featureModule ?? fallbackOption?.feature ?? "FINANCE"),
+          status: String(data.status ?? fallbackOption?.status ?? "ACTIVE"),
+        });
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        console.error("[mfe-finance] Failed to load coupon detail", error);
+        setFormError(error instanceof Error ? error.message : "Could not load coupon details.");
+      } finally {
+        if (active) {
+          setCouponLoading(false);
+        }
+      }
+    }
+
+    void loadSelectedCoupon();
+    return () => {
+      active = false;
+    };
+  }, [couponOptions, selectedCouponId, showInvoiceCouponDialog]);
 
   async function loadInvoiceDetail(invoiceId: string, catalogItems?: any[]) {
     const invoiceRes = await financeApi.invoices.detailGeneral<any>(invoiceId);
@@ -860,8 +1126,8 @@ export default function FinanceInvoiceForm() {
         uid: activeDiscount?.uid || selectedDiscountId,
         discountedAmount: discountValueNum,
       });
-      await loadInvoiceDetail(id);
       resetDiscountDialog();
+      navigateToInvoiceList();
     } catch (error) {
       console.error("[mfe-finance] Failed to apply item-level discount", error);
       setFormError(error instanceof Error ? error.message : "Could not apply item-level discount.");
@@ -876,16 +1142,110 @@ export default function FinanceInvoiceForm() {
 
     setFormError("");
     try {
+      const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+      const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
+      const discountValueNum = Number(item.discountValue ?? 0);
+      const discountedAmount = Number(item.discountAmount ?? discountValueNum);
       await financeApi.invoices.removeDiscountFromDetail(item.detailUid, {
-        id: item.discountId,
-        discountValue: item.discountType?.toUpperCase() === "ONDEMAND" ? item.discountValue ?? "" : "",
-        privateNote: item.privateNote ?? "",
-        displayNote: item.displayNote ?? "",
+        tenantUid: tenantUid || undefined,
+        name: item.discountName || "",
+        description: "",
+        calculationType: item.calculationType || "FIXED_AMOUNT",
+        discountType: item.discountType || "PREDEFINED",
+        discountValue: discountValueNum,
+        status: "INACTIVE",
+        uid: item.discountId,
+        discountedAmount,
       });
       await loadInvoiceDetail(id);
     } catch (error) {
       console.error("[mfe-finance] Failed to remove item-level discount", error);
       setFormError(error instanceof Error ? error.message : "Could not remove item-level discount.");
+    }
+  }
+
+  async function handleApplyInvoiceDiscount() {
+    if (!id || !selectedInvoiceDiscountId) {
+      return;
+    }
+
+    const activeDiscount = selectedInvoiceDiscountDetail ?? (
+      selectedInvoiceDiscountOption
+        ? {
+            uid: selectedInvoiceDiscountOption.value,
+            name: selectedInvoiceDiscountOption.label,
+            discountType: selectedInvoiceDiscountOption.discountType,
+            calculationType: selectedInvoiceDiscountOption.calculationType,
+            discountValue: selectedInvoiceDiscountOption.discountValue,
+            description: selectedInvoiceDiscountOption.description,
+            tenantUid: selectedInvoiceDiscountOption.tenantUid,
+            status: selectedInvoiceDiscountOption.status,
+          }
+        : null
+    );
+
+    if (activeDiscount?.discountType?.toUpperCase() === "ONDEMAND" && !invoiceDiscountAmountInput.trim()) {
+      setFormError("Discount amount is required for on-demand discount.");
+      return;
+    }
+
+    setInvoiceDiscountSubmitting(true);
+    setFormError("");
+    try {
+      const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+      const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
+      const discountValueNum = invoiceDiscountAmountInput.trim() ? Number(invoiceDiscountAmountInput) : activeDiscount?.discountValue ?? 0;
+      await financeApi.invoices.applyDiscount(id, {
+        tenantUid: activeDiscount?.tenantUid || tenantUid || undefined,
+        name: activeDiscount?.name || "",
+        description: activeDiscount?.description || undefined,
+        calculationType: activeDiscount?.calculationType || "FIXED_AMOUNT",
+        discountType: activeDiscount?.discountType || "PREDEFINED",
+        discountValue: discountValueNum,
+        status: activeDiscount?.status || "ACTIVE",
+        uid: activeDiscount?.uid || selectedInvoiceDiscountId,
+        discountedAmount: discountValueNum,
+      });
+      resetInvoiceDiscountDialog();
+      navigateToInvoiceList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to apply invoice-level discount", error);
+      setFormError(error instanceof Error ? error.message : "Could not apply invoice-level discount.");
+      setInvoiceDiscountSubmitting(false);
+    }
+  }
+
+  async function handleApplyCoupon() {
+    if (!id || !selectedCouponId) {
+      return;
+    }
+
+    const activeCoupon = selectedCouponDetail ?? selectedCouponOption ?? null;
+    const couponUid = selectedCouponDetail?.uid ?? selectedCouponOption?.value ?? selectedCouponId;
+    const couponCode = activeCoupon?.code || "";
+    const couponName = activeCoupon?.name || selectedCouponOption?.label || "";
+
+    setCouponSubmitting(true);
+    setFormError("");
+    try {
+      await financeApi.invoices.applyCoupon(id, {
+        uid: couponUid,
+        couponCode,
+        code: couponCode,
+        name: couponName,
+        description: activeCoupon?.description || undefined,
+        feature: activeCoupon?.feature || "FINANCE",
+        calculationType: activeCoupon?.calculationType || "FIXED_AMOUNT",
+        discountType: activeCoupon?.discountType || "PREDEFINED",
+        discountValue: activeCoupon?.discountValue ?? 0,
+        status: activeCoupon?.status || "ACTIVE",
+      });
+      resetCouponDialog();
+      navigateToInvoiceList();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to apply invoice-level coupon", error);
+      setFormError(error instanceof Error ? error.message : "Could not apply invoice-level coupon.");
+      setCouponSubmitting(false);
     }
   }
 
@@ -1081,39 +1441,38 @@ export default function FinanceInvoiceForm() {
           />
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-slate-100 p-4 lg:grid-cols-[minmax(0,2.2fr)_120px_1.4fr_1.6fr_auto] lg:items-end">
-              <div className="min-w-0">
-                <Combobox
-                  label="Procedure/Item *"
-                  placeholder="Choose Procedure/Item"
-                  searchPlaceholder="Search finance items"
-                  emptyMessage="No matching finance item found"
-                  options={financeCatalogOptions}
-                  value={newItemCatalogValue}
-                  onValueChange={(value) => {
-                    setNewItemCatalogValue(value);
-                    const option = financeCatalogOptions.find((entry) => entry.value === value);
-                    if (!option) return;
-                    setNewItemName(option.label);
-                    setNewItemPrice(option.price ?? 0);
-                  }}
-                  hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
-                  id="invoice-item-picker"
-                />
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Invoice Actions</div>
+                <div className="text-xs text-slate-500">Manage invoice-level item, discount, and coupon actions.</div>
               </div>
-
-              <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
-              <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
-              <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
-
-              <div className="flex gap-2 lg:pb-[2px]">
-                <Button type="button" onClick={handleSaveItem}>
-                  {editingItemId ? "Change" : "Add"}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetItemBuilder}>
-                  Cancel
-                </Button>
-              </div>
+              <Popover
+                portal
+                placement="bottom"
+                align="end"
+                trigger={
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-11 w-11 rounded-xl bg-cyan-100 p-0 text-cyan-900 hover:bg-cyan-200"
+                    icon={<Icon name="moreVertical" className="h-4 w-4 rotate-90" />}
+                    aria-label="Invoice actions"
+                  />
+                }
+              >
+                <div className="grid min-w-[220px] p-1">
+                  <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={openNewItemBuilder}>
+                    Add Procedure/Item
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => void openInvoiceDiscountDialog()}>
+                    Apply Discount
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => void openCouponDialog()}>
+                    Apply Coupon
+                  </Button>
+                </div>
+              </Popover>
             </div>
 
             <div className="mb-5 overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -1186,27 +1545,31 @@ export default function FinanceInvoiceForm() {
                               >
                                 Edit
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="justify-start font-normal"
-                                disabled={!isEditing || !item.detailUid || item.discountApplicable === false}
-                                onClick={() => void openDiscountDialog(item)}
-                              >
-                                Apply Discount
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="justify-start font-normal"
-                                disabled={!isEditing || !item.detailUid || !item.discountId}
-                                onClick={() => {
-                                  setOpenItemActionId(null);
-                                  void handleRemoveItemDiscount(item);
-                                }}
-                              >
-                                Remove Discount
-                              </Button>
+                              {isEditing && !item.discountId ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal"
+                                  disabled={!item.detailUid || item.discountApplicable === false}
+                                  onClick={() => void openDiscountDialog(item)}
+                                >
+                                  Apply Discount
+                                </Button>
+                              ) : null}
+                              {isEditing && !!item.discountId ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal"
+                                  disabled={!item.detailUid || !item.discountId}
+                                  onClick={() => {
+                                    setOpenItemActionId(null);
+                                    void handleRemoveItemDiscount(item);
+                                  }}
+                                >
+                                  Remove Discount
+                                </Button>
+                              ) : null}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1227,6 +1590,59 @@ export default function FinanceInvoiceForm() {
                 </tbody>
               </table>
             </div>
+
+            {showItemBuilder ? (
+              <div className="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-slate-100 p-4 xl:grid-cols-[minmax(0,2.2fr)_120px_minmax(140px,1.4fr)_minmax(180px,1.6fr)_auto] xl:items-start">
+                <div className="min-w-0">
+                  <Combobox
+                    label="Procedure/Item *"
+                    placeholder="Choose Procedure/Item"
+                    searchPlaceholder="Search finance items"
+                    emptyMessage="No matching finance item found"
+                    options={financeCatalogOptions}
+                    value={newItemCatalogValue}
+                    onValueChange={(value) => {
+                      setNewItemCatalogValue(value);
+                      const option = financeCatalogOptions.find((entry) => entry.value === value);
+                      if (!option) return;
+                      setNewItemName(option.label);
+                      setNewItemPrice(option.price ?? 0);
+                    }}
+                    hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
+                    id="invoice-item-picker"
+                  />
+                </div>
+
+                <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
+                <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
+                <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
+
+                <div className="flex gap-2 xl:self-start xl:pt-[29px]">
+                  <Button type="button" onClick={handleSaveItem}>
+                    {editingItemId ? "Change" : "Add"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      resetItemBuilder();
+                      setShowItemBuilder(items.length === 0);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="border-indigo-600 text-indigo-700 hover:bg-indigo-50"
+              onClick={openNewItemBuilder}
+            >
+              Add Procedure/Item
+            </Button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -1351,6 +1767,101 @@ export default function FinanceInvoiceForm() {
               }
             >
               {discountSubmitting ? "Applying..." : "Apply Discount"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showInvoiceDiscountDialog} onClose={resetInvoiceDiscountDialog} title="Apply Invoice Discount" size="md">
+        <div className="grid gap-5 pt-2">
+          <Select
+            label="Discount *"
+            value={selectedInvoiceDiscountId}
+            onChange={(event) => handleInvoiceDiscountChange(event.target.value)}
+            options={[
+              { value: "", label: discountOptionsLoading ? "Loading discounts..." : "Select discount" },
+              ...discountOptions.map((option) => ({ value: option.value, label: option.label })),
+            ]}
+          />
+          {!discountOptionsLoading && discountOptions.length === 0 ? (
+            <div className="text-sm text-slate-500">No discounts found. Create a discount and reopen this dialog.</div>
+          ) : null}
+          {invoiceDiscountLoading ? (
+            <div className="text-sm text-slate-500">Loading discount details...</div>
+          ) : null}
+          {selectedInvoiceDiscountDetail?.discountType?.toUpperCase() === "ONDEMAND" ? (
+            <Input
+              label="Discount Amount *"
+              type="number"
+              min="0"
+              step="0.01"
+              value={invoiceDiscountAmountInput}
+              onChange={(event) => setInvoiceDiscountAmountInput(event.target.value)}
+            />
+          ) : selectedInvoiceDiscountDetail ? (
+            <Input
+              label={selectedInvoiceDiscountDetail.calculationType === "FIXED_PCT" ? "Discount Percentage" : "Discount Value"}
+              value={String(selectedInvoiceDiscountDetail.discountValue)}
+              disabled
+            />
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={resetInvoiceDiscountDialog}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleApplyInvoiceDiscount()}
+              disabled={
+                invoiceDiscountSubmitting ||
+                invoiceDiscountLoading ||
+                !selectedInvoiceDiscountId ||
+                (selectedInvoiceDiscountDetail?.discountType?.toUpperCase() === "ONDEMAND" && !invoiceDiscountAmountInput.trim())
+              }
+            >
+              {invoiceDiscountSubmitting ? "Applying..." : "Apply Discount"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showInvoiceCouponDialog} onClose={resetCouponDialog} title="Apply Invoice Coupon" size="md">
+        <div className="grid gap-5 pt-2">
+          <Select
+            label="Coupon *"
+            value={selectedCouponId}
+            onChange={(event) => handleCouponChange(event.target.value)}
+            options={[
+              { value: "", label: couponOptionsLoading ? "Loading coupons..." : "Select coupon" },
+              ...couponOptions.map((option) => ({ value: option.value, label: `${option.label}${option.code ? ` (${option.code})` : ""}` })),
+            ]}
+          />
+          {!couponOptionsLoading && couponOptions.length === 0 ? (
+            <div className="text-sm text-slate-500">No coupons found. Create a coupon and reopen this dialog.</div>
+          ) : null}
+          {couponLoading ? (
+            <div className="text-sm text-slate-500">Loading coupon details...</div>
+          ) : null}
+          {selectedCouponDetail ? (
+            <>
+              <Input label="Coupon Code" value={selectedCouponDetail.code} disabled />
+              <Input
+                label={selectedCouponDetail.calculationType === "FIXED_PCT" ? "Coupon Percentage" : "Coupon Value"}
+                value={String(selectedCouponDetail.discountValue)}
+                disabled
+              />
+            </>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={resetCouponDialog}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleApplyCoupon()}
+              disabled={couponSubmitting || couponLoading || !selectedCouponId}
+            >
+              {couponSubmitting ? "Applying..." : "Apply Coupon"}
             </Button>
           </DialogFooter>
         </div>

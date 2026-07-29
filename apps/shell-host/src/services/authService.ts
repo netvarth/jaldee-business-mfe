@@ -636,6 +636,19 @@ export async function updateTenantSettingsForShell(data: unknown): Promise<unkno
     buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update),
     data,
   );
+  const financeEnabled =
+    typeof data === "object" &&
+    data !== null &&
+    "finance" in data &&
+    typeof (data as { finance?: unknown }).finance === "boolean"
+      ? (data as { finance: boolean }).finance
+      : null;
+  if (financeEnabled !== null) {
+    await apiClient.put<unknown>(
+      `/finance-service/v1/api/tenant/settings/finance/${financeEnabled ? "Enabled" : "Disabled"}`,
+      undefined,
+    );
+  }
   tenantSettingsCache = response.data;
   tenantSettingsLoaded = true;
   return response.data;
@@ -643,8 +656,8 @@ export async function updateTenantSettingsForShell(data: unknown): Promise<unkno
 
 export async function updateFinanceTenantSettingStatusForShell(enabled: boolean): Promise<unknown> {
   const response = await apiClient.put<unknown>(
-    buildBaseServiceUrl(`${BASE_SERVICE_ENDPOINTS.tenantSettings.update}?finance=${enabled}`),
-    { finance: enabled },
+    `/finance-service/v1/api/tenant/settings/finance/${enabled ? "Enabled" : "Disabled"}`,
+    undefined,
   );
   return response.data;
 }

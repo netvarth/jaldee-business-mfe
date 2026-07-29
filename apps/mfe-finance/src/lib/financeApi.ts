@@ -271,8 +271,8 @@ const taxes = createCrudApi(TENANT_TAX_ENDPOINT);
 
 export const financeApi = {
   settings: {
-    provider(filter: ApiFilter = {}) {
-      return get(TENANT_SETTINGS_ENDPOINT, filter);
+    provider<T = unknown>(filter: ApiFilter = {}) {
+      return get<T>(TENANT_SETTINGS_ENDPOINT, filter);
     },
     expenseAutoPayout(status: string) {
       return put(`${TENANT_SETTINGS_ENDPOINT}/auto-payout-on-expense/${status}`);
