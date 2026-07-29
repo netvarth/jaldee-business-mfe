@@ -150,6 +150,14 @@ export function useBookings(
     fetchBookings();
   }, [enabled, fetchBookings]);
 
+  useEffect(() => {
+    const handleBookingCreated = () => {
+      fetchBookings(true);
+    };
+    window.addEventListener("bookingCreated", handleBookingCreated);
+    return () => window.removeEventListener("bookingCreated", handleBookingCreated);
+  }, [fetchBookings]);
+
   return {
     bookings,
     loading,

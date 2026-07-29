@@ -125,12 +125,7 @@ export function useBookingDetails() {
     async (uid: string) => {
       // Finance summary is optional (no invoice yet ⇒ 404). Payment history is
       // best-effort so a missing endpoint never blocks the details panel.
-      try {
-        const f = await api.get<BookingFinance>(`/finance/${uid}/finance`);
-        setFinance(f ?? null);
-      } catch {
-        setFinance(null);
-      }
+      // Invoice is fetched explicitly via viewInvoice()
       try {
         const history = await api.get<unknown>(`/finance/${uid}/payment/history`);
         setPayments(unwrapList<PaymentRecord>(history));
@@ -199,12 +194,23 @@ export function useBookingDetails() {
     if (!details) return;
     setPaying(true);
     try {
-      await api.post(`/finance/${details.uid}/finance`, {});
+      await api.post(`/booking/finance/${details.uid}`, {});
       await Promise.all([load(details.uid), refreshFinance(details.uid)]);
     } finally {
       setPaying(false);
     }
   }, [api, details, load, refreshFinance]);
+
+  /** Fetch the invoice details explicitly */
+  const viewInvoice = useCallback(async () => {
+    if (!details) return;
+    try {
+      const f = await api.get<BookingFinance>(`/booking/finance/${details.uid}`);
+      setFinance(f ?? null);
+    } catch {
+      setFinance(null);
+    }
+  }, [api, details]);
 
   /**
    * Record an offline payment against the booking. Cash goes through the
@@ -239,6 +245,6 @@ export function useBookingDetails() {
   return {
     details, timeline, loading, acting, error,
     finance, payments, paying,
-    load, act, createInvoice, recordPayment,
+    load, act, createInvoice, recordPayment, viewInvoice,
   };
 }

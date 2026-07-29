@@ -48,7 +48,7 @@ const ACTION_META: Record<AllowedAction, { label: string; icon: typeof Play; ton
   CREATE_INVOICE:  { label: "Create Invoice", icon: CreditCard,  tone: "purple" },
   EDIT:            { label: "Edit",           icon: FileText,    tone: "slate" },
   VIEW_SUMMARY:    { label: "Summary",        icon: FileText,    tone: "slate" },
-  VIEW_INVOICE:    { label: "Invoice",        icon: CreditCard,  tone: "slate" },
+  VIEW_INVOICE:    { label: "View Invoice",   icon: CreditCard,  tone: "slate" },
   CREATE_FOLLOWUP: { label: "Follow-up",      icon: RotateCw,    tone: "emerald" },
   UNBLOCK:         { label: "Unblock",        icon: RotateCw,    tone: "cyan" },
 };
@@ -93,7 +93,7 @@ function testToken(value?: string): string {
 export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Props) {
   const {
     details, timeline, loading, acting, load, act,
-    finance, payments, paying, createInvoice, recordPayment,
+    finance, payments, paying, createInvoice, recordPayment, viewInvoice,
   } = useBookingDetails();
   const { preference } = useBookingPreferences();
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
@@ -148,8 +148,9 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     if (action === "CANCEL") { setCancelOpen((v) => !v); return; }
     if (action === "RESCHEDULE") { setReschedOpen((v) => !v); return; }
     if (action === "CREATE_INVOICE") { createInvoice(); return; }
+    if (action === "VIEW_INVOICE") { viewInvoice(); return; }
     if (action === "UNBLOCK") { doUnblock(); return; }
-    if (action === "VIEW_SUMMARY" || action === "VIEW_INVOICE" || action === "EDIT" || action === "CREATE_FOLLOWUP") return;
+    if (action === "VIEW_SUMMARY" || action === "EDIT" || action === "CREATE_FOLLOWUP") return;
     act(action);
   };
 
@@ -207,18 +208,19 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     setRescheduleSeries(false);
   };
 
-  const getDerivedActions = (status: string, allowed: AllowedAction[]): AllowedAction[] => {
+  const getDerivedActions = (status: string, allowed: AllowedAction[], isInvoiceCreated: boolean = false): AllowedAction[] => {
+    const invoiceAction = isInvoiceCreated ? "VIEW_INVOICE" : "CREATE_INVOICE";
     switch (status) {
       case "REQUESTED": return ["CONFIRM", "CANCEL"];
-      case "CONFIRMED": return ["CHECK_IN", "CREATE_INVOICE", "CANCEL"];
+      case "CONFIRMED": return ["CHECK_IN", invoiceAction, "CANCEL"];
       case "CHECKED_IN": return ["START", "CANCEL"];
       case "IN_PROGRESS": return ["COMPLETE", "CANCEL"];
-      default: return allowed;
+      default: return allowed.map(a => a === "CREATE_INVOICE" ? invoiceAction : a);
     }
   };
 
   const st = details ? STATUS_STYLE[details.status] : null;
-  const actionsToShow = details ? getDerivedActions(details.status, details.allowedActions) : [];
+  const actionsToShow = details ? getDerivedActions(details.status, details.allowedActions, details.isInvoiceCreated) : [];
 
   return (
     <div data-testid={`bookings-appointment-details-${bookingId}`} data-state={loading || !details ? "loading" : details.status} className="relative z-40 mx-4 flex max-h-[88vh] w-full max-w-[452px] flex-col overflow-hidden rounded-[28px] border border-[#dfe6f4] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)]" onClick={(e) => e.stopPropagation()}>

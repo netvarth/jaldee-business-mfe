@@ -37,6 +37,9 @@ export const createdBookings: Array<Record<string, unknown> & { bookingDate?: st
 
 export function addCreatedBooking(b: Record<string, unknown> & { bookingDate?: string }) {
   createdBookings.unshift(b);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("bookingCreated"));
+  }
 }
 
 export interface BookingUser {

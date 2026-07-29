@@ -16,6 +16,7 @@ interface WeekGridProps {
     services: Service[];
     onBookingSelect: (id: string) => void;
     onGroupSelect?: (calendarId: string, userId: string) => void;
+    onViewByChange?: (viewBy: 'doctors' | 'calendars') => void;
 }
 
 function parseTimeValue(value?: string): { hour: number; minute: number } | null {
@@ -37,7 +38,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
     return { hour, minute };
 }
 
-export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect }: WeekGridProps) {
+export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect, onViewByChange }: WeekGridProps) {
     const { openModal, openDrawer } = useModal();
     const startHour = 0;
     const endHour = 23;
@@ -139,6 +140,31 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                         return acc;
                                                                     }, {}));
                                                                     
+                                                                    const isSingleView = users.length === 1 && calendars.length === 1;
+
+                                                                    if (isSingleView) {
+                                                                        return (
+                                                                            <div className="flex flex-row gap-1 w-full p-1 pointer-events-auto h-full overflow-x-auto overflow-y-hidden custom-scrollbar pb-1">
+                                                                                {slotBookings.map((bk: any) => {
+                                                                                    const color = sanitizeColor(users[0]?.color);
+                                                                                    const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
+                                                                                    const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={bk.id || bk.uid}
+                                                                                            className="pointer-events-auto flex flex-col items-start w-[65px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0 border"
+                                                                                            style={{ backgroundColor: toRgba(color, 0.1), borderColor: color }}
+                                                                                            onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
+                                                                                        >
+                                                                                            <span className="truncate w-full text-left" style={{ fontSize: '8px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                            <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    
                                                                     const visibleGroups = userGroups.slice(0, 3);
                                                                     const hasMore = userGroups.length > 3;
 
@@ -154,7 +180,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                         key={uid}
                                                                                         className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[3px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1"
                                                                                         style={{ borderColor: color, backgroundColor: '#ffffff' }}
-                                                                                        onClick={(e) => { e.stopPropagation(); onGroupSelect?.("", uid); }}
+                                                                                        onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.("", uid); } }}
                                                                                     >
                                                                                         <div className="flex items-center justify-center h-full w-[24px] shrink-0 text-white text-[10px] font-bold rounded-l-[3px]" style={{ backgroundColor: color }}>
                                                                                             {initials}
@@ -210,6 +236,31 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                         return acc;
                                                                     }, {}));
 
+                                                                    const isSingleView = users.length === 1 && calendars.length === 1;
+
+                                                                    if (isSingleView) {
+                                                                        return (
+                                                                            <div className="flex flex-row gap-1 w-full p-1 pointer-events-auto h-full overflow-x-auto overflow-y-hidden custom-scrollbar pb-1">
+                                                                                {slotBookings.map((bk: any) => {
+                                                                                    const calColor = sanitizeColor(calendars[0]?.color);
+                                                                                    const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
+                                                                                    const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={bk.id || bk.uid}
+                                                                                            className="pointer-events-auto flex flex-col items-start w-[65px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0 border"
+                                                                                            style={{ backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
+                                                                                            onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
+                                                                                        >
+                                                                                            <span className="truncate w-full text-left" style={{ fontSize: '8px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                            <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        );
+                                                                    }
+
                                                                     const visibleGroups = calGroups.slice(0, 3);
                                                                     const hasMore = calGroups.length > 3;
 
@@ -224,7 +275,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                         key={uid}
                                                                                         className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[4px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1 px-1.5"
                                                                                         style={{ backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
-                                                                                        onClick={(e) => { e.stopPropagation(); onGroupSelect?.(uid, ""); }}
+                                                                                        onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(uid, ""); onViewByChange?.('doctors'); } }}
                                                                                     >
                                                                                         <span style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} Bookings</span>
                                                                                         
@@ -243,7 +294,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                             const ini = cal ? (cal.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                             const calColor = sanitizeColor(cal?.color);
                                                                                             return (
-                                                                                                <div key={uid} className="flex items-center gap-1.5 pr-2 cursor-pointer hover:bg-black/5 p-1 rounded" onClick={(e) => { e.stopPropagation(); onGroupSelect?.(uid, ""); }}>
+                                                                                                <div key={uid} className="flex items-center gap-1.5 pr-2 cursor-pointer hover:bg-black/5 p-1 rounded" onClick={(e) => { e.stopPropagation(); onGroupSelect?.(uid, ""); onViewByChange?.('doctors'); }}>
                                                                                                     <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] text-white font-bold text-[9px]" style={{ backgroundColor: calColor }}>
                                                                                                         {ini}
                                                                                                     </div>

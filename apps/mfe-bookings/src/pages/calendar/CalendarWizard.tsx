@@ -27,6 +27,37 @@ import DualListUsersModal, { User } from './components/DualListUsersModal';
 import LabelSelectorModal from '../../components/LabelSelectorModal';
 import { useCustomerLabels } from '../../services/useCustomerLabels';
 
+function normalizeStringList(
+    values: unknown,
+    fallbackKeys: string[] = ['name', 'displayName', 'label', 'title', 'uid', 'id'],
+) {
+    if (!Array.isArray(values)) {
+        if (typeof values === 'string' && values.trim()) {
+            return [values.trim()];
+        }
+        return [];
+    }
+
+    return values
+        .map((value) => {
+            if (typeof value === 'string') {
+                return value.trim();
+            }
+
+            if (value && typeof value === 'object') {
+                for (const key of fallbackKeys) {
+                    const candidate = (value as Record<string, unknown>)[key];
+                    if (typeof candidate === 'string' && candidate.trim()) {
+                        return candidate.trim();
+                    }
+                }
+            }
+
+            return '';
+        })
+        .filter((value): value is string => Boolean(value));
+}
+
 function toBookingChannels(channels: { online: boolean; walkin: boolean; phonein: boolean; ivr: boolean }) {
     const values: string[] = [];
     if (channels.online) values.push('ONLINE');
@@ -107,6 +138,11 @@ export default function CalendarWizard() {
     const locationState = useLocation().state as { calendar?: any, returnTo?: string } | null;
     const returnTo = locationState?.returnTo || '/calendars';
     const initialCalendar = locationState?.calendar;
+    const initialBookingChannels = normalizeStringList(
+        initialCalendar?.bookingChannels,
+        ['channel', 'value', 'label', 'title', 'uid', 'id'],
+    );
+    const initialLabels = normalizeStringList(initialCalendar?.tags ?? initialCalendar?.label);
 
     const { createCalendar, updateCalendar, createSchedule, getLocations } = useCalendars();
     const { services } = useServices();
@@ -121,10 +157,10 @@ export default function CalendarWizard() {
     const [location, setLocation] = useState(initialCalendar?.locationName || '');
     const [locations, setLocations] = useState<AccountLocation[]>([]);
     const [channels, setChannels] = useState({
-        online: initialCalendar?.bookingChannels?.includes('ONLINE') ?? true,
-        walkin: initialCalendar?.bookingChannels?.includes('WALK_IN') ?? false,
-        phonein: initialCalendar?.bookingChannels?.includes('PHONE_IN') ?? false,
-        ivr: initialCalendar?.bookingChannels?.includes('IVR') ?? false,
+        online: initialBookingChannels.includes('ONLINE') || initialBookingChannels.length === 0,
+        walkin: initialBookingChannels.includes('WALK_IN'),
+        phonein: initialBookingChannels.includes('PHONE_IN'),
+        ivr: initialBookingChannels.includes('IVR'),
     });
     
     // Step 2 State
@@ -136,7 +172,7 @@ export default function CalendarWizard() {
     const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
     const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
     const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
-    const [labels, setLabels] = useState<string[]>(initialCalendar?.label || []);
+    const [labels, setLabels] = useState<string[]>(initialLabels);
     const { labels: availableLabels } = useCustomerLabels();
 
     // Step 3 State
@@ -381,10 +417,8 @@ export default function CalendarWizard() {
             key: 'users',
             header: 'Users',
             render: (service) => serviceUsers[service.id]?.length ? (
-                <div className="flex gap-1">
-                    {serviceUsers[service.id].map((user) => (
-                        <img key={user.id} src={user.avatarUrl} alt={user.name} title={user.name} className="user-avatar h-7 w-7" />
-                    ))}
+                <div className="text-sm text-slate-700">
+                    {serviceUsers[service.id].map(u => u.name).join(', ')}
                 </div>
             ) : <span className="text-sm italic text-slate-400">No users assigned</span>,
         },
@@ -427,18 +461,20 @@ export default function CalendarWizard() {
                         </h1>
                         <WizardStepper step={step} />
                     </div>
-                    <PageHeader
-                        title="Create Calendar"
-                        subtitle="Configure calendar details, services, users, and availability."
-                        back={{ label: "Back to calendars", href: returnTo }}
-                        className="mb-5 hidden sm:block"
-                        onNavigate={(href) => navigate(href)}
-                        stepper={[
-                            { label: "Basic information", description: "Calendar details", state: step > 1 ? "complete" : "current" },
-                            { label: "Services and users", description: "Assignments", state: step > 2 ? "complete" : step === 2 ? "current" : "upcoming" },
-                            { label: "Schedules", description: "Availability", state: step === 3 ? "current" : "upcoming" },
-                        ]}
-                    />
+                    <div className="hidden sm:block">
+                        <PageHeader
+                            title="Create Calendar"
+                            subtitle="Configure calendar details, services, users, and availability."
+                            back={{ label: "Back to calendars", href: returnTo }}
+                            className="mb-5"
+                            onNavigate={(href) => navigate(href)}
+                            stepper={[
+                                { label: "Basic information", description: "Calendar details", state: step > 1 ? "complete" : "current" },
+                                { label: "Services and users", description: "Assignments", state: step > 2 ? "complete" : step === 2 ? "current" : "upcoming" },
+                                { label: "Schedules", description: "Availability", state: step === 3 ? "current" : "upcoming" },
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 <div className="wizard-content-container flex-1 overflow-y-auto px-0">

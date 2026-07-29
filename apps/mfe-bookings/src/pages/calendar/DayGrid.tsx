@@ -15,6 +15,7 @@ interface DayGridProps {
     services: Service[];
     onBookingSelect: (id: string) => void;
     onGroupSelect?: (calendarId: string, userId: string) => void;
+    onViewByChange?: (viewBy: 'doctors' | 'calendars') => void;
 }
 
 function parseTimeValue(value?: string): { hour: number; minute: number } | null {
@@ -36,7 +37,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
     return { hour, minute };
 }
 
-export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect }: DayGridProps) {
+export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect, onViewByChange }: DayGridProps) {
     const { openModal, openDrawer } = useModal();
     const startHour = 0;
     const endHour = 23;
@@ -162,7 +163,35 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                         return acc;
                                                                     }, {}));
                                                                     
-                                                                    const showCompact = slotBookings.length > 3;
+                                                                    const isSingleView = users.length === 1 && calendars.length === 1;
+
+                                                                    if (isSingleView) {
+                                                                        return (
+                                                                            <div className="flex flex-row gap-1 w-full p-1 pointer-events-auto h-full overflow-x-auto overflow-y-hidden custom-scrollbar pb-1">
+                                                                                {slotBookings.map((bk: any) => {
+                                                                                    const cal = calendars.find(c => (c.uid || c.id) === (bk.calendarId || bk.calendarUid)) || calendars.find(c => (c.uid || c.id) === id);
+                                                                                    const calColor = cal?.color || '#db2777';
+                                                                                    const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
+                                                                                    const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={bk.id || bk.uid}
+                                                                                            className="pointer-events-auto flex flex-col items-start w-[85px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0"
+                                                                                            style={{ backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.4)}` }}
+                                                                                            onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
+                                                                                        >
+                                                                                            <div className="flex flex-col min-w-0 flex-1 pr-1 w-full">
+                                                                                                <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    
+                                                                    const showCompact = userGroups.length > 4;
 
                                                                     if (showCompact) {
                                                                         return (
@@ -172,7 +201,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                     const bgTheme = '#db2777';
                                                                                     return (
-                                                                                        <div key={uid} className="flex flex-col items-center rounded-full py-0.5 px-0.5 shadow-sm cursor-pointer" style={{ backgroundColor: bgTheme, border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(id, uid); }}>
+                                                                                        <div key={uid} className="flex flex-col items-center rounded-full py-0.5 px-0.5 shadow-sm cursor-pointer" style={{ backgroundColor: bgTheme, border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
                                                                                             <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: bgTheme }}>
                                                                                                 {initials}
                                                                                             </div>
@@ -195,7 +224,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 const bgTheme = '#db2777'; // Dark pink background/border
                                                                                 
                                                                                 return (
-                                                                                    <div key={uid} className="relative flex flex-col w-[52px] shrink rounded-[6px] shadow-sm h-[64px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(id, uid); }}>
+                                                                                    <div key={uid} className="relative flex flex-col w-[52px] shrink rounded-[6px] shadow-sm h-[64px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
                                                                                         {/* Top Half */}
                                                                                         <div className="w-full h-[30px] rounded-t-[5px] flex items-center justify-center" style={{ backgroundColor: bgTheme }}>
                                                                                             <span className="text-[14px] font-bold text-white">{initials}</span>
@@ -221,8 +250,9 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                 // VIEW BY DOCTORS (Columns are Doctors)
                                                                 (function() {
                                                                     const totalBookings = slotBookings.length;
+                                                                    const isSingleView = users.length === 1 && calendars.length === 1;
                                                                     
-                                                                    if (totalBookings > 7) {
+                                                                    if (!isSingleView && totalBookings > 7) {
                                                                         const calGroups = Object.entries(slotBookings.reduce((acc: any, bk: any) => {
                                                                             const calId = bk.calendarId || bk.calendarUid || 'unknown';
                                                                             if (!acc[calId]) acc[calId] = [];
@@ -243,7 +273,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                         );
                                                                     }
                                                                     
-                                                                    if (totalBookings > 2) {
+                                                                    if (!isSingleView && totalBookings > 2) {
                                                                         const calGroups = Object.entries(slotBookings.reduce((acc: any, bk: any) => {
                                                                             const calId = bk.calendarId || bk.calendarUid || 'unknown';
                                                                             if (!acc[calId]) acc[calId] = [];
@@ -255,6 +285,26 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 {calGroups.map(([calId, bks]: [string, any[]]) => {
                                                                                     const cal = calendars.find(c => (c.uid || c.id) === calId);
                                                                                     const calColor = cal?.color || '#9333EA';
+                                                                                    
+                                                                                    if (bks.length === 1) {
+                                                                                        const bk = bks[0];
+                                                                                        const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
+                                                                                        const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                        return (
+                                                                                            <div
+                                                                                                key={bk.id || bk.uid}
+                                                                                                className="pointer-events-auto flex flex-col items-start px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm flex-1 min-w-[70px]"
+                                                                                                style={{ backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }}
+                                                                                                onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
+                                                                                            >
+                                                                                                <div className="flex flex-col min-w-0 flex-1 w-full">
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    }
+                                                                                    
                                                                                     return (
                                                                                         <div
                                                                                             key={calId}
@@ -279,7 +329,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                     }
                                                                     
                                                                     return (
-                                                                        <div className="grid grid-cols-2 gap-2 w-full">
+                                                                        <div className="flex flex-row gap-1 w-full p-1 pointer-events-auto h-full overflow-x-auto overflow-y-hidden custom-scrollbar pb-1">
                                                                             {slotBookings.map((bk: any) => {
                                                                                 const cal = calendars.find(c => (c.uid || c.id) === (bk.calendarId || bk.calendarUid));
                                                                                 const calColor = cal?.color || '#9333EA';
@@ -288,19 +338,19 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 return (
                                                                                     <div
                                                                                         key={bk.id || bk.uid}
-                                                                                        className="pointer-events-auto flex flex-col items-start w-full p-1.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm"
+                                                                                        className="pointer-events-auto flex flex-col items-start w-[85px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm"
                                                                                         style={{ backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }}
                                                                                         onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
                                                                                     >
                                                                                         <div className="flex items-start justify-between w-full">
-                                                                                            <div className="flex flex-col min-w-0 flex-1 pr-3">
-                                                                                                <span className="truncate w-full text-left" style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500, marginTop: '2px' }}>{timeLabel}</span>
+                                                                                            <div className="flex flex-col min-w-0 flex-1 pr-1">
+                                                                                                <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
                                                                                             </div>
-                                                                                            <div className="absolute top-2 right-1.5 flex flex-col gap-0.5 items-center justify-center w-4 h-4 text-slate-400">
-                                                                                                <div className="w-[3px] h-[3px] rounded-full bg-slate-500"></div>
-                                                                                                <div className="w-[3px] h-[3px] rounded-full bg-slate-500"></div>
-                                                                                                <div className="w-[3px] h-[3px] rounded-full bg-slate-500"></div>
+                                                                                            <div className="absolute top-1.5 right-1 flex flex-col gap-[1.5px] items-center justify-center w-3 h-3 text-slate-400">
+                                                                                                <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
+                                                                                                <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
+                                                                                                <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>

@@ -4,6 +4,7 @@ import { Badge, Button, PageHeader, Popover, PopoverSection, Switch } from "@jal
 import { Calendar as CalendarIcon, Clock, FileText, MapPin, MoreVertical, Plus, Settings, UserCircle, Users } from "../../components/icons";
 import type { Calendar, Schedule } from "../../types";
 import { useCalendars } from "../../services/useCalendars";
+import { useUsers } from "../../services/useUsers";
 
 const channelIcon: Record<string, string> = {
   Online: "Online",
@@ -59,6 +60,7 @@ export default function CalendarDetails() {
   const initialCalendar = (location.state as { calendar?: Calendar } | null)?.calendar;
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
   const { searchSchedules, getCalendar } = useCalendars();
+  const { users: allUsers } = useUsers();
   const [calendar, setCalendar] = useState<Calendar | null>(initialCalendar ?? null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
@@ -123,6 +125,46 @@ export default function CalendarDetails() {
   }, [calendarUid, searchSchedules]);
 
   const serviceAssignments = useMemo(() => normalizeServiceAssignments(calendar?.services), [calendar?.services]);
+  const combinedUsers = useMemo(() => {
+    // Collect all raw user objects/strings from both calendar and services
+    const rawServiceUsers = (calendar?.services || []).flatMap((s: any) => typeof s === 'object' && s.users ? s.users : []);
+    const rawCalendarUsers = calendar?.users || [];
+    
+    // For each, extract an ID and/or Name
+    const usersMap = new Map<string, string>(); // mapping of canonical identifier -> displayName
+    const anonymousNames = new Set<string>(); // names without any matched ID
+
+    [...rawServiceUsers, ...rawCalendarUsers].forEach((u: any) => {
+        if (!u) return;
+        if (typeof u === 'string') {
+            const foundUser = allUsers.find(au => au.userUid === u || au.id === u || au.displayName === u);
+            if (foundUser) {
+               usersMap.set(foundUser.userUid || foundUser.id || foundUser.displayName, foundUser.displayName);
+            } else {
+               anonymousNames.add(u);
+            }
+            return;
+        }
+        
+        // Handle object format
+        const id = u.userUid || u.uid || u.id;
+        const name = u.displayName || u.userDisplayName || u.name || u.userName || (u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null);
+        
+        if (id) {
+            const foundUser = allUsers.find(au => au.userUid === id || au.id === id);
+            usersMap.set(id, foundUser ? foundUser.displayName : (name || id));
+        } else if (name) {
+            const foundUser = allUsers.find(au => au.displayName === name);
+            if (foundUser) {
+                usersMap.set(foundUser.userUid || foundUser.id || foundUser.displayName, foundUser.displayName);
+            } else {
+                anonymousNames.add(name);
+            }
+        }
+    });
+    
+    return Array.from(new Set([...Array.from(usersMap.values()), ...Array.from(anonymousNames)]));
+  }, [calendar?.services, calendar?.users, allUsers]);
   const channelItems = asTextList(calendar?.bookingChannels as unknown[]);
   const tagItems = asTextList(calendar?.tags as unknown[]);
 
@@ -446,9 +488,9 @@ export default function CalendarDetails() {
 
               <div>
                 <h3 className="text-base font-bold text-slate-900 mb-3">Users</h3>
-                {Array.from(new Set(serviceAssignments.flatMap(sa => sa.users))).length > 0 ? (
+                {combinedUsers.length > 0 ? (
                   <div className="flex flex-col gap-2">
-                    {Array.from(new Set(serviceAssignments.flatMap(sa => sa.users))).map((u, i) => (
+                    {combinedUsers.map((u, i) => (
                       <div key={u} className="flex items-center gap-3 bg-[#fafafa] border border-slate-100 rounded-lg p-2 text-sm text-slate-700">
                         <div className={`avatar-mini avatar-color-${(i % 4) + 1}`}>{initials(u)}</div>
                         {u}
@@ -485,12 +527,6 @@ export default function CalendarDetails() {
                 </div>
               </div>
 
-              {typeof calendar.capacityOverride === "number" ? (
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 mb-3">Capacity Override</h3>
-                  <div className="sidebar-stat-value text-2xl font-bold">{calendar.capacityOverride}</div>
-                </div>
-              ) : null}
             </div>
           </aside>
         </div>

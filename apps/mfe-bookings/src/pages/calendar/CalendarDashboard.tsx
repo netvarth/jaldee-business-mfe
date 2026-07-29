@@ -607,6 +607,21 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           />
 
           <div className="sidebar-scrollable-content">
+            <div className="px-3 pt-2 pb-1 flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[11px] font-semibold text-purple-600 hover:bg-purple-50 hover:text-purple-700 h-auto py-1 px-2 rounded"
+                onClick={() => {
+                  setSelectedCalendarIds(new Set());
+                  setSelectedUserIds(new Set());
+                  setSelectedServiceIds(new Set());
+                }}
+                title="Reset Filters"
+              >
+                Reset All
+              </Button>
+            </div>
             <div className="md:hidden flex flex-col gap-2 p-2 border-b border-slate-200">
               <div className="view-pill-group w-full flex">
                 <Button
@@ -822,6 +837,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 if (calendarId) setSelectedCalendarIds(new Set([calendarId]));
                 if (userId) setSelectedUserIds(new Set([userId]));
               }}
+              onViewByChange={setViewBy}
             />
           ) : viewMode === "WEEK" ? (
             <WeekGrid
@@ -836,6 +852,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 if (calendarId) setSelectedCalendarIds(new Set([calendarId]));
                 if (userId) setSelectedUserIds(new Set([userId]));
               }}
+              onViewByChange={setViewBy}
             />
           ) : (
             <MonthGrid
