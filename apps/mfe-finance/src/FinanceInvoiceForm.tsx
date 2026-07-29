@@ -83,7 +83,17 @@ interface CouponOption {
   discountValue: number;
   description?: string;
   feature?: string;
+  subFeature?: string;
+  featureModule?: string;
+  tenantUid?: string;
   status?: string;
+  published?: boolean;
+  publishedDate?: string;
+  maxDiscountValue?: number;
+  termsConditions?: string;
+  timezone?: string;
+  discountedAmount?: number;
+  rules?: unknown[];
 }
 
 interface CouponDetail {
@@ -95,7 +105,17 @@ interface CouponDetail {
   discountValue: number;
   description?: string;
   feature?: string;
+  subFeature?: string;
+  featureModule?: string;
+  tenantUid?: string;
   status?: string;
+  published?: boolean;
+  publishedDate?: string;
+  maxDiscountValue?: number;
+  termsConditions?: string;
+  timezone?: string;
+  discountedAmount?: number;
+  rules?: unknown[];
 }
 
 interface ConsumerOption extends ComboboxOption {
@@ -104,6 +124,14 @@ interface ConsumerOption extends ComboboxOption {
   phone?: string;
   email?: string;
   address?: string;
+}
+
+interface InvoiceTemplateSummary {
+  uid: string;
+  templateName: string;
+  description?: string;
+  status?: string;
+  detailList?: any[];
 }
 
 function readArrayPayload(value: any): any[] {
@@ -151,7 +179,17 @@ function mapCouponOptions(items: any[]): CouponOption[] {
       discountValue: Number(item.discountValue ?? item.discount ?? item.value ?? item.amount ?? 0),
       description: String(item.description ?? ""),
       feature: String(item.feature ?? item.featureModule ?? "FINANCE"),
+      subFeature: String(item.subFeature ?? item.feature ?? "BASE_CRM"),
+      featureModule: String(item.featureModule ?? "BASE_CRM_CORE"),
+      tenantUid: String(item.tenantUid ?? ""),
       status: String(item.status ?? "ACTIVE"),
+      published: Boolean(item.published),
+      publishedDate: typeof item.publishedDate === "string" ? item.publishedDate : undefined,
+      maxDiscountValue: Number(item.maxDiscountValue ?? item.discountValue ?? item.amount ?? 0),
+      termsConditions: String(item.termsConditions ?? ""),
+      timezone: String(item.timezone ?? "Asia/Calcutta"),
+      discountedAmount: Number(item.discountedAmount ?? item.discountValue ?? item.amount ?? 0),
+      rules: Array.isArray(item.rules) ? item.rules : [],
     }))
     .filter((item: CouponOption) => item.value);
 }
@@ -165,6 +203,14 @@ function formatCurrency(amount: number) {
     style: "currency",
     currency: "INR",
   }).format(amount);
+}
+
+function formatDisplayDate(value: string) {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) {
+    return value;
+  }
+  return `${day}/${month}/${year}`;
 }
 
 function readString(...values: unknown[]) {
@@ -268,10 +314,11 @@ export default function FinanceInvoiceForm() {
   const [financeCatalogOptions, setFinanceCatalogOptions] = useState<FinanceCatalogOption[]>([]);
   const [discountOptions, setDiscountOptions] = useState<DiscountOption[]>([]);
   const [couponOptions, setCouponOptions] = useState<CouponOption[]>([]);
+  const [invoiceTemplates, setInvoiceTemplates] = useState<InvoiceTemplateSummary[]>([]);
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [showItemBuilder, setShowItemBuilder] = useState(true);
+  const [showItemBuilder, setShowItemBuilder] = useState(false);
   const [newItemCatalogValue, setNewItemCatalogValue] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQty, setNewItemQty] = useState(1);
@@ -303,6 +350,14 @@ export default function FinanceInvoiceForm() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponOptionsLoading, setCouponOptionsLoading] = useState(false);
   const [couponSubmitting, setCouponSubmitting] = useState(false);
+  const [showTemplateChooser, setShowTemplateChooser] = useState(false);
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [showTemplatePreviewDialog, setShowTemplatePreviewDialog] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templateNameInput, setTemplateNameInput] = useState("");
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
 
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -335,6 +390,15 @@ export default function FinanceInvoiceForm() {
     () => couponOptions.find((option) => option.value === selectedCouponId),
     [couponOptions, selectedCouponId]
   );
+  const filteredInvoiceTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+    if (!query) {
+      return invoiceTemplates;
+    }
+    return invoiceTemplates.filter((template) =>
+      [template.templateName, template.description ?? ""].some((value) => value.toLowerCase().includes(query))
+    );
+  }, [invoiceTemplates, templateSearch]);
 
   const nextInvoiceRequest = useMemo(() => {
     const locationRecord = (mfeProps.location ?? {}) as Record<string, unknown>;
@@ -438,21 +502,54 @@ export default function FinanceInvoiceForm() {
       return;
     }
 
-    setItems((current) => [
-      ...current,
-      {
-        id: `item-${Date.now()}`,
-        itemUid: selectedOption?.itemUid,
-        itemType: selectedOption?.itemType || "ADHOC_ITEM",
-        name: newItemName.trim(),
-        qty: newItemQty,
-        price: newItemPrice,
-        date: newItemDate,
-        afterDiscount: newItemPrice * newItemQty,
-        totalAmount: newItemPrice * newItemQty,
-        discountApplicable: selectedOption?.discountApplicable,
-      },
-    ]);
+    setItems((current) => {
+      const normalizedName = newItemName.trim();
+      const matchingItemIndex = current.findIndex((item) => {
+        const sameCatalogItem = (item.itemUid || "") && (selectedOption?.itemUid || "") && item.itemUid === selectedOption?.itemUid;
+        const sameAdhocItem = !item.itemUid && !selectedOption?.itemUid && item.name.trim() === normalizedName;
+        return (
+          (sameCatalogItem || sameAdhocItem) &&
+          item.price === newItemPrice &&
+          item.date === newItemDate
+        );
+      });
+
+      if (matchingItemIndex >= 0) {
+        return current.map((item, index) => {
+          if (index !== matchingItemIndex) {
+            return item;
+          }
+
+          const nextQty = item.qty + newItemQty;
+          const nextDiscountAmount = item.discountAmount ?? 0;
+          const nextTaxAmount = item.taxAmount ?? 0;
+          const nextAfterDiscount = Math.max(newItemPrice * nextQty - nextDiscountAmount, 0);
+
+          return {
+            ...item,
+            qty: nextQty,
+            afterDiscount: nextAfterDiscount,
+            totalAmount: nextAfterDiscount + nextTaxAmount,
+          };
+        });
+      }
+
+      return [
+        ...current,
+        {
+          id: `item-${Date.now()}`,
+          itemUid: selectedOption?.itemUid,
+          itemType: selectedOption?.itemType || "ADHOC_ITEM",
+          name: normalizedName,
+          qty: newItemQty,
+          price: newItemPrice,
+          date: newItemDate,
+          afterDiscount: newItemPrice * newItemQty,
+          totalAmount: newItemPrice * newItemQty,
+          discountApplicable: selectedOption?.discountApplicable,
+        },
+      ];
+    });
     resetItemBuilder();
     setShowItemBuilder(false);
   }
@@ -555,6 +652,32 @@ export default function FinanceInvoiceForm() {
     }
   }
 
+  async function loadInvoiceTemplates() {
+    setTemplateLoading(true);
+    try {
+      const response = await financeApi.invoices.templateList<any>({
+        page: 0,
+        size: 100,
+        view: "SUMMARY",
+      });
+      const templates = readArrayPayload(response?.data);
+      setInvoiceTemplates(
+        templates.map((item: any, index: number) => ({
+          uid: String(item.uid ?? item.templateUid ?? `template-${index}`),
+          templateName: String(item.templateName ?? item.name ?? item.uid ?? `Template ${index + 1}`),
+          description: String(item.description ?? ""),
+          status: String(item.status ?? "Enabled"),
+          detailList: Array.isArray(item.detailList) ? item.detailList : [],
+        }))
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load invoice templates", error);
+      setInvoiceTemplates([]);
+    } finally {
+      setTemplateLoading(false);
+    }
+  }
+
   function handleDiscountChange(value: string) {
     setSelectedDiscountId(value);
     setSelectedDiscountDetail(null);
@@ -612,6 +735,23 @@ export default function FinanceInvoiceForm() {
     await loadCouponOptions();
   }
 
+  async function openTemplateChooser() {
+    setShowTemplateChooser(true);
+    setTemplateSearch("");
+    setFormError("");
+    await loadInvoiceTemplates();
+  }
+
+  function openSaveTemplateDialog() {
+    if (items.length === 0) {
+      setFormError("Add at least one item before saving as template.");
+      return;
+    }
+    setTemplateNameInput(invoiceLabel.trim() || "Invoice Template");
+    setShowSaveTemplateDialog(true);
+    setFormError("");
+  }
+
   function resetInvoiceDiscountDialog() {
     setShowInvoiceDiscountDialog(false);
     setSelectedInvoiceDiscountId("");
@@ -627,6 +767,158 @@ export default function FinanceInvoiceForm() {
     setSelectedCouponDetail(null);
     setCouponSubmitting(false);
     setCouponLoading(false);
+  }
+
+  function buildInvoiceTemplatePayload(templateName: string) {
+    const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+    const locationRecord = (mfeProps.location ?? {}) as Record<string, unknown>;
+    const tenantUid = readString(accountRecord.tenantUid, accountRecord.uid, accountRecord.id);
+    const businessName = readString(
+      accountRecord.businessName,
+      accountRecord.accountName,
+      accountRecord.name
+    );
+    const selectedLocation = locationOptions.find((option) => option.value === locationId);
+    const locationName = readString(
+      selectedLocation?.label,
+      locationRecord.name,
+      locationRecord.place,
+      defaultLocationName
+    );
+    const storeUid = readString(
+      locationRecord.storeUid,
+      locationRecord.storeId,
+      accountRecord.storeUid,
+      accountRecord.storeId
+    );
+    const storeName = readString(
+      locationRecord.storeName,
+      accountRecord.storeName
+    );
+    const departmentUid = readString(
+      locationRecord.departmentUid,
+      locationRecord.departmentId,
+      accountRecord.departmentUid,
+      accountRecord.departmentId
+    );
+    const departmentName = readString(
+      locationRecord.departmentName,
+      accountRecord.departmentName
+    );
+    const categoryOption = categoryOptions.find((option) => option.value === categoryId);
+    const statusOption = statusOptions.find((option) => option.value === statusId);
+    const userRecord = (mfeProps.user ?? {}) as Record<string, unknown>;
+    const userUid = readString(userRecord.userUid, userRecord.uid, userRecord.id);
+    const userName = readString(
+      userRecord.userName,
+      userRecord.name,
+      userRecord.firstName,
+      consumerName
+    );
+    const userPhone = readString(
+      consumerPhone,
+      selectedConsumerOption?.phone,
+      userRecord.phone,
+      userRecord.mobileNo,
+      userRecord.phoneNumber
+    );
+    const userEmail = readString(
+      selectedConsumerOption?.email,
+      userRecord.email
+    );
+    const userCountryCode = readString(
+      userRecord.countryCode,
+      userRecord.userCountryCode
+    );
+    const businessLogo = Array.isArray(accountRecord.businessLogo)
+      ? accountRecord.businessLogo
+      : [];
+
+    return {
+      tenantUid: tenantUid || undefined,
+      businessName: businessName || undefined,
+      locationUid: nextInvoiceRequest.locationUid || undefined,
+      locationName: locationName || undefined,
+      storeUid: storeUid || undefined,
+      storeName: storeName || undefined,
+      departmentUid: departmentUid || undefined,
+      departmentName: departmentName || undefined,
+      sourceService: "API_GATEWAY",
+      sourceUid: undefined,
+      sourceNum: invoiceNum.trim() || undefined,
+      feature: "BASE_CRM",
+      subFeature: "BASE_CRM",
+      featureModule: "BASE_CRM_CORE",
+      userUid: userUid || consumerUid || undefined,
+      userType: "TENANT_USER",
+      userName: userName || undefined,
+      userRefNo: consumerUid || undefined,
+      userPhone: userPhone || undefined,
+      userCountryCode: userCountryCode || undefined,
+      userEmail: userEmail || undefined,
+      gstNumber: readString(accountRecord.gstNumber) || undefined,
+      businessLogo,
+      invoiceLabel: invoiceLabel.trim() || undefined,
+      description: notesForCustomer.trim() || undefined,
+      referenceNo: referenceNo.trim() || undefined,
+      notesForCustomer: notesForCustomer.trim() || undefined,
+      notesForProvider: notesForProvider.trim() || undefined,
+      termsConditions: termsConditions.trim() || undefined,
+      assignedUsers: [],
+      categoryId: Number(categoryId) || undefined,
+      categoryName: categoryOption?.label || undefined,
+      statusId: Number(statusId) || undefined,
+      statusName: statusOption?.label || undefined,
+      allowToUseOtherUsers: Boolean(accountRecord.allowToUseOtherUsers ?? false),
+      templateName: templateName.trim(),
+      uid: undefined,
+      status: "Enabled",
+      detailList: items.map((item) => ({
+        uid: item.detailUid || undefined,
+        tenantUid: tenantUid || undefined,
+        locationUid: nextInvoiceRequest.locationUid || undefined,
+        departmentUid: departmentUid || undefined,
+        storeUid: storeUid || undefined,
+        templateName: templateName.trim(),
+        templateUid: undefined,
+        sourceService: "API_GATEWAY",
+        feature: "BASE_CRM",
+        subFeature: "BASE_CRM",
+        featureModule: "BASE_CRM_CORE",
+        itemNature: "SINGLE_ITEM",
+        parentItemId: undefined,
+        parentItemUid: undefined,
+        parentItemName: undefined,
+        selectedAttributes: {},
+        assignedUsers: [],
+        itemType: item.itemType,
+        itemTypeUid: item.itemUid || undefined,
+        itemUid: item.itemUid || undefined,
+        itemName: item.name,
+        hsnCode: undefined,
+        quantity: item.qty,
+        processedDate: new Date(item.date).toISOString(),
+        processedDateString: formatDisplayDate(item.date),
+        price: item.price,
+        mrp: item.price,
+        taxes: [],
+        taxable: true,
+        taxInclude: false,
+        netTotal: item.price * item.qty,
+        taxTotal: item.taxAmount ?? 0,
+        taxableAmount: item.afterDiscount ?? item.price * item.qty,
+        netRate: item.afterDiscount ?? item.price,
+        cgst: 0,
+        cgstPercentage: 0,
+        sgst: 0,
+        sgstPercentage: 0,
+        cess: 0,
+        cessPercentage: 0,
+        igst: 0,
+        igstPercentage: 0,
+        taxPercentage: 0,
+      })),
+    };
   }
 
   useEffect(() => {
@@ -750,7 +1042,17 @@ export default function FinanceInvoiceForm() {
           discountValue: Number(data.discountValue ?? data.discount ?? data.value ?? fallbackOption?.discountValue ?? 0),
           description: String(data.description ?? fallbackOption?.description ?? ""),
           feature: String(data.feature ?? data.featureModule ?? fallbackOption?.feature ?? "FINANCE"),
-          status: String(data.status ?? fallbackOption?.status ?? "ACTIVE"),
+          subFeature: String(data.subFeature ?? fallbackOption?.subFeature ?? "BASE_CRM"),
+          featureModule: String(data.featureModule ?? fallbackOption?.featureModule ?? "BASE_CRM_CORE"),
+          tenantUid: String(data.tenantUid ?? fallbackOption?.tenantUid ?? ""),
+          status: String(data.couponStatus ?? data.status ?? fallbackOption?.status ?? "ACTIVE"),
+          published: Boolean(data.published ?? fallbackOption?.published),
+          publishedDate: String(data.publishedDate ?? fallbackOption?.publishedDate ?? ""),
+          maxDiscountValue: Number(data.maxDiscountValue ?? fallbackOption?.maxDiscountValue ?? data.discountValue ?? 0),
+          termsConditions: String(data.termsConditions ?? fallbackOption?.termsConditions ?? ""),
+          timezone: String(data.timezone ?? fallbackOption?.timezone ?? "Asia/Calcutta"),
+          discountedAmount: Number(data.discountedAmount ?? fallbackOption?.discountedAmount ?? data.discountValue ?? 0),
+          rules: Array.isArray(data.rules) ? data.rules : fallbackOption?.rules ?? [],
         });
       } catch (error) {
         if (!active) {
@@ -1228,17 +1530,31 @@ export default function FinanceInvoiceForm() {
     setCouponSubmitting(true);
     setFormError("");
     try {
+      const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
+      const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
+      const amount = Number(activeCoupon?.discountValue ?? 0);
       await financeApi.invoices.applyCoupon(id, {
         uid: couponUid,
-        couponCode,
-        code: couponCode,
+        tenantUid: activeCoupon?.tenantUid || tenantUid || undefined,
         name: couponName,
         description: activeCoupon?.description || undefined,
-        feature: activeCoupon?.feature || "FINANCE",
         calculationType: activeCoupon?.calculationType || "FIXED_AMOUNT",
-        discountType: activeCoupon?.discountType || "PREDEFINED",
-        discountValue: activeCoupon?.discountValue ?? 0,
-        status: activeCoupon?.status || "ACTIVE",
+        amount,
+        couponStatus: activeCoupon?.status || "INACTIVE",
+        couponCode,
+        startDate: activeCoupon?.publishedDate || new Date().toISOString(),
+        endDate: activeCoupon?.publishedDate || new Date().toISOString(),
+        published: Boolean(activeCoupon?.published),
+        publishedDate: activeCoupon?.publishedDate || new Date().toISOString(),
+        maxDiscountValue: Number(activeCoupon?.maxDiscountValue ?? amount),
+        termsConditions: activeCoupon?.termsConditions || undefined,
+        timezone: activeCoupon?.timezone || "Asia/Calcutta",
+        sourceService: "API_GATEWAY",
+        feature: activeCoupon?.feature || "BASE_CRM",
+        subFeature: activeCoupon?.subFeature || "BASE_CRM",
+        featureModule: activeCoupon?.featureModule || "BASE_CRM_CORE",
+        rules: activeCoupon?.rules ?? [],
+        discountedAmount: Number(activeCoupon?.discountedAmount ?? amount),
       });
       resetCouponDialog();
       navigateToInvoiceList();
@@ -1246,6 +1562,83 @@ export default function FinanceInvoiceForm() {
       console.error("[mfe-finance] Failed to apply invoice-level coupon", error);
       setFormError(error instanceof Error ? error.message : "Could not apply invoice-level coupon.");
       setCouponSubmitting(false);
+    }
+  }
+
+  async function handleConfirmSaveTemplate() {
+    if (!templateNameInput.trim()) {
+      setFormError("Template name is required.");
+      return;
+    }
+
+    setTemplateSaving(true);
+    setFormError("");
+    try {
+      await financeApi.invoices.createTemplate(buildInvoiceTemplatePayload(templateNameInput));
+      setShowSaveTemplateDialog(false);
+      setTemplateNameInput("");
+      await loadInvoiceTemplates();
+    } catch (error) {
+      console.error("[mfe-finance] Failed to save invoice template", error);
+      setFormError(error instanceof Error ? error.message : "Could not save invoice template.");
+    } finally {
+      setTemplateSaving(false);
+    }
+  }
+
+  async function handleUseTemplate(templateUid: string) {
+    try {
+      const response = await financeApi.invoices.templateById<any>(templateUid);
+      const template = response.data ?? {};
+      if (template.categoryId) {
+        setCategoryId(String(template.categoryId));
+      }
+      if (template.statusId) {
+        setStatusId(String(template.statusId));
+      }
+      setInvoiceLabel(String(template.invoiceLabel ?? ""));
+      setReferenceNo(String(template.referenceNo ?? ""));
+      setNotesForCustomer(String(template.notesForCustomer ?? template.description ?? ""));
+      setNotesForProvider(String(template.notesForProvider ?? ""));
+      setTermsConditions(String(template.termsConditions ?? ""));
+      const detailList = Array.isArray(template.detailList) ? template.detailList : [];
+      setItems(
+        detailList.map((detail: any, index: number) => ({
+          id: `template-item-${Date.now()}-${index}`,
+          itemUid: detail.itemUid ? String(detail.itemUid) : undefined,
+          itemType:
+            detail.itemType === "FINANCE_ITEM"
+              ? "FINANCE_ITEM"
+              : detail.itemType === "SERVICE"
+                ? "SERVICE"
+                : "ADHOC_ITEM",
+          name: String(detail.itemName ?? detail.name ?? "Template Item"),
+          qty: Number(detail.quantity ?? 1),
+          price: Number(detail.price ?? detail.netRate ?? 0),
+          date: typeof detail.processedDate === "string" && detail.processedDate
+            ? detail.processedDate.slice(0, 10)
+            : todayIsoDate(),
+          afterDiscount: Number(detail.taxableAmount ?? detail.netTotal ?? 0),
+          taxAmount: Number(detail.taxTotal ?? 0),
+          totalAmount: Number(detail.netTotal ?? 0),
+          discountApplicable: true,
+        }))
+      );
+      setShowTemplateChooser(false);
+    } catch (error) {
+      console.error("[mfe-finance] Failed to use invoice template", error);
+      setFormError(error instanceof Error ? error.message : "Could not load invoice template.");
+    }
+  }
+
+  async function handlePreviewTemplate(templateUid: string) {
+    try {
+      const response = await financeApi.invoices.templateById<any>(templateUid);
+      setPreviewTemplate(response.data ?? null);
+      setShowTemplatePreviewDialog(true);
+    } catch (error) {
+      console.error("[mfe-finance] Failed to preview invoice template", error);
+      setFormError(error instanceof Error ? error.message : "Could not preview invoice template.");
     }
   }
 
@@ -1508,7 +1901,7 @@ export default function FinanceInvoiceForm() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3">{item.date}</td>
+                        <td className="px-4 py-3">{formatDisplayDate(item.date)}</td>
                         <td className="px-4 py-3 text-right">{formatCurrency(item.price)}</td>
                         <td className="px-4 py-3 text-center">{item.qty}</td>
                         <td className="px-4 py-3 text-right">{formatCurrency(item.discountAmount ?? 0)}</td>
@@ -1626,7 +2019,7 @@ export default function FinanceInvoiceForm() {
                     variant="outline"
                     onClick={() => {
                       resetItemBuilder();
-                      setShowItemBuilder(items.length === 0);
+                      setShowItemBuilder(false);
                     }}
                   >
                     Cancel
@@ -1657,15 +2050,6 @@ export default function FinanceInvoiceForm() {
             placeholder="Terms and condition"
           />
 
-          <Input
-            label="Total Amount"
-            type="text"
-            value={formatCurrency(Number(amount))}
-            readOnly
-            disabled
-            className="bg-slate-50 font-semibold"
-          />
-
           {formError ? (
             <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
               {formError}
@@ -1681,9 +2065,14 @@ export default function FinanceInvoiceForm() {
                 {submitting ? "Saving..." : isEditing ? "Update Invoice" : "Save"}
               </Button>
             </div>
-            <Button type="button" variant="outline" disabled>
-              Save As Template
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => void openTemplateChooser()}>
+                Choose Template
+              </Button>
+              <Button type="button" variant="outline" onClick={openSaveTemplateDialog} disabled={items.length === 0}>
+                Save As Template
+              </Button>
+            </div>
           </div>
         </form>
       </SectionCard>
@@ -1862,6 +2251,111 @@ export default function FinanceInvoiceForm() {
               disabled={couponSubmitting || couponLoading || !selectedCouponId}
             >
               {couponSubmitting ? "Applying..." : "Apply Coupon"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showSaveTemplateDialog} onClose={() => setShowSaveTemplateDialog(false)} title="Save Invoice Template" size="md">
+        <div className="grid gap-5 pt-2">
+          <Input
+            label="Template Name *"
+            value={templateNameInput}
+            onChange={(event) => setTemplateNameInput(event.target.value)}
+            placeholder="Enter template name"
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowSaveTemplateDialog(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void handleConfirmSaveTemplate()} disabled={templateSaving || !templateNameInput.trim()}>
+              {templateSaving ? "Saving..." : "Save Template"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog open={showTemplateChooser} onClose={() => setShowTemplateChooser(false)} title={`Invoice Templates (${invoiceTemplates.length})`} size="xl">
+        <div className="grid gap-5 pt-2">
+          <Input
+            label="Search Template"
+            value={templateSearch}
+            onChange={(event) => setTemplateSearch(event.target.value)}
+            placeholder="Search Template"
+          />
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
+                  <th className="px-4 py-3">Template Name</th>
+                  <th className="px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                {templateLoading ? (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">Loading templates...</td>
+                  </tr>
+                ) : filteredInvoiceTemplates.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">No templates found.</td>
+                  </tr>
+                ) : (
+                  filteredInvoiceTemplates.map((template) => (
+                    <tr key={template.uid}>
+                      <td className="px-4 py-4 font-medium text-slate-900">{template.templateName}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex gap-2">
+                          <Button type="button" onClick={() => void handleUseTemplate(template.uid)}>
+                            Use Template
+                          </Button>
+                          <Button type="button" variant="outline" onClick={() => void handlePreviewTemplate(template.uid)}>
+                            View
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog open={showTemplatePreviewDialog} onClose={() => setShowTemplatePreviewDialog(false)} title={previewTemplate?.templateName || "Template Preview"} size="lg">
+        <div className="grid gap-4 pt-2">
+          <Input label="Template Name" value={String(previewTemplate?.templateName ?? "")} disabled />
+          <Input label="Subject" value={String(previewTemplate?.invoiceLabel ?? "")} disabled />
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
+                  <th className="px-4 py-3">Procedure/Item</th>
+                  <th className="px-4 py-3 text-center">Qty</th>
+                  <th className="px-4 py-3 text-right">Price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                {Array.isArray(previewTemplate?.detailList) && previewTemplate.detailList.length > 0 ? (
+                  previewTemplate.detailList.map((detail: any, index: number) => (
+                    <tr key={detail.uid ?? `preview-detail-${index}`}>
+                      <td className="px-4 py-3">{String(detail.itemName ?? detail.name ?? "-")}</td>
+                      <td className="px-4 py-3 text-center">{Number(detail.quantity ?? 0)}</td>
+                      <td className="px-4 py-3 text-right">{formatCurrency(Number(detail.price ?? detail.netRate ?? 0))}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">No template items found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowTemplatePreviewDialog(false)}>
+              Close
             </Button>
           </DialogFooter>
         </div>

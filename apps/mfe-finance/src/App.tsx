@@ -1514,12 +1514,7 @@ function InvoicesPage() {
         header: "Invoice For",
         headerClassName: "text-sm font-semibold text-slate-900",
         className: "py-4",
-        render: (row) => (
-          <div>
-            <div className="font-medium text-slate-900">{row.customer || "-"}</div>
-            {row.customerCode ? <div className="mt-1 text-xs text-[#4B1FCF]">{row.customerCode}</div> : null}
-          </div>
-        ),
+        render: (row) => <div className="font-medium text-slate-900">{row.customer || "-"}</div>,
       },
       { key: "assignedFor", header: "Assigned For", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
       { key: "location", header: "Location", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
@@ -1618,12 +1613,7 @@ function InvoicesPage() {
       {
         key: "customer",
         header: "Invoice For",
-        render: (row) => (
-          <div>
-            <div className="font-medium text-slate-900">{row.customer || "-"}</div>
-            {row.customerCode ? <div className="mt-1 text-xs text-[#4B1FCF]">{row.customerCode}</div> : null}
-          </div>
-        ),
+        render: (row) => <div className="font-medium text-slate-900">{row.customer || "-"}</div>,
       },
       { key: "assignedFor", header: "Assigned For" },
       { key: "location", header: "Location" },
@@ -1724,7 +1714,6 @@ function InvoicesPage() {
                     <td className="px-4 py-4">{row.date}</td>
                     <td className="px-4 py-4">
                       <div className="font-medium text-slate-900">{row.customer || "-"}</div>
-                      {row.customerCode ? <div className="mt-1 text-xs text-[#4B1FCF]">{row.customerCode}</div> : null}
                     </td>
                     <td className="px-4 py-4">{row.assignedFor || "-"}</td>
                     <td className="px-4 py-4">{row.location || "-"}</td>
@@ -6768,7 +6757,11 @@ function CouponsPage() {
         calculationType: String(item.calculationType ?? "FIXED_AMOUNT"),
         discountType: String(item.discountType ?? "PREDEFINED"),
         discountValue: Number(item.discountValue ?? item.discount ?? item.value ?? item.amount ?? 0),
-        status: String(item.status ?? "INACTIVE"),
+        status: String(
+          item.published === true
+            ? "PUBLISHED"
+            : item.couponStatus ?? item.status ?? "INACTIVE"
+        ),
         published: Boolean(item.published ?? item.isPublished ?? false),
       })));
     } catch (error) {
@@ -6794,12 +6787,19 @@ function CouponsPage() {
       {
         key: "status",
         header: "Status",
-        render: (row) => <Badge variant={row.status === "ACTIVE" ? "success" : row.status === "RETIRED" ? "warning" : "neutral"}>{row.status || "INACTIVE"}</Badge>,
-      },
-      {
-        key: "published",
-        header: "Published",
-        render: (row) => <Badge variant={row.published ? "success" : "neutral"}>{row.published ? "Published" : "Draft"}</Badge>,
+        render: (row) => (
+          <Badge
+            variant={
+              row.status === "ACTIVE"
+                ? "success"
+                : row.status === "PUBLISHED"
+                  ? "info"
+                  : "neutral"
+            }
+          >
+            {row.status || "INACTIVE"}
+          </Badge>
+        ),
       },
       {
         key: "actions",
@@ -6825,23 +6825,25 @@ function CouponsPage() {
               )}
             >
               <div className="grid min-w-[220px] p-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal"
-                  onClick={async () => {
-                    const nextStatus: CouponStatus = row.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-                    try {
-                      await financeApi.coupons.updateStatus(row.uid, nextStatus);
-                      await loadCoupons();
-                    } catch (error) {
-                      console.error("Failed to update coupon status", error);
-                      alert("Failed to update coupon status");
-                    }
-                  }}
-                >
-                  {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                </Button>
+                {!row.published ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start font-normal"
+                    onClick={async () => {
+                      const nextStatus: CouponStatus = row.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                      try {
+                        await financeApi.coupons.updateStatus(row.uid, nextStatus);
+                        await loadCoupons();
+                      } catch (error) {
+                        console.error("Failed to update coupon status", error);
+                        alert("Failed to update coupon status");
+                      }
+                    }}
+                  >
+                    {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                  </Button>
+                ) : null}
                 {!row.published ? (
                   <Button
                     variant="ghost"
@@ -6849,7 +6851,7 @@ function CouponsPage() {
                     className="justify-start font-normal"
                     onClick={async () => {
                       try {
-                        await financeApi.coupons.publish(row.uid);
+                        await financeApi.coupons.publish(row.uid, row);
                         await loadCoupons();
                       } catch (error) {
                         console.error("Failed to publish coupon", error);
@@ -6860,22 +6862,24 @@ function CouponsPage() {
                     Publish Coupon
                   </Button>
                 ) : null}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal text-rose-600"
-                  onClick={async () => {
-                    try {
-                      await financeApi.coupons.remove(row.uid);
-                      await loadCoupons();
-                    } catch (error) {
-                      console.error("Failed to remove coupon", error);
-                      alert("Failed to remove coupon");
-                    }
-                  }}
-                >
-                  Delete Coupon
-                </Button>
+                {row.status !== "RETIRED" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start font-normal text-rose-600"
+                    onClick={async () => {
+                      try {
+                        await financeApi.coupons.remove(row.uid);
+                        await loadCoupons();
+                      } catch (error) {
+                        console.error("Failed to remove coupon", error);
+                        alert("Failed to remove coupon");
+                      }
+                    }}
+                  >
+                    Remove Coupon
+                  </Button>
+                ) : null}
               </div>
             </Popover>
           </div>
@@ -6912,9 +6916,16 @@ function CouponCreatePage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [feature, setFeature] = useState("FINANCE");
+  const [subFeature, setSubFeature] = useState("BASE_CRM");
+  const [featureModule, setFeatureModule] = useState("BASE_CRM_CORE");
   const [calculationType, setCalculationType] = useState<DiscountCalculationType>("FIXED_AMOUNT");
   const [discountType, setDiscountType] = useState<DiscountType>("PREDEFINED");
-  const [discountValue, setDiscountValue] = useState("");
+  const [amount, setAmount] = useState("");
+  const [maxDiscountValue, setMaxDiscountValue] = useState("");
+  const [startDate, setStartDate] = useState("2026-07-29");
+  const [endDate, setEndDate] = useState("2026-07-29");
+  const [termsConditions, setTermsConditions] = useState("");
+  const [timezone, setTimezone] = useState("Asia/Calcutta");
   const [status, setStatus] = useState<CouponStatus>("ACTIVE");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -6936,14 +6947,22 @@ function CouponCreatePage() {
     try {
       await financeApi.coupons.create({
         couponCode: code.trim(),
-        code: code.trim(),
         name: name.trim(),
         description: description.trim() || undefined,
+        amount: Number(amount) || 0,
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
+        maxDiscountValue: Number(maxDiscountValue || amount) || 0,
+        termsConditions: termsConditions.trim() || undefined,
+        timezone: timezone.trim() || "Asia/Calcutta",
+        sourceService: "API_GATEWAY",
         feature,
+        subFeature,
+        featureModule,
         calculationType,
         discountType,
-        discountValue: Number(discountValue) || 0,
         status,
+        rules: [],
       });
       navigateToCouponList();
     } catch (error) {
@@ -6965,7 +6984,10 @@ function CouponCreatePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Coupon Code *" value={code} onChange={(event) => setCode(event.target.value)} required />
             <Input label="Coupon Name *" value={name} onChange={(event) => setName(event.target.value)} required />
-            <Input label="Value" type="number" min="0" step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+            <Input label="Amount" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />
+            <Input label="Max Discount Value" type="number" min="0" step="0.01" value={maxDiscountValue} onChange={(event) => setMaxDiscountValue(event.target.value)} />
+            <Input label="Start Date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+            <Input label="End Date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
             <Select
               label="Feature"
               value={feature}
@@ -6975,6 +6997,8 @@ function CouponCreatePage() {
                 { value: "BASE_CRM", label: "Base CRM" },
               ]}
             />
+            <Input label="Sub Feature" value={subFeature} onChange={(event) => setSubFeature(event.target.value)} />
+            <Input label="Feature Module" value={featureModule} onChange={(event) => setFeatureModule(event.target.value)} />
             <Select
               label="Calculation Type"
               value={calculationType}
@@ -6993,6 +7017,7 @@ function CouponCreatePage() {
                 { value: "ONDEMAND", label: "On Demand" },
               ]}
             />
+            <Input label="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
             <Select
               label="Status"
               value={status}
@@ -7005,6 +7030,7 @@ function CouponCreatePage() {
             />
           </div>
           <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          <Textarea label="Terms & Conditions" value={termsConditions} onChange={(event) => setTermsConditions(event.target.value)} />
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={navigateToCouponList}>
@@ -7028,9 +7054,16 @@ function CouponEditPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [feature, setFeature] = useState("FINANCE");
+  const [subFeature, setSubFeature] = useState("BASE_CRM");
+  const [featureModule, setFeatureModule] = useState("BASE_CRM_CORE");
   const [calculationType, setCalculationType] = useState<DiscountCalculationType>("FIXED_AMOUNT");
   const [discountType, setDiscountType] = useState<DiscountType>("PREDEFINED");
-  const [discountValue, setDiscountValue] = useState("");
+  const [amount, setAmount] = useState("");
+  const [maxDiscountValue, setMaxDiscountValue] = useState("");
+  const [startDate, setStartDate] = useState("2026-07-29");
+  const [endDate, setEndDate] = useState("2026-07-29");
+  const [termsConditions, setTermsConditions] = useState("");
+  const [timezone, setTimezone] = useState("Asia/Calcutta");
   const [status, setStatus] = useState<CouponStatus>("ACTIVE");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -7047,11 +7080,18 @@ function CouponEditPage() {
           setCode(String(data.couponCode ?? data.code ?? ""));
           setName(String(data.name ?? ""));
           setDescription(String(data.description ?? ""));
-          setFeature(String(data.feature ?? data.featureModule ?? "FINANCE"));
+          setFeature(String(data.feature ?? "FINANCE"));
+          setSubFeature(String(data.subFeature ?? "BASE_CRM"));
+          setFeatureModule(String(data.featureModule ?? "BASE_CRM_CORE"));
           setCalculationType((data.calculationType || "FIXED_AMOUNT") as DiscountCalculationType);
           setDiscountType((data.discountType || "PREDEFINED") as DiscountType);
-          setDiscountValue(String(data.discountValue ?? data.discount ?? data.value ?? 0));
-          setStatus((data.status || "ACTIVE") as CouponStatus);
+          setAmount(String(data.amount ?? data.discountValue ?? data.discount ?? data.value ?? 0));
+          setMaxDiscountValue(String(data.maxDiscountValue ?? data.amount ?? data.discountValue ?? 0));
+          setStartDate(typeof data.startDate === "string" && data.startDate ? data.startDate.slice(0, 10) : "2026-07-29");
+          setEndDate(typeof data.endDate === "string" && data.endDate ? data.endDate.slice(0, 10) : "2026-07-29");
+          setTermsConditions(String(data.termsConditions ?? ""));
+          setTimezone(String(data.timezone ?? "Asia/Calcutta"));
+          setStatus((data.couponStatus || data.status || "ACTIVE") as CouponStatus);
         }
       } catch (error) {
         console.error("Failed to load coupon", error);
@@ -7081,16 +7121,22 @@ function CouponEditPage() {
     setSaving(true);
     try {
       await financeApi.coupons.update(id!, {
-        uid: id,
         couponCode: code.trim(),
-        code: code.trim(),
         name: name.trim(),
         description: description.trim() || undefined,
+        amount: Number(amount) || 0,
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
+        maxDiscountValue: Number(maxDiscountValue || amount) || 0,
+        termsConditions: termsConditions.trim() || undefined,
+        timezone: timezone.trim() || "Asia/Calcutta",
+        sourceService: "API_GATEWAY",
         feature,
+        subFeature,
+        featureModule,
         calculationType,
         discountType,
-        discountValue: Number(discountValue) || 0,
-        status,
+        rules: [],
       });
       navigateToCouponList();
     } catch (error) {
@@ -7116,7 +7162,10 @@ function CouponEditPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Coupon Code *" value={code} onChange={(event) => setCode(event.target.value)} required />
             <Input label="Coupon Name *" value={name} onChange={(event) => setName(event.target.value)} required />
-            <Input label="Value" type="number" min="0" step="0.01" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} />
+            <Input label="Amount" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />
+            <Input label="Max Discount Value" type="number" min="0" step="0.01" value={maxDiscountValue} onChange={(event) => setMaxDiscountValue(event.target.value)} />
+            <Input label="Start Date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+            <Input label="End Date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
             <Select
               label="Feature"
               value={feature}
@@ -7126,6 +7175,8 @@ function CouponEditPage() {
                 { value: "BASE_CRM", label: "Base CRM" },
               ]}
             />
+            <Input label="Sub Feature" value={subFeature} onChange={(event) => setSubFeature(event.target.value)} />
+            <Input label="Feature Module" value={featureModule} onChange={(event) => setFeatureModule(event.target.value)} />
             <Select
               label="Calculation Type"
               value={calculationType}
@@ -7144,6 +7195,7 @@ function CouponEditPage() {
                 { value: "ONDEMAND", label: "On Demand" },
               ]}
             />
+            <Input label="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
             <Select
               label="Status"
               value={status}
@@ -7156,6 +7208,7 @@ function CouponEditPage() {
             />
           </div>
           <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          <Textarea label="Terms & Conditions" value={termsConditions} onChange={(event) => setTermsConditions(event.target.value)} />
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={navigateToCouponList}>
@@ -8388,31 +8441,24 @@ function ActivityLogPage() {
     async function loadActivityLogs() {
       setLoading(true);
       try {
-        const filter = mfeProps.location?.id
-          ? { "locationId-eq": mfeProps.location.id, from: 0, count: 100 }
-          : { from: 0, count: 100 };
+        const filter = { page: 0, size: 100 };
 
-        const [listResponse, countResponse] = await Promise.allSettled([
-          financeApi.activity.list<any>(filter),
-          financeApi.activity.count<any>(mfeProps.location?.id ? { "locationId-eq": mfeProps.location.id } : {}),
-        ]);
+        const listResponse = await financeApi.activity.list<any>(filter);
 
         if (!active) {
           return;
         }
 
         const payload =
-          listResponse.status === "fulfilled"
-            ? Array.isArray(listResponse.value.data)
-              ? listResponse.value.data
-              : Array.isArray(listResponse.value.data?.content)
-                ? listResponse.value.data.content
-                : Array.isArray(listResponse.value.data?.data)
-                  ? listResponse.value.data.data
-                  : Array.isArray(listResponse.value.data?.logs)
-                    ? listResponse.value.data.logs
-                    : []
-            : [];
+          Array.isArray(listResponse.data)
+            ? listResponse.data
+            : Array.isArray(listResponse.data?.content)
+              ? listResponse.data.content
+              : Array.isArray(listResponse.data?.data)
+                ? listResponse.data.data
+                : Array.isArray(listResponse.data?.logs)
+                  ? listResponse.data.logs
+                  : [];
 
         setActivityLogs(
           payload.map((item: any, index: number) => ({
@@ -8425,14 +8471,11 @@ function ActivityLogPage() {
         );
 
         setActivityCount(
-          countResponse.status === "fulfilled"
-            ? Number(
-              countResponse.value.data?.count ??
-              countResponse.value.data?.totalElements ??
-              countResponse.value.data ??
-              payload.length
-            ) || payload.length
-            : payload.length
+          Number(
+            listResponse.data?.totalElements ??
+            listResponse.data?.total ??
+            payload.length
+          ) || payload.length
         );
       } catch (error) {
         console.error("[mfe-finance] Failed to load activity logs", error);
@@ -10195,7 +10238,7 @@ function ItemsCreatePage() {
         displayOrder: 0,
         taxList: [],
       });
-      navigate("/finance/items");
+      navigate("/items", { replace: true });
     } catch (error) {
       console.error("[mfe-finance] Failed to create item", error);
       setFormError(error instanceof Error ? error.message : "Could not create item.");
@@ -10208,7 +10251,7 @@ function ItemsCreatePage() {
     <PageShell
       title="Create Item"
       subtitle="Add a new finance item/procedure to the catalog."
-      actions={<Button variant="outline" onClick={() => navigate("/finance/items")}>Back</Button>}
+      actions={<Button variant="outline" onClick={() => navigate("/items", { replace: true })}>Back</Button>}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
@@ -10270,7 +10313,7 @@ function ItemsCreatePage() {
           ) : null}
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/finance/items")}>
+            <Button type="button" variant="outline" onClick={() => navigate("/items", { replace: true })}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
