@@ -566,7 +566,7 @@ export default function EmployeeDetails() {
     setLoginError(null);
     try {
       if (employee.hasAuthUser) {
-        await api.put(`/employees/${employee.id}/password`, {
+        await api.put(`/employees/${employee.id}/password/reset`, {
           password: credentials.password,
         });
       } else {

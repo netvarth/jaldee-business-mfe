@@ -405,7 +405,12 @@ async function logout(): Promise<void> {
 }
 
 export function configureApiClient(onSessionExpired: () => void) {
-  initApiClient(new URL("/api/", window.location.origin).toString().replace(/\/$/, ""));
+  const configuredApiBase = getConfiguredAuthServiceBaseUrl() || getServiceGatewayPrefix();
+  initApiClient(
+    configuredApiBase
+      ? new URL(`${configuredApiBase}/`, window.location.origin).toString().replace(/\/$/, "")
+      : window.location.origin
+  );
   setApiClientAuthHandlers({
     refreshSession,
     onSessionExpired: () => {

@@ -164,4 +164,3 @@ export const telemetryService: TelemetryService = {
     posthog.capture("$pageview", { $current_url: path });
   },
 };
-

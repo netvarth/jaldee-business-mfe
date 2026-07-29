@@ -316,7 +316,7 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       if (await modal.isVisible({ timeout: 4000 }).catch(() => false)) {
         await fillByTestId(page, "hr-settings-designations-name", r.name);
         await fillByTestId(page, "hr-settings-designations-code", r.code);
-        await fillByTestId(page, "hr-settings-designations-level", r.level);
+        await page.getByTestId("hr-settings-designations-level").selectOption(r.level);
         await fillByTestId(page, "hr-settings-designations-description", r.desc);
         await selectFirstAvailableOption(page, "hr-settings-designations-hrdepartmentuid");
         await clickByTestId(page, "hr-settings-designations-save");
