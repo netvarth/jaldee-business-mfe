@@ -12,6 +12,7 @@ import type {
 const audience = "consumer";
 const authMode = "token";
 const storageKey = `jaldee-${audience}-session`;
+const refreshStorageKey = `jaldee-${audience}-refresh-session`;
 
 interface StoredSession {
   token?: string;
@@ -71,23 +72,44 @@ function getStorage() {
   return window.localStorage;
 }
 
-function readStoredSession(): StoredSession | null {
-  const raw = getStorage()?.getItem(storageKey);
-  if (!raw) return null;
+function getAccessTokenStorage() {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage;
+}
 
-  try {
-    return JSON.parse(raw) as StoredSession;
-  } catch {
-    return null;
+function readStoredSession(): StoredSession | null {
+  const accessStorage = getAccessTokenStorage();
+  const persistentStorage = getStorage();
+  let accessToken = accessStorage?.getItem(storageKey) ?? undefined;
+  let refreshToken = persistentStorage?.getItem(refreshStorageKey) ?? undefined;
+  const legacyRaw = persistentStorage?.getItem(storageKey);
+  if (legacyRaw && persistentStorage) {
+    try {
+      const legacy = JSON.parse(legacyRaw) as StoredSession;
+      accessToken ||= legacy.token;
+      refreshToken ||= legacy.refreshToken;
+      if (accessToken) accessStorage?.setItem(storageKey, accessToken);
+      if (refreshToken) persistentStorage.setItem(refreshStorageKey, refreshToken);
+    } catch {
+      // Ignore malformed legacy session data.
+    }
+    persistentStorage.removeItem(storageKey);
   }
+  if (!accessToken && !refreshToken) return null;
+
+  return { token: accessToken, refreshToken };
 }
 
 function writeStoredSession(session: StoredSession) {
-  getStorage()?.setItem(storageKey, JSON.stringify(session));
+  if (session.token) getAccessTokenStorage()?.setItem(storageKey, session.token);
+  if (session.refreshToken) getStorage()?.setItem(refreshStorageKey, session.refreshToken);
+  getStorage()?.removeItem(storageKey);
 }
 
 function clearStoredSession() {
+  getAccessTokenStorage()?.removeItem(storageKey);
   getStorage()?.removeItem(storageKey);
+  getStorage()?.removeItem(refreshStorageKey);
 }
 
 function normalizeUser(raw: Record<string, unknown>): AppUser {
@@ -229,6 +251,9 @@ async function login(): Promise<SessionResponse> {
 
 async function checkSession(): Promise<SessionResponse> {
   const stored = readStoredSession();
+  if (!stored?.token && stored?.refreshToken) {
+    return refreshSession();
+  }
   if (authMode === "token" && stored?.token) {
     setApiClientContext({ authMode: "token", authToken: stored.token });
   }
