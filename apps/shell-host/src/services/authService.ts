@@ -111,6 +111,7 @@ const authMode = "token";
 const M_UNIQUE_ID_KEY = "mUniqueId";
 const LOGIN_CREDENTIALS_KEY = "ynw-credentials";
 const TOKEN_SESSION_KEY = "jaldee-token-session";
+const REFRESH_TOKEN_SESSION_KEY = "jaldee-refresh-token-session";
 const SESSION_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=";
 const SESSION_ENCRYPTION_IV_B64 = "RW5jRGVjSmFsZGVlMDYyMw==";
 const TOKEN_ENCRYPTION_KEY_B64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xMTA1MjY=";
@@ -183,6 +184,11 @@ function getStorage() {
   return window.localStorage;
 }
 
+function getAccessTokenStorage() {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage;
+}
+
 export function getStoredMUniqueId(): string {
   return getStorage()?.getItem(M_UNIQUE_ID_KEY) ?? "";
 }
@@ -208,7 +214,7 @@ export function getStoredAccessToken(): string {
 }
 
 export function hasStoredAuthSession(): boolean {
-  return authMode === "token" ? Boolean(getStoredAccessToken()) : Boolean(getStoredCredentials());
+  return authMode === "token" ? Boolean(getStoredTokenSession()) : Boolean(getStoredCredentials());
 }
 
 export function setStoredCredentials(payload: LoginRequest) {
@@ -231,33 +237,75 @@ export function clearStoredCredentials() {
 }
 
 function getStoredTokenSession(): StoredTokenSession | null {
-  const raw = getStorage()?.getItem(TOKEN_SESSION_KEY);
-  if (!raw) return null;
+  const accessStorage = getAccessTokenStorage();
+  const persistentStorage = getStorage();
+  let accessRaw = accessStorage?.getItem(TOKEN_SESSION_KEY);
+  let refreshRaw = persistentStorage?.getItem(REFRESH_TOKEN_SESSION_KEY);
+  const legacyRaw = persistentStorage?.getItem(TOKEN_SESSION_KEY);
+
+  if (legacyRaw && persistentStorage && accessStorage) {
+    try {
+      const legacy = JSON.parse(legacyRaw) as StoredTokenSession;
+      if (!accessRaw && legacy.accessToken) {
+        accessStorage.setItem(TOKEN_SESSION_KEY, JSON.stringify({
+          accessToken: legacy.accessToken,
+          accessExpiresAt: legacy.accessExpiresAt,
+        }));
+        accessRaw = accessStorage.getItem(TOKEN_SESSION_KEY);
+      }
+      if (!refreshRaw && legacy.refreshToken) {
+        persistentStorage.setItem(REFRESH_TOKEN_SESSION_KEY, JSON.stringify({
+          refreshToken: legacy.refreshToken,
+          refreshExpiresAt: legacy.refreshExpiresAt,
+        }));
+        refreshRaw = persistentStorage.getItem(REFRESH_TOKEN_SESSION_KEY);
+      }
+      persistentStorage.removeItem(TOKEN_SESSION_KEY);
+    } catch {
+      persistentStorage.removeItem(TOKEN_SESSION_KEY);
+    }
+  }
+
+  if (!accessRaw && !refreshRaw) return null;
 
   try {
-    return JSON.parse(raw) as StoredTokenSession;
+    return {
+      ...(refreshRaw ? JSON.parse(refreshRaw) : {}),
+      ...(accessRaw ? JSON.parse(accessRaw) : {}),
+    } as StoredTokenSession;
   } catch {
     return null;
   }
 }
 
 function setStoredTokenSession(tokens: TokenLoginResponse) {
-  const storage = getStorage();
-  if (!storage) return;
+  const persistentStorage = getStorage();
+  const accessStorage = getAccessTokenStorage();
+  if (!persistentStorage || !accessStorage) return;
 
   const now = Date.now();
-  storage.setItem(
+  accessStorage.setItem(
     TOKEN_SESSION_KEY,
     JSON.stringify({
-      ...tokens,
+      accessToken: tokens.accessToken,
       accessExpiresAt: tokens.accessExpiresInSeconds ? now + tokens.accessExpiresInSeconds * 1000 : undefined,
+    })
+  );
+  persistentStorage.setItem(
+    REFRESH_TOKEN_SESSION_KEY,
+    JSON.stringify({
+      refreshToken: tokens.refreshToken,
       refreshExpiresAt: tokens.refreshExpiresInSeconds ? now + tokens.refreshExpiresInSeconds * 1000 : undefined,
     })
   );
+  // Remove the legacy record that contained both tokens.
+  persistentStorage.removeItem(TOKEN_SESSION_KEY);
 }
 
 function clearStoredTokenSession() {
+  getAccessTokenStorage()?.removeItem(TOKEN_SESSION_KEY);
   getStorage()?.removeItem(TOKEN_SESSION_KEY);
+  getStorage()?.removeItem(REFRESH_TOKEN_SESSION_KEY);
   tenantSettingsCache = null;
   tenantSettingsRequest = null;
   tenantSettingsLoaded = false;
@@ -917,6 +965,9 @@ export const authService = {
       };
     }
     const storedTokens = authMode === "token" ? getStoredTokenSession() : null;
+    if (!storedTokens?.accessToken && storedTokens?.refreshToken) {
+      return this.refreshSession();
+    }
     if (storedTokens?.accessToken) {
       setApiClientContext({ authMode: "token", authToken: storedTokens.accessToken });
     }
@@ -1031,25 +1082,7 @@ export const authService = {
 
   async refreshSession(): Promise<SessionResponse> {
     if (authMode === "token") {
-      const storedTokens = getStoredTokenSession();
-      if (!storedTokens?.refreshToken) {
-        throw new Error("No refresh token available");
-      }
-
-      const refreshPath = import.meta.env.VITE_AUTH_REFRESH_PATH?.trim() || TOKEN_AUTH_ENDPOINTS.refresh;
-
-      const res = await apiClient.post<TokenLoginResponse>(
-        buildAuthServiceUrl(refreshPath),
-        { refreshToken: storedTokens.refreshToken },
-        { _skipAuthRefresh: true } as unknown,
-      );
-
-      const tokens = {
-        ...res.data,
-        refreshToken: res.data.refreshToken || storedTokens.refreshToken,
-      };
-      setStoredTokenSession(tokens);
-      setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
+      const tokens = await this.refreshAccessToken();
 
       const context = await this.checkSession();
       return {
@@ -1065,6 +1098,28 @@ export const authService = {
     }
 
     return this.login(credentials);
+  },
+
+  async refreshAccessToken(): Promise<TokenLoginResponse> {
+    const storedTokens = getStoredTokenSession();
+    if (!storedTokens?.refreshToken) {
+      throw new Error("No refresh token available");
+    }
+
+    const refreshPath = import.meta.env.VITE_AUTH_REFRESH_PATH?.trim() || TOKEN_AUTH_ENDPOINTS.refresh;
+    const res = await apiClient.post<TokenLoginResponse>(
+      buildAuthServiceUrl(refreshPath),
+      { refreshToken: storedTokens.refreshToken },
+      { _skipAuthRefresh: true } as unknown,
+    );
+
+    const tokens = {
+      ...res.data,
+      refreshToken: res.data.refreshToken || storedTokens.refreshToken,
+    };
+    setStoredTokenSession(tokens);
+    setApiClientContext({ authMode: "token", authToken: tokens.accessToken });
+    return tokens;
   },
 
   async logout(): Promise<void> {

@@ -238,9 +238,7 @@ export function createApiClient(baseURL: string): AxiosInstance {
       const originalRequest = error.config as RequestConfigWithMeta | undefined;
 
       if (status === 401 || status === 419) {
-        const isExpiredToken = status === 401 && responseCode === "TOKEN_EXPIRED";
         const canRefresh =
-          isExpiredToken &&
           Boolean(_refreshSessionHandler) &&
           originalRequest &&
           !originalRequest._retry &&
@@ -250,7 +248,9 @@ export function createApiClient(baseURL: string): AxiosInstance {
           originalRequest._retry = true;
 
           try {
-            console.info("[api-client] 401 TOKEN_EXPIRED received; refreshing the session and retrying the request");
+            console.info(
+              `[api-client] ${status}${responseCode ? ` ${responseCode}` : ""} received; refreshing the session and retrying the request`
+            );
             const refreshResult = await refreshSessionOnce();
             _sessionExpired = false;
 

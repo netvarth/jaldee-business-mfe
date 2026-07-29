@@ -1,5 +1,6 @@
 import { MFELoader } from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
+import { MFEInitialisationFallback } from "./LocationRequiredState";
 
 export function loadLendingRemote() {
   if (import.meta.env.DEV) {
@@ -14,7 +15,7 @@ export function LendingMFE() {
   const props = useBuildMFEProps("mfe-lending", "/lending");
 
   if (!props) {
-    return <div className="shell-mfe-loading">Initialising...</div>;
+    return <MFEInitialisationFallback />;
   }
 
   return <MFELoader remote={loadLendingRemote} props={props} />;

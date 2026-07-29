@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef } from "r
 import type { ReactNode } from "react";
 import { useShellStore } from "../store/shellStore";
 import { initApiClient, setApiClientAuthHandlers, setApiClientContext } from "@jaldee/api-client";
-import { authService, clearStoredCredentials, getAuthMode, getStoredAccessToken, getStoredCredentials, setStoredCredentials } from "../services/authService";
+import { authService, clearStoredCredentials, getAuthMode, getStoredAccessToken, getStoredCredentials, hasStoredAuthSession, setStoredCredentials } from "../services/authService";
 import { themeService } from "../theme/ThemeService";
 import type {
   LoginRequest,
@@ -85,18 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initApiClient(window.location.origin);
     setApiClientAuthHandlers({
       refreshSession: async () => {
-        const response = await authService.refreshSession();
-        const { user, account, locations, token } = response;
-        setAuth(user, account, token ?? "");
-        setAvailableLocations(locations ?? []);
-        if ((locations ?? []).length) {
-          setLocation(locations[0]);
-        }
-        return getAuthMode() === "token" ? { authToken: token ?? "" } : undefined;
+        const tokens = await authService.refreshAccessToken();
+        return { authToken: tokens.accessToken };
       },
       onSessionExpired: () => {
         clearStoredCredentials();
         clearAuth();
+        useShellStore.persist.clearStorage();
       },
     });
   }, [clearAuth]);
@@ -129,13 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const storedCredentials = getStoredCredentials();
     const storedAccessToken = getStoredAccessToken();
-    if (getAuthMode() === "token" && !accessToken && !storedAccessToken) {
+    if (getAuthMode() === "token" && !accessToken && !storedAccessToken && !hasStoredAuthSession()) {
       setAuthResolved(true);
       return;
     }
 
     hasBootstrappedSessionRef.current = true;
-    let cancelled = false;
 
     const bootstrapSession =
       getAuthMode() === "session" && storedCredentials
@@ -144,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     bootstrapSession
       .then((response) => {
-        if (cancelled || response.multiFactorAuthenticationRequired) {
+        if (response.multiFactorAuthenticationRequired) {
           return;
         }
 
@@ -158,18 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthResolved(true);
       })
       .catch(() => {
-        if (!cancelled) {
-          hasBootstrappedSessionRef.current = false;
-          hasFetchedLocationsRef.current = false;
-          clearStoredCredentials();
-          clearAuth();
-          setAuthResolved(true);
-        }
+        hasBootstrappedSessionRef.current = false;
+        hasFetchedLocationsRef.current = false;
+        clearStoredCredentials();
+        clearAuth();
+        setAuthResolved(true);
+        useShellStore.persist.clearStorage();
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [accessToken, clearAuth, hasHydrated, isAuthenticated, setAuth, setAuthResolved, setAvailableLocations, setLocation]);
 
   async function login(payload: LoginRequest) {
@@ -280,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearStoredCredentials();
       clearAuth();
       setAuthResolved(true);
+      useShellStore.persist.clearStorage();
     }
   }
 

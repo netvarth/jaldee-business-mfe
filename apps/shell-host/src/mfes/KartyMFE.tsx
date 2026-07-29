@@ -1,5 +1,6 @@
 import { MFELoader } from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
+import { MFEInitialisationFallback } from "./LocationRequiredState";
 
 export function loadKartyRemote() {
   if (import.meta.env.DEV) {
@@ -14,7 +15,7 @@ export function KartyMFE() {
   const props = useBuildMFEProps("mfe-karty", "/karty");
 
   if (!props) {
-    return <div className="shell-mfe-loading">Initialising...</div>;
+    return <MFEInitialisationFallback />;
   }
 
   return <MFELoader remote={loadKartyRemote} props={props} />;

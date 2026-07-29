@@ -191,7 +191,6 @@ export const useShellStore = create<ShellStore>()(
       partialize: (state) => ({
         user: state.user,
         account: state.account,
-        accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
         activeLocation: state.activeLocation,
         availableLocations: state.availableLocations,
@@ -204,6 +203,8 @@ export const useShellStore = create<ShellStore>()(
         const merged: ShellStore = {
           ...currentState,
           ...persisted,
+          accessToken: null,
+          isAuthenticated: false,
           account: normalizeAccountContext(
             persisted.account ?? currentState.account
           ),

@@ -567,6 +567,11 @@ function buildEnabledModulesFromSelection(currentModules: string[] | undefined, 
 export default function SettingsPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const requestedReturnTo = new URLSearchParams(location.search).get("returnTo");
+  const returnTo =
+    requestedReturnTo?.startsWith("/") && !requestedReturnTo.startsWith("//")
+      ? requestedReturnTo
+      : null;
   const account = useShellStore((state) => state.account);
   const setAccount = useShellStore((state) => state.setAccount);
   const setAvailableLocations = useShellStore((state) => state.setAvailableLocations);
@@ -1277,17 +1282,30 @@ export default function SettingsPage() {
           title={activeItem.label}
           subtitle={activeItem.key === "subscriptions" ? `Manage your plan and the products, modules, and services enabled for ${displayName}` : activeItem.key === "locations" ? "Manage branch locations and operating defaults" : "Your business profile and operating defaults"}
           actions={
-            <Button
-              id={activeItem.key === "locations" ? "settings-locations-create-button" : "settings-save-button"}
-              data-testid={activeItem.key === "locations" ? "settings-locations-create-button" : "settings-save-button"}
-              variant="primary"
-              className="settings-save-button"
-              onClick={activeItem.key === "locations" ? openCreateLocationDialog : handleSaveSettings}
-              disabled={settingsSaving || settingsLoading || locationsLoading || locationSaving}
-            >
-              <ActionGlyph kind={activeItem.key === "locations" ? "add" : "save"} />
-              {activeItem.key === "locations" ? "Create Location" : settingsSaving ? "Saving" : "Save Changes"}
-            </Button>
+            <>
+              {activeItem.key === "locations" && returnTo ? (
+                <Button
+                  id="settings-locations-back-button"
+                  data-testid="settings-locations-back-button"
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate(returnTo)}
+                >
+                  Back
+                </Button>
+              ) : null}
+              <Button
+                id={activeItem.key === "locations" ? "settings-locations-create-button" : "settings-save-button"}
+                data-testid={activeItem.key === "locations" ? "settings-locations-create-button" : "settings-save-button"}
+                variant="primary"
+                className="settings-save-button"
+                onClick={activeItem.key === "locations" ? openCreateLocationDialog : handleSaveSettings}
+                disabled={settingsSaving || settingsLoading || locationsLoading || locationSaving}
+              >
+                <ActionGlyph kind={activeItem.key === "locations" ? "add" : "save"} />
+                {activeItem.key === "locations" ? "Create Location" : settingsSaving ? "Saving" : "Save Changes"}
+              </Button>
+            </>
           }
           className="settings-page__header"
         />

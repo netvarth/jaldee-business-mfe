@@ -50,6 +50,81 @@ function detailsToMessage(details: unknown): string | null {
   return messages.length ? messages.join("; ") : null;
 }
 
+function fieldErrorsToMessage(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  const messages = value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      return asString((entry as Record<string, unknown>).message);
+    })
+    .filter((message): message is string => Boolean(message));
+  return messages.length ? messages.join("; ") : null;
+}
+
+function findFieldErrorMessage(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const message = findFieldErrorMessage(entry);
+      if (message) return message;
+    }
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const direct = fieldErrorsToMessage(record.fieldErrors);
+  if (direct) return direct;
+  for (const entry of Object.values(record)) {
+    const message = findFieldErrorMessage(entry);
+    if (message) return message;
+  }
+  return null;
+}
+
+function technicalValidationMessage(technicalMessage: string | null): string | null {
+  if (!technicalMessage) return null;
+
+  // Dependency/Feign errors commonly embed the downstream JSON response inside
+  // a larger technical message, e.g. `...: [{"details":{"fieldErrors":...}}]`.
+  for (const openingToken of ["[{", "{"]) {
+    const start = technicalMessage.indexOf(openingToken);
+    if (start < 0) continue;
+    const candidate = technicalMessage.slice(start);
+    try {
+      const message = findFieldErrorMessage(JSON.parse(candidate));
+      if (message) return message;
+    } catch {
+      // The downstream body may be followed by transport text; try a shorter
+      // balanced-looking suffix before falling back to the public error.
+      const closingToken = openingToken === "[{" ? "}]" : "}";
+      const end = candidate.lastIndexOf(closingToken);
+      if (end >= 0) {
+        try {
+          const message = findFieldErrorMessage(
+            JSON.parse(candidate.slice(0, end + closingToken.length))
+          );
+          if (message) return message;
+        } catch {
+          // Ignore malformed or truncated dependency payloads.
+        }
+      }
+    }
+  }
+
+  // Feign can truncate the embedded response before it is valid JSON. The
+  // first field-error message is still safe to surface when its standard
+  // `field`/`message` shape is present.
+  const truncatedFieldError = technicalMessage.match(
+    /"field"\s*:\s*"[^"]+"\s*,\s*"message"\s*:\s*"([^"]*)/
+  )?.[1];
+  if (truncatedFieldError) {
+    return truncatedFieldError
+      .replace(/\s*\(\d+\s+bytes\)\]?\s*$/, "")
+      .trim();
+  }
+  return null;
+}
+
 function isGeneric(message: string | null) {
   if (!message) return true;
   const normalized = message.toLowerCase();
@@ -69,8 +144,10 @@ export function getReadableApiError(
 
   const publicMessage = asString(body?.message);
   const technicalMessage = asString(body?.technicalMessage);
+  const validationMessage = technicalValidationMessage(technicalMessage);
   const message =
     detailsToMessage(body?.details) ??
+    validationMessage ??
     (isGeneric(publicMessage) ? technicalMessage : publicMessage) ??
     technicalMessage ??
     asString(body?.error) ??

@@ -1,5 +1,6 @@
 import { MFELoader }        from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
+import { MFEInitialisationFallback } from "./LocationRequiredState";
 
 export function loadHealthRemote() {
   if (import.meta.env.DEV) {
@@ -13,11 +14,7 @@ export function loadHealthRemote() {
 export function HealthMFE() {
   const props = useBuildMFEProps("mfe-health", "/health");
 
-  if (!props) return (
-    <div className="shell-mfe-loading">
-      Initialising...
-    </div>
-  );
+  if (!props) return <MFEInitialisationFallback />;
 
   return (
     <MFELoader

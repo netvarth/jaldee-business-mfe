@@ -1,5 +1,6 @@
 import { MFELoader } from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
+import { MFEInitialisationFallback } from "./LocationRequiredState";
 
 export function loadGoldErpRemote() {
   if (import.meta.env.DEV) {
@@ -14,11 +15,7 @@ export function GoldErpMFE() {
   const props = useBuildMFEProps("mfe-golderp", "/golderp");
 
   if (!props) {
-    return (
-      <div className="shell-mfe-loading">
-        Initialising...
-      </div>
-    );
+    return <MFEInitialisationFallback />;
   }
 
   return (

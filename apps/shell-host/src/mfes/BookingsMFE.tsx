@@ -1,5 +1,6 @@
 import { MFELoader }        from "../routing/MFELoader";
 import { useBuildMFEProps } from "../hooks/useMFEProps";
+import { MFEInitialisationFallback } from "./LocationRequiredState";
 
 export function loadBookingsRemote() {
   if (import.meta.env.DEV) {
@@ -13,11 +14,7 @@ export function loadBookingsRemote() {
 export function BookingsMFE() {
   const props = useBuildMFEProps("mfe-bookings", "/bookings");
 
-  if (!props) return (
-    <div className="shell-mfe-loading">
-      Initialising...
-    </div>
-  );
+  if (!props) return <MFEInitialisationFallback />;
 
   return (
     <MFELoader
