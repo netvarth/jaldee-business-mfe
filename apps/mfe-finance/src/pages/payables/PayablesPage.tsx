@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
-import { Button, DataTable, EmptyState, Icon, Popover, SectionCard } from "@jaldee/design-system";
+import { Button, Icon, Popover } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import type { FinancePayable } from "../../lib/financeData";
 import { formatCurrency } from "../../lib/financeData";
 import { financeApi } from "../../lib/financeApi";
 import { normalizePayableRows } from "../../lib/payableMappers";
-import { FinanceFeatureLayout } from "../../components/FinancePageLayout";
+import { FinanceFeatureLayout, FinanceFilterButton, ServerDataTableCard } from "../../components/FinancePageLayout";
 
 export default function PayablesPage() {
   const mfeProps = useMFEProps();
@@ -117,46 +117,31 @@ export default function PayablesPage() {
 
   return (
     <FinanceFeatureLayout
-      title="Payouts"
+      title={`Payouts (${totalRecords})`}
       subtitle="Payouts and outgoing vendor commitments."
       actions={
         <div className="flex items-center gap-2">
           <Button onClick={() => navigate("create")}>Create Payout</Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label="Filter payouts"
-            className="h-9 w-9 px-0 text-[var(--color-primary)] hover:bg-[color:color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
-            icon={<Icon name="filter" className="h-6 w-6" aria-hidden="true" />}
-          />
         </div>
       }
       main={
-        <SectionCard className="border-slate-200 shadow-sm" padding={false}>
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
-            <h2 className="text-[length:var(--text-base)] font-semibold text-[var(--color-text-primary)]">{`Payout(${totalRecords})`}</h2>
-          </div>
-          <DataTable
+        <ServerDataTableCard
+            actions={
+              <FinanceFilterButton testId="finance-payouts-filter" />
+            }
             data={financePayables}
             columns={columns}
             getRowId={(row) => row.id}
             loading={loading}
-            className="rounded-none border-x-0 border-b-0 shadow-none"
-            tableClassName="min-w-[1200px]"
-            data-testid="finance-payout-table"
-            pagination={{
-              page,
-              pageSize,
-              total: totalRecords,
-              onChange: setPage,
-              onPageSizeChange: setPageSize,
-              mode: "server",
-            }}
-            emptyState={<EmptyState title="No Payout" description={loading ? "Loading payout..." : "Payout entries will appear here."} />}
+            page={page}
+            pageSize={pageSize}
+            total={totalRecords}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            testId="finance-payout-table"
+            emptyTitle="No Payout"
+            emptyDescription={loading ? "Loading payouts..." : "Payout entries will appear here."}
           />
-        </SectionCard>
       }
     />
   );

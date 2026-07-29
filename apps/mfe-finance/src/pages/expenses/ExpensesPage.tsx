@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
-import { Button, DataTable, EmptyState, Icon, Popover, SectionCard, Select, Switch } from "@jaldee/design-system";
+import { Button, Icon, Popover, Select, Switch } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import type { FinanceExpense } from "../../lib/financeData";
 import { formatCurrency } from "../../lib/financeData";
 import { financeApi } from "../../lib/financeApi";
-import { FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
+import { FinanceFeatureLayout, FinanceFilterButton, PageShell, ServerDataTableCard } from "../../components/FinancePageLayout";
 
 function normalizeExpenseRows(payload: any): FinanceExpense[] {
   const records = Array.isArray(payload)
@@ -274,11 +274,9 @@ export default function ExpensesPage() {
         </div>
       }
     >
-      <SectionCard className="border-slate-200 shadow-sm" padding={false}>
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <h2 className="text-[length:var(--text-base)] font-semibold text-[var(--color-text-primary)]">
-            Expense({totalRecords})
-          </h2>
+      <ServerDataTableCard
+        title={`Expense (${totalRecords})`}
+        actions={
           <div className="flex items-center gap-2">
             <Select
               value="All"
@@ -289,37 +287,22 @@ export default function ExpensesPage() {
               aria-label="Expense filter"
             />
             <Button onClick={() => navigate("new")}>Create Expense</Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label="Filter expenses"
-              className="h-9 w-9 px-0 text-[var(--color-primary)] hover:bg-[color:color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
-              icon={<Icon name="filter" className="h-6 w-6" aria-hidden="true" />}
-            />
+            <FinanceFilterButton testId="finance-expenses-filter" />
           </div>
-        </div>
-
-        <DataTable
-          data={financeExpenses}
-          columns={columns}
-          getRowId={(row) => row.id}
-          loading={loading}
-          data-testid="finance-expense-table"
-          className="rounded-none border-x-0 border-b-0 shadow-none"
-          tableClassName="min-w-[1180px]"
-          pagination={{
-            page,
-            pageSize,
-            total: totalRecords,
-            onChange: setPage,
-            onPageSizeChange: setPageSize,
-            mode: "server",
-          }}
-          emptyState={<div className="px-5 py-4 text-[length:var(--text-sm)] text-[var(--color-text-primary)]">No Expense Found.</div>}
-        />
-      </SectionCard>
+        }
+        data={financeExpenses}
+        columns={columns}
+        getRowId={(row) => row.id}
+        loading={loading}
+        page={page}
+        pageSize={pageSize}
+        total={totalRecords}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        testId="finance-expense-table"
+        emptyTitle="No Expense"
+        emptyDescription={loading ? "Loading expenses..." : "No expenses found."}
+      />
     </PageShell>
   );
 }

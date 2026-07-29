@@ -9,7 +9,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
-import { DataTableCard, PageShell } from "../../components/FinancePageLayout";
+import { DataTableCard, FinanceFilterButton, PageShell } from "../../components/FinancePageLayout";
 
 export function CustomersPage() {
   const navigate = useNavigate();
@@ -91,16 +91,17 @@ export function CustomersPage() {
 
   return (
     <PageShell
-      title="Finance Consumers"
+      title={`Finance Consumers (${customers.length})`}
       subtitle="Manage consumers available in the finance module."
       actions={<Button onClick={() => navigate("create")}>Create Consumer</Button>}
     >
       <DataTableCard
-        title={`Consumers (${customers.length})`}
-        subtitle="Finance consumer directory."
-        actions={loading ? <span className="text-sm text-slate-500">Loading consumers...</span> : undefined}
+        actions={
+          <FinanceFilterButton testId="finance-consumers-filter" />
+        }
         data={customers}
         columns={columns}
+        loading={loading}
         emptyTitle="No finance consumers found"
         emptyDescription="Finance consumers will appear here once available from the finance consumer API."
         getRowId={(row) => row.uid}

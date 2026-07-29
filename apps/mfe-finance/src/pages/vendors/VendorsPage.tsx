@@ -2,15 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
-  DataTable,
-  EmptyState,
   Icon,
   Popover,
-  SectionCard,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
-import { FinanceFeatureLayout } from "../../components/FinancePageLayout";
+import { FinanceFeatureLayout, FinanceFilterButton, ServerDataTableCard } from "../../components/FinancePageLayout";
 
 export default function VendorsPage() {
   const navigate = useNavigate();
@@ -142,28 +139,27 @@ export default function VendorsPage() {
 
   return (
     <FinanceFeatureLayout
-      title="Vendors"
+      title={`Vendors (${totalRecords})`}
       subtitle="Vendor directory for finance operations."
       actions={<Button onClick={() => navigate("create")}>Create Vendor</Button>}
       main={
-        <SectionCard className="border-slate-200 shadow-sm">
-          <div className="mb-4 text-xl font-semibold text-slate-900">{`Vendors(${vendors.length})`}</div>
-          <DataTable
+        <ServerDataTableCard
+            actions={
+              <FinanceFilterButton testId="finance-vendors-filter" />
+            }
             data={vendors}
             columns={columns}
             getRowId={(row) => row.id}
             loading={loading}
-            pagination={{
-              page,
-              pageSize,
-              total: totalRecords,
-              onChange: setPage,
-              onPageSizeChange: setPageSize,
-              mode: "server",
-            }}
-            emptyState={<EmptyState title="No vendors" description={loading ? "Loading vendors..." : "Vendor records will appear here."} />}
+            page={page}
+            pageSize={pageSize}
+            total={totalRecords}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            testId="finance-vendors-table"
+            emptyTitle="No vendors"
+            emptyDescription={loading ? "Loading vendors..." : "Vendor records will appear here."}
           />
-        </SectionCard>
       }
     />
   );

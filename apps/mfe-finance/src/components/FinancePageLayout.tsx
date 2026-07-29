@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Button,
   DataTable,
+  DataTablePagination,
   EmptyState,
   Icon,
   PageHeader,
@@ -19,6 +21,134 @@ interface QuickAction {
   icon: "packagePlus" | "alert" | "trend" | "history" | "globe" | "list" | "layers" | "chart" | "database" | "warehouse";
   tone: string;
   note: string;
+}
+
+type FinanceGridView = "table" | "cards";
+
+export function FinanceFilterButton({
+  testId,
+  label = "Filter",
+  onClick,
+}: {
+  testId: string;
+  label?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      data-testid={testId}
+      aria-label={label}
+      onClick={onClick}
+      className="h-10 border-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
+      icon={
+        <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-[2.2]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+        </svg>
+      }
+    >
+      {label}
+    </Button>
+  );
+}
+
+function FinanceGridViewToggle({
+  value,
+  onChange,
+  testId,
+}: {
+  value: FinanceGridView;
+  onChange: (value: FinanceGridView) => void;
+  testId: string;
+}) {
+  return (
+    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+      {(["table", "cards"] as const).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          data-testid={`${testId}-view-${mode}`}
+          onClick={() => onChange(mode)}
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-md border-0 ${
+            value === mode ? "bg-[var(--color-primary)] text-white" : "bg-transparent text-[var(--color-text-secondary)]"
+          }`}
+          aria-label={`${mode === "table" ? "Table" : "Card"} view`}
+          title={`${mode === "table" ? "Table" : "Card"} view`}
+        >
+          {mode === "table" ? (
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FinanceListToolbar({
+  leading,
+  actions,
+  viewMode,
+  onViewModeChange,
+  testId,
+}: {
+  leading?: ReactNode;
+  actions?: ReactNode;
+  viewMode: FinanceGridView;
+  onViewModeChange: (value: FinanceGridView) => void;
+  testId: string;
+}) {
+  return (
+    <div className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] px-4 py-4" data-testid={`${testId}-toolbar`}>
+      <div className={`flex flex-col gap-3 sm:flex-row sm:items-center ${leading ? "sm:justify-between" : "sm:justify-end"}`}>
+        {leading}
+        <div className="flex items-center justify-end gap-3">
+          {actions}
+          <FinanceGridViewToggle value={viewMode} onChange={onViewModeChange} testId={testId} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinanceCardGrid<T extends object>({
+  data,
+  columns,
+  getRowId,
+  emptyTitle,
+  emptyDescription,
+}: {
+  data: T[];
+  columns: ColumnDef<T>[];
+  getRowId: (row: T) => string;
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  const visibleColumns = columns.filter((column) => !column.hidden && column.key !== "actions").slice(0, 6);
+  if (!data.length) return <EmptyState title={emptyTitle} description={emptyDescription} />;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {data.map((row) => (
+        <div key={getRowId(row)} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+          <div className="space-y-3">
+            {visibleColumns.map((column, index) => (
+              <div key={String(column.key)} className={index === 0 ? "" : "flex items-start justify-between gap-4"}>
+                <div className={index === 0 ? "text-base font-semibold text-[var(--color-text)]" : "text-xs font-medium text-[var(--color-text-secondary)]"}>
+                  {index === 0 ? null : column.header}
+                </div>
+                <div className={index === 0 ? "text-base font-semibold text-[var(--color-text)]" : "text-sm text-right text-[var(--color-text)]"}>
+                  {column.render ? column.render(row) : String(row[column.key as keyof T] ?? "-")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function toFinanceRoute(routePath: string) {
@@ -112,6 +242,7 @@ export function DataTableCard<T extends object>({
   title,
   subtitle,
   actions,
+  bare = false,
   data,
   columns,
   emptyTitle,
@@ -119,9 +250,10 @@ export function DataTableCard<T extends object>({
   getRowId,
   loading = false,
 }: {
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
   actions?: ReactNode;
+  bare?: boolean;
   data: T[];
   columns: ColumnDef<T>[];
   emptyTitle: string;
@@ -131,8 +263,10 @@ export function DataTableCard<T extends object>({
 }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [viewMode, setViewMode] = useState<FinanceGridView>("table");
   const total = data.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const visibleData = data.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -140,16 +274,21 @@ export function DataTableCard<T extends object>({
     }
   }, [page, totalPages]);
 
-  return (
-    <SectionCard className="border-slate-200 shadow-sm">
-      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[22px] font-semibold text-slate-900">{title}</div>
-          <div className="mt-1 text-sm text-slate-500">{subtitle}</div>
-        </div>
-        {actions}
-      </div>
-      <DataTable
+  const content = (
+    <>
+      <FinanceListToolbar
+        leading={title || subtitle ? (
+          <div>
+          {title ? <div className="text-[22px] font-semibold text-slate-900">{title}</div> : null}
+          {subtitle ? <div className="mt-1 text-sm text-slate-500">{subtitle}</div> : null}
+          </div>
+        ) : undefined}
+        actions={actions}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        testId="finance-data"
+      />
+      {viewMode === "table" ? <DataTable
         data={data}
         columns={columns}
         getRowId={getRowId}
@@ -162,10 +301,19 @@ export function DataTableCard<T extends object>({
           onPageSizeChange: setPageSize,
           mode: "client",
         }}
+        className="rounded-none border-0 bg-transparent shadow-none"
+        tableClassName="min-w-[760px] [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
         emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
-      />
-    </SectionCard>
+      /> : (
+        <>
+          <FinanceCardGrid data={visibleData} columns={columns} getRowId={getRowId} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+          <DataTablePagination page={page} pageSize={pageSize} total={total} onChange={setPage} onPageSizeChange={setPageSize} />
+        </>
+      )}
+    </>
   );
+
+  return bare ? content : <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>{content}</SectionCard>;
 }
 
 export function FeedCard({
@@ -213,5 +361,77 @@ export function SummaryList({
         </div>
       ))}
     </div>
+  );
+}
+
+export function ServerDataTableCard<T extends object>({
+  title,
+  actions,
+  data,
+  columns,
+  emptyTitle,
+  emptyDescription,
+  getRowId,
+  loading,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
+  testId,
+}: {
+  title?: string;
+  actions?: ReactNode;
+  data: T[];
+  columns: ColumnDef<T>[];
+  emptyTitle: string;
+  emptyDescription: string;
+  getRowId: (row: T) => string;
+  loading: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  testId: string;
+}) {
+  const [viewMode, setViewMode] = useState<FinanceGridView>("table");
+
+  return (
+    <SectionCard
+      className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm"
+      padding={false}
+    >
+      <FinanceListToolbar
+        leading={title ? <div className="text-[22px] font-semibold text-slate-900">{title}</div> : undefined}
+        actions={actions}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        testId={testId}
+      />
+      {viewMode === "table" ? <DataTable
+        data={data}
+        columns={columns}
+        getRowId={getRowId}
+        loading={loading}
+        data-testid={testId}
+        pagination={{
+          page,
+          pageSize,
+          total,
+          onChange: onPageChange,
+          onPageSizeChange,
+          mode: "server",
+        }}
+        className="rounded-none border-0 bg-transparent shadow-none"
+        tableClassName="min-w-[760px] [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+        emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
+      /> : (
+        <div className="p-4">
+          <FinanceCardGrid data={data} columns={columns} getRowId={getRowId} emptyTitle={emptyTitle} emptyDescription={emptyDescription} />
+          <DataTablePagination page={page} pageSize={pageSize} total={total} onChange={onPageChange} onPageSizeChange={onPageSizeChange} controlTestIdPrefix={`${testId}-cards`} />
+        </div>
+      )}
+    </SectionCard>
   );
 }
