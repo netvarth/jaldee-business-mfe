@@ -29,6 +29,16 @@ export default defineConfig({
     target: "esnext",
     minify: "esbuild",
     cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("react-dom") || id.includes("/react/")) return "react-vendor";
+          if (id.includes("axios")) return "http-client";
+          if (id.includes("/packages/design-system/")) return "design-system";
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port: 3005,

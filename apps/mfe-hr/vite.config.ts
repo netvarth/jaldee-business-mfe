@@ -30,6 +30,16 @@ export default defineConfig({
     target:       "esnext",
     minify:       "esbuild",
     cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@vladmandic/face-api") || id.includes("@tensorflow")) return "hr-face-processing";
+          if (id.includes("react-dom") || id.includes("/react/")) return "react-vendor";
+          if (id.includes("axios")) return "http-client";
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port: 3007,

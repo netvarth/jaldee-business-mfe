@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { normalizeAccountContext, type ProductKey } from "@jaldee/auth-context";
 import { apiClient } from "@jaldee/api-client";
 import { EmptyState, SectionCard } from "@jaldee/design-system";
@@ -7,24 +6,13 @@ import { SharedModulesProvider } from "@jaldee/shared-modules";
 import { LeadsModule } from "../../../../packages/shared-modules/src/leads";
 import { useShellStore } from "../store/shellStore";
 import { eventBus } from "../eventBus/eventBus";
+import { shellQueryClient } from "../queryClient";
 
 export default function LeadsPage() {
   const user = useShellStore((state) => state.user);
   const account = useShellStore((state) => state.account);
   const activeLocation = useShellStore((state) => state.activeLocation);
   const availableLocations = useShellStore((state) => state.availableLocations);
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
-
   if (!user || !account) {
     return (
       <SectionCard className="border-slate-200 shadow-sm">
@@ -38,7 +26,7 @@ export default function LeadsPage() {
     : (account.licensedProducts[0] ?? "karty");
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={shellQueryClient}>
       <SharedModulesProvider
         value={{
           moduleName: "leads",

@@ -1,6 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { normalizeAccountContext, type ProductKey } from "@jaldee/auth-context";
 import { apiClient } from "@jaldee/api-client";
 import { EmptyState } from "../../../../packages/design-system/src/components/EmptyState/EmptyState";
@@ -8,6 +8,7 @@ import { SectionCard } from "../../../../packages/design-system/src/components/S
 import { SharedModulesProvider } from "../../../../packages/shared-modules/src/context";
 import { useShellStore } from "../store/shellStore";
 import PageLoadingSkeleton from "../layout/PageLoadingSkeleton";
+import { shellQueryClient } from "../queryClient";
 
 const CustomersModule = lazy(() =>
   import("../../../../packages/shared-modules/src/customers").then((m) => ({
@@ -46,19 +47,7 @@ const UsersModule = lazy(() =>
 );
 
 function useSharedQueryClient() {
-  return useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            retry: false,
-            refetchOnWindowFocus: false,
-            refetchOnReconnect: false,
-            staleTime: 30_000,
-          },
-        },
-      }),
-  )[0];
+  return shellQueryClient;
 }
 
 function usePreferredProduct(): ProductKey | null {

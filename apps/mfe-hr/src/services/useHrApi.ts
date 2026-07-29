@@ -39,8 +39,47 @@ interface CacheEntry {
 }
 const getCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 2000; // 2 seconds cache
+const MAX_GET_CACHE_ENTRIES = 100;
 const searchRequestCache = new Map<string, CacheEntry>();
 const SEARCH_DEDUPE_TTL_MS = 1000;
+const MAX_SEARCH_CACHE_ENTRIES = 50;
+
+function pruneCache(
+  cache: Map<string, CacheEntry>,
+  now: number,
+  ttlMs: number,
+  maxEntries: number,
+) {
+  for (const [key, entry] of cache) {
+    if (now - entry.timestamp >= ttlMs) {
+      cache.delete(key);
+    }
+  }
+  while (cache.size >= maxEntries) {
+    const oldestKey = cache.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    cache.delete(oldestKey);
+  }
+}
+
+function requestTimeout(method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH", endpoint: string) {
+  const configuredReadTimeout = Number(import.meta.env.VITE_HR_API_READ_TIMEOUT_MS);
+  const configuredWriteTimeout = Number(import.meta.env.VITE_HR_API_WRITE_TIMEOUT_MS);
+  const legacyTimeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS);
+  if (Number.isFinite(legacyTimeout) && legacyTimeout > 0) return legacyTimeout;
+
+  const isLongRunning =
+    /(?:upload|import|export|report|document|attachment|face|process)/i.test(endpoint);
+  if (isLongRunning) return 60_000;
+  if (method === "GET") {
+    return Number.isFinite(configuredReadTimeout) && configuredReadTimeout > 0
+      ? configuredReadTimeout
+      : 15_000;
+  }
+  return Number.isFinite(configuredWriteTimeout) && configuredWriteTimeout > 0
+    ? configuredWriteTimeout
+    : 30_000;
+}
 
 export function useHrApi() {
   const { authToken, api } = useMFEProps();
@@ -51,12 +90,13 @@ export function useHrApi() {
       method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
       body?: RequestBody
     ): Promise<T> {
-      const timeout = Number(import.meta.env.VITE_HR_API_TIMEOUT_MS) || 4000;
+      const timeout = requestTimeout(method, endpoint);
 
       if (method === "GET") {
         const cacheKey = buildHrServiceUrl(endpoint);
         const cached = getCache.get(cacheKey);
         const now = Date.now();
+        pruneCache(getCache, now, CACHE_TTL_MS, MAX_GET_CACHE_ENTRIES);
 
         if (cached && now - cached.timestamp < CACHE_TTL_MS) {
           return cached.promise as Promise<T>;
@@ -97,6 +137,12 @@ export function useHrApi() {
       const searchKey = isSearchRequest ? `${requestUrl}:${JSON.stringify(body ?? null)}` : "";
       const cachedSearch = isSearchRequest ? searchRequestCache.get(searchKey) : undefined;
       const now = Date.now();
+      pruneCache(
+        searchRequestCache,
+        now,
+        SEARCH_DEDUPE_TTL_MS,
+        MAX_SEARCH_CACHE_ENTRIES,
+      );
       if (cachedSearch && now - cachedSearch.timestamp < SEARCH_DEDUPE_TTL_MS) {
         return cachedSearch.promise as Promise<T>;
       }

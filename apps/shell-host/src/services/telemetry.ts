@@ -35,7 +35,12 @@ function getServiceGatewayPrefix() {
 }
 
 function buildPlatformServiceUrl(path: string) {
-  const configuredBase = import.meta.env.VITE_PLATFORM_SERVICE_PROXY_TARGET?.trim().replace(/\/$/, "") || import.meta.env.VITE_BASE_SERVICE_BASE_URL?.trim().replace(/\/$/, "") || getServiceGatewayPrefix();
+  // VITE_PLATFORM_SERVICE_PROXY_TARGET is consumed by vite.config.ts on the
+  // development server. It must never be used as a browser URL because doing
+  // so bypasses the same-origin proxy and causes CORS preflight failures.
+  const configuredBase =
+    import.meta.env.VITE_PLATFORM_SERVICE_BASE_URL?.trim().replace(/\/$/, "") ||
+    getServiceGatewayPrefix();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   if (!configuredBase) {
     return typeof window !== "undefined" ? `${window.location.origin}${normalizedPath}` : normalizedPath;

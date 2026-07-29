@@ -21,19 +21,15 @@ function get<T>(url: string, params?: ApiFilter): ApiResponse<T> {
 function post<T>(url: string, data?: unknown): ApiResponse<T> {
   return getActiveApi().post<T>(url, data);
 }
-
 function put<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
   return getActiveApi().put<T>(url, data, params ? { params } : undefined);
 }
-
 function del<T>(url: string, params?: ApiFilter): ApiResponse<T> {
   return getActiveApi().delete<T>(url, params ? { params } : undefined);
 }
-
 function buildCountPath(basePath: string) {
   return `${basePath}/count`;
 }
-
 // The MS @ModelAttribute filters use plain field names + Spring Pageable, while the
 // legacy UI sends `from`/`count`, `sort_*`, and `<field>-eq/-like/...` keys. Translate:
 //  - from/count            -> page/size
@@ -70,7 +66,6 @@ function toMsQuery(filter: ApiFilter = {}): ApiFilter {
   }
   return out;
 }
-
 function toTenantSearchBody(
   filter: ApiFilter = {},
   options?: {
@@ -84,20 +79,16 @@ function toTenantSearchBody(
     ? filter.sort
     : options?.defaultSort;
   const view = typeof filter.view === "string" && filter.view ? filter.view : options?.defaultView;
-
   const body: Record<string, unknown> = {
     page: Number.isNaN(page) ? 0 : page,
     size: Number.isNaN(size) ? 10 : size,
   };
-
   if (view) {
     body.view = view;
   }
-
   if (sort && sort.length) {
     body.sort = sort;
   }
-
   if (filter.filters) {
     body.filters = filter.filters;
   } else if (filter.locationUid) {
@@ -107,10 +98,8 @@ function toTenantSearchBody(
       values: [String(filter.locationUid)],
     };
   }
-
   return body;
 }
-
 function createCrudApi(basePath: string) {
   return {
     create<T = unknown>(data: unknown) {
@@ -133,132 +122,33 @@ function createCrudApi(basePath: string) {
     },
   };
 }
-
 function buildTenantApiUrl(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
 }
-
-const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/category");
-const TENANT_CATEGORY_SEARCH_ENDPOINT = `${TENANT_CATEGORY_ENDPOINT}/search`;
-const TENANT_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/status");
-const TENANT_STATUS_SEARCH_ENDPOINT = `${TENANT_STATUS_ENDPOINT}/search`;
-const TENANT_VENDOR_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor");
-const TENANT_VENDOR_SEARCH_ENDPOINT = `${TENANT_VENDOR_ENDPOINT}/search`;
-const TENANT_VENDOR_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/category");
-const TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT = `${TENANT_VENDOR_CATEGORY_ENDPOINT}/search`;
-const TENANT_VENDOR_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/status");
-const TENANT_VENDOR_STATUS_SEARCH_ENDPOINT = `${TENANT_VENDOR_STATUS_ENDPOINT}/search`;
-const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item");
-const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
-const TENANT_PAYMENTS_OUT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-out");
-const TENANT_PAYMENTS_IN_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/search`;
-const TENANT_PAYMENTS_IN_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/count`;
-const TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/search`;
-const TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/cashReserve`;
-const TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/search`;
-const TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/cashReserve`;
-const TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/search`;
+const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/category"); const TENANT_CATEGORY_SEARCH_ENDPOINT = `${TENANT_CATEGORY_ENDPOINT}/search`;
+const TENANT_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/status"); const TENANT_STATUS_SEARCH_ENDPOINT = `${TENANT_STATUS_ENDPOINT}/search`;
+const TENANT_VENDOR_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor"); const TENANT_VENDOR_SEARCH_ENDPOINT = `${TENANT_VENDOR_ENDPOINT}/search`;
+const TENANT_VENDOR_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/category"); const TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT = `${TENANT_VENDOR_CATEGORY_ENDPOINT}/search`;
+const TENANT_VENDOR_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/status"); const TENANT_VENDOR_STATUS_SEARCH_ENDPOINT = `${TENANT_VENDOR_STATUS_ENDPOINT}/search`;
+const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item"); const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
+const TENANT_PAYMENTS_OUT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-out"); const TENANT_PAYMENTS_IN_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/search`;
+const TENANT_PAYMENTS_IN_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/count`; const TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/search`;
+const TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/cashReserve`; const TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/search`;
+const TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/cashReserve`; const TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/search`;
 const TENANT_PAYMENTS_IN_CASH_RESERVE_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/count`;
-
-const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice");
-const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`;
-const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates");
-const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
-const TENANT_SEQUENCE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/template");
-const TENANT_SEQUENCE_TEMPLATE_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/search`;
-const TENANT_SEQUENCE_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/settings");
-const TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/search`;
-
-const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/expenses");
-const TENANT_EXPENSES_SEARCH_ENDPOINT = `${TENANT_EXPENSES_ENDPOINT}/search`;
-const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payment/cash-balance");
-const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
-const TENANT_AUDIT_LOG_SEARCH_ENDPOINT = `${TENANT_AUDIT_LOG_ENDPOINT}/search`;
-const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
-const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer");
-const TENANT_CONSUMER_SEARCH_ENDPOINT = `${TENANT_CONSUMER_ENDPOINT}/search`;
-const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts");
-const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
-const TENANT_COUPONS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/coupons");
-const TENANT_COUPONS_SEARCH_ENDPOINT = `${TENANT_COUPONS_ENDPOINT}/search`;
-const TENANT_TAX_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/tax");
-const TENANT_TAX_SEARCH_ENDPOINT = `${TENANT_TAX_ENDPOINT}/search`;
+const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice"); const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`;
+const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates"); const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
+const TENANT_SEQUENCE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/template"); const TENANT_SEQUENCE_TEMPLATE_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/search`;
+const TENANT_SEQUENCE_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/settings"); const TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/search`;
+const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/expenses"); const TENANT_EXPENSES_SEARCH_ENDPOINT = `${TENANT_EXPENSES_ENDPOINT}/search`;
+const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payment/cash-balance"); const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
+const TENANT_AUDIT_LOG_SEARCH_ENDPOINT = `${TENANT_AUDIT_LOG_ENDPOINT}/search`; const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
+const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer"); const TENANT_CONSUMER_SEARCH_ENDPOINT = `${TENANT_CONSUMER_ENDPOINT}/search`;
+const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts"); const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
+const TENANT_COUPONS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/coupons"); const TENANT_COUPONS_SEARCH_ENDPOINT = `${TENANT_COUPONS_ENDPOINT}/search`;
+const TENANT_TAX_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/tax"); const TENANT_TAX_SEARCH_ENDPOINT = `${TENANT_TAX_ENDPOINT}/search`;
 const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
-
-export function sanitizeFinancePayload<T extends Record<string, unknown>>(data: T) {
-  const sanitized = { ...data };
-  Object.keys(sanitized).forEach((key) => {
-    const value = sanitized[key];
-    if (value === null || value === undefined || value === "") {
-      delete sanitized[key];
-    }
-  });
-  return sanitized;
-}
-
-export function setFiltersFromPrimeTable(
-  event: {
-    first?: number;
-    rows?: number;
-    filters?: Record<string, { value: unknown; matchMode?: string }>;
-    sortField?: string;
-    sortOrder?: 1 | -1;
-  },
-  formatDate?: (date: Date) => string
-) {
-  const apiFilter: Record<string, unknown> = {
-    from: event.first ?? 0,
-    count: event.rows ?? 10,
-  };
-
-  if (event.filters) {
-    Object.entries(event.filters).forEach(([key, filter]) => {
-      if (filter.value == null) return;
-
-      let suffix = "";
-      let value = filter.value;
-
-      switch (filter.matchMode) {
-        case "startsWith":
-          suffix = "startWith";
-          break;
-        case "contains":
-          suffix = "like";
-          break;
-        case "endsWith":
-          suffix = "endWith";
-          break;
-        case "equals":
-          suffix = "eq";
-          break;
-        case "notEquals":
-          suffix = "neq";
-          break;
-        case "dateIs":
-          suffix = "eq";
-          value = formatDate ? formatDate(new Date(value as string)) : value;
-          break;
-        case "dateIsNot":
-          suffix = "neq";
-          value = formatDate ? formatDate(new Date(value as string)) : value;
-          break;
-        default:
-          suffix = "";
-      }
-
-      if (suffix) {
-        apiFilter[`${key}-${suffix}`] = value;
-      }
-    });
-  }
-
-  if (event.sortField && event.sortOrder) {
-    apiFilter[`sort_${event.sortField}`] = event.sortOrder === 1 ? "asc" : "dsc";
-  }
-
-  return apiFilter;
-}
-
+export { sanitizeFinancePayload, setFiltersFromPrimeTable } from "./financeApiUtils";
 const vendors = createCrudApi("provider/vendor");
 const expenses = createCrudApi(TENANT_EXPENSES_ENDPOINT);
 const payables = createCrudApi(TENANT_PAYMENTS_OUT_ENDPOINT);
@@ -268,7 +158,6 @@ const statuses = createCrudApi(TENANT_STATUS_ENDPOINT);
 const invoices = createCrudApi(TENANT_INVOICE_ENDPOINT);
 const invoiceTemplates = createCrudApi(TENANT_INVOICE_TEMPLATE_ENDPOINT);
 const taxes = createCrudApi(TENANT_TAX_ENDPOINT);
-
 export const financeApi = {
   settings: {
     provider<T = unknown>(filter: ApiFilter = {}) {
@@ -290,7 +179,6 @@ export const financeApi = {
       return post<T>("provider/styleconfig/styletype/FinanceStyleConfig", data);
     },
   },
-
   vendors: {
     ...vendors,
     create<T = unknown>(data: unknown) {
@@ -324,7 +212,6 @@ export const financeApi = {
       return put<T>(`provider/jp/finance/vendor/${vendorId}/attachments`, data);
     },
   },
-
   categories: {
     ...categories,
     create<T = unknown>(data: unknown) {
@@ -379,7 +266,6 @@ export const financeApi = {
       });
     },
   },
-
   statuses: {
     ...statuses,
     search<T = unknown>(filter: ApiFilter = {}) {
@@ -407,7 +293,6 @@ export const financeApi = {
       return put<T>(`${TENANT_STATUS_ENDPOINT}/${id}/${status}`);
     },
   },
-
   expenses: {
     ...expenses,
     list<T = unknown>(filter: ApiFilter = {}) {
@@ -420,7 +305,6 @@ export const financeApi = {
       return get<T>("provider/jp/finance/analytics/categorywise/comparison", filter);
     },
   },
-
   payables: {
     ...payables,
     create<T = unknown>(data: unknown) {
@@ -462,7 +346,6 @@ export const financeApi = {
       }));
     },
   },
-
   revenue: {
     ...revenue,
     list<T = unknown>(filter: ApiFilter = {}) {
@@ -481,7 +364,6 @@ export const financeApi = {
       return get<T>(TENANT_PAYMENTS_IN_COUNT_ENDPOINT, toMsQuery(filter));
     },
   },
-
   totals: {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(
@@ -493,7 +375,6 @@ export const financeApi = {
       return get<T>(TENANT_PAYMENTS_IN_COUNT_ENDPOINT, toMsQuery(filter));
     },
   },
-
   invoices: {
     ...invoices,
     // Compatibility aliases for callers that still use the legacy *General names.
@@ -605,7 +486,6 @@ export const financeApi = {
       return get<T>(`${TENANT_INVOICE_PAYMENT_ENDPOINT}/invoice/${invoiceId}`);
     },
   },
-
   cash: {
     createReserve<T = unknown>(direction: "paymentsIn" | "paymentsOut", data: unknown) {
       if (direction === "paymentsIn") {
@@ -641,7 +521,6 @@ export const financeApi = {
       return put<T>(`${TENANT_CASH_BALANCE_ENDPOINT}/calculate/${locationId}`);
     },
   },
-
   analytics: {
     revenue<T = unknown>(filter: ApiFilter = {}) {
       return get<T>("provider/jp/finance/analytics/account", { ...filter, metricId: "174" });
@@ -664,7 +543,6 @@ export const financeApi = {
       );
     },
   },
-
   ledger: {
     list<T = unknown>(filter: ApiFilter = {}) {
       return get<T>("provider/creditsystem", filter);
@@ -706,7 +584,6 @@ export const financeApi = {
       return put<T>("provider/creditsystem/remove/credits", data);
     },
   },
-
   activity: {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_AUDIT_LOG_SEARCH_ENDPOINT, toMsQuery(filter));
@@ -715,7 +592,6 @@ export const financeApi = {
       return get<T>(`${TENANT_AUDIT_LOG_ENDPOINT}/count`, toMsQuery(filter));
     },
   },
-
   locations: {
     provider<T = unknown>() {
       return get<T>("provider/locations");
@@ -727,7 +603,6 @@ export const financeApi = {
       return get<T>("provider/locations", filter);
     },
   },
-
   users: {
     list<T = unknown>(filter: ApiFilter = {}) {
       return get<T>("provider/user", filter);
@@ -739,7 +614,6 @@ export const financeApi = {
       return get<T>(`provider/user/digitalSign/${providerId}`);
     },
   },
-
   customers: {
     search<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, toTenantSearchBody(filter));
@@ -751,7 +625,6 @@ export const financeApi = {
       return get<T>(`${TENANT_CONSUMER_ENDPOINT}/${id}`);
     },
   },
-
   assets: {
     generateUploadPath<T = unknown>(data: unknown) {
       return post<T>("provider/fileShare/upload", data);
@@ -899,5 +772,4 @@ export const financeApi = {
     },
   },
 };
-
 export type FinanceApi = typeof financeApi;
