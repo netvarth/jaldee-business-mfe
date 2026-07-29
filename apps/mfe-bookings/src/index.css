@@ -77,6 +77,7 @@
 .dashboard-body {
     display: flex;
     flex-grow: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
@@ -359,9 +360,11 @@
 /* Calendar Dashboard Core Grid Layout */
 .calendar-grid-container {
     flex-grow: 1;
-    overflow: auto;
+    overflow: hidden;
     background-color: var(--app-bg);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Day View Column Layout */
@@ -1430,6 +1433,7 @@ a:hover {
 .dashboard-body {
     display: flex;
     flex-grow: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
@@ -1712,9 +1716,11 @@ a:hover {
 /* Calendar Dashboard Core Grid Layout */
 .calendar-grid-container {
     flex-grow: 1;
-    overflow: auto;
+    overflow: hidden;
     background-color: var(--app-bg);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Day View Column Layout */

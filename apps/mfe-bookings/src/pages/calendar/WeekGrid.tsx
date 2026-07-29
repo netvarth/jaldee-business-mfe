@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { User, Calendar as CalendarType, Booking, Service } from '../../../types';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
@@ -40,6 +40,7 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
 
 export default function WeekGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect, onViewByChange }: WeekGridProps) {
     const { openModal, openDrawer } = useModal();
+    const scrollRef = useRef<HTMLDivElement>(null);
     const startHour = 0;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
@@ -51,12 +52,19 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
     // Calculate current time marker position
     const now = new Date();
     const minutesFromStart = ((now.getHours() - startHour) * 60) + now.getMinutes();
-    const redLineTop = 60 + Math.floor((minutesFromStart / 60) * 80);
+    const redLineTop = Math.floor((minutesFromStart / 60) * 100);
+
+    useEffect(() => {
+        if (scrollRef.current) {
+            // Scroll to current time, offset by a bit to show context above
+            scrollRef.current.scrollTop = Math.max(0, redLineTop - 120);
+        }
+    }, [redLineTop]);
 
     return (
         <div className="calendar-grid week-view w-full h-full">
             <div className="calendar-grid-content h-full flex flex-col">
-                <div className="calendar-scroll flex-1 custom-scrollbar">
+                <div className="calendar-scroll flex-1 custom-scrollbar" ref={scrollRef}>
                     <div className="calendar-grid-inner min-w-max">
                         {/* Header */}
                         <div className="calendar-header" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(7, minmax(0, 1fr))` }}>

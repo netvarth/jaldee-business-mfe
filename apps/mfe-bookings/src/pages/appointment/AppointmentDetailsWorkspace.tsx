@@ -13,7 +13,8 @@ import {
 import { useBookingPreferences } from "../../services/useBookingPreferences";
 import { useBlockSlot } from "../../services/useBlockSlot";
 import { useSlots } from "../../services/useSlots";
-import type { AllowedAction, BookingStatus, Slot } from "../../types";
+import type { AllowedAction, BookingStatus, Slot, BookingDetails } from "../../types";
+import InvoiceModal from "./InvoiceModal";
 import { buildOffsetDateTime, formatIsoTime } from "../../utils/dateTime";
 import AttachmentsPanel from "./AttachmentsPanel";
 
@@ -112,6 +113,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const [newEnd, setNewEnd] = useState("");
   const [rescheduleSeries, setRescheduleSeries] = useState(false);
   const [viewFullDetails, setViewFullDetails] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -147,8 +149,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const handleAction = (action: AllowedAction) => {
     if (action === "CANCEL") { setCancelOpen((v) => !v); return; }
     if (action === "RESCHEDULE") { setReschedOpen((v) => !v); return; }
-    if (action === "CREATE_INVOICE") { createInvoice(); return; }
-    if (action === "VIEW_INVOICE") { viewInvoice(); return; }
+    if (action === "CREATE_INVOICE") { createInvoice().then(() => setInvoiceModalOpen(true)); return; }
+    if (action === "VIEW_INVOICE") { viewInvoice().then(() => setInvoiceModalOpen(true)); return; }
     if (action === "UNBLOCK") { doUnblock(); return; }
     if (action === "VIEW_SUMMARY" || action === "EDIT" || action === "CREATE_FOLLOWUP") return;
     act(action);
@@ -223,7 +225,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const actionsToShow = details ? getDerivedActions(details.status, details.allowedActions, details.isInvoiceCreated) : [];
 
   return (
-    <div data-testid={`bookings-appointment-details-${bookingId}`} data-state={loading || !details ? "loading" : details.status} className="relative z-40 mx-4 flex max-h-[88vh] w-full max-w-[452px] flex-col overflow-hidden rounded-[28px] border border-[#dfe6f4] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)]" onClick={(e) => e.stopPropagation()}>
+    <div data-testid={`bookings-appointment-details-${bookingId}`} data-state={loading || !details ? "loading" : details.status} className="relative z-40 mx-4 flex max-h-[88vh] w-full max-w-[700px] flex-col overflow-hidden rounded-[28px] border border-[#dfe6f4] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)]" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-start justify-between border-b border-[#e7edf7] px-6 pb-4 pt-5">
             <div>
@@ -485,6 +487,15 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                 </div>
             </div>
         )}
+
+        {/* Invoice Modal */}
+        <InvoiceModal
+          isOpen={invoiceModalOpen}
+          onClose={() => setInvoiceModalOpen(false)}
+          details={details}
+          finance={finance}
+          onPay={recordPayment}
+        />
     </div>
   );
 }

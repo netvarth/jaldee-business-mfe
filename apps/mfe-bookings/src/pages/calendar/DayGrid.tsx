@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { User, Calendar as CalendarType, Booking, Service } from '../../../types';
 import { format, isSameDay } from 'date-fns';
 import { Button } from '@jaldee/design-system';
@@ -39,12 +39,26 @@ function parseTimeValue(value?: string): { hour: number; minute: number } | null
 
 export default function DayGrid({ date, viewBy, users, calendars, bookings, services, onBookingSelect, onGroupSelect, onViewByChange }: DayGridProps) {
     const { openModal, openDrawer } = useModal();
+    const scrollRef = useRef<HTMLDivElement>(null);
     const startHour = 0;
     const endHour = 23;
     const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
     // Filter columns (mocking active selection for now to all)
     const columnsList = viewBy === 'doctors' ? users : calendars;
+
+    // Calculate current time marker position
+    const now = new Date();
+    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    const minutesFromStart = ((now.getHours() - startHour) * 60) + now.getMinutes();
+    const redLineTop = minutesFromStart;
+
+    useEffect(() => {
+        if (scrollRef.current && isToday) {
+            // Scroll to current time, offset by a bit to show context above
+            scrollRef.current.scrollTop = Math.max(0, redLineTop - 120);
+        }
+    }, [isToday, redLineTop]);
 
     if (columnsList.length === 0) {
         return (
@@ -58,16 +72,10 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
         );
     }
 
-    // Calculate current time marker position
-    const now = new Date();
-    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    const minutesFromStart = ((now.getHours() - startHour) * 60) + now.getMinutes();
-    const redLineTop = 60 + Math.floor((minutesFromStart / 60) * 80);
-
     return (
         <div className="calendar-grid day-view w-full h-full">
             <div className="calendar-grid-content h-full flex flex-col">
-                <div className="calendar-scroll flex-1 custom-scrollbar">
+                <div className="calendar-scroll flex-1 custom-scrollbar" ref={scrollRef}>
                     <div className="calendar-grid-inner min-w-max">
                         {/* Header */}
                         <div className="calendar-header" style={{ gridTemplateColumns: `var(--hour-col-width, 120px) repeat(${columnsList.length}, minmax(var(--day-col-width, 300px), 1fr))` }}>
@@ -224,16 +232,16 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 const bgTheme = '#db2777'; // Dark pink background/border
                                                                                 
                                                                                 return (
-                                                                                    <div key={uid} className="relative flex flex-col w-[52px] shrink rounded-[6px] shadow-sm h-[64px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
+                                                                                    <div key={uid} className="relative flex flex-col w-[48px] shrink rounded-[6px] shadow-sm h-[52px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
                                                                                         {/* Top Half */}
-                                                                                        <div className="w-full h-[30px] rounded-t-[5px] flex items-center justify-center" style={{ backgroundColor: bgTheme }}>
-                                                                                            <span className="text-[14px] font-bold text-white">{initials}</span>
+                                                                                        <div className="w-full h-[22px] rounded-t-[5px] flex items-center justify-center" style={{ backgroundColor: bgTheme }}>
+                                                                                            <span className="text-[12px] font-bold text-white">{initials}</span>
                                                                                         </div>
                                                                                         
                                                                                         {/* Bottom Half */}
                                                                                         <div className="w-full flex-1 flex flex-col items-center justify-center pb-0.5">
-                                                                                            <span className="text-[18px] font-extrabold text-slate-800 leading-none">{bks.length}</span>
-                                                                                            <span className="text-[7.5px] text-slate-400 font-medium tracking-wide mt-1">Bookings</span>
+                                                                                            <span className="text-[14px] font-extrabold text-slate-800 leading-none">{bks.length}</span>
+                                                                                            <span className="text-[7px] text-slate-400 font-medium tracking-wide">Bookings</span>
                                                                                         </div>
 
                                                                                         {/* + Circle */}
@@ -308,17 +316,17 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     return (
                                                                                         <div
                                                                                             key={calId}
-                                                                                            className="pointer-events-auto flex flex-col flex-1 min-w-[50px] max-w-full rounded-md transition-all hover:opacity-90 cursor-pointer overflow-hidden shadow-sm"
+                                                                                            className="pointer-events-auto flex flex-col flex-1 min-w-[48px] max-w-full rounded-md transition-all hover:opacity-90 cursor-pointer overflow-hidden shadow-sm h-[52px]"
                                                                                             style={{ border: `1px solid ${toRgba(calColor, 0.3)}` }}
                                                                                             onClick={(e) => { e.stopPropagation(); onGroupSelect?.(calId, id); }}
                                                                                         >
-                                                                                            <div className="flex flex-col items-center justify-center w-full py-1.5" style={{ backgroundColor: toRgba(calColor, 0.1) }}>
-                                                                                                <span className="text-[17px] font-bold text-slate-900 leading-none">{bks.length}</span>
-                                                                                                <span className="text-[9px] text-slate-600 mt-1 font-medium tracking-wide">Bookings</span>
+                                                                                            <div className="flex-1 flex flex-col items-center justify-center w-full pb-0.5" style={{ backgroundColor: toRgba(calColor, 0.1) }}>
+                                                                                                <span className="text-[14px] font-bold text-slate-900 leading-none">{bks.length}</span>
+                                                                                                <span className="text-[7px] text-slate-600 font-medium tracking-wide mt-0.5">Bookings</span>
                                                                                             </div>
-                                                                                            <div className="flex items-center justify-center w-full py-1 bg-white border-t" style={{ borderTopColor: toRgba(calColor, 0.15) }}>
-                                                                                                <div className="w-3.5 h-3.5 rounded-[3px] flex items-center justify-center cursor-pointer hover:opacity-80" style={{ backgroundColor: toRgba(calColor, 0.2) }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialProviderUid={id} />); }}>
-                                                                                                    <span className="text-[10px] leading-none font-bold" style={{ color: calColor }}>+</span>
+                                                                                            <div className="flex items-center justify-center w-full py-0.5 bg-white border-t" style={{ borderTopColor: toRgba(calColor, 0.15) }}>
+                                                                                                <div className="w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer hover:opacity-80" style={{ backgroundColor: toRgba(calColor, 0.2) }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialProviderUid={id} />); }}>
+                                                                                                    <span className="text-[10px] font-bold" style={{ color: toRgba(calColor, 0.8) }}>+</span>
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>

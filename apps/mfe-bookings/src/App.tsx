@@ -37,8 +37,8 @@ const CustomerLabelsPage = lazy(() => import("./pages/labels/CustomerLabelsPage"
 function CalendarPage() {
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
   return (
-    <div className="flex h-full relative overflow-hidden">
-      <div className={cn("flex-1 min-w-0 transition-all duration-300", selectedBooking ? "hidden lg:block" : "block")}>
+    <div id="calendar-page-container" className="flex h-full relative overflow-hidden">
+      <div className={cn("flex-1 h-full min-w-0 min-h-0 transition-all duration-300", selectedBooking ? "hidden lg:block" : "block")}>
         <CalendarDashboard onBookingSelect={setSelectedBooking} />
       </div>
       {selectedBooking && (

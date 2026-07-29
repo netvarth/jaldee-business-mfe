@@ -26,7 +26,7 @@ export default function BookingListPage() {
   );
 
   const { users } = useUsers();
-  const { calendars } = useCalendars([], null, { loadSchema: false });
+  const { calendars } = useCalendars(undefined, null, { loadSchema: false });
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();

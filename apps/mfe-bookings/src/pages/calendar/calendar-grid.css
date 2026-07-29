@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   background: #fff;
   border: 1px solid #E5E5EB;
   border-radius: 0;
@@ -51,11 +52,13 @@
   position: relative;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .calendar-scroll {
   overflow-x: auto;
   overflow-y: auto;
+  min-height: 0;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
   scroll-snap-type: none;
@@ -71,8 +74,7 @@
 }
 
 .calendar-grid-inner {
-  display: flex;
-  flex-direction: column;
+  display: block;
 }
 
 .calendar-body {
@@ -333,19 +335,20 @@
   font-size: 0.75rem;
   color: #9CA3B0;
   display: flex;
-  align-items: center;
-  height: 80px;
+  align-items: flex-start;
+  padding-top: 8px;
+  height: 60px;
   box-shadow: -4px 0 8px rgba(15, 20, 40, 0.08);
   z-index: 5;
 }
 
 .calendar-cell {
-  min-height: 80px;
+  min-height: 60px;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 4px;
   border-left: 1px solid #E5E5EB;
 }
@@ -365,6 +368,11 @@
 .calendar-grid.week-view .calendar-cell {
   align-items: flex-start;
   justify-content: flex-start;
+  min-height: 100px;
+}
+
+.calendar-grid.week-view .hour-column {
+  height: 100px;
 }
 
 .calendar-cell.on-leave {
@@ -1206,6 +1214,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .dashboard-sidebar.collapsed {
@@ -1235,6 +1244,7 @@
 .sidebar-scrollable-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 14px;
   padding: 14px 12px 16px;
   overflow-y: auto;

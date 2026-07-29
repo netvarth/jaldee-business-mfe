@@ -16,6 +16,7 @@ import { useProviders } from "../../services/useProviders";
 import { useSlots } from "../../services/useSlots";
 import { useCreateBooking } from "../../services/useCreateBooking";
 import { useCreateSeriesBooking } from "../../services/useCreateSeriesBooking";
+import { useBlockSlot } from "../../services/useBlockSlot";
 import { useCustomerSearch } from "../../services/useCustomerSearch";
 import { addCreatedBooking } from "../../data/sessionStore";
 import type { BookingChannel, Calendar, CustomerSearchResult, Slot } from "../../types";
@@ -118,6 +119,7 @@ export default function CreateAppointmentDrawer({
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { createBooking, submitting } = useCreateBooking();
   const { createSeries, submitting: seriesSubmitting } = useCreateSeriesBooking();
+  const { blockSlot, submitting: blockSubmitting } = useBlockSlot();
   const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, searchCustomers, clearResults } = useCustomerSearch();
 
   const [step, setStep] = useState(1);
@@ -383,12 +385,12 @@ export default function CreateAppointmentDrawer({
         showToast("Please select a patient", "error");
         return;
       }
-      if (!calendarUid || !serviceUid || !doctorUid) {
-        showToast("Please select Calendar, Service and Assigned User", "error");
+      if (!calendarUid || !serviceUid) {
+        showToast("Please select Calendar and Service", "error");
         return;
       }
     } else {
-      if (!blockReason || !calendarUid || !doctorUid) {
+      if (!blockReason || !calendarUid) {
         showToast("Please complete all block details", "error");
         return;
       }
@@ -405,8 +407,8 @@ export default function CreateAppointmentDrawer({
 
     if (schedulingMode === "book") {
       if (!resolvedPatientName) { showToast("Patient name is required", "error"); return; }
-      if (!calendarUid || !serviceUid || !selectedProviderUid || !scheduleUid || !selectedDate || !slot) {
-        showToast("Please complete calendar, service, professional, date and slot", "error");
+      if (!calendarUid || !serviceUid || !scheduleUid || !selectedDate || !slot) {
+        showToast("Please complete calendar, service, date and slot", "error");
         return;
       }
 
@@ -480,9 +482,39 @@ export default function CreateAppointmentDrawer({
       showToast("Appointment booked", "success");
       closeDrawer();
     } else {
-      // Slot Block logic...
-      showToast("Slot Block created successfully", "success");
-      closeDrawer();
+      if (!calendarUid || !scheduleUid || !selectedDate) {
+        showToast("Please complete calendar, and select a date", "error");
+        return;
+      }
+
+      let startTime = slot?.startTime || "00:00:00";
+      let endTime = slot?.endTime || "23:59:59";
+
+      if (blockDurationType === "single" && !slot) {
+        showToast("Please pick a slot", "error");
+        return;
+      }
+
+      if (blockDurationType === "full") {
+        startTime = "00:00:00";
+        endTime = "23:59:59";
+      }
+
+      try {
+        await blockSlot({
+          scheduleUid,
+          serviceUid: serviceUid || undefined,
+          providerUid: doctorUid || undefined,
+          date: dateStr,
+          startTime,
+          endTime,
+          notes: blockReason,
+        });
+        showToast("Slot Block created successfully", "success");
+        closeDrawer();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Could not create slot block", "error");
+      }
     }
   };
 
@@ -641,7 +673,7 @@ export default function CreateAppointmentDrawer({
                   </div>
                   <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
                   <Select id="bk-service" label="Consultation Service" required placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
-                  <Select id="bk-doctor" label="Assigned User" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
+                  <Select id="bk-doctor" label="Assigned User (Optional)" placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
                 </div>
               </>
             ) : (
@@ -679,15 +711,14 @@ export default function CreateAppointmentDrawer({
                   </div>
                 </div>
 
-                {/* 2. Choose Category & Assigned Staff */}
+                {/* 2. Calendar & Services */}
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-5">
                   <div>
-                    <h3 className="text-sm font-bold text-[#31028C] uppercase tracking-wider">2. Choose Category & Assigned Staff</h3>
+                    <h3 className="text-sm font-bold text-[#31028C] uppercase tracking-wider">2. Calendar & Services</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
-                    <Select id="bk-doctor" label="Assign User" required placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
-                  </div>
+                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={calendars.map((c) => ({ value: c.uid, label: c.name }))} />
+                  <Select id="bk-service" label="Consultation Service (Optional)" placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
+                  <Select id="bk-doctor" label="Assigned User (Optional)" placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
                 </div>
               </>
             )}
@@ -953,9 +984,13 @@ export default function CreateAppointmentDrawer({
         <Button 
           type="submit" 
           className="bg-[#31028C] hover:bg-[#230166] text-white px-8 font-semibold shadow-md" 
-          loading={submitting || seriesSubmitting}
+          loading={submitting || seriesSubmitting || blockSubmitting}
         >
-          {step === 1 ? "Next: Select Date & Time >" : "Confirm Booking"}
+          {step === 1 
+            ? "Next: Select Date & Time >" 
+            : schedulingMode === "block" 
+              ? "Block Slot" 
+              : "Confirm Booking"}
         </Button>
       </div>
     </form>

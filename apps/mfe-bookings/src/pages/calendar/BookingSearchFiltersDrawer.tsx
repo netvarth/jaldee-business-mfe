@@ -67,9 +67,7 @@ export default function BookingSearchFiltersDrawer({
       </div>
 
       <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
-        <Button type="button" variant="outline" onClick={onReset} className="mr-auto">
-          Reset All
-        </Button>
+
         {onSaveFilter && (
           <Button type="button" variant="secondary" onClick={() => onSaveFilter(localFilters)}>
             Save Filter

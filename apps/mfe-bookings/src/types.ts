@@ -332,7 +332,7 @@ export type BookingChannel = "Online" | "Walk-in" | "Phone-in" | "IVR";
 export interface CreateBookingInput {
   calendarUid: string;
   serviceUid: string;
-  providerUid: string;
+  providerUid?: string;
   scheduleUid: string;
   date: string; // YYYY-MM-DD
   startTime: string;

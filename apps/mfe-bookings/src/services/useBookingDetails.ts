@@ -49,6 +49,7 @@ export interface PaymentRecord {
 export interface PayInput {
   amount: number;
   mode?: PaymentMode;
+  acceptedBy?: string;
   transactionId?: string;
   note?: string;
   paymentOn?: string; // ISO OffsetDateTime; defaults to now server-side
@@ -220,13 +221,11 @@ export function useBookingDetails() {
   const recordPayment = useCallback(
     async (input: PayInput) => {
       if (!details) return;
-      const isCash = !input.mode || input.mode === "Cash";
-      const path = isCash
-        ? `/finance/${details.uid}/pay/cash`
-        : `/finance/${details.uid}/pay`;
+      const path = `/booking/finance/${details.uid}/pay`;
       const body = {
         amount: input.amount,
         ...(input.mode ? { mode: input.mode } : {}),
+        ...(input.acceptedBy ? { acceptedBy: input.acceptedBy } : {}),
         ...(input.transactionId ? { transactionId: input.transactionId } : {}),
         ...(input.note ? { note: input.note } : {}),
         ...(input.paymentOn ? { paymentOn: input.paymentOn } : {}),

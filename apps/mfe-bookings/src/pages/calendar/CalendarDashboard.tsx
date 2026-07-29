@@ -622,6 +622,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 Reset All
               </Button>
             </div>
+
             <div className="md:hidden flex flex-col gap-2 p-2 border-b border-slate-200">
               <div className="view-pill-group w-full flex">
                 <Button
