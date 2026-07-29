@@ -12,6 +12,7 @@ import {
 } from "../services/authService";
 import { useShellStore } from "../store/shellStore";
 import { hexToHSL } from "../theme/colorUtils";
+import { validateWhiteLabelCss } from "../theme/whiteLabelCss";
 import "./SettingsPage.css";
 
 type SettingsNavItem = {
@@ -1153,6 +1154,16 @@ export default function SettingsPage() {
 
     if (activeKey === "branding") {
       try {
+        const customCssValidation = validateWhiteLabelCss(customCss);
+        if (customCssValidation.error) {
+          setSettingsError(customCssValidation.error);
+          eventBus.emit(SHELL_TOAST_EVENT, {
+            intent: "error",
+            title: "Unsafe custom CSS",
+            message: customCssValidation.error,
+          });
+          return;
+        }
         await new Promise((resolve) => setTimeout(resolve, 500));
         
         setUserPreferences({ theme: prefTheme, fontSize: prefFontSize });
@@ -1169,7 +1180,7 @@ export default function SettingsPage() {
               platformName: platformName || undefined,
               customDomain: customDomain || undefined,
               hideJaldeeBranding: hideBranding,
-              customCss: customCss || undefined,
+              customCss: customCssValidation.css || undefined,
             },
           });
         }
@@ -1772,7 +1783,7 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ gridColumn: "1 / -1" }}>
                   <label className="ds-form-label">Custom CSS Overrides</label>
-                  <p className="settings-field-note" style={{ marginBottom: "8px" }}>Escape hatch for fine-grained style customisation (e.g. custom font embedding, spacing overrides).</p>
+                  <p className="settings-field-note" style={{ marginBottom: "8px" }}>Supports safe design-token overrides on root, theme, and product scopes. Imports, URLs, arbitrary selectors, and normal CSS properties are blocked.</p>
                   <Textarea
                     value={customCss}
                     onChange={(e) => setCustomCss(e.target.value)}

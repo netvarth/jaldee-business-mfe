@@ -5,6 +5,7 @@ import type {
   ProductKey,
   WhiteLabelConfig,
 } from "@jaldee/auth-context";
+import { sanitizeWhiteLabelCss } from "./whiteLabelCss";
 
 interface ProductAccent {
   primary: string;
@@ -115,9 +116,11 @@ class ThemeService {
       existingStyle.remove();
     }
     if (config.customCss) {
+      const safeCss = sanitizeWhiteLabelCss(config.customCss);
+      if (!safeCss) return;
       const style = document.createElement("style");
       style.id = "jaldee-white-label-css";
-      style.innerHTML = config.customCss;
+      style.textContent = safeCss;
       document.head.appendChild(style);
     }
   }

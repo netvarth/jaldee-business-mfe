@@ -7,6 +7,7 @@ import {
   EmptyState,
   PageHeader,
   SectionCard,
+  sanitizeRichText,
   Tabs,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
@@ -65,7 +66,7 @@ function RichTextContent({ value }: { value: unknown }) {
     return <span>{content}</span>;
   }
 
-  return <div dangerouslySetInnerHTML={{ __html: content }} />;
+  return <div dangerouslySetInnerHTML={{ __html: sanitizeRichText(content) }} />;
 }
 
 function ServiceAvatar({ fallbackImage, imageUrl }: { fallbackImage: string; imageUrl: string | null }) {

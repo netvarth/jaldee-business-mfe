@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sanitizeRichText } from "@jaldee/design-system";
 import { applyToJob, type JobApplication } from "../../services/useCareers";
 import { careersStyles } from "./careersStyles";
 
@@ -78,7 +79,7 @@ export default function JobPageView({ job, interactive = true }: { job: JobView;
             <>
               <h2>About {job.companyName}</h2>
               {looksLikeHtml(job.aboutHtml) ? (
-                <div className="rich-content" dangerouslySetInnerHTML={{ __html: job.aboutHtml }} />
+                <div className="rich-content" dangerouslySetInnerHTML={{ __html: sanitizeRichText(job.aboutHtml) }} />
               ) : (
                 <div className="rich-content rich-content--plaintext">{job.aboutHtml}</div>
               )}

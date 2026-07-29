@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { cn } from "../../utils";
+import { sanitizeEditableRichText } from "../../security/sanitizeRichText";
 
 export interface RichTextEditorProps {
   label?: string;
@@ -206,7 +207,7 @@ export function RichTextEditor({
     const editor = editorRef.current;
     if (!editor) return;
 
-    const normalizedValue = normalizeHtml(value);
+    const normalizedValue = sanitizeEditableRichText(normalizeHtml(value));
     const currentValue = serializeEditorHtml(editor);
 
     if (currentValue !== normalizedValue) {

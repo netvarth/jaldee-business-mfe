@@ -1,6 +1,7 @@
 export { KpiStrip } from "./components/KpiStrip";
 // Utils
 export { cn } from "./utils";
+export { sanitizeRichText } from "./security/sanitizeRichText";
 
 // Layer 1 — Primitives
 export { Button, buttonVariants }         from "./components/Button/Button";
