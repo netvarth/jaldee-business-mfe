@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DataTable, Badge, Button, Input, ErrorState, EmptyState } from "@jaldee/design-system";
+import { DataTable, DataTablePagination, Badge, Button, Input, ErrorState, EmptyState } from "@jaldee/design-system";
 import { useJobRequisitions } from "../../services/useRecruitmentData";
 import { useDepartments } from "../../services/useSettingsData";
 import { useEmployees } from "../../services/useEmployees";
@@ -21,10 +21,13 @@ export default function JobRequisitions() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const filtered = search
     ? data.filter((requisition) => requisition.title?.toLowerCase().includes(search.toLowerCase()))
     : data;
+  const pagedRequisitions = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const statusVariant = (status?: string) => {
     const value = String(status ?? "").toUpperCase();
@@ -53,7 +56,7 @@ export default function JobRequisitions() {
           variant="primary"
           size="sm"
           data-testid={`hr-recruitment-publish-${row.id}`}
-          onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
+          onClick={() => navigate(`/recruitment/careers/publish/${row.id}`, { state: { requisition: row } })}
         >
           Manage careers page
         </Button>
@@ -116,7 +119,7 @@ export default function JobRequisitions() {
               </div>
             ) : viewMode === "cards" ? (
               <div className="grid gap-4 p-4 md:grid-cols-2">
-                {filtered.map((row) => {
+                {pagedRequisitions.map((row) => {
                   return (
                     <RecruitmentMobileCard
                       key={row.id}
@@ -131,7 +134,7 @@ export default function JobRequisitions() {
                           variant="primary"
                           size="sm"
                           data-testid={`hr-recruitment-publish-card-${row.id}`}
-                          onClick={() => navigate(`/recruitment/careers/publish/${row.id}`)}
+                          onClick={() => navigate(`/recruitment/careers/publish/${row.id}`, { state: { requisition: row } })}
                         >
                           Manage careers page
                         </Button>
@@ -141,8 +144,27 @@ export default function JobRequisitions() {
                 })}
               </div>
             ) : (
-              <DataTable data={filtered} columns={columns} loading={loading} />
+              <DataTable
+                data={pagedRequisitions}
+                columns={columns}
+                loading={loading}
+                getRowId={(row) => row.id}
+                data-testid="hr-recruitment-requisitions-table"
+              />
             )}
+            {!loading && filtered.length > 0 ? (
+              <DataTablePagination
+                testId="hr-recruitment-requisitions-pagination"
+                page={page}
+                pageSize={pageSize}
+                total={filtered.length}
+                onChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
+            ) : null}
           </div>
         </div>
       </div>

@@ -49,9 +49,28 @@ const DIAL_CODE_TO_ISO2 = new Map(
   intlTelInput.getCountryData().map((country) => [`+${country.dialCode}`, country.iso2])
 );
 const VALID_ISO2_CODES = new Set(intlTelInput.getCountryData().map((country) => country.iso2));
+const DIAL_CODES = [...DIAL_CODE_TO_ISO2.keys()].sort((a, b) => b.length - a.length);
 
 function toDigits(value: string) {
   return value.replace(/[^\d]/g, "");
+}
+
+export function phoneStringToValue(value: unknown, defaultCountryCode = "+91"): PhoneInputValue {
+  const compact = String(value ?? "").trim().replace(/[^\d+]/g, "");
+  if (!compact) return { countryCode: defaultCountryCode, number: "", e164Number: "" };
+
+  const countryCode = compact.startsWith("+")
+    ? DIAL_CODES.find((dialCode) => compact.startsWith(dialCode)) ?? defaultCountryCode
+    : defaultCountryCode;
+  const number = compact.startsWith(countryCode)
+    ? toDigits(compact.slice(countryCode.length))
+    : toDigits(compact);
+  return { countryCode, number, e164Number: number ? `${countryCode}${number}` : "" };
+}
+
+export function phoneValueToE164(value: PhoneInputValue): string {
+  if (!value.number.trim()) return "";
+  return value.e164Number || `${value.countryCode}${toDigits(value.number)}`;
 }
 
 function buildPhoneValue(country: SelectedCountryData, fallbackNumber: string): PhoneInputValue {
@@ -119,6 +138,11 @@ export function PhoneInput({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const itiRef = useRef<Iti | null>(null);
   const lastEmittedRef = useRef<string>("");
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     const input = inputRef.current;
@@ -149,7 +173,7 @@ export function PhoneInput({
       const signature = `${nextValue.countryCode}|${nextValue.number}|${nextValue.e164Number ?? ""}`;
       if (signature === lastEmittedRef.current) return;
       lastEmittedRef.current = signature;
-      onChange(nextValue);
+      onChangeRef.current(nextValue);
     };
 
     const syncFromExternalValue = () => {

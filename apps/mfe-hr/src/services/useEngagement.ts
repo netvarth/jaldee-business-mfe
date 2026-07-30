@@ -141,7 +141,17 @@ export function useAnnouncements(
 export function useTickets(
   filterClauses: SearchFilterClause[] = EMPTY_FILTERS,
   schema: SearchSchema | null | undefined = null,
-  { enabled = true, page = 0, pageSize = 20 }: { enabled?: boolean; page?: number; pageSize?: number } = {}
+  {
+    enabled = true,
+    page = 0,
+    pageSize = 20,
+    scope = "admin",
+  }: {
+    enabled?: boolean;
+    page?: number;
+    pageSize?: number;
+    scope?: "admin" | "ess";
+  } = {}
 ) {
   const api = useHrApi();
   const [data, setData] = useState<Ticket[]>([]);
@@ -153,6 +163,14 @@ export function useTickets(
     if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
+      if (scope === "ess") {
+        const res = await api.get<unknown>("/me/tickets");
+        const pageResult = unwrapHrSearchPage(res);
+        setData(pageResult.content.map((item) => withId<Ticket>(item)));
+        setTotalElements(pageResult.totalElements);
+        setTotalPages(pageResult.totalPages);
+        return;
+      }
       const requestBody = buildHrSearchBody(filterClauses, schema, page, pageSize);
       const requestKey = JSON.stringify(requestBody);
       const existingRequest = ticketSearchRequests.get(requestKey);
@@ -175,14 +193,23 @@ export function useTickets(
       setTotalPages(0);
     }
     finally { setLoading(false); }
-  }, [api, enabled, filterClauses, page, pageSize, schema]);
+  }, [api, enabled, filterClauses, page, pageSize, schema, scope]);
   useEffect(() => { void load(); }, [load]);
   const create = useCallback(async (payload: Record<string, unknown>) => {
-    await api.post("/tickets", payload);
-    // The ticket is persisted once POST completes. Refresh the list without
-    // keeping the Raise Ticket dialog blocked on the follow-up search request.
-    void load();
-  }, [api, load]);
+    const created = await api.post<Record<string, unknown>>("/tickets", payload);
+    const createdRecord =
+      created && typeof created === "object" && !Array.isArray(created)
+        ? created
+        : {};
+    const ticket = withId<Ticket>({ ...payload, ...createdRecord });
+    ticketSearchRequests.clear();
+    setData((current) => [
+      ticket,
+      ...current.filter((item) => item.id !== ticket.id),
+    ]);
+    setTotalElements((current) => current + 1);
+    return ticket;
+  }, [api]);
   const reply = useCallback(async (uid: string, message: string) => { await api.post(`/tickets/${uid}/reply`, { message }); await load(); }, [api, load]);
   const close = useCallback(async (uid: string, remarks: string, file?: File | null) => {
     const formData = new FormData();

@@ -271,7 +271,7 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       await fillByTestId(page, "hr-settings-company-legalname", "Dhyandarsh IT Technologies Private Limited");
       await fillByTestId(page, "hr-settings-company-industry", "Information Technology & Enterprise Software");
       await fillByTestId(page, "hr-settings-company-email", `corporate.${suffix}.test@jaldee.com`);
-      await fillByTestId(page, "hr-settings-company-phone", "5555000000");
+      await fillPhoneInput(page, "hr-settings-company-phone", "5555000000");
       await fillByTestId(page, "hr-settings-company-addressline", "Tech Park Tower B, Outer Ring Road");
       await fillByTestId(page, "hr-settings-company-city", "Bangalore");
       await fillByTestId(page, "hr-settings-company-state", "Karnataka");

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { sanitizeRichText } from "@jaldee/design-system";
+import { PhoneInput, phoneStringToValue, phoneValueToE164, sanitizeRichText } from "@jaldee/design-system";
 import { applyToJob, type JobApplication } from "../../services/useCareers";
 import { careersStyles } from "./careersStyles";
 
@@ -148,8 +148,16 @@ function ApplyCard({ companySlug, jobSlug, title, interactive }: { companySlug?:
           <div className="row2">
             <div className="field"><label>Email <span className="req">*</span></label>
               <input data-testid="careers-public-candidate-email" type="email" value={form.email} onChange={set("email")} placeholder="you@email.com" /></div>
-            <div className="field"><label>Phone</label>
-              <input data-testid="careers-public-candidate-phone" value={form.phone} onChange={set("phone")} placeholder="+91 …" /></div>
+            <div className="field">
+              <PhoneInput
+                label="Phone"
+                id="careers-public-candidate-phone"
+                testId="careers-public-candidate-phone"
+                value={phoneStringToValue(form.phone)}
+                onChange={(phone) => setForm((previous) => ({ ...previous, phone: phoneValueToE164(phone) }))}
+                preferredCountries={["in", "us", "gb"]}
+              />
+            </div>
           </div>
           <div className="field"><label>Portfolio / LinkedIn</label>
             <input value={form.portfolioUrl} onChange={set("portfolioUrl")} placeholder="https://…" /></div>

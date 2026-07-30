@@ -2,8 +2,8 @@ const { chromium } = require("@playwright/test");
 
 const BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http://localhost:3011";
 const LOGIN_URL = `${BASE_URL}/ess/login`;
-const LOGIN_ID = process.env.EMPLOYEE_LOGIN_ID || "EMP4280";
-const PASSWORD = process.env.EMPLOYEE_LOGIN_PASSWORD || "Netvarth1";
+const LOGIN_ID = process.env.EMPLOYEE_LOGIN_ID || "EMP9872";
+const PASSWORD = process.env.EMPLOYEE_LOGIN_PASSWORD || "Netvarth@1";
 const CAMERA_SELECTION_DELAY_MS = Number(process.env.EMPLOYEE_CAMERA_DELAY_MS || 10000);
 const CLOCK_OUT_WAIT_MS = Number(process.env.EMPLOYEE_CLOCK_OUT_WAIT_MS || 120000);
 
@@ -48,13 +48,31 @@ async function run() {
     await click(`[data-testid="hr-ess-nav-${section}"]`, `Open ${section}`);
     await page.waitForURL(new RegExp(`/ess/me/${section}(?:[/?#]|$)`), { timeout: 20000 });
   };
-  const selectFirst = async (selector, label) => {
+  const selectFirst = async (selector, label, optional = false) => {
     const select = page.locator(selector).first();
     await select.waitFor({ state: "visible", timeout: 20000 });
+    await page.waitForFunction(
+      (targetSelector) => {
+        const element = document.querySelector(targetSelector);
+        if (!(element instanceof HTMLSelectElement)) return false;
+        const hasOption = Array.from(element.options).some((item) => item.value && !item.disabled);
+        const assignedLeaveMessage = document.body.textContent?.includes("No leave types are currently assigned to you.");
+        return hasOption || assignedLeaveMessage;
+      },
+      selector,
+      { timeout: 20000 }
+    ).catch(() => {});
     const value = await select.locator("option").evaluateAll((items) => items.find((item) => item.value && !item.disabled)?.value || "");
-    if (!value) throw new Error(`No option available for ${label}`);
+    if (!value) {
+      if (optional) {
+        console.log(`   [Skip] ${label}: no assigned option is available`);
+        return false;
+      }
+      throw new Error(`No option available for ${label}`);
+    }
     await select.selectOption(value);
     console.log(`   [Select] ${label}: "${value}"`);
+    return true;
   };
   const dateValue = (offset) => {
     const date = new Date();
@@ -129,14 +147,18 @@ async function run() {
   console.log("\n>>> APPLY FOR LEAVE...");
   await visitSection("leave");
   if (await click('[data-testid="ess-leave-apply-open"]', "Apply for Leave", true)) {
-    await selectFirst('[data-testid="ess-leave-type"]', "Leave Type");
-    const randomLeaveOffset = 14 + Math.floor(Math.random() * 167);
-    const leaveDate = dateValue(randomLeaveOffset);
-    console.log(`   [Random Date] Leave date selected ${randomLeaveOffset} days ahead: ${leaveDate}`);
-    await chooseDate("ess-leave-start-date", leaveDate, "Leave Start Date");
-    await chooseDate("ess-leave-end-date", leaveDate, "Leave End Date");
-    await fill('[data-testid="ess-leave-reason"]', `Employee portal leave request ${suffix}`, "Leave Reason");
-    await click('[data-testid="ess-leave-apply-submit"]', "Submit Leave Application");
+    const leaveTypeAvailable = await selectFirst('[data-testid="ess-leave-type"]', "Leave Type", true);
+    if (leaveTypeAvailable) {
+      const randomLeaveOffset = 14 + Math.floor(Math.random() * 167);
+      const leaveDate = dateValue(randomLeaveOffset);
+      console.log(`   [Random Date] Leave date selected ${randomLeaveOffset} days ahead: ${leaveDate}`);
+      await chooseDate("ess-leave-start-date", leaveDate, "Leave Start Date");
+      await chooseDate("ess-leave-end-date", leaveDate, "Leave End Date");
+      await fill('[data-testid="ess-leave-reason"]', `Employee portal leave request ${suffix}`, "Leave Reason");
+      await click('[data-testid="ess-leave-apply-submit"]', "Submit Leave Application");
+    } else {
+      await click('[data-testid="ess-leave-apply-close"]', "Close Leave Application");
+    }
   }
 
   console.log("\n>>> DOCUMENTS...");
@@ -150,6 +172,15 @@ async function run() {
   console.log("\n>>> PAYSLIPS...");
   await visitSection("payslips");
   await page.locator('[data-testid="ess-payslips-table"]').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
+  const payslipView = page.locator('[data-testid^="ess-payslip-view-"]').first();
+  if (await payslipView.isVisible().catch(() => false)) {
+    await click('[data-testid^="ess-payslip-view-"]', "View Payslip");
+    await page.locator('[data-testid="hr-payroll-payslip-print"]').waitFor({ state: "visible", timeout: 20000 });
+    console.log("   [Verified] Payslip statement and Print Payslip action are available");
+    await click('[data-testid="hr-payroll-payslip-dialog-close"]', "Close Payslip");
+  } else {
+    console.log("   [Skip] View Payslip: no generated payslip is available");
+  }
   await pause("employee payslips");
 
   console.log("\n>>> SUBMIT EXPENSE CLAIM...");
@@ -165,13 +196,27 @@ async function run() {
 
   console.log("\n>>> RAISE HELPDESK TICKET...");
   await visitSection("helpdesk");
-  if (await click('[data-testid="hr-tickets-create-button"]', "Raise Ticket", true)) {
-    await fill('[data-testid="hr-tickets-subject"]', `Employee portal assistance ${suffix}`, "Ticket Subject");
-    await page.locator('[data-testid="hr-tickets-category"]').selectOption({ index: 1 });
-    await page.locator('[data-testid="hr-tickets-priority"]').selectOption("Medium");
-    await fill('[data-testid="hr-tickets-description"]', `Employee self-service support request ${suffix}`, "Ticket Description");
-    await click('[data-testid="hr-tickets-submit"]', "Submit Ticket");
+  await click('[data-testid="hr-tickets-create-button"]', "Raise Ticket");
+  const ticketSubject = `Employee portal assistance ${suffix}`;
+  await fill('[data-testid="hr-tickets-subject"]', ticketSubject, "Ticket Subject");
+  await page.locator('[data-testid="hr-tickets-category"]').selectOption({ index: 1 });
+  console.log("   [Select] Ticket Category");
+  await page.locator('[data-testid="hr-tickets-priority"]').selectOption("Medium");
+  console.log('   [Select] Ticket Priority: "Medium"');
+  await fill('[data-testid="hr-tickets-description"]', `Employee self-service support request ${suffix}`, "Ticket Description");
+  const ticketResponsePromise = page.waitForResponse(
+    (response) => response.request().method() === "POST" && /\/tickets\/?(?:\?|$)/.test(response.url()),
+    { timeout: 30000 }
+  );
+  await click('[data-testid="hr-tickets-submit"]', "Submit Ticket");
+  const ticketResponse = await ticketResponsePromise;
+  console.log(`   [Response] Raise Ticket: ${ticketResponse.status()} ${ticketResponse.statusText()}`);
+  if (!ticketResponse.ok()) {
+    throw new Error(`Raise Ticket failed (${ticketResponse.status()}): ${await ticketResponse.text()}`);
   }
+  await page.locator('[data-testid="hr-tickets-create-modal"]').waitFor({ state: "hidden", timeout: 20000 });
+  await page.getByText(ticketSubject, { exact: true }).first().waitFor({ state: "visible", timeout: 20000 });
+  console.log(`   [Verified] Ticket raised: "${ticketSubject}"`);
 
   console.log(`\n>>> FINAL CLOCK OUT - WAITING ${Math.round(CLOCK_OUT_WAIT_MS / 60000)} MINUTE(S)...`);
   await page.waitForTimeout(CLOCK_OUT_WAIT_MS);

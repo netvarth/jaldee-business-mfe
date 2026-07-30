@@ -97,12 +97,16 @@ async function run() {
   console.log(`   [Response] Create Requisition: ${requisitionResponse.status()} ${requisitionResponse.statusText()}`);
   if (!requisitionResponse.ok()) throw new Error(`Requisition creation failed: ${await requisitionResponse.text()}`);
   await page.locator('[data-testid="hr-recruitment-requisition-dialog"]').waitFor({ state: "hidden", timeout: 30000 });
-  await page.locator("tr").filter({ hasText: requisitionTitle }).first().waitFor({ state: "visible", timeout: 30000 });
+  const requisitionTitleElement = page.getByText(requisitionTitle, { exact: true }).first();
+  await requisitionTitleElement.waitFor({ state: "visible", timeout: 30000 });
+  const requisitionRecord = requisitionTitleElement.locator(
+    'xpath=ancestor::*[self::tr or self::div][.//button[starts-with(@data-testid, "hr-recruitment-publish-")]][1]'
+  );
+  await requisitionRecord.waitFor({ state: "visible", timeout: 10000 });
   await pause("created requisition in the list");
 
   console.log("\n>>> PUBLISH REQUISITION AND APPLY FROM PUBLIC LINK...");
-  const requisitionRow = page.locator("tr").filter({ hasText: requisitionTitle }).first();
-  await requisitionRow.locator('[data-testid^="hr-recruitment-publish-"]').click();
+  await requisitionRecord.locator('[data-testid^="hr-recruitment-publish-"]').click();
   await page.locator('[data-testid="hr-careers-publish-page"]').waitFor({ state: "visible", timeout: 30000 });
   await pause("careers publishing page");
   await action('[data-testid="hr-careers-template-classic"]', "Choose Classic Template");
@@ -110,18 +114,19 @@ async function run() {
   await page.locator('[data-testid="hr-careers-publish-success"]').waitFor({ state: "visible", timeout: 30000 });
   const publicLink = (await page.locator('[data-testid="hr-careers-generated-link"]').innerText()).trim();
   console.log(`   [Generated Link] ${publicLink}`);
+  if (/\/careers\/[^/]+\/job\/?$/.test(publicLink)) {
+    throw new Error(`Careers link used the fallback "job" slug instead of the requisition title: ${publicLink}`);
+  }
   await pause("generated public careers link");
 
-  const popupPromise = context.waitForEvent("page");
-  await page.locator('[data-testid="hr-careers-open-public-page"]').click();
-  const publicPage = await popupPromise;
-  await publicPage.waitForLoadState("domcontentloaded");
+  const publicPage = await context.newPage();
+  await publicPage.goto(publicLink, { waitUntil: "domcontentloaded" });
   await publicPage.locator('[data-testid="careers-public-application-card"]').waitFor({ state: "visible", timeout: 30000 });
   await publicPage.waitForTimeout(visiblePause);
   const publicCandidateName = `Public Candidate ${suffix}`;
   await publicPage.locator('[data-testid="careers-public-candidate-name"]').fill(publicCandidateName);
   await publicPage.locator('[data-testid="careers-public-candidate-email"]').fill(`public.${suffix}.test@jaldee.com`);
-  await publicPage.locator('[data-testid="careers-public-candidate-phone"]').fill(`5555${suffix}`);
+  await publicPage.locator('[data-testid="careers-public-candidate-phone-number"]').fill(`5555${suffix}`);
   await publicPage.locator('[data-testid="careers-public-candidate-resume"]').setInputFiles(RESUME_FILE);
   await publicPage.locator('[data-testid="careers-public-candidate-consent"]').check();
   console.log(`   [Candidate] Public application: "${publicCandidateName}" with resume`);
@@ -138,15 +143,47 @@ async function run() {
   await visit("/hr/recruitment/candidates", "CREATE ONE CANDIDATE");
   await action('[data-testid="hr-recruitment-new-candidate"]', "New Candidate");
   const candidateName = `Recruitment Candidate ${suffix}`;
+  const candidateNationalPhone = `5555${suffix}`;
+  const candidateE164Phone = `+91${candidateNationalPhone}`;
   await fill('[data-testid="hr-candidate-name"]', candidateName, "Candidate Name");
   await fill('[data-testid="hr-candidate-email"]', `candidate.${suffix}.test@jaldee.com`, "Candidate Email");
-  await fill('[data-testid="hr-candidate-phone"]', `5555${suffix}`, "Candidate Phone");
+  await fill('[data-testid="hr-candidate-phone-number"]', candidateNationalPhone, `Candidate Phone (${candidateE164Phone})`);
+  await page.locator('[data-testid="hr-candidate-phone-number"]').press("Tab");
+  await page.waitForFunction(
+    () => {
+      const input = document.querySelector('[data-testid="hr-candidate-phone-number"]');
+      return input instanceof HTMLInputElement && input.value.replace(/\D/g, "").length >= 10;
+    },
+    { timeout: 5000 }
+  );
   await fill('[data-testid="hr-candidate-experience"]', "4", "Candidate Experience");
   await page.locator('[data-testid="hr-candidate-source"]').selectOption("JOB_PORTAL");
   await fill('[data-testid="hr-candidate-skills"]', "React, TypeScript, Cloud", "Candidate Skills");
-  const candidateResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && /\/recruitment\/candidates\/?(?:\?|$)/.test(response.url()), { timeout: 30000 });
+  const invalidCandidateFields = await page.locator('[data-testid="hr-candidate-modal-form"]').evaluate((form) =>
+    Array.from(form.querySelectorAll(":invalid")).map((element) =>
+      element.getAttribute("data-testid") || element.getAttribute("name") || element.id || element.tagName
+    )
+  );
+  if (invalidCandidateFields.length) {
+    throw new Error(`Candidate form is invalid: ${invalidCandidateFields.join(", ")}`);
+  }
+
+  const candidateResponsePromise = page.waitForResponse(
+    (response) => response.request().method() === "POST" && /\/recruitment\/candidates\/?(?:\?|$)/.test(response.url()),
+    { timeout: 30000 }
+  ).then((response) => ({ type: "response", response }));
+  const candidateErrorPromise = page.locator('[data-testid="hr-candidate-modal-error"]')
+    .waitFor({ state: "visible", timeout: 30000 })
+    .then(async () => ({ type: "error", message: (await page.locator('[data-testid="hr-candidate-modal-error"]').innerText()).trim() }));
   await action('[data-testid="hr-candidate-submit"]', "Save Candidate");
-  const candidateResponse = await candidateResponsePromise;
+  const candidateResult = await Promise.race([candidateResponsePromise, candidateErrorPromise]);
+  if (candidateResult.type === "error") throw new Error(`Candidate creation failed: ${candidateResult.message}`);
+  const candidateResponse = candidateResult.response;
+  const candidateRequestBody = candidateResponse.request().postDataJSON();
+  if (candidateRequestBody?.phone !== candidateE164Phone) {
+    throw new Error(`Candidate phone was not sent as E.164. Expected ${candidateE164Phone}, received ${candidateRequestBody?.phone || "empty"}.`);
+  }
+  console.log(`   [Verified] Candidate Phone E.164: ${candidateRequestBody.phone}`);
   console.log(`   [Response] Create Candidate: ${candidateResponse.status()} ${candidateResponse.statusText()}`);
   if (!candidateResponse.ok()) throw new Error(`Candidate creation failed: ${await candidateResponse.text()}`);
 

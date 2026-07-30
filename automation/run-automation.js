@@ -506,7 +506,7 @@ async function run() {
   await slowType('[data-testid="hr-settings-company-legalname"]', "Dhyandarsh IT Technologies Private Limited", "Legal Name");
   await slowType('[data-testid="hr-settings-company-industry"]', "Information Technology & Enterprise Software", "Industry");
   await slowType('[data-testid="hr-settings-company-email"]', `corporate.${suffix}.test@jaldee.com`, "Contact Email");
-  await slowType('[data-testid="hr-settings-company-phone"]', "5555000000", "Phone");
+  await slowType('[data-testid="hr-settings-company-phone-number"]', "5555000000", "Phone");
   await slowType('[data-testid="hr-settings-company-logourl"]', "https://www.jaldee.com/favicon.ico", "Logo URL");
   await slowType('[data-testid="hr-settings-company-addressline"]', "Crown Tower", "Address");
   await slowType('[data-testid="hr-settings-company-city"]', "Thrissur", "City");
@@ -524,8 +524,14 @@ async function run() {
     currency: "INR", workingdays: "Monday - Friday",
   };
   for (const [field, expected] of Object.entries(companyExpectedValues)) {
-    const actual = await page.locator(`[data-testid="hr-settings-company-${field}"]`).inputValue();
-    if (actual !== expected) throw new Error(`Company Profile ${field} was not retained (expected "${expected}", got "${actual}")`);
+    const testId = field === "phone"
+      ? "hr-settings-company-phone-number"
+      : `hr-settings-company-${field}`;
+    const actual = await page.locator(`[data-testid="${testId}"]`).inputValue();
+    const retained = field === "phone"
+      ? actual.replace(/\D/g, "") === String(expected).replace(/\D/g, "")
+      : actual === expected;
+    if (!retained) throw new Error(`Company Profile ${field} was not retained (expected "${expected}", got "${actual}")`);
   }
   const companySaveResponse = page.waitForResponse((response) => response.url().includes("/company-profile") && response.request().method() === "PUT", { timeout: 30000 });
   if (!(await slowClick('[data-testid="hr-settings-company-save"], button:has-text("Save Changes")', "Save Company Profile"))) throw new Error("Company Profile Save button was not available");
@@ -1151,7 +1157,7 @@ async function run() {
   recruitmentPublicCandidateName = `Public Candidate ${suffix}`;
   await publicPage.locator('[data-testid="careers-public-candidate-name"]').fill(recruitmentPublicCandidateName);
   await publicPage.locator('[data-testid="careers-public-candidate-email"]').fill(`public.${suffix}.test@jaldee.com`);
-  await publicPage.locator('[data-testid="careers-public-candidate-phone"]').fill(`5555${suffix}`);
+  await publicPage.locator('[data-testid="careers-public-candidate-phone-number"]').fill(`5555${suffix}`);
   await publicPage.locator('[data-testid="careers-public-candidate-resume"]').setInputFiles("automation/fixtures/employee-experience-certificate.pdf");
   await publicPage.locator('[data-testid="careers-public-candidate-consent"]').check();
   await publicPage.locator('[data-testid="careers-public-candidate-submit"]').click();
@@ -1178,7 +1184,7 @@ async function run() {
     await slowClick('[data-testid="hr-recruitment-new-candidate"]', `New Candidate ${i + 1}`);
     await slowType('[data-testid="hr-candidate-name"]', candidateName, `Candidate Name ${i + 1}`);
     await slowType('[data-testid="hr-candidate-email"]', `${slugify(cName)}.${suffix}.test@jaldee.com`, `Candidate Email ${i + 1}`);
-    await slowType('[data-testid="hr-candidate-phone"]', uniquePhone(100 + i), `Candidate Phone ${i + 1}`);
+    await slowType('[data-testid="hr-candidate-phone-number"]', uniquePhone(100 + i), `Candidate Phone ${i + 1}`);
     await slowType('[data-testid="hr-candidate-experience"]', String(3 + i), `Candidate Experience ${i + 1}`);
     await slowSelect('[data-testid="hr-candidate-source"]', "JOB_PORTAL", `Candidate Source ${i + 1}`);
     await slowType('[data-testid="hr-candidate-skills"]', "React, TypeScript, Cloud, APIs", `Candidate Skills ${i + 1}`);

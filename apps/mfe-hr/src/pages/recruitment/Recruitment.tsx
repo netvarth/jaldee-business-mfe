@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Award, Briefcase, CalendarDays, FileText, LayoutDashboard, Loader2, Plus, Search, UserPlus, Users } from "lucide-react";
-import { Dialog, Input, Select, Textarea } from "@jaldee/design-system";
+import { Dialog, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Select, Textarea } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 
@@ -434,7 +434,7 @@ function RequisitionDialog({ open, form, saving, onChange, onClose, onSave }: { 
 }
 
 function CandidateDialog({ open, form, saving, onChange, onClose, onSave }: { open: boolean; form: any; saving: boolean; onChange: (form: any) => void; onClose: () => void; onSave: () => void }) {
-  return <Dialog open={open} onClose={onClose} testId="hr-recruitment-candidate-dialog" title="Add Candidate"><div style={formGrid}><Field label="Name"><Input id="hr-recruitment-candidate-name" data-testid="hr-recruitment-candidate-name" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></Field><Field label="Email"><Input id="hr-recruitment-candidate-email" data-testid="hr-recruitment-candidate-email" value={form.email} onChange={(e) => onChange({ ...form, email: e.target.value })} /></Field><Field label="Phone"><Input id="hr-recruitment-candidate-phone" data-testid="hr-recruitment-candidate-phone" value={form.phone} onChange={(e) => onChange({ ...form, phone: e.target.value })} /></Field><Field label="Source"><Select id="hr-recruitment-candidate-source" testId="hr-recruitment-candidate-source" value={form.source} onChange={(e) => onChange({ ...form, source: e.target.value })} options={["LinkedIn", "Referral", "Careers Page", "Agency", "Walk-in"].map((value) => ({ value, label: value }))} /></Field></div><DialogActions saving={saving} saveLabel="Save Candidate" onClose={onClose} onSave={onSave} /></Dialog>;
+  return <Dialog open={open} onClose={onClose} testId="hr-recruitment-candidate-dialog" title="Add Candidate"><div style={formGrid}><Field label="Name"><Input id="hr-recruitment-candidate-name" data-testid="hr-recruitment-candidate-name" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></Field><Field label="Email"><Input id="hr-recruitment-candidate-email" data-testid="hr-recruitment-candidate-email" value={form.email} onChange={(e) => onChange({ ...form, email: e.target.value })} /></Field><Field label="Phone"><PhoneInput id="hr-recruitment-candidate-phone" testId="hr-recruitment-candidate-phone" value={phoneStringToValue(form.phone)} onChange={(phone) => onChange({ ...form, phone: phoneValueToE164(phone) })} preferredCountries={["in", "us", "gb"]} /></Field><Field label="Source"><Select id="hr-recruitment-candidate-source" testId="hr-recruitment-candidate-source" value={form.source} onChange={(e) => onChange({ ...form, source: e.target.value })} options={["LinkedIn", "Referral", "Careers Page", "Agency", "Walk-in"].map((value) => ({ value, label: value }))} /></Field></div><DialogActions saving={saving} saveLabel="Save Candidate" onClose={onClose} onSave={onSave} /></Dialog>;
 }
 
 function InterviewDialog({ open, applications, form, saving, onChange, onClose, onSave }: { open: boolean; applications: Application[]; form: any; saving: boolean; onChange: (form: any) => void; onClose: () => void; onSave: () => void }) {

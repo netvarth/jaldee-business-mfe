@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table } from "lucide-react";
-import { Dialog, Select, Input, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
+import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -36,7 +36,7 @@ const LEAVE_CATEGORY_OPTIONS = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
-type FieldType = "text" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
+type FieldType = "text" | "phone" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
 interface Field {
   key: string;
   label: string;
@@ -117,6 +117,18 @@ function buildPayload(fields: Field[], form: Row): Row {
 }
 
 function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: unknown; onChange: (v: unknown) => void; automationKey: string }) {
+  if (f.type === "phone") {
+    return (
+      <PhoneInput
+        id={automationKey}
+        testId={automationKey}
+        value={phoneStringToValue(value)}
+        onChange={(phone) => onChange(phoneValueToE164(phone))}
+        preferredCountries={["in", "us", "gb"]}
+        className="w-full"
+      />
+    );
+  }
   if (f.type === "checkbox") {
     return (
       <div style={{ display: "flex", alignItems: "center", height: 44 }}>

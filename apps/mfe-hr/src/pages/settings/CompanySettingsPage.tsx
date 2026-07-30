@@ -7,7 +7,7 @@ export function CompanySettingsPage() {
   return <ConfigForm title="Company Profile" subtitle="Organization identity, tax & locale" icon={<Building2 size={20} />} data={company.data} loading={company.loading} error={company.error} onSave={company.save} automationScope="hr-settings-company" fields={[
     { key: "name", label: "Company Name" }, { key: "legalName", label: "Legal Name" },
     { key: "industry", label: "Industry" }, { key: "email", label: "Contact Email" },
-    { key: "phone", label: "Phone" }, { key: "logoUrl", label: "Logo URL" },
+    { key: "phone", label: "Phone", type: "phone" }, { key: "logoUrl", label: "Logo URL" },
     { key: "addressLine", label: "Address", full: true }, { key: "city", label: "City" },
     { key: "state", label: "State" }, { key: "country", label: "Country" },
     { key: "gstin", label: "GSTIN" }, { key: "pan", label: "PAN" },

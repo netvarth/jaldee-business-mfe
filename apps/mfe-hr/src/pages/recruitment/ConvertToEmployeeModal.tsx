@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogFooter, Button, Input, Select } from "@jaldee/design-system";
+import { Dialog, DialogFooter, Button, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Select } from "@jaldee/design-system";
 import { useBranches } from "../../services/useBranches";
 import { useDesignations, useDepartments } from "../../services/useSettingsData";
 import type { Offer, Candidate } from "../../types";
@@ -161,12 +161,14 @@ export function ConvertToEmployeeModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Email" type="email" value={form.email} onChange={set("email")} />
-          <Input
+          <PhoneInput
             label="Contact Number"
             required
-            value={form.contactNumber}
-            onChange={set("contactNumber")}
-            placeholder="e.g. +91 98765 43210"
+            id="hr-recruitment-convert-contact-number"
+            testId="hr-recruitment-convert-contact-number"
+            value={phoneStringToValue(form.contactNumber)}
+            onChange={(phone) => setForm((prev) => ({ ...prev, contactNumber: phoneValueToE164(phone) }))}
+            preferredCountries={["in", "us", "gb"]}
           />
         </div>
 

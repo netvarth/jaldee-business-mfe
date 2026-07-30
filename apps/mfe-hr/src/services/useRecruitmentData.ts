@@ -221,10 +221,19 @@ export function useJobRequisitions() {
     async (req: Partial<JobRequisition>) => {
       if (req.id) {
         await api.put(`/recruitment/requisitions/${req.id}`, req);
+        await load();
       } else {
-        await api.post(`/recruitment/requisitions`, req);
+        const created = await api.post<Record<string, unknown>>(`/recruitment/requisitions`, req);
+        const createdRecord =
+          created && typeof created === "object" && !Array.isArray(created)
+            ? created
+            : {};
+        const normalized = normalize({ ...req, ...createdRecord }) as JobRequisition;
+        setData((current) => [
+          normalized,
+          ...current.filter((item) => item.id !== normalized.id),
+        ]);
       }
-      await load();
     },
     [api, load]
   );

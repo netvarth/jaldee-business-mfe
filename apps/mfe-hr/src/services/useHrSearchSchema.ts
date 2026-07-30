@@ -38,4 +38,4 @@ export const useDesignationSearchSchema = () => useHrSearchSchema("/designations
 export const useDocumentRequestSearchSchema = (enabled = true) => useHrSearchSchema("/document-requests", enabled);
 export const useHolidaySearchSchema = () => useHrSearchSchema("/holidays");
 export const useDepartmentSearchSchema = (enabled = true) => useHrSearchSchema("/departments", enabled);
-export const useTicketSearchSchema = () => useHrSearchSchema("/tickets");
+export const useTicketSearchSchema = (enabled = true) => useHrSearchSchema("/tickets", enabled);

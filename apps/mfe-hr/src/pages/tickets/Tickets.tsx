@@ -98,8 +98,13 @@ export default function Tickets() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [ticketsPage, setTicketsPage] = useState(1);
   const [ticketsPageSize, setTicketsPageSize] = useState(20);
-  const { schema: ticketSchema, loading: schemaLoading } = useTicketSearchSchema();
-  const tickets = useTickets(advancedFilters, ticketSchema, { enabled: !schemaLoading, page: ticketsPage - 1, pageSize: ticketsPageSize });
+  const { schema: ticketSchema, loading: schemaLoading } = useTicketSearchSchema(!isEmployeeView);
+  const tickets = useTickets(advancedFilters, ticketSchema, {
+    enabled: isEmployeeView || !schemaLoading,
+    page: ticketsPage - 1,
+    pageSize: ticketsPageSize,
+    scope: isEmployeeView ? "ess" : "admin",
+  });
   const { data: myProfile } = useMyProfile({ enabled: isEmployeeView });
 
   useEffect(() => {
@@ -187,6 +192,7 @@ export default function Tickets() {
         employeeUid,
         title: form.title,
         category: form.category,
+        priority: form.priority,
         description: form.description,
         department: form.category.toUpperCase(),
         status: "Open",

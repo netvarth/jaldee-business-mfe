@@ -109,9 +109,12 @@ export function useCareersSite() {
     setLoading(true);
     setError(null);
     try {
-      setData(await api.get<CareersSite | null>("/careers/site"));
+      const site = await api.get<CareersSite | null>("/careers/site");
+      setData(site);
+      return site;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load careers settings");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -167,12 +170,14 @@ export function usePostings(
 
   const save = useCallback(
     async (posting: JobPosting) => {
+      let saved: JobPosting;
       if (posting.uid) {
-        await api.put(`/careers/postings/${posting.uid}`, posting as unknown as Record<string, unknown>);
+        saved = await api.put<JobPosting>(`/careers/postings/${posting.uid}`, posting as unknown as Record<string, unknown>);
       } else {
-        await api.post("/careers/postings", posting as unknown as Record<string, unknown>);
+        saved = await api.post<JobPosting>("/careers/postings", posting as unknown as Record<string, unknown>);
       }
       await load();
+      return saved;
     },
     [api, load]
   );

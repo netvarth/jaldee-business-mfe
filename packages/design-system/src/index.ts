@@ -38,7 +38,7 @@ export { Input }                          from "./components/Input/Input";
 export type { InputProps }                from "./components/Input/Input";
 export { OtpInput }                       from "./components/OtpInput/OtpInput";
 export type { OtpInputProps }             from "./components/OtpInput/OtpInput";
-export { PhoneInput, DEFAULT_PHONE_COUNTRY_OPTIONS } from "./components/PhoneInput/PhoneInput";
+export { PhoneInput, DEFAULT_PHONE_COUNTRY_OPTIONS, phoneStringToValue, phoneValueToE164 } from "./components/PhoneInput/PhoneInput";
 export type { PhoneInputProps, PhoneInputOption, PhoneInputValue } from "./components/PhoneInput/PhoneInput";
 
 export { Textarea }                       from "./components/Textarea/Textarea";

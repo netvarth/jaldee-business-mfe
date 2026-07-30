@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { useJobRequisitions } from "../../services/useRecruitmentData";
 import { useCareersSite, usePostings, type JobPosting } from "../../services/useCareers";
 import JobPageView, { type JobView } from "./JobPageView";
@@ -22,22 +22,27 @@ const templates = [
 export default function CareersPublishPage() {
   const { requisitionUid } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data: requisitions } = useJobRequisitions();
   const siteHook = useCareersSite();
   const site = siteHook.data;
   const { data: postings, save } = usePostings();
 
-  const requisition: JobRequisition | undefined = requisitions.find((r) => r.id === requisitionUid);
+  const routedRequisition = (location.state as { requisition?: JobRequisition } | null)?.requisition;
+  const requisition: JobRequisition | undefined =
+    requisitions.find((r) => r.id === requisitionUid)
+    ?? (routedRequisition?.id === requisitionUid ? routedRequisition : undefined);
   const existing = postings.find((p) => p.requisitionUid === requisitionUid);
 
   const [form, setForm] = useState<JobPosting>(
-    existing ?? { title: "", requisitionUid, templateKey: site?.defaultTemplate || "classic" }
+    existing ?? { title: requisition?.title || "", requisitionUid, templateKey: site?.defaultTemplate || "classic" }
   );
   const [tagsText, setTagsText] = useState((existing?.tags ?? []).join(", "));
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [publishedCompanySlug, setPublishedCompanySlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -53,11 +58,12 @@ export default function CareersPublishPage() {
       }
       return {
         ...previous,
+        title: previous.title || requisition?.title || "",
         requisitionUid,
         templateKey: previous.templateKey || site?.defaultTemplate || "classic",
       };
     });
-  }, [existing, requisitionUid, site?.defaultTemplate]);
+  }, [existing, requisition?.title, requisitionUid, site?.defaultTemplate]);
 
   const set = (k: keyof JobPosting) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
@@ -91,9 +97,16 @@ export default function CareersPublishPage() {
     setError(null);
     try {
       const tags = tagsText.split(",").map((t) => t.trim()).filter(Boolean);
-      await save({ ...form, requisitionUid, tags, status: "PUBLISHED" });
-      await siteHook.reload(); // publishing auto-provisions the site — pick up its real slug
-      setPublishedSlug(form.slug?.trim() || slugify(requisition?.title));
+      const savedPosting = await save({
+        ...form,
+        title: form.title || requisition?.title || "",
+        requisitionUid,
+        tags,
+        status: "PUBLISHED",
+      });
+      const refreshedSite = await siteHook.reload();
+      setPublishedCompanySlug(refreshedSite?.companySlug || site?.companySlug || null);
+      setPublishedSlug(savedPosting?.slug?.trim() || form.slug?.trim() || slugify(requisition?.title));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to publish.");
     } finally {
@@ -101,7 +114,7 @@ export default function CareersPublishPage() {
     }
   };
 
-  const companySlug = site?.companySlug || "your-company";
+  const companySlug = publishedCompanySlug || site?.companySlug || "your-company";
   const link = `${window.location.origin}/careers/${companySlug}/${publishedSlug}`;
 
   // ---- generated-link success screen ----

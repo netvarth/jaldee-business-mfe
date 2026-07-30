@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
 import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, Input, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
@@ -9,6 +9,7 @@ import {
   useMyLeaves,
   useMyPayslips,
   useMyProfile,
+  type MyPayslip,
 } from "../../services/useEss";
 import { useBranches } from "../../services/useBranches";
 import { useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
@@ -18,6 +19,7 @@ import Tickets from "../tickets/Tickets";
 import { useAttendanceRules, useLeaveTypes } from "../../services/useSettingsData";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { useExits } from "../../services/useExits";
+import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
@@ -130,6 +132,7 @@ export default function EssPortal() {
   const [leaveViewMode, setLeaveViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [documentViewMode, setDocumentViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [payslipViewMode, setPayslipViewMode] = useState<ViewMode>(() => getPreferredViewMode());
+  const [selectedPayslip, setSelectedPayslip] = useState<MyPayslip | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
   const [punchBusy, setPunchBusy] = useState(false);
   const [leaveApplyOpen, setLeaveApplyOpen] = useState(false);
@@ -355,6 +358,23 @@ export default function EssPortal() {
       { key: "netPay", header: "Net Pay", align: "right", render: (item) => formatCurrency(item.netPay ?? 0) },
       { key: "status", header: "Status", render: (item) => item.status ?? "--" },
       { key: "generatedAt", header: "Generated", render: (item) => formatDate(item.generatedAt) },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        render: (item) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon={<Eye size={15} />}
+            data-testid={`ess-payslip-view-${item.id}`}
+            onClick={() => setSelectedPayslip(item)}
+          >
+            View
+          </Button>
+        ),
+      },
     ],
     [payslips.data],
   );
@@ -1095,6 +1115,8 @@ export default function EssPortal() {
                             netPay={formatCurrency(item.netPay ?? 0)}
                             status={item.status ?? "--"}
                             generated={formatDate(item.generatedAt)}
+                            onView={() => setSelectedPayslip(item)}
+                            testId={`ess-payslip-view-card-${item.id}`}
                           />
                         ))}
                       </div>
@@ -1114,6 +1136,12 @@ export default function EssPortal() {
                   <Expenses />
                 </SectionCard>
               )}
+              <PayslipStatementDialog
+                payslip={selectedPayslip}
+                employee={profile.data}
+                employeeName={profile.data?.name}
+                onClose={() => setSelectedPayslip(null)}
+              />
 
               {section === "separation" && (
                 <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
@@ -1621,11 +1649,15 @@ function PayslipCard({
   netPay,
   status,
   generated,
+  onView,
+  testId,
 }: {
   month: string;
   netPay: string;
   status: string;
   generated: string;
+  onView: () => void;
+  testId: string;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
@@ -1644,6 +1676,9 @@ function PayslipCard({
         <AttendanceHistoryField label="Generated" value={generated} />
         <AttendanceHistoryField label="Month" value={month} />
       </div>
+      <Button type="button" variant="outline" size="sm" className="mt-4 w-full" icon={<Eye size={15} />} data-testid={testId} onClick={onView}>
+        View Payslip
+      </Button>
     </div>
   );
 }

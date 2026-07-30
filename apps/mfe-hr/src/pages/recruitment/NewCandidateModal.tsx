@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogFooter, Button, Input, Select, Textarea } from "@jaldee/design-system";
+import { Dialog, DialogFooter, Button, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Select, Textarea } from "@jaldee/design-system";
 import type { Candidate } from "../../types";
 
 export interface NewCandidateModalProps {
@@ -61,11 +61,14 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
       open={isOpen}
       onClose={onClose}
       title="Add Candidate"
-      size="md"
+      size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4" data-testid="hr-candidate-modal-form">
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div
+            data-testid="hr-candidate-modal-error"
+            className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+          >
             {error}
           </div>
         )}
@@ -78,7 +81,7 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g. Jane Doe"
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Email"
             type="email"
@@ -89,16 +92,16 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             placeholder="e.g. jane@example.com"
           />
-          <Input
+          <PhoneInput
             label="Phone"
             id="hr-candidate-phone"
-            data-testid="hr-candidate-phone"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="e.g. +91 98765 43210"
+            testId="hr-candidate-phone"
+            value={phoneStringToValue(formData.phone)}
+            onChange={(phone) => setFormData({ ...formData, phone: phoneValueToE164(phone) })}
+            preferredCountries={["in", "us", "gb"]}
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Experience (Years)"
             type="number"
@@ -118,7 +121,7 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
             onChange={(e) => setFormData({ ...formData, source: e.target.value })}
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Current Company"
             id="hr-candidate-company"
