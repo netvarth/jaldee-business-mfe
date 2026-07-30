@@ -514,8 +514,8 @@ function MasterInvoicePage() {
         : getStatusVariant(invoice.status);
 
   return (
-    <div className="min-h-screen bg-slate-100/70 py-4">
-      <div className="mx-auto flex max-w-[1840px] flex-col gap-4">
+    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <button
           type="button"
           onClick={() => navigate("/invoice")}

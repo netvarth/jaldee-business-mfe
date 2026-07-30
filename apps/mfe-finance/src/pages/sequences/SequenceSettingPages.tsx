@@ -18,6 +18,19 @@ import { useMFEProps } from "@jaldee/auth-context";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
 
+type SequenceTemplateFeature = "FINANCE" | "BOOKING" | "HEALTHCARE" | "BASE_CRM" | "PLATFORM" | "AUTH" | "E_COMMERCE" | "LENDING" | "HR";
+const sequenceTemplateFeatureOptions: Array<{ value: SequenceTemplateFeature; label: string }> = [
+  { value: "FINANCE", label: "Finance" },
+  { value: "BOOKING", label: "Booking" },
+  { value: "HEALTHCARE", label: "Healthcare" },
+  { value: "BASE_CRM", label: "Base CRM" },
+  { value: "PLATFORM", label: "Platform" },
+  { value: "AUTH", label: "Auth" },
+  { value: "E_COMMERCE", label: "E-Commerce" },
+  { value: "LENDING", label: "Lending" },
+  { value: "HR", label: "HR" },
+];
+
 type FinanceFeatureModule = "FINANCE_CORE" | "FINANCE_INVOICE" | "FINANCE_PAYMENT" | "FINANCE_EXPENSE";
 const financeFeatureModuleOptions: Array<{ value: FinanceFeatureModule; label: string }> = [
   { value: "FINANCE_CORE", label: "Finance Core" }, { value: "FINANCE_INVOICE", label: "Finance Invoice" },

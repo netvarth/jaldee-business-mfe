@@ -70,14 +70,15 @@ export default function FinanceInvoiceForm() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={isEditing ? "Edit Invoice" : "Create Invoice"}
-        subtitle={isEditing ? "Modify an existing invoice." : "Issue new billing manually."}
-        actions={<Button variant="outline" data-testid="finance-invoice-back" onClick={navigateToInvoiceList}>Back</Button>}
-      />
+    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
+        <PageHeader
+          title={isEditing ? "Edit Invoice" : "Create Invoice"}
+          subtitle={isEditing ? "Modify an existing invoice." : "Issue new billing manually."}
+          actions={<Button variant="outline" data-testid="finance-invoice-back" onClick={navigateToInvoiceList}>Back</Button>}
+        />
 
-      <SectionCard className="border-slate-200 shadow-sm">
+        <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-6" data-testid="finance-invoice-form" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
@@ -405,7 +406,8 @@ export default function FinanceInvoiceForm() {
             </div>
           </div>
         </form>
-      </SectionCard>
+        </SectionCard>
+      </div>
 
       <Dialog open={showCategoryDialog} onClose={() => setShowCategoryDialog(false)} title="Create Invoice Category" size="md">
         <div className="space-y-5 pt-2">

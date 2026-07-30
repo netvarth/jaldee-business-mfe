@@ -170,8 +170,8 @@ export function PageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
+    <div className="min-h-screen min-w-0 bg-slate-50/60 px-4 py-6 md:px-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-5">
         <PageHeader title={title} subtitle={subtitle} actions={actions} />
         {children}
       </div>
@@ -204,9 +204,9 @@ export function FinanceFeatureLayout({
         </div>
       ) : null}
 
-      <div className={`grid gap-6 ${aside ? "xl:grid-cols-[1.45fr_0.85fr]" : ""}`}>
-        <div className="space-y-6">{main}</div>
-        {aside ? <div className="space-y-6">{aside}</div> : null}
+      <div className={`grid min-w-0 gap-6 ${aside ? "xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]" : ""}`}>
+        <div className="min-w-0 space-y-6">{main}</div>
+        {aside ? <div className="min-w-0 space-y-6">{aside}</div> : null}
       </div>
     </PageShell>
   );
@@ -302,7 +302,7 @@ export function DataTableCard<T extends object>({
           mode: "client",
         }}
         className="rounded-none border-0 bg-transparent shadow-none"
-        tableClassName="min-w-[760px] [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+        tableClassName="!w-max min-w-full !table-auto [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:whitespace-nowrap [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
         emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
       /> : (
         <>
@@ -313,7 +313,7 @@ export function DataTableCard<T extends object>({
     </>
   );
 
-  return bare ? content : <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>{content}</SectionCard>;
+  return bare ? content : <SectionCard className="w-full min-w-0 max-w-full overflow-hidden border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>{content}</SectionCard>;
 }
 
 export function FeedCard({
@@ -399,7 +399,7 @@ export function ServerDataTableCard<T extends object>({
 
   return (
     <SectionCard
-      className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm"
+      className="w-full min-w-0 max-w-full overflow-hidden border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm"
       padding={false}
     >
       <FinanceListToolbar
@@ -424,7 +424,7 @@ export function ServerDataTableCard<T extends object>({
           mode: "server",
         }}
         className="rounded-none border-0 bg-transparent shadow-none"
-        tableClassName="min-w-[760px] [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+        tableClassName="!w-max min-w-full !table-auto [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:whitespace-nowrap [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
         emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
       /> : (
         <div className="p-4">
