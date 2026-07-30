@@ -68,3 +68,83 @@ export function useAttachments(bookingUid?: string) {
 
   return { attachments, loading, error, reload: load, add, remove };
 }
+
+function resolveFileType(file: File) {
+  if (file.type && file.type.includes("/")) {
+    return file.type.split("/")[1];
+  }
+  const parts = file.name.split(".");
+  return parts.length > 1 ? parts[parts.length - 1] : "unknown";
+}
+
+export async function uploadAttachmentsToDrive(
+  api: ReturnType<typeof useBookingApi>,
+  files: File[],
+  user: { id: string; name: string },
+  accountId: string
+) {
+  const uploadedAttachments: Attachment[] = [];
+
+  for (const file of files) {
+    const resolvedUserName = user.name || "User";
+    
+    const initiatePayload = {
+      action: "ADD",
+      caption: file.name,
+      contextType: "BOOKING",
+      featureModuleName: "BOOKING_APPOINTMENT",
+      featureServiceName: "BOOKING",
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type || resolveFileType(file),
+      owner: user.id,
+      ownerName: resolvedUserName,
+      ownerType: "TenantUser",
+      sharedType: "secureShare",
+      tenantUid: accountId,
+      uploadedBy: user.id,
+      uploadedByName: resolvedUserName,
+    };
+
+    const initiateRes = await api.post<any>(
+      "/platform-service/v1/api/drive/initiate-upload",
+      initiatePayload,
+      { _skipLocationParam: true } as any
+    );
+
+    // api.post returns the unwrapped data payload
+    const initiateData = initiateRes;
+    const { fileUid, uploadUrl, filePath } = initiateData;
+
+    if (!uploadUrl) {
+      throw new Error("No upload URL returned from initiate-upload");
+    }
+
+    const s3Res = await fetch(uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: file.type ? { "Content-Type": file.type } : undefined,
+    });
+
+    if (!s3Res.ok) {
+      throw new Error(`AWS S3 upload failed for ${file.name}`);
+    }
+
+    await api.patch(
+      `/platform-service/v1/api/drive/${fileUid}/status?status=COMPLETE`,
+      null,
+      { _skipLocationParam: true } as any
+    );
+
+    uploadedAttachments.push({
+      fileName: file.name,
+      fileType: file.type || resolveFileType(file),
+      caption: file.name,
+      filePath: filePath,
+      fileSize: file.size,
+      uploadedByName: resolvedUserName,
+    });
+  }
+
+  return uploadedAttachments;
+}

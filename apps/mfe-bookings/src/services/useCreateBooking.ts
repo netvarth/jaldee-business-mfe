@@ -42,8 +42,8 @@ export function useCreateBooking() {
   const { preference } = useBookingPreferences();
   const [submitting, setSubmitting] = useState(false);
 
-  /** Returns true if the booking was accepted (live or local fallback). */
-  const createBooking = async (input: CreateBookingInput): Promise<boolean> => {
+  /** Returns { success: boolean, uid?: string } upon completion (live or local fallback). */
+  const createBooking = async (input: CreateBookingInput): Promise<{ success: boolean; uid?: string }> => {
     setSubmitting(true);
     const [firstName, ...rest] = (input.patientName || "Walk-in").trim().split(" ");
     const payload = {
@@ -63,13 +63,16 @@ export function useCreateBooking() {
             email: input.email ?? "",
           },
       ...(input.recurringRule && { recurringRule: input.recurringRule }),
+      ...(input.attachments && input.attachments.length > 0 && { attachments: input.attachments }),
     };
     try {
-      await api.post("/bookings", payload);
-      return true;
+      const response = await api.post("/bookings", payload);
+      // Try to extract uid from the response
+      const uid = (response?.data as any)?.uid || (response as any)?.uid || undefined;
+      return { success: true, uid };
     } catch {
       // No live endpoint — treat as accepted so the prototype flow completes.
-      return true;
+      return { success: true };
     } finally {
       setSubmitting(false);
     }

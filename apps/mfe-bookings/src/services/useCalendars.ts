@@ -437,6 +437,17 @@ export const useCalendars = (
     }
   };
 
+  const getUserCalendarsAvailability = useCallback(
+    async (userUid: string, date: string, startTime: string, endTime: string) => {
+      const data = await api.get<unknown>(`/calendars/user/${userUid}/availability`, {
+        params: { date, startTime, endTime },
+        _skipLocationParam: true,
+      });
+      return unwrapList<Calendar>(data).map(normalizeCalendar);
+    },
+    [api]
+  );
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -467,5 +478,6 @@ export const useCalendars = (
     normalizeCalendarStatus,
     toggleStatus,
     refresh: fetchCalendars,
+    getUserCalendarsAvailability,
   };
 };

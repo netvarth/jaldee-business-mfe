@@ -343,6 +343,7 @@ export interface CreateBookingInput {
   channel: BookingChannel;
   notes?: string;
   customerDetails?: BookingCustomerDetails;
+  attachments?: any[];
   recurringRule?: {
     frequency: "DAILY" | "WEEKLY" | "MONTHLY";
     interval: number;

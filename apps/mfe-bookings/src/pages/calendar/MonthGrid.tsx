@@ -127,7 +127,7 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                                                                 <span style={{ fontSize: '11px', color: '#333333', fontWeight: 700 }}>{bks.length} Bookings</span>
                                                             </div>
                                                             
-                                                            <div className="flex items-center justify-center h-full shrink-0 pr-1.5" style={{ color: color, fontSize: '16px', fontWeight: 400 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} />); }}>
+                                                            <div className="flex items-center justify-center h-full shrink-0 pr-1.5" style={{ color: color, fontSize: '16px', fontWeight: 400 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} isFromCell={true} />); }}>
                                                                 +
                                                             </div>
                                                         </div>
@@ -191,7 +191,7 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                                                         >
                                                             <span style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} Bookings</span>
                                                             
-                                                            <div className="flex items-center justify-center shrink-0" style={{ color: calColor, fontSize: '15px', fontWeight: 700 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} initialCalendarUid={uid} />); }}>
+                                                            <div className="flex items-center justify-center shrink-0" style={{ color: calColor, fontSize: '15px', fontWeight: 700 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={day} initialCalendarUid={uid} isFromCell={true} />); }}>
                                                                 +
                                                             </div>
                                                         </div>

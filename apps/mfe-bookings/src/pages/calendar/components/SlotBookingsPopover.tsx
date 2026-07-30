@@ -74,6 +74,7 @@ export default function SlotBookingsPopover({
                     initialTime={`${hour.toString().padStart(2, '0')}:00`}
                     initialProviderUid={viewBy === 'doctors' ? key : undefined}
                     initialCalendarUid={viewBy === 'calendars' ? key : undefined}
+                    isFromCell={true}
                 />
             );
         }, 0);

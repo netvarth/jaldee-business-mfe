@@ -154,6 +154,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                           initialTime={`${hour.toString().padStart(2, '0')}:00`} 
                                                           initialProviderUid={viewBy === 'doctors' ? id : undefined}
                                                           initialCalendarUid={viewBy === 'calendars' ? id : undefined}
+                                                          isFromCell={true}
                                                         />
                                                     )}
                                                     style={{ cursor: 'pointer' }}
@@ -214,7 +215,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                                 {initials}
                                                                                             </div>
                                                                                             <span className="text-[11px] font-bold text-white my-0.5">{bks.length}</span>
-                                                                                            <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] font-bold cursor-pointer text-white" style={{ backgroundColor: bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} />); }}>
+                                                                                            <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] font-bold cursor-pointer text-white" style={{ backgroundColor: bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} isFromCell={true} />); }}>
                                                                                                 +
                                                                                             </div>
                                                                                         </div>
@@ -245,7 +246,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                         </div>
 
                                                                                         {/* + Circle */}
-                                                                                        <div className="absolute -top-1.5 -right-1.5 w-[14px] h-[14px] box-content border-[2px] border-white rounded-full flex items-center justify-center text-[12px] leading-none shadow-sm cursor-pointer hover:scale-110 transition-transform text-white" style={{ backgroundColor: bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} />); }}>
+                                                                                        <div className="absolute -top-1.5 -right-1.5 w-[14px] h-[14px] box-content border-[2px] border-white rounded-full flex items-center justify-center text-[12px] leading-none shadow-sm cursor-pointer hover:scale-110 transition-transform text-white" style={{ backgroundColor: bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} isFromCell={true} />); }}>
                                                                                             +
                                                                                         </div>
                                                                                     </div>
@@ -325,7 +326,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                                 <span className="text-[7px] text-slate-600 font-medium tracking-wide mt-0.5">Bookings</span>
                                                                                             </div>
                                                                                             <div className="flex items-center justify-center w-full py-0.5 bg-white border-t" style={{ borderTopColor: toRgba(calColor, 0.15) }}>
-                                                                                                <div className="w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer hover:opacity-80" style={{ backgroundColor: toRgba(calColor, 0.2) }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialProviderUid={id} />); }}>
+                                                                                                <div className="w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer hover:opacity-80" style={{ backgroundColor: toRgba(calColor, 0.2) }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialProviderUid={id} isFromCell={true} />); }}>
                                                                                                     <span className="text-[10px] font-bold" style={{ color: toRgba(calColor, 0.8) }}>+</span>
                                                                                                 </div>
                                                                                             </div>
