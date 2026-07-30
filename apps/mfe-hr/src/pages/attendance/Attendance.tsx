@@ -427,31 +427,31 @@ export default function Attendance() {
       <div className="attendance-console-grid" style={{ display: "grid", gridTemplateColumns: "45fr 25fr 30fr", gap: 24, marginBottom: 24, alignItems: "stretch" }}>
         
         {/* Column 2: Consolidated Stats Overview */}
-        <div className="attendance-stats-summary-card" style={{ ...card, padding: 24, display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 18 }}>Summary Overview</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div className="attendance-stats-summary-card" style={{ ...card, padding: "16px 18px", display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--dark-text)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Summary Overview</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
             <div>
               <div style={lbl}>Hours Worked</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--dark-text)", marginTop: 4 }}>{weekHours.toFixed(1)}h</div>
-              <div style={{ fontSize: 9, color: "var(--light-text)", marginTop: 2, fontWeight: 800, letterSpacing: "0.04em" }}>THIS WEEK</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "var(--dark-text)", marginTop: 2 }}>{weekHours.toFixed(1)}h</div>
+              <div style={{ fontSize: 8.5, color: "var(--light-text)", marginTop: 1, fontWeight: 800, letterSpacing: "0.04em" }}>THIS WEEK</div>
             </div>
             <div>
               <div style={lbl}>Current Mode</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--primary-color)", marginTop: 4 }}>{mode}</div>
-              <div style={{ fontSize: 9, color: "var(--light-text)", marginTop: 2, fontWeight: 800, letterSpacing: "0.04em" }}>ACTIVE SESSION</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "var(--primary-color)", marginTop: 2 }}>{mode}</div>
+              <div style={{ fontSize: 8.5, color: "var(--light-text)", marginTop: 1, fontWeight: 800, letterSpacing: "0.04em" }}>ACTIVE SESSION</div>
             </div>
             {pendingVerifs.length > 0 && (
               <div>
                 <div style={{ ...lbl, color: "#b45309" }}>Pending WFH</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#b45309", marginTop: 4 }}>{pendingVerifs.length}</div>
-                <div style={{ fontSize: 9, color: "var(--light-text)", marginTop: 2, fontWeight: 800, letterSpacing: "0.04em" }}>NEEDS APPROVAL</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#b45309", marginTop: 2 }}>{pendingVerifs.length}</div>
+                <div style={{ fontSize: 8.5, color: "var(--light-text)", marginTop: 1, fontWeight: 800, letterSpacing: "0.04em" }}>NEEDS APPROVAL</div>
               </div>
             )}
             {pendingOvertime.length > 0 && (
               <div>
                 <div style={{ ...lbl, color: "#7c3aed" }}>Pending OT</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#7c3aed", marginTop: 4 }}>{pendingOvertime.length}</div>
-                <div style={{ fontSize: 9, color: "var(--light-text)", marginTop: 2, fontWeight: 800, letterSpacing: "0.04em" }}>NEEDS VERIFICATION</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#7c3aed", marginTop: 2 }}>{pendingOvertime.length}</div>
+                <div style={{ fontSize: 8.5, color: "var(--light-text)", marginTop: 1, fontWeight: 800, letterSpacing: "0.04em" }}>NEEDS VERIFICATION</div>
               </div>
             )}
           </div>

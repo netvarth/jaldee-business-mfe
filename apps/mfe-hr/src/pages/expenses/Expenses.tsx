@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Rows3, LayoutGrid } from "lucide-react";
-import { Button, Select, DatePicker, Textarea, Dialog, SkeletonTable } from "@jaldee/design-system";
+import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Rows3, LayoutGrid, Filter } from "lucide-react";
+import { Button, Select, DatePicker, Textarea, Dialog, SkeletonTable, DataTablePagination, Drawer } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
+import { useExpenseSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
 import { formatCurrency } from "../../lib/utils";
 
@@ -133,14 +140,14 @@ function ExpensesViewToggle({
 
 function StatCard({ tag: t, label, value, sub, tone, icon, accent }: { tag: string; label: string; value: ReactNode; sub: string; tone: string; icon: ReactNode; accent?: boolean }) {
   return (
-      <div style={{ ...panel, borderRadius: 8, padding: 22, background: accent ? "rgba(17,94,89,0.04)" : SURFACE, borderColor: accent ? "rgba(17,94,89,0.18)" : BORDER_SUBTLE }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ height: 48, width: 48, borderRadius: 6, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
-        <span style={{ ...lbl, color: tone, background: `${tone}14`, border: `1px solid ${tone}33`, padding: "4px 10px", borderRadius: 4 }}>{t}</span>
+    <div style={{ ...panel, borderRadius: 8, padding: "14px 16px", background: accent ? "rgba(17,94,89,0.04)" : SURFACE, borderColor: accent ? "rgba(17,94,89,0.18)" : BORDER_SUBTLE }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ height: 36, width: 36, borderRadius: 6, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
+        <span style={{ ...lbl, color: tone, background: `${tone}14`, border: `1px solid ${tone}33`, padding: "2px 8px", borderRadius: 4, fontSize: 9 }}>{t}</span>
       </div>
-      <p style={{ ...lbl, marginBottom: 6 }}>{label}</p>
-      <div style={{ fontSize: "var(--text-xl)", fontWeight: 900, color: accent ? TEAL : TEXT_PRIMARY, letterSpacing: "-0.5px" }}>{value}</div>
-      <p style={{ ...lbl, marginTop: 8, fontSize: 10, fontWeight: 700 }}>{sub}</p>
+      <p style={{ ...lbl, marginBottom: 3, fontSize: 10 }}>{label}</p>
+      <div style={{ fontSize: "var(--text-lg)", fontWeight: 900, color: accent ? TEAL : TEXT_PRIMARY, letterSpacing: "-0.5px" }}>{value}</div>
+      <p style={{ ...lbl, marginTop: 4, fontSize: 9.5, fontWeight: 700 }}>{sub}</p>
     </div>
   );
 }
@@ -174,10 +181,39 @@ export default function Expenses() {
   ), [expenses.data, isEmployeeView, myProfile?.id]);
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const { schema: expenseSchema, loading: schemaLoading } = useExpenseSearchSchema(!isEmployeeView);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const sumPending = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
   const sumSettled = useMemo(() => scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
   const pendingCount = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").length, [scopedExpenses]);
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, expenseSchema).length,
+    [advancedFilters, expenseSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(expenseSchema));
+    setFiltersOpen(true);
+  };
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(expenseSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setCategoryFilter("all");
+    setStatusFilter("all");
+    setSearch("");
+    setPage(1);
+  };
+  const resetFilters = () => { clearFilters(); setFiltersOpen(false); };
+  const applyFilters = () => { setAdvancedFilters(draftFilters); setPage(1); setFiltersOpen(false); };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -191,9 +227,19 @@ export default function Expenses() {
   const rows = useMemo(() => {
     const activeTab = isEmployeeView ? "ledger" : tab;
     const base = activeTab === "approvals" ? scopedExpenses.filter((e) => e.status === "Pending") : scopedExpenses;
-    const q = search.toLowerCase();
-    return base.filter((e) => !q || (e.category || "").toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q) || empName(e.employeeUid).toLowerCase().includes(q));
-  }, [empMap, isEmployeeView, scopedExpenses, search, tab]);
+    const q = search.trim().toLowerCase();
+    return base.filter((e) => {
+      const matchesCategory = categoryFilter === "all" || e.category === categoryFilter;
+      const matchesStatus = statusFilter === "all" || e.status === statusFilter;
+      const matchesQ = !q || (e.category || "").toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q) || empName(e.employeeUid).toLowerCase().includes(q);
+      return matchesCategory && matchesStatus && matchesQ;
+    });
+  }, [categoryFilter, empMap, isEmployeeView, scopedExpenses, search, statusFilter, tab]);
+
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return rows.slice(start, start + pageSize);
+  }, [page, pageSize, rows]);
 
   // submit modal
   const [addOpen, setAddOpen] = useState(false);
@@ -266,31 +312,86 @@ export default function Expenses() {
         <StatCard tag="Total Registers" label="Total Ledger Count" value={`${scopedExpenses.length} Claims`} sub="Expense claims logged" tone={TEAL} icon={<Receipt size={24} />} accent />
       </div>
 
-      {/* TABS + SEARCH */}
+      {/* TABS + FILTERS HEADER */}
       <div style={{ ...panel, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* ROW 1: TABS & VIEW TOGGLE */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 6, maxWidth: "100%" }}>
             {(isEmployeeView ? EXPENSE_ROUTES.filter((t) => t.key === "ledger") : EXPENSE_ROUTES).map((t) => {
               const activeTab = isEmployeeView ? "ledger" : tab;
               const label = t.key === "ledger" ? `${t.label} (${scopedExpenses.length})` : `${t.label} (${pendingCount} Pending)`;
               return (
-                <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={activeTab === t.key ? "true" : "false"} onClick={() => navigate(isEmployeeView ? "/me/expenses" : `/expenses/${t.route}`)} style={{ padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: activeTab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: activeTab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: activeTab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
+                <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={activeTab === t.key ? "true" : "false"} onClick={() => { setPage(1); navigate(isEmployeeView ? "/me/expenses" : `/expenses/${t.route}`); }} style={{ padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: activeTab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: activeTab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: activeTab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
               );
             })}
           </div>
           <ExpensesViewToggle value={viewMode} onChange={setViewMode} />
         </div>
-        {/* Search option hidden for now
-        <div style={{ position: "relative", width: "100%", maxWidth: 360, alignSelf: "flex-end" }}>
-          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-          <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 42, width: "100%", borderRadius: 999, paddingLeft: 34, fontSize: "var(--text-sm)", fontWeight: 600, background: SURFACE, border: `1px solid ${BORDER_SUBTLE}` }} />
+
+        {/* ROW 2: INLINE FILTERS */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--border-color)]">
+          <div className="min-w-[150px] sm:min-w-[180px]">
+            <Select
+              id="hr-expenses-filter-category"
+              testId="hr-expenses-filter-category"
+              aria-label="Filter by Category"
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+              options={[
+                { value: "all", label: "All Categories" },
+                { value: "Travel", label: "Travel" },
+                { value: "Food", label: "Food" },
+                { value: "Lodging", label: "Lodging" },
+                { value: "Other", label: "Other" },
+              ]}
+            />
+          </div>
+          {!isEmployeeView && tab === "ledger" && (
+            <div className="min-w-[150px] sm:min-w-[180px]">
+              <Select
+                id="hr-expenses-filter-status"
+                testId="hr-expenses-filter-status"
+                aria-label="Filter by Status"
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                options={[
+                  { value: "all", label: "All Statuses" },
+                  { value: "Pending", label: "Pending" },
+                  { value: "Approved", label: "Approved" },
+                  { value: "Reimbursed", label: "Reimbursed" },
+                  { value: "Rejected", label: "Rejected" },
+                ]}
+              />
+            </div>
+          )}
+          <Button
+            type="button"
+            id="hr-expenses-filter-button"
+            data-testid="hr-expenses-filter-button"
+            variant={appliedFilterCount > 0 ? "primary" : "outline"}
+            icon={<Filter size={16} />}
+            aria-label="Open expense claim filters"
+            onClick={openFilters}
+          >
+            <span className="hidden sm:inline">Filter</span>
+            {appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+          </Button>
+          {(categoryFilter !== "all" || statusFilter !== "all" || appliedFilterCount > 0) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-2 sm:px-3"
+              onClick={clearFilters}
+            >
+              Reset Filters
+            </Button>
+          )}
         </div>
-        */}
       </div>
 
 
 
-      {/* TABLE */}
       {/* TABLE */}
       {expenses.loading ? (
         <div style={{ ...card, padding: 20 }}>
@@ -305,9 +406,9 @@ export default function Expenses() {
               <th style={th}>Submit Date</th><th style={th}>Voucher Category</th><th style={th}>Claim Amount</th><th style={th}>Travel Summary</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th>
             </tr></thead>
             <tbody>
-              {rows.length === 0 ? (
+              {pagedRows.length === 0 ? (
                 <tr><td colSpan={isEmployeeView ? 6 : 7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" && !isEmployeeView ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
-              ) : rows.map((e) => (
+              ) : pagedRows.map((e) => (
                 <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
                   {!isEmployeeView && tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 14 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 10 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
                   <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, fontSize: "var(--text-xs)", color: TEXT_SECONDARY }}>{fmtDate(e.date)}</td>
@@ -329,55 +430,132 @@ export default function Expenses() {
             </tbody>
           </table>
           </div>
+          <DataTablePagination
+            testId="hr-expenses-pagination"
+            page={page}
+            pageSize={pageSize}
+            total={rows.length}
+            onChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
         </div>
       ) : (
         <div data-testid="hr-expenses-cards-panel" style={{ ...card, padding: 16 }}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rows.length === 0 ? (
+            {pagedRows.length === 0 ? (
               <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>
                 {tab === "approvals" && !isEmployeeView ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}
               </div>
-            ) : rows.map((e) => (
-              <div key={e.id} id={`hr-expenses-card-${e.id}`} data-testid={`hr-expenses-card-${e.id}`} style={{ ...panel, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+            ) : pagedRows.map((e) => (
+              <div
+                key={e.id}
+                id={`hr-expenses-card-${e.id}`}
+                data-testid={`hr-expenses-card-${e.id}`}
+                style={{ ...panel, borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", gap: 14, height: "100%", transition: "box-shadow 0.2s, transform 0.2s" }}
+                className="hover:shadow-md hover:-translate-y-0.5"
+              >
+                {/* Header: Claimant / Date & Status */}
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ minWidth: 0 }}>
-                    {!isEmployeeView && tab === "approvals" ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    {!isEmployeeView ? (
                       <>
-                        <div style={{ fontWeight: 800, fontSize: "var(--text-sm)", color: TEXT_PRIMARY }}>{empName(e.employeeUid)}</div>
-                        <div style={{ ...lbl, fontSize: 10, marginTop: 3 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div>
+                        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(17,94,89,0.08)", border: "1px solid rgba(17,94,89,0.18)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                          {empName(e.employeeUid).charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, fontSize: "var(--text-sm)", color: TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={empName(e.employeeUid)}>
+                            {empName(e.employeeUid)}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_SECONDARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {empCode(e.employeeUid)} · {empDept(e.employeeUid)}
+                          </div>
+                        </div>
                       </>
                     ) : (
-                      <div style={{ fontWeight: 800, fontSize: "var(--text-sm)", color: TEXT_PRIMARY }}>{fmtDate(e.date)}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(17,94,89,0.08)", border: "1px solid rgba(17,94,89,0.16)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <Receipt size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: TEXT_SECONDARY }}>Submit Date</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: TEXT_PRIMARY }}>{fmtDate(e.date)}</div>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <span style={tag(statStyle(e.status))}>{e.status || "—"}</span>
+                  <span style={{ ...tag(statStyle(e.status)), borderRadius: 999, padding: "4px 10px", flexShrink: 0 }}>
+                    {e.status || "Pending"}
+                  </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+                {/* Amount & Category Highlight Box */}
+                <div style={{ background: "rgba(100,116,139,0.04)", border: `1px solid ${BORDER_SUBTLE}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
-                    <div style={lbl}>Submit Date</div>
-                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: TEXT_PRIMARY, marginTop: 4 }}>{fmtDate(e.date)}</div>
+                    <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: TEXT_SECONDARY }}>Claim Amount</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: TEAL, letterSpacing: "-0.5px", marginTop: 2 }}>{formatCurrency(e.amount)}</div>
                   </div>
-                  <div>
-                    <div style={lbl}>Category</div>
-                    <div style={{ marginTop: 5 }}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></div>
-                  </div>
-                  <div>
-                    <div style={lbl}>Claim Amount</div>
-                    <div style={{ fontSize: "var(--text-base)", fontWeight: 900, color: TEXT_PRIMARY, marginTop: 4 }}>{formatCurrency(e.amount)}</div>
-                  </div>
-                  <div>
-                    <div style={lbl}>Travel Summary</div>
-                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: TEXT_PRIMARY, marginTop: 4 }}>
-                      {e.category === "Travel" && e.kms ? `${e.kms} KMs${e.modeOfTransport ? ` via ${e.modeOfTransport}` : ""}` : (e.notes || "—")}
+                  <span style={{ ...tag(catStyle(e.category)), borderRadius: 6, padding: "4px 10px" }}>
+                    {e.category || "General"}
+                  </span>
+                </div>
+
+                {/* Summary / Notes Block */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexGrow: 1 }}>
+                  {!isEmployeeView ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: TEXT_SECONDARY }}>
+                      <Clock size={12} style={{ color: "var(--light-text)" }} />
+                      <span>Submitted {fmtDate(e.date)}</span>
                     </div>
+                  ) : null}
+
+                  <div style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY, background: SURFACE_SUBTLE, borderRadius: 8, padding: "9px 12px", border: `1px solid ${BORDER_SUBTLE}`, minHeight: 46, display: "flex", alignItems: "center" }}>
+                    {e.category === "Travel" && e.kms ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: INFO, fontWeight: 700 }}>
+                        <Car size={14} />
+                        <span>{e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</span>
+                      </div>
+                    ) : (
+                      <span style={{ color: e.notes ? TEXT_PRIMARY : "var(--light-text)", fontStyle: e.notes ? "normal" : "italic", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {e.notes ? `“${e.notes}”` : "No description provided."}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 6, borderTop: `1px solid ${BORDER}` }}>
-                  <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={secondaryActionButton}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
+
+                {/* Footer Action */}
+                <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 10, borderTop: `1px solid ${BORDER_SUBTLE}`, marginTop: "auto" }}>
+                  <button
+                    id={`hr-expenses-view-${e.id}`}
+                    data-testid={`hr-expenses-view-${e.id}`}
+                    onClick={() => { setMsg(null); setSelected(e); }}
+                    style={{
+                      ...secondaryActionButton,
+                      width: "100%",
+                      justifyContent: "center",
+                      height: 38,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Details"}
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+          <DataTablePagination
+            testId="hr-expenses-pagination"
+            page={page}
+            pageSize={pageSize}
+            total={rows.length}
+            onChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
         </div>
       )}
       </div>
@@ -500,6 +678,31 @@ export default function Expenses() {
           </>
         )}
       </Dialog>
+
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Expense Claim Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="hr-expenses-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={expenseSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No expense filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button type="button" variant="outline" className="flex-1" data-testid="hr-expenses-filter-reset" onClick={resetFilters}>Reset All</Button>
+            <Button type="button" variant="primary" className="flex-1" data-testid="hr-expenses-filter-apply" onClick={applyFilters}>Apply Filters</Button>
+          </div>
+        </div>
+      </Drawer>
     </section>
   );
 }

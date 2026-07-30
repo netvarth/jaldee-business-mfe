@@ -77,6 +77,7 @@ export interface DataTablePaginationProps {
   testId?: string;
   controlTestIdPrefix?: string;
   position?: "top" | "bottom";
+  className?: string;
 }
 
 function getCellValue<T extends object>(row: T, key: keyof T | string) {
@@ -483,6 +484,7 @@ export function DataTablePagination({
   testId = "data-table-pagination",
   controlTestIdPrefix,
   position = "bottom",
+  className,
 }: DataTablePaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
@@ -490,23 +492,24 @@ export function DataTablePagination({
   const to = Math.min(currentPage * pageSize, total);
   const controlPrefix = controlTestIdPrefix ?? testId;
 
-  if (total < 10) return null;
+  if (total <= 0) return null;
 
   return (
     <div
       data-testid={testId}
       className={cn(
-        "flex flex-col gap-3 bg-[var(--color-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between md:px-6",
+        "flex flex-col gap-2 bg-[var(--color-surface)] px-2.5 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:px-3 sm:py-2 md:px-4",
         position === "top"
           ? "border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]"
-          : "border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]"
+          : "border-t border-[color:color-mix(in_srgb,var(--color-border)_82%,white)]",
+        className
       )}
     >
-      <span className="text-[length:var(--text-xs)] text-[var(--color-text-secondary)]">
+      <span className="text-xs text-[var(--color-text-secondary)] shrink-0">
         Showing {from} to {to} of {total} records
       </span>
 
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-nowrap items-center gap-1 shrink-0 overflow-x-auto">
         <PaginationBtn
           label="<<"
           disabled={currentPage === 1}
@@ -524,7 +527,7 @@ export function DataTablePagination({
           paginationPage === "..." ? (
             <span
               key={`ellipsis-${i}`}
-              className="w-8 text-center text-[length:var(--text-xs)] text-[var(--color-text-secondary)]"
+              className="w-6 text-center text-xs text-[var(--color-text-secondary)]"
             >
               ...
             </span>
@@ -559,7 +562,7 @@ export function DataTablePagination({
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className={cn(
-              "ml-2 h-8 rounded-md border px-2 text-[length:var(--text-xs)]",
+              "ml-1.5 h-7 sm:h-8 rounded-md border px-1.5 text-xs",
               "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-primary)]",
               "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]"
             )}
@@ -650,7 +653,7 @@ function ColumnFilterHeader({
               }}
             >
               {option.label}
-              {selected && <span aria-hidden="true">✓</span>}
+      {selected && <span aria-hidden="true">✓</span>}
             </button>
           );
         })}
@@ -665,12 +668,14 @@ function PaginationBtn({
   active,
   onClick,
   testId,
+  className,
 }: {
   label: string;
   disabled: boolean;
   active?: boolean;
   onClick: () => void;
   testId: string;
+  className?: string;
 }) {
   return (
     <button
@@ -679,12 +684,13 @@ function PaginationBtn({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "min-w-[32px] h-8 rounded-md border px-2 text-[length:var(--text-xs)] transition-colors",
+        "min-w-[28px] sm:min-w-[32px] h-7 sm:h-8 rounded-md border px-1.5 sm:px-2 text-xs transition-colors shrink-0",
         "focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]",
         active
           ? "font-semibold bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
           : "bg-[var(--color-surface)] text-[var(--color-text-primary)] border-[var(--color-border)]",
-        disabled && "opacity-40 cursor-not-allowed pointer-events-none"
+        disabled && "opacity-40 cursor-not-allowed pointer-events-none",
+        className
       )}
     >
       {label}

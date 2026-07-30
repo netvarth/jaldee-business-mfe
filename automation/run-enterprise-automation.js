@@ -6,6 +6,11 @@ const EMPLOYEE_PORTAL_BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http:/
 const ENTERPRISE_LOGIN_ID = process.env.ENTERPRISE_LOGIN_ID || "dhwanikrishna1";
 const ENTERPRISE_PHONE = process.env.ENTERPRISE_PHONE || "5555000015";
 const ENTERPRISE_DATA_SUFFIX = process.env.ENTERPRISE_DATA_SUFFIX || "DGS";
+const ENTERPRISE_COMPANY_NAME = process.env.ENTERPRISE_COMPANY_NAME || "";
+const ENTERPRISE_EMAIL_DOMAIN = process.env.ENTERPRISE_EMAIL_DOMAIN || "dhyanglobal.example";
+const ENTERPRISE_PHONE_PREFIX = (process.env.ENTERPRISE_PHONE_PREFIX || "9").replace(/\D/g, "");
+const ENTERPRISE_FORCE_NEW_ACCOUNT = process.env.ENTERPRISE_FORCE_NEW_ACCOUNT === "true";
+const ENTERPRISE_COMPLETE_ONBOARDING = process.env.ENTERPRISE_COMPLETE_ONBOARDING === "true";
 const ENTERPRISE_EMPLOYEE_COUNT = Math.max(
   1,
   Number.parseInt(process.env.ENTERPRISE_EMPLOYEE_COUNT || "1000", 10) || 1000,
@@ -29,8 +34,12 @@ async function run() {
     date.setDate(date.getDate() + daysAhead);
     return date.toISOString().slice(0, 10);
   };
-  const uniquePhone = (sequence) =>
-    `9${String(100000000 + sequence).padStart(9, "0")}`;
+  const uniquePhone = (sequence) => {
+    const remainingDigits = Math.max(1, 10 - ENTERPRISE_PHONE_PREFIX.length);
+    return `${ENTERPRISE_PHONE_PREFIX}${String(sequence).padStart(remainingDigits, "0").slice(-remainingDigits)}`;
+  };
+  const testEmail = (localPart) =>
+    `${localPart}${ENTERPRISE_EMAIL_DOMAIN === "jaldee.com" ? ".test" : ""}@${ENTERPRISE_EMAIL_DOMAIN}`;
 
   console.log("=========================================================");
   console.log(`  DHYAN GLOBAL ENTERPRISE HR AUTOMATION (${ENTERPRISE_EMPLOYEE_COUNT} EMPLOYEES)`);
@@ -419,27 +428,32 @@ async function run() {
   }
 
   try {
-    console.log("\n>>> 1. AUTHENTICATION - TRY SIGN IN TO EXISTING ENTERPRISE TENANT...");
+    console.log(`\n>>> 1. AUTHENTICATION - ${ENTERPRISE_FORCE_NEW_ACCOUNT ? "CREATE NEW ENTERPRISE TENANT" : "TRY SIGN IN TO EXISTING ENTERPRISE TENANT"}...`);
     const signupPhone = ENTERPRISE_PHONE;
     const uniqueId = Date.now().toString().slice(-4);
-    const enterpriseBrandName = `TechNova Global Solutions Pvt Ltd ${suffix} ${uniqueId}`;
+    const enterpriseBrandName = ENTERPRISE_COMPANY_NAME || `TechNova Global Solutions Pvt Ltd ${suffix} ${uniqueId}`;
+    const enterpriseLegalName = `${enterpriseBrandName} Private Limited`;
 
-    await page.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
-    await slowType('[data-testid="auth-login-id"]', ENTERPRISE_LOGIN_ID, "Enterprise Login ID");
-    await slowType('[data-testid="auth-login-password"]', ENTERPRISE_PASSWORD, "Enterprise Password");
-    await slowClick('[data-testid="auth-login-submit"]', "Sign In");
-    const errorEl = page.locator('.login-error').first();
-    const loginFinished = await Promise.race([
-      page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 6000 }).then(() => true),
-      errorEl.waitFor({ state: "visible", timeout: 6000 }).then(() => false)
-    ]).catch(() => false);
+    let loginFinished = false;
+    let errorText = "";
+    if (!ENTERPRISE_FORCE_NEW_ACCOUNT) {
+      await page.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1000);
+      await slowType('[data-testid="auth-login-id"]', ENTERPRISE_LOGIN_ID, "Enterprise Login ID");
+      await slowType('[data-testid="auth-login-password"]', ENTERPRISE_PASSWORD, "Enterprise Password");
+      await slowClick('[data-testid="auth-login-submit"]', "Sign In");
+      const errorEl = page.locator('.login-error').first();
+      loginFinished = await Promise.race([
+        page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 6000 }).then(() => true),
+        errorEl.waitFor({ state: "visible", timeout: 6000 }).then(() => false)
+      ]).catch(() => false);
+      errorText = await errorEl.textContent().catch(() => "");
+    }
 
     if (loginFinished === true) {
       console.log("   [Auth] Logged in successfully!");
     } else {
-      const errorText = await errorEl.textContent().catch(() => "");
-      console.log(`   [Auth] Sign-in failed (${errorText?.trim() || "timeout"}). Starting Signup flow...`);
+      console.log(`   [Auth] ${ENTERPRISE_FORCE_NEW_ACCOUNT ? "Forced new-account mode" : `Sign-in failed (${errorText?.trim() || "timeout"})`}. Starting Signup flow...`);
 
       await page.goto(`${AUTOMATION_BASE_URL}/signup`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
@@ -467,6 +481,37 @@ async function run() {
       await page.locator('[data-testid="signup-verify-otp-button"]').first().evaluate((button) => button.click());
       await page.locator('[data-testid="onboarding-page"]').waitFor({ state: "visible", timeout: 60000 });
       console.log("   [Auth] Signup and verification complete!");
+    }
+    if (ENTERPRISE_COMPLETE_ONBOARDING && !(await page.locator('[data-testid="onboarding-page"]').isVisible().catch(() => false))) {
+      console.log("   [Auth] Resuming incomplete onboarding through the protected onboarding route");
+      await page.goto(`${AUTOMATION_BASE_URL}/onboarding`, { waitUntil: "domcontentloaded" });
+      const onboardingOpened = await page.locator('[data-testid="onboarding-page"]')
+        .waitFor({ state: "visible", timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!onboardingOpened) {
+        console.log("   [Recovery] Onboarding is locked; provisioning HR and the initial location through Settings");
+        await page.goto(`${AUTOMATION_BASE_URL}/settings/subscriptions`, { waitUntil: "domcontentloaded" });
+        const hrSwitch = page.locator('[data-testid="settings-product-hr-switch"]');
+        await hrSwitch.waitFor({ state: "visible", timeout: 30000 });
+        if ((await hrSwitch.getAttribute("aria-checked")) !== "true") await hrSwitch.click();
+        await slowClick('[data-testid="settings-save-button"]', "Save HR Subscription");
+        await page.waitForTimeout(1500);
+
+        await page.goto(`${AUTOMATION_BASE_URL}/settings/locations`, { waitUntil: "domcontentloaded" });
+        await page.locator('[data-testid="settings-locations-create-button"]').waitFor({ state: "visible", timeout: 30000 });
+        const noLocations = await page.locator('[data-testid="settings-locations-empty-state"]').isVisible().catch(() => false);
+        if (noLocations) {
+          await slowClick('[data-testid="settings-locations-create-button"]', "Create Initial Location");
+          await slowType('[data-testid="settings-location-name-input"]', "Thrissur HQ", "Location Name");
+          await slowType('[data-testid="settings-location-pincode-input"]', "680001", "Location Pincode");
+          await slowType('[data-testid="settings-location-address-textarea"]', "Crown Tower, Thrissur, Kerala", "Location Address");
+          await slowType('[data-testid="settings-location-latitude-input"]', "10.5276", "Location Latitude");
+          await slowType('[data-testid="settings-location-longitude-input"]', "76.2144", "Location Longitude");
+          await slowClick('[data-testid="settings-location-submit-button"]', "Save Initial Location");
+          await page.locator('[data-testid="settings-create-location-dialog"]').waitFor({ state: "hidden", timeout: 30000 });
+        }
+      }
     }
     const onboardingVisible = await page.locator('[data-testid="onboarding-page"]').isVisible({ timeout: 10000 }).catch(() => false);
     if (onboardingVisible) {
@@ -590,9 +635,9 @@ async function run() {
       await page.waitForTimeout(3000);
     }
     await slowType('[data-testid="hr-settings-company-name"], input[name="name"]', enterpriseBrandName, "Company Name");
-    await slowType('[data-testid="hr-settings-company-legalname"]', "TechNova Global Solutions Private Limited", "Legal Name");
+    await slowType('[data-testid="hr-settings-company-legalname"]', enterpriseLegalName, "Legal Name");
     await slowType('[data-testid="hr-settings-company-industry"]', "Enterprise Software, AI, Cloud & FinTech", "Industry");
-    await slowType('[data-testid="hr-settings-company-email"]', `corporate.${suffix}@dhyanglobal.example`, "Contact Email");
+    await slowType('[data-testid="hr-settings-company-email"]', testEmail(`corporate.${suffix}`), "Contact Email");
     await slowType('[data-testid="hr-settings-company-phone-number"]', ENTERPRISE_PHONE, "Phone");
     await slowType('[data-testid="hr-settings-company-logourl"]', "https://www.jaldee.com/favicon.ico", "Logo URL");
     await slowType('[data-testid="hr-settings-company-addressline"]', "Crown Tower", "Address");
@@ -604,14 +649,14 @@ async function run() {
     await slowSelect('[data-testid="hr-settings-company-currency"]', "INR", "Currency");
     await slowType('[data-testid="hr-settings-company-workingdays"]', "Monday - Friday", "Working Days");
     const companyExpectedValues = {
-      legalname: "TechNova Global Solutions Private Limited",
-      industry: "Enterprise Software, AI, Cloud & FinTech", email: `corporate.${suffix}@dhyanglobal.example`,
+      legalname: enterpriseLegalName,
+      industry: "Enterprise Software, AI, Cloud & FinTech", email: testEmail(`corporate.${suffix}`),
       phone: ENTERPRISE_PHONE, logourl: "https://www.jaldee.com/favicon.ico", addressline: "Crown Tower",
       city: "Thrissur", state: "Kerala", country: "India", gstin: "29ABCDE1234F1Z5", pan: "ABCDE1234F",
       currency: "INR", workingdays: "Monday - Friday",
     };
     const actualName = await page.locator('[data-testid="hr-settings-company-name"]').inputValue();
-    if (!actualName.startsWith("TechNova Global Solutions Pvt Ltd")) {
+    if (actualName !== enterpriseBrandName) {
       throw new Error(`Company Profile name was not retained (got "${actualName}")`);
     }
     for (const [field, expected] of Object.entries(companyExpectedValues)) {
@@ -1214,8 +1259,8 @@ async function run() {
         return {
           name: `${firstName} ${lastName}${cycle ? ` ${cycle + 1}` : ""}`,
           gender: i % 2 === 0 ? "MALE" : "FEMALE",
-          email: `employee${String(i + 1).padStart(5, "0")}.${suffix}.${uniqueId}@dhyanglobal.example`,
-          phone: `9${uniqueId}${String(i).padStart(5, "0")}`,
+          email: testEmail(`employee${String(i + 1).padStart(5, "0")}.${suffix}.${uniqueId}`),
+          phone: uniquePhone(1000 + i),
           employeeId: `EMP-${uniqueId}-${String(i + 1).padStart(5, "0")}`,
         };
       });

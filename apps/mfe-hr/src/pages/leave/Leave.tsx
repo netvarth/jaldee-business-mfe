@@ -28,7 +28,7 @@ const LEAVE_QUOTAS = [
 ];
 const MAX_TOTAL = LEAVE_QUOTAS.reduce((s, q) => s + q.quota, 0);
 
-const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 24, overflow: "hidden" };
+const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 12, overflow: "hidden" };
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const th: CSSProperties = { textAlign: "left", padding: "12px 16px", fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)", background: "rgba(100,116,139,0.04)" };
 const tdc: CSSProperties = { padding: "14px 16px", fontSize: 12.5, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
@@ -64,13 +64,13 @@ function tabFromPath(pathname: string): Tab {
 
 function StatCard({ tag, value, sub, tone, icon, accent }: { tag: string; value: ReactNode; sub: string; tone: string; icon: ReactNode; accent?: boolean }) {
   return (
-    <div style={{ ...card, borderRadius: 28, padding: 24, display: "flex", alignItems: "center", justifyContent: "space-between", background: accent ? "rgba(17,94,89,0.04)" : "var(--surface-bg)", borderColor: accent ? "rgba(17,94,89,0.18)" : "var(--border-color)" }}>
+    <div style={{ ...card, borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: accent ? "rgba(17,94,89,0.04)" : "var(--surface-bg)", borderColor: accent ? "rgba(17,94,89,0.18)" : "var(--border-color)" }}>
       <div>
         <span style={{ ...lbl, color: TEAL }}>{tag}</span>
-        <h3 style={{ fontSize: 28, fontWeight: 900, color: accent ? TEAL : "var(--dark-text)", letterSpacing: "-0.5px", margin: "4px 0 4px" }}>{value}</h3>
-        <p style={{ ...lbl, color: tone }}>{sub}</p>
+        <h3 style={{ fontSize: 20, fontWeight: 900, color: accent ? TEAL : "var(--dark-text)", letterSpacing: "-0.5px", margin: "2px 0 2px" }}>{value}</h3>
+        <p style={{ ...lbl, color: tone, fontSize: 9.5 }}>{sub}</p>
       </div>
-      <div style={{ height: 48, width: 48, borderRadius: 16, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
+      <div style={{ height: 38, width: 38, borderRadius: 10, background: `${tone}14`, border: `1px solid ${tone}33`, display: "flex", alignItems: "center", justifyContent: "center", color: tone }}>{icon}</div>
     </div>
   );
 }
@@ -284,9 +284,9 @@ export default function Leave() {
         title="Corporate Leave Dashboard"
         subtitle="Administrative leave and attendance control"
         actions={
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
-          <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" style={{ ...lbl, color: TEAL, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "7px 14px", borderRadius: 12 }}><UserCheck size={14} /> Corporate Admin Control</span>
-          <Button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setApplyOpen(true); }}>Apply for Leave</Button>
+          <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
+            <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" className="hidden lg:inline-flex" style={{ ...lbl, color: TEAL, alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "6px 12px", borderRadius: 10 }}><UserCheck size={14} /> Corporate Admin Control</span>
+            <Button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setApplyOpen(true); }} className="shrink-0 whitespace-nowrap">Apply for Leave</Button>
           </div>
         }
       />
@@ -305,21 +305,21 @@ export default function Leave() {
         <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
           {isLoading ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
-                <div style={{ ...card, borderRadius: 28, padding: 24, height: 124 }} className="animate-pulse space-y-3">
-                  <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
-                  <Skeleton height={32} width={140} className="rounded-lg bg-[var(--border-color)] opacity-60" />
-                  <Skeleton height={12} width={160} className="rounded bg-[var(--border-color)] opacity-40" />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
+                <div style={{ ...card, borderRadius: 12, padding: "14px 16px", height: 86 }} className="animate-pulse space-y-2">
+                  <Skeleton height={10} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
+                  <Skeleton height={24} width={140} className="rounded-lg bg-[var(--border-color)] opacity-60" />
+                  <Skeleton height={10} width={160} className="rounded bg-[var(--border-color)] opacity-40" />
                 </div>
-                <div style={{ ...card, borderRadius: 28, padding: 24, height: 124 }} className="animate-pulse space-y-3">
-                  <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
-                  <Skeleton height={32} width={120} className="rounded-lg bg-[var(--border-color)] opacity-60" />
-                  <Skeleton height={12} width={140} className="rounded bg-[var(--border-color)] opacity-40" />
+                <div style={{ ...card, borderRadius: 12, padding: "14px 16px", height: 86 }} className="animate-pulse space-y-2">
+                  <Skeleton height={10} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
+                  <Skeleton height={24} width={120} className="rounded-lg bg-[var(--border-color)] opacity-60" />
+                  <Skeleton height={10} width={140} className="rounded bg-[var(--border-color)] opacity-40" />
                 </div>
-                <div style={{ ...card, borderRadius: 28, padding: 24, height: 124 }} className="animate-pulse space-y-3">
-                  <Skeleton height={12} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
-                  <Skeleton height={32} width={150} className="rounded-lg bg-[var(--border-color)] opacity-60" />
-                  <Skeleton height={12} width={170} className="rounded bg-[var(--border-color)] opacity-40" />
+                <div style={{ ...card, borderRadius: 12, padding: "14px 16px", height: 86 }} className="animate-pulse space-y-2">
+                  <Skeleton height={10} width={100} className="rounded bg-[var(--border-color)] opacity-40" />
+                  <Skeleton height={24} width={150} className="rounded-lg bg-[var(--border-color)] opacity-60" />
+                  <Skeleton height={10} width={170} className="rounded bg-[var(--border-color)] opacity-40" />
                 </div>
               </div>
               <div style={{ ...card, padding: 20 }}>
@@ -328,10 +328,10 @@ export default function Leave() {
             </>
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
-                <StatCard tag="Total Submitted" value={`${pendingLeaves.length} Pending`} sub="Needs verification" tone="#d97706" icon={<Clock size={24} />} />
-                <StatCard tag="Active Workforce Status" value={`${employees.length - onLeaveToday.length} / ${employees.length}`} sub="Active today" tone="#10b981" icon={<Users size={24} />} />
-                <StatCard tag="Out of Office" value={`${onLeaveToday.length} On Leave`} sub="Absent today" tone={TEAL} icon={<Calendar size={24} />} accent />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
+                <StatCard tag="Total Submitted" value={`${pendingLeaves.length} Pending`} sub="Needs verification" tone="#d97706" icon={<Clock size={20} />} />
+                <StatCard tag="Active Workforce Status" value={`${employees.length - onLeaveToday.length} / ${employees.length}`} sub="Active today" tone="#10b981" icon={<Users size={20} />} />
+                <StatCard tag="Out of Office" value={`${onLeaveToday.length} On Leave`} sub="Absent today" tone={TEAL} icon={<Calendar size={20} />} accent />
               </div>
 
           {/* who is on leave today */}

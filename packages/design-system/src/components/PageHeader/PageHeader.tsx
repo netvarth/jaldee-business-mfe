@@ -90,12 +90,12 @@ export function PageHeader({
                 )}
                 <h1
                   data-testid="page-header-title"
-                  className="m-0 truncate text-base font-bold leading-6 text-[var(--dark-text)] sm:text-lg"
+                  className="m-0 text-base font-bold leading-6 text-[var(--dark-text)] sm:text-lg whitespace-normal"
                 >
                   {title}
                 </h1>
               </div>
-              {subtitle && <p className="m-0 truncate text-xs text-[var(--light-text)]">{subtitle}</p>}
+              {subtitle && <p className="m-0 text-xs text-[var(--light-text)] whitespace-normal">{subtitle}</p>}
             </div>
           )}
         </div>

@@ -14,6 +14,7 @@
     "serve": "turbo run serve",
     "check:finance-lines": "node scripts/check-finance-component-size.mjs",
     "automation:enterprise": "node automation/run-enterprise-automation.js",
+    "automation:it-company": "node automation/run-it-company-automation.js",
     "automation:leads": "playwright test automation/e2e/specs/demo-flow.spec.ts --config automation/playwright.leads.config.ts",
     "automation:leads:headless": "set LEADS_HEADLESS=1&& playwright test automation/e2e/specs/demo-flow.spec.ts --config automation/playwright.leads.config.ts",
     "automation:leads:report": "playwright show-report automation/reports/leads",

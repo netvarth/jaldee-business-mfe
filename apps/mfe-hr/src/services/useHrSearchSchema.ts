@@ -39,3 +39,4 @@ export const useDocumentRequestSearchSchema = (enabled = true) => useHrSearchSch
 export const useHolidaySearchSchema = () => useHrSearchSchema("/holidays");
 export const useDepartmentSearchSchema = (enabled = true) => useHrSearchSchema("/departments", enabled);
 export const useTicketSearchSchema = (enabled = true) => useHrSearchSchema("/tickets", enabled);
+export const useExpenseSearchSchema = (enabled = true) => useHrSearchSchema("/expenses", enabled);

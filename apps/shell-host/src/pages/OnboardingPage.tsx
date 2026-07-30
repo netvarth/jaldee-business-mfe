@@ -170,6 +170,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const initialBusinessIdentityRef = useRef({ companyName: "", phone: "" });
 
   const selectedSolutions = useMemo(
     () => BUSINESS_TYPES.filter((item) => selectedBusinessTypes.includes(item.id)),
@@ -194,8 +195,10 @@ export default function OnboardingPage() {
         if (tenantData) {
           if (tenantData.tenantProfile?.businessName) {
             setCompanyName(tenantData.tenantProfile.businessName);
+            initialBusinessIdentityRef.current.companyName = tenantData.tenantProfile.businessName.trim();
           } else if (tenantData.tenantName) {
             setCompanyName(tenantData.tenantName);
+            initialBusinessIdentityRef.current.companyName = tenantData.tenantName.trim();
           }
 
           if (tenantData.tenantProfile?.licenseName) {
@@ -211,6 +214,7 @@ export default function OnboardingPage() {
               number: primaryNo.number,
               e164Number: `${normalizedCode}${primaryNo.number}`
             });
+            initialBusinessIdentityRef.current.phone = String(primaryNo.number).replace(/\D/g, "");
           }
         }
 
@@ -406,14 +410,19 @@ export default function OnboardingPage() {
     setLoading(true);
     setError(null);
     try {
-      await onboardingService.updateTenant({
-        tenantUid,
-        tenantName: companyName,
-        gstin,
-        businessPhoneCountryCode: businessPhone.countryCode,
-        businessPhoneNumber: businessPhone.number,
-        email: user?.email,
-      });
+      const identityIsUnchanged =
+        companyName.trim() === initialBusinessIdentityRef.current.companyName
+        && businessPhone.number.replace(/\D/g, "") === initialBusinessIdentityRef.current.phone;
+      if (!identityIsUnchanged) {
+        await onboardingService.updateTenant({
+          tenantUid,
+          tenantName: companyName,
+          gstin,
+          businessPhoneCountryCode: businessPhone.countryCode,
+          businessPhoneNumber: businessPhone.number,
+          email: user?.email,
+        });
+      }
       const settingsRes = await onboardingService.getTenantSettings();
       const settingsData = settingsRes.data;
       if (settingsData) {
