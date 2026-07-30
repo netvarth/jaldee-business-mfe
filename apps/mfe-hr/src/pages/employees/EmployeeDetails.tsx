@@ -5,7 +5,7 @@ import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
   Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3, Filter,
-  KeyRound,
+  KeyRound, CalendarDays, Wallet, Home, MoreHorizontal,
 } from "lucide-react";
 import { Button, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
@@ -35,6 +35,7 @@ import "./employees.css";
 type Tab = "overview" | "attendance" | "leaves" | "payroll" | "documents";
 type CollectionView = "table" | "cards";
 const EMPLOYEE_TABS: Tab[] = ["overview", "attendance", "leaves", "payroll", "documents"];
+const MAIN_EMPLOYEE_TABS: Tab[] = ["overview", "attendance", "leaves", "payroll"];
 const EMPLOYEE_TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
   attendance: "Attendance",
@@ -74,6 +75,10 @@ function employeeTabFromPath(pathname: string): Tab {
   return EMPLOYEE_TABS.includes(candidate as Tab) ? candidate as Tab : "overview";
 }
 
+function employeeTabHref(id: string, tab: Tab, suffix = "") {
+  return `/employees/${id}/${tab}${suffix}`;
+}
+
 function getPreferredCollectionView() {
   if (typeof window === "undefined") return "table" as CollectionView;
   return window.matchMedia("(max-width: 1024px)").matches ? "cards" : "table";
@@ -101,9 +106,9 @@ function Field({ k, v, mono }: { k: string; v?: React.ReactNode; mono?: boolean 
 }
 function InfoTile({ icon, k, v }: { icon: React.ReactNode; k: string; v?: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 12, background: "rgba(100,116,139,0.06)" }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--surface-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary-color)", boxShadow: "var(--shadow-sm)", flexShrink: 0 }}>{icon}</div>
-      <div style={{ minWidth: 0, flex: 1, textAlign: "left" }}><div style={{ ...lbl, fontSize: 9 }}>{k}</div><div style={{ fontSize: 12, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v || "—"}</div></div>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "rgba(100,116,139,0.06)", minWidth: 0 }}>
+      <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--surface-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary-color)", boxShadow: "var(--shadow-sm)", flexShrink: 0 }}>{icon}</div>
+      <div style={{ minWidth: 0, flex: 1, textAlign: "left" }}><div style={{ ...lbl, fontSize: 8 }}>{k}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v || "—"}</div></div>
     </div>
   );
 }
@@ -257,7 +262,6 @@ export default function EmployeeDetails() {
   const [viewPayslip, setViewPayslip] = useState<Payslip | null>(null);
   const [faceOpen, setFaceOpen] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
-  const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [loginSaving, setLoginSaving] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -279,6 +283,7 @@ export default function EmployeeDetails() {
   const [leaveViewMode, setLeaveViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [payslipViewMode, setPayslipViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
   const [documentViewMode, setDocumentViewMode] = useState<CollectionView>(() => getPreferredCollectionView());
+  const [employeeMoreOpen, setEmployeeMoreOpen] = useState(false);
   const { schema: documentSearchSchema, loading: documentSchemaLoading } = useDocumentRequestSearchSchema(tab === "documents");
   const documents = useDocumentRequests(employee?.id, documentFilters, documentSearchSchema, { enabled: tab === "documents" && !documentSchemaLoading, page: documentPage - 1, pageSize: documentPageSize });
   const documentAppliedFilterCount = useMemo(
@@ -504,7 +509,10 @@ export default function EmployeeDetails() {
         hrDepartmentUid: deptObj?.id || null,
         designationUid: desigObj?.id || null,
         employmentType: form.employmentType || null, role: employee.role || "employee",
-        status: form.status || "Active", locationUid: activeLocation.id,
+        // Editing unrelated profile fields must not silently move the employee
+        // to the shell's currently selected branch. Preserve their assigned
+        // primary location; branch changes belong to the assignment/transfer flow.
+        status: form.status || "Active", locationUid: employee.locationUid ?? null,
         pan: form.pan || null, uan: form.uan || null, bankDetails: form.bankDetails, salaryStructure: form.salaryStructure,
       };
       if (form.reportingManagerUid) payload.reportingManagerUid = form.reportingManagerUid;
@@ -883,142 +891,206 @@ export default function EmployeeDetails() {
         onNavigate={(href) => navigate(href)}
       />
 
-      <div className="employee-details-layout" style={{ display: "grid", gridTemplateColumns: "300px minmax(0, 1fr)", gap: 28, alignItems: "start", minWidth: 0 }}>
-        {/* LEFT PROFILE */}
-        <div className="employee-details-sidebar" style={{ ...card, overflow: "hidden", height: "fit-content" }}>
-          <div className="employee-details-sidebar-banner" style={{ height: 110, background: "var(--primary-light)" }} />
-          <div className="employee-details-sidebar-body" style={{ padding: "0 24px 28px", marginTop: -56, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12 }}>
-            <div className="employee-details-sidebar-top">
-              <div className="employee-details-hero">
-            {employee.photoUrl ? <img className="employee-details-avatar" src={employee.photoUrl} alt={employee.name} style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }} />
-              : <div className="employee-details-avatar" style={{ width: 112, height: 112, borderRadius: "50%", background: "var(--primary-color)", color: "white", fontSize: 42, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }}>{initial(employee.name)}</div>}
-            <div className="employee-details-identity">
-              <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>{employee.name}</h2>
-              <div className="employee-details-badges employee-details-badges--inline">
-                <span className="employee-details-status-pill" style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "white", background: employee.status === "Active" ? "#10b981" : "#f59e0b" }}>{employee.status || "Active"}</span>
-                <div className="employee-details-face-pill" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, background: employee.faceDescriptor ? "var(--success-bg)" : "rgba(100,116,139,0.1)", border: `1px solid ${employee.faceDescriptor ? "var(--success-color)" : "var(--border-color)"}` }}>
-                  <ScanFace size={12} style={{ color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }} />
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }}>{employee.faceDescriptor ? "Face Enrolled" : "No Face ID"}</span>
+      <div
+        className="employee-details-layout"
+        style={{
+          display: "grid",
+          gridTemplateColumns: tab === "overview" ? "300px minmax(0, 1fr)" : "minmax(0, 1fr)",
+          gap: 28,
+          alignItems: "start",
+          minWidth: 0,
+        }}
+      >
+        {/* LEFT PROFILE (Shown only on Overview tab) */}
+        {tab === "overview" && (
+          <div className="employee-details-sidebar" style={{ ...card, overflow: "hidden", height: "fit-content" }}>
+            <div className="employee-details-sidebar-banner" style={{ height: 110, background: "var(--primary-light)" }} />
+            <div className="employee-details-sidebar-body" style={{ padding: "0 24px 28px", marginTop: -56, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12 }}>
+              <div className="employee-details-sidebar-top">
+                <div className="employee-details-hero">
+              {employee.photoUrl ? <img className="employee-details-avatar" src={employee.photoUrl} alt={employee.name} style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }} />
+                : <div className="employee-details-avatar" style={{ width: 112, height: 112, borderRadius: "50%", background: "var(--primary-color)", color: "white", fontSize: 42, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", border: "6px solid var(--surface-bg)", boxShadow: "var(--shadow-md)" }}>{initial(employee.name)}</div>}
+              <div className="employee-details-identity">
+                <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>{employee.name}</h2>
+                <div className="employee-details-badges employee-details-badges--inline">
+                  <span className="employee-details-status-pill" style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "white", background: employee.status === "Active" ? "#10b981" : "#f59e0b" }}>{employee.status || "Active"}</span>
+                  <div className="employee-details-face-pill" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, background: employee.faceDescriptor ? "var(--success-bg)" : "rgba(100,116,139,0.1)", border: `1px solid ${employee.faceDescriptor ? "var(--success-color)" : "var(--border-color)"}` }}>
+                    <ScanFace size={12} style={{ color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }} />
+                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: employee.faceDescriptor ? "var(--success-color)" : "var(--light-text)" }}>{employee.faceDescriptor ? "Face Enrolled" : "No Face ID"}</span>
+                  </div>
+                </div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--light-text)", margin: "4px 0 10px" }}>{employee.designation || "—"}</p>
+              </div>
+              </div>
+              <div className="employee-details-sidebar-meta">
+                <div className="employee-details-sidebar-actions">
+                <Button
+                  className="employee-details-sidebar-button !rounded-xl !border-2 !border-[#c7d2fe] !text-[#4f46e5] hover:!bg-[color:color-mix(in_srgb,#4f46e5_6%,white)]"
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  icon={<ScanFace size={15} />}
+                  onClick={() => setFaceOpen(true)}
+                >
+                  <span className="hidden sm:inline">{employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}</span>
+                  <span className="sm:hidden">{employee.faceDescriptor ? "Face ID" : "Face ID"}</span>
+                </Button>
+                {employee.hasAuthUser ? (
+                  <Button
+                    id="hr-employee-reset-password"
+                    data-testid="hr-employee-reset-password"
+                    className="employee-details-sidebar-button !rounded-xl"
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    icon={<KeyRound size={15} />}
+                    onClick={() => setLoginDialogOpen(true)}
+                  >
+                    <span className="hidden sm:inline">Reset Password</span>
+                    <span className="sm:hidden">Password</span>
+                  </Button>
+                ) : (
+                  <Button
+                    id="hr-employee-manage-login"
+                    data-testid="hr-employee-manage-login"
+                    className="employee-details-sidebar-button !rounded-xl"
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    icon={<ShieldCheck size={15} />}
+                    onClick={() => setLoginDialogOpen(true)}
+                  >
+                    <span className="hidden sm:inline">Manage Login</span>
+                    <span className="sm:hidden">Login</span>
+                  </Button>
+                )}
+                <Button
+                  id="hr-employee-edit-profile"
+                  data-testid="hr-employee-edit-profile"
+                  className="employee-details-sidebar-button !rounded-xl"
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  icon={<Pencil size={15} />}
+                  onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))}
+                >
+                  <span className="hidden sm:inline">Edit Profile</span>
+                  <span className="sm:hidden">Edit</span>
+                </Button>
                 </div>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--light-text)", margin: "4px 0 10px" }}>{employee.designation || "—"}</p>
-            </div>
-            </div>
-            <div className="employee-details-sidebar-meta">
-              <div className="employee-details-sidebar-actions">
-              <Button
-                className="employee-details-sidebar-button !rounded-xl !border-2 !border-[#c7d2fe] !text-[#4f46e5] hover:!bg-[color:color-mix(in_srgb,#4f46e5_6%,white)]"
-                variant="outline"
-                size="lg"
-                fullWidth
-                icon={<ScanFace size={15} />}
-                onClick={() => setFaceOpen(true)}
-              >
-                {employee.faceDescriptor ? "Edit Face ID" : "Enroll Face ID"}
-              </Button>
-              {employee.hasAuthUser ? (
-                <Button
-                  id="hr-employee-reset-password"
-                  data-testid="hr-employee-reset-password"
-                  className="employee-details-sidebar-button !rounded-xl"
-                  variant="outline"
-                  size="lg"
-                  fullWidth
-                  icon={<KeyRound size={15} />}
-                  onClick={() => setLoginDialogOpen(true)}
-                >
-                  Reset Password
-                </Button>
-              ) : (
-                <Button
-                  id="hr-employee-manage-login"
-                  data-testid="hr-employee-manage-login"
-                  className="employee-details-sidebar-button !rounded-xl"
-                  variant="outline"
-                  size="lg"
-                  fullWidth
-                  icon={<ShieldCheck size={15} />}
-                  onClick={() => setLoginDialogOpen(true)}
-                >
-                  Manage Login
-                </Button>
-              )}
-              <Button
-                id="hr-employee-edit-profile"
-                data-testid="hr-employee-edit-profile"
-                className="employee-details-sidebar-button !rounded-xl"
-                variant="outline"
-                size="lg"
-                fullWidth
-                icon={<Pencil size={15} />}
-                onClick={() => navigate(employeeTabHref(employee.id, tab, "?edit=true"))}
-              >
-                Edit Profile
-              </Button>
+              </div>
+
+              <div className="employee-details-info-list" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                <InfoTile icon={<ShieldCheck size={16} />} k="ID" v={employee.employeeId} />
+                <InfoTile icon={<Mail size={16} />} k="Email" v={employee.email} />
+                <InfoTile icon={<Phone size={16} />} k="Phone" v={employee.contactNumber} />
+                <InfoTile icon={<Building2 size={16} />} k="Department" v={employee.department} />
               </div>
             </div>
-            </div>
-
-            <div className="employee-details-info-list" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-              <InfoTile icon={<ShieldCheck size={16} />} k="ID" v={employee.employeeId} />
-              <InfoTile icon={<Mail size={16} />} k="Email" v={employee.email} />
-              <InfoTile icon={<Phone size={16} />} k="Phone" v={employee.contactNumber} />
-              <InfoTile icon={<Building2 size={16} />} k="Department" v={employee.department} />
-            </div>
           </div>
-        </div>
+        )}
 
         {/* RIGHT */}
         <div className="employee-details-main" style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0, maxWidth: "100%" }}>
-          <Popover
-            portal
-            open={mobileTabsOpen}
-            onOpenChange={setMobileTabsOpen}
-            placement="bottom"
-            align="end"
-            contentClassName="!w-52 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
-            trigger={
-              <button
-                type="button"
-                id="hr-employee-details-tabs-mobile-open"
-                data-testid="hr-employee-details-tabs-mobile-open"
-                className="employee-details-tabs-mobile"
-                onClick={() => setMobileTabsOpen((open) => !open)}
-                aria-label="Open employee tabs"
-              >
-                <div className="employee-details-tabs-mobile__active">
-                  <span>{EMPLOYEE_TAB_LABELS[tab]}</span>
-                </div>
-                <span className="employee-details-tabs-mobile__trigger">
-                  <MoreVertical size={18} />
-                </span>
-              </button>
-            }
-          >
-            <div className="employee-details-tabs-mobile__menu">
-              {tabs.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  id={`hr-employee-details-tab-mobile-${t}`}
-                  data-testid={`hr-employee-details-tab-mobile-${t}`}
-                  className="employee-details-tabs-mobile__menu-item"
-                  data-active={tab === t}
-                  onClick={() => {
-                    navigate(employeeTabHref(employee.id, t), { state: routeLocation.state });
-                    setMobileTabsOpen(false);
-                  }}
-                >
-                  {EMPLOYEE_TAB_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </Popover>
           <div className="employee-details-tabs" style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)" }}>
             {tabs.map((t) => (
               <button id={`hr-employee-details-tab-${t}`} data-testid={`hr-employee-details-tab-${t}`} className="employee-details-tab" key={t} onClick={() => navigate(employeeTabHref(employee.id, t), { state: routeLocation.state })} style={{ flex: 1, padding: "12px 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tab === t ? "var(--primary-color)" : "var(--light-text)", borderBottom: tab === t ? "2px solid var(--primary-color)" : "2px solid transparent", marginBottom: -1 }}>{EMPLOYEE_TAB_LABELS[t]}</button>
             ))}
           </div>
+
+          {/* MOBILE FOOTER MENU NAVIGATION */}
+          <nav
+            id="hr-employee-details-tabs-mobile-footer"
+            data-testid="hr-employee-details-tabs-mobile-footer"
+            className="employee-details-bottom-nav"
+            aria-label="Employee profile navigation"
+          >
+            {MAIN_EMPLOYEE_TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                id={`hr-employee-details-tab-mobile-${t}`}
+                data-testid={`hr-employee-details-tab-mobile-${t}`}
+                className="employee-details-bottom-nav__item"
+                data-active={tab === t}
+                onClick={() => navigate(employeeTabHref(employee.id, t), { state: routeLocation.state })}
+              >
+                <span className="employee-details-bottom-nav__icon">
+                  {t === "overview" && <UserCircle2 size={18} />}
+                  {t === "attendance" && <Clock size={18} />}
+                  {t === "leaves" && <CalendarDays size={18} />}
+                  {t === "payroll" && <Wallet size={18} />}
+                </span>
+                <span className="employee-details-bottom-nav__label">{EMPLOYEE_TAB_LABELS[t]}</span>
+              </button>
+            ))}
+
+            {/* 5th ITEM: MORE MENU POPOVER */}
+            <Popover
+              portal
+              open={employeeMoreOpen}
+              onOpenChange={setEmployeeMoreOpen}
+              placement="top"
+              align="end"
+              contentClassName="!w-48 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+              trigger={
+                <button
+                  type="button"
+                  id="hr-employee-details-tab-mobile-more"
+                  data-testid="hr-employee-details-tab-mobile-more"
+                  className="employee-details-bottom-nav__item"
+                  data-active={tab === "documents"}
+                  onClick={() => setEmployeeMoreOpen((open) => !open)}
+                >
+                  <span className="employee-details-bottom-nav__icon">
+                    <MoreHorizontal size={18} />
+                  </span>
+                  <span className="employee-details-bottom-nav__label">
+                    {tab === "documents" ? "Documents" : "More"}
+                  </span>
+                </button>
+              }
+            >
+              <div className="flex flex-col w-full py-1">
+                <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--light-text)] border-b border-[var(--border-color)]">
+                  More Sections
+                </div>
+                <button
+                  type="button"
+                  id="hr-employee-details-tab-mobile-documents"
+                  data-testid="hr-employee-details-tab-mobile-documents"
+                  className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 hover:bg-[var(--primary-light)] transition-colors"
+                  style={{
+                    color: tab === "documents" ? "var(--primary-color)" : "var(--dark-text)",
+                    background: tab === "documents" ? "rgba(17,94,89,0.06)" : "transparent",
+                  }}
+                  onClick={() => {
+                    navigate(employeeTabHref(employee.id, "documents"), { state: routeLocation.state });
+                    setEmployeeMoreOpen(false);
+                  }}
+                >
+                  <FileText size={16} />
+                  <span>Documents</span>
+                </button>
+                <div className="pt-1 mt-1 border-t border-[var(--border-color)]">
+                  <button
+                    type="button"
+                    id="hr-employee-details-tab-mobile-home"
+                    data-testid="hr-employee-details-tab-mobile-home"
+                    className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 text-[var(--primary-color)] hover:bg-[var(--primary-light)] transition-colors"
+                    onClick={() => {
+                      navigate("/");
+                      setEmployeeMoreOpen(false);
+                    }}
+                  >
+                    <Home size={16} />
+                    <span>Main Menu</span>
+                  </button>
+                </div>
+              </div>
+            </Popover>
+          </nav>
 
           {tab === "overview" && (
             <>

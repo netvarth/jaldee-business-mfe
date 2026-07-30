@@ -155,14 +155,14 @@ export function ScheduleInterviewModal({
           />
         )}
 
-        <div className={`grid gap-4 ${hideRound ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div className={`grid gap-4 ${hideRound ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
           {!hideRound ? (
             <Select id="hr-recruitment-schedule-interview-round" testId="hr-recruitment-schedule-interview-round" label="Round" options={roundOptions} value={form.round} onChange={set("round")} />
           ) : null}
           <Select id="hr-recruitment-schedule-interview-mode" testId="hr-recruitment-schedule-interview-mode" label="Mode" options={modeOptions} value={form.mode} onChange={set("mode")} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input id="hr-recruitment-schedule-interview-at" data-testid="hr-recruitment-schedule-interview-at" label="Scheduled At" type="datetime-local" required value={form.scheduledAt} onChange={set("scheduledAt")} />
           <Input id="hr-recruitment-schedule-interview-duration" data-testid="hr-recruitment-schedule-interview-duration" label="Duration (min)" type="number" min={0} value={form.durationMinutes} onChange={set("durationMinutes")} />
         </div>

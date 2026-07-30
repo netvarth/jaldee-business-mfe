@@ -71,7 +71,7 @@ export default function PolicyRules() {
   const employees = useEmployees();
   const scopeLabel = (r: PolicyRule): string => {
     if (r.scopeType === "ALL") return "Everyone";
-    const v = r.scopeValue || "";
+    const v = Array.isArray(r.scopeValue) ? (r.scopeValue[0] ?? "") : (r.scopeValue || "");
     if (!v) return `${r.scopeType}: —`;
     const find = (list: { uid?: string; name?: string }[]) => list.find((x) => x.uid === v)?.name;
     let name: string | undefined;
@@ -248,7 +248,11 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
   })();
 
   // Changing the scope target clears the previously-picked value.
-  const onScopeTypeChange = (v: ScopeType) => setR((p) => ({ ...p, scopeType: v, scopeValue: "" }));
+  const onScopeTypeChange = (v: ScopeType) => setR((p) => ({
+    ...p,
+    scopeType: v,
+    scopeValue: p.domain === "PAYROLL" ? [] : "",
+  }));
 
   // Changing the condition may change the allowed phase — reset operator, value,
   // and (if now cross-phase) the action, so an impossible rule can't be built.
@@ -345,8 +349,8 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
             <Select
               label={r.scopeType === "EMPLOYMENT_TYPE" ? "Employment type" : r.scopeType === "EMPLOYEE" ? "Employee" : r.scopeType === "BRANCH" ? "Branch" : r.scopeType === "DESIGNATION" ? "Designation" : "Department"}
               options={[{ value: "", label: "Select…" }, ...scopeOptions]}
-              value={r.scopeValue ?? ""}
-              onChange={(e) => set("scopeValue", e.target.value)}
+              value={Array.isArray(r.scopeValue) ? (r.scopeValue[0] ?? "") : (r.scopeValue ?? "")}
+              onChange={(e) => set("scopeValue", r.domain === "PAYROLL" ? (e.target.value ? [e.target.value] : []) : e.target.value)}
             />
           )}
           <Input label="Priority" type="number" value={String(r.priority ?? 100)} onChange={(e) => set("priority", Number(e.target.value))} />
@@ -367,4 +371,3 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
     </Dialog>
   );
 }
-

@@ -228,7 +228,7 @@ export default function Announcements() {
           />
         ) : null}
 
-        {/* SEARCH */}
+        {/* SEARCH & FILTER */}
         <div style={{ ...panel, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
           <Input
             id="hr-announcements-search"

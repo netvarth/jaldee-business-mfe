@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, Table } from "lucide-react";
-import { Dialog, DialogFooter, Button, Input, Select, Badge } from "@jaldee/design-system";
+import { Dialog, DialogFooter, Button, Input, Select, Badge, TimePicker } from "@jaldee/design-system";
 import { useShifts, useShiftRotations, type Shift, type ShiftRotation } from "../../services/useSettingsData";
 import { useEmployees } from "../../services/useEmployees";
 import { useShiftOps, type Roster } from "../../services/useShiftOps";
@@ -9,6 +9,19 @@ const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"
 const dayShort = (d: string) => d.slice(0, 3);
 const asDays = (v: unknown): string[] => Array.isArray(v) ? (v as string[]) : typeof v === "string" && v ? v.split(",").map((s) => s.trim()) : [];
 const hhmm = (t?: string) => (t || "").slice(0, 5);
+const to12HourTime = (value?: string) => {
+  const input = String(value ?? "").trim();
+  const twelveHour = input.match(/^(\d{1,2})[.:](\d{2})\s*([AP]M)$/i);
+  if (twelveHour) {
+    return `${String(Number(twelveHour[1])).padStart(2, "0")}:${twelveHour[2]} ${twelveHour[3].toUpperCase()}`;
+  }
+  const twentyFourHour = input.match(/^([01]\d|2[0-3]):([0-5]\d)/);
+  if (!twentyFourHour) return input;
+  const hour24 = Number(twentyFourHour[1]);
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  return `${String(hour12).padStart(2, "0")}:${twentyFourHour[2]} ${period}`;
+};
 
 type Tab = "shifts" | "rotations";
 
@@ -142,7 +155,14 @@ function ShiftsTab() {
 }
 
 function ShiftModal({ initial, onClose, onSave }: { initial: Partial<Shift>; onClose: () => void; onSave: (v: Partial<Shift>) => Promise<void> }) {
-  const [s, setS] = useState<Partial<Shift>>({ graceMinutes: 10, halfDayThresholdMinutes: 240, breakMinutes: 60, ...initial, weeklyOffDays: asDays(initial.weeklyOffDays).length ? asDays(initial.weeklyOffDays) : ["SUNDAY"] });
+  const initialOffDays = asDays(initial.weeklyOffDays);
+  const [s, setS] = useState<Partial<Shift>>({
+    graceMinutes: 10,
+    halfDayThresholdMinutes: 240,
+    breakMinutes: 60,
+    ...initial,
+    weeklyOffDays: initial.uid ? initialOffDays : (initialOffDays.length ? initialOffDays : ["SATURDAY", "SUNDAY"]),
+  });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const set = <K extends keyof Shift>(k: K, v: Shift[K]) => setS((p) => ({ ...p, [k]: v }));
@@ -165,8 +185,8 @@ function ShiftModal({ initial, onClose, onSave }: { initial: Partial<Shift>; onC
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
         <Input id="hr-settings-shifts-name" data-testid="hr-settings-shifts-name" label="Shift name" required value={s.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. General / Housekeeping / Security" />
         <div className="grid grid-cols-2 gap-3">
-          <Input id="hr-settings-shifts-starttime" data-testid="hr-settings-shifts-starttime" label="Start time" type="time" value={hhmm(s.startTime)} onChange={(e) => set("startTime", e.target.value)} />
-          <Input id="hr-settings-shifts-endtime" data-testid="hr-settings-shifts-endtime" label="End time" type="time" value={hhmm(s.endTime)} onChange={(e) => set("endTime", e.target.value)} />
+          <TimePicker id="hr-settings-shifts-starttime" data-testid="hr-settings-shifts-starttime" label="Start time" use12Hour value={to12HourTime(s.startTime)} onChange={(e) => set("startTime", to12HourTime(e.target.value))} />
+          <TimePicker id="hr-settings-shifts-endtime" data-testid="hr-settings-shifts-endtime" label="End time" use12Hour value={to12HourTime(s.endTime)} onChange={(e) => set("endTime", to12HourTime(e.target.value))} />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <Input id="hr-settings-shifts-graceminutes" data-testid="hr-settings-shifts-graceminutes" label="Grace (min)" type="number" value={String(s.graceMinutes ?? "")} onChange={(e) => set("graceMinutes", Number(e.target.value))} />
@@ -179,6 +199,7 @@ function ShiftModal({ initial, onClose, onSave }: { initial: Partial<Shift>; onC
             {DAYS.map((d) => {
               const on = offDays.includes(d);
               return <button type="button" key={d} id={`hr-settings-shifts-weeklyoffdays-option-${d}`} data-testid={`hr-settings-shifts-weeklyoffdays-option-${d}`} onClick={() => toggleDay(d)}
+                aria-pressed={on} data-state={on ? "selected" : "unselected"}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border ${on ? "bg-teal-700 text-white border-teal-700" : "bg-white text-gray-600 border-gray-300"}`}>{dayShort(d)}</button>;
             })}
           </div>

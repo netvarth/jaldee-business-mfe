@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
-import { GitBranch, Plus, Pencil, Trash2, Loader2, X, ArrowDown } from "lucide-react";
-import { Button, Input, Select } from "@jaldee/design-system";
+import { GitBranch, Plus, Pencil, Trash2, Loader2, ArrowDown } from "lucide-react";
+import { Button, Dialog, DialogFooter, Input, Select } from "@jaldee/design-system";
 import {
   useApprovalChains, RESOLVER_LABELS,
   type ApprovalChain, type ApprovalChainStep, type ApprovalRequestType, type ApproverResolverType,
@@ -11,9 +11,6 @@ import { PanelHeader } from "./SettingsComponents";
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20 };
-const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 };
-const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 20, width: "100%", maxWidth: 640, maxHeight: "88vh", overflowY: "auto", boxShadow: "var(--shadow-lg, 0 20px 50px rgba(0,0,0,0.2))" };
-
 const REQUEST_TYPES: { value: ApprovalRequestType; label: string; wired: boolean }[] = [
   { value: "LEAVE", label: "Leave", wired: true },
   { value: "EXPENSE", label: "Expense (coming soon)", wired: false },
@@ -139,15 +136,19 @@ export default function ApprovalsPanel() {
       </div>
 
       {open && (
-        <div style={overlay} onClick={() => setOpen(false)}>
-          <div id="hr-settings-approvals-modal" data-testid="hr-settings-approvals-modal" onClick={(e) => e.stopPropagation()} style={modalBox}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
-              <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Update Approval Chain" : "Add Approval Chain"}</h3>
-              <button id="hr-settings-approvals-modal-close" data-testid="hr-settings-approvals-modal-close" onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
-            </div>
-
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Dialog
+          open
+          onClose={() => setOpen(false)}
+          testId="hr-settings-approvals-modal"
+          title={editing ? "Update Approval Chain" : "Add Approval Chain"}
+          description="Define the ordered approvers for this request type."
+          size="lg"
+          contentClassName="max-h-[90vh] overflow-y-auto p-0"
+          headerClassName="mb-0 border-b border-[var(--border-color)] px-6 py-5"
+          bodyClassName="px-6 py-5"
+        >
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input id="hr-settings-approvals-name" data-testid="hr-settings-approvals-name" label="Chain Name" placeholder="e.g. Two-level leave approval" value={name} onChange={(e) => setName(e.target.value)} />
                 <Select id="hr-settings-approvals-request-type" data-testid="hr-settings-approvals-request-type" label="Request Type" value={requestType} onChange={(e) => setRequestType(e.target.value as ApprovalRequestType)}
                   options={REQUEST_TYPES.map((t) => ({ value: t.value, label: t.label }))} />
@@ -161,13 +162,13 @@ export default function ApprovalsPanel() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {steps.map((s, i) => (
                     <div key={i}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12 }}>
-                        <span style={{ ...lbl, width: 44, flexShrink: 0 }}>L{i + 1}</span>
-                        <div style={{ width: 190, flexShrink: 0 }}>
+                      <div className="grid grid-cols-1 items-center gap-3 rounded-xl border border-[var(--border-color)] p-3 sm:grid-cols-[42px_200px_minmax(0,1fr)_auto]">
+                        <span style={lbl}>L{i + 1}</span>
+                        <div>
                           <Select id={`hr-settings-approvals-step-resolver-${i}`} data-testid={`hr-settings-approvals-step-resolver-${i}`} value={s.resolverType} onChange={(e) => setStep(i, { resolverType: e.target.value as ApproverResolverType, resolverValue: null })}
                             options={(Object.keys(RESOLVER_LABELS) as ApproverResolverType[]).map((k) => ({ value: k, label: RESOLVER_LABELS[k] }))} />
                         </div>
-                        <div style={{ flex: 1 }}>
+                        <div className="min-w-0">
                           {s.resolverType === "NAMED_EMPLOYEE" && (
                             <Select id={`hr-settings-approvals-step-value-${i}`} data-testid={`hr-settings-approvals-step-value-${i}`} value={s.resolverValue ?? ""} onChange={(e) => setStep(i, { resolverValue: e.target.value })}
                               options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
@@ -180,27 +181,25 @@ export default function ApprovalsPanel() {
                           )}
                         </div>
                         {steps.length > 1 && (
-                          <button id={`hr-settings-approvals-step-remove-${i}`} data-testid={`hr-settings-approvals-step-remove-${i}`} onClick={() => removeStep(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e11d48" }} title="Remove step"><Trash2 size={15} /></button>
+                          <Button id={`hr-settings-approvals-step-remove-${i}`} data-testid={`hr-settings-approvals-step-remove-${i}`} type="button" variant="ghost" size="icon" onClick={() => removeStep(i)} style={{ color: "#e11d48" }} title="Remove step"><Trash2 size={15} /></Button>
                         )}
                       </div>
                       {i < steps.length - 1 && <div style={{ display: "flex", justifyContent: "center", padding: 2, color: "var(--light-text)" }}><ArrowDown size={13} /></div>}
                     </div>
                   ))}
                 </div>
-                <Button id="hr-settings-approvals-add-step" data-testid="hr-settings-approvals-add-step" variant="secondary" onClick={addStep} icon={<Plus size={14} />} style={{ marginTop: 10 }}>Add Step</Button>
+                <Button id="hr-settings-approvals-add-step" data-testid="hr-settings-approvals-add-step" type="button" variant="secondary" onClick={addStep} icon={<Plus size={14} />} style={{ marginTop: 10 }}>Add Step</Button>
               </div>
 
               {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             </div>
 
-            <div style={{ padding: "18px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+            <DialogFooter>
               <Button id="hr-settings-approvals-cancel" data-testid="hr-settings-approvals-cancel" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
               <Button id="hr-settings-approvals-save" data-testid="hr-settings-approvals-save" onClick={save} disabled={saving} loading={saving}>{editing ? "Update Chain" : "Create Chain"}</Button>
-            </div>
-          </div>
-        </div>
+            </DialogFooter>
+        </Dialog>
       )}
     </div>
   );
 }
-

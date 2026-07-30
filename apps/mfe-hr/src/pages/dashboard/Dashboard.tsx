@@ -209,7 +209,7 @@ export default function Dashboard() {
         </div>
 
         {/* KPI CARDS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
           {kpis.map((k) => (
             <div key={k.id} id={`hr-dashboard-kpi-${k.id}`} data-testid={`hr-dashboard-kpi-${k.id}`} onClick={k.onClick} style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: 20, position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", cursor: "pointer" }}>
               <div style={{ position: "absolute", right: 0, top: 0, width: 100, height: 100, background: k.bg, pointerEvents: "none" }} />
@@ -230,9 +230,9 @@ export default function Dashboard() {
         </div>
 
         {/* TREND + BROADCASTS */}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(320px, 1.5fr)", gap: 20, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
           {/* ATTENDANCE TREND */}
-          <div id="hr-dashboard-attendance-trend" data-testid="hr-dashboard-attendance-trend" style={{ ...card, position: "relative" }}>
+          <div id="hr-dashboard-attendance-trend" data-testid="hr-dashboard-attendance-trend" className="lg:col-span-7" style={{ ...card, position: "relative" }}>
             <h3 style={cardTitle}>Attendance Trend</h3>
             <p style={cardSub}>{trendConfig.sub}</p>
             <svg viewBox="0 0 600 180" style={{ width: "100%", height: 220, marginTop: 16 }}>
@@ -244,8 +244,8 @@ export default function Dashboard() {
           </div>
 
           {/* LATEST BROADCASTS */}
-          <div id="hr-dashboard-broadcasts" data-testid="hr-dashboard-broadcasts" style={{ ...card, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div id="hr-dashboard-broadcasts" data-testid="hr-dashboard-broadcasts" className="lg:col-span-5" style={{ ...card, display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div>
                 <h3 style={cardTitle}>Latest Broadcasts</h3>
                 <p style={cardSub}>Company-wide announcements.</p>
@@ -279,7 +279,7 @@ export default function Dashboard() {
         </div>
 
         {/* WORKFORCE DEMOGRAPHICS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           <div id="hr-dashboard-department-breakdown" data-testid="hr-dashboard-department-breakdown" style={card}>
             <h3 style={cardTitle}>Department Breakdown</h3>
             <p style={cardSub}>Distribution of staff across teams.</p>

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, useEffect, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useId, useMemo, useState, useEffect, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Briefcase,
@@ -20,12 +20,14 @@ import {
   Play,
   LayoutGrid,
   MoreVertical,
+  MoreHorizontal,
   Rows3,
   ChevronRight,
   ChevronDown,
+  Home,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Checkbox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, type ColumnDef } from "@jaldee/design-system";
+import { Button, Checkbox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, Dialog, DialogFooter, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { usePositions, useHierarchyLevels, useAreaManagers, useTransfers } from "../../services/useOrg";
 import { useEmployees } from "../../services/useEmployees";
@@ -43,7 +45,7 @@ const card: CSSProperties = { background: "var(--surface-bg)", border: "1px soli
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const th: CSSProperties = { textAlign: "left", padding: "12px 16px", ...lbl, background: "rgba(100,116,139,0.04)" };
 const td: CSSProperties = { padding: "13px 16px", fontSize: 12.5, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
-const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 };
+const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 220, padding: 16 };
 const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 20, width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto" };
 
 type Tab = "chart" | "headcount" | "departments" | "designations" | "branches" | "positions" | "levels" | "transfers";
@@ -53,12 +55,15 @@ const ORG_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: LucideIc
   { key: "chart", route: "chart", label: "Org Chart", Icon: MapPinned },
   { key: "headcount", route: "headcount", label: "Headcount & Norms", Icon: Gauge },
   { key: "departments", route: "departments", label: "Departments", Icon: Users2 },
-  { key: "levels", route: "levels", label: "Seniority Bands (Levels)", Icon: Layers },
-  { key: "designations", route: "designations", label: "Job Roles (Designations)", Icon: BadgeCheck },
+  { key: "levels", route: "levels", label: "Seniority Bands", Icon: Layers },
+  { key: "designations", route: "designations", label: "Job Roles", Icon: BadgeCheck },
   { key: "branches", route: "branches", label: "Branches", Icon: MapPinned },
-  { key: "positions", route: "positions", label: "Headcount Planning (Seats)", Icon: Briefcase },
+  { key: "positions", route: "positions", label: "Headcount Planning", Icon: Briefcase },
   { key: "transfers", route: "transfers", label: "Transfers", Icon: ArrowLeftRight },
 ];
+
+const MAIN_ORG_ROUTES = ORG_ROUTES.slice(0, 4);
+const MORE_ORG_ROUTES = ORG_ROUTES.slice(4);
 
 function getPreferredViewMode() {
   if (typeof window === "undefined") return "table" as ViewMode;
@@ -85,16 +90,27 @@ function ErrBar({ text }: { text: string }) {
   );
 }
 
-function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode }) {
+function Modal({ title, onClose, children, footer, fullScreen }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode; fullScreen?: boolean }) {
+  const titleId = useId();
+  const customBoxStyle: CSSProperties = fullScreen
+    ? { ...modalBox, maxWidth: "96vw", width: "95vw", height: "90vh", maxHeight: "90vh", display: "flex", flexDirection: "column" }
+    : modalBox;
+
   return (
     <div style={overlay} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={modalBox}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
-          <h3 style={{ fontSize: 17, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{title}</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        style={customBoxStyle}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)", flexShrink: 0 }}>
+          <h3 id={titleId} style={{ fontSize: 17, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{title}</h3>
+          <button type="button" aria-label={`Close ${title}`} onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
         </div>
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>{children}</div>
-        <div style={{ padding: "18px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>{footer}</div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, flex: 1, overflowY: "auto" }}>{children}</div>
+        <div style={{ padding: "18px 24px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>{footer}</div>
       </div>
     </div>
   );
@@ -601,6 +617,10 @@ export default function OrgStructure() {
     },
   ], []);
 
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const activeOrgTabObj = ORG_ROUTES.find((item) => item.key === tab);
+  const isMoreOrgActive = MORE_ORG_ROUTES.some((item) => item.key === tab);
+
   const goToTab = (nextTab: Tab) => {
     const route = ORG_ROUTES.find((item) => item.key === nextTab)?.route || "chart";
     navigate(`/org/${route}`);
@@ -613,56 +633,104 @@ export default function OrgStructure() {
         <PageHeader title="Org Structure" subtitle="Positions, seniority levels, branch coverage, transfers, and workforce norms." />
       </div>
 
-      <div className="attendance-tabs-mobile org-mobile-tab-picker" style={{ alignItems: "center", gap: 12, padding: "6px 8px 6px 16px", marginBottom: 16 }}>
-        <div
-          className="attendance-tabs-mobile__active org-mobile-tab-picker__active"
-          onClick={() => setMobileTabsOpen(true)}
-          style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
-        >
-          <span className="org-mobile-tab-picker__eyebrow">Current Section</span>
-          <span className="org-mobile-tab-picker__title">{ORG_ROUTES.find((item) => item.key === tab)?.label || "Org Chart"}</span>
-        </div>
+      {/* MOBILE BOTTOM FOOTER NAV */}
+      <nav
+        id="hr-org-tabs-mobile-footer"
+        data-testid="hr-org-tabs-mobile-footer"
+        className="mobile-bottom-nav"
+        aria-label="Organization mobile navigation"
+      >
+        {MAIN_ORG_ROUTES.map(({ key, label, Icon }) => {
+          const isActive = tab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              id={`hr-org-tab-mobile-${key}`}
+              data-testid={`hr-org-tab-mobile-${key}`}
+              className="mobile-bottom-nav__item"
+              data-active={isActive}
+              onClick={() => goToTab(key)}
+            >
+              <span className="mobile-bottom-nav__icon">
+                <Icon size={18} />
+              </span>
+              <span className="mobile-bottom-nav__label">{label}</span>
+            </button>
+          );
+        })}
 
+        {/* 5th ITEM: MORE MENU POPOVER */}
         <Popover
           portal
-          open={mobileTabsOpen}
-          onOpenChange={setMobileTabsOpen}
-          placement="bottom"
+          open={moreMenuOpen}
+          onOpenChange={setMoreMenuOpen}
+          placement="top"
           align="end"
-          contentClassName="!w-64 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+          contentClassName="!w-52 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
           trigger={
             <button
               type="button"
-              className="attendance-tabs-mobile__trigger"
-              onClick={() => setMobileTabsOpen((openState) => !openState)}
-              aria-label="Open org structure tabs"
-              style={{ margin: 0 }}
+              id="hr-org-tab-mobile-more"
+              data-testid="hr-org-tab-mobile-more"
+              className="mobile-bottom-nav__item"
+              data-active={isMoreOrgActive}
+              onClick={() => setMoreMenuOpen((open) => !open)}
             >
-              <MoreVertical size={18} />
+              <span className="mobile-bottom-nav__icon">
+                <MoreHorizontal size={18} />
+              </span>
+              <span className="mobile-bottom-nav__label">
+                {isMoreOrgActive ? activeOrgTabObj?.label || "More" : "More"}
+              </span>
             </button>
           }
         >
-          <div className="attendance-tabs-mobile__menu">
-            {ORG_ROUTES.map(({ key, label, Icon }) => (
+          <div className="flex flex-col w-full py-1">
+            <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--light-text)] border-b border-[var(--border-color)]">
+              More Sections
+            </div>
+            {MORE_ORG_ROUTES.map(({ key, label, Icon }) => {
+              const isActive = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  id={`hr-org-tab-mobile-${key}`}
+                  data-testid={`hr-org-tab-mobile-${key}`}
+                  className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 hover:bg-[var(--primary-light)] transition-colors"
+                  style={{
+                    color: isActive ? "var(--primary-color)" : "var(--dark-text)",
+                    background: isActive ? "rgba(17,94,89,0.06)" : "transparent",
+                  }}
+                  onClick={() => {
+                    goToTab(key);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <Icon size={16} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+            <div className="pt-1 mt-1 border-t border-[var(--border-color)]">
               <button
-                key={key}
                 type="button"
-                className="attendance-tabs-mobile__menu-item"
-                data-active={tab === key}
+                id="hr-org-tab-mobile-home"
+                data-testid="hr-org-tab-mobile-home"
+                className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 text-[var(--primary-color)] hover:bg-[var(--primary-light)] transition-colors"
                 onClick={() => {
-                  goToTab(key);
-                  setMobileTabsOpen(false);
+                  navigate("/");
+                  setMoreMenuOpen(false);
                 }}
               >
-                <span style={{ color: tab === key ? TEAL : "var(--light-text)", display: "inline-flex", flexShrink: 0 }}>
-                  <Icon size={18} />
-                </span>
-                <span>{label}</span>
+                <Home size={16} />
+                <span>Main Menu</span>
               </button>
-            ))}
+            </div>
           </div>
         </Popover>
-      </div>
+      </nav>
 
       <div className="attendance-tabs-desktop" style={{ overflowX: "auto", paddingBottom: 0, marginBottom: 22 }}>
         <div style={tabBar}>
@@ -711,7 +779,7 @@ export default function OrgStructure() {
               </div>
             </div>
             <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
-              <Button icon={<Plus size={15} />} onClick={() => { setDepEditing(null); setDep({ name: "", code: "" }); setDepOpen(true); }}>
+              <Button id="hr-org-department-add" data-testid="hr-org-department-add" icon={<Plus size={15} />} onClick={() => { setDepEditing(null); setDep({ name: "", code: "" }); setDepOpen(true); }}>
                 Add Department
               </Button>
               <div className="ml-auto shrink-0">
@@ -1307,7 +1375,7 @@ export default function OrgStructure() {
             icon={<Layers size={20} />}
             action={
               <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
-                <Button icon={<Plus size={15} />} onClick={() => { setLvlEditing(null); setLvl({ levelNo: "", label: "" }); setLvlOpen(true); }}>
+                <Button id="hr-org-levels-add" data-testid="hr-org-levels-add" icon={<Plus size={15} />} onClick={() => { setLvlEditing(null); setLvl({ levelNo: "", label: "" }); setLvlOpen(true); }}>
                   Add Level
                 </Button>
                 <div className="ml-auto shrink-0">
@@ -1454,39 +1522,105 @@ export default function OrgStructure() {
         )}
       </div>
 
-      {posOpen && (
-        <Modal
-          title={posEditing ? "Edit Headcount" : "Add Headcount"}
-          onClose={() => setPosOpen(false)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setPosOpen(false)}>Cancel</Button>
-              <Button disabled={busy || !pos.designationUid || !pos.departmentUid || !pos.locationUid || !pos.sanctionedCount} loading={busy} onClick={() => act(async () => {
-                const selectedDesignation = designations.data.find((item) => item.id === pos.designationUid);
-                const selectedDepartment = departments.data.find((item) => item.id === pos.departmentUid);
-                const selectedBranch = branches.find((item) => item.id === pos.locationUid);
-                const payload = {
-                  designationUid: pos.designationUid,
-                  designationName: selectedDesignation?.name || "",
-                  departmentUid: pos.departmentUid,
-                  departmentName: selectedDepartment?.name || "",
-                  locationUid: pos.locationUid,
-                  locationName: selectedBranch?.name || "",
-                  sanctionedCount: Number(pos.sanctionedCount),
-                };
-                if (posEditing) await positions.update(posEditing, payload);
-                else await positions.create(payload);
-                setPosOpen(false);
-              }, `Position ${posEditing ? "updated" : "created"} successfully.`)}>{posEditing ? "Save" : "Create"}</Button>
-            </>
-          }
+      <Dialog
+        open={posOpen}
+        onClose={() => setPosOpen(false)}
+        title={posEditing ? "Edit Headcount" : "Add Headcount"}
+        size="md"
+        testId="hr-org-headcount-modal"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            act(async () => {
+              const selectedDesignation = designations.data.find((item) => item.id === pos.designationUid);
+              const selectedDepartment = departments.data.find((item) => item.id === pos.departmentUid);
+              const selectedBranch = branches.find((item) => item.id === pos.locationUid);
+              const payload = {
+                designationUid: pos.designationUid,
+                designationName: selectedDesignation?.name || "",
+                departmentUid: pos.departmentUid,
+                departmentName: selectedDepartment?.name || "",
+                locationUid: pos.locationUid,
+                locationName: selectedBranch?.name || "",
+                sanctionedCount: Number(pos.sanctionedCount),
+              };
+              if (posEditing) await positions.update(posEditing, payload);
+              else await positions.create(payload);
+              setPosOpen(false);
+            }, `Position ${posEditing ? "updated" : "created"} successfully.`);
+          }}
+          className="space-y-4"
+          data-testid="hr-org-headcount-form"
         >
-          <Select label="Designation" value={pos.designationUid} onChange={(e) => setPos({ ...pos, designationUid: e.target.value })} options={[{ value: "", label: "Select Designation..." }, ...designations.data.map((d) => ({ value: d.id, label: d.name }))]} />
-          <Select label="Department" value={pos.departmentUid} onChange={(e) => setPos({ ...pos, departmentUid: e.target.value })} options={[{ value: "", label: "Select Department..." }, ...departments.data.map((d) => ({ value: d.id, label: d.name }))]} />
-          <Select label="Branch" value={pos.locationUid} onChange={(e) => setPos({ ...pos, locationUid: e.target.value })} options={[{ value: "", label: "Select Branch..." }, ...branches.map((b) => ({ value: b.id, label: b.name }))]} />
-          <Input label="Sanctioned Count" type="number" value={pos.sanctionedCount} onChange={(e) => setPos({ ...pos, sanctionedCount: e.target.value })} />
-        </Modal>
-      )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="hr-org-position-designation"
+              testId="hr-org-position-designation"
+              label="Designation"
+              required
+              value={pos.designationUid}
+              onChange={(e) => setPos({ ...pos, designationUid: e.target.value })}
+              options={[{ value: "", label: "Select Designation..." }, ...designations.data.map((d) => ({ value: d.id, label: d.name }))]}
+            />
+            <Select
+              id="hr-org-position-department"
+              testId="hr-org-position-department"
+              label="Department"
+              required
+              value={pos.departmentUid}
+              onChange={(e) => setPos({ ...pos, departmentUid: e.target.value })}
+              options={[{ value: "", label: "Select Department..." }, ...departments.data.map((d) => ({ value: d.id, label: d.name }))]}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="hr-org-position-branch"
+              testId="hr-org-position-branch"
+              label="Branch"
+              required
+              value={pos.locationUid}
+              onChange={(e) => setPos({ ...pos, locationUid: e.target.value })}
+              options={[{ value: "", label: "Select Branch..." }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+            />
+            <Input
+              id="hr-org-position-count"
+              data-testid="hr-org-position-count"
+              label="Sanctioned Count"
+              type="number"
+              min={1}
+              required
+              value={pos.sanctionedCount}
+              onChange={(e) => setPos({ ...pos, sanctionedCount: e.target.value })}
+              placeholder="e.g. 5"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              id="hr-org-position-modal-cancel"
+              data-testid="hr-org-position-modal-cancel"
+              variant="outline"
+              type="button"
+              onClick={() => setPosOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              id="hr-org-position-modal-submit"
+              data-testid="hr-org-position-modal-submit"
+              variant="primary"
+              type="submit"
+              disabled={busy || !pos.designationUid || !pos.departmentUid || !pos.locationUid || !pos.sanctionedCount}
+              loading={busy}
+            >
+              {posEditing ? "Save Changes" : "Add Headcount"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
 
       {depOpen && (
         <Modal
@@ -1496,6 +1630,8 @@ export default function OrgStructure() {
             <>
               <Button variant="secondary" onClick={() => setDepOpen(false)}>Cancel</Button>
               <Button
+                id="hr-org-department-save"
+                data-testid="hr-org-department-save"
                 disabled={busy || !dep.name.trim()}
                 loading={busy}
                 onClick={() => act(async () => {
@@ -1510,8 +1646,8 @@ export default function OrgStructure() {
             </>
           }
         >
-          <Input label="Department Name" value={dep.name} onChange={(e) => setDep({ ...dep, name: e.target.value })} />
-          <Input label="Code" value={dep.code} onChange={(e) => setDep({ ...dep, code: e.target.value })} />
+          <Input id="hr-org-department-name" data-testid="hr-org-department-name" label="Department Name" value={dep.name} onChange={(e) => setDep({ ...dep, name: e.target.value })} />
+          <Input id="hr-org-department-code" data-testid="hr-org-department-code" label="Code" value={dep.code} onChange={(e) => setDep({ ...dep, code: e.target.value })} />
         </Modal>
       )}
 
@@ -1560,7 +1696,7 @@ export default function OrgStructure() {
           footer={
             <>
               <Button variant="secondary" onClick={() => setLvlOpen(false)}>Cancel</Button>
-              <Button disabled={busy || !lvl.label.trim() || !lvl.levelNo} loading={busy} onClick={() => act(async () => {
+              <Button id="hr-org-level-save" data-testid="hr-org-level-save" disabled={busy || !lvl.label.trim() || !lvl.levelNo} loading={busy} onClick={() => act(async () => {
                 const payload = { levelNo: Number(lvl.levelNo), label: lvl.label.trim() };
                 if (lvlEditing) await levels.update(lvlEditing, payload);
                 else await levels.create(payload);
@@ -1569,8 +1705,8 @@ export default function OrgStructure() {
             </>
           }
         >
-          <Input label="Level Number" type="number" value={lvl.levelNo} onChange={(e) => setLvl({ ...lvl, levelNo: e.target.value })} placeholder="matches employee hierarchyLevel" />
-          <Input label="Label" value={lvl.label} onChange={(e) => setLvl({ ...lvl, label: e.target.value })} placeholder="e.g. Business Head" />
+          <Input id="hr-org-level-number" data-testid="hr-org-level-number" label="Level Number" type="number" value={lvl.levelNo} onChange={(e) => setLvl({ ...lvl, levelNo: e.target.value })} placeholder="matches employee hierarchyLevel" />
+          <Input id="hr-org-level-label" data-testid="hr-org-level-label" label="Label" value={lvl.label} onChange={(e) => setLvl({ ...lvl, label: e.target.value })} placeholder="e.g. Business Head" />
         </Modal>
       )}
 
@@ -1655,37 +1791,125 @@ export default function OrgStructure() {
         </Modal>
       )}
 
-      {trOpen && (
-        <Modal
-          title="Schedule Transfer"
-          onClose={() => setTrOpen(false)}
-          footer={
-            <>
-              <Button id="hr-org-transfer-modal-cancel" data-testid="hr-org-transfer-modal-cancel" variant="secondary" onClick={() => setTrOpen(false)}>Cancel</Button>
-              <Button id="hr-org-transfer-schedule" data-testid="hr-org-transfer-schedule" disabled={busy || !tr.employeeUid || !tr.effectiveDate || (!tr.toLocationUid && !tr.toManagerUid && !tr.toDepartmentUid && !tr.toShiftUid)} loading={busy} onClick={() => act(async () => {
-                await transfers.create({
-                  employeeUid: tr.employeeUid,
-                  toLocationUid: tr.toLocationUid || null,
-                  toDepartmentUid: tr.toDepartmentUid || null,
-                  toShiftUid: tr.toShiftUid || null,
-                  toManagerUid: tr.toManagerUid || null,
-                  effectiveDate: tr.effectiveDate,
-                  reason: tr.reason || null,
-                });
-                setTrOpen(false);
-              }, "Employee transfer scheduled successfully.")}>Schedule</Button>
-            </>
-          }
+      <Dialog
+        open={trOpen}
+        onClose={() => setTrOpen(false)}
+        title="Schedule Transfer"
+        size="lg"
+        testId="hr-org-transfer-modal"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            act(async () => {
+              await transfers.create({
+                employeeUid: tr.employeeUid,
+                toLocationUid: tr.toLocationUid || null,
+                toDepartmentUid: tr.toDepartmentUid || null,
+                toShiftUid: tr.toShiftUid || null,
+                toManagerUid: tr.toManagerUid || null,
+                effectiveDate: tr.effectiveDate,
+                reason: tr.reason || null,
+              });
+              setTrOpen(false);
+            }, "Employee transfer scheduled successfully.");
+          }}
+          className="space-y-4"
+          data-testid="hr-org-transfer-form"
         >
-          <Select id="hr-org-transfer-employee" testId="hr-org-transfer-employee" label="Employee to Transfer" value={tr.employeeUid} onChange={(e) => setTr({ ...tr, employeeUid: e.target.value })} options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
-          <Select id="hr-org-transfer-branch" testId="hr-org-transfer-branch" label="To Branch (optional)" value={tr.toLocationUid} onChange={(e) => setTr({ ...tr, toLocationUid: e.target.value })} options={[{ value: "", label: "No branch change" }, ...branches.map((b) => ({ value: b.id, label: b.name }))]} />
-          <Select id="hr-org-transfer-department" testId="hr-org-transfer-department" label="To Department (optional)" value={tr.toDepartmentUid} onChange={(e) => setTr({ ...tr, toDepartmentUid: e.target.value })} options={[{ value: "", label: "No department change" }, ...departments.data.map((d) => ({ value: d.id, label: String(d.name) }))]} />
-          <Select id="hr-org-transfer-shift" testId="hr-org-transfer-shift" label="To Shift (optional)" value={tr.toShiftUid} onChange={(e) => setTr({ ...tr, toShiftUid: e.target.value })} options={[{ value: "", label: "No shift change" }, ...shifts.data.map((s) => ({ value: s.id, label: String(s.name) }))]} />
-          <Select id="hr-org-transfer-manager" testId="hr-org-transfer-manager" label="To Manager (optional)" value={tr.toManagerUid} onChange={(e) => setTr({ ...tr, toManagerUid: e.target.value })} options={[{ value: "", label: "No manager change" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
-          <Input id="hr-org-transfer-effective-date" data-testid="hr-org-transfer-effective-date" label="Effective Date" type="date" value={tr.effectiveDate} onChange={(e) => setTr({ ...tr, effectiveDate: e.target.value })} />
-          <Textarea id="hr-org-transfer-reason" data-testid="hr-org-transfer-reason" label="Reason" rows={3} value={tr.reason} onChange={(e) => setTr({ ...tr, reason: e.target.value })} />
-        </Modal>
-      )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="hr-org-transfer-employee"
+              testId="hr-org-transfer-employee"
+              label="Employee to Transfer"
+              required
+              value={tr.employeeUid}
+              onChange={(e) => setTr({ ...tr, employeeUid: e.target.value })}
+              options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]}
+            />
+            <Input
+              id="hr-org-transfer-effective-date"
+              data-testid="hr-org-transfer-effective-date"
+              label="Effective Date"
+              type="date"
+              required
+              value={tr.effectiveDate}
+              onChange={(e) => setTr({ ...tr, effectiveDate: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="hr-org-transfer-branch"
+              testId="hr-org-transfer-branch"
+              label="To Branch (optional)"
+              value={tr.toLocationUid}
+              onChange={(e) => setTr({ ...tr, toLocationUid: e.target.value })}
+              options={[{ value: "", label: "No branch change" }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+            />
+            <Select
+              id="hr-org-transfer-department"
+              testId="hr-org-transfer-department"
+              label="To Department (optional)"
+              value={tr.toDepartmentUid}
+              onChange={(e) => setTr({ ...tr, toDepartmentUid: e.target.value })}
+              options={[{ value: "", label: "No department change" }, ...departments.data.map((d) => ({ value: d.id, label: String(d.name) }))]}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="hr-org-transfer-shift"
+              testId="hr-org-transfer-shift"
+              label="To Shift (optional)"
+              value={tr.toShiftUid}
+              onChange={(e) => setTr({ ...tr, toShiftUid: e.target.value })}
+              options={[{ value: "", label: "No shift change" }, ...shifts.data.map((s) => ({ value: s.id, label: String(s.name) }))]}
+            />
+            <Select
+              id="hr-org-transfer-manager"
+              testId="hr-org-transfer-manager"
+              label="To Manager (optional)"
+              value={tr.toManagerUid}
+              onChange={(e) => setTr({ ...tr, toManagerUid: e.target.value })}
+              options={[{ value: "", label: "No manager change" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]}
+            />
+          </div>
+
+          <Textarea
+            id="hr-org-transfer-reason"
+            data-testid="hr-org-transfer-reason"
+            label="Reason"
+            rows={3}
+            value={tr.reason}
+            onChange={(e) => setTr({ ...tr, reason: e.target.value })}
+            placeholder="Reason for transfer..."
+          />
+
+          <DialogFooter>
+            <Button
+              id="hr-org-transfer-modal-cancel"
+              data-testid="hr-org-transfer-modal-cancel"
+              variant="outline"
+              type="button"
+              onClick={() => setTrOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              id="hr-org-transfer-schedule"
+              data-testid="hr-org-transfer-schedule"
+              variant="primary"
+              type="submit"
+              disabled={busy || !tr.employeeUid || !tr.effectiveDate || (!tr.toLocationUid && !tr.toManagerUid && !tr.toDepartmentUid && !tr.toShiftUid)}
+              loading={busy}
+            >
+              Schedule Transfer
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
     </section>
   );
 }

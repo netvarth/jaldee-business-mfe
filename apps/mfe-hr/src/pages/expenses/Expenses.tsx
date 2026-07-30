@@ -280,10 +280,12 @@ export default function Expenses() {
           </div>
           <ExpensesViewToggle value={viewMode} onChange={setViewMode} />
         </div>
+        {/* Search option hidden for now
         <div style={{ position: "relative", width: "100%", maxWidth: 360, alignSelf: "flex-end" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
           <input id="hr-expenses-search" data-testid="hr-expenses-search" placeholder="Search description, categories..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 42, width: "100%", borderRadius: 999, paddingLeft: 34, fontSize: "var(--text-sm)", fontWeight: 600, background: SURFACE, border: `1px solid ${BORDER_SUBTLE}` }} />
         </div>
+        */}
       </div>
 
 

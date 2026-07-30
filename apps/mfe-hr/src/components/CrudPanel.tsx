@@ -385,6 +385,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
   const actionNode = (
     <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
       {!readOnly ? <Button onClick={openAdd} icon={<Plus size={16} />}>{addLabel}</Button> : null}
+      {/* Filter option hidden for now
       {searchSchema && onFilterClausesChange ? (
         <Button
           type="button"
@@ -395,6 +396,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
         </Button>
       ) : null}
+      */}
       {viewMode && onViewModeChange && viewScope ? (
         <div className="ml-auto shrink-0" style={viewToggleWrap}>
           <button

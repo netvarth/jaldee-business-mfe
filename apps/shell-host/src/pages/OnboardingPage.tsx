@@ -443,19 +443,10 @@ export default function OnboardingPage() {
       setError("No business context available");
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      await onboardingService.updateTenantSettings({
-        tenantUid,
-        selectedProducts: selectedBusinessTypes,
-      });
-      goNext();
-    } catch (err) {
-      setError(extractErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
+    // Product services require the tenant to have an active location. Keep the
+    // selection locally and persist it after Step 3 creates the first location.
+    goNext();
   }
 
   async function handleLocationSubmit() {
@@ -490,6 +481,10 @@ export default function OnboardingPage() {
         alwaysOpen,
         googleMapUrl,
       });
+      await onboardingService.updateTenantSettings({
+        tenantUid,
+        selectedProducts: selectedBusinessTypes,
+      });
       goNext();
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -503,10 +498,16 @@ export default function OnboardingPage() {
     setError(null);
     try {
       const session = await authService.checkSession();
+      const canonicalLocations = await authService
+        .getProviderLocations()
+        .catch((error) => {
+          console.error("Canonical location sync failed", error);
+          return session.locations ?? [];
+        });
       setAuth(session.user, session.account, session.token ?? "");
-      setAvailableLocations(session.locations ?? []);
-      if (session.locations?.length) {
-        setLocation(session.locations[0]);
+      setAvailableLocations(canonicalLocations);
+      if (canonicalLocations.length) {
+        setLocation(canonicalLocations[0]);
       }
       setOnboardingStatus("complete");
       navigate(getPreferredLandingPath(session.account), { replace: true });

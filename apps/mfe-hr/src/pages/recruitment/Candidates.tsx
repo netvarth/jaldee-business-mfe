@@ -109,6 +109,7 @@ export default function Candidates() {
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
             <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">
+              {/* Filter option hidden for now
               <Button
                 type="button"
                 variant={appliedFilterCount > 0 ? "primary" : "outline"}
@@ -119,6 +120,7 @@ export default function Candidates() {
               >
                 Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
               </Button>
+              */}
               <Button variant="primary" data-testid="hr-recruitment-new-candidate" onClick={() => setIsModalOpen(true)}>
                 + Add Candidate
               </Button>
@@ -131,6 +133,7 @@ export default function Candidates() {
                 />
               </div>
             </div>
+            {/* Search option hidden for now
             <Input
               id="hr-recruitment-candidates-search"
               data-testid="hr-recruitment-candidates-search"
@@ -140,6 +143,7 @@ export default function Candidates() {
               containerClassName="w-full md:order-1 md:max-w-xs"
               icon={<SearchIcon />}
             />
+            */}
           </div>
 
           <div className="p-0">

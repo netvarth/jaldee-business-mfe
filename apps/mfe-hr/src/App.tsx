@@ -37,6 +37,8 @@ const CareersPublishPage = lazy(() => import("./pages/careers/CareersPublishPage
 const PublicJobList = lazy(() => import("./pages/careers/PublicJobList"));
 const PublicJobPage = lazy(() => import("./pages/careers/PublicJobPage"));
 
+import { GlobalHrMobileNav } from "./components/GlobalHrMobileNav";
+
 function PublicListRoute() {
   const { companySlug } = useParams();
   const navigate = useNavigate();
@@ -105,6 +107,7 @@ export default function App() {
             </Routes>
           </Suspense>
         </div>
+        <GlobalHrMobileNav />
       </div>
     </AutomationTestIdBoundary>
   );

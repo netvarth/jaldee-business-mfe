@@ -92,17 +92,17 @@ export function NewOfferModal({ isOpen, onClose, applications, onSave }: NewOffe
           onChange={set("applicationUid")}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Designation" value={form.designation} onChange={set("designation")} placeholder="e.g. Software Engineer" />
           <Select label="Status" options={statusOptions} value={form.status} onChange={set("status")} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Annual CTC" type="number" min={0} value={form.annualCtc} onChange={set("annualCtc")} placeholder="e.g. 1200000" />
           <Input label="Currency" value={form.currency} onChange={set("currency")} placeholder="INR" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Joining Date" type="date" value={form.joiningDate} onChange={set("joiningDate")} />
           <Input label="Valid Till" type="date" value={form.validTill} onChange={set("validTill")} />
         </div>

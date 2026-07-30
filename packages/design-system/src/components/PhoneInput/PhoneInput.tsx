@@ -54,16 +54,16 @@ function toDigits(value: string) {
   return value.replace(/[^\d]/g, "");
 }
 
-function buildPhoneValue(country: SelectedCountryData, e164Number: string, fallbackNumber: string): PhoneInputValue {
+function buildPhoneValue(country: SelectedCountryData, fallbackNumber: string): PhoneInputValue {
   const dialCode = country?.dialCode ? `+${country.dialCode}` : "";
-  const normalizedE164 = e164Number || "";
-  const nationalNumber = dialCode && normalizedE164.startsWith(dialCode)
-    ? normalizedE164.slice(dialCode.length)
-    : fallbackNumber;
+  const nationalNumber = toDigits(fallbackNumber);
+  const normalizedE164 = nationalNumber
+    ? `${dialCode}${nationalNumber}`
+    : "";
 
   return {
     countryCode: dialCode,
-    number: toDigits(nationalNumber),
+    number: nationalNumber,
     e164Number: normalizedE164,
   };
 }
@@ -144,7 +144,6 @@ export function PhoneInput({
       const selectedCountryData = iti.getSelectedCountryData();
       const nextValue = buildPhoneValue(
         selectedCountryData,
-        safeGetE164Number(iti, input, selectedCountryData),
         input.value
       );
       const signature = `${nextValue.countryCode}|${nextValue.number}|${nextValue.e164Number ?? ""}`;

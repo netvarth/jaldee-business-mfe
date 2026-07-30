@@ -1,6 +1,8 @@
 import { cn } from "../../utils";
 
 export interface SwitchProps {
+  id?:        string;
+  testId?:    string;
   label?:     string;
   checked:    boolean;
   onChange:   (checked: boolean) => void;
@@ -8,10 +10,10 @@ export interface SwitchProps {
   className?: string;
 }
 
-export function Switch({ label, checked, onChange, disabled, className }: SwitchProps) {
+export function Switch({ id, testId, label, checked, onChange, disabled, className }: SwitchProps) {
   return (
     <label
-      data-testid="switch"
+      data-testid={testId ? `${testId}-container` : "switch"}
       className={cn(
         "cursor-pointer",
         disabled && "opacity-50 cursor-not-allowed",
@@ -25,6 +27,8 @@ export function Switch({ label, checked, onChange, disabled, className }: Switch
       }}
     >
       <button
+        id={id}
+        data-testid={testId}
         type="button"
         role="switch"
         aria-checked={checked}

@@ -96,6 +96,7 @@ export default function JobRequisitions() {
                 />
               </div>
             </div>
+            {/* Search option hidden for now
             <Input
               id="hr-recruitment-requisitions-search"
               data-testid="hr-recruitment-requisitions-search"
@@ -105,6 +106,7 @@ export default function JobRequisitions() {
               containerClassName="w-full md:order-1 md:max-w-xs"
               icon={<SearchIcon />}
             />
+            */}
           </div>
 
           <div className="p-0">

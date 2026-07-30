@@ -62,6 +62,33 @@ export default function NewEmployeeWizard() {
     setError(null);
     const deptObj = departments.find((d) => d.name === employment.department);
     const desigObj = designations.find((d) => d.name === employment.designation);
+    const locationRecord = location as typeof location & {
+      uid?: string;
+      locationUid?: string;
+      branchUid?: string;
+      encId?: string;
+      locationId?: string;
+    };
+    const locationUid =
+      locationRecord.uid ??
+      locationRecord.locationUid ??
+      locationRecord.branchUid ??
+      locationRecord.encId ??
+      locationRecord.locationId ??
+      locationRecord.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(locationUid);
+
+    if (!isUuid) {
+      const message = "The selected location is still loading. Please select the branch again and retry.";
+      setSaving(false);
+      setError(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Employee creation",
+        message,
+      });
+      return;
+    }
 
     try {
       const payload: Record<string, unknown> = {
@@ -75,7 +102,7 @@ export default function NewEmployeeWizard() {
         hrDepartmentUid: deptObj?.id || null,
         designationUid: desigObj?.id || null,
         employmentType: employment.employmentType,
-        locationUid: location.id,
+        locationUid,
         role: "employee",
         pan: personal.pan || null,
         uan: personal.uan || null,

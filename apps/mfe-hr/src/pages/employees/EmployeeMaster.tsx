@@ -399,6 +399,7 @@ export default function EmployeeMaster() {
       <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
       <div className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] px-4 py-4" data-testid="hr-employees-toolbar">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* Search bar hidden for now
           <div className="flex items-center gap-4">
             <div className="c-search-bar employee-master-search">
               <input
@@ -415,7 +416,7 @@ export default function EmployeeMaster() {
               />
               <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
             </div>
-          </div>
+          </div> */}
           <div className="flex w-full items-center justify-end gap-3 lg:w-auto">
             {selectedUnassignedEmployeeUids.length > 0 && (
               <Button
@@ -429,6 +430,7 @@ export default function EmployeeMaster() {
                 Assign to Location
               </Button>
             )}
+            {/* Filter option hidden for now
             <Button
               type="button"
               id="hr-employees-filter-indicator"
@@ -444,6 +446,7 @@ export default function EmployeeMaster() {
             >
               Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
             </Button>
+            */}
             <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>

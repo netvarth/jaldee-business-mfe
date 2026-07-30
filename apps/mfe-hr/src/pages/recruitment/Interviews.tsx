@@ -155,6 +155,7 @@ export default function Interviews() {
                 />
               </div>
             </div>
+            {/* Search option hidden for now
             <Input
               id="hr-recruitment-interviews-search"
               data-testid="hr-recruitment-interviews-search"
@@ -164,6 +165,7 @@ export default function Interviews() {
               containerClassName="w-full md:order-1 md:max-w-xs"
               icon={<SearchIcon />}
             />
+            */}
           </div>
 
           <div className="p-0">

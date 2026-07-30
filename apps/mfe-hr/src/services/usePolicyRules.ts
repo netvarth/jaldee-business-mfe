@@ -158,7 +158,7 @@ export interface PolicyRule {
   name: string;
   description?: string;
   scopeType: ScopeType;
-  scopeValue?: string | null;
+  scopeValue?: string | string[] | null;
   conditionType: string;
   operator?: Operator | null;
   conditionValue?: string | null;
@@ -198,8 +198,22 @@ export function usePolicyRules(domain?: PolicyDomain) {
   useEffect(() => { void load(); }, [load]);
 
   const save = useCallback(async (rule: PolicyRule) => {
-    if (rule.uid) await api.put(`/policy-rules/${rule.uid}`, rule as unknown as Record<string, unknown>);
-    else await api.post("/policy-rules", rule as unknown as Record<string, unknown>);
+    const payload: PolicyRule =
+      rule.domain === "PAYROLL"
+        ? {
+            ...rule,
+            scopeValue:
+              rule.scopeType === "ALL"
+                ? []
+                : Array.isArray(rule.scopeValue)
+                  ? rule.scopeValue.filter(Boolean)
+                  : rule.scopeValue
+                    ? [rule.scopeValue]
+                    : [],
+          }
+        : rule;
+    if (rule.uid) await api.put(`/policy-rules/${rule.uid}`, payload as unknown as Record<string, unknown>);
+    else await api.post("/policy-rules", payload as unknown as Record<string, unknown>);
     await load();
   }, [api, load]);
 

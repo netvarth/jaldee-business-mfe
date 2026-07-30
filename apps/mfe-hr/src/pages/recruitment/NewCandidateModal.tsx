@@ -78,7 +78,7 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g. Jane Doe"
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Email"
             type="email"
@@ -98,7 +98,7 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
             placeholder="e.g. +91 98765 43210"
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Experience (Years)"
             type="number"
@@ -118,7 +118,7 @@ export function NewCandidateModal({ isOpen, onClose, onSave }: NewCandidateModal
             onChange={(e) => setFormData({ ...formData, source: e.target.value })}
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Current Company"
             id="hr-candidate-company"

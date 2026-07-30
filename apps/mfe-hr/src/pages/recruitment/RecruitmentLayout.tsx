@@ -1,6 +1,16 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { MoreVertical } from "lucide-react";
+import {
+  BarChart3,
+  Briefcase,
+  Users,
+  CalendarClock,
+  Layers,
+  Award,
+  Globe,
+  MoreHorizontal,
+  Home,
+} from "lucide-react";
 import { Popover, Tabs } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useTelemetry } from "../../services/useTelemetry";
@@ -12,22 +22,27 @@ interface RecruitmentLayoutProps {
 }
 
 const TABS = [
-  { value: "dashboard", label: "Overview", path: "/recruitment" },
-  { value: "requisitions", label: "Requisitions", path: "/recruitment/requisitions" },
-  { value: "candidates", label: "Candidates", path: "/recruitment/candidates" },
-  { value: "applications", label: "Applications", path: "/recruitment/applications" },
-  { value: "interviews", label: "Interviews", path: "/recruitment/interviews" },
-  { value: "offers", label: "Offers", path: "/recruitment/offers" },
-  { value: "careers", label: "Careers", path: "/recruitment/careers" },
+  { value: "dashboard", label: "Overview", path: "/recruitment", icon: BarChart3 },
+  { value: "requisitions", label: "Requisitions", path: "/recruitment/requisitions", icon: Briefcase },
+  { value: "candidates", label: "Candidates", path: "/recruitment/candidates", icon: Users },
+  { value: "interviews", label: "Interviews", path: "/recruitment/interviews", icon: CalendarClock },
+  { value: "applications", label: "Applications", path: "/recruitment/applications", icon: Layers },
+  { value: "offers", label: "Offers", path: "/recruitment/offers", icon: Award },
+  { value: "careers", label: "Careers", path: "/recruitment/careers", icon: Globe },
 ];
+
+const MAIN_TABS = TABS.slice(0, 4);
+const MORE_TABS = TABS.slice(4);
 
 export default function RecruitmentLayout({ title, subtitle, children }: RecruitmentLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { trackPageView } = useTelemetry();
-  const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const currentPath = location.pathname.replace(/\/+$/, "") || "/recruitment";
   const activeTab = TABS.find((tab) => currentPath === tab.path)?.value ?? "dashboard";
+  const activeTabObj = TABS.find((tab) => tab.value === activeTab);
+  const isMoreActive = MORE_TABS.some((tab) => tab.value === activeTab);
 
   useEffect(() => {
     trackPageView(`/hr${currentPath}`);
@@ -40,52 +55,7 @@ export default function RecruitmentLayout({ title, subtitle, children }: Recruit
       className="page-section active hr-page-shell text-[var(--color-text-primary)]"
     >
       <PageHeader title={title} subtitle={subtitle} />
-      <div className="attendance-tabs-mobile" style={{ alignItems: "center", gap: 12, padding: "6px 8px 6px 16px", marginBottom: 16 }}>
-        <div
-          className="attendance-tabs-mobile__active"
-          onClick={() => setMobileTabsOpen(true)}
-          style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
-        >
-          <span>{TABS.find((tab) => tab.value === activeTab)?.label || "Overview"}</span>
-        </div>
 
-        <Popover
-          portal
-          open={mobileTabsOpen}
-          onOpenChange={setMobileTabsOpen}
-          placement="bottom"
-          align="end"
-          contentClassName="!w-56 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
-          trigger={
-            <button
-              type="button"
-              className="attendance-tabs-mobile__trigger"
-              onClick={() => setMobileTabsOpen((open) => !open)}
-              aria-label="Open recruitment tabs"
-              style={{ margin: 0 }}
-            >
-              <MoreVertical size={18} />
-            </button>
-          }
-        >
-          <div className="attendance-tabs-mobile__menu">
-            {TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                className="attendance-tabs-mobile__menu-item"
-                data-active={activeTab === tab.value}
-                onClick={() => {
-                  navigate(tab.path);
-                  setMobileTabsOpen(false);
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </Popover>
-      </div>
       <Tabs
         className="attendance-tabs-desktop mb-6"
         value={activeTab}
@@ -95,6 +65,107 @@ export default function RecruitmentLayout({ title, subtitle, children }: Recruit
           if (next) navigate(next.path);
         }}
       />
+
+      {/* MOBILE BOTTOM FOOTER NAV */}
+      <nav
+        id="hr-recruitment-tabs-mobile-footer"
+        data-testid="hr-recruitment-tabs-mobile-footer"
+        className="mobile-bottom-nav"
+        aria-label="Recruitment mobile navigation"
+      >
+        {MAIN_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              id={`hr-recruitment-tab-mobile-${tab.value}`}
+              data-testid={`hr-recruitment-tab-mobile-${tab.value}`}
+              className="mobile-bottom-nav__item"
+              data-active={isActive}
+              onClick={() => navigate(tab.path)}
+            >
+              <span className="mobile-bottom-nav__icon">
+                <Icon size={18} />
+              </span>
+              <span className="mobile-bottom-nav__label">{tab.label}</span>
+            </button>
+          );
+        })}
+
+        {/* 5th ITEM: MORE MENU POPOVER */}
+        <Popover
+          portal
+          open={moreMenuOpen}
+          onOpenChange={setMoreMenuOpen}
+          placement="top"
+          align="end"
+          contentClassName="!w-48 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+          trigger={
+            <button
+              type="button"
+              id="hr-recruitment-tab-mobile-more"
+              data-testid="hr-recruitment-tab-mobile-more"
+              className="mobile-bottom-nav__item"
+              data-active={isMoreActive}
+              onClick={() => setMoreMenuOpen((open) => !open)}
+            >
+              <span className="mobile-bottom-nav__icon">
+                <MoreHorizontal size={18} />
+              </span>
+              <span className="mobile-bottom-nav__label">
+                {isMoreActive ? activeTabObj?.label || "More" : "More"}
+              </span>
+            </button>
+          }
+        >
+          <div className="flex flex-col w-full py-1">
+            <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--light-text)] border-b border-[var(--border-color)]">
+              More Sections
+            </div>
+            {MORE_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  id={`hr-recruitment-tab-mobile-${tab.value}`}
+                  data-testid={`hr-recruitment-tab-mobile-${tab.value}`}
+                  className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 hover:bg-[var(--primary-light)] transition-colors"
+                  style={{
+                    color: isActive ? "var(--primary-color)" : "var(--dark-text)",
+                    background: isActive ? "rgba(17,94,89,0.06)" : "transparent",
+                  }}
+                  onClick={() => {
+                    navigate(tab.path);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  <Icon size={16} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+            <div className="pt-1 mt-1 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                id="hr-recruitment-tab-mobile-home"
+                data-testid="hr-recruitment-tab-mobile-home"
+                className="w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 text-[var(--primary-color)] hover:bg-[var(--primary-light)] transition-colors"
+                onClick={() => {
+                  navigate("/");
+                  setMoreMenuOpen(false);
+                }}
+              >
+                <Home size={16} />
+                <span>Main Menu</span>
+              </button>
+            </div>
+          </div>
+        </Popover>
+      </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {children}

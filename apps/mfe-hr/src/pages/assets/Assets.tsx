@@ -345,6 +345,7 @@ export default function Assets() {
       <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false} data-testid="hr-assets-section">
         <div className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] px-4 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            {/* Search option hidden for now
             <div className="w-full lg:max-w-[420px]">
               <DataTableToolbar
                 query={search}
@@ -352,6 +353,7 @@ export default function Assets() {
                 searchPlaceholder="Search name, tag, serial, holder..."
               />
             </div>
+            */}
             <div className="flex w-full items-center gap-2 lg:w-auto lg:justify-end">
               <div className="min-w-0 flex-1 md:hidden">
                 <Select

@@ -47,6 +47,8 @@ function extractCollection(input: unknown): unknown[] {
   const hasId =
     candidate.uid != null ||
     candidate.locationUid != null ||
+    candidate.branchUid != null ||
+    candidate.encId != null ||
     candidate.id != null ||
     candidate.locationId != null;
   const hasName =
@@ -81,7 +83,16 @@ export function normalizeBaseLocations(input: unknown): BranchLocation[] {
       const candidate = (typeof location === "object" && location !== null
         ? location
         : {}) as Record<string, unknown>;
-      const id = candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId;
+      // Base-service records may expose a display key such as "location1" in
+      // `id` and the persistent UUID in `encId`. Downstream services require
+      // the UUID, so prefer all UUID-bearing fields before the display key.
+      const id =
+        candidate.uid ??
+        candidate.locationUid ??
+        candidate.branchUid ??
+        candidate.encId ??
+        candidate.locationId ??
+        candidate.id;
       const name = candidate.place ?? candidate.name ?? candidate.locationName ?? candidate.branchName ?? candidate.displayName;
 
       if (id == null || name == null || !String(id).trim() || !String(name).trim()) {
@@ -92,6 +103,7 @@ export function normalizeBaseLocations(input: unknown): BranchLocation[] {
         id: String(id),
         locationId: candidate.id ?? candidate.locationId,
         uid: String(id),
+        encId: candidate.encId,
         name: String(name),
         code: String(candidate.code ?? candidate.locationCode ?? candidate.branchCode ?? candidate.shortName ?? id),
       } as any];

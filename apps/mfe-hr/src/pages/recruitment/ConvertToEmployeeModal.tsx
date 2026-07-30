@@ -147,7 +147,7 @@ export function ConvertToEmployeeModal({
           . This marks the application as hired and closes the requisition seat.
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Employee ID"
             required
@@ -159,7 +159,7 @@ export function ConvertToEmployeeModal({
 
         <Input label="Full Name" required value={form.name} onChange={set("name")} />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Email" type="email" value={form.email} onChange={set("email")} />
           <Input
             label="Contact Number"
@@ -170,7 +170,7 @@ export function ConvertToEmployeeModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select label="Gender" options={genderOptions} value={form.gender} onChange={set("gender")} />
           <Select
             label="Employment Type"
@@ -180,7 +180,7 @@ export function ConvertToEmployeeModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
             label="Designation"
             options={designationOptions}
@@ -195,7 +195,7 @@ export function ConvertToEmployeeModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
             label="Work Location"
             required

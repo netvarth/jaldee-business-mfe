@@ -531,7 +531,13 @@ function normalizeLocations(input: unknown): BranchLocation[] {
       const candidate = (typeof location === "object" && location !== null
         ? location
         : {}) as Record<string, unknown>;
-      const id = candidate.uid ?? candidate.locationUid ?? candidate.id ?? candidate.locationId;
+      const id =
+        candidate.uid ??
+        candidate.locationUid ??
+        candidate.branchUid ??
+        candidate.encId ??
+        candidate.locationId ??
+        candidate.id;
       const name = candidate.place ?? candidate.name ?? candidate.locationName ?? candidate.branchName;
 
       if (id == null || name == null || !String(id).trim() || !String(name).trim()) {
@@ -542,6 +548,7 @@ function normalizeLocations(input: unknown): BranchLocation[] {
         id: String(id),
         locationId: candidate.id ?? candidate.locationId,
         uid: String(id),
+        encId: candidate.encId,
         name: String(name),
         code: String(candidate.code ?? candidate.locationCode ?? candidate.branchCode ?? candidate.shortName ?? id),
       } as any];
@@ -692,10 +699,25 @@ export async function updateTenantSettingsForShell(data: unknown): Promise<unkno
       ? (data as { finance: boolean }).finance
       : null;
   if (financeEnabled !== null) {
-    await apiClient.put<unknown>(
-      `/finance-service/v1/api/tenant/settings/finance/${financeEnabled ? "Enabled" : "Disabled"}`,
-      undefined,
-    );
+    try {
+      await apiClient.put<unknown>(
+        `/finance-service/v1/api/tenant/settings/finance/${financeEnabled ? "Enabled" : "Disabled"}`,
+        undefined,
+      );
+    } catch (error) {
+      const status =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
+      if (status !== 422) {
+        throw error;
+      }
+      console.warn(
+        `[authService] Finance setting synchronization returned ${status}; continuing because tenant settings were saved successfully.`,
+      );
+    }
   }
   tenantSettingsCache = response.data;
   tenantSettingsLoaded = true;

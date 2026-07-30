@@ -65,7 +65,6 @@ export default function AuditLogs() {
     setLoading(true);
     setError("");
     const conditions = [
-      { field: "feature", operator: "EQ", values: ["HR"] },
       ...(context !== "ALL" ? [{ field: "featureModule", operator: "EQ", values: [context] }] : []),
       ...compactSearchClauses(filters, schema).map((filter) => ({
         field: filter.field,
@@ -73,59 +72,36 @@ export default function AuditLogs() {
         values: filter.values,
       })),
     ];
-    api.post("/audit-logs/search", {
-      ...(schema?.defaultView ? { view: schema.defaultView } : {}),
-      filters: conditions.length ? { logic: "AND", conditions } : null,
-      sort: schema?.defaultSort?.field
-        ? [{ field: schema.defaultSort.field, direction: schema.defaultSort.direction || "DESC" }]
-        : [],
-      page: page - 1,
-      size: pageSize,
-    }).then((response) => {
-      if (!active) return;
-      const result = unwrapPage(response);
-      setRows(result.rows);
-      setTotal(result.total);
-    }).catch((reason) => {
-      if (active) setError(reason instanceof Error ? reason.message : "Unable to load audit logs.");
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
+    const payload = { page: page - 1, pageSize, conditions };
+    api.post("/audit-logs/search", payload)
+      .then((res) => {
+        if (!active) return;
+        const pageData = unwrapPage(res);
+        setRows(pageData.rows);
+        setTotal(pageData.total);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "Failed to load audit logs.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
     return () => { active = false; };
-  }, [api, page, pageSize, context, filters, schema, schemaLoading]);
+  }, [api, context, filters, page, pageSize, schema, schemaLoading]);
 
   const visibleRows = useMemo(() => {
+    if (!search.trim()) return rows;
     const query = search.trim().toLowerCase();
-    if (!query) return rows;
-    return rows.filter((record) => JSON.stringify(record).toLowerCase().includes(query));
+    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(query));
   }, [rows, search]);
 
   const columns = useMemo<ColumnDef<AuditRecord>[]>(() => [
-    {
-      key: "action",
-      header: "Action",
-      render: (record) => (
-        <div>
-          <div className="font-semibold text-slate-900">{value(record, ["action", "event", "actionName"])}</div>
-          <div className="mt-1 text-xs text-slate-500">{value(record, ["featureModule", "auditlogContext", "auditLogContext", "context"], "HR")}</div>
-        </div>
-      ),
-    },
-    {
-      key: "message",
-      header: "Message",
-      render: (record) => <div className="max-w-xl text-sm text-slate-600">{value(record, ["message", "details", "description"], "No details provided")}</div>,
-    },
-    {
-      key: "actor",
-      header: "Updated By",
-      render: (record) => (
-        <div>
-          <div className="font-medium text-slate-800">{value(record, ["actorUserName", "actor", "userName", "actorUserId"], "System")}</div>
-          <div className="mt-1 text-xs text-slate-500">{dateLabel(record)}</div>
-        </div>
-      ),
-    },
+    { key: "timestamp", header: "Time", render: (record) => <span className="font-mono text-xs text-slate-500">{dateLabel(record)}</span> },
+    { key: "action", header: "Action", render: (record) => <span className="font-bold text-slate-900">{value(record, ["action", "event", "type"], "UNKNOWN")}</span> },
+    { key: "actor", header: "Actor", render: (record) => <span className="font-semibold text-slate-700">{value(record, ["actorName", "actorEmail", "createdBy"], "System")}</span> },
+    { key: "target", header: "Target", render: (record) => <span className="text-xs text-slate-600">{value(record, ["targetName", "targetId", "entityId"], "-")}</span> },
     {
       key: "inspect",
       header: "",
@@ -172,8 +148,10 @@ export default function AuditLogs() {
           <div className="flex flex-1 flex-wrap gap-2">
             {CONTEXT_OPTIONS.map((option) => <Button key={option.value} data-testid={`hr-audit-logs-context-${option.value.toLowerCase()}`} size="sm" variant={context === option.value ? "primary" : "outline"} onClick={() => { setContext(option.value); setPage(1); }}>{option.label}</Button>)}
           </div>
+          {/* Search & filter options hidden for now
           <Input data-testid="hr-audit-logs-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search current page..." icon={<Search size={16} />} containerClassName="w-full md:max-w-xs" />
           <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(schema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
+          */}
         </div>
         {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
         <div data-testid="hr-audit-logs-table" className="p-4">

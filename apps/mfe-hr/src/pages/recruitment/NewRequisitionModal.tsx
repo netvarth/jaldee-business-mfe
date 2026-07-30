@@ -107,7 +107,7 @@ export function NewRequisitionModal({ isOpen, onClose, onSave, departments, empl
           value={formData.hiringManagerUid}
           onChange={(e) => setFormData({ ...formData, hiringManagerUid: e.target.value })}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
             id="hr-recruitment-requisition-employment-type"
             testId="hr-recruitment-requisition-employment-type"
@@ -127,7 +127,7 @@ export function NewRequisitionModal({ isOpen, onClose, onSave, departments, empl
             onChange={(e) => setFormData({ ...formData, openings: Number(e.target.value) })}
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             id="hr-recruitment-requisition-experience"
             data-testid="hr-recruitment-requisition-experience"

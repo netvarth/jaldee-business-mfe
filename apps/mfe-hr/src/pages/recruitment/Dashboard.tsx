@@ -42,7 +42,7 @@ export default function RecruitmentDashboard() {
   return (
     <RecruitmentLayout title="Recruitment Dashboard" subtitle="Overview of hiring pipeline and metrics.">
       <div id="hr-recruitment-dashboard" data-testid="hr-recruitment-dashboard">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {statsLoading || !stats ? (
             <>
               {[1, 2, 3, 4, 5].map((i) => (
@@ -120,13 +120,13 @@ export default function RecruitmentDashboard() {
 
 function KpiCard({ testId, label, value, icon }: { testId: string; label: string; value: number | string; icon: React.ReactNode }) {
   return (
-    <div data-testid={`hr-recruitment-kpi-${testId}`} className="flex items-center gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-alt)] text-[var(--color-primary)]">
+    <div data-testid={`hr-recruitment-kpi-${testId}`} className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-3 shadow-sm transition-all hover:shadow-md min-w-0">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-alt)] text-[var(--color-primary)]">
         {icon}
       </div>
-      <div className="flex-1 overflow-hidden">
-        <p className="truncate text-sm font-medium text-[var(--color-text-secondary)]">{label}</p>
-        <p className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">{value}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs sm:text-sm font-semibold text-[var(--color-text-secondary)] leading-snug break-words">{label}</p>
+        <p className="mt-0.5 text-xl sm:text-2xl font-black text-[var(--color-text-primary)]">{value}</p>
       </div>
     </div>
   );

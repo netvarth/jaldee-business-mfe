@@ -2086,7 +2086,11 @@ function ProductCard({
   readOnly?: boolean;
 }) {
   return (
-    <div className="settings-product-card">
+    <div
+      className="settings-product-card"
+      data-testid={`settings-product-${item.id}-card`}
+      data-enabled={item.enabled}
+    >
       <div className="settings-product-card__top">
         <div className={`settings-product-card__icon settings-product-card__icon--${item.accent}`}>
           <NavIcon name={item.icon} className="settings-product-card__glyph" />
@@ -2096,7 +2100,13 @@ function ProductCard({
             <NavIcon name="lock" />
           </span>
         ) : (
-          <Switch checked={item.enabled} onChange={(checked) => onToggle?.(item.id, checked)} className="settings-product-card__switch" />
+          <Switch
+            id={`settings-product-${item.id}-switch`}
+            testId={`settings-product-${item.id}-switch`}
+            checked={item.enabled}
+            onChange={(checked) => onToggle?.(item.id, checked)}
+            className="settings-product-card__switch"
+          />
         )}
       </div>
       <div className="settings-product-card__body">

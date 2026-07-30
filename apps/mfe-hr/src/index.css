@@ -1989,3 +1989,74 @@ a:hover {
         gap: 0;
     }
 }
+
+/* ==================== SHARED MOBILE BOTTOM FOOTER NAV ==================== */
+.mobile-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .mobile-bottom-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        height: 60px;
+        background: var(--surface-bg, #ffffff);
+        border-top: 1px solid var(--border-color, #e2e8f0);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+        padding: 0 4px;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .mobile-bottom-nav__item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 100%;
+        border: none;
+        background: transparent;
+        color: var(--light-text, #64748b);
+        cursor: pointer;
+        padding: 6px 0;
+        transition: color 0.15s ease, background-color 0.15s ease;
+        border-radius: 8px;
+    }
+
+    .mobile-bottom-nav__item[data-active="true"] {
+        color: var(--primary-color, #115e59);
+        font-weight: 800;
+        background: rgba(17, 94, 89, 0.05);
+    }
+
+    .mobile-bottom-nav__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mobile-bottom-nav__label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    .attendance-tabs-mobile {
+        display: none !important;
+    }
+
+    .hr-page-shell,
+    .page-section,
+    #hr-recruitment-section,
+    .org-content-shell {
+        padding-bottom: 76px !important;
+    }
+}
+
