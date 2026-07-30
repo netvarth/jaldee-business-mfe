@@ -80,6 +80,13 @@ async function run() {
   console.log("  EMPLOYEE SELF-SERVICE AUTOMATION");
   console.log("=========================================================");
 
+  page.on("response", (response) => {
+    const resourceType = response.request().resourceType();
+    if (resourceType === "fetch" || resourceType === "xhr") {
+      console.log(`   [EMPLOYEE REST API] ${response.request().method()} ${response.url()} -> ${response.status()} ${response.statusText()}`);
+    }
+  });
+
   console.log("\n>>> EMPLOYEE LOGIN...");
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
   const existingSession = page.locator('[data-testid="ess-login-logout-existing-session"]');

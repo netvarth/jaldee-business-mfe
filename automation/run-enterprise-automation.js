@@ -2,6 +2,7 @@ const { chromium } = require("@playwright/test");
 
 const ENTERPRISE_PASSWORD = process.env.ENTERPRISE_PASSWORD || "dhyanDarsh@1";
 const AUTOMATION_BASE_URL = process.env.AUTOMATION_BASE_URL || "http://localhost:3000";
+const EMPLOYEE_PORTAL_BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http://localhost:3011";
 const ENTERPRISE_LOGIN_ID = process.env.ENTERPRISE_LOGIN_ID || "dhwanikrishna1";
 const ENTERPRISE_PHONE = process.env.ENTERPRISE_PHONE || "5555000015";
 const ENTERPRISE_DATA_SUFFIX = process.env.ENTERPRISE_DATA_SUFFIX || "DGS";
@@ -462,20 +463,12 @@ async function run() {
         await page.waitForTimeout(350);
       }
       await page.waitForTimeout(2000);
-      await slowClick('[data-testid="signup-verify-otp-button"]', "Verify Signup OTP");
-      await page.waitForURL((url) => !url.pathname.includes("/signup"), { timeout: 30000 });
+      console.log("   [Action] Clicking Verify Signup OTP");
+      await page.locator('[data-testid="signup-verify-otp-button"]').first().evaluate((button) => button.click());
+      await page.locator('[data-testid="onboarding-page"]').waitFor({ state: "visible", timeout: 60000 });
       console.log("   [Auth] Signup and verification complete!");
     }
-    await page.evaluate(() => {
-      const key = "jaldee-shell-store";
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return;
-      const persisted = JSON.parse(raw);
-      persisted.state = { ...(persisted.state || {}), onboardingStatus: "pending" };
-      window.localStorage.setItem(key, JSON.stringify(persisted));
-    });
-    await page.goto(`${AUTOMATION_BASE_URL}/onboarding`, { waitUntil: "domcontentloaded" });
-    const onboardingVisible = await page.locator('[data-testid="onboarding-page"]').waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
+    const onboardingVisible = await page.locator('[data-testid="onboarding-page"]').isVisible({ timeout: 10000 }).catch(() => false);
     if (onboardingVisible) {
       console.log("\n>>> SIGNUP ONBOARDING - COMPLETE ALL 4 STEPS...");
       const onboardingPause = 1500;
@@ -844,10 +837,10 @@ async function run() {
       if (await halfDayInput.isVisible().catch(() => false)) {
         await halfDayInput.fill("240");
       }
-      await slowType('[data-testid="hr-settings-shifts-breakminutes"]', "45", `Break Minutes ${i + 1}`);
-      const sundayBtn = page.locator('[data-testid="hr-settings-shifts-weeklyoffdays-option-SUNDAY"]').first();
-      if (await sundayBtn.isVisible().catch(() => false)) {
-        await sundayBtn.click();
+      await slowType('[data-testid="hr-settings-shifts-breakminutes"]', "60", `Break Minutes ${i + 1}`);
+      for (const day of ["SATURDAY", "SUNDAY"]) {
+        const dayButton = shiftModal.locator(`[data-testid="hr-settings-shifts-weeklyoffdays-option-${day}"]`);
+        if (await dayButton.getAttribute("aria-pressed") !== "true") await dayButton.click();
       }
       await shiftModal.locator('[data-testid="hr-settings-shifts-save"]').click();
       const shiftModalClosed = await shiftModal.waitFor({ state: "hidden", timeout: 20000 }).then(() => true).catch(() => false);
@@ -2107,7 +2100,13 @@ async function run() {
       console.log("\n>>> EMPLOYEE LOGIN - OPEN FRESH PAGE AND VERIFY SELF-SERVICE...");
       if (!managedEmployeeLoginId) throw new Error("Managed employee login ID was not retained for employee sign-in");
       const employeePage = await context.newPage();
-      await employeePage.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
+      employeePage.on("response", (response) => {
+        const resourceType = response.request().resourceType();
+        if (resourceType === "fetch" || resourceType === "xhr") {
+          console.log(`   [EMPLOYEE REST API] ${response.request().method()} ${response.url()} -> ${response.status()} ${response.statusText()}`);
+        }
+      });
+      await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/ess/login`, { waitUntil: "domcontentloaded" });
       const logoutBtn = employeePage.locator('[data-testid="auth-login-logout-existing-session"]');
       if (await logoutBtn.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {
         await logoutBtn.click();

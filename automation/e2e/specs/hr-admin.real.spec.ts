@@ -351,8 +351,10 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
         await fillTimePicker(page, "hr-settings-shifts-starttime", s.start);
         await fillTimePicker(page, "hr-settings-shifts-endtime", s.end);
         await fillByTestId(page, "hr-settings-shifts-graceminutes", "15");
-        await fillByTestId(page, "hr-settings-shifts-halfdaythresholdminutes", "240");
-        await fillByTestId(page, "hr-settings-shifts-breakminutes", "45");
+        await fillByTestId(page, "hr-settings-shifts-halfdaythreshold", "240");
+        await fillByTestId(page, "hr-settings-shifts-breakminutes", "60");
+        await expect(page.getByTestId("hr-settings-shifts-weeklyoffdays-option-SATURDAY")).toHaveAttribute("aria-pressed", "true");
+        await expect(page.getByTestId("hr-settings-shifts-weeklyoffdays-option-SUNDAY")).toHaveAttribute("aria-pressed", "true");
         await clickByTestId(page, "hr-settings-shifts-save");
         const closed = await modal.waitFor({ state: "hidden", timeout: 5000 }).then(() => true).catch(() => false);
         if (!closed) {

@@ -4,6 +4,7 @@ const path = require("node:path");
 
 const SIGNUP_PASSWORD = process.env.AUTOMATION_SIGNUP_PASSWORD || "DemoHR@2026";
 const AUTOMATION_BASE_URL = process.env.AUTOMATION_BASE_URL || "http://localhost:3000";
+const EMPLOYEE_PORTAL_BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http://localhost:3011";
 const reportStartedAt = new Date();
 const reportResults = [];
 let currentReportSection = "Automation startup";
@@ -426,28 +427,41 @@ async function run() {
 
   async function visitHr(path, labelName) {
     console.log(`\n>>> ${labelName}...`);
-    await page.goto(`http://localhost:3000${path}`, { waitUntil: "domcontentloaded" });
+    await navigateSpa(path);
     await page.waitForTimeout(900);
+  }
+
+  async function navigateSpa(path) {
+    await closeAnyOpenModal();
+    await page.evaluate((nextPath) => {
+      window.history.pushState({}, "", nextPath);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, path);
+    await page.waitForFunction(
+      (expectedPath) => `${window.location.pathname}${window.location.search}` === expectedPath,
+      path,
+      { timeout: 10000 },
+    );
   }
 
   async function openSettingsSection(section, readySelector) {
     await closeAnyOpenModal();
     const sectionButton = page.locator(`[data-testid="hr-settings-section-${section}"]`);
     if (!(await sectionButton.isVisible({ timeout: 3000 }).catch(() => false))) {
-      await page.goto(`${AUTOMATION_BASE_URL}/hr/settings/${section}`, { waitUntil: "domcontentloaded" });
+      await navigateSpa(`/hr/settings/${section}`);
     } else {
       await sectionButton.click().catch(async () => {
         await closeAnyOpenModal();
-        await page.goto(`${AUTOMATION_BASE_URL}/hr/settings/${section}`, { waitUntil: "domcontentloaded" });
+        await navigateSpa(`/hr/settings/${section}`);
       });
       await page.waitForURL(new RegExp(`/hr/settings/${section}(?:[/?#]|$)`), { timeout: 10000 }).catch(async () => {
-        await page.goto(`${AUTOMATION_BASE_URL}/hr/settings/${section}`, { waitUntil: "domcontentloaded" });
+        await navigateSpa(`/hr/settings/${section}`);
       });
     }
     const ready = await page.locator(readySelector).waitFor({ state: "visible", timeout: 15000 }).then(() => true).catch(() => false);
     if (!ready) {
       console.log(`   [Nav] Fallback navigation to /hr/settings/${section}`);
-      await page.goto(`${AUTOMATION_BASE_URL}/hr/settings/${section}`, { waitUntil: "domcontentloaded" });
+      await navigateSpa(`/hr/settings/${section}`);
       await page.locator(readySelector).waitFor({ state: "visible", timeout: 30000 });
     }
   }
@@ -533,9 +547,10 @@ async function run() {
     await page.waitForTimeout(350);
   }
   await page.waitForTimeout(2000);
-  await slowClick('[data-testid="signup-verify-otp-button"]', "Verify Signup OTP");
-  await page.waitForURL((url) => !url.pathname.includes("/signup"), { timeout: 30000 });
-  if (await page.locator('[data-testid="onboarding-page"]').isVisible({ timeout: 10000 }).catch(() => false)) {
+  console.log("   [Action] Clicking Verify Signup OTP");
+  await page.locator('[data-testid="signup-verify-otp-button"]').first().evaluate((button) => button.click());
+  await page.locator('[data-testid="onboarding-page"]').waitFor({ state: "visible", timeout: 60000 });
+  {
     console.log("\n>>> SIGNUP ONBOARDING - COMPLETE ALL 4 STEPS...");
     const onboardingPause = 1500;
     await slowType('[data-testid="onboarding-company-name-input"]', `Dhyandarsh IT Technologies ${suffix}`, "Onboarding Company Name");
@@ -613,7 +628,7 @@ async function run() {
       await errorReloadBtn.click();
       await page.waitForTimeout(3000);
     }
-    await page.goto(`${AUTOMATION_BASE_URL}/hr/settings/company`, { waitUntil: "domcontentloaded" });
+    await navigateSpa("/hr/settings/company");
     const settingsPageReady = await page.locator('[data-testid="hr-settings-page"]').waitFor({ state: "visible", timeout: 30000 }).then(() => true).catch(() => false);
     if (!settingsPageReady) {
       if (attempt === 4) throw new Error(`HR Settings page did not open. Current URL: ${page.url()}`);
@@ -786,10 +801,10 @@ async function run() {
     if (await halfDayInput.isVisible().catch(() => false)) {
       await halfDayInput.fill("240");
     }
-    await slowType('[data-testid="hr-settings-shifts-breakminutes"]', "45", `Break Minutes ${i + 1}`);
-    const sundayBtn = page.locator('[data-testid="hr-settings-shifts-weeklyoffdays-option-SUNDAY"]').first();
-    if (await sundayBtn.isVisible().catch(() => false)) {
-      await sundayBtn.click();
+    await slowType('[data-testid="hr-settings-shifts-breakminutes"]', "60", `Break Minutes ${i + 1}`);
+    for (const day of ["SATURDAY", "SUNDAY"]) {
+      const dayButton = shiftModal.locator(`[data-testid="hr-settings-shifts-weeklyoffdays-option-${day}"]`);
+      if (await dayButton.getAttribute("aria-pressed") !== "true") await dayButton.click();
     }
     await shiftModal.locator('[data-testid="hr-settings-shifts-save"]').click();
     const shiftModalClosed = await shiftModal.waitFor({ state: "hidden", timeout: 20000 }).then(() => true).catch(() => false);
@@ -1017,14 +1032,17 @@ async function run() {
   await approvalModal.waitFor({ state: "visible", timeout: 10000 });
   const chainName = `Two-Level Leave Chain ${suffix}`;
   await slowType('[data-testid="hr-settings-approvals-name"]', chainName, "Chain Name");
+  await approvalModal.locator('[data-testid="hr-settings-approvals-add-step"]').click();
+  await approvalModal.locator('[data-testid="hr-settings-approvals-step-resolver-1"]').waitFor({ state: "visible", timeout: 5000 });
   await approvalModal.locator('[data-testid="hr-settings-approvals-save"]').click();
   await approvalModal.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
+  await page.getByText(chainName, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
   console.log(`   [Verified] Approval Chain processed: "${chainName}"`);
 
   await createEmployees();
 
   console.log("\n>>> SETTINGS - ASSIGN LEAVE BALANCE TO CURRENT-RUN EMPLOYEE...");
-  await page.goto("http://localhost:3000/hr/settings/leavetypes/assign", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/settings/leavetypes/assign");
   await page.waitForTimeout(1000);
   const policyCombo = page.locator('[data-testid="hr-settings-leave-assignment-policy"]').first();
   await policyCombo.click();
@@ -1058,7 +1076,7 @@ async function run() {
   console.log(`   [Verified] Leave balance assigned to current-run employee: "${currentRunEmployeeName}"`);
 
   console.log("\n>>> 9. HELPDESK - RAISE 5 IT TICKETS...");
-  await page.goto("http://localhost:3000/hr/tickets", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/tickets");
   await page.waitForTimeout(1000);
   const ticketList = [
     `Developer Laptop RAM & SSD Upgrade ${suffix}`,
@@ -1081,7 +1099,7 @@ async function run() {
   }
 
   console.log("\n>>> 10. STAFFSPACE - NEW 5 IT ANNOUNCEMENTS...");
-  await page.goto("http://localhost:3000/hr/announcements", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/announcements");
   await page.waitForTimeout(1000);
   const announcementList = [
     `Q3 Engineering Townhall & Hackathon ${suffix}`,
@@ -1102,7 +1120,7 @@ async function run() {
   }
 
   console.log("\n>>> 11. EXPENSES - SUBMIT 5 IT EXPENSE CLAIMS...");
-  await page.goto("http://localhost:3000/hr/expenses", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/expenses");
   await page.waitForTimeout(1000);
   const expenseList = [
     { amount: "4500", note: `AWS Developer Certification Exam Fee ${suffix}` },
@@ -1124,7 +1142,7 @@ async function run() {
   }
 
   console.log("\n>>> 12. ASSETS - REGISTER 5 IT HARDWARE ASSETS...");
-  await page.goto("http://localhost:3000/hr/assets", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/assets");
   await page.waitForTimeout(1000);
   const assetList = [
     { type: "Laptop", name: `MacBook Pro M3 Max 32GB ${suffix}`, val: "240000" },
@@ -1173,7 +1191,7 @@ async function run() {
     const empEmail = `${slugify(profile.name)}.${suffix}.test@jaldee.com`;
     const empPhone = uniquePhone(i + 1);
 
-    await page.goto("http://localhost:3000/hr/employees/new", { waitUntil: "domcontentloaded" });
+    await navigateSpa("/hr/employees/new");
     await page.locator('[data-testid="hr-new-employee-page"][data-state="step-1"]').waitFor({ state: "visible", timeout: 30000 });
     await page.locator('[data-testid="hr-new-employee-next"]').waitFor({ state: "visible", timeout: 30000 });
 
@@ -1206,7 +1224,7 @@ async function run() {
     const createdEmployee = await employeeCreateResponse.json().catch(() => ({}));
     currentRunEmployeeUid = String(createdEmployee.uid ?? createdEmployee.id ?? createdEmployee.data?.uid ?? createdEmployee.data?.id ?? "");
     if (!currentRunEmployeeUid) {
-      await page.goto(`${AUTOMATION_BASE_URL}/hr/employees`, { waitUntil: "domcontentloaded" });
+      await navigateSpa("/hr/employees");
       await slowType('[data-testid="hr-employees-search"]', empName, "Created Employee Verification");
       const createdRow = page.locator("tr").filter({ hasText: empName }).first();
       await createdRow.waitFor({ state: "visible", timeout: 30000 });
@@ -1219,7 +1237,7 @@ async function run() {
   }
 
   console.log("\n>>> 13. LEAVE - APPLY FOR 5 IT LEAVES...");
-  await page.goto("http://localhost:3000/hr/leave", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/leave");
   await page.waitForTimeout(1000);
   const leaveReasons = [
     `Attending AWS Global Tech Summit ${suffix}`,
@@ -1260,7 +1278,7 @@ async function run() {
 
   async function createRecruitmentRecords() {
   console.log("\n>>> FINAL 1. RECRUITMENT - CREATE 5 IT REQUISITIONS...");
-  await page.goto("http://localhost:3000/hr/recruitment/requisitions", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/recruitment/requisitions");
   await page.waitForTimeout(1000);
   const reqList = [
     `Principal Cloud Architect ${suffix}`,
@@ -1332,7 +1350,7 @@ async function run() {
   }
 
   console.log("\n>>> 15. RECRUITMENT - CREATE 5 IT CANDIDATES...");
-  await page.goto("http://localhost:3000/hr/recruitment/candidates", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/hr/recruitment/candidates");
   await page.waitForTimeout(1000);
   const candidateList = [
     "Sneha Kulkarni",
@@ -1536,16 +1554,20 @@ async function run() {
   async function runOrganizationDepartments() {
     const orgDepartmentName = `IT Delivery ${suffix}`;
     await visitHr("/hr/org/departments", "ORGANIZATION /departments");
-    const addBtn = page.locator('[data-testid="hr-org-department-add"], button:has-text("Add Department")').first();
+    await closeAnyOpenModal();
+    const addBtn = page.getByTestId("hr-org-department-add");
     if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await addBtn.click();
-      await page.waitForTimeout(500);
-      const modal = page.locator('[role="dialog"]').first();
-      if (await modal.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await modal.locator('input[type="text"]').nth(0).fill(orgDepartmentName).catch(() => {});
-        await modal.locator('input[type="text"]').nth(1).fill(`ITD-${suffix}`).catch(() => {});
-        await modal.locator('button:has-text("Create"), button:has-text("Save")').first().click().catch(() => {});
-      }
+      const modal = page.getByRole("dialog").filter({ hasText: "Add Department" }).first();
+      await modal.waitFor({ state: "visible", timeout: 5000 });
+      await modal.getByTestId("hr-org-department-name").fill(orgDepartmentName);
+      await modal.getByTestId("hr-org-department-code").fill(`ITD-${suffix}`);
+      const saveButton = modal.getByTestId("hr-org-department-save");
+      await saveButton.waitFor({ state: "visible", timeout: 5000 });
+      if (!(await saveButton.isEnabled())) throw new Error("Create Department remained disabled after filling required fields");
+      await saveButton.click();
+      await modal.waitFor({ state: "hidden", timeout: 10000 });
+      await page.getByText(orgDepartmentName, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
     }
   }
 
@@ -1575,26 +1597,23 @@ async function run() {
     const assignBtn = page.locator('[data-testid^="hr-org-branch-assign-"], button:has-text("Assign Employee")').first();
     if (await assignBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await assignBtn.click();
-      await page.waitForTimeout(500);
+      const assignDialog = page.getByRole("dialog").filter({ hasText: "Assign Employees to Branch" }).first();
+      await assignDialog.waitFor({ state: "visible", timeout: 10000 });
       const currentRunEmployeeName = `Rahul Sharma ${suffix}`;
-      const searchInput = page.locator('#hr-org-assign-search, [data-testid="hr-org-assign-search"]').first();
-      if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await searchInput.fill(currentRunEmployeeName);
-        await page.waitForTimeout(300);
+      const searchInput = assignDialog.getByTestId("hr-org-assign-search");
+      await searchInput.fill(currentRunEmployeeName);
+      const checkbox = assignDialog.locator('[data-testid^="hr-org-assign-employee-"]').first();
+      await checkbox.waitFor({ state: "visible", timeout: 10000 });
+      if (!(await checkbox.isChecked())) await checkbox.click();
+      await page.waitForTimeout(250);
+      const submitBtn = assignDialog.getByTestId("hr-org-assign-submit");
+      await submitBtn.waitFor({ state: "visible", timeout: 5000 });
+      if (!(await submitBtn.isEnabled())) {
+        throw new Error(`Assign Employee remained disabled after selecting ${currentRunEmployeeName}`);
       }
-      const checkbox = page.locator('input[type="checkbox"][id*="hr-org-assign-employee-"], label:has-text("Rahul") input[type="checkbox"]').first();
-      if (await checkbox.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await checkbox.click();
-      } else {
-        const anyCheckbox = page.locator('input[type="checkbox"]').first();
-        if (await anyCheckbox.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await anyCheckbox.click().catch(() => {});
-        }
-      }
-      const submitBtn = page.locator('#hr-org-assign-submit, [data-testid="hr-org-assign-submit"], button:has-text("Assign")').first();
-      if (await submitBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await submitBtn.click().catch(() => {});
-      }
+      await submitBtn.click();
+      await assignDialog.waitFor({ state: "hidden", timeout: 20000 });
+      console.log(`   [Verified] ${currentRunEmployeeName} assigned to branch`);
     }
   }
   async function runOrganizationHeadcount() {
@@ -1611,7 +1630,12 @@ async function run() {
         await page.locator('[data-testid="hr-org-norm-sanctioned"]').fill("3").catch(() => {});
         await page.locator('[data-testid="hr-org-norm-submit"], button:has-text("Allocate")').first().click().catch(() => {});
         console.log("   [REST API] Allocate Headcount submitted");
-        await page.waitForTimeout(1000);
+        await modal.waitFor({ state: "hidden", timeout: 5000 }).catch(async () => {
+          const closeButton = modal.getByRole("button", { name: /Close/i }).first();
+          if (await closeButton.isVisible().catch(() => false)) await closeButton.click();
+          else await page.keyboard.press("Escape");
+          await modal.waitFor({ state: "hidden", timeout: 5000 });
+        });
       }
     } else {
       console.log("   [Skip] Allocate Headcount button not visible; skipping headcount allocation");
@@ -1620,21 +1644,22 @@ async function run() {
   async function runOrganizationLevels() {
     const levelLabel = `Principal Leadership ${suffix}`;
     await visitHr("/hr/org/levels", "ORGANIZATION /levels");
-    const addBtn = page.locator('[data-testid="hr-org-levels-add"], button:has-text("Add Level")').first();
+    await closeAnyOpenModal();
+    const addBtn = page.getByTestId("hr-org-levels-add");
     if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await addBtn.click();
-      await page.waitForTimeout(500);
-      const modal = page.locator('[role="dialog"]').first();
+      const modal = page.getByRole("dialog").filter({ hasText: "Add Level" }).first();
       if (await modal.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await modal.locator('input[type="number"]').fill("8").catch(() => {});
-        await modal.locator('input[type="text"]').fill(levelLabel).catch(() => {});
-        await modal.locator('button:has-text("Create"), button:has-text("Save")').first().click().catch(() => {});
+        await modal.getByTestId("hr-org-level-number").fill("8");
+        await modal.getByTestId("hr-org-level-label").fill(levelLabel);
+        await modal.getByTestId("hr-org-level-save").click();
+        await modal.waitFor({ state: "hidden", timeout: 10000 });
       }
     }
   }
   async function runOrganizationTransfers() {
   console.log("\n>>> GLOBAL SETTINGS - ADD THRISSUR1 LOCATION...");
-  await page.goto("http://localhost:3000/settings/locations", { waitUntil: "domcontentloaded" });
+  await navigateSpa("/settings/locations");
   await page.locator('[data-testid="settings-locations-create-button"]').waitFor({ state: "visible", timeout: 20000 });
   await slowClick('[data-testid="settings-locations-create-button"]', "Create Thrissur1 Location");
   await page.locator('[data-testid="settings-create-location-dialog"]').waitFor({ state: "visible", timeout: 10000 });
@@ -1829,7 +1854,7 @@ async function run() {
   async function runEditEmployeeProfile() {
     console.log("\n>>> EMPLOYEE MASTER - EDIT CURRENT-RUN EMPLOYEE PROFILE...");
     if (!currentRunEmployeeUid) throw new Error("Current-run employee UID was not captured after creation");
-    await page.goto(`${AUTOMATION_BASE_URL}/hr/employees/${currentRunEmployeeUid}?edit=true`, { waitUntil: "domcontentloaded" });
+    await navigateSpa(`/hr/employees/${currentRunEmployeeUid}/overview?edit=true`);
     await page.locator('[data-testid="hr-employee-edit-page"]').waitFor({ state: "visible", timeout: 30000 });
     await slowClick('[data-testid="hr-employee-edit-section-bank"]', "Open Employee Bank Details");
     await slowType('[data-testid="hr-employee-edit-bank-name"]', `Automation Bank ${suffix}`, "Employee Bank Name");
@@ -1930,7 +1955,13 @@ async function run() {
       return;
     }
     const employeePage = await context.newPage();
-    await employeePage.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
+    employeePage.on("response", (response) => {
+      const resourceType = response.request().resourceType();
+      if (resourceType === "fetch" || resourceType === "xhr") {
+        console.log(`   [EMPLOYEE REST API] ${response.request().method()} ${response.url()} -> ${response.status()} ${response.statusText()}`);
+      }
+    });
+    await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/ess/login`, { waitUntil: "domcontentloaded" });
     // Logout existing session only if the button is present (may not appear on a fresh context)
     const logoutBtn = employeePage.locator('[data-testid="auth-login-logout-existing-session"]');
     if (await logoutBtn.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {

@@ -239,14 +239,26 @@ async function run() {
 
   await visit("/hr/recruitment/interviews", "INTERVIEW ACTIONS");
   await action('[data-testid="hr-recruitment-schedule-interview"]', "Schedule Interview", true);
-  const scheduleDialog = page.locator('[data-testid="hr-recruitment-interview-dialog"]');
-  if (await scheduleDialog.isVisible().catch(() => false)) {
-    console.log("   [View] Schedule Interview form");
-    await pause("schedule interview form");
-    await page.keyboard.press("Escape");
-  }
+  const scheduleDialog = page.getByTestId("hr-recruitment-schedule-interview-dialog");
+  await scheduleDialog.waitFor({ state: "visible", timeout: 10000 });
+  console.log("   [View] Schedule Interview form");
+  await pause("schedule interview form");
+  const closeScheduleDialog = page.getByTestId("hr-recruitment-schedule-interview-dialog-close");
+  if (await closeScheduleDialog.isVisible().catch(() => false)) await closeScheduleDialog.click();
+  else await page.keyboard.press("Escape");
+  await scheduleDialog.waitFor({ state: "hidden", timeout: 10000 });
+
   const updateInterview = page.locator('[data-testid^="hr-recruitment-interview-update-"]').first();
-  if (await updateInterview.isVisible().catch(() => false)) { await updateInterview.click(); await pause("update interview form"); await page.keyboard.press("Escape"); }
+  if (await updateInterview.isVisible().catch(() => false)) {
+    await updateInterview.click();
+    const updateDialog = page.getByTestId("hr-recruitment-interview-update-dialog");
+    await updateDialog.waitFor({ state: "visible", timeout: 10000 });
+    await pause("update interview form");
+    const closeUpdateDialog = page.getByTestId("hr-recruitment-interview-update-dialog-close");
+    if (await closeUpdateDialog.isVisible().catch(() => false)) await closeUpdateDialog.click();
+    else await page.keyboard.press("Escape");
+    await updateDialog.waitFor({ state: "hidden", timeout: 10000 });
+  }
   else console.log("   [Skip] Update Interview: no interview record is available");
 
   await visit("/hr/recruitment/offers", "OFFER ACTIONS");

@@ -230,6 +230,11 @@ export async function mockShellAndLeadApis(page: Page) {
       return;
     }
 
+    if (pathname.includes("/finance-service/v1/api/tenant/settings/finance/")) {
+      await route.fulfill({ json: { status: "Enabled", enabled: true } });
+      return;
+    }
+
     if (pathname.endsWith("/base-service/v1/api/tenant/crm/leads/search")) {
       await route.fulfill({ json: { content: [testLead], totalElements: 1 } });
       return;

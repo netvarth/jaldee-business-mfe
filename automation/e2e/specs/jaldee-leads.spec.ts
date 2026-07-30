@@ -10,17 +10,17 @@ test.describe("jaldee leads", () => {
   });
 
   test("opens dashboard and navigates new lead card to create lead page", async ({ page }) => {
-    await page.goto("/jaldee-leads/dashboard");
+    await page.goto("/leads/dashboard");
 
     await expect(page.getByTestId("jaldee-leads-dashboard-page")).toBeVisible();
     await page.getByTestId("jaldee-leads-dashboard-new-lead-button").click();
 
-    await expect(page).toHaveURL(/\/jaldee-leads\/leads\/create$/);
+    await expect(page).toHaveURL(/\/leads\/leads\/create$/);
     await expect(page.getByTestId("jaldee-leads-create-lead-page")).toBeVisible();
   });
 
   test("creates a lead with pipeline-derived product and channel", async ({ page }) => {
-    await page.goto("/jaldee-leads/leads/create");
+    await page.goto("/leads/leads/create");
 
     await page.getByTestId("jaldee-leads-create-lead-first-name-input").fill("Meera");
     await page.getByTestId("jaldee-leads-create-lead-last-name-input").fill("Menon");
@@ -30,11 +30,11 @@ test.describe("jaldee leads", () => {
     await page.getByTestId("jaldee-leads-create-lead-channel-select").selectOption("channel-e2e-web");
     await page.getByTestId("jaldee-leads-create-lead-save-button").click();
 
-    await expect(page).toHaveURL(/\/jaldee-leads\/leads/);
+    await expect(page).toHaveURL(/\/leads\/leads/);
   });
 
   test("opens a lead detail page and exposes compliance task automation selectors", async ({ page }) => {
-    await page.goto(`/jaldee-leads/leads/${testLead.uid}`);
+    await page.goto(`/leads/leads/${testLead.uid}`);
 
     await expect(page.getByTestId(`jaldee-leads-lead-${testLead.uid}-detail-page`)).toBeVisible();
     await expect(page.getByTestId(`jaldee-leads-lead-${testLead.uid}-required-task-task-e2e-call-row`)).toBeVisible();
