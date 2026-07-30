@@ -551,11 +551,22 @@
   }
 
   .auth-form-panel {
-    padding: 28px 16px;
+    padding: 0;
+  }
+
+  .auth-form-wrap {
+    min-height: 100dvh;
   }
 
   .auth-card-flat {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+    justify-content: center;
     padding: 28px 22px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .auth-showcase-title {

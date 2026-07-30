@@ -87,7 +87,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-page" data-testid="login-page">
       <section className="auth-form-panel">
         <div className="auth-form-wrap">
           <div className="login-card auth-card-flat">
