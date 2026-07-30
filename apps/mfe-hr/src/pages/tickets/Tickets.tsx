@@ -153,7 +153,13 @@ export default function Tickets() {
   const applyFilters = () => { setAdvancedFilters(draftFilters); setTicketsPage(1); setFiltersOpen(false); };
 
   const scopedTickets = useMemo(
-    () => (isEmployeeView && myProfile?.id ? tickets.data.filter((t) => t.employeeUid === myProfile.id) : tickets.data),
+    () =>
+      isEmployeeView
+        ? tickets.data.filter((t) => {
+            const uid = t.employeeUid || (t as Record<string, unknown>).employeeId || (t as Record<string, unknown>).createdBy;
+            return !myProfile?.id || !uid || uid === myProfile.id;
+          })
+        : tickets.data,
     [isEmployeeView, myProfile?.id, tickets.data],
   );
 
@@ -479,7 +485,7 @@ export default function Tickets() {
                       >
                         {sb.icon} {t.status}
                       </span>
-                      {String(t.status || "").toLowerCase() !== "closed" ? (
+                      {!isEmployeeView && String(t.status || "").toLowerCase() !== "closed" ? (
                         <Button
                           id={`hr-ticket-card-close-${t.id}`}
                           data-testid={`hr-ticket-card-close-${t.id}`}

@@ -1265,14 +1265,19 @@ async function run() {
         };
       });
 
+      // Enter Employee Master once. Employee creation returns to this route through
+      // React Router, so repeatedly using page.goto() here would reload the shell and
+      // discard the in-memory access token between every employee.
+      await page.goto(`${AUTOMATION_BASE_URL}/hr/employees`, { waitUntil: "domcontentloaded" });
+      await page.locator('[data-testid="hr-employees-table"]').waitFor({ state: "visible", timeout: 30000 });
+
       for (let i = 0; i < employeeProfiles.length; i++) {
         const profile = employeeProfiles[i];
         const empName = profile.name;
         const empEmail = profile.email;
         const empPhone = profile.phone;
 
-        await page.goto(`${AUTOMATION_BASE_URL}/hr/employees`, { waitUntil: "domcontentloaded" });
-        await page.locator('[data-testid="hr-employees-table"]').waitFor({ state: "visible", timeout: 15000 }).catch(() => { });
+        await page.locator('[data-testid="hr-employees-table"]').waitFor({ state: "visible", timeout: 30000 });
         await page.waitForTimeout(1500);
         const searchField = page.locator('[data-testid="hr-employees-search"]').first();
         const searchFieldVisible = await searchField.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
@@ -1332,8 +1337,21 @@ async function run() {
           }
         }
 
-        await page.goto(`${AUTOMATION_BASE_URL}/hr/employees/new`, { waitUntil: "domcontentloaded" });
-        await page.locator('[data-testid="hr-new-employee-page"][data-state="step-1"]').waitFor({ state: "visible", timeout: 30000 });
+        const createEmployeeButton = page.locator('[data-testid="hr-employees-create-button"]').first();
+        await createEmployeeButton.waitFor({ state: "visible", timeout: 30000 });
+        await createEmployeeButton.click();
+        const employeeWizard = page.locator('[data-testid="hr-new-employee-page"][data-state="step-1"]');
+        const wizardOpened = await employeeWizard.waitFor({ state: "visible", timeout: 30000 })
+          .then(() => true)
+          .catch(() => false);
+        if (!wizardOpened) {
+          const visibleState = await page.locator(
+            '[data-testid="hr-new-employee-page"], [data-testid="hr-employees-table"], [data-testid="mfe-error-boundary"]',
+          ).first().getAttribute("data-state").catch(() => null);
+          throw new Error(
+            `New Employee wizard did not open. Current URL: ${page.url()}${visibleState ? `; visible state: ${visibleState}` : ""}`,
+          );
+        }
         await page.locator('[data-testid="hr-new-employee-next"]').waitFor({ state: "visible", timeout: 30000 });
 
         // Step 1: Personal

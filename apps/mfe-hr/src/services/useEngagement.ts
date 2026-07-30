@@ -31,7 +31,8 @@ function isUseAnnouncementsOptions(value: unknown): value is UseAnnouncementsOpt
 
 function withId<T extends { uid?: string; id?: string }>(r: Record<string, unknown>): T {
   const uid = (r.uid ?? r.id) as string | undefined;
-  return { ...(r as object), id: String(uid ?? ""), uid } as T;
+  const employeeUid = (r.employeeUid ?? r.employeeId ?? r.createdBy) as string | undefined;
+  return { ...(r as object), id: String(uid ?? ""), uid, employeeUid } as T;
 }
 
 function normalizeListResponse<T extends { uid?: string; id?: string }>(res: unknown): T[] {
@@ -163,15 +164,15 @@ export function useTickets(
     if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
+      const requestBody = buildHrSearchBody(filterClauses, schema, page, pageSize);
       if (scope === "ess") {
-        const res = await api.get<unknown>("/me/tickets");
+        const res = await api.post<unknown>("/me/tickets/search", requestBody);
         const pageResult = unwrapHrSearchPage(res);
         setData(pageResult.content.map((item) => withId<Ticket>(item)));
         setTotalElements(pageResult.totalElements);
         setTotalPages(pageResult.totalPages);
         return;
       }
-      const requestBody = buildHrSearchBody(filterClauses, schema, page, pageSize);
       const requestKey = JSON.stringify(requestBody);
       const existingRequest = ticketSearchRequests.get(requestKey);
       const now = Date.now();
