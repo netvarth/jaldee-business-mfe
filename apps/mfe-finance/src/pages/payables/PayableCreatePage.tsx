@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import { Button, DatePicker, Dialog, DialogFooter, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
-import { PageShell } from "../../components/FinancePageLayout";
 function toFinanceRoute(routePath:string){const n=String(routePath||"").trim();if(!n)return "/";return n.replace(/^\/finance(?=\/|$)/,"")||"/";}
 
 export default function PayableCreatePage() {
@@ -318,52 +316,47 @@ export default function PayableCreatePage() {
   }
 
   return (
-    <PageShell
-      title="Create Payout"
-      subtitle="Create an outgoing payment using the tenant payments-out API."
-      actions={
-        <div className="flex items-center gap-2">
-          <Popover
-            portal
-            placement="bottom"
-            align="end"
-            trigger={
-              <Button type="button" variant="outline">
-                Actions
-              </Button>
-            }
-          >
-            <div className="grid min-w-[220px] p-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start font-normal"
-                onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=PaymentsInOut`)}
-              >
-                Payout category
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start font-normal"
-                onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}
-              >
-                Create Vendor
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start font-normal"
-                onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=PaymentsInOut`)}
-              >
-                Payout Status
-              </Button>
-            </div>
-          </Popover>
-          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
-        </div>
-      }
-    >
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-2">
+        <Popover
+          portal
+          placement="bottom"
+          align="end"
+          trigger={
+            <Button type="button" variant="outline">
+              Actions
+            </Button>
+          }
+        >
+          <div className="grid min-w-[220px] p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start font-normal"
+              onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=PaymentsInOut`)}
+            >
+              Payout category
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start font-normal"
+              onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}
+            >
+              Create Vendor
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start font-normal"
+              onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=PaymentsInOut`)}
+            >
+              Payout Status
+            </Button>
+          </div>
+        </Popover>
+        <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
+      </div>
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -490,6 +483,6 @@ export default function PayableCreatePage() {
           </DialogFooter>
         </div>
       </Dialog>
-    </PageShell>
+    </div>
   );
 }

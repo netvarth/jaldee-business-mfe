@@ -686,11 +686,16 @@ export async function getTenantSettingsForShell(): Promise<unknown | null> {
   return tenantSettingsRequest;
 }
 
+async function getCurrentFinanceTenantSettingForShell(): Promise<boolean | null> {
+  const currentSettings = tenantSettingsLoaded ? tenantSettingsCache : await getTenantSettingsForShell();
+  if (!currentSettings) {
+    return null;
+  }
+
+  return normalizeTenantSettings(currentSettings).finance ?? null;
+}
+
 export async function updateTenantSettingsForShell(data: unknown): Promise<unknown> {
-  const response = await apiClient.put<unknown>(
-    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update),
-    data,
-  );
   const financeEnabled =
     typeof data === "object" &&
     data !== null &&
@@ -698,7 +703,13 @@ export async function updateTenantSettingsForShell(data: unknown): Promise<unkno
     typeof (data as { finance?: unknown }).finance === "boolean"
       ? (data as { finance: boolean }).finance
       : null;
-  if (financeEnabled !== null) {
+  const currentFinanceEnabled =
+    financeEnabled !== null ? await getCurrentFinanceTenantSettingForShell() : null;
+  const response = await apiClient.put<unknown>(
+    buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantSettings.update),
+    data,
+  );
+  if (financeEnabled !== null && currentFinanceEnabled !== financeEnabled) {
     try {
       await apiClient.put<unknown>(
         `/finance-service/v1/api/tenant/settings/finance/${financeEnabled ? "Enabled" : "Disabled"}`,
