@@ -103,13 +103,15 @@ export default function CreateServiceGroupPage() {
   };
 
   return (
-    <section className="flex h-full flex-col overflow-y-auto bg-[#f8f9fc]">
-      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white px-8 py-4">
+    <section className="flex h-full flex-col overflow-y-auto bg-white">
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-sm px-4 py-2 md:px-8 md:py-3 shadow-sm">
         <PageHeader
           title={editGroup ? "Edit Service Group" : "Create Service Group"}
           subtitle="Bundle services under a reusable group for easier booking configuration."
           back={{ label: "Back to Groups", href: "/services/groups" }}
           onNavigate={(href) => navigate(href)}
+          variant="navigation"
+          className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
         />
       </div>
       

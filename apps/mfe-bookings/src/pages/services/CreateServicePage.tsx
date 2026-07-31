@@ -71,6 +71,7 @@ export default function CreateServicePage() {
   const [assignUsers, setAssignUsers] = useState(false);
   const [hasPricing, setHasPricing] = useState(false);
   const [price, setPrice] = useState(500);
+  const [autoGenerateInvoice, setAutoGenerateInvoice] = useState(false);
   const [taxApplicable, setTaxApplicable] = useState(false);
   const [hsnCode, setHsnCode] = useState("None");
   const [prepaymentRequired, setPrepaymentRequired] = useState(false);
@@ -158,6 +159,7 @@ export default function CreateServicePage() {
         setAssignUsers(initial.assignUsers);
         setHasPricing(initial.hasPricing);
         setPrice(initial.price);
+        setAutoGenerateInvoice(initial.autoGenerateInvoice);
         setTaxApplicable(initial.taxApplicable);
         setHsnCode(initial.hsnCode);
         setPreServiceSchema(initial.preServiceSchema);
@@ -230,6 +232,7 @@ export default function CreateServicePage() {
         phoneCountryCode: needsPhoneNumber ? phoneValue.countryCode : undefined,
         durHrs, durMins, numResources, maxBookings, showDuration, leadDays, leadHrs, leadMins,
         safeSlots, hasPricing, price, taxApplicable, hsnCode,
+        autoGenerateInvoice,
         prepaymentRequired, prepaymentAmount, prePaymentType,
         preServiceSchema, postServiceSchema, currencyCode,
         assignUsers,
@@ -259,13 +262,15 @@ export default function CreateServicePage() {
   }
 
   return (
-    <section id="page-create-service" data-testid="bookings-create-service-page" className="flex h-full min-h-0 flex-col overflow-y-auto bg-slate-50">
-      <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 sticky top-0 z-30">
+    <section id="page-create-service" data-testid="bookings-create-service-page" className="flex h-full min-h-0 flex-col overflow-y-auto bg-white">
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-sm px-4 py-2 md:px-8 md:py-3 border-b border-slate-200 shadow-sm">
         <PageHeader
           title={isEditMode ? "Edit Service" : "Create Service"}
+          subtitle="Create and Manage your services"
           back={{ label: "Back to services", href: "/services" }}
           onNavigate={(href) => navigate(href)}
-          className="mb-0"
+          variant="navigation"
+          className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
         />
       </div>
 
@@ -603,7 +608,7 @@ export default function CreateServicePage() {
                         <p className="text-xs text-slate-500">Instantly raise receipt upon booking confirmation.</p>
                       </div>
                     </div>
-                    <Switch checked={true} onChange={() => {}} />
+                    <Switch checked={autoGenerateInvoice} onChange={setAutoGenerateInvoice} />
                   </div>
                   <div className="flex flex-col border-b border-slate-100">
                     <div className="flex items-center justify-between p-4">

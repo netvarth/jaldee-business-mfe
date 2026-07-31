@@ -275,7 +275,7 @@ export default function CreateSchedule() {
   };
 
   return (
-    <main data-testid="bookings-create-schedule-page" className="h-full flex flex-col bg-slate-50 calendar-details-page">
+    <main data-testid="bookings-create-schedule-page" className="h-full flex flex-col bg-white calendar-details-page">
       <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
         <PageHeader
           title="Add Schedule"

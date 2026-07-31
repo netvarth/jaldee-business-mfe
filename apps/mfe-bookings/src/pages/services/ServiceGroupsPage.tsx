@@ -153,7 +153,7 @@ export default function ServiceGroupsPage() {
   ], [toggleStatus, navigate, serviceMap]);
 
   return (
-    <section className="flex h-full flex-col overflow-y-auto bg-slate-50 p-4 md:p-6">
+    <section className="flex h-full flex-col overflow-y-auto bg-white p-4 md:p-6">
       <PageHeader
         title="Service Packages"
         subtitle="Group booking services into reusable packages."

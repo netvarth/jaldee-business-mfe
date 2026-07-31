@@ -223,7 +223,7 @@ export default function ServicesPage() {
     <section
       id="bookings-services-page"
       data-testid="bookings-services-page"
-      className="flex h-full flex-col overflow-y-auto bg-slate-50 p-4 md:p-6"
+      className="flex h-full flex-col overflow-y-auto bg-white p-4 md:p-6"
     >
       <PageHeader
         title="Services"

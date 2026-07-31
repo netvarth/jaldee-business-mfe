@@ -36,6 +36,7 @@ export interface ServiceFormPrefill {
   postServiceSchema: SchemaField[];
   currencyCode: string;
   practitionerOverrides: Record<string, { enabled: boolean; price: number }>;
+  autoGenerateInvoice: boolean;
 }
 
 export interface ServiceDetailsRecord {
@@ -334,6 +335,7 @@ export function toServiceFormPrefill(payload: unknown): ServiceFormPrefill {
     postServiceSchema: normalizeSchemaFields(raw.postServiceSchema),
     currencyCode: asString(raw.currencyCode) || "INR",
     practitionerOverrides,
+    autoGenerateInvoice: toBoolean(raw.autoGenerateInvoice),
   };
 }
 

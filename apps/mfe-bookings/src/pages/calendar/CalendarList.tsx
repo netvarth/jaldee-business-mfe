@@ -278,7 +278,7 @@ export default function CalendarList() {
     <section
       id="page-calendars"
       data-testid="bookings-calendar-list-page"
-      className="flex h-full flex-col gap-4 overflow-y-auto bg-slate-50 p-4 md:p-6"
+      className="flex h-full flex-col gap-4 overflow-y-auto bg-white p-4 md:p-6"
     >
       <PageHeader
         title="Calendars"

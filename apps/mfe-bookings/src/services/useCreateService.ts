@@ -45,6 +45,7 @@ export interface ServiceFormInput {
   currencyCode: string;
   practitionerPrices: Record<string, number>;
   assignUsers?: boolean;
+  autoGenerateInvoice: boolean;
 }
 
 interface CreateServiceDtoLike {
@@ -159,7 +160,7 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     description: input.description.trim(),
     duration: toDurationMinutes(input),
     price: input.hasPricing ? input.price : 0,
-    autoGenerateInvoice: false,
+    autoGenerateInvoice: input.autoGenerateInvoice,
     isDefaultService: false,
     status: "Enabled",
     currencyCode: input.currencyCode,

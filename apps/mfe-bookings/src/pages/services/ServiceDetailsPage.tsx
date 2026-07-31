@@ -143,13 +143,15 @@ export default function ServiceDetailsPage() {
   const hasConsumerNote = !!(raw.consumerNoteTitle || raw.consumerNoteText);
 
   return (
-    <main className="flex h-full flex-col overflow-y-auto bg-slate-50/50">
-      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 md:px-8 py-4">
+    <main className="flex h-full flex-col overflow-y-auto bg-white">
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-sm px-4 py-2 md:px-8 md:py-3 shadow-sm">
         <PageHeader
           title={service.name}
           subtitle={service.description || "Service configuration and availability."}
           back={{ label: "Back to services", href: "/services" }}
           onNavigate={() => navigate("/services")}
+          variant="navigation"
+          className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
           actions={
             <Button
               id={`bookings-service-details-edit-${service.id}`}
@@ -161,8 +163,8 @@ export default function ServiceDetailsPage() {
         />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col p-2 sm:p-4 md:p-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,1fr)] items-start">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col p-2 sm:p-4 md:p-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,3.5fr)_minmax(280px,1fr)] items-start">
           <div className="space-y-6">
             
             {/* SERVICE DETAILS */}

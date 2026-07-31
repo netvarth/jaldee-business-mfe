@@ -10,6 +10,8 @@ import {
   PageHeader,
   Popover,
   PopoverSection,
+  SectionCard,
+  DescriptionList,
   type ColumnDef,
 } from "@jaldee/design-system";
 import {
@@ -50,7 +52,7 @@ export default function CustomersPage() {
   const { openModal } = useModal();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, customerSearchSchema).length,
@@ -171,11 +173,69 @@ export default function CustomersPage() {
     [openModal, toggleLocalStatus, updateLocal]
   );
 
+  if (selectedCustomerId) {
+    const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+    
+    if (!selectedCustomer) {
+      return (
+        <section className="flex h-full flex-col bg-white p-4 md:p-6">
+          <EmptyState title="Customer Not Found" description="The selected customer could not be found." action={<Button variant="secondary" onClick={() => setSelectedCustomerId(null)}>Back to list</Button>} />
+        </section>
+      );
+    }
+    
+    const detailItems = [
+      { label: "Customer ID", value: selectedCustomer.id || "-" },
+      { label: "Phone", value: selectedCustomer.phoneNumber || "-" },
+      { label: "Email", value: selectedCustomer.email || "-" },
+      { label: "Status", value: selectedCustomer.status || "-" },
+      { label: "Total Visits", value: String(selectedCustomer.visits ?? 0) },
+    ];
+    
+    return (
+      <section className="flex h-full flex-col bg-white p-4 md:p-6">
+        <PageHeader 
+          title={fullName(selectedCustomer)} 
+          subtitle="Customer profile and linked records"
+          back={{ label: "Back to Customers", href: "#back" }}
+          onNavigate={() => setSelectedCustomerId(null)}
+          variant="navigation"
+        />
+        <div className="mt-6 flex max-w-4xl flex-col gap-6 lg:flex-row lg:items-start">
+          {/* Avatar Card */}
+          <div className="w-full lg:w-1/3">
+            <SectionCard title="Profile">
+              <div className="flex flex-col items-center justify-center py-4">
+                <span
+                  className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full text-3xl font-bold text-white shadow-sm"
+                  style={{ backgroundColor: selectedCustomer.avatarColor ?? "#818cf8" }}
+                >
+                  {fullName(selectedCustomer).charAt(0).toUpperCase()}
+                </span>
+                <h2 className="mt-4 text-xl font-bold text-slate-900 text-center">{fullName(selectedCustomer)}</h2>
+                <Badge variant={isActiveCustomer(selectedCustomer) ? "success" : "neutral"} className="mt-3">
+                  {isActiveCustomer(selectedCustomer) ? "Active Profile" : "Inactive Profile"}
+                </Badge>
+              </div>
+            </SectionCard>
+          </div>
+          
+          {/* Details */}
+          <div className="w-full lg:w-2/3">
+            <SectionCard title="Basic Details">
+              <DescriptionList items={detailItems} />
+            </SectionCard>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       id="page-customers"
       data-testid="bookings-customers-page"
-      className="flex h-full flex-col gap-4 bg-slate-50 p-4 md:p-6"
+      className="flex h-full flex-col gap-4 bg-white p-4 md:p-6"
     >
       <PageHeader
         title="Customer Overview"
@@ -238,7 +298,7 @@ export default function CustomersPage() {
         columns={columns}
         getRowId={(customer) => customer.id}
         loading={loading}
-        selection={{ selectedRowKeys: selected, onChange: setSelected }}
+        onRowClick={(customer) => setSelectedCustomerId(customer.id)}
         pagination={{
           page,
           pageSize: 10,

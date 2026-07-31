@@ -446,7 +446,7 @@ export default function CalendarWizard() {
     return (
         <>
             <section id="page-create-calendar" className="page-section active h-full flex flex-col relative overflow-hidden bg-white" style={{ display: 'flex' }}>
-                <div className="shrink-0 border-b border-slate-200 bg-[#f8f9fc] px-0 pt-4 sm:bg-white sm:px-6 sm:pt-5">
+                <div className="shrink-0 border-b border-slate-200 bg-white px-0 pt-4 sm:bg-white sm:px-6 sm:pt-5">
                     <div className="sm:hidden">
                         <button
                             type="button"
