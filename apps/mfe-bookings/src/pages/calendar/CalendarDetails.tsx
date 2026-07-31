@@ -562,7 +562,6 @@ function initials(value: string) {
 
 function DetailsHeader({
   title,
-  subtitle,
   onBack,
 }: {
   title: string;
@@ -570,13 +569,16 @@ function DetailsHeader({
   onBack: () => void;
 }) {
   return (
-    <header className="border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
-      <PageHeader
-        title={title}
-        subtitle={subtitle}
-        back={{ label: "Back to calendars", href: "/calendars" }}
-        onNavigate={onBack}
-      />
+    <header className="sticky top-0 z-30 flex items-center bg-white px-4 md:px-8 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border-b border-slate-200">
+        <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-bold text-slate-900 transition-colors hover:text-[#5B2D8E]"
+            aria-label="Go back"
+        >
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+            {title}
+        </button>
     </header>
   );
 }

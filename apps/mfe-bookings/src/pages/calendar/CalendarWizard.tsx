@@ -90,14 +90,14 @@ function buildServicesPayload(
 
 function WizardStepper({ step }: { step: number }) {
     const steps = [
-        { label: 'Calendar', description: 'Basic info' },
-        { label: 'Services', description: 'Assign' },
-        { label: 'Schedules', description: 'Availability' },
+        { label: 'Create Calendar', description: 'Basic information', mobileLabel: 'Calendar', mobileDescription: 'Basic info' },
+        { label: 'Set Services', description: 'Assign Services & Users', mobileLabel: 'Services', mobileDescription: 'Assign' },
+        { label: 'Create Schedules', description: 'Set availability', mobileLabel: 'Schedules', mobileDescription: 'Availability' },
     ] as const;
 
     return (
-        <div className="border-b border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <div className="flex items-start">
+        <div className="mb-6 md:mb-8 flex items-center justify-center md:justify-start w-full">
+            <div className="flex w-full items-start justify-between bg-white border border-slate-200 rounded-[2rem] px-4 py-4 shadow-sm md:inline-flex md:w-auto md:items-center md:rounded-full md:px-8 md:py-4">
                 {steps.map((item, index) => {
                     const stepNumber = index + 1;
                     const isCurrent = step === stepNumber;
@@ -106,25 +106,32 @@ function WizardStepper({ step }: { step: number }) {
 
                     return (
                         <React.Fragment key={item.label}>
-                            <div className="flex min-w-0 flex-1 flex-col items-center text-center">
+                            <div className="flex flex-1 flex-col items-center md:flex-none md:flex-row md:gap-3">
                                 <span
                                     className={cn(
-                                        "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold",
+                                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold z-10 bg-white",
                                         (isCurrent || isComplete)
                                             ? "border-[#5B2D8E] bg-[#F3E8FF] text-[#5B2D8E]"
-                                            : "border-slate-300 bg-white text-slate-500"
+                                            : "border-slate-300 text-slate-500"
                                     )}
                                 >
                                     {stepNumber}
                                 </span>
-                                <span className="mt-3 text-sm font-semibold leading-4 text-slate-900">
-                                    {item.label}
-                                </span>
-                                <span className="mt-1 text-[11px] leading-4 text-slate-500">
-                                    {item.description}
-                                </span>
+                                <div className="mt-2 flex flex-col items-center text-center md:mt-0 md:items-start md:text-left">
+                                    <span className={cn(
+                                        "text-[11px] sm:text-xs md:text-sm font-bold leading-tight whitespace-normal md:whitespace-nowrap",
+                                        (isCurrent || isComplete) ? "text-slate-900" : "text-slate-500"
+                                    )}>
+                                        <span className="md:hidden">{item.mobileLabel}</span>
+                                        <span className="hidden md:inline">{item.label}</span>
+                                    </span>
+                                    <span className="mt-1 md:mt-0 text-[10px] md:text-[11px] font-medium leading-tight text-slate-500 whitespace-normal md:whitespace-nowrap">
+                                        <span className="md:hidden">{item.mobileDescription}</span>
+                                        <span className="hidden md:inline">{item.description}</span>
+                                    </span>
+                                </div>
                             </div>
-                            {!isLast ? <div className="mt-3 h-px flex-1 bg-slate-300" /> : null}
+                            {!isLast ? <div className="mx-1 mt-4 h-px flex-1 shrink-0 bg-slate-300 md:mx-4 md:mt-0 md:w-16 md:flex-none" /> : null}
                         </React.Fragment>
                     );
                 })}
@@ -446,42 +453,26 @@ export default function CalendarWizard() {
     return (
         <>
             <section id="page-create-calendar" className="page-section active h-full flex flex-col relative overflow-hidden bg-white" style={{ display: 'flex' }}>
-                <div className="shrink-0 border-b border-slate-200 bg-white px-0 pt-4 sm:bg-white sm:px-6 sm:pt-5">
-                    <div className="sm:hidden">
-                        <button
-                            type="button"
-                            onClick={() => navigate(returnTo)}
-                            className="mb-3 ml-4 flex items-center gap-1 border-0 bg-transparent p-0 text-xs font-medium text-slate-500 transition-colors hover:text-[#5B2D8E]"
-                            aria-label="Back to calendars"
-                        >
-                            ← Back to calendars
-                        </button>
-                        <h1 className="mb-4 px-4 text-2xl font-bold leading-tight text-slate-900">
-                            Create Calendar
-                        </h1>
-                        <WizardStepper step={step} />
-                    </div>
-                    <div className="hidden sm:block">
-                        <PageHeader
-                            title="Create Calendar"
-                            subtitle="Configure calendar details, services, users, and availability."
-                            back={{ label: "Back to calendars", href: returnTo }}
-                            className="mb-5"
-                            onNavigate={(href) => navigate(href)}
-                            stepper={[
-                                { label: "Basic information", description: "Calendar details", state: step > 1 ? "complete" : "current" },
-                                { label: "Services and users", description: "Assignments", state: step > 2 ? "complete" : step === 2 ? "current" : "upcoming" },
-                                { label: "Schedules", description: "Availability", state: step === 3 ? "current" : "upcoming" },
-                            ]}
-                        />
-                    </div>
+                <div className="sticky top-0 z-30 flex flex-col justify-center bg-white px-4 md:px-8 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border-b border-slate-200">
+                    <button
+                        type="button"
+                        onClick={() => navigate(returnTo)}
+                        className="flex w-fit items-center gap-2 border-0 bg-transparent p-0 text-lg font-bold text-slate-900 transition-colors hover:text-[#5B2D8E]"
+                        aria-label="Back to calendars"
+                    >
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                        Create Calendar
+                    </button>
+                    <p className="mt-1.5 text-sm text-slate-500 hidden md:block">Configure calendar details, services, users, and availability.</p>
                 </div>
 
-                <div className="wizard-content-container flex-1 overflow-y-auto px-0">
+                <div className="wizard-content-container flex-1 overflow-y-auto bg-white px-4 md:px-8 pb-8 pt-4 md:pt-8">
+                    <div className="max-w-4xl w-full mx-auto md:mx-0">
+                    <WizardStepper step={step} />
                     {/* STEP 1 VIEW */}
-                    <div className={`wizard-step-panel ${step === 1 ? 'active' : ''}`} style={{ display: step === 1 ? 'block' : 'none' }}>
-                        <h2 className="section-title">Basic Details</h2>
-                        <form className="wizard-form" onSubmit={(e) => { e.preventDefault(); handleNextStep1(); }}>
+                    <div className={step === 1 ? 'block' : 'hidden'}>
+                        <h2 className="text-xl font-bold text-[#1e3a8a] mb-4 md:mb-6 px-1 md:px-0">Basic Details</h2>
+                        <form className="wizard-form bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6" onSubmit={(e) => { e.preventDefault(); handleNextStep1(); }}>
                             <div className="form-group">
                                 <Input
                                     type="text" 
@@ -598,8 +589,8 @@ export default function CalendarWizard() {
                     </div>
 
                     {/* STEP 2 VIEW */}
-                    <div className={`wizard-step-panel ${step === 2 ? 'active' : ''}`} style={{ display: step === 2 ? 'block' : 'none' }}>
-                        <div className="section-header-row">
+                    <div className={step === 2 ? 'block' : 'hidden'}>
+                        <div className="section-header-row mb-4 px-1 md:px-0">
                             <h2 className="section-title">Set Services & Users</h2>
                             <Button variant="secondary" className="btn-icon-plus whitespace-nowrap" onClick={() => setIsServicesModalOpen(true)}>
                                 <span className="hidden sm:inline">⊕ Add Services</span>
@@ -607,31 +598,33 @@ export default function CalendarWizard() {
                             </Button>
                         </div>
 
-                        <div className="mt-4 overflow-x-auto w-full">
-                            <div className="min-w-[600px]">
-                                <DataTable
-                                    data={selectedServices}
-                                    columns={serviceColumns}
-                                    getRowId={(service) => service.id}
-                                    emptyState={<EmptyState title="No services added" description='Click "Add Services" to configure this calendar.' />}
-                                    data-testid="bookings-calendar-wizard-services"
-                                />
-                            </div>
-                            
-                            {selectedServices.length > 0 && (
-                                <div className="mt-6 p-5 bg-slate-50 border border-slate-200 rounded-xl">
-                                    <h3 className="text-sm font-bold text-slate-800 mb-2">Default Service (Optional)</h3>
-                                    <p className="text-xs text-slate-500 mb-4">Select the primary service for this calendar. This service will be pre-selected when booking appointments.</p>
-                                    <Select
-                                        value={defaultServiceId}
-                                        onChange={(e) => setDefaultServiceId(e.target.value)}
-                                        options={[
-                                            { value: '', label: 'No Default Service' },
-                                            ...selectedServices.map(s => ({ value: s.uid ?? s.id, label: s.name }))
-                                        ]}
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                            <div className="overflow-x-auto w-full">
+                                <div className="min-w-[600px]">
+                                    <DataTable
+                                        data={selectedServices}
+                                        columns={serviceColumns}
+                                        getRowId={(service) => service.id}
+                                        emptyState={<EmptyState title="No services added" description='Click "Add Services" to configure this calendar.' />}
+                                        data-testid="bookings-calendar-wizard-services"
                                     />
                                 </div>
-                            )}
+                                
+                                {selectedServices.length > 0 && (
+                                    <div className="mt-6 p-5 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <h3 className="text-sm font-bold text-slate-800 mb-2">Default Service (Optional)</h3>
+                                        <p className="text-xs text-slate-500 mb-4">Select the primary service for this calendar. This service will be pre-selected when booking appointments.</p>
+                                        <Select
+                                            value={defaultServiceId}
+                                            onChange={(e) => setDefaultServiceId(e.target.value)}
+                                            options={[
+                                                { value: '', label: 'No Default Service' },
+                                                ...selectedServices.map(s => ({ value: s.uid ?? s.id, label: s.name }))
+                                            ]}
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="wizard-footer-actions mt-8">
@@ -641,9 +634,9 @@ export default function CalendarWizard() {
                     </div>
 
                     {/* STEP 3 VIEW */}
-                    <div className={`md:mt-2 ${step === 3 ? 'block' : 'hidden'}`}>
-                        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm md:p-8">
-                            <div className="flex items-center justify-between mb-6 md:mb-8">
+                    <div className={step === 3 ? 'block' : 'hidden'}>
+                        <div>
+                            <div className="flex items-center justify-between mb-4 px-1 md:px-0 md:mb-8">
                                 <h2 className="text-lg font-bold text-[#0F172A] md:text-xl">Schedules</h2>
                                 <Button
                                     variant="primary"
@@ -876,6 +869,7 @@ export default function CalendarWizard() {
                                 <p className="mt-2 text-center text-sm text-amber-700 md:text-right">{publishBlockedReason}</p>
                             ) : null}
                         </div>
+                    </div>
                     </div>
                 </div>
             </section>
