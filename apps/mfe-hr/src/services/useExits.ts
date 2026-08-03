@@ -72,6 +72,21 @@ export function useExits({ enabled = true }: { enabled?: boolean } = {}) {
     await api.post(`/exits/${uid}/waive-notice`, { waivedDays, reason }); await load();
   }, [api, load]);
 
+  const updateNoticePeriod = useCallback(async (request: ExitRequest, noticePeriodDays: number) => {
+    await api.put(`/exits/${request.id}`, {
+      employeeUid: request.employeeUid,
+      separationType: request.separationType,
+      reason: request.reason || null,
+      noticePeriodDays,
+    });
+    await load();
+  }, [api, load]);
+
+  const undoNoticeWaiver = useCallback(async (uid: string) => {
+    await api.post(`/exits/${uid}/waive-notice`, { waivedDays: 0, reason: "Notice waiver cancelled" });
+    await load();
+  }, [api, load]);
+
   const saveInterview = useCallback(async (uid: string, responses: Record<string, string>) => {
     await api.put(`/exits/${uid}/interview`, responses); await load();
   }, [api, load]);
@@ -85,5 +100,5 @@ export function useExits({ enabled = true }: { enabled?: boolean } = {}) {
     await api.post(`/exits/${uid}/cancel`); await load();
   }, [api, load]);
 
-  return { data, loading, error, reload: load, raise, decide, waiveNotice, saveInterview, updateClearance, cancel };
+  return { data, loading, error, reload: load, raise, decide, waiveNotice, undoNoticeWaiver, updateNoticePeriod, saveInterview, updateClearance, cancel };
 }

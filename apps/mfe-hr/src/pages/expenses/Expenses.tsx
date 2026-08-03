@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Rows3, LayoutGrid, Filter } from "lucide-react";
-import { Button, Select, DatePicker, Textarea, Dialog, SkeletonTable, DataTablePagination, Drawer } from "@jaldee/design-system";
+import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, SkeletonTable, DataTablePagination, Drawer } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -11,6 +11,7 @@ import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
+import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
 import { useExpenseSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
@@ -243,6 +244,7 @@ export default function Expenses() {
 
   // submit modal
   const [addOpen, setAddOpen] = useState(false);
+  const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [form, setForm] = useState({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -566,22 +568,29 @@ export default function Expenses() {
         onClose={() => setAddOpen(false)}
         testId="hr-expenses-submit-modal"
         hideHeader
-        contentClassName="max-w-[760px] p-0 overflow-hidden"
+        contentClassName="max-w-[760px] h-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] p-0 overflow-hidden flex flex-col"
+        bodyClassName="flex min-h-0 flex-none sm:flex-1 flex-col overflow-hidden"
       >
-        <div style={{ background: "rgba(17,94,89,0.05)", padding: "24px 30px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div className="max-[640px]:!px-4 max-[640px]:!py-4" style={{ background: "rgba(17,94,89,0.05)", padding: "24px 30px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div><h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Submit Expense Claim</h3><p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Log a reimbursement or mileage voucher.</p></div>
           <button id="hr-expenses-submit-close" data-testid="hr-expenses-submit-close" onClick={() => setAddOpen(false)} aria-label="Close submit expense claim" style={iconBtn}><X size={20} /></button>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+        <div className="max-[640px]:!grid-cols-1 max-[640px]:!p-4" style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, overflowY: "auto", maxHeight: "calc(100dvh - 180px)", flex: 1 }}>
           {!isEmployeeView ? (
-            <Select
+            <Combobox
               id="hr-expenses-employee-select"
-              testId="hr-expenses-employee-select"
+              data-testid="hr-expenses-employee-select"
               label="Claimant Employee"
               value={form.employeeUid}
-              onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+              onValueChange={(employeeUid) => setForm({ ...form, employeeUid })}
               placeholder="Select employee"
-              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+              searchPlaceholder="Search employees..."
+              searchValue={employeeOptions.searchValue}
+              onSearchChange={employeeOptions.onSearchChange}
+              loading={employeeOptions.loading}
+              hasMore={employeeOptions.hasMore}
+              onEndReached={employeeOptions.onLoadMore}
+              options={employeeOptions.data.map((employee) => ({ value: employee.id, label: employee.name }))}
             />
           ) : (
             <div>
@@ -589,7 +598,7 @@ export default function Expenses() {
               <div style={{ ...field, marginTop: 6, display: "flex", alignItems: "center" }}>{myProfile?.name || "Employee"}</div>
             </div>
           )}
-          <div><label style={{ ...lbl, color: TEAL }}>Reimbursement Amount (INR)</label><input id="hr-expenses-amount-input" data-testid="hr-expenses-amount-input" type="number" min="0" placeholder="0.00" style={{ ...field, marginTop: 6 }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
+          <Input id="hr-expenses-amount-input" data-testid="hr-expenses-amount-input" label="Reimbursement Amount (INR)" type="number" min="0" placeholder="0.00" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <Select
             id="hr-expenses-category-select"
             testId="hr-expenses-category-select"
@@ -606,8 +615,8 @@ export default function Expenses() {
           />
           {form.category === "Travel" && (
             <>
-              <div><label style={lbl}>Distance (KMs)</label><input id="hr-expenses-distance-input" data-testid="hr-expenses-distance-input" type="number" min="0" placeholder="e.g. 120" style={{ ...field, marginTop: 6 }} value={form.kms} onChange={(e) => setForm({ ...form, kms: e.target.value })} /></div>
-              <div><label style={lbl}>Mode of Transport</label><input id="hr-expenses-transport-input" data-testid="hr-expenses-transport-input" placeholder="e.g. Company Sedan" style={{ ...field, marginTop: 6 }} value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} /></div>
+              <Input id="hr-expenses-distance-input" data-testid="hr-expenses-distance-input" label="Distance (KMs)" type="number" min="0" placeholder="e.g. 120" value={form.kms} onChange={(e) => setForm({ ...form, kms: e.target.value })} />
+              <Input id="hr-expenses-transport-input" data-testid="hr-expenses-transport-input" label="Mode of Transport" placeholder="e.g. Company Sedan" value={form.modeOfTransport} onChange={(e) => setForm({ ...form, modeOfTransport: e.target.value })} />
             </>
           )}
           <div style={{ gridColumn: "1 / -1" }}>
@@ -623,7 +632,7 @@ export default function Expenses() {
           </div>
         </div>
         {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
-        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
           <Button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
           <Button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} variant="primary" className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined} onClick={submit} loading={saving}>Submit Claim Proposal</Button>
         </div>

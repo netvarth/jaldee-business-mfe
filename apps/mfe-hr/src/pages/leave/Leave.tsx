@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { Button, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { Button, Combobox, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { useEmployees } from "../../services/useEmployees";
+import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
 import { useLeaveTypes } from "../../services/useSettingsData";
 import { useTelemetry } from "../../services/useTelemetry";
@@ -151,6 +152,7 @@ export default function Leave() {
 
   // apply modal
   const [applyOpen, setApplyOpen] = useState(false);
+  const employeeOptions = usePagedEmployeeOptions({ enabled: applyOpen });
   const [form, setForm] = useState({ employeeUid: "", leaveTypeUid: "", type: "", startDate: "", endDate: "", isHalfDay: false, reason: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -696,25 +698,32 @@ export default function Leave() {
         onClose={() => setApplyOpen(false)}
         testId="hr-leave-apply-modal"
         hideHeader
-        contentClassName="max-w-[900px] p-0 overflow-hidden"
+        contentClassName="max-w-[900px] h-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] p-0 overflow-hidden flex flex-col"
+        bodyClassName="flex min-h-0 flex-none sm:flex-1 flex-col overflow-hidden"
       >
-        <div style={{ background: "rgba(17,94,89,0.05)", padding: "26px 32px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div className="max-[640px]:!px-4 max-[640px]:!py-4" style={{ background: "rgba(17,94,89,0.05)", padding: "20px 28px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center", shrink: 0 }}>
           <div>
-            <h3 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Apply for Leave</h3>
-            <p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Submit details of your upcoming absence plan.</p>
+            <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Apply for Leave</h3>
+            <p style={{ fontSize: 12.5, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "2px 0 0" }}>Submit details of your upcoming absence plan.</p>
           </div>
           <button id="hr-leave-apply-close" data-testid="hr-leave-apply-close" onClick={() => setApplyOpen(false)} style={iconBtn}><X size={20} /></button>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Select
+        <div className="max-[640px]:!grid-cols-1 max-[640px]:!gap-4 max-[640px]:!p-4" style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, overflowY: "auto", maxHeight: "calc(100dvh - 180px)", flex: 1 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Combobox
               id="hr-leave-employee"
-              testId="hr-leave-employee"
+              data-testid="hr-leave-employee"
               label="Employee"
               value={form.employeeUid}
-              onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+              onValueChange={(employeeUid) => setForm({ ...form, employeeUid })}
               placeholder="Select employee"
-              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+              searchPlaceholder="Search employees..."
+              searchValue={employeeOptions.searchValue}
+              onSearchChange={employeeOptions.onSearchChange}
+              loading={employeeOptions.loading}
+              hasMore={employeeOptions.hasMore}
+              onEndReached={employeeOptions.onLoadMore}
+              options={employeeOptions.data.map((employee) => ({ value: employee.id, label: employee.name }))}
             />
             <Select
               id="hr-leave-type"
@@ -733,7 +742,7 @@ export default function Leave() {
                 No leave types are configured in Settings.
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="max-[480px]:!grid-cols-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <DatePicker
                 id="hr-leave-start-date"
                 data-testid="hr-leave-start-date"
@@ -755,7 +764,7 @@ export default function Leave() {
               </label>
             )}
             {form.startDate && (
-              <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 16, borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 14, borderRadius: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ ...lbl, color: TEAL }}>Total Days Count</span>
                 <span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "4px 12px", borderRadius: 999 }}>{calcDays(form.startDate, form.endDate || form.startDate, form.isHalfDay)} Days</span>
               </div>
@@ -765,9 +774,9 @@ export default function Leave() {
                 You have insufficient balance for this leave type. Your manager may approve this as Loss of Pay or reject it.
               </div>
             )}
-            <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: 16, display: "flex", gap: 14 }}>
-              <div style={{ height: 40, width: 40, borderRadius: 12, background: "rgba(99,102,241,0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Info size={20} /></div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", lineHeight: 1.5, margin: 0 }}>Leave balances are real-time and auto-deducted once administrators verify and approve your request.</p>
+            <div style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 16, padding: 14, display: "flex", gap: 12 }}>
+              <div style={{ height: 36, width: 36, borderRadius: 10, background: "rgba(99,102,241,0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Info size={18} /></div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", lineHeight: 1.45, margin: 0 }}>Leave balances are real-time and auto-deducted once administrators verify and approve your request.</p>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -778,12 +787,12 @@ export default function Leave() {
               placeholder="Share a short note detailing the cause of your request…"
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
-              rows={9}
+              rows={5}
             />
           </div>
         </div>
-        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-        <div style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+        <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "16px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, shrink: 0 }}>
           <Button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" variant="outline" onClick={() => setApplyOpen(false)}>Close</Button>
           <Button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" variant="primary" onClick={submitApply} disabled={leaveTypes.loading} loading={saving}>Submit Application</Button>
         </div>

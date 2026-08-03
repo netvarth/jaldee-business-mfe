@@ -196,7 +196,7 @@ export function Combobox({
             id={`${comboId}-listbox`}
             role="listbox"
             data-testid={`${testId}-menu`}
-            className="absolute z-[160] mt-2 w-full rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+            className="absolute z-[160] mt-0 w-full rounded-b-xl rounded-t-none border border-gray-200 bg-white p-2 shadow-lg"
           >
             <input
               ref={inputRef}
@@ -208,7 +208,7 @@ export function Combobox({
             />
 
             <div
-              className="max-h-40 space-y-1 overflow-y-auto"
+              className="max-h-[216px] space-y-1 overflow-y-auto"
               onScroll={(event) => {
                 const element = event.currentTarget;
                 if (

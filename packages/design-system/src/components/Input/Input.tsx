@@ -74,6 +74,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
             aria-invalid={!!error}
             {...props}
+            onWheel={(event) => {
+              if (props.type === "number") {
+                event.currentTarget.blur();
+              }
+              props.onWheel?.(event);
+            }}
           />
           {suffix ? (
             <span className="absolute right-3 text-[length:var(--text-sm)] text-[var(--color-text-secondary)]">{suffix}</span>

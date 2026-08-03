@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserCircle2, Briefcase, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
-import { Select, DatePicker, PhoneInput } from "@jaldee/design-system";
+import { Combobox, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useHrApi } from "../../services/useHrApi";
 import { useEmployees } from "../../services/useEmployees";
-import { useDesignations, useDepartments } from "../../services/useSettingsData";
+import { usePagedDepartments, usePagedDesignations } from "../../services/usePagedSettingsOptions";
 import { useTelemetry } from "../../services/useTelemetry";
 import "./employees.css";
 
@@ -16,8 +16,10 @@ export default function NewEmployeeWizard() {
   const { location, eventBus } = useMFEProps();
   const api = useHrApi();
   const { data: employees } = useEmployees();
-  const { data: designations } = useDesignations();
-  const { data: departments } = useDepartments();
+  const designationOptions = usePagedDesignations();
+  const departmentOptions = usePagedDepartments();
+  const designations = designationOptions.data;
+  const departments = departmentOptions.data;
   const { trackEvent, captureError } = useTelemetry();
   console.log("[NewEmployeeWizard] designations data:", designations, "departments data:", departments);
 
@@ -276,29 +278,35 @@ export default function NewEmployeeWizard() {
                   <>
                     <div className="form-row">
                       <div className="form-group">
-                        <Select
+                        <Combobox
                           id="hr-new-employee-designation"
-                          testId="hr-new-employee-designation"
+                          data-testid="hr-new-employee-designation"
                           label="Role / Designation"
                           value={employment.designation}
-                          onChange={se("designation")}
-                          options={[
-                            { value: "", label: "Select Role / Designation" },
-                            ...designations.map((d) => ({ value: d.name, label: `${d.name}${d.level != null ? ` · L${d.level}` : ""}` }))
-                          ]}
+                          onValueChange={(value) => setEmployment((current) => ({ ...current, designation: value }))}
+                          placeholder="Select Role / Designation"
+                          searchValue={designationOptions.searchValue}
+                          onSearchChange={designationOptions.onSearchChange}
+                          loading={designationOptions.loading}
+                          hasMore={designationOptions.hasMore}
+                          onEndReached={designationOptions.onLoadMore}
+                          options={designations.map((d) => ({ value: d.name || d.id, label: `${d.name || d.id}${d.level != null ? ` · L${d.level}` : ""}` }))}
                         />
                       </div>
                       <div className="form-group">
-                        <Select
+                        <Combobox
                           id="hr-new-employee-department"
-                          testId="hr-new-employee-department"
+                          data-testid="hr-new-employee-department"
                           label="Department"
                           value={employment.department}
-                          onChange={se("department")}
-                          options={[
-                            { value: "", label: "Select Department" },
-                            ...departments.map((d) => ({ value: d.name, label: d.name }))
-                          ]}
+                          onValueChange={(value) => setEmployment((current) => ({ ...current, department: value }))}
+                          placeholder="Select Department"
+                          searchValue={departmentOptions.searchValue}
+                          onSearchChange={departmentOptions.onSearchChange}
+                          loading={departmentOptions.loading}
+                          hasMore={departmentOptions.hasMore}
+                          onEndReached={departmentOptions.onLoadMore}
+                          options={departments.map((d) => ({ value: d.name || d.id, label: d.name || d.id }))}
                         />
                       </div>
                     </div>

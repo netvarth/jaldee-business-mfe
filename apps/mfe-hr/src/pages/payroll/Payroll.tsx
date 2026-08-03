@@ -1447,7 +1447,7 @@ export default function Payroll() {
                   </div>
 
                   <Table
-                    headers={["Component", "Type", "Default", "Override", "Applicable"]}
+                    headers={["Component", "Type", "Previous Amount", "Override", "Applicable"]}
                     empty={employeeComponentRows.length === 0 ? "No employee component values found for the active structure." : null}
                   >
                     {employeeComponentRows.map(({ value, mapping }) => {

@@ -363,15 +363,16 @@ export default function Announcements() {
         onClose={() => setAddOpen(false)}
         testId="hr-announcements-create-modal"
         hideHeader
-        contentClassName="max-w-[820px] p-0 overflow-hidden"
+        contentClassName="max-w-[820px] h-auto max-h-[calc(100dvh-1rem)] p-0 overflow-hidden flex flex-col max-[640px]:!h-[100dvh] max-[640px]:!max-h-none max-[640px]:!max-w-none max-[640px]:!rounded-none"
+        bodyClassName="flex min-h-0 flex-none flex-col overflow-hidden sm:flex-1"
       >
-        <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px" }}>
+        <div className="max-[640px]:!p-4" style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Create Announcement</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Post a new update for all employees to see.</p></div>
             <button id="hr-announcements-create-close" data-testid="hr-announcements-create-close" onClick={() => setAddOpen(false)} aria-label="Close create announcement modal" style={iconBtn}><X size={20} /></button>
           </div>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: 24 }}>
+        <div className="max-[640px]:!grid-cols-1 max-[640px]:!content-start max-[640px]:!gap-4 max-[640px]:!p-4" style={{ padding: 28, display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: 24, overflowY: "auto", flex: 1 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <Input
               id="hr-announcements-title"
@@ -389,7 +390,7 @@ export default function Announcements() {
               onChange={(e) => setForm({ ...form, type: e.target.value })}
               options={TYPES.map((t) => ({ value: t, label: t }))}
             />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="max-[480px]:!grid-cols-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <DatePicker
                 id="hr-announcements-start-date"
                 label="Start Date"
@@ -403,7 +404,7 @@ export default function Announcements() {
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               />
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 24, paddingTop: 4 }}>
+            <div className="max-[480px]:!items-start max-[480px]:!gap-4" style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 24, paddingTop: 4, flexWrap: "wrap" }}>
               <Button
                 id="hr-announcements-attachment"
                 data-testid="hr-announcements-attachment"
@@ -435,7 +436,7 @@ export default function Announcements() {
           </div>
         </div>
         {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-        <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
           <Button
             id="hr-announcements-cancel"
             data-testid="hr-announcements-cancel"

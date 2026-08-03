@@ -7,7 +7,7 @@ import {
   Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3, Filter,
   KeyRound, CalendarDays, Wallet, Home, MoreHorizontal,
 } from "lucide-react";
-import { Button, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
+import { Button, Combobox, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -20,7 +20,7 @@ import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
 import { useEmployee } from "../../services/useEmployee";
 import { useEmployees } from "../../services/useEmployees";
-import { useDesignations, useDepartments } from "../../services/useSettingsData";
+import { usePagedDepartments, usePagedDesignations } from "../../services/usePagedSettingsOptions";
 import { useHrApi } from "../../services/useHrApi";
 import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
@@ -238,8 +238,10 @@ export default function EmployeeDetails() {
   const tab = useMemo(() => employeeTabFromPath(routeLocation.pathname), [routeLocation.pathname]);
   const { data: employee, loading, error, reload } = useEmployee(id);
   const { data: allEmployees } = useEmployees({ enabled: tab === "overview" || isEditing });
-  const { data: designations } = useDesignations(undefined, null, { enabled: isEditing });
-  const { data: departments } = useDepartments(undefined, null, { enabled: isEditing });
+  const designationOptions = usePagedDesignations({ enabled: isEditing });
+  const departmentOptions = usePagedDepartments({ enabled: isEditing });
+  const designations = designationOptions.data;
+  const departments = departmentOptions.data;
   const { trackEvent, captureError } = useTelemetry();
   console.log("[EmployeeDetails] designations data:", designations, "departments data:", departments);
   const { data: allAttendance } = useAttendance(undefined, null, { enabled: tab === "attendance" });
@@ -683,29 +685,39 @@ export default function EmployeeDetails() {
               employment: (<>
                 <div className="employee-edit-field-pair">
                   <div className="form-group">
-                    <Select
+                    <Combobox
                     id="hr-employee-designation"
-                    testId="hr-employee-designation"
+                    data-testid="hr-employee-designation"
                     label="Role / Designation"
                     value={form.designation ?? ""}
-                    onChange={setF("designation")}
+                    onValueChange={(value) => setForm((current) => ({ ...current, designation: value }))}
+                    placeholder="Select Role / Designation"
+                    searchValue={designationOptions.searchValue}
+                    onSearchChange={designationOptions.onSearchChange}
+                    loading={designationOptions.loading}
+                    hasMore={designationOptions.hasMore}
+                    onEndReached={designationOptions.onLoadMore}
                     options={[
-                      { value: "", label: "—" },
-                      ...designations.map((d) => ({ value: d.name, label: `${d.name}${d.level != null ? ` · L${d.level}` : ""}` })),
+                      ...designations.map((d) => ({ value: d.name || d.id, label: `${d.name || d.id}${d.level != null ? ` · L${d.level}` : ""}` })),
                       ...(form.designation && !designations.some((d) => d.name === form.designation) ? [{ value: form.designation, label: form.designation }] : [])
                     ]}
                     />
                   </div>
                   <div className="form-group">
-                    <Select
+                    <Combobox
                     id="hr-employee-department"
-                    testId="hr-employee-department"
+                    data-testid="hr-employee-department"
                     label="Department"
                     value={form.department ?? ""}
-                    onChange={setF("department")}
+                    onValueChange={(value) => setForm((current) => ({ ...current, department: value }))}
+                    placeholder="Select Department"
+                    searchValue={departmentOptions.searchValue}
+                    onSearchChange={departmentOptions.onSearchChange}
+                    loading={departmentOptions.loading}
+                    hasMore={departmentOptions.hasMore}
+                    onEndReached={departmentOptions.onLoadMore}
                     options={[
-                      { value: "", label: "—" },
-                      ...departments.map((d) => ({ value: d.name, label: d.name })),
+                      ...departments.map((d) => ({ value: d.name || d.id, label: d.name || d.id })),
                       ...(form.department && !departments.some((d) => d.name === form.department) ? [{ value: form.department, label: form.department }] : [])
                     ]}
                     />
@@ -780,11 +792,11 @@ export default function EmployeeDetails() {
                 </div>
                 <div className="employee-edit-field-pair">
                   <div className="form-group"><label>IFSC Code</label><input className={field} value={bank.ifscCode ?? ""} onChange={setBank("ifscCode")} /></div>
-                  <div className="form-group"><label>Basic</label><input type="number" className={field} value={sal.basic ?? ""} onChange={setSal("basic")} /></div>
+                  <div className="form-group"><Input label="Basic" type="number" className={field} value={sal.basic ?? ""} onChange={setSal("basic")} /></div>
                 </div>
                 <div className="employee-edit-field-pair">
-                  <div className="form-group"><label>HRA</label><input type="number" className={field} value={sal.hra ?? ""} onChange={setSal("hra")} /></div>
-                  <div className="form-group"><label>Allowance</label><input type="number" className={field} value={sal.allowance ?? ""} onChange={setSal("allowance")} /></div>
+                  <div className="form-group"><Input label="HRA" type="number" className={field} value={sal.hra ?? ""} onChange={setSal("hra")} /></div>
+                  <div className="form-group"><Input label="Allowance" type="number" className={field} value={sal.allowance ?? ""} onChange={setSal("allowance")} /></div>
                 </div>
               </>),
             };
@@ -1113,10 +1125,13 @@ export default function EmployeeDetails() {
                     <Field k="Login ID" v={employee.hasAuthUser ? employee.employeeId : undefined} mono />
                   </div>
                 </Panel>
-                <Panel icon={<CreditCard size={20} />} title="Bank Details (Active Account)" sub="Registered information for monthly pay disbursements" full>
+                <Panel icon={<CreditCard size={20} />} title="Bank & Salary Details" sub="Registered account and salary structure for monthly pay disbursements" full>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 24 }}>
                     <Field k="Bank Name" v={employee.bankDetails?.bankName} /><Field k="Account Number" v={employee.bankDetails?.accountNumber} mono />
                     <Field k="IFSC Code" v={employee.bankDetails?.ifscCode} mono />
+                    <Field k="Basic Salary" v={s.basic != null ? formatCurrency(s.basic) : undefined} />
+                    <Field k="HRA" v={s.hra != null ? formatCurrency(s.hra) : undefined} />
+                    <Field k="Allowance" v={s.allowance != null ? formatCurrency(s.allowance) : undefined} />
                   </div>
                 </Panel>
               </div>
@@ -1358,7 +1373,7 @@ export default function EmployeeDetails() {
         onClose={() => setViewPayslip(null)}
       />
       <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)} testId="hr-employee-login-dialog" title={employee.hasAuthUser ? "Reset Employee Password" : "Employee Login Access"} size="md">
-        <div style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
           {loginError ? (
             <div id="hr-employee-login-error" data-testid="hr-employee-login-error" style={{ padding: "12px 14px", borderRadius: 10, background: "var(--danger-bg)", border: "1px solid var(--danger-border)", color: "var(--danger-color)", fontSize: 13 }}>
               {loginError}

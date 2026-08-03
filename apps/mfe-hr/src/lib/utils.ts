@@ -19,11 +19,24 @@ export function formatDate(date: string | Date | null | undefined): string {
   });
 }
 
-export function exportToCSV(headers: string[], rows: (string | number)[][], filename: string): void {
+export function exportToCSV(
+  headers: string[],
+  rows: (string | number)[][],
+  filename: string,
+  options: { textColumns?: number[] } = {}
+): void {
   const esc = (v: string | number) =>
     `"${(v === null || v === undefined ? "" : String(v)).replace(/"/g, '""')}"`;
-  const csv = [headers.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const textColumns = new Set(options.textColumns ?? []);
+  const escCell = (value: string | number, columnIndex: number) => {
+    const text = value === null || value === undefined ? "" : String(value);
+    if (text && textColumns.has(columnIndex)) {
+      return esc(`="${text.replace(/"/g, '""')}"`);
+    }
+    return esc(value);
+  };
+  const csv = [headers.map(esc).join(","), ...rows.map((row) => row.map(escCell).join(","))].join("\n");
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);

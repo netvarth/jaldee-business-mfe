@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Trash2, Eye, MoreVertical, LayoutGrid, Rows3, Filter } from "lucide-react";
-import { Badge, Button, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
+import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Eye, MoreVertical, LayoutGrid, Rows3, Filter } from "lucide-react";
+import { Badge, Button, Combobox, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -10,9 +10,9 @@ import {
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useAssets, type Asset, type AssetAllocation, type AssetAttachment, type AssetStatus } from "../../services/useAssets";
 import { useAssetSearchSchema } from "../../services/useAssetSearchSchema";
-import { useEmployees } from "../../services/useEmployees";
+import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useShellErrorToast } from "../../services/useShellFeedback";
-import { useDepartments } from "../../services/useSettingsData";
+import { usePagedDepartments } from "../../services/usePagedSettingsOptions";
 
 /**
  * W9 / R9.1 - asset register: create/edit assets, allocate to an employee
@@ -24,7 +24,7 @@ const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const ASSET_TYPES = ["Laptop", "Desktop", "Monitor", "Phone", "SIM", "ID Card", "Access Card", "Vehicle", "Furniture", "Other"];
 const RETURN_STATUS_OPTIONS: AssetStatus[] = ["Available", "UnderRepair", "Lost", "Retired"];
-const EMPTY_FORM = { assetType: "Laptop", name: "", tagNumber: "", serialNumber: "", assetValue: "", ownerDepartment: "", accountsRef: "", notes: "" };
+const EMPTY_FORM = { assetType: "Laptop", name: "", tagNumber: "", serialNumber: "", assetValue: "", departmentUid: "", accountsRef: "", notes: "" };
 type ViewMode = "table" | "cards";
 
 function getPreferredViewMode() {
@@ -74,8 +74,7 @@ export default function Assets() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { schema: assetSearchSchema, loading: schemaLoading } = useAssetSearchSchema();
   const assets = useAssets(advancedFilters, assetSearchSchema, { enabled: !schemaLoading });
-  const { data: employees } = useEmployees();
-  const departments = useDepartments();
+  const departments = usePagedDepartments();
   useShellErrorToast("hr.assets", "Assets", assets.error);
 
   const [filter, setFilter] = useState<"all" | AssetStatus>("all");
@@ -89,6 +88,7 @@ export default function Assets() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const [allocFor, setAllocFor] = useState<Asset | null>(null);
+  const employees = usePagedEmployeeOptions({ enabled: Boolean(allocFor) });
   const [allocEmp, setAllocEmp] = useState("");
   const [allocCond, setAllocCond] = useState("");
   const [returnFor, setReturnFor] = useState<Asset | null>(null);
@@ -173,7 +173,7 @@ export default function Assets() {
       tagNumber: asset.tagNumber || "",
       serialNumber: asset.serialNumber || "",
       assetValue: asset.assetValue != null ? String(asset.assetValue) : "",
-      ownerDepartment: asset.ownerDepartment || "",
+      departmentUid: asset.departmentUid || departments.data.find((department) => department.name === asset.ownerDepartment)?.id || "",
       accountsRef: asset.accountsRef || "",
       notes: asset.notes || "",
     });
@@ -189,7 +189,7 @@ export default function Assets() {
       tagNumber: form.tagNumber || null,
       serialNumber: form.serialNumber || null,
       assetValue: form.assetValue ? Number(form.assetValue) : null,
-      ownerDepartment: form.ownerDepartment || null,
+      departmentUid: form.departmentUid || null,
       accountsRef: form.accountsRef || null,
       notes: form.notes || null,
     };
@@ -312,7 +312,6 @@ export default function Assets() {
             onView={() => void openView(asset)}
             onHistory={() => void openHistory(asset)}
             onEdit={() => openEdit(asset)}
-            onDelete={() => { if (confirm("Delete this asset?")) void act(() => assets.remove(asset.id)); }}
           />
         </div>
       ),
@@ -462,7 +461,6 @@ export default function Assets() {
                       onView={() => void openView(asset)}
                       onHistory={() => void openHistory(asset)}
                       onEdit={() => openEdit(asset)}
-                      onDelete={() => { if (confirm("Delete this asset?")) void act(() => assets.remove(asset.id)); }}
                     />
                   </div>
                 </div>
@@ -601,19 +599,23 @@ export default function Assets() {
             <Input id="hr-assets-tag-number" data-testid="hr-assets-tag-number" label="Tag Number" value={form.tagNumber} onChange={(e) => setForm({ ...form, tagNumber: e.target.value })} />
             <Input id="hr-assets-serial-number" data-testid="hr-assets-serial-number" label="Serial Number" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />
             <Input id="hr-assets-value" data-testid="hr-assets-value" label="Value" type="number" value={form.assetValue} onChange={(e) => setForm({ ...form, assetValue: e.target.value })} />
-            <Select
-              id="hr-assets-owner-department"
-              testId="hr-assets-owner-department"
+            <Combobox
+              id="hr-assets-department"
+              data-testid="hr-assets-department"
               label="Owner Department"
-              value={form.ownerDepartment}
-              onChange={(e) => setForm({ ...form, ownerDepartment: e.target.value })}
-              options={[
-                { value: "", label: departments.loading ? "Loading departments..." : "Select department" },
-                ...departments.data.map((department) => ({
-                  value: department.name || department.id,
-                  label: department.name || department.id,
-                })),
-              ]}
+              value={form.departmentUid}
+              onValueChange={(value) => setForm({ ...form, departmentUid: value })}
+              placeholder="Select department"
+              searchPlaceholder="Search departments..."
+              searchValue={departments.searchValue}
+              onSearchChange={departments.onSearchChange}
+              loading={departments.loading}
+              hasMore={departments.hasMore}
+              onEndReached={departments.onLoadMore}
+              options={departments.data.map((department) => ({
+                value: department.id,
+                label: department.name || department.id,
+              }))}
             />
             <Input id="hr-assets-accounts-ref" data-testid="hr-assets-accounts-ref" label="Accounts Ref" value={form.accountsRef} onChange={(e) => setForm({ ...form, accountsRef: e.target.value })} placeholder="External asset ID" />
             <div className="sm:col-span-2">
@@ -637,7 +639,21 @@ export default function Assets() {
             <button id="hr-assets-allocate-close" data-testid="hr-assets-allocate-close" onClick={() => setAllocFor(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
           </div>
           <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-            <Select id="hr-assets-allocate-employee" testId="hr-assets-allocate-employee" label="Employee" value={allocEmp} onChange={(e) => setAllocEmp(e.target.value)} options={[{ value: "", label: "Select employee" }, ...employees.map((employee) => ({ value: employee.id, label: employee.name }))]} />
+            <Combobox
+              id="hr-assets-allocate-employee"
+              data-testid="hr-assets-allocate-employee"
+              label="Employee"
+              value={allocEmp}
+              onValueChange={setAllocEmp}
+              placeholder="Select employee"
+              searchPlaceholder="Search employees..."
+              searchValue={employees.searchValue}
+              onSearchChange={employees.onSearchChange}
+              loading={employees.loading}
+              hasMore={employees.hasMore}
+              onEndReached={employees.onLoadMore}
+              options={employees.data.map((employee) => ({ value: employee.id, label: employee.name }))}
+            />
             <Input id="hr-assets-allocate-condition" data-testid="hr-assets-allocate-condition" label="Condition at Issue" value={allocCond} onChange={(e) => setAllocCond(e.target.value)} placeholder="e.g. New, minor scratches..." />
             {msg && <div style={{ padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
           </div>
@@ -846,7 +862,6 @@ function AssetActions({
   onView,
   onHistory,
   onEdit,
-  onDelete,
 }: {
   asset: Asset;
   busy: boolean;
@@ -854,7 +869,6 @@ function AssetActions({
   onView: () => void;
   onHistory: () => void;
   onEdit: () => void;
-  onDelete: () => void;
 }) {
   return (
     <Popover
@@ -911,15 +925,6 @@ function AssetActions({
         >
           <Pencil size={15} />
           Edit
-        </button>
-        <button
-          type="button"
-          data-testid={`hr-assets-delete-${asset.id}`}
-          onClick={onDelete}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-rose-600 transition-colors hover:bg-rose-50"
-        >
-          <Trash2 size={15} />
-          Delete
         </button>
       </PopoverSection>
     </Popover>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
-import { Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
+import { Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -11,6 +11,7 @@ import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
+import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useTickets, type Ticket } from "../../services/useEngagement";
 import { useTicketSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
@@ -125,6 +126,7 @@ export default function Tickets() {
 
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [closeTarget, setCloseTarget] = useState<Ticket | null>(null);
   const [form, setForm] = useState({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "" });
@@ -542,14 +544,20 @@ export default function Tickets() {
         <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }} className="max-[820px]:grid-cols-1">
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             {!isEmployeeView ? (
-              <Select
+              <Combobox
                 id="hr-tickets-employee"
-                testId="hr-tickets-employee"
+                data-testid="hr-tickets-employee"
                 label="Claimant Employee"
                 value={form.employeeUid}
-                onChange={(e) => setForm({ ...form, employeeUid: e.target.value })}
+                onValueChange={(employeeUid) => setForm({ ...form, employeeUid })}
                 placeholder="Select employee"
-                options={employees.map((e) => ({ value: e.id, label: e.name }))}
+                searchPlaceholder="Search employees..."
+                searchValue={employeeOptions.searchValue}
+                onSearchChange={employeeOptions.onSearchChange}
+                loading={employeeOptions.loading}
+                hasMore={employeeOptions.hasMore}
+                onEndReached={employeeOptions.onLoadMore}
+                options={employeeOptions.data.map((employee) => ({ value: employee.id, label: employee.name }))}
               />
             ) : (
               <div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
 import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Rows3, ScanFace, Timer, XCircle } from "lucide-react";
-import { Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
+import { Combobox, Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import type { ColumnDef } from "@jaldee/design-system";
 import {
@@ -14,6 +14,7 @@ import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation
 import { useMFEProps } from "@jaldee/auth-context";
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 import { useEmployees } from "../../services/useEmployees";
+import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useBranches } from "../../services/useBranches";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs } from "../../services/useAttendanceData";
 import { useAttendanceSearchSchema } from "../../services/useAttendanceSearchSchema";
@@ -277,10 +278,20 @@ export default function Attendance() {
       : employees,
     [employees, selectedLocationUid]
   );
+  const attendanceEmployeeFilters = useMemo<SearchFilterClause[]>(
+    () => selectedLocationUid
+      ? [{ id: "attendance-employee-location", field: "locationUid", operator: "EQ", values: [selectedLocationUid] }]
+      : [],
+    [selectedLocationUid]
+  );
+  const attendanceEmployeeOptions = usePagedEmployeeOptions({
+    enabled: Boolean(selectedLocationUid),
+    filters: attendanceEmployeeFilters,
+  });
   useEffect(() => {
-    if (actor && locationEmployees.some((employee) => employee.id === actor)) return;
-    setActor(locationEmployees[0]?.id ?? "");
-  }, [actor, locationEmployees]);
+    if (actor && attendanceEmployeeOptions.data.some((employee) => employee.id === actor)) return;
+    setActor(attendanceEmployeeOptions.data[0]?.id ?? "");
+  }, [actor, attendanceEmployeeOptions.data]);
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
 
   const empName = useMemo(() => { const m = new Map(employees.map((e) => [e.id, e.name] as const)); return (uid?: string) => (uid ? m.get(uid) ?? uid : "—"); }, [employees]);
@@ -513,14 +524,21 @@ export default function Attendance() {
                   ]}
                 />
               ) : null}
-              <Select
+              <Combobox
                 id="hr-attendance-actor"
-                testId="hr-attendance-actor"
+                data-testid="hr-attendance-actor"
                 label="Acting Employee"
                 value={actor}
-                onChange={(e) => setActor(e.target.value)}
+                onValueChange={setActor}
                 placeholder={selectedLocationUid ? "Select employee" : "Select location first"}
-                options={locationEmployees.map((employee) => ({
+                searchPlaceholder="Search employees..."
+                searchValue={attendanceEmployeeOptions.searchValue}
+                onSearchChange={attendanceEmployeeOptions.onSearchChange}
+                loading={attendanceEmployeeOptions.loading}
+                hasMore={attendanceEmployeeOptions.hasMore}
+                onEndReached={attendanceEmployeeOptions.onLoadMore}
+                disabled={!selectedLocationUid}
+                options={attendanceEmployeeOptions.data.map((employee) => ({
                   value: employee.id,
                   label: employee.name,
                 }))}

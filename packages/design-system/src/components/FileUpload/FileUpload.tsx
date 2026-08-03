@@ -34,7 +34,7 @@ export function FileUpload({
   }
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)} data-testid={testId || "file-upload"} id={id}>
+    <div className={cn("flex min-w-0 w-full flex-col gap-1.5", className)} data-testid={testId || "file-upload"} id={id}>
       {label && (
         <span className="ds-form-label">{label}</span>
       )}
@@ -77,12 +77,12 @@ export function FileUpload({
       </div>
 
       {files.length > 0 && (
-        <div className="space-y-1">
+        <div className="min-w-0 w-full space-y-1">
           {files.map((file, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
+            <div key={i} className="flex min-w-0 w-full items-start gap-2 overflow-hidden text-xs text-gray-600 bg-gray-50 rounded px-3 py-1.5">
               <span>📄</span>
-              <span className="flex-1 truncate">{file.name}</span>
-              <span className="text-gray-400">
+              <span className="min-w-0 flex-1 whitespace-normal break-words">{file.name}</span>
+              <span className="shrink-0 text-gray-400">
                 {(file.size / 1024).toFixed(1)} KB
               </span>
             </div>

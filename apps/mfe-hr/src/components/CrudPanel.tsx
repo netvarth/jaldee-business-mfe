@@ -523,13 +523,13 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
       </SectionCard>
 
       {open && (
-        <div style={overlay} onClick={() => setOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={modalBox}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
+        <div className="max-[520px]:!p-0" style={overlay} onClick={() => setOpen(false)}>
+          <div className="max-[520px]:!h-[100dvh] max-[520px]:!max-h-none max-[520px]:!max-w-none max-[520px]:!rounded-none max-[520px]:flex max-[520px]:flex-col" onClick={(e) => e.stopPropagation()} style={modalBox}>
+            <div className="max-[520px]:!px-4 max-[520px]:!py-4" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
                <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
               <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
             </div>
-            <div style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxHeight: "62vh", overflowY: "auto" }}>
+            <div className="max-[520px]:!grid-cols-1 max-[520px]:!max-h-none max-[520px]:!flex-1 max-[520px]:!content-start max-[520px]:!auto-rows-max max-[520px]:!p-4" style={{ padding: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxHeight: "calc(100dvh - 190px)", overflowY: "auto" }}>
               {locationPicker && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Search location (Google)</label>
@@ -550,7 +550,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
               ))}
             </div>
             {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-            <div style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+            <div className="max-[520px]:!px-4 max-[520px]:[&>button]:flex-1" style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
               <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
               <Button onClick={save} disabled={saving} loading={saving} icon={!saving && <Save size={16} />}>{editing ? "Update" : "Create"}</Button>
             </div>

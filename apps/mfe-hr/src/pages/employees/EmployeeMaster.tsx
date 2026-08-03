@@ -152,7 +152,8 @@ export default function EmployeeMaster() {
         e.employeeId ?? "", e.name ?? "", e.email ?? "", e.contactNumber ?? "",
         e.department ?? "", e.designation ?? "", e.employmentType ?? "", e.status ?? "",
       ]),
-      "employees.csv"
+      "employees.csv",
+      { textColumns: [0, 3] }
     );
   };
 
