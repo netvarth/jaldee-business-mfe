@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import { Button, Dialog, DialogFooter, Input, PageHeader, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
@@ -289,7 +288,7 @@ export default function ExpenseCreatePage() {
       />
 
       <SectionCard className="border-slate-200 shadow-sm">
-        <form className="grid gap-5" onSubmit={handleSubmit}>
+        <form className="grid gap-5 p-5 md:p-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Expense Title" value={title} onChange={(event) => setTitle(event.target.value)} required />
             <div className="flex flex-col gap-1.5">

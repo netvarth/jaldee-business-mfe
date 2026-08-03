@@ -72,6 +72,8 @@ export interface CouponOption {
   status?: string;
   published?: boolean;
   publishedDate?: string;
+  startDate?: string;
+  endDate?: string;
   maxDiscountValue?: number;
   termsConditions?: string;
   timezone?: string;
@@ -94,6 +96,8 @@ export interface CouponDetail {
   status?: string;
   published?: boolean;
   publishedDate?: string;
+  startDate?: string;
+  endDate?: string;
   maxDiscountValue?: number;
   termsConditions?: string;
   timezone?: string;
@@ -156,18 +160,20 @@ export function mapCouponOptions(items: any[]): CouponOption[] {
     .map((item: any) => ({
       value: String(item.uid ?? item.couponId ?? item.id ?? item.code ?? ""),
       label: String(item.name ?? item.displayName ?? item.couponCode ?? item.code ?? "Coupon"),
-      code: String(item.couponCode ?? item.code ?? item.name ?? ""),
+      code: String(item.couponCode ?? item.code ?? ""),
       discountType: String(item.discountType ?? item.type ?? "PREDEFINED"),
       calculationType: String(item.calculationType ?? "FIXED_AMOUNT"),
       discountValue: Number(item.discountValue ?? item.discount ?? item.value ?? item.amount ?? 0),
       description: String(item.description ?? ""),
-      feature: String(item.feature ?? item.featureModule ?? "FINANCE"),
+      feature: String(item.feature ?? "FINANCE"),
       subFeature: String(item.subFeature ?? item.feature ?? "BASE_CRM"),
       featureModule: String(item.featureModule ?? "BASE_CRM_CORE"),
       tenantUid: String(item.tenantUid ?? ""),
-      status: String(item.status ?? "ACTIVE"),
+      status: String(item.couponStatus ?? item.status ?? "ACTIVE"),
       published: Boolean(item.published),
       publishedDate: typeof item.publishedDate === "string" ? item.publishedDate : undefined,
+      startDate: typeof item.startDate === "string" ? item.startDate : undefined,
+      endDate: typeof item.endDate === "string" ? item.endDate : undefined,
       maxDiscountValue: Number(item.maxDiscountValue ?? item.discountValue ?? item.amount ?? 0),
       termsConditions: String(item.termsConditions ?? ""),
       timezone: String(item.timezone ?? "Asia/Calcutta"),

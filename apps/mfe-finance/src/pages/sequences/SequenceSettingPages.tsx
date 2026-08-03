@@ -1,13 +1,9 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Badge,
   Button,
-  DataTable,
-  EmptyState,
-  Icon,
   Input,
-  PageHeader,
   SectionCard,
   Select,
   Switch,
@@ -15,7 +11,7 @@ import {
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps } from "@jaldee/auth-context";
-import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
+import { financeApi } from "../../lib/financeApi";
 import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
 
 type SequenceTemplateFeature = "FINANCE" | "BOOKING" | "HEALTHCARE" | "BASE_CRM" | "PLATFORM" | "AUTH" | "E_COMMERCE" | "LENDING" | "HR";
@@ -37,9 +33,67 @@ const financeFeatureModuleOptions: Array<{ value: FinanceFeatureModule; label: s
   { value: "FINANCE_PAYMENT", label: "Finance Payment" }, { value: "FINANCE_EXPENSE", label: "Finance Expense" },
 ];
 
+type LocationOption = { value: string; label: string };
+type SequenceTemplateOption = { value: string; label: string; prefix: string; suffix: string };
+type SequenceDetail = {
+  uid?: string;
+  sequenceTemplateUid: string;
+  prefix: string;
+  suffix: string;
+  status: string;
+  isDefault: boolean;
+};
+
+function extractRecords(payload: any) {
+  return Array.isArray(payload?.content)
+    ? payload.content
+    : Array.isArray(payload?.data?.content)
+      ? payload.data.content
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+}
+
+function createEmptySequenceDetail(isDefault = true): SequenceDetail {
+  return {
+    sequenceTemplateUid: "",
+    prefix: "",
+    suffix: "",
+    status: "Enabled",
+    isDefault,
+  };
+}
+
+function buildLocationSelectOptions(locationOptions: LocationOption[]) {
+  return locationOptions.length > 1
+    ? [{ value: "", label: "Select location" }, ...locationOptions]
+    : locationOptions;
+}
+
+function mapLocationOptions(payload: any): LocationOption[] {
+  return extractRecords(payload)
+    .map((item: any) => ({
+      value: String(item.locationUid ?? item.uid ?? item.id ?? item.locationId ?? ""),
+      label: String(item.place ?? item.name ?? item.locationName ?? item.city ?? "Location"),
+    }))
+    .filter((item: LocationOption) => item.value);
+}
+
+function mapSequenceTemplateOptions(payload: any): SequenceTemplateOption[] {
+  return extractRecords(payload).map((item: any) => ({
+    value: String(item.uid ?? ""),
+    label: String(item.name || item.templateName || item.uid),
+    prefix: String(item.prefix || ""),
+    suffix: String(item.suffix || ""),
+  }));
+}
+
 function SequenceSettingsPage() {
   const navigate = useNavigate();
   const [settingsRows, setSettingsRows] = useState<any[]>([]);
+  const [locationLabels, setLocationLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   async function loadSettings() {
@@ -56,13 +110,7 @@ function SequenceSettingsPage() {
         },
         // view: "SUMMARY",
       });
-      const payload = Array.isArray(res.data?.content)
-        ? res.data.content
-        : Array.isArray(res.data?.data?.content)
-          ? res.data.data.content
-          : Array.isArray(res.data)
-            ? res.data
-            : [];
+      const payload = extractRecords(res.data);
       setSettingsRows(payload);
     } catch (error) {
       console.error("Failed to fetch sequence settings", error);
@@ -76,9 +124,41 @@ function SequenceSettingsPage() {
     loadSettings();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadLocations() {
+      try {
+        const res = await financeApi.locations.tenant<any>({
+          page: 0,
+          size: 200,
+        });
+        if (!active) return;
+        const options = mapLocationOptions(res.data);
+        setLocationLabels(
+          options.reduce<Record<string, string>>((acc, option) => {
+            acc[option.value] = option.label;
+            return acc;
+          }, {})
+        );
+      } catch (error) {
+        console.error("Failed to load locations", error);
+      }
+    }
+
+    void loadLocations();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
-      { key: "locationUid", header: "Location UID" },
+      {
+        key: "locationUid",
+        header: "Location",
+        render: (row) => locationLabels[String(row.locationUid || "")] || String(row.locationName || row.locationUid || "-"),
+      },
       { key: "storeUid", header: "Store UID" },
       { key: "feature", header: "Feature" },
       { key: "featureModule", header: "Feature Module" },
@@ -121,7 +201,7 @@ function SequenceSettingsPage() {
         ),
       },
     ],
-    [navigate]
+    [locationLabels, navigate]
   );
 
   return (
@@ -150,67 +230,73 @@ function SequenceSettingCreatePage() {
   const navigateToSequenceSettingsList = () => navigate("..", { relative: "path", replace: true });
   const locationRecord = (mfeProps.location ?? {}) as Record<string, unknown>;
   const defaultLocationUid = String(locationRecord.uid ?? locationRecord.locationUid ?? locationRecord.id ?? "");
-  const defaultStoreUid = String(locationRecord.storeUid ?? locationRecord.storeId ?? "");
 
   const [locationUid, setLocationUid] = useState(defaultLocationUid);
-  const [storeUid, setStoreUid] = useState(defaultStoreUid);
   const [feature, setFeature] = useState<SequenceTemplateFeature>("FINANCE");
   const [subFeature, setSubFeature] = useState<SequenceTemplateFeature>("FINANCE");
   const [featureModule, setFeatureModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
   const [financeModule, setFinanceModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
   const [remarks, setRemarks] = useState("");
   const [status, setStatus] = useState("Enabled");
-  const [sequenceTemplateOptions, setSequenceTemplateOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [details, setDetails] = useState<any[]>([
-    {
-      sequenceTemplateUid: "",
-      prefix: "",
-      suffix: "",
-      status: "Enabled",
-      isDefault: true,
-    },
-  ]);
+  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
+  const [sequenceTemplateOptions, setSequenceTemplateOptions] = useState<SequenceTemplateOption[]>([]);
+  const [details, setDetails] = useState<SequenceDetail[]>([createEmptySequenceDetail(true)]);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
-    async function loadSequenceTemplates() {
+
+    async function loadFormData() {
       try {
-        const res = await financeApi.sequenceTemplates.list<any>({
-          page: 0,
-          size: 100,
-          sort: [{ field: "createdAt", direction: "DESC" }],
-          filters: {
-            field: "feature",
-            operator: "EQ",
-            values: ["FINANCE"],
-          },
-          // view: "SUMMARY",
-        });
-        const payload = Array.isArray(res.data?.content)
-          ? res.data.content
-          : Array.isArray(res.data?.data?.content)
-            ? res.data.data.content
-            : Array.isArray(res.data)
-              ? res.data
-              : [];
+        const [templateRes, locationRes] = await Promise.all([
+          financeApi.sequenceTemplates.list<any>({
+            page: 0,
+            size: 100,
+            sort: [{ field: "createdAt", direction: "DESC" }],
+            filters: {
+              field: "feature",
+              operator: "EQ",
+              values: ["FINANCE"],
+            },
+          }),
+          financeApi.locations.tenant<any>({
+            page: 0,
+            size: 200,
+          }),
+        ]);
         if (!active) return;
-        setSequenceTemplateOptions(
-          payload.map((item: any) => ({
-            value: String(item.uid),
-            label: String(item.name || item.templateName || item.uid),
-          }))
-        );
+        const nextTemplateOptions = mapSequenceTemplateOptions(templateRes.data);
+        const nextLocationOptions = mapLocationOptions(locationRes.data);
+        setSequenceTemplateOptions(nextTemplateOptions);
+        setLocationOptions(nextLocationOptions);
+        setLocationUid((current) => current || nextLocationOptions[0]?.value || "");
       } catch (error) {
-        console.error("Failed to load sequence templates", error);
+        console.error("Failed to load sequence setting form data", error);
       }
     }
-    loadSequenceTemplates();
+
+    void loadFormData();
     return () => {
       active = false;
     };
   }, []);
+
+  function handleTemplateChange(index: number, templateUid: string) {
+    const selectedTemplate = sequenceTemplateOptions.find((item) => item.value === templateUid);
+    setDetails((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              sequenceTemplateUid: templateUid,
+              prefix: selectedTemplate?.prefix ?? "",
+              suffix: selectedTemplate?.suffix ?? "",
+            }
+          : item
+      )
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -233,7 +319,6 @@ function SequenceSettingCreatePage() {
     try {
       await financeApi.sequenceSettings.create({
         locationUid: locationUid.trim(),
-        storeUid: storeUid.trim() || undefined,
         feature,
         subFeature,
         featureModule,
@@ -242,7 +327,6 @@ function SequenceSettingCreatePage() {
         status,
         details: details.map((item) => ({
           locationUid: locationUid.trim(),
-          storeUid: storeUid.trim() || undefined,
           feature,
           subFeature,
           featureModule,
@@ -272,8 +356,12 @@ function SequenceSettingCreatePage() {
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Location UID *" value={locationUid} onChange={(event) => setLocationUid(event.target.value)} required />
-            <Input label="Store UID" value={storeUid} onChange={(event) => setStoreUid(event.target.value)} />
+            <Select
+              label="Location *"
+              value={locationUid}
+              onChange={(event) => setLocationUid(event.target.value)}
+              options={buildLocationSelectOptions(locationOptions)}
+            />
             <Select label="Feature" value={feature} onChange={(event) => setFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
             <Select label="Sub Feature" value={subFeature} onChange={(event) => setSubFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
             <Select label="Feature Module" value={featureModule} onChange={(event) => setFeatureModule(event.target.value as FinanceFeatureModule)} options={financeFeatureModuleOptions} />
@@ -296,13 +384,7 @@ function SequenceSettingCreatePage() {
                   <Select
                     label="Sequence Template *"
                     value={detail.sequenceTemplateUid}
-                    onChange={(event) =>
-                      setDetails((current) =>
-                        current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, sequenceTemplateUid: event.target.value } : item
-                        )
-                      )
-                    }
+                    onChange={(event) => handleTemplateChange(index, event.target.value)}
                     options={[{ value: "", label: "Select template" }, ...sequenceTemplateOptions]}
                   />
                   <Select
@@ -374,11 +456,7 @@ function SequenceSettingCreatePage() {
                     setDetails((current) => [
                       ...current,
                       {
-                        sequenceTemplateUid: "",
-                        prefix: "",
-                        suffix: "",
-                        status: "Enabled",
-                        isDefault: current.length === 0,
+                        ...createEmptySequenceDetail(current.length === 0),
                       },
                     ])
                   }
@@ -408,53 +486,49 @@ function SequenceSettingEditPage() {
   const navigateToSequenceSettingsList = () => navigate("../..", { relative: "path", replace: true });
   const { id } = useParams<{ id: string }>();
   const [locationUid, setLocationUid] = useState("");
-  const [storeUid, setStoreUid] = useState("");
   const [feature, setFeature] = useState<SequenceTemplateFeature>("FINANCE");
   const [subFeature, setSubFeature] = useState<SequenceTemplateFeature>("FINANCE");
   const [featureModule, setFeatureModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
   const [financeModule, setFinanceModule] = useState<FinanceFeatureModule>("FINANCE_CORE");
   const [remarks, setRemarks] = useState("");
   const [status, setStatus] = useState("Enabled");
-  const [sequenceTemplateOptions, setSequenceTemplateOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [details, setDetails] = useState<any[]>([]);
+  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
+  const [sequenceTemplateOptions, setSequenceTemplateOptions] = useState<SequenceTemplateOption[]>([]);
+  const [details, setDetails] = useState<SequenceDetail[]>([]);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    async function loadSequenceTemplates() {
+
+    async function loadLookups() {
       try {
-        const res = await financeApi.sequenceTemplates.list<any>({
-          page: 0,
-          size: 100,
-          sort: [{ field: "createdAt", direction: "DESC" }],
-          filters: {
-            field: "feature",
-            operator: "EQ",
-            values: ["FINANCE"],
-          },
-          // view: "SUMMARY",
-        });
-        const payload = Array.isArray(res.data?.content)
-          ? res.data.content
-          : Array.isArray(res.data?.data?.content)
-            ? res.data.data.content
-            : Array.isArray(res.data)
-              ? res.data
-              : [];
+        const [templateRes, locationRes] = await Promise.all([
+          financeApi.sequenceTemplates.list<any>({
+            page: 0,
+            size: 100,
+            sort: [{ field: "createdAt", direction: "DESC" }],
+            filters: {
+              field: "feature",
+              operator: "EQ",
+              values: ["FINANCE"],
+            },
+          }),
+          financeApi.locations.tenant<any>({
+            page: 0,
+            size: 200,
+          }),
+        ]);
         if (!active) return;
-        setSequenceTemplateOptions(
-          payload.map((item: any) => ({
-            value: String(item.uid),
-            label: String(item.name || item.templateName || item.uid),
-          }))
-        );
+        setSequenceTemplateOptions(mapSequenceTemplateOptions(templateRes.data));
+        setLocationOptions(mapLocationOptions(locationRes.data));
       } catch (error) {
-        console.error("Failed to load sequence templates", error);
+        console.error("Failed to load sequence setting lookups", error);
       }
     }
-    loadSequenceTemplates();
+
+    void loadLookups();
     return () => {
       active = false;
     };
@@ -469,7 +543,6 @@ function SequenceSettingEditPage() {
         const data = res.data;
         if (active && data) {
           setLocationUid(String(data.locationUid || ""));
-          setStoreUid(String(data.storeUid || ""));
           setFeature((data.feature || "FINANCE") as SequenceTemplateFeature);
           setSubFeature((data.subFeature || "FINANCE") as SequenceTemplateFeature);
           setFeatureModule((data.featureModule || "FINANCE_CORE") as FinanceFeatureModule);
@@ -486,15 +559,7 @@ function SequenceSettingEditPage() {
                   status: String(item.status || "Enabled"),
                   isDefault: Boolean(item.isDefault),
                 }))
-              : [
-                  {
-                    sequenceTemplateUid: "",
-                    prefix: "",
-                    suffix: "",
-                    status: "Enabled",
-                    isDefault: true,
-                  },
-                ]
+              : [createEmptySequenceDetail(true)]
           );
         }
       } catch (error) {
@@ -508,6 +573,22 @@ function SequenceSettingEditPage() {
       active = false;
     };
   }, [id]);
+
+  function handleTemplateChange(index: number, templateUid: string) {
+    const selectedTemplate = sequenceTemplateOptions.find((item) => item.value === templateUid);
+    setDetails((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              sequenceTemplateUid: templateUid,
+              prefix: selectedTemplate?.prefix ?? "",
+              suffix: selectedTemplate?.suffix ?? "",
+            }
+          : item
+      )
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -531,7 +612,6 @@ function SequenceSettingEditPage() {
       await financeApi.sequenceSettings.update(id!, {
         uid: id,
         locationUid: locationUid.trim(),
-        storeUid: storeUid.trim() || undefined,
         feature,
         subFeature,
         featureModule,
@@ -541,7 +621,6 @@ function SequenceSettingEditPage() {
         details: details.map((item) => ({
           uid: item.uid || undefined,
           locationUid: locationUid.trim(),
-          storeUid: storeUid.trim() || undefined,
           feature,
           subFeature,
           featureModule,
@@ -575,8 +654,12 @@ function SequenceSettingEditPage() {
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Location UID *" value={locationUid} onChange={(event) => setLocationUid(event.target.value)} required />
-            <Input label="Store UID" value={storeUid} onChange={(event) => setStoreUid(event.target.value)} />
+            <Select
+              label="Location *"
+              value={locationUid}
+              onChange={(event) => setLocationUid(event.target.value)}
+              options={buildLocationSelectOptions(locationOptions)}
+            />
             <Select label="Feature" value={feature} onChange={(event) => setFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
             <Select label="Sub Feature" value={subFeature} onChange={(event) => setSubFeature(event.target.value as SequenceTemplateFeature)} options={sequenceTemplateFeatureOptions} />
             <Select label="Feature Module" value={featureModule} onChange={(event) => setFeatureModule(event.target.value as FinanceFeatureModule)} options={financeFeatureModuleOptions} />
@@ -599,13 +682,7 @@ function SequenceSettingEditPage() {
                   <Select
                     label="Sequence Template *"
                     value={detail.sequenceTemplateUid}
-                    onChange={(event) =>
-                      setDetails((current) =>
-                        current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, sequenceTemplateUid: event.target.value } : item
-                        )
-                      )
-                    }
+                    onChange={(event) => handleTemplateChange(index, event.target.value)}
                     options={[{ value: "", label: "Select template" }, ...sequenceTemplateOptions]}
                   />
                   <Select
@@ -677,11 +754,7 @@ function SequenceSettingEditPage() {
                     setDetails((current) => [
                       ...current,
                       {
-                        sequenceTemplateUid: "",
-                        prefix: "",
-                        suffix: "",
-                        status: "Enabled",
-                        isDefault: current.length === 0,
+                        ...createEmptySequenceDetail(current.length === 0),
                       },
                     ])
                   }

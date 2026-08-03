@@ -19,29 +19,29 @@ export function buildDiscountMutationPayload(input: any) {
 }
 
 export function buildCouponMutationPayload(input: any) {
-  const amount = Number(input.discountValue ?? 0);
-  const publishedDate = input.publishedDate || new Date().toISOString();
-  return {
+  const amount = Number(input.amount ?? input.discountValue ?? 0);
+  const payload: Record<string, unknown> = {
     uid: input.uid,
     tenantUid: input.tenantUid || undefined,
     name: input.name || "",
     description: input.description || undefined,
     calculationType: input.calculationType || "FIXED_AMOUNT",
     amount,
-    couponStatus: input.status || "INACTIVE",
-    couponCode: input.code || "",
-    startDate: publishedDate,
-    endDate: publishedDate,
-    published: Boolean(input.published),
-    publishedDate,
+    couponStatus: input.couponStatus || input.status || undefined,
+    couponCode: input.couponCode || input.code || "",
+    startDate: input.startDate || undefined,
+    endDate: input.endDate || undefined,
+    published: input.published,
+    publishedDate: input.publishedDate || undefined,
     maxDiscountValue: Number(input.maxDiscountValue ?? amount),
     termsConditions: input.termsConditions || undefined,
     timezone: input.timezone || "Asia/Calcutta",
     sourceService: "API_GATEWAY",
-    feature: input.feature || "BASE_CRM",
-    subFeature: input.subFeature || "BASE_CRM",
-    featureModule: input.featureModule || "BASE_CRM_CORE",
+    feature: input.feature || undefined,
+    subFeature: input.subFeature || undefined,
+    featureModule: input.featureModule || undefined,
     rules: input.rules ?? [],
     discountedAmount: Number(input.discountedAmount ?? amount),
   };
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
 }
