@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AppUser, AppWorkspace } from "../types";
+import type { AppUser, AppWorkspace, PublicTenant } from "../types";
 
 interface AppState {
   user: AppUser | null;
@@ -7,11 +7,13 @@ interface AppState {
   isAuthenticated: boolean;
   hasHydrated: boolean;
   authResolved: boolean;
+  tenant: PublicTenant | null;
   accessToken: string;
   setSession: (user: AppUser, workspace: AppWorkspace, token?: string) => void;
   clearSession: () => void;
   setHasHydrated: (value: boolean) => void;
   setAuthResolved: (value: boolean) => void;
+  setTenant: (tenant: PublicTenant | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -20,6 +22,7 @@ export const useAppStore = create<AppState>((set) => ({
   isAuthenticated: false,
   hasHydrated: false,
   authResolved: false,
+  tenant: null,
   accessToken: "",
   setSession: (user, workspace, token) =>
     set({
@@ -37,4 +40,5 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   setHasHydrated: (value) => set({ hasHydrated: value }),
   setAuthResolved: (value) => set({ authResolved: value }),
+  setTenant: (tenant) => set({ tenant }),
 }));

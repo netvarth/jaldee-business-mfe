@@ -93,6 +93,18 @@ async function selectByTestId(page: Page, testId: string, value: string) {
 async function selectFirstAvailableOption(page: Page, testId: string) {
   const target = page.getByTestId(testId).first();
   if (!(await target.isVisible().catch(() => false))) return false;
+
+  const tagName = await target.evaluate((element) => element.tagName.toLowerCase());
+  if (tagName !== "select") {
+    await target.click();
+    const menu = page.getByTestId(`${testId}-menu`);
+    await expect(menu).toBeVisible({ timeout: UI_TIMEOUT });
+    const firstOption = menu.locator('[role="option"]:visible').first();
+    await expect(firstOption).toBeVisible({ timeout: 5000 });
+    await firstOption.click();
+    await pause(page, 200);
+    return true;
+  }
   
   const started = Date.now();
   while (Date.now() - started < 5000) {
@@ -272,6 +284,11 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       await fillByTestId(page, "hr-settings-company-industry", "Information Technology & Enterprise Software");
       await fillByTestId(page, "hr-settings-company-email", `corporate.${suffix}.test@jaldee.com`);
       await fillPhoneInput(page, "hr-settings-company-phone", "5555000000");
+      await page.getByTestId("hr-settings-company-logourl").setInputFiles({
+        name: "hr-company-logo.png",
+        mimeType: "image/png",
+        buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
+      });
       await fillByTestId(page, "hr-settings-company-addressline", "Tech Park Tower B, Outer Ring Road");
       await fillByTestId(page, "hr-settings-company-city", "Bangalore");
       await fillByTestId(page, "hr-settings-company-state", "Karnataka");

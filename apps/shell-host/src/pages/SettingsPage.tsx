@@ -13,6 +13,7 @@ import {
 import { useShellStore } from "../store/shellStore";
 import { hexToHSL } from "../theme/colorUtils";
 import { validateWhiteLabelCss } from "../theme/whiteLabelCss";
+import { DeveloperSettingsSection } from "./site-generator";
 import "./SettingsPage.css";
 
 type SettingsNavItem = {
@@ -1280,7 +1281,7 @@ export default function SettingsPage() {
       <div className="settings-page__content">
         <PageHeader
           title={activeItem.label}
-          subtitle={activeItem.key === "subscriptions" ? `Manage your plan and the products, modules, and services enabled for ${displayName}` : activeItem.key === "locations" ? "Manage branch locations and operating defaults" : "Your business profile and operating defaults"}
+          subtitle={activeItem.key === "subscriptions" ? `Manage your plan and the products, modules, and services enabled for ${displayName}` : activeItem.key === "locations" ? "Manage branch locations and operating defaults" : activeItem.key === "developer" ? "Site Generator & Developer Tools - Manage site configs, custom page templates, section layouts, and S3 exports." : "Your business profile and operating defaults"}
           actions={
             <>
               {activeItem.key === "locations" && returnTo ? (
@@ -1819,6 +1820,8 @@ export default function SettingsPage() {
               </div>
             </SectionCard>
           </div>
+        ) : activeItem.key === "developer" ? (
+          <DeveloperSettingsSection tenantUid={account?.tenantUid ?? account?.id} />
         ) : (
           <SectionCard className="settings-card">
             <CardHeading icon={activeItem.icon} title={activeItem.label} subtitle="This settings section is routed and ready for implementation." />

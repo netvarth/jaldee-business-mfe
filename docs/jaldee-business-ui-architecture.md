@@ -3754,6 +3754,7 @@ import { Button } from "@jaldee/design-system";
 Rules:
 One primary Button per page section maximum
 Destructive actions always use variant="danger" with a ConfirmDialog
+Mutation and action buttons must be single-flight. Guard the handler against re-entry immediately, then keep the initiating Button loading/disabled until the operation settles. Never rely only on the next React render to prevent a double-click.
 Loading state must be shown during async operations — never disable silently
 Badge
 import { Badge } from "@jaldee/design-system";
@@ -3814,6 +3815,9 @@ import { Input } from "@jaldee/design-system";
 <Input  placeholder="Search patients..." 
   icon={<SearchIcon />} 
 />
+Rules:
+Number inputs must not increment or decrement from the mouse wheel. Use the shared Input component, which removes focus from a number input on wheel while allowing the page or containing panel to continue scrolling.
+Do not add onWheel handlers that call preventDefault() on number inputs, because that traps the user's intended page scroll.
 Textarea
 import { Textarea } from "@jaldee/design-system";
 <Textarea  label="Clinical Notes"  rows={4}  
@@ -4560,6 +4564,10 @@ Tabs must sync with the URL.
 Never use stateful tabs
 Destructive actions need ConfirmDialog. 
 Never allow delete/discharge/write-off without confirmation
+Mutation/action buttons must prevent duplicate execution.
+Use an immediate single-flight guard and keep the Button loading/disabled until the request settles
+Number inputs must ignore wheel-based value changes.
+Use the shared Input behavior and preserve normal page/container scrolling
 Icon-only buttons need a Tooltip
 For accessibility and discoverability
 DataTable row click = navigate to detail page
@@ -6663,9 +6671,16 @@ When the user submits a form or clicks a save/action button, the button enters l
 Button loading state — standard pattern
 function NewPatientForm() {
   const createPatient = useCreatePatient();
+  const submittingRef = useRef(false);
   const onSubmit = async (data: PatientInput) => {
-    await createPatient.mutateAsync(data);
-    navigate("/health/patients");
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await createPatient.mutateAsync(data);
+      navigate("/health/patients");
+    } finally {
+      submittingRef.current = false;
+    }
   };
 
   return (

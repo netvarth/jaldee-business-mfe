@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { useAppStore } from "./store/appStore";
@@ -13,6 +13,7 @@ import ProfilePage from "./pages/ProfilePage";
 import PolicyPage from "./pages/PolicyPage";
 import { telemetryService } from "./services/telemetry";
 import { accountPath, isDomainScopedConsumerSite, isReservedRoute } from "./utils/accountRoutes";
+import { resolvePublicTenant } from "./services/authService";
 
 function PageTracker() {
   const location = useLocation();
@@ -88,12 +89,61 @@ function AppRoutes() {
 function AccountRouteBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
   const accountSlug = location.pathname.split("/").filter(Boolean)[0];
+  const tenant = useAppStore((state) => state.tenant);
+  const setTenant = useAppStore((state) => state.setTenant);
+  const [isTenantLoading, setIsTenantLoading] = useState(true);
+  const [tenantNotFound, setTenantNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!accountSlug || isReservedRoute(accountSlug)) return;
+    let active = true;
+    setIsTenantLoading(true);
+    setTenantNotFound(false);
+    setTenant(null);
+    resolvePublicTenant(accountSlug)
+      .then((resolvedTenant) => {
+        if (active) {
+          setTenant(resolvedTenant);
+          setIsTenantLoading(false);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          console.error(`Unable to resolve consumer site "${accountSlug}".`, error);
+          setTenantNotFound(true);
+          setIsTenantLoading(false);
+        }
+      });
+    return () => { active = false; };
+  }, [accountSlug, setTenant]);
 
   if (isReservedRoute(accountSlug)) {
     return <ConsumerSiteMissingPage />;
   }
 
+  if (isTenantLoading && (!tenant || tenant.customId !== accountSlug)) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading consumer site...</div>;
+  }
+
+  if (tenantNotFound || !tenant) {
+    return <ConsumerSiteNotFoundPage accountSlug={accountSlug} />;
+  }
+
   return <>{children}</>;
+}
+
+function ConsumerSiteNotFoundPage({ accountSlug }: { accountSlug?: string }) {
+  return (
+    <div className="grid min-h-screen place-items-center bg-[#f5f7f2] px-5 text-slate-900">
+      <div className="max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#135c4c]">404</p>
+        <h1 className="mt-3 text-2xl font-semibold">Consumer site not found</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          No consumer site exists for <span className="font-semibold text-slate-900">{accountSlug}</span>.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function AccountRedirect({ to }: { to: string }) {

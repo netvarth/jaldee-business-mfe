@@ -7,6 +7,8 @@ import type {
   SessionResponse,
   AppUser,
   AppWorkspace,
+  GoogleLoginRequest,
+  PublicTenant,
 } from "../types";
 
 const audience = "consumer";
@@ -21,10 +23,10 @@ interface StoredSession {
 
 function authPath(name: "login" | "me" | "logout" | "refresh") {
   const defaults = {
-    login: "/auth-service/consumer/login",
-    me: "/auth-service/consumer/me",
-    logout: "/auth-service/consumer/logout",
-    refresh: "/auth-service/consumer/refresh",
+    login: "/auth-service/v1/api/auth/login/password",
+    me: "/auth-service/v1/api/auth/me",
+    logout: "/auth-service/v1/api/auth/logout",
+    refresh: "/auth-service/v1/api/auth/refresh",
   } as const;
 
   const overrideKey = `VITE_${name.toUpperCase()}_PATH` as const;
@@ -47,6 +49,7 @@ function getConfiguredBaseServiceBaseUrl() {
 function getServiceGatewayPrefix() {
   const prefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
   if (!prefix || prefix === "/") return "";
+  if (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) return "";
   return `/${prefix.replace(/^\/+|\/+$/g, "")}`;
 }
 
@@ -110,6 +113,7 @@ function clearStoredSession() {
   getAccessTokenStorage()?.removeItem(storageKey);
   getStorage()?.removeItem(storageKey);
   getStorage()?.removeItem(refreshStorageKey);
+  setApiClientContext({ authMode, authToken: "" });
 }
 
 function normalizeUser(raw: Record<string, unknown>): AppUser {
@@ -149,7 +153,9 @@ function normalizeSession(data: unknown, tokenFallback?: string, refreshFallback
   return {
     user,
     workspace,
-    token: typeof candidate.token === "string" ? candidate.token : tokenFallback,
+    token: typeof candidate.accessToken === "string"
+      ? candidate.accessToken
+      : typeof candidate.token === "string" ? candidate.token : tokenFallback,
     refreshToken: typeof candidate.refreshToken === "string" ? candidate.refreshToken : refreshFallback,
   };
 }
@@ -162,31 +168,103 @@ function persistTokenSession(session: SessionResponse) {
 }
 
 function normalizeOtpStart(data: unknown, phone: string): PhoneOtpStartResponse {
-  const candidate = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
+  const envelope = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
+  const candidate = typeof envelope.data === "object" && envelope.data !== null
+    ? envelope.data as Record<string, unknown>
+    : typeof envelope.result === "object" && envelope.result !== null
+      ? envelope.result as Record<string, unknown>
+      : envelope;
+  const otpId = String(candidate.otpId ?? candidate.id ?? candidate.uuid ?? "").trim();
+  if (!otpId) {
+    throw new Error("The OTP service did not return an OTP ID. Please request a new code.");
+  }
   return {
-    otpId: String(candidate.otpId ?? candidate.id ?? candidate.uuid ?? ""),
+    otpId,
     phone,
-    consumerExists: candidate.consumerExists === true || candidate.exists === true || candidate.registered === true,
+    consumerExists: true,
     otpLength: typeof candidate.otpLength === "number" ? candidate.otpLength : undefined,
-    maskedDestination: typeof candidate.maskedDestination === "string" ? candidate.maskedDestination : undefined,
+    maskedDestination: typeof candidate.maskedTarget === "string"
+      ? candidate.maskedTarget
+      : typeof candidate.maskedDestination === "string" ? candidate.maskedDestination : undefined,
     expiresInSeconds: typeof candidate.expiresInSeconds === "number" ? candidate.expiresInSeconds : undefined,
     nextResendInSeconds: typeof candidate.nextResendInSeconds === "number" ? candidate.nextResendInSeconds : undefined,
   };
 }
 
+const tenantUidBySlug = new Map<string, string>();
+const publicTenantBySlug = new Map<string, Promise<PublicTenant>>();
+
+export function resolvePublicTenant(accountSlug?: string): Promise<PublicTenant> {
+  const slug = accountSlug?.trim();
+  if (!slug) return Promise.reject(new Error("A consumer account is required."));
+  const cached = publicTenantBySlug.get(slug);
+  if (cached) return cached;
+
+  const request = apiClient.get<unknown>(
+      buildBaseServiceUrl(`/base-service/v1/api/tenant/public/custom-id/${encodeURIComponent(slug)}`),
+      { _skipAuthRefresh: true } as unknown,
+    )
+    .then((response): PublicTenant => {
+      const candidate = typeof response.data === "object" && response.data !== null
+        ? response.data as Record<string, unknown>
+        : {};
+      const tenantUid = String(candidate.uid ?? "");
+      if (!tenantUid) throw new Error("The consumer account could not be resolved.");
+      tenantUidBySlug.set(slug, tenantUid);
+      return {
+        uid: tenantUid,
+        customId: String(candidate.customId ?? slug),
+        tenantName: String(candidate.tenantName ?? ""),
+        brandName: String(candidate.brandName ?? candidate.tenantName ?? ""),
+        timezone: candidate.timezone ? String(candidate.timezone) : undefined,
+        customDomainName: candidate.customDomainName ? String(candidate.customDomainName) : undefined,
+      };
+    })
+    .catch((error) => {
+      publicTenantBySlug.delete(slug);
+      throw error;
+    });
+  publicTenantBySlug.set(slug, request);
+  return request;
+}
+
+async function resolveTenantUid(accountSlug?: string) {
+  const slug = accountSlug?.trim();
+  if (!slug) throw new Error("A consumer account is required.");
+  const cached = tenantUidBySlug.get(slug);
+  if (cached) return cached;
+  return (await resolvePublicTenant(slug)).uid;
+}
+
 async function startPhoneOtp(payload: PhoneOtpStartRequest): Promise<PhoneOtpStartResponse> {
+  const tenantUid = await resolveTenantUid(payload.accountSlug);
   const response = await apiClient.post<unknown>(
     buildAuthServiceUrl(endpoint("CONSUMER_OTP_START_PATH", "/auth-service/v1/api/auth/login/otp/start")),
     {
+      tenantUid,
       identifierType: "MOBILE",
       identifier: payload.phone.trim(),
-      userType: "CONSUMER",
-      accountSlug: payload.accountSlug,
+      userType: "TENANT_CONSUMER",
     },
     { _skipAuthRefresh: true } as unknown,
   );
 
   return normalizeOtpStart(response.data, payload.phone.trim());
+}
+
+async function startPhoneSignup(payload: PhoneOtpStartRequest & { firstName: string; lastName: string }): Promise<PhoneOtpStartResponse> {
+  const tenantUid = await resolveTenantUid(payload.accountSlug);
+  const response = await apiClient.post<unknown>(
+    buildBaseServiceUrl(endpoint("CONSUMER_SIGNUP_OTP_START_PATH", "/base-service/v1/api/tenant/consumer/signup/issue-otp")),
+    {
+      tenantUid,
+      mobile: payload.phone.trim(),
+      firstName: payload.firstName.trim(),
+      lastName: payload.lastName.trim(),
+    },
+    { _skipAuthRefresh: true } as unknown,
+  );
+  return { ...normalizeOtpStart(response.data, payload.phone.trim()), consumerExists: false };
 }
 
 async function verifyPhoneOtp(payload: PhoneOtpVerifyRequest): Promise<SessionResponse> {
@@ -195,10 +273,7 @@ async function verifyPhoneOtp(payload: PhoneOtpVerifyRequest): Promise<SessionRe
     {
       otpId: payload.otpId,
       otp: payload.otp.trim(),
-      identifierType: "MOBILE",
-      identifier: payload.phone.trim(),
-      userType: "CONSUMER",
-      accountSlug: payload.accountSlug,
+      purpose: "TENANT_CONSUMER_PASSWORDLESS_LOGIN",
     },
     { _skipAuthRefresh: true } as unknown,
   );
@@ -216,7 +291,7 @@ async function signupWithPhone(payload: ConsumerSignupRequest): Promise<SessionR
       mobile: payload.phone.trim(),
       firstName: payload.firstName.trim(),
       lastName: payload.lastName.trim(),
-      accountSlug: payload.accountSlug,
+      purpose: "TENANT_CONSUMER_SIGNUP_VERIFY_MOBILE",
     },
     { _skipAuthRefresh: true } as unknown,
   );
@@ -225,19 +300,16 @@ async function signupWithPhone(payload: ConsumerSignupRequest): Promise<SessionR
   return session;
 }
 
-function getGoogleLoginUrl(accountSlug?: string) {
-  const path = endpoint("CONSUMER_GOOGLE_LOGIN_PATH", "/auth-service/v1/api/auth/login/google");
-  const url = new URL(buildAuthServiceUrl(path), window.location.origin);
-  url.searchParams.set("userType", "CONSUMER");
-  if (accountSlug) {
-    url.searchParams.set("accountSlug", accountSlug);
-  }
-  url.searchParams.set("redirectUri", window.location.href);
-  return url.toString();
-}
-
-function startGoogleLogin(accountSlug?: string) {
-  window.location.assign(getGoogleLoginUrl(accountSlug));
+async function loginWithGoogle(payload: GoogleLoginRequest): Promise<SessionResponse> {
+  const tenantUid = await resolveTenantUid(payload.accountSlug);
+  const response = await apiClient.post<unknown>(
+    buildBaseServiceUrl(endpoint("CONSUMER_GOOGLE_LOGIN_PATH", "/base-service/v1/api/tenant/consumer/signup/google")),
+    { tenantUid, idToken: payload.idToken, firstName: payload.firstName, lastName: payload.lastName },
+    { _skipAuthRefresh: true } as unknown,
+  );
+  const session = normalizeSession(response.data);
+  persistTokenSession(session);
+  return session;
 }
 
 async function login(): Promise<SessionResponse> {
@@ -303,7 +375,8 @@ async function logout(): Promise<void> {
 }
 
 export function configureApiClient(onSessionExpired: () => void) {
-  initApiClient(new URL("/api/", window.location.origin).toString().replace(/\/$/, ""));
+  const gatewayPrefix = getServiceGatewayPrefix();
+  initApiClient(new URL(`${gatewayPrefix || "/"}`, window.location.origin).toString().replace(/\/$/, ""));
   setApiClientAuthHandlers({
     refreshSession,
     onSessionExpired: () => {
@@ -318,17 +391,18 @@ export function configureApiClient(onSessionExpired: () => void) {
 }
 
 export function hasStoredAuthSession() {
-  return Boolean(readStoredSession()?.token);
+  const session = readStoredSession();
+  return Boolean(session?.token || session?.refreshToken);
 }
 
 export const consumerAuthService = {
   authMode,
   login,
   startPhoneOtp,
+  startPhoneSignup,
   verifyPhoneOtp,
   signupWithPhone,
-  startGoogleLogin,
-  getGoogleLoginUrl,
+  loginWithGoogle,
   checkSession,
   refreshSession,
   logout,

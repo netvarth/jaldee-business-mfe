@@ -422,14 +422,14 @@ export default function EmployeeDetails() {
     setDocumentSaving(true);
     setDocumentError(null);
     try {
-      const documentUrl = documentForm.status === "SUBMITTED" && documentFiles[0]
+      const attachment = documentForm.status === "SUBMITTED" && documentFiles[0]
         ? await documents.uploadFile(employee.id, documentFiles[0])
         : undefined;
       await documents.create({
         employeeUid: employee.id,
         documentType: documentForm.documentType.trim(),
         status: documentForm.status,
-        documentUrl,
+        attachment,
       });
       setDocumentDialogOpen(false);
     } catch (e) {
@@ -451,6 +451,18 @@ export default function EmployeeDetails() {
       setDocumentSaving(false);
     }
   };
+  const downloadDocument = async (doc: DocumentRequest) => {
+    const filePath = doc.attachment?.filePath || doc.documentUrl;
+    if (!filePath) return;
+    setDocumentError(null);
+    try {
+      const downloadUrl = await documents.resolveDocumentUrl(filePath);
+      if (!downloadUrl) throw new Error("Document download URL is unavailable.");
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setDocumentError(e instanceof Error ? e.message : "Unable to download document.");
+    }
+  };
   const openDocumentStatusDialog = (doc: DocumentRequest) => {
     setSelectedDocumentRequest(doc);
     setDocumentStatusForm({ status: doc.status || "REQUESTED" });
@@ -464,19 +476,19 @@ export default function EmployeeDetails() {
       setDocumentError("Status is required.");
       return;
     }
-    if (documentStatusForm.status === "SUBMITTED" && !documentStatusFiles[0] && !selectedDocumentRequest?.documentUrl) {
+    if (documentStatusForm.status === "SUBMITTED" && !documentStatusFiles[0] && !selectedDocumentRequest?.attachment && !selectedDocumentRequest?.documentUrl) {
       setDocumentError("Upload a file before marking the document as submitted.");
       return;
     }
     setDocumentSaving(true);
     setDocumentError(null);
     try {
-      const documentUrl = documentStatusForm.status === "SUBMITTED" && documentStatusFiles[0]
+      const attachment = documentStatusForm.status === "SUBMITTED" && documentStatusFiles[0]
         ? await documents.uploadFile(employee?.id || selectedDocumentRequest?.employeeUid || "", documentStatusFiles[0])
-        : selectedDocumentRequest?.documentUrl;
+        : selectedDocumentRequest?.attachment;
       await documents.update(uid, {
         documentType: selectedDocumentRequest?.documentType,
-        documentUrl,
+        attachment,
         status: documentStatusForm.status,
       });
       setDocumentStatusDialogOpen(false);
@@ -1312,7 +1324,7 @@ export default function EmployeeDetails() {
                             >
                               <Pencil size={16} />
                             </button>
-                            <a data-testid={`hr-employee-document-download-${d.id}`} href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
+                            <button type="button" data-testid={`hr-employee-document-download-${d.id}`} aria-label={`Download ${d.documentType || "document"}`} disabled={!d.attachment?.filePath && !d.documentUrl} onClick={() => void downloadDocument(d)} style={{ padding: 0, background: "none", border: "none", cursor: d.attachment?.filePath || d.documentUrl ? "pointer" : "not-allowed", color: d.attachment?.filePath || d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)" }}><Download size={16} /></button>
                             <button data-testid={`hr-employee-document-delete-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                           </div>
                         </td>
@@ -1343,7 +1355,7 @@ export default function EmployeeDetails() {
                         >
                           <Pencil size={16} />
                         </button>
-                        <a data-testid={`hr-employee-document-download-card-${d.id}`} href={d.documentUrl || undefined} target="_blank" rel="noreferrer" style={{ color: d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)", pointerEvents: d.documentUrl ? "auto" : "none" }}><Download size={16} /></a>
+                        <button type="button" data-testid={`hr-employee-document-download-card-${d.id}`} aria-label={`Download ${d.documentType || "document"}`} disabled={!d.attachment?.filePath && !d.documentUrl} onClick={() => void downloadDocument(d)} style={{ padding: 0, background: "none", border: "none", cursor: d.attachment?.filePath || d.documentUrl ? "pointer" : "not-allowed", color: d.attachment?.filePath || d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)" }}><Download size={16} /></button>
                         <button data-testid={`hr-employee-document-delete-card-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
                       </div>
                     </div>

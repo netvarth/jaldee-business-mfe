@@ -639,7 +639,11 @@ async function run() {
     await slowType('[data-testid="hr-settings-company-industry"]', "Enterprise Software, AI, Cloud & FinTech", "Industry");
     await slowType('[data-testid="hr-settings-company-email"]', testEmail(`corporate.${suffix}`), "Contact Email");
     await slowType('[data-testid="hr-settings-company-phone-number"]', ENTERPRISE_PHONE, "Phone");
-    await slowType('[data-testid="hr-settings-company-logourl"]', "https://www.jaldee.com/favicon.ico", "Logo URL");
+    await page.locator('[data-testid="hr-settings-company-logourl"]').setInputFiles({
+      name: "hr-company-logo.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
+    });
     await slowType('[data-testid="hr-settings-company-addressline"]', "Crown Tower", "Address");
     await slowType('[data-testid="hr-settings-company-city"]', "Thrissur", "City");
     await slowType('[data-testid="hr-settings-company-state"]', "Kerala", "State");
@@ -651,7 +655,7 @@ async function run() {
     const companyExpectedValues = {
       legalname: enterpriseLegalName,
       industry: "Enterprise Software, AI, Cloud & FinTech", email: testEmail(`corporate.${suffix}`),
-      phone: ENTERPRISE_PHONE, logourl: "https://www.jaldee.com/favicon.ico", addressline: "Crown Tower",
+      phone: ENTERPRISE_PHONE, addressline: "Crown Tower",
       city: "Thrissur", state: "Kerala", country: "India", gstin: "29ABCDE1234F1Z5", pan: "ABCDE1234F",
       currency: "INR", workingdays: "Monday - Friday",
     };

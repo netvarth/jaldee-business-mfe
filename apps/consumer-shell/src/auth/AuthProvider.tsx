@@ -3,15 +3,16 @@ import type { ReactNode } from "react";
 import { useAppStore } from "../store/appStore";
 import { consumerAuthService } from "../services/authService";
 import { clearTelemetryUser, identifyUser } from "../services/telemetry";
-import type { ConsumerSignupRequest, PhoneOtpStartRequest, PhoneOtpStartResponse, PhoneOtpVerifyRequest, SessionResponse } from "../types";
+import type { ConsumerSignupRequest, GoogleLoginRequest, PhoneOtpStartRequest, PhoneOtpStartResponse, PhoneOtpVerifyRequest, SessionResponse } from "../types";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   startPhoneOtp: (payload: PhoneOtpStartRequest) => Promise<PhoneOtpStartResponse>;
+  startPhoneSignup: (payload: PhoneOtpStartRequest & { firstName: string; lastName: string }) => Promise<PhoneOtpStartResponse>;
   verifyPhoneOtp: (payload: PhoneOtpVerifyRequest) => Promise<SessionResponse>;
   signupWithPhone: (payload: ConsumerSignupRequest) => Promise<SessionResponse>;
-  startGoogleLogin: (accountSlug?: string) => void;
+  loginWithGoogle: (payload: GoogleLoginRequest) => Promise<SessionResponse>;
   logout: () => Promise<void>;
 }
 
@@ -94,6 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return applySession(await consumerAuthService.signupWithPhone(payload));
   }
 
+  async function loginWithGoogle(payload: GoogleLoginRequest) {
+    return applySession(await consumerAuthService.loginWithGoogle(payload));
+  }
+
   async function logout() {
     await consumerAuthService.logout();
     clearSession();
@@ -107,9 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         isLoading: !hasHydrated,
         startPhoneOtp: consumerAuthService.startPhoneOtp,
+        startPhoneSignup: consumerAuthService.startPhoneSignup,
         verifyPhoneOtp,
         signupWithPhone,
-        startGoogleLogin: consumerAuthService.startGoogleLogin,
+        loginWithGoogle,
         logout,
       }}
     >

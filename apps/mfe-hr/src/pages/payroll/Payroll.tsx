@@ -328,7 +328,6 @@ export default function Payroll() {
   });
   const [employeeCustomValues, setEmployeeCustomValues] = useState<Record<string, unknown>>({});
   const [overrideDrafts, setOverrideDrafts] = useState<Record<string, EmployeeComponentValue>>({});
-
   const [fieldOpen, setFieldOpen] = useState(false);
   const [fieldForm, setFieldForm] = useState<Partial<PayrollCustomField>>(emptyField);
 
@@ -620,8 +619,8 @@ export default function Payroll() {
       setFieldOpen(false);
       setFieldForm({ ...emptyField });
       setMessage("Custom field saved.");
-    } catch (e) {
-      setMessage(getErrorMessage(e));
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1587,14 +1586,14 @@ export default function Payroll() {
               headers={["Target", "Key", "Label", "Data Type", "Required", "Default"]}
               empty={customFields.data.length === 0 ? "No custom fields configured." : null}
             >
-              {customFields.data.map((field) => (
-                <tr key={field.id}>
-                  <td style={tdStyle}>{labelize(field.targetType)}</td>
-                  <td style={tdStrong}>{field.fieldKey}</td>
-                  <td style={tdStyle}>{field.fieldLabel}</td>
-                  <td style={tdStyle}>{field.dataType}</td>
-                  <td style={tdStyle}>{field.isRequired ? "Yes" : "No"}</td>
-                  <td style={tdStyle}>{field.defaultValue || "-"}</td>
+              {customFields.data.map((customField) => (
+                <tr key={customField.id}>
+                  <td style={tdStyle}>{labelize(customField.targetType)}</td>
+                  <td style={tdStrong}>{customField.fieldKey}</td>
+                  <td style={tdStyle}>{customField.fieldLabel}</td>
+                  <td style={tdStyle}>{customField.dataType}</td>
+                  <td style={tdStyle}>{customField.isRequired ? "Yes" : "No"}</td>
+                  <td style={tdStyle}>{customField.defaultValue || "-"}</td>
                 </tr>
               ))}
             </Table>
@@ -2029,12 +2028,12 @@ function CustomFieldDialog({
       <DialogHeader title="Custom Field" onClose={onClose} />
       <div style={dialogBody}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select label="Target Type" value={form.targetType} onChange={(e) => onChange({ ...form, targetType: e.target.value as CustomFieldTarget })} options={TARGET_TYPES.map((v) => ({ value: v, label: labelize(v) }))} />
-          <Select label="Data Type" value={form.dataType} onChange={(e) => onChange({ ...form, dataType: e.target.value as CustomFieldDataType })} options={FIELD_TYPES.map((v) => ({ value: v, label: labelize(v) }))} />
-          <TextField label="Field Key" required value={form.fieldKey} onChange={(v) => onChange({ ...form, fieldKey: normalizeCode(v).toLowerCase() })} />
-          <TextField label="Field Label" required value={form.fieldLabel} onChange={(v) => onChange({ ...form, fieldLabel: v })} />
-          <TextField label="Default Value" value={form.defaultValue} onChange={(v) => onChange({ ...form, defaultValue: v })} />
-          <ToggleRow label="Required" checked={form.isRequired} onChange={(v) => onChange({ ...form, isRequired: v })} />
+          <Select label="Target Type" value={form.targetType} onChange={(event) => onChange({ ...form, targetType: event.target.value as CustomFieldTarget })} options={TARGET_TYPES.map((value) => ({ value, label: labelize(value) }))} />
+          <Select label="Data Type" value={form.dataType} onChange={(event) => onChange({ ...form, dataType: event.target.value as CustomFieldDataType })} options={FIELD_TYPES.map((value) => ({ value, label: labelize(value) }))} />
+          <TextField label="Field Key" required value={form.fieldKey} onChange={(value) => onChange({ ...form, fieldKey: normalizeCode(value).toLowerCase() })} />
+          <TextField label="Field Label" required value={form.fieldLabel} onChange={(value) => onChange({ ...form, fieldLabel: value })} />
+          <TextField label="Default Value" value={form.defaultValue} onChange={(value) => onChange({ ...form, defaultValue: value })} />
+          <ToggleRow label="Required" checked={form.isRequired} onChange={(value) => onChange({ ...form, isRequired: value })} />
         </div>
       </div>
       <DialogActions busy={busy} onClose={onClose} onSave={onSave} />

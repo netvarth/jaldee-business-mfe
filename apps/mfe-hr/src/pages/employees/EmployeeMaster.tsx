@@ -367,6 +367,19 @@ export default function EmployeeMaster() {
         subtitle="Manage employee profiles, departments, roles, and workforce status."
         actions={
           <div className="employee-master-header-actions">
+            <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
+            {selectedUnassignedEmployeeUids.length > 0 && (
+              <Button
+                type="button"
+                id="hr-employees-assign-location"
+                data-testid="hr-employees-assign-location"
+                variant="primary"
+                icon={<MapPin size={16} />}
+                onClick={() => setAssignLocationOpen(true)}
+              >
+                Assign to Location
+              </Button>
+            )}
             <Button
               id="hr-employees-import-button"
               data-testid="hr-employees-import-button"
@@ -398,61 +411,6 @@ export default function EmployeeMaster() {
         }
       />
       <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
-      <div className="border-b border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] px-4 py-4" data-testid="hr-employees-toolbar">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Search bar hidden for now
-          <div className="flex items-center gap-4">
-            <div className="c-search-bar employee-master-search">
-              <input
-                id="hr-employees-search"
-                data-testid="hr-employees-search"
-                type="text"
-                placeholder="Enter name, email or ID"
-                className="c-search-input"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setPage(1);
-                }}
-              />
-              <svg className="c-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></svg>
-            </div>
-          </div> */}
-          <div className="flex w-full items-center justify-end gap-3 lg:w-auto">
-            {selectedUnassignedEmployeeUids.length > 0 && (
-              <Button
-                type="button"
-                id="hr-employees-assign-location"
-                data-testid="hr-employees-assign-location"
-                variant="primary"
-                icon={<MapPin size={16} />}
-                onClick={() => setAssignLocationOpen(true)}
-              >
-                Assign to Location
-              </Button>
-            )}
-            {/* Filter option hidden for now
-            <Button
-              type="button"
-              id="hr-employees-filter-indicator"
-              data-testid="hr-employees-filter-indicator"
-              variant={appliedFilterCount > 0 ? "primary" : "outline"}
-              className={cn(
-                appliedFilterCount === 0 &&
-                  "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]"
-              )}
-              icon={<FilterIcon />}
-              aria-label="Open employee filters"
-              onClick={openFilters}
-            >
-              Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-            </Button>
-            */}
-            <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
-          </div>
-        </div>
-      </div>
-
       <div data-testid="hr-employees-table-container">
         {viewMode === "table" ? (
           <DataTable

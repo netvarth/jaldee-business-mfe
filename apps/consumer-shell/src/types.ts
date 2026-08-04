@@ -13,6 +13,15 @@ export interface AppWorkspace {
   themeColor?: string;
 }
 
+export interface PublicTenant {
+  uid: string;
+  customId: string;
+  tenantName: string;
+  brandName: string;
+  timezone?: string;
+  customDomainName?: string;
+}
+
 export interface SessionResponse {
   user: AppUser;
   workspace: AppWorkspace;
@@ -45,4 +54,11 @@ export interface PhoneOtpVerifyRequest {
 export interface ConsumerSignupRequest extends PhoneOtpVerifyRequest {
   firstName: string;
   lastName: string;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
+  accountSlug?: string;
+  firstName?: string;
+  lastName?: string;
 }

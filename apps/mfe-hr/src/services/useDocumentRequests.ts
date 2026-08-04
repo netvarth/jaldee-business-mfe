@@ -17,10 +17,31 @@ export interface DocumentRequest {
   documentType?: string;
   status?: string;
   documentUrl?: string;
+  attachment?: DocumentAttachment;
   verifiedByUid?: string;
   expiryDate?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface DocumentAttachment {
+  fileUid: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  filePath: string;
+  caption: string;
+  action: "ADD";
+  owner: string;
+  ownerName: string;
+  ownerType: "TenantUser";
+  contextType: "DOCUMENT";
+  sharedType: "secureShare";
+  tenantUid?: string;
+  uploadedBy?: string;
+  uploadedByName?: string;
+  featureServiceName: "HR";
+  featureModuleName: "HR_EMPLOYEE";
 }
 
 export interface DocumentRequestPayload {
@@ -28,6 +49,7 @@ export interface DocumentRequestPayload {
   documentType: string;
   status?: string;
   documentUrl?: string;
+  attachment?: DocumentAttachment;
   verifiedByUid?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -130,25 +152,27 @@ export function useDocumentRequests(
     const tenantUid = account.tenantUid ?? account.id;
     const userName = user.name || "User";
 
+    const attachmentMetadata = {
+      action: "ADD" as const,
+      caption: "",
+      contextType: "DOCUMENT" as const,
+      featureModuleName: "HR_EMPLOYEE" as const,
+      featureServiceName: "HR" as const,
+      fileName: file.name,
+      fileType: resolveFileType(file),
+      fileSize: file.size,
+      owner: ownerId,
+      ownerName: userName,
+      ownerType: "TenantUser" as const,
+      sharedType: "secureShare" as const,
+      tenantUid,
+      uploadedBy: user.id,
+      uploadedByName: userName,
+    };
+
     const targetResponse = await shellApi.post<DocumentUploadTarget>(
       buildBaseServiceUrl("/platform-service/v1/api/drive/initiate-upload"),
-      {
-        action: "ADD",
-        caption: file.name,
-        contextType: "DOCUMENT",
-        featureModuleName: "HR_EMPLOYEE",
-        featureServiceName: "HR",
-        fileName: file.name,
-        fileType: resolveFileType(file),
-        fileSize: file.size,
-        owner: ownerId,
-        ownerName: userName,
-        ownerType: "TenantUser",
-        sharedType: "secureShare",
-        tenantUid,
-        uploadedBy: user.id,
-        uploadedByName: userName,
-      },
+      attachmentMetadata,
       { _skipLocationParam: true } as any
     );
 
@@ -169,7 +193,11 @@ export function useDocumentRequests(
       { _skipLocationParam: true } as any
     );
 
-    return target.filePath || "";
+    return {
+      ...attachmentMetadata,
+      fileUid: target.fileUid,
+      filePath: target.filePath || "",
+    } satisfies DocumentAttachment;
   }, [account.id, account.tenantUid, shellApi, user.id, user.name]);
 
   const resolveDocumentUrl = useCallback(async (filePathOrUrl?: string | null) => {

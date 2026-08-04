@@ -2,6 +2,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { homeTemplate } from "../data/homeTemplate";
 import type { HomeAction, HomeSection } from "../data/homeTemplate";
 import { accountPath } from "../utils/accountRoutes";
+import { useAppStore } from "../store/appStore";
+
+function tenantInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || homeTemplate.header.logoText;
+}
 
 function navigateToAction(action: HomeAction, navigate: ReturnType<typeof useNavigate>, accountSlug?: string) {
   if (action.link.startsWith("#")) {
@@ -42,15 +47,17 @@ function ActionButton({ action, tone = "light" }: { action: HomeAction; tone?: "
 
 function Header() {
   const { accountSlug } = useParams();
+  const tenant = useAppStore((state) => state.tenant);
+  const displayName = tenant?.brandName || tenant?.tenantName || homeTemplate.header.title;
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
         <Link to={accountPath(accountSlug)} className="flex items-center gap-3 text-slate-950">
           <span className="grid h-9 w-9 place-items-center rounded-md bg-[#135c4c] text-sm font-bold text-white">
-            {homeTemplate.header.logoText}
+            {tenantInitials(displayName)}
           </span>
-          <span className="text-base font-semibold">{homeTemplate.header.title}</span>
+          <span className="text-base font-semibold">{displayName}</span>
         </Link>
         <nav className="hidden items-center gap-2 md:flex">
           {homeTemplate.header.navigation.map((item) => (
@@ -232,13 +239,14 @@ function renderSection(section: HomeSection) {
 
 function Footer() {
   const { accountSlug } = useParams();
+  const tenant = useAppStore((state) => state.tenant);
 
   if (!homeTemplate.footer.visible) return null;
 
   return (
     <footer className="bg-slate-950 px-5 pb-24 pt-10 text-white md:pb-10">
       <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 md:flex-row md:items-center">
-        <p className="text-lg font-semibold">{homeTemplate.footer.title}</p>
+        <p className="text-lg font-semibold">{tenant?.brandName || tenant?.tenantName || homeTemplate.footer.title}</p>
         <nav className="flex flex-wrap gap-3">
           {homeTemplate.footer.links.map((item) => (
             <Link key={item.label} to={accountPath(accountSlug, item.link)} className="text-sm text-slate-300 hover:text-white">

@@ -148,6 +148,8 @@ export type { TimelineProps, TimelineEvent } from "./components/Timeline/Timelin
 export { KanbanBoard }                    from "./components/KanbanBoard/KanbanBoard";
 export type { KanbanBoardProps, KanbanColumn, KanbanItem } from "./components/KanbanBoard/KanbanBoard";
 
+
+
 export { LiveQueue }                      from "./components/LiveQueue/LiveQueue";
 export type { LiveQueueProps, LiveQueueItem } from "./components/LiveQueue/LiveQueue";
 
@@ -156,3 +158,6 @@ export type { VitalsChartProps, VitalPoint } from "./components/VitalsChart/Vita
 
 export { Calendar }                       from "./components/Calendar/Calendar";
 export type { CalendarProps, CalendarEvent } from "./components/Calendar/Calendar";
+
+export * from "./components/widgets";
+

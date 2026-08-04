@@ -121,7 +121,8 @@ function normalizeServiceGatewayUrl(url?: string): string {
   normalized = normalized.startsWith("/") ? normalized : `/${normalized}`;
   const metaEnv = (import.meta as any).env;
   const configuredPrefix = (typeof metaEnv === "object" && metaEnv ? metaEnv.VITE_SERVICE_GATEWAY_PREFIX : "")?.trim();
-  const gatewayPrefix = configuredPrefix && configuredPrefix !== "/"
+  const isLocalHost = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const gatewayPrefix = !isLocalHost && configuredPrefix && configuredPrefix !== "/"
     ? `/${configuredPrefix.replace(/^\/+|\/+$/g, "")}`
     : "";
 

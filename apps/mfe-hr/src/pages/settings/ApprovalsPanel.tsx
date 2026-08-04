@@ -6,7 +6,7 @@ import {
   type ApprovalChain, type ApprovalChainStep, type ApprovalRequestType, type ApproverResolverType,
 } from "../../services/useApprovals";
 import { useEmployees } from "../../services/useEmployees";
-import { PanelHeader } from "./SettingsComponents";
+import { PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 
 const TEAL = "var(--primary-color)";
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--light-text)" };
@@ -101,9 +101,11 @@ export default function ApprovalsPanel() {
         {chains.loading ? (
           <div style={{ padding: "40px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={18} className="animate-spin" style={{ display: "inline" }} /></div>
         ) : chains.data.length === 0 ? (
-          <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--light-text)", fontSize: 13 }}>
-            No approval chains configured. Requests use the legacy single-step approval until a chain is added.
-          </div>
+          <SettingsEmptyState
+            title="No approval chains"
+            description="Requests use single-step approval until a chain is added."
+            compact
+          />
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>

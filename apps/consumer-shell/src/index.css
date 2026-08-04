@@ -1,3 +1,5 @@
+@import "../../../packages/design-system/src/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,4 +16,89 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+.consumer-login-phone-control {
+  min-height: 48px;
+}
+
+.consumer-login-otp input {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 12px;
+}
+
+.consumer-otp-shell {
+  width: 100%;
+}
+
+.consumer-otp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.consumer-otp-card {
+  padding: 18px 18px 8px;
+  text-align: center;
+}
+
+.consumer-otp-icon {
+  display: inline-flex;
+  width: 72px;
+  height: 72px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ecfdf9 0%, #e4f7f2 100%);
+  color: #0f766e;
+}
+
+.consumer-otp-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.consumer-otp-copy {
+  max-width: 340px;
+  margin: 12px auto 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.consumer-otp-form {
+  margin-top: 28px;
+}
+
+.consumer-otp-submit {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: #0f172a;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.consumer-otp-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }

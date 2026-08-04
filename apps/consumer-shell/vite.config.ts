@@ -17,6 +17,11 @@ export default defineConfig(({ mode }) => {
       port: 3010,
       strictPort: true,
       proxy: {
+        "/base-service": {
+          target: env.VITE_BASE_SERVICE_PROXY_TARGET || env.VITE_CONSUMER_SERVICE_PROXY_TARGET,
+          changeOrigin: true,
+          secure: false,
+        },
         "/auth-service": {
           target: env.VITE_AUTH_SERVICE_PROXY_TARGET,
           changeOrigin: true,

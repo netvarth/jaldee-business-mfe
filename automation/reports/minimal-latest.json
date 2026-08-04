@@ -1,0 +1,120 @@
+{
+  "startedAt": "2026-07-30T12:05:08.693Z",
+  "completedAt": "2026-07-30T12:09:57.309Z",
+  "durationMs": 288616,
+  "summary": {
+    "passed": 15,
+    "failed": 1,
+    "skipped": 2
+  },
+  "results": [
+    {
+      "status": "passed",
+      "section": "SIGNUP ONBOARDING - COMPLETE ALL 4 STEPS",
+      "message": "[Verified] HR is the only onboarding solution selected",
+      "timestamp": "2026-07-30T12:05:36.328Z"
+    },
+    {
+      "status": "passed",
+      "section": "3. SETTINGS - ADD 5 IT DEPARTMENTS",
+      "message": "[Verified] Department updated: \"Software Engineering 108698 Updated\"",
+      "timestamp": "2026-07-30T12:06:23.785Z"
+    },
+    {
+      "status": "passed",
+      "section": "4. SETTINGS - ADD 5 IT ROLES / DESIGNATIONS",
+      "message": "[Verified] Role updated: \"Senior Full Stack Engineer 108698 Updated\"",
+      "timestamp": "2026-07-30T12:06:49.612Z"
+    },
+    {
+      "status": "passed",
+      "section": "5. SETTINGS - ADD 5 IT SHIFTS",
+      "message": "[Verified] Shift updated: \"Day Development Shift 108698 Updated\"",
+      "timestamp": "2026-07-30T12:07:04.905Z"
+    },
+    {
+      "status": "passed",
+      "section": "7. SETTINGS - ADD 5 IT HOLIDAYS",
+      "message": "[Verified] Holiday updated: \"Republic Day 108698 Updated\"",
+      "timestamp": "2026-07-30T12:07:28.047Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
+      "message": "[Verified] Policy Rule processed for tab \"attendance\": \"Attendance Punch Rule 108698\"",
+      "timestamp": "2026-07-30T12:07:43.972Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
+      "message": "[Verified] Policy Rule processed for tab \"leave\": \"Leave Policy Rule 108698\"",
+      "timestamp": "2026-07-30T12:07:46.798Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
+      "message": "[Verified] Policy Rule processed for tab \"payroll\": \"Payroll Guard Rule 108698\"",
+      "timestamp": "2026-07-30T12:07:49.615Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
+      "message": "[Verified] Policy Rule processed for tab \"lifecycle\": \"Lifecycle Confirmation Rule 108698\"",
+      "timestamp": "2026-07-30T12:07:52.378Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
+      "message": "[Verified] Policy Rule processed for tab \"approvals\": \"Approvals Routing Rule 108698\"",
+      "timestamp": "2026-07-30T12:07:55.095Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
+      "message": "[Verified] Policy Rule processed for tab \"alerts\": \"Tenure Alert Rule 108698\"",
+      "timestamp": "2026-07-30T12:07:57.846Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - APPROVAL CHAINS",
+      "message": "[Verified] Approval Chain processed: \"Two-Level Leave Chain 108698\"",
+      "timestamp": "2026-07-30T12:08:01.287Z"
+    },
+    {
+      "status": "passed",
+      "section": "8. EMPLOYEE MASTER - CREATE 1 IT ENGINEER EMPLOYEE",
+      "message": "[Verified] Employee created: \"Rahul Sharma 108698\" (019fb2ec-c30f-7722-a125-d75c398ef9dc)",
+      "timestamp": "2026-07-30T12:08:09.376Z"
+    },
+    {
+      "status": "passed",
+      "section": "SETTINGS - ASSIGN LEAVE BALANCE TO CURRENT-RUN EMPLOYEE",
+      "message": "[Verified] Leave balance assigned to current-run employee: \"Rahul Sharma 108698\"",
+      "timestamp": "2026-07-30T12:08:18.234Z"
+    },
+    {
+      "status": "passed",
+      "section": "ATTENDANCE ACTIONS",
+      "message": "[Verified] Attendance location uses 10.5116834, 76.2164267",
+      "timestamp": "2026-07-30T12:08:59.956Z"
+    },
+    {
+      "status": "skipped",
+      "section": "LEAVE PENDING REQUESTS",
+      "message": "[Skip] Inspect Pending Leave: no matching record/action available",
+      "timestamp": "2026-07-30T12:09:44.062Z"
+    },
+    {
+      "status": "skipped",
+      "section": "COMPANY LEAVE LEDGER",
+      "message": "[Skip] View Ledger Leave: no matching record/action available",
+      "timestamp": "2026-07-30T12:09:46.204Z"
+    },
+    {
+      "status": "failed",
+      "section": "PAYROLL COMPONENTS",
+      "message": "locator.waitFor: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('tr').filter({ hasText: 'Basic Salary' }).first() to be visible\u001b[22m\n",
+      "timestamp": "2026-07-30T12:09:57.309Z"
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import {
   type StructureComponentMapping,
   type CalculationType,
 } from "../../services/usePayrollData";
-import { ConfigForm, PanelHeader } from "./SettingsComponents";
+import { ConfigForm, PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 
 export function PayrollSettingsPage() {
   const [tab, setTab] = useState<"general" | "structures">("general");
@@ -233,9 +233,7 @@ function SalaryStructuresManager() {
       {structuresHook.loading ? (
         <div className="p-8 text-center text-sm text-gray-500">Loading structures…</div>
       ) : structuresHook.data.length === 0 ? (
-        <div className="p-12 text-center text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl">
-          No salary structures defined yet. Click "+ Add Structure" to create one.
-        </div>
+        <SettingsEmptyState title="No salary structures" description="Add a structure to define salary packages and component mappings." />
       ) : (
         <div className="space-y-6">
           {structuresHook.data.map((structure) => {

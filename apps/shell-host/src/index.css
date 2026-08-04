@@ -1,4 +1,5 @@
 @import "../../../packages/design-system/src/tokens.css";
+@import "../../../packages/design-system/src/components/widgets/widgets.css";
 
 @tailwind base;
 @tailwind components;

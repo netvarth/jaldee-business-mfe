@@ -370,6 +370,7 @@ function getConfiguredBaseServiceBaseUrl() {
 function getServiceGatewayPrefix() {
   const prefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
   if (!prefix || prefix === "/") return "";
+  if (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) return "";
   return `/${prefix.replace(/^\/+|\/+$/g, "")}`;
 }
 

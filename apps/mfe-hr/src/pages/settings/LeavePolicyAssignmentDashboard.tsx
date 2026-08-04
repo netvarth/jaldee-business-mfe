@@ -5,7 +5,7 @@ import { Dialog, Select, Input, Checkbox, Textarea, Skeleton, SkeletonTable, Mul
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
-import { TEAL, lbl, th, tdc, card, PanelHeader, ErrorBar, Center, LEAVE_CATEGORY_OPTIONS, leaveCategoryLabel, type Crud, type Row } from "./SettingsComponents";
+import { TEAL, lbl, th, tdc, card, PanelHeader, SettingsEmptyState, ErrorBar, Center, LEAVE_CATEGORY_OPTIONS, leaveCategoryLabel, type Crud, type Row } from "./SettingsComponents";
 
 function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { setStatus: (uid: string, status: "Enabled" | "Disabled") => Promise<void> } }) {
   const { eventBus } = useMFEProps();
@@ -237,7 +237,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
               <thead><tr><th style={th}>Leave Type</th><th style={th}>Category</th><th style={th}>Quota</th><th style={th}>Accrual</th><th style={th}>Rules</th><th style={th}>Color</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
               <tbody>
                 {leaveTypes.data.length === 0 ? (
-                  <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "36px 0" }}>No leave types configured.</td></tr>
+                  <tr><td colSpan={7}><SettingsEmptyState title="No leave types" description="Add a leave type before assigning balance periods." compact /></td></tr>
                 ) : leaveTypes.data.map((policy) => (
                   <tr key={policy.id}>
                     <td style={tdc}><b>{policy.name as string}</b></td>
@@ -356,7 +356,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
                     <thead><tr><th style={th}>Select</th><th style={th}>Employee</th><th style={th}>Department</th><th style={th}>Status</th></tr></thead>
                     <tbody>
                       {filteredEmployees.length === 0 ? (
-                        <tr><td colSpan={4} style={{ ...tdc, textAlign: "center", ...lbl, padding: "30px 0" }}>No active employees found.</td></tr>
+                        <tr><td colSpan={4}><SettingsEmptyState title="No active employees" description="No employees match the current assignment search." compact /></td></tr>
                       ) : filteredEmployees.map((employee) => (
                         <tr key={employee.id}>
                           <td style={tdc}><input id={`hr-settings-leave-employee-${employee.id}`} data-testid={`hr-settings-leave-employee-${employee.id}`} type="checkbox" checked={selectedEmployeeUids.includes(employee.id)} onChange={() => toggleEmployee(employee.id)} /></td>

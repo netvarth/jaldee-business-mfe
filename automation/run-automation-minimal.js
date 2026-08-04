@@ -648,7 +648,11 @@ async function run() {
   await slowType('[data-testid="hr-settings-company-industry"]', "Information Technology & Enterprise Software", "Industry");
   await slowType('[data-testid="hr-settings-company-email"]', `corporate.${suffix}.test@jaldee.com`, "Contact Email");
   await slowType('[data-testid="hr-settings-company-phone-number"]', "5555000000", "Phone");
-  await slowType('[data-testid="hr-settings-company-logourl"]', "https://www.jaldee.com/favicon.ico", "Logo URL");
+  await page.locator('[data-testid="hr-settings-company-logourl"]').setInputFiles({
+    name: "hr-company-logo.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
+  });
   await slowType('[data-testid="hr-settings-company-addressline"]', "Crown Tower", "Address");
   await slowType('[data-testid="hr-settings-company-city"]', "Thrissur", "City");
   await slowType('[data-testid="hr-settings-company-state"]', "Kerala", "State");
@@ -660,7 +664,7 @@ async function run() {
   const companyExpectedValues = {
     name: `Dhyandarsh IT Technologies ${suffix}`, legalname: "Dhyandarsh IT Technologies Private Limited",
     industry: "Information Technology & Enterprise Software", email: `corporate.${suffix}.test@jaldee.com`,
-    phone: "5555000000", logourl: "https://www.jaldee.com/favicon.ico", addressline: "Crown Tower",
+    phone: "5555000000", addressline: "Crown Tower",
     city: "Thrissur", state: "Kerala", country: "India", gstin: "29ABCDE1234F1Z5", pan: "ABCDE1234F",
     currency: "INR", workingdays: "Monday - Friday",
   };
@@ -1948,9 +1952,7 @@ async function run() {
         console.log(`   [Skip] Separation ${outcome} row not confirmed; continuing`);
       }
     };
-    await actOnExitRequest("Rejected", 1).catch(e => console.log(`   [Skip Error] Separation Rejected: ${e.message}`));
-    await actOnExitRequest("Cancelled", 2).catch(e => console.log(`   [Skip Error] Separation Cancelled: ${e.message}`));
-    await actOnExitRequest("Approved", 3).catch(e => console.log(`   [Skip Error] Separation Approved: ${e.message}`));
+    await actOnExitRequest("Approved", 1).catch(e => console.log(`   [Skip Error] Separation Approved: ${e.message}`));
   }
 
 

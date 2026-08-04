@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table } from "lucide-react";
-import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table, ImageIcon, Upload } from "lucide-react";
+import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, EmptyState, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -36,7 +36,7 @@ const LEAVE_CATEGORY_OPTIONS = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
-type FieldType = "text" | "phone" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea";
+type FieldType = "text" | "phone" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea" | "file";
 interface Field {
   key: string;
   label: string;
@@ -117,6 +117,9 @@ function buildPayload(fields: Field[], form: Row): Row {
 }
 
 function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: unknown; onChange: (v: unknown) => void; automationKey: string }) {
+  if (f.type === "file") {
+    return <LogoFileInput value={value} onChange={onChange} automationKey={automationKey} label={f.label} />;
+  }
   if (f.type === "phone") {
     return (
       <PhoneInput
@@ -260,11 +263,67 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
   );
 }
 
+function LogoFileInput({ value, onChange, automationKey, label }: {
+  value: unknown;
+  onChange: (value: File) => void;
+  automationKey: string;
+  label: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectedFile = value instanceof File ? value : null;
+  const currentUrl = typeof value === "string" ? value : "";
+  const previewUrl = useMemo(
+    () => selectedFile ? URL.createObjectURL(selectedFile) : currentUrl,
+    [currentUrl, selectedFile],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (selectedFile && previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl, selectedFile]);
+
+  function selectFile(file?: File) {
+    if (!file) return;
+    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) return;
+    if (file.size > 2 * 1024 * 1024) return;
+    onChange(file);
+  }
+
+  return (
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-5 rounded-xl border border-[var(--border-color)] bg-slate-50/50 p-5">
+      <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-[var(--border-color)] bg-white">
+        {previewUrl
+          ? <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-contain" />
+          : <ImageIcon size={24} className="text-[var(--light-text)]" />}
+      </div>
+      <div className="flex min-w-[160px] flex-1 flex-col items-start text-left">
+        <Button type="button" variant="secondary" className="whitespace-nowrap" icon={<Upload size={15} />} onClick={() => inputRef.current?.click()}>
+          {previewUrl ? "Change logo" : "Upload logo"}
+        </Button>
+        <p className="mt-3 text-xs leading-5 text-[var(--light-text)]">PNG, JPG or WebP<br />Maximum file size: 2 MB</p>
+        {selectedFile ? <p className="mt-1 max-w-full truncate text-xs font-medium text-[var(--dark-text)]">{selectedFile.name}</p> : null}
+        {selectedFile ? <p className="mt-0.5 text-xs text-[var(--light-text)]">Uploads when changes are saved</p> : null}
+        <input
+          ref={inputRef}
+          id={automationKey}
+          data-testid={automationKey}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(event) => selectFile(event.target.files?.[0])}
+        />
+      </div>
+    </div>
+  );
+}
+
 /* ---- Singleton config form ---- */
-function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSave, automationScope }: {
+function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSave, automationScope, layout }: {
   title: string; subtitle: string; icon: ReactNode; fields: Field[];
   data: Row | null; loading: boolean; error: string | null; onSave: (p: Row) => Promise<void>;
   automationScope: string;
+  layout?: "companyProfile";
 }) {
   const { eventBus } = useMFEProps();
   const [form, setForm] = useState<Row>({});
@@ -291,6 +350,21 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
     }
   };
 
+  const renderField = (f: Field) => (
+    <div key={f.key} className={f.type === "file" ? "self-center" : undefined} style={{ gridColumn: f.full && layout !== "companyProfile" ? "1 / -1" : undefined }}>
+      {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
+      <FieldInput
+        f={f}
+        automationKey={`${automationScope}-${slugify(f.key)}`}
+        value={form[f.key]}
+        onChange={(value) => setForm((previous) => ({ ...previous, [f.key]: value }))}
+      />
+    </div>
+  );
+
+  const fieldByKey = (key: string) => fields.find((fieldItem) => fieldItem.key === key);
+  const companyReservedKeys = new Set(["logoUrl", "name", "legalName", "industry", "email", "phone"]);
+
   return (
     <div>
       <PanelHeader title={title} subtitle={subtitle} icon={icon} />
@@ -307,14 +381,26 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px]">
-              {fields.map((f) => (
-                <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
-                  {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
-                  <FieldInput f={f} automationKey={`${automationScope}-${slugify(f.key)}`} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
+            {layout === "companyProfile" ? (
+              <div className="space-y-[18px]">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-[18px] items-start">
+                  <div className="grid min-w-0 grid-cols-1 gap-[18px]">
+                    {(["name", "legalName", "industry"] as const).map((key) => fieldByKey(key) ? renderField(fieldByKey(key)!) : null)}
+                  </div>
+                  {fieldByKey("logoUrl") ? renderField(fieldByKey("logoUrl")!) : null}
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-[18px]">
+                  {(["email", "phone"] as const).map((key) => fieldByKey(key) ? renderField(fieldByKey(key)!) : null)}
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-[18px]">
+                  {fields.filter((fieldItem) => !companyReservedKeys.has(fieldItem.key)).map(renderField)}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px]">
+                {fields.map(renderField)}
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 14, marginTop: 22 }}>
               <Button id={`${automationScope}-save`} data-testid={`${automationScope}-save`} variant="primary" onClick={save} loading={saving} icon={<Save size={16} />}>Save Changes</Button>
             </div>
@@ -509,7 +595,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
                 onPageChange(1);
               } : undefined,
             } : undefined}
-            emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">No records yet.</div>}
+            emptyState={<SettingsEmptyState title="No records yet" compact />}
             className="rounded-none border-0 shadow-none min-w-[640px]"
             tableClassName="[&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em]"
           />
@@ -517,7 +603,7 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
       ) : (
         <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto border border-slate-200 bg-white rounded-xl shadow-xs">
           {hook.data.length === 0 ? (
-            <div className="col-span-full py-12 text-center text-sm font-semibold text-slate-500">No records yet.</div>
+            <SettingsEmptyState title="No records yet" compact className="col-span-full" />
           ) : (
             hook.data.map((row) => (
               <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
@@ -615,7 +701,7 @@ const PanelHeader = ({ title, subtitle, icon, action }: { title: string; subtitl
   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
       <div style={{ height: 38, width: 38, borderRadius: 12, background: "rgba(17,94,89,0.08)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
-      <div style={{ minWidth: 0 }}><h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.3px", color: "var(--dark-text)", margin: 0 }}>{title}</h2><p style={{ ...lbl, marginTop: 2 }}>{subtitle}</p></div>
+      <div style={{ minWidth: 0 }}><h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.3px", color: "var(--dark-text)", margin: 0 }}>{title}</h2><SettingsSubtitle>{subtitle}</SettingsSubtitle></div>
     </div>
     {action && (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginLeft: "auto", flexShrink: 0 }}>
@@ -623,6 +709,23 @@ const PanelHeader = ({ title, subtitle, icon, action }: { title: string; subtitl
       </div>
     )}
   </div>
+);
+const SettingsSubtitle = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+  <p className={`mt-0.5 text-[13px] font-normal text-gray-500 ${className}`.trim()}>{children}</p>
+);
+const SettingsEmptyState = ({ title, description, action, compact = false, className = "" }: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  compact?: boolean;
+  className?: string;
+}) => (
+  <EmptyState
+    title={title}
+    description={description}
+    action={action}
+    className={`${compact ? "!px-6 !py-10" : ""} ${className}`.trim()}
+  />
 );
 const ErrorBar = ({ text }: { text: string }) => <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertCircle size={16} /> {text}</div>;
 const Center = ({ children }: { children: ReactNode }) => <div style={{ display: "flex", justifyContent: "center", padding: "40px 0", color: "var(--light-text)" }}>{children}</div>;
@@ -632,5 +735,5 @@ const ghostBtn: CSSProperties = { height: 36, padding: "0 16px", borderRadius: 1
 const primaryBtn: CSSProperties = { height: 36, padding: "0 18px", borderRadius: 10, border: "none", background: TEAL, color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 };
 const iconAction: CSSProperties = { height: 30, width: 30, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--light-text)", cursor: "pointer", marginLeft: 4, display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
-export { ConfigForm, CrudPanel, FieldInput, PanelHeader, ErrorBar, Center, TEAL, lbl, th, tdc, card, yesNo, LEAVE_CATEGORY_OPTIONS, leaveCategoryLabel };
+export { ConfigForm, CrudPanel, FieldInput, PanelHeader, SettingsSubtitle, SettingsEmptyState, ErrorBar, Center, TEAL, lbl, th, tdc, card, yesNo, LEAVE_CATEGORY_OPTIONS, leaveCategoryLabel };
 export type { Field, Row, Crud };

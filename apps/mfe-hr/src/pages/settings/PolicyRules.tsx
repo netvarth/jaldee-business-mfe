@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { LayoutGrid, Table } from "lucide-react";
+import { LayoutGrid, Sliders, Table } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge } from "@jaldee/design-system";
 import {
   usePolicyRules, CATALOG, domainDef, actionsForCondition,
@@ -8,6 +8,7 @@ import {
 import { useDepartments, useDesignations } from "../../services/useSettingsData";
 import { useBranches } from "../../services/useBranches";
 import { useEmployees } from "../../services/useEmployees";
+import { PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 
 /** Fixed employment-type options (enum names the backend matches on). */
 const EMPLOYMENT_TYPE_OPTIONS = [
@@ -88,10 +89,11 @@ export default function PolicyRules() {
 
   return (
     <div id="hr-settings-policy-rules-panel" data-testid="hr-settings-policy-rules-panel" className="p-3 sm:p-4 lg:p-5">
-      <div className="mb-2">
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Policy Rules</h1>
-        <p className="text-xs text-gray-500 mt-0.5">One place to define condition → action rules across HR.</p>
-      </div>
+      <PanelHeader
+        title="Policy Rules"
+        subtitle="One place to define condition → action rules across HR."
+        icon={<Sliders size={20} />}
+      />
 
       {/* domain tabs */}
       <div className="flex gap-6 border-b border-gray-200 mt-4 mb-6 overflow-x-auto whitespace-nowrap scrollbar-none">
@@ -145,7 +147,7 @@ export default function PolicyRules() {
         ) : loading ? (
           <div className="p-6 text-sm text-gray-500">Loading…</div>
         ) : rules.length === 0 ? (
-          <div className="py-12 text-center text-gray-500 text-sm">No rules yet. Add one to start.</div>
+          <SettingsEmptyState title="No policy rules" description="Add a rule to start applying HR conditions and actions." compact />
         ) : viewMode === "table" ? (
           <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
             <table id="hr-settings-policy-rules-table" data-testid="hr-settings-policy-rules-table" className="w-full text-sm min-w-[640px]">

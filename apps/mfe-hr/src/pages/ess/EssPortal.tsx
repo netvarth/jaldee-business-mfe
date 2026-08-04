@@ -505,10 +505,10 @@ export default function EssPortal() {
     setDocumentSubmitBusy(true);
     setDocumentSubmitError(null);
     try {
-      const documentUrl = await documents.uploadFile(employeeUid, documentFiles[0]);
+      const attachment = await documents.uploadFile(employeeUid, documentFiles[0]);
       await documents.update(uid, {
         documentType: selectedDocument?.documentType,
-        documentUrl,
+        attachment,
         status: "SUBMITTED",
       });
       setDocumentDialogOpen(false);
@@ -1013,7 +1013,8 @@ export default function EssPortal() {
                           <tbody>
                             {documentRows.map((item, index) => {
                               const status = (item.status || "REQUESTED").toUpperCase();
-                              const actionLabel = item.documentUrl ? "View" : status === "VERIFIED" ? "Verified" : "Submit";
+                              const documentFilePath = item.attachment?.filePath || item.documentUrl;
+                              const actionLabel = documentFilePath ? "View" : status === "VERIFIED" ? "Verified" : "Submit";
                               return (
                                 <tr key={item.id || `${item.documentType ?? "document"}-${index}`}>
                                   <td className="border-b px-3 py-4 font-semibold text-slate-950">{item.documentType || "Document"}</td>
@@ -1023,10 +1024,10 @@ export default function EssPortal() {
                                   <td className="border-b px-3 py-4 text-slate-500">{formatDate(item.updatedAt || item.createdAt)}</td>
                                   <td className="border-b px-3 py-4 text-right">
                                     <div className="inline-flex gap-2">
-                                      {item.documentUrl ? (
+                                      {documentFilePath ? (
                                         <button
                                           type="button"
-                                          onClick={() => void openSubmittedDocument(item.documentUrl)}
+                                          onClick={() => void openSubmittedDocument(documentFilePath)}
                                           className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                                         >
                                           {actionLabel}
@@ -1052,15 +1053,16 @@ export default function EssPortal() {
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {documentRows.map((item, index) => {
                           const status = (item.status || "REQUESTED").toUpperCase();
+                          const documentFilePath = item.attachment?.filePath || item.documentUrl;
                           return (
                             <DocumentRequestCard
                               key={item.id || `${item.documentType ?? "document"}-${index}`}
                               title={item.documentType || "Document"}
                               status={status}
                               updated={formatDate(item.updatedAt || item.createdAt)}
-                              hasFile={!!item.documentUrl}
-                              onView={item.documentUrl ? () => void openSubmittedDocument(item.documentUrl) : undefined}
-                              onSubmit={!item.documentUrl ? () => openDocumentSubmit(item) : undefined}
+                              hasFile={!!documentFilePath}
+                              onView={documentFilePath ? () => void openSubmittedDocument(documentFilePath) : undefined}
+                              onSubmit={!documentFilePath ? () => openDocumentSubmit(item) : undefined}
                             />
                           );
                         })}

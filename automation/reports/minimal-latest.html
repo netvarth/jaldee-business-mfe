@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minimal HR Automation Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #172033; }
+    .summary { display: flex; gap: 16px; margin: 24px 0; }
+    .card { min-width: 120px; padding: 16px; border: 1px solid #dbe2ea; border-radius: 10px; }
+    .count { display: block; margin-top: 6px; font-size: 28px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; border-bottom: 1px solid #e5e9ef; text-align: left; vertical-align: top; }
+    .status { font-weight: 700; text-transform: uppercase; }
+    .passed { color: #137333; } .failed { color: #b3261e; } .skipped { color: #8a5100; }
+  </style>
+</head>
+<body>
+  <h1>Minimal HR Automation Report</h1>
+  <p>2026-07-30T12:05:08.693Z — 2026-07-30T12:09:57.309Z</p>
+  <div class="summary">
+    <div class="card">Passed <span class="count passed">15</span></div>
+    <div class="card">Failed <span class="count failed">1</span></div>
+    <div class="card">Skipped <span class="count skipped">2</span></div>
+  </div>
+  <table>
+    <thead><tr><th>Status</th><th>Section</th><th>Result</th></tr></thead>
+    <tbody>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SIGNUP ONBOARDING - COMPLETE ALL 4 STEPS</td>
+      <td>[Verified] HR is the only onboarding solution selected</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>3. SETTINGS - ADD 5 IT DEPARTMENTS</td>
+      <td>[Verified] Department updated: &quot;Software Engineering 108698 Updated&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>4. SETTINGS - ADD 5 IT ROLES / DESIGNATIONS</td>
+      <td>[Verified] Role updated: &quot;Senior Full Stack Engineer 108698 Updated&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>5. SETTINGS - ADD 5 IT SHIFTS</td>
+      <td>[Verified] Shift updated: &quot;Day Development Shift 108698 Updated&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>7. SETTINGS - ADD 5 IT HOLIDAYS</td>
+      <td>[Verified] Holiday updated: &quot;Republic Day 108698 Updated&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)</td>
+      <td>[Verified] Policy Rule processed for tab &quot;attendance&quot;: &quot;Attendance Punch Rule 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)</td>
+      <td>[Verified] Policy Rule processed for tab &quot;leave&quot;: &quot;Leave Policy Rule 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)</td>
+      <td>[Verified] Policy Rule processed for tab &quot;payroll&quot;: &quot;Payroll Guard Rule 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)</td>
+      <td>[Verified] Policy Rule processed for tab &quot;lifecycle&quot;: &quot;Lifecycle Confirmation Rule 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)</td>
+      <td>[Verified] Policy Rule processed for tab &quot;approvals&quot;: &quot;Approvals Routing Rule 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)</td>
+      <td>[Verified] Policy Rule processed for tab &quot;alerts&quot;: &quot;Tenure Alert Rule 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - APPROVAL CHAINS</td>
+      <td>[Verified] Approval Chain processed: &quot;Two-Level Leave Chain 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>8. EMPLOYEE MASTER - CREATE 1 IT ENGINEER EMPLOYEE</td>
+      <td>[Verified] Employee created: &quot;Rahul Sharma 108698&quot; (019fb2ec-c30f-7722-a125-d75c398ef9dc)</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>SETTINGS - ASSIGN LEAVE BALANCE TO CURRENT-RUN EMPLOYEE</td>
+      <td>[Verified] Leave balance assigned to current-run employee: &quot;Rahul Sharma 108698&quot;</td>
+    </tr>
+    <tr>
+      <td><span class="status passed">passed</span></td>
+      <td>ATTENDANCE ACTIONS</td>
+      <td>[Verified] Attendance location uses 10.5116834, 76.2164267</td>
+    </tr>
+    <tr>
+      <td><span class="status skipped">skipped</span></td>
+      <td>LEAVE PENDING REQUESTS</td>
+      <td>[Skip] Inspect Pending Leave: no matching record/action available</td>
+    </tr>
+    <tr>
+      <td><span class="status skipped">skipped</span></td>
+      <td>COMPANY LEAVE LEDGER</td>
+      <td>[Skip] View Ledger Leave: no matching record/action available</td>
+    </tr>
+    <tr>
+      <td><span class="status failed">failed</span></td>
+      <td>PAYROLL COMPONENTS</td>
+      <td>locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for locator('tr').filter({ hasText: 'Basic Salary' }).first() to be visible[22m
+</td>
+    </tr></tbody>
+  </table>
+</body>
+</html>

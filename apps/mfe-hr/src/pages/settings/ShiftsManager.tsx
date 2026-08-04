@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { LayoutGrid, Table } from "lucide-react";
+import { Clock, LayoutGrid, Table } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge, TimePicker } from "@jaldee/design-system";
 import { useShifts, useShiftRotations, type Shift, type ShiftRotation } from "../../services/useSettingsData";
 import { useEmployees } from "../../services/useEmployees";
 import { useShiftOps, type Roster } from "../../services/useShiftOps";
+import { PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 const dayShort = (d: string) => d.slice(0, 3);
@@ -29,10 +30,11 @@ export default function ShiftsManager() {
   const [tab, setTab] = useState<Tab>("shifts");
   return (
     <div className="p-3 sm:p-4 lg:p-5">
-      <div className="mb-3">
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Shifts &amp; Rotations</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Define working hours, assign staff, and set up rotating rosters — all in one place.</p>
-      </div>
+      <PanelHeader
+        title="Shifts & Rotations"
+        subtitle="Define working hours, assign staff, and set up rotating rosters — all in one place."
+        icon={<Clock size={20} />}
+      />
       <div className="flex gap-1.5 border-b border-gray-200 mb-5 overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5">
         {(["shifts", "rotations"] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
@@ -84,7 +86,7 @@ function ShiftsTab() {
       </div>
       {error ? <div className="p-6 text-sm text-red-600">{error}</div>
         : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
-        : data.length === 0 ? <div className="py-12 text-center text-gray-500 text-sm">No shifts yet.</div>
+        : data.length === 0 ? <SettingsEmptyState title="No shifts" description="Add a shift to define working hours and weekly offs." compact />
         : viewMode === "table" ? (
           <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
             <table id="hr-settings-shifts-table" data-testid="hr-settings-shifts-table" className="w-full text-sm min-w-[640px]">
@@ -231,7 +233,7 @@ function RotationsTab() {
       </div>
       {error ? <div className="p-6 text-sm text-red-600">{error}</div>
         : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
-        : data.length === 0 ? <div className="py-12 text-center text-gray-500 text-sm">No rotations yet.</div>
+        : data.length === 0 ? <SettingsEmptyState title="No rotations" description="Add a rotation to organize recurring shift sequences." compact />
         : (
           <table id="hr-settings-rotations-table" data-testid="hr-settings-rotations-table" className="w-full text-sm">
             <thead>
@@ -373,7 +375,7 @@ function AssignModal({ title, entityUid, kind, onClose }:
         <div className="text-xs text-gray-500">{selected.size} selected</div>
         <div className="max-h-80 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-50">
           {employees.loading ? <div className="p-4 text-sm text-gray-500">Loading employees…</div>
-            : list.length === 0 ? <div className="p-4 text-sm text-gray-400">No employees match.</div>
+            : list.length === 0 ? <SettingsEmptyState title="No employees found" description="No employees match the current search." compact />
             : list.map((e) => (
               <label key={e.uid} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" checked={e.uid ? selected.has(e.uid) : false} onChange={() => e.uid && toggle(e.uid)} />
@@ -420,7 +422,7 @@ function RosterModal({ rotationName, shiftName, onClose }:
         <Input label="Month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
         {loading ? <div className="p-4 text-sm text-gray-500">Generating roster…</div>
-          : rows.length === 0 ? <div className="p-6 text-center text-sm text-gray-400">No assigned employees for this rotation, or no roster for this month.</div>
+          : rows.length === 0 ? <SettingsEmptyState title="No roster entries" description="Assign employees to this rotation or select another month." compact />
           : (
             <div className="overflow-auto max-h-96 border border-gray-200 rounded-lg">
               <table className="text-xs">

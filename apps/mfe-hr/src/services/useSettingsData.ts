@@ -89,7 +89,10 @@ function useCrud<T extends { uid?: string; id?: string }>(
 }
 
 /** Singleton config endpoint (GET returns one object, PUT upserts it). */
-function useSingleton<T extends object>(endpoint: string, { enabled = true }: { enabled?: boolean } = {}) {
+function useSingleton<T extends object>(
+  endpoint: string,
+  { enabled = true, reloadAfterSave = true }: { enabled?: boolean; reloadAfterSave?: boolean } = {},
+) {
   const api = useHrApi();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -114,8 +117,8 @@ function useSingleton<T extends object>(endpoint: string, { enabled = true }: { 
   const save = useCallback(async (payload: Record<string, unknown>) => {
     await api.put(endpoint, payload);
     setData((current) => ({ ...(current ?? {}), ...payload } as T));
-    await load(true);
-  }, [api, endpoint, load]);
+    if (reloadAfterSave) await load(true);
+  }, [api, endpoint, load, reloadAfterSave]);
   return { data, loading, error, reload: load, save };
 }
 
@@ -201,7 +204,7 @@ export function useBranchesAdmin(options: { enabled?: boolean } = {}) {
   };
 }
 
-export const useCompanyProfile = () => useSingleton<CompanyProfile>("/company-profile");
+export const useCompanyProfile = () => useSingleton<CompanyProfile>("/company-profile", { reloadAfterSave: false });
 export const useAttendanceRules = (options: { enabled?: boolean } = {}) => useSingleton<AttendanceRule>("/attendance-rules", options);
 export const usePayrollSettings = () => useSingleton<PayrollSetting>("/payroll-settings");
 
