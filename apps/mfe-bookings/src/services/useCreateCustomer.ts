@@ -87,10 +87,8 @@ export function useCreateCustomer() {
     };
 
     try {
-      const dto = await api.post<CustomerDtoLike>("/consumers", payload);
+      const dto = await api.post<CustomerDtoLike>("/customers", payload);
       return toCustomer(input, dto);
-    } catch {
-      return toCustomer(input);
     } finally {
       setSubmitting(false);
     }

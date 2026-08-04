@@ -67,7 +67,7 @@ export function useCustomerSearch() {
       setError(null);
       try {
         const data = await api.post<unknown>(
-          "/consumers/search",
+          "/customers/search",
           resolvedParams,
           {
             params: { page: 0, size: 10 },

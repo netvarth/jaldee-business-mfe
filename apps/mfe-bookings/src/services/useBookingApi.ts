@@ -34,12 +34,10 @@ function buildBookingServiceUrl(endpoint: string) {
   
   if (!DEFAULT_BASE_PATH) {
     if (
-      normalizedEndpoint.startsWith("/users") ||
-      normalizedEndpoint.startsWith("/consumers")
+      normalizedEndpoint.startsWith("/users")
     ) {
       basePath = `${GATEWAY_PREFIX}/base-service/v1/api/tenant`;
     } else if (
-      normalizedEndpoint.startsWith("/customers") ||
       normalizedEndpoint.startsWith("/finance") ||
       normalizedEndpoint.startsWith("/provider/fileShare")
     ) {
@@ -49,7 +47,8 @@ function buildBookingServiceUrl(endpoint: string) {
       normalizedEndpoint.startsWith("/bookings") ||
       normalizedEndpoint.startsWith("/calendars") ||
       normalizedEndpoint.startsWith("/preferences") ||
-      normalizedEndpoint.startsWith("/booking-preferences")
+      normalizedEndpoint.startsWith("/booking-preferences") ||
+      normalizedEndpoint.startsWith("/customers")
     ) {
       basePath = `${GATEWAY_PREFIX}/booking-service/v1/api/tenant`;
     }

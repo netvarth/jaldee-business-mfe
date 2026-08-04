@@ -14,7 +14,7 @@ export function useCustomerSearchSchema() {
     setError(null);
 
     try {
-      const response = await api.get<SearchSchema>("/consumers/filter/schema");
+      const response = await api.get<SearchSchema>("/customers/search/schema");
       setSchema(normalizeSearchSchema(response) ?? null);
     } catch (loadError) {
       setSchema(null);

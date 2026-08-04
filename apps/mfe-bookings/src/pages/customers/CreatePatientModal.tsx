@@ -27,30 +27,41 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
   const [gender, setGender] = useState("Male");
   const [dob, setDob] = useState("");
   const [address, setAddress] = useState("");
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const isEditMode = Boolean(initialCustomer);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (hasSubmitted) return;
+
     if (!firstName || !lastName || !phone) {
       showToast("Please fill First Name, Last Name and Phone.", "error");
       return;
     }
+    
+    setHasSubmitted(true);
     const input = { firstName, lastName, phoneNumber: phone, email, gender, dob, address };
-    onCreated(
-      isEditMode
-        ? {
-            ...initialCustomer,
-            firstName,
-            lastName,
-            phoneNumber: phone,
-            email,
-          }
-        : buildOptimisticCustomer(input),
-    );
-    showToast(isEditMode ? "Patient record updated" : "Patient record created", "success");
-    closeModal();
-    if (!isEditMode) {
-      void createCustomer(input).catch(() => {});
+    
+    if (isEditMode) {
+      onCreated({
+        ...initialCustomer,
+        firstName,
+        lastName,
+        phoneNumber: phone,
+        email,
+      });
+      showToast("Patient record updated", "success");
+      closeModal();
+    } else {
+      try {
+        const newCustomer = await createCustomer(input);
+        onCreated(newCustomer);
+        showToast("Patient record created", "success");
+        closeModal();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Failed to create patient record", "error");
+        setHasSubmitted(false);
+      }
     }
   };
 
@@ -72,8 +83,8 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
         <Input id="pat-address" data-testid="bookings-create-customer-address" label="Address" value={address} onChange={(e) => setAddress(e.target.value)} containerClassName="md:col-span-2" />
       </FormSection>
       <DialogFooter>
-        <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-        <Button type="submit">Save Record</Button>
+        <Button variant="secondary" onClick={closeModal} disabled={hasSubmitted}>Cancel</Button>
+        <Button type="submit" disabled={hasSubmitted}>Save Record</Button>
       </DialogFooter>
     </form>
   );

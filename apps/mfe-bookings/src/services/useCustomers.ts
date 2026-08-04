@@ -72,7 +72,7 @@ export const useCustomers = (
     setError(null);
 
     try {
-      const data = await api.post<unknown>("/consumers/search", requestBody);
+      const data = await api.post<unknown>("/customers/search", requestBody);
       setCustomers(unwrapList<unknown>(data).map(normalizeCustomer));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load customers.");
