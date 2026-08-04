@@ -6,6 +6,9 @@ import { unwrapList } from "./response";
 import { buildBookingUserSearchBody } from "./bookingUserSearch";
 
 const BOOKING_USERS_SEARCH_ENDPOINT = "/booking-users/search";
+const EMPTY_FILTER_CLAUSES: SearchFilterClause[] = [];
+const usersCache = new Map<string, BookingUser[]>();
+const inflightRequests = new Map<string, Promise<BookingUser[]>>();
 
 interface UserDto {
   userUid?: string;
@@ -98,8 +101,24 @@ function toUser(d: UserDto): BookingUser {
   };
 }
 
+function buildCacheKey(
+  filterClauses: SearchFilterClause[],
+  schema: SearchSchema | null | undefined,
+  enabled: boolean,
+) {
+  if (!enabled) return "disabled";
+  return JSON.stringify(
+    buildBookingUserSearchBody({
+      filterClauses,
+      schema,
+      page: 0,
+      size: 1000,
+    }),
+  );
+}
+
 export function useUsers(
-  filterClauses: SearchFilterClause[] = [],
+  filterClauses: SearchFilterClause[] = EMPTY_FILTER_CLAUSES,
   schema: SearchSchema | null | undefined = null,
   options: { enabled?: boolean } = {}
 ) {
@@ -108,29 +127,52 @@ export function useUsers(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const enabled = options.enabled ?? true;
+  const cacheKey = buildCacheKey(filterClauses, schema, enabled);
 
   const fetchUsers = useCallback(async () => {
     if (!enabled) {
       return;
     }
+    const cached = usersCache.get(cacheKey);
+    if (cached) {
+      setUsers(cached);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const data = await api.post<unknown>(
-        BOOKING_USERS_SEARCH_ENDPOINT,
-        buildBookingUserSearchBody({
-          filterClauses,
-          schema,
-          page: 0,
-          size: 1000,
-        })
-      );
-      setUsers([
-        ...createdUsers,
-        ...unwrapList<UserDto>(data)
-          .map(toUser)
-          .filter((user) => Boolean(user.userUid)),
-      ]);
+      const existingRequest = inflightRequests.get(cacheKey);
+      const request =
+        existingRequest ??
+        api
+          .post<unknown>(
+            BOOKING_USERS_SEARCH_ENDPOINT,
+            buildBookingUserSearchBody({
+              filterClauses,
+              schema,
+              page: 0,
+              size: 1000,
+            })
+          )
+          .then((data) => [
+            ...createdUsers,
+            ...unwrapList<UserDto>(data)
+              .map(toUser)
+              .filter((user) => Boolean(user.userUid)),
+          ])
+          .finally(() => {
+            inflightRequests.delete(cacheKey);
+          });
+
+      if (!existingRequest) {
+        inflightRequests.set(cacheKey, request);
+      }
+
+      const nextUsers = await request;
+      usersCache.set(cacheKey, nextUsers);
+      setUsers(nextUsers);
     } catch (e) {
       // No sample fallback — show only real (session) users on failure.
       setError(e instanceof Error ? e.message : "Failed to load users.");
@@ -138,7 +180,7 @@ export function useUsers(
     } finally {
       setLoading(false);
     }
-  }, [api, enabled, filterClauses, schema]);
+  }, [api, cacheKey, enabled, filterClauses, schema]);
 
   useEffect(() => {
     if (!enabled) {
@@ -149,5 +191,11 @@ export function useUsers(
     fetchUsers();
   }, [enabled, fetchUsers]);
 
-  return { users, loading, error, refresh: fetchUsers };
+  const refresh = useCallback(async () => {
+    usersCache.delete(cacheKey);
+    inflightRequests.delete(cacheKey);
+    await fetchUsers();
+  }, [cacheKey, fetchUsers]);
+
+  return { users, loading, error, refresh };
 }

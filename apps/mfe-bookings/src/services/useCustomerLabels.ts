@@ -23,6 +23,8 @@ export interface CustomerLabel {
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { buildCustomerSearchBody } from "./customerSearch";
 
+const emptyFilterClauses: SearchFilterClause[] = [];
+
 export function useCustomerLabels(options?: {
   filterClauses?: SearchFilterClause[];
   schema?: SearchSchema | null;
@@ -32,7 +34,7 @@ export function useCustomerLabels(options?: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filterClauses = options?.filterClauses ?? [];
+  const filterClauses = options?.filterClauses ?? emptyFilterClauses;
   const schema = options?.schema ?? null;
 
   const search = useCallback(async () => {
