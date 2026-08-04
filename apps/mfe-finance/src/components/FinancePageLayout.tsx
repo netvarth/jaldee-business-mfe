@@ -29,19 +29,25 @@ export function FinanceFilterButton({
   testId,
   label = "Filter",
   onClick,
+  active = false,
 }: {
   testId: string;
   label?: string;
   onClick?: () => void;
+  active?: boolean;
 }) {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={active ? "primary" : "outline"}
       data-testid={testId}
       aria-label={label}
       onClick={onClick}
-      className="h-10 border-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
+      className={
+        active
+          ? "h-10 px-4 text-sm font-semibold"
+          : "h-10 border-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
+      }
       icon={
         <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-[2.2]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />

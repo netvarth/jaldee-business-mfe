@@ -3,14 +3,23 @@ import { useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import {
   Button,
+  Drawer,
   Icon,
   Popover,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { FinanceReceivable } from "../../lib/financeData";
 import { formatCurrency } from "../../lib/financeData";
 import { financeApi } from "../../lib/financeApi";
+import { buildFinanceSearchBody, buildLocationCondition, useFinanceSearchSchema } from "../../lib/financeSearch";
 import { normalizeReceivableRows } from "../../lib/receivableMappers";
+import { normalizeReceivableSearchSchema } from "../../lib/receivableSearchFields";
 import { FinanceFeatureLayout, FinanceFilterButton, ServerDataTableCard } from "../../components/FinancePageLayout";
 
 export default function ReceivablesPage() {
@@ -21,6 +30,43 @@ export default function ReceivablesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { schema: receivableSchema } = useFinanceSearchSchema();
+  const filterSchema = useMemo(
+    () => normalizeReceivableSearchSchema(receivableSchema),
+    [receivableSchema]
+  );
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, filterSchema).length,
+    [advancedFilters, filterSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(filterSchema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(filterSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setPage(1);
+    setFiltersOpen(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -28,10 +74,9 @@ export default function ReceivablesPage() {
     async function loadReceivables() {
       setLoading(true);
       try {
+        const fixedConditions = buildLocationCondition(filterSchema, mfeProps.location?.id);
         const response = await financeApi.revenue.list<any>({
-          page: page - 1,
-          size: pageSize,
-          ...(mfeProps.location?.id ? { locationUid: mfeProps.location.id } : {}),
+          ...buildFinanceSearchBody(advancedFilters, filterSchema, page - 1, pageSize, fixedConditions),
         });
         if (!active) {
           return;
@@ -59,7 +104,7 @@ export default function ReceivablesPage() {
     return () => {
       active = false;
     };
-  }, [mfeProps.location?.id, page, pageSize]);
+  }, [advancedFilters, filterSchema, mfeProps.location?.id, page, pageSize]);
 
   const columns = useMemo<ColumnDef<(typeof financeReceivables)[number]>[]>(
     () => [
@@ -121,41 +166,80 @@ export default function ReceivablesPage() {
   );
 
   return (
-    <FinanceFeatureLayout
-      title={`Revenue (${totalRecords})`}
-      subtitle="Outstanding incoming balances and collections ownership."
-      actions={
-        <div className="flex items-center gap-2">
-          <Button onClick={() => navigate("create")}>Add Revenue</Button>
+    <>
+      <FinanceFeatureLayout
+        title={`Revenue (${totalRecords})`}
+        subtitle="Outstanding incoming balances and collections ownership."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button onClick={() => navigate("create")}>Add Revenue</Button>
+          </div>
+        }
+        main={
+          <ServerDataTableCard
+              actions={
+                <FinanceFilterButton
+                  testId="finance-revenue-filter"
+                  label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                  active={appliedFilterCount > 0}
+                  onClick={openFilters}
+                />
+              }
+              data={financeReceivables}
+              columns={columns}
+              getRowId={(row) => row.id}
+              loading={loading}
+              page={page}
+              pageSize={pageSize}
+              total={totalRecords}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              testId="finance-revenue-table"
+              emptyTitle="No Revenue"
+              emptyDescription={loading ? "Loading revenue..." : "Revenue will appear here."}
+            />
+        }
+      />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-revenue-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={filterSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No receivable filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="finance-revenue-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="finance-revenue-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
         </div>
-      }
-      main={
-        <ServerDataTableCard
-            actions={
-              <FinanceFilterButton testId="finance-revenue-filter" />
-            }
-            data={financeReceivables}
-            columns={columns}
-            getRowId={(row) => row.id}
-            loading={loading}
-            page={page}
-            pageSize={pageSize}
-            total={totalRecords}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            testId="finance-revenue-table"
-            emptyTitle="No Revenue"
-            emptyDescription={loading ? "Loading revenue..." : "Revenue will appear here."}
-          />
-      }
-    />
+      </Drawer>
+    </>
   );
 }
-
-function toIsoDateTime(value: string) {
-  if (!value) return undefined;
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-}
-
-const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";

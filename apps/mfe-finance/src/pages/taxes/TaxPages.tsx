@@ -7,11 +7,11 @@ import {
   EmptyState,
   Icon,
   Input,
-  PageHeader,
   Popover,
   SectionCard,
   Select,
   Switch,
+  Textarea,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps } from "@jaldee/auth-context";
@@ -19,6 +19,15 @@ import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
 
 type TaxStatus = "Enabled" | "Disabled";
+type TaxOption = { value: string; label: string };
+
+const fallbackPercentageOptions: TaxOption[] = [
+  { value: "0", label: "GST 0%" },
+  { value: "5", label: "GST 5%" },
+  { value: "12", label: "GST 12%" },
+  { value: "18", label: "GST 18%" },
+  { value: "28", label: "GST 28%" },
+];
 
 function extractRecords(payload: any) {
   if (Array.isArray(payload)) return payload;
@@ -34,39 +43,185 @@ function readTaxName(item: any) {
   return String(item?.name ?? item?.displayName ?? item?.taxName ?? item?.label ?? item?.taxLabel ?? "").trim();
 }
 
+function readTaxCode(item: any) {
+  return String(item?.taxCode ?? item?.code ?? item?.gstNumber ?? "").trim();
+}
+
+function readTaxAddress(item: any) {
+  return String(item?.address ?? item?.gstAddress ?? "").trim();
+}
+
 function readTaxPercentage(item: any) {
   return Number(item?.percentage ?? item?.taxPercentage ?? item?.taxPercent ?? item?.gstPercentage ?? item?.gstPercent ?? item?.value ?? 0) || 0;
 }
 
+function isTaxEnabledValue(value: any) {
+  return value === "Enabled" || value === true;
+}
+
+function readTaxEnabled(settings: any) {
+  return (
+    isTaxEnabledValue(settings?.enableTaxStatus) ||
+    isTaxEnabledValue(settings?.taxStatus) ||
+    isTaxEnabledValue(settings?.enableTax) ||
+    isTaxEnabledValue(settings?.tax) ||
+    isTaxEnabledValue(settings?.taxEnabled)
+  );
+}
+
 function buildTaxPayload(input: {
   uid?: string; tenantUid?: string; countryCode: string; taxCode: string; taxName: string;
-  taxRegime: string; status: TaxStatus; taxPercentage: number; cgst: number; sgst: number; igst: number;
+  taxRegime: string; status: TaxStatus; taxPercentage: number; cgst: number; sgst: number; igst: number; address?: string;
 }) {
+  const hasStateGst = input.cgst > 0 || input.sgst > 0;
+  const hasIntegratedGst = input.igst > 0;
   return sanitizeFinancePayload({
     ...(input.uid ? { uid: input.uid } : {}),
     ...(input.tenantUid ? { tenantUid: input.tenantUid } : {}),
-    countryCode: input.countryCode, taxCode: input.taxCode, taxName: input.taxName,
-    name: input.taxName, displayName: input.taxName, taxRegime: input.taxRegime,
-    status: input.status, enabled: input.status === "Enabled",
-    taxPercentage: input.taxPercentage, percentage: input.taxPercentage,
-    cgst: input.cgst, sgst: input.sgst, igst: input.igst,
+    countryCode: input.countryCode,
+    taxCode: input.taxCode,
+    taxName: input.taxName,
+    name: input.taxName,
+    displayName: input.taxName,
+    taxRegime: input.taxRegime,
+    status: input.status,
+    enabled: input.status === "Enabled",
+    taxPercentage: input.taxPercentage,
+    percentage: input.taxPercentage,
+    ...(hasStateGst
+      ? { cgst: input.cgst, sgst: input.sgst }
+      : hasIntegratedGst
+        ? { igst: input.igst }
+        : {}),
+    address: input.address,
   });
+}
+
+function splitGstPercentage(taxPercentage: number) {
+  if (taxPercentage <= 0) {
+    return { cgst: 0, sgst: 0, igst: 0 };
+  }
+  return {
+    cgst: taxPercentage / 2,
+    sgst: taxPercentage / 2,
+    igst: 0,
+  };
+}
+
+function sortPercentages(values: number[]) {
+  return [...values].sort((a, b) => a - b);
+}
+
+async function loadTaxPercentageOptions(): Promise<TaxOption[]> {
+  try {
+    const response = await financeApi.taxes.byFilter<any>({ page: 0, size: 100 });
+    const records = extractRecords(response.data);
+    const percentages = sortPercentages(
+      Array.from(
+        new Set(
+          records
+            .map((item: any) => readTaxPercentage(item))
+            .filter((value: number) => Number.isFinite(value))
+        )
+      )
+    );
+    if (!percentages.length) {
+      return fallbackPercentageOptions;
+    }
+    return percentages.map((value) => ({ value: String(value), label: `GST ${value}%` }));
+  } catch (error) {
+    console.error("Failed to load tax percentages", error);
+    return fallbackPercentageOptions;
+  }
+}
+
+function TaxDetailsView({
+  tax,
+  taxEnabled,
+  onEdit,
+  onToggle,
+  updating,
+}: {
+  tax: any;
+  taxEnabled: boolean;
+  onEdit: () => void;
+  onToggle: (checked: boolean) => void;
+  updating: boolean;
+}) {
+  return (
+    <PageShell
+      title="Tax"
+      subtitle='Set up your tax requirements here. Enable the "Tax Settings" toggle switch to apply taxes for your services.'
+      actions={<Button variant="outline" onClick={onEdit}>Edit</Button>}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        <div className="grid gap-6">
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+            <div className="space-y-5">
+              <div>
+                <div className="text-lg font-semibold text-slate-900">Tax details</div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-500">15 digit GST number</div>
+                <div className="mt-1 text-base font-medium text-slate-900">{readTaxCode(tax) || "-"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-500">Enter Name as in GST</div>
+                <div className="mt-1 text-base font-medium text-slate-900">{readTaxName(tax) || "-"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-500">Tax Percentage</div>
+                <div className="mt-1 text-base font-medium text-slate-900">{`GST ${readTaxPercentage(tax)}%`}</div>
+              </div>
+              <div>
+                <div className="text-sm text-slate-500">Enter Address as in GST</div>
+                <div className="mt-1 whitespace-pre-wrap text-base font-medium text-slate-900">{readTaxAddress(tax) || "-"}</div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 w-10 rounded-full p-0"
+              icon={<Icon name="edit2" className="h-4 w-4" />}
+              aria-label="Edit tax"
+              onClick={onEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between border-t border-slate-200 pt-5">
+            <div className="text-sm font-semibold text-slate-900">Tax Settings</div>
+            <div className="flex items-center gap-3">
+              <Switch checked={taxEnabled} disabled={updating} onChange={onToggle} />
+              <span className={`text-sm font-semibold ${taxEnabled ? "text-emerald-600" : "text-slate-500"}`}>
+                {taxEnabled ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+    </PageShell>
+  );
 }
 
 function TaxesPage() {
   const navigate = useNavigate();
   const [taxes, setTaxes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [taxEnabled, setTaxEnabled] = useState(false);
+  const [updatingTaxStatus, setUpdatingTaxStatus] = useState(false);
 
   async function loadTaxes() {
     setLoading(true);
     try {
-      const res = await financeApi.taxes.list<any>({
-        page: 0,
-        size: 100,
-        sort: [{ field: "createdAt", direction: "DESC" }],
-      });
-      setTaxes(extractRecords(res.data));
+      const [taxResponse, settingsResponse] = await Promise.all([
+        financeApi.taxes.list<any>({
+          page: 0,
+          size: 100,
+          sort: [{ field: "createdAt", direction: "DESC" }],
+        }),
+        financeApi.settings.provider<any>(),
+      ]);
+      setTaxes(extractRecords(taxResponse.data));
+      setTaxEnabled(readTaxEnabled(settingsResponse.data));
     } catch (error) {
       console.error("Failed to fetch taxes", error);
       setTaxes([]);
@@ -79,10 +234,24 @@ function TaxesPage() {
     void loadTaxes();
   }, []);
 
+  async function handleTaxFeatureToggle(checked: boolean) {
+    setUpdatingTaxStatus(true);
+    const nextStatus: TaxStatus = checked ? "Enabled" : "Disabled";
+    try {
+      await financeApi.settings.taxFeature(nextStatus);
+      setTaxEnabled(checked);
+    } catch (error) {
+      console.error("Failed to update tax status", error);
+      alert("Failed to update tax status");
+    } finally {
+      setUpdatingTaxStatus(false);
+    }
+  }
+
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
       { key: "name", header: "Tax Name", render: (row) => readTaxName(row) || "-" },
-      { key: "code", header: "Code", render: (row) => String(row.code ?? row.taxCode ?? "-") },
+      { key: "code", header: "Code", render: (row) => readTaxCode(row) || "-" },
       { key: "percentage", header: "Percentage", align: "right", render: (row) => `${readTaxPercentage(row)}%` },
       {
         key: "status",
@@ -104,7 +273,7 @@ function TaxesPage() {
               portal
               placement="bottom"
               align="end"
-              trigger={
+              trigger={(
                 <Button
                   type="button"
                   variant="ghost"
@@ -113,7 +282,7 @@ function TaxesPage() {
                   icon={<Icon name="moreVertical" className="h-4 w-4" />}
                   aria-label="Tax actions"
                 />
-              }
+              )}
             >
               <div className="grid min-w-[220px] p-1">
                 <Button
@@ -142,21 +311,43 @@ function TaxesPage() {
     [navigate]
   );
 
+  if (!loading && taxes.length > 0) {
+    return (
+      <TaxDetailsView
+        tax={taxes[0]}
+        taxEnabled={taxEnabled}
+        updating={updatingTaxStatus}
+        onEdit={() => navigate(`edit/${taxes[0].uid}`)}
+        onToggle={handleTaxFeatureToggle}
+      />
+    );
+  }
+
   return (
     <FinanceFeatureLayout
       title="Taxes"
       subtitle="Manage finance tax configurations and availability."
       actions={<Button onClick={() => navigate("create")}>Create Tax</Button>}
       main={
-        <DataTableCard
-          title={`Tax List (${taxes.length})`}
-          subtitle="Available finance taxes."
-          data={taxes}
-          columns={columns}
-          getRowId={(row) => String(row.uid ?? row.id)}
-          emptyTitle="No taxes"
-          emptyDescription={loading ? "Loading..." : "Tax configurations will appear here."}
-        />
+        taxes.length === 0 && !loading ? (
+          <SectionCard className="border-slate-200 shadow-sm">
+            <EmptyState
+              title="No tax configuration"
+              description="Enable tax settings and create your GST details to start applying taxes."
+              action={<Button onClick={() => navigate("create")}>Create Tax</Button>}
+            />
+          </SectionCard>
+        ) : (
+          <DataTableCard
+            title={`Tax List (${taxes.length})`}
+            subtitle="Available finance taxes."
+            data={taxes}
+            columns={columns}
+            getRowId={(row) => String(row.uid ?? row.id)}
+            emptyTitle="No taxes"
+            emptyDescription={loading ? "Loading..." : "Tax configurations will appear here."}
+          />
+        )
       }
     />
   );
@@ -167,40 +358,57 @@ function TaxCreatePage() {
   const mfeProps = useMFEProps();
   const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
   const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
-  const [countryCode, setCountryCode] = useState("");
-  const [taxCode, setTaxCode] = useState("");
-  const [taxName, setTaxName] = useState("");
-  const [taxRegime, setTaxRegime] = useState("GST");
-  const [status, setStatus] = useState<TaxStatus>("Enabled");
-  const [taxPercentage, setTaxPercentage] = useState("");
-  const [cgst, setCgst] = useState("");
-  const [sgst, setSgst] = useState("");
-  const [igst, setIgst] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [gstName, setGstName] = useState("");
+  const [taxPercentage, setTaxPercentage] = useState("18");
+  const [gstAddress, setGstAddress] = useState("");
+  const [percentageOptions, setPercentageOptions] = useState<TaxOption[]>(fallbackPercentageOptions);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void loadTaxPercentageOptions().then((options) => {
+      if (!active) return;
+      setPercentageOptions(options);
+      if (!options.some((option) => option.value === taxPercentage) && options[0]) {
+        setTaxPercentage(options[0].value);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [taxPercentage]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
-    if (!taxName.trim()) {
-      setFormError("Tax name is required.");
+    if (!gstNumber.trim()) {
+      setFormError("GST number is required.");
+      return;
+    }
+    if (!gstName.trim()) {
+      setFormError("Name as in GST is required.");
       return;
     }
 
     setSubmitting(true);
     try {
+      const percentage = Number(taxPercentage) || 0;
+      const components = splitGstPercentage(percentage);
       await financeApi.taxes.create(
         buildTaxPayload({
           tenantUid: tenantUid || undefined,
-          countryCode,
-          taxCode,
-          taxName,
-          taxRegime,
-          status,
-          taxPercentage: Number(taxPercentage) || 0,
-          cgst: Number(cgst) || 0,
-          sgst: Number(sgst) || 0,
-          igst: Number(igst) || 0,
+          countryCode: gstNumber.trim().slice(0, 2),
+          taxCode: gstNumber.trim(),
+          taxName: gstName.trim(),
+          taxRegime: "GST",
+          status: "Enabled",
+          taxPercentage: percentage,
+          cgst: components.cgst,
+          sgst: components.sgst,
+          igst: components.igst,
+          address: gstAddress.trim() || undefined,
         })
       );
       navigate("..", { relative: "path", replace: true });
@@ -215,34 +423,37 @@ function TaxCreatePage() {
   return (
     <PageShell
       title="Create Tax"
-      subtitle="Add a finance tax configuration."
+      subtitle="Set up your GST tax details."
       actions={<Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} />
-            <Input label="Tax Code" value={taxCode} onChange={(event) => setTaxCode(event.target.value)} />
-            <Input label="Tax Name *" value={taxName} onChange={(event) => setTaxName(event.target.value)} required />
-            <Select
-              label="Tax Regime"
-              value={taxRegime}
-              onChange={(event) => setTaxRegime(event.target.value)}
-              options={[{ value: "GST", label: "GST" }]}
+          <div className="grid gap-4">
+            <Input
+              label="Enter 15 digit GST number *"
+              value={gstNumber}
+              maxLength={15}
+              onChange={(event) => setGstNumber(event.target.value.toUpperCase())}
+              required
+            />
+            <Input
+              label="Enter Name as in GST"
+              value={gstName}
+              onChange={(event) => setGstName(event.target.value)}
+              required
             />
             <Select
-              label="Status"
-              value={status}
-              onChange={(event) => setStatus(event.target.value as TaxStatus)}
-              options={[
-                { value: "Enabled", label: "Enabled" },
-                { value: "Disabled", label: "Disabled" },
-              ]}
+              label="Tax Percentage"
+              value={taxPercentage}
+              onChange={(event) => setTaxPercentage(event.target.value)}
+              options={percentageOptions}
             />
-            <Input label="Tax Percentage" type="number" min="0" step="0.01" value={taxPercentage} onChange={(event) => setTaxPercentage(event.target.value)} />
-            <Input label="CGST" type="number" min="0" step="0.01" value={cgst} onChange={(event) => setCgst(event.target.value)} />
-            <Input label="SGST" type="number" min="0" step="0.01" value={sgst} onChange={(event) => setSgst(event.target.value)} />
-            <Input label="IGST" type="number" min="0" step="0.01" value={igst} onChange={(event) => setIgst(event.target.value)} />
+            <Textarea
+              label="Enter Address as in GST"
+              value={gstAddress}
+              onChange={(event) => setGstAddress(event.target.value)}
+              rows={4}
+            />
           </div>
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
           <div className="flex justify-end gap-2">
@@ -265,15 +476,11 @@ function TaxEditPage() {
   const mfeProps = useMFEProps();
   const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
   const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
-  const [countryCode, setCountryCode] = useState("");
-  const [taxCode, setTaxCode] = useState("");
-  const [taxName, setTaxName] = useState("");
-  const [taxRegime, setTaxRegime] = useState("GST");
-  const [status, setStatus] = useState<TaxStatus>("Enabled");
-  const [taxPercentage, setTaxPercentage] = useState("");
-  const [cgst, setCgst] = useState("");
-  const [sgst, setSgst] = useState("");
-  const [igst, setIgst] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [gstName, setGstName] = useState("");
+  const [taxPercentage, setTaxPercentage] = useState("18");
+  const [gstAddress, setGstAddress] = useState("");
+  const [percentageOptions, setPercentageOptions] = useState<TaxOption[]>(fallbackPercentageOptions);
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -283,18 +490,18 @@ function TaxEditPage() {
     async function loadTax() {
       if (!id) return;
       try {
-        const res = await financeApi.taxes.detail<any>(id);
-        const data = res.data;
-        if (!active || !data) return;
-        setCountryCode(String(data.countryCode ?? ""));
-        setTaxCode(String(data.taxCode ?? data.code ?? ""));
-        setTaxName(String(data.taxName ?? data.name ?? ""));
-        setTaxRegime(String(data.taxRegime ?? "GST"));
-        setStatus((data.status ?? "Enabled") as TaxStatus);
-        setTaxPercentage(String(data.taxPercentage ?? data.percentage ?? data.taxPercent ?? 0));
-        setCgst(String(data.cgst ?? 0));
-        setSgst(String(data.sgst ?? 0));
-        setIgst(String(data.igst ?? 0));
+        const [taxResponse, options] = await Promise.all([
+          financeApi.taxes.detail<any>(id),
+          loadTaxPercentageOptions(),
+        ]);
+        if (!active) return;
+        setPercentageOptions(options);
+        const data = taxResponse.data;
+        setGstNumber(readTaxCode(data));
+        setGstName(readTaxName(data));
+        const percentageValue = String(readTaxPercentage(data) || 0);
+        setTaxPercentage(percentageValue);
+        setGstAddress(readTaxAddress(data));
       } catch (error) {
         console.error("Failed to load tax", error);
       } finally {
@@ -311,27 +518,34 @@ function TaxEditPage() {
     event.preventDefault();
     setFormError("");
     if (!id) return;
-    if (!taxName.trim()) {
-      setFormError("Tax name is required.");
+    if (!gstNumber.trim()) {
+      setFormError("GST number is required.");
+      return;
+    }
+    if (!gstName.trim()) {
+      setFormError("Name as in GST is required.");
       return;
     }
 
     setSubmitting(true);
     try {
+      const percentage = Number(taxPercentage) || 0;
+      const components = splitGstPercentage(percentage);
       await financeApi.taxes.update(
         id,
         buildTaxPayload({
           uid: id,
           tenantUid: tenantUid || undefined,
-          countryCode,
-          taxCode,
-          taxName,
-          taxRegime,
-          status,
-          taxPercentage: Number(taxPercentage) || 0,
-          cgst: Number(cgst) || 0,
-          sgst: Number(sgst) || 0,
-          igst: Number(igst) || 0,
+          countryCode: gstNumber.trim().slice(0, 2),
+          taxCode: gstNumber.trim(),
+          taxName: gstName.trim(),
+          taxRegime: "GST",
+          status: "Enabled",
+          taxPercentage: percentage,
+          cgst: components.cgst,
+          sgst: components.sgst,
+          igst: components.igst,
+          address: gstAddress.trim() || undefined,
         })
       );
       navigate("../..", { relative: "path", replace: true });
@@ -350,34 +564,37 @@ function TaxEditPage() {
   return (
     <PageShell
       title="Edit Tax"
-      subtitle="Update finance tax configuration."
+      subtitle="Update GST tax details."
       actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} />
-            <Input label="Tax Code" value={taxCode} onChange={(event) => setTaxCode(event.target.value)} />
-            <Input label="Tax Name *" value={taxName} onChange={(event) => setTaxName(event.target.value)} required />
-            <Select
-              label="Tax Regime"
-              value={taxRegime}
-              onChange={(event) => setTaxRegime(event.target.value)}
-              options={[{ value: "GST", label: "GST" }]}
+          <div className="grid gap-4">
+            <Input
+              label="Enter 15 digit GST number *"
+              value={gstNumber}
+              maxLength={15}
+              onChange={(event) => setGstNumber(event.target.value.toUpperCase())}
+              required
+            />
+            <Input
+              label="Enter Name as in GST"
+              value={gstName}
+              onChange={(event) => setGstName(event.target.value)}
+              required
             />
             <Select
-              label="Status"
-              value={status}
-              onChange={(event) => setStatus(event.target.value as TaxStatus)}
-              options={[
-                { value: "Enabled", label: "Enabled" },
-                { value: "Disabled", label: "Disabled" },
-              ]}
+              label="Tax Percentage"
+              value={taxPercentage}
+              onChange={(event) => setTaxPercentage(event.target.value)}
+              options={percentageOptions}
             />
-            <Input label="Tax Percentage" type="number" min="0" step="0.01" value={taxPercentage} onChange={(event) => setTaxPercentage(event.target.value)} />
-            <Input label="CGST" type="number" min="0" step="0.01" value={cgst} onChange={(event) => setCgst(event.target.value)} />
-            <Input label="SGST" type="number" min="0" step="0.01" value={sgst} onChange={(event) => setSgst(event.target.value)} />
-            <Input label="IGST" type="number" min="0" step="0.01" value={igst} onChange={(event) => setIgst(event.target.value)} />
+            <Textarea
+              label="Enter Address as in GST"
+              value={gstAddress}
+              onChange={(event) => setGstAddress(event.target.value)}
+              rows={4}
+            />
           </div>
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
           <div className="flex justify-end gap-2">

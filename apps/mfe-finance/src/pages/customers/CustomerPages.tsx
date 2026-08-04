@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Button,
+  EmptyState,
+  Icon,
   Input,
+  Popover,
   SectionCard,
   Select,
   Textarea,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
-import { financeApi } from "../../lib/financeApi";
+import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { DataTableCard, FinanceFilterButton, PageShell } from "../../components/FinancePageLayout";
+import { formatCurrency } from "../../lib/financeData";
 
 export function CustomersPage() {
   const navigate = useNavigate();
@@ -87,7 +91,16 @@ export function CustomersPage() {
     { key: "name", header: "Consumer Name", render: (row) => <span className="font-medium text-slate-900">{row.name}</span> },
     { key: "phone", header: "Phone Number" },
     { key: "status", header: "Status" },
-  ], []);
+    {
+      key: "actions",
+      header: "Actions",
+      render: (row) => (
+        <Button variant="outline" size="sm" onClick={() => navigate(row.uid)}>
+          View
+        </Button>
+      ),
+    },
+  ], [navigate]);
 
   return (
     <PageShell
@@ -106,6 +119,468 @@ export function CustomersPage() {
         emptyDescription="Finance consumers will appear here once available from the finance consumer API."
         getRowId={(row) => row.uid}
       />
+    </PageShell>
+  );
+}
+
+export function CustomerDetailPage() {
+  const navigate = useNavigate();
+  const { id = "" } = useParams<{ id: string }>();
+  const [customer, setCustomer] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [locations, setLocations] = useState<Array<{ value: string; label: string }>>([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [masterSelectionMode, setMasterSelectionMode] = useState(false);
+  const [creatingMasterInvoice, setCreatingMasterInvoice] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [formError, setFormError] = useState("");
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("ALL");
+  const [locationFilter, setLocationFilter] = useState("ALL");
+
+  function extractInvoiceRecords(payload: any) {
+    if (Array.isArray(payload?.content)) return payload.content;
+    if (Array.isArray(payload?.data?.content)) return payload.data.content;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload)) return payload;
+    return [];
+  }
+
+  function readInvoiceConsumerUid(item: any) {
+    return String(
+      item?.consumerUid ??
+      item?.consumer?.uid ??
+      item?.consumer?.consumerUid ??
+      item?.consumerSnapshot?.uid ??
+      item?.customerUid ??
+      ""
+    ).trim();
+  }
+
+  function getInvoiceSelectionId(item: any) {
+    return String(item?.detailUid || item?.uid || item?.id || item?.invoiceNum || "");
+  }
+
+  function buildMasterInvoicePayload(baseInvoice: any, linkedInvoiceUids: string[]) {
+    const nowIso = new Date().toISOString();
+    const resolvedLocationId = locationFilter !== "ALL"
+      ? locationFilter
+      : baseInvoice?.locationId ?? baseInvoice?.locationUid;
+    return sanitizeFinancePayload({
+      tenantId: baseInvoice?.tenantId ?? baseInvoice?.tenantUid,
+      locationId: resolvedLocationId,
+      sourceService: "FINANCE_SERVICE",
+      sourceServiceCategory: "FINANCE",
+      invoiceDate: nowIso,
+      createdDate: nowIso,
+      dueDate: baseInvoice?.dueDate ?? nowIso,
+      consumerType: baseInvoice?.consumerType ?? "TENANT_CONSUMER",
+      consumerUid: baseInvoice?.consumerUid ?? id,
+      linkedInvoices: linkedInvoiceUids.map((uid) => ({ uid })),
+    });
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCustomerInvoices() {
+      setLoading(true);
+      try {
+        const [customerResponse, invoiceResponse, locationResponse] = await Promise.all([
+          financeApi.customers.detail<any>(id),
+          financeApi.invoices.listGeneral<any>({
+            from: 0,
+            count: 200,
+            consumerUid: id,
+            ...(locationFilter !== "ALL" ? { locationUid: locationFilter } : {}),
+          }),
+          financeApi.locations.tenant<any>({ page: 0, size: 200 }),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const rawLocations = Array.isArray(locationResponse.data?.content)
+          ? locationResponse.data.content
+          : Array.isArray(locationResponse.data?.data?.content)
+            ? locationResponse.data.data.content
+            : Array.isArray(locationResponse.data?.data)
+              ? locationResponse.data.data
+              : Array.isArray(locationResponse.data)
+                ? locationResponse.data
+                : [];
+        setLocations(
+          rawLocations
+            .map((item: any) => ({
+              value: String(item.uid ?? item.locationUid ?? item.id ?? ""),
+              label: String(item.locationName ?? item.name ?? item.displayName ?? "").trim(),
+            }))
+            .filter((item: { value: string; label: string }) => item.value && item.label)
+        );
+
+        const customerData = customerResponse.data ?? {};
+        const payload = extractInvoiceRecords(invoiceResponse.data);
+        const firstInvoiceRecord = payload?.[0] ?? {};
+        setCustomer({
+          uid: id,
+          name: String(
+            customerData.displayName ??
+            customerData.name ??
+            customerData.consumerName ??
+            firstInvoiceRecord.consumerName ??
+            firstInvoiceRecord.name ??
+            firstInvoiceRecord.displayName ??
+            customerData.consumerName ??
+            [customerData.firstName, customerData.lastName].filter(Boolean).join(" ") ??
+            "Consumer"
+          ).trim(),
+          phone: String(
+            customerData.phoneE164 ??
+            customerData.whatsAppE164 ??
+            customerData.consumerPhone ??
+            firstInvoiceRecord.consumerPhone ??
+            customerData.mobile ??
+            customerData.mobileNo ??
+            customerData.phoneNo ??
+            customerData.phone ??
+            customerData.primaryPhone ??
+            "-"
+          ).trim(),
+          consumerType: String(customerData.consumerType ?? firstInvoiceRecord.consumerType ?? "NONE").trim(),
+          locationName: String(customerData.locationName ?? firstInvoiceRecord.locationName ?? firstInvoiceRecord.location ?? "-").trim(),
+          status: String(customerData.status ?? "ACTIVE").trim(),
+        });
+
+        const normalizedInvoices = payload
+          .filter((item: any) => {
+            const consumerUid = readInvoiceConsumerUid(item);
+            return !consumerUid || consumerUid === id;
+          })
+          .map((item: any, index: number) => ({
+          id: String(item.uid || item.invoiceNum || item.invoiceId || `invoice-${index}`),
+          detailUid: String(item.uid || item.invoiceUid || item.invoiceEncId || item.id || item.invoiceId || ""),
+          invoiceNum: String(item.invoiceNum || item.invoiceId || item.uid || `invoice-${index}`),
+          invoiceDate: item.invoiceDate || item.createdDate || item.createdAt
+            ? new Date(item.invoiceDate || item.createdDate || item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "-",
+          amount: Number(item.netRate || item.netTotal || item.totalAmount || item.amountDue || 0),
+          amountDue: Number(item.amountDue || item.netRate || item.netTotal || item.totalAmount || 0),
+          invoiceType: String(item.internalInvoiceType || item.invoiceType || item.type || "INDIVIDUAL_INVOICE"),
+          status: String(item.invoiceStatus || item.billStatus || item.status || item.invoicePaymentStatus || "New"),
+          product: String(item.product || item.productName || item.featureModule || "FINANCE"),
+          location: String(item.locationName || item.location || item.locationPlace || "Unknown"),
+          consumerUid: readInvoiceConsumerUid(item),
+          tenantUid: String(item.tenantUid || ""),
+          locationId: String(item.locationId || item.locationUid || ""),
+          locationUid: String(item.locationUid || ""),
+          locationName: String(item.locationName || item.location || ""),
+          storeUid: String(item.storeUid || ""),
+          storeName: String(item.storeName || ""),
+          departmentUid: String(item.departmentUid || ""),
+          departmentName: String(item.departmentName || ""),
+        }));
+        setInvoices(normalizedInvoices);
+        setSelectedInvoiceIds((current) => current.filter((invoiceId) => normalizedInvoices.some((item) => getInvoiceSelectionId(item) === invoiceId)));
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        console.error("Failed to load finance consumer invoices", error);
+        setFormError(error instanceof Error ? error.message : "Could not load consumer invoice list.");
+        setInvoices([]);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadCustomerInvoices();
+    return () => {
+      active = false;
+    };
+  }, [id, locationFilter]);
+
+  function toggleInvoiceSelection(invoiceId: string, checked: boolean) {
+    setSelectedInvoiceIds((current) =>
+      checked ? Array.from(new Set([...current, invoiceId])) : current.filter((idValue) => idValue !== invoiceId)
+    );
+  }
+
+  function handleStartMasterInvoiceSelection() {
+    setFormError("");
+    setMasterSelectionMode(true);
+    setSelectedInvoiceIds([]);
+  }
+
+  async function handleGenerateMasterInvoice() {
+    if (selectedInvoiceIds.length < 2 || creatingMasterInvoice) {
+      return;
+    }
+
+    setFormError("");
+    setCreatingMasterInvoice(true);
+    try {
+      const selectedInvoices = displayedInvoices.filter((item) => selectedInvoiceIds.includes(getInvoiceSelectionId(item)));
+      const primaryInvoice = selectedInvoices[0];
+      if (!primaryInvoice?.detailUid) {
+        throw new Error("Select valid invoices to create a master invoice.");
+      }
+
+      const detailResponse = await financeApi.invoices.detailGeneral<any>(primaryInvoice.detailUid);
+      const payload = buildMasterInvoicePayload(
+        detailResponse.data ?? {},
+        selectedInvoices.map((item) => String(item.detailUid || item.id)).filter(Boolean),
+      );
+      const response = await financeApi.invoices.createMaster<any>(payload);
+      const masterInvoiceUid = String(
+        response.data?.uid ??
+        response.data?.masterInvoiceUid ??
+        response.data?.invoiceUid ??
+        response.data?.id ??
+        ""
+      );
+
+      setMasterSelectionMode(false);
+      setSelectedInvoiceIds([]);
+      if (masterInvoiceUid) {
+        navigate(`/finance/master-invoice/${masterInvoiceUid}`);
+        return;
+      }
+      await Promise.all([
+        financeApi.customers.detail<any>(id),
+        financeApi.invoices.listGeneral<any>({ from: 0, count: 200, consumerUid: id }),
+      ]);
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to create master invoice", error);
+      setFormError(error instanceof Error ? error.message : "Could not create master invoice.");
+    } finally {
+      setCreatingMasterInvoice(false);
+    }
+  }
+
+  const locationOptions = useMemo(
+    () => [{ value: "ALL", label: "All Locations" }, ...locations],
+    [locations]
+  );
+
+  const displayedInvoices = useMemo(() => (
+    invoices.filter((item) => {
+      const statusMatches = invoiceStatusFilter === "ALL" || String(item.status).toUpperCase() === invoiceStatusFilter;
+      const locationMatches = locationFilter === "ALL" || item.locationUid === locationFilter || item.locationId === locationFilter;
+      const consumerMatches = String(item.consumerUid || "") === id || !item.consumerUid;
+      return statusMatches && locationMatches && consumerMatches;
+    })
+  ), [invoiceStatusFilter, invoices, locationFilter]);
+
+  useEffect(() => {
+    if (displayedInvoices.length < 2 && masterSelectionMode) {
+      setMasterSelectionMode(false);
+      setSelectedInvoiceIds([]);
+    }
+  }, [displayedInvoices.length, masterSelectionMode]);
+
+  const invoiceColumns = useMemo<ColumnDef<any>[]>(() => {
+    const columns: ColumnDef<any>[] = [];
+    if (masterSelectionMode) {
+      columns.push({
+        key: "select",
+        header: "",
+        render: (row) => {
+          const selectionId = getInvoiceSelectionId(row);
+          return (
+            <input
+              type="checkbox"
+              checked={selectedInvoiceIds.includes(selectionId)}
+              onChange={(event) => toggleInvoiceSelection(selectionId, event.target.checked)}
+              aria-label={`Select invoice ${row.invoiceNum}`}
+            />
+          );
+        },
+      });
+    }
+    columns.push(
+      { key: "invoiceNum", header: "ID" },
+      { key: "invoiceDate", header: "Date" },
+      { key: "amount", header: "Amount (INR)", align: "right", render: (row) => formatCurrency(row.amount) },
+      { key: "amountDue", header: "Amount Due (INR)", align: "right", render: (row) => formatCurrency(row.amountDue) },
+      { key: "invoiceType", header: "Invoice Type" },
+      { key: "status", header: "Status" },
+      { key: "product", header: "Product" },
+      {
+        key: "actions",
+        header: "Actions",
+        render: (row) => (
+          <Button variant="outline" size="sm" onClick={() => navigate(`/finance/invoice/view/${row.detailUid || row.id}`)}>
+            View
+          </Button>
+        ),
+      },
+    );
+    return columns;
+  }, [masterSelectionMode, navigate, selectedInvoiceIds]);
+
+  return (
+    <PageShell
+      title={customer ? customer.name : "Consumer"}
+      subtitle="Consumer-level invoice view for finance operations."
+      actions={(
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>
+            Back
+          </Button>
+          <Button onClick={() => navigate(`/finance/invoice/newInvoice?consumerUid=${id}`)}>
+            Create Invoice
+          </Button>
+        </div>
+      )}
+    >
+      {customer ? (
+        <div className="grid gap-4">
+          <SectionCard className="border-slate-200 shadow-sm">
+            <div className="flex flex-col gap-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-200 text-3xl font-semibold text-slate-600">
+                    {String(customer.name || "C").trim().charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-[34px] font-semibold leading-tight text-slate-900">{customer.name}</div>
+                    <div className="mt-1 text-base font-semibold text-indigo-700">Consumer Id : {id}</div>
+                  </div>
+                </div>
+                <div className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white">
+                  {String(customer.status || "ACTIVE")}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <div className="text-sm text-slate-500">Phone</div>
+                <div className="mt-1 text-2xl font-semibold text-indigo-700">{customer.phone || "-"}</div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-sm text-slate-500">Consumer Type</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900">{customer.consumerType || "-"}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-sm text-slate-500">Location</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900">{customer.locationName || "-"}</div>
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+        </div>
+      ) : null}
+
+      <SectionCard className="border-slate-200 shadow-sm">
+        <div className="px-4 py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-[22px] font-semibold text-slate-900">Invoice ({displayedInvoices.length})</div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="w-full sm:w-64">
+                <Select
+                  value={invoiceStatusFilter}
+                  onChange={(event) => setInvoiceStatusFilter(event.target.value)}
+                  options={[
+                    { value: "ALL", label: "All" },
+                    { value: "NEW", label: "New" },
+                    { value: "SETTLED", label: "Settled" },
+                    { value: "CANCELLED", label: "Cancelled" },
+                    { value: "PAID", label: "Paid" },
+                  ]}
+                />
+              </div>
+              <div className="w-full sm:w-56">
+                <Select
+                  value={locationFilter}
+                  onChange={(event) => setLocationFilter(event.target.value)}
+                  options={locationOptions}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {masterSelectionMode ? (
+              <>
+                <Button
+                  onClick={() => void handleGenerateMasterInvoice()}
+                  disabled={selectedInvoiceIds.length < 2 || creatingMasterInvoice}
+                >
+                  {creatingMasterInvoice ? "Generating..." : "Generate Invoice"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMasterSelectionMode(false);
+                    setSelectedInvoiceIds([]);
+                    setFormError("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Popover
+                portal
+                placement="bottom-start"
+                trigger={<Button icon={<Icon name="plus" className="h-4 w-4" />}>Create Invoice</Button>}
+              >
+                <div className="grid min-w-[180px] p-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start font-normal"
+                    onClick={() => navigate(`/finance/invoice/newInvoice?consumerUid=${id}`)}
+                  >
+                    New Invoice
+                  </Button>
+                  {displayedInvoices.length > 1 ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start font-normal"
+                      onClick={handleStartMasterInvoiceSelection}
+                    >
+                      Master Invoice
+                    </Button>
+                  ) : null}
+                </div>
+              </Popover>
+            )}
+          </div>
+        </div>
+
+        {formError ? (
+          <div className="mx-4 mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            {formError}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="py-8 text-center text-slate-500">Loading consumer invoices...</div>
+        ) : displayedInvoices.length ? (
+          <div className="mt-1">
+            <DataTableCard
+              bare
+              data={displayedInvoices}
+              columns={invoiceColumns}
+              getRowId={(row) => row.id}
+              emptyTitle="No invoices found"
+              emptyDescription="This consumer does not have finance invoices yet."
+            />
+          </div>
+        ) : (
+          <div className="mt-4">
+            <EmptyState
+              title="No invoices found"
+              description="This consumer does not have finance invoices yet."
+            />
+          </div>
+        )}
+      </SectionCard>
     </PageShell>
   );
 }

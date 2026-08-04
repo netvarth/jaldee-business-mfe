@@ -10,6 +10,7 @@ function SettingsPage() {
   const { financeCategories, financeStatuses, financeVendors } = useFinanceLiveData();
   const [expenseEnabled, setExpenseEnabled] = useState(false);
   const [invoiceEnabled, setInvoiceEnabled] = useState(false);
+  const [masterInvoiceEnabled, setMasterInvoiceEnabled] = useState(false);
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -33,6 +34,13 @@ function SettingsPage() {
             data.enableInvoice === true ||
             data.invoiceEnabled === true;
           setInvoiceEnabled(isInvoiceEnabled);
+
+          const isMasterInvoiceEnabled =
+            data.masterInvoiceStatus === "Enabled" ||
+            data.masterInvoice === "Enabled" ||
+            data.enableMasterInvoice === true ||
+            data.masterInvoiceEnabled === true;
+          setMasterInvoiceEnabled(isMasterInvoiceEnabled);
 
           const isTaxEnabled =
             data.enableTaxStatus === "Enabled" ||
@@ -82,8 +90,41 @@ function SettingsPage() {
     try {
       await financeApi.settings.taxFeature(nextStatus);
       setTaxEnabled(checked);
+      if (checked) {
+        try {
+          const response = await financeApi.taxes.list<any>({
+            page: 0,
+            size: 1,
+            sort: [{ field: "createdAt", direction: "DESC" }],
+          });
+          const records = Array.isArray(response.data)
+            ? response.data
+            : Array.isArray((response.data as any)?.content)
+              ? (response.data as any).content
+              : Array.isArray((response.data as any)?.data)
+                ? (response.data as any).data
+                : [];
+          navigate(records.length > 0 ? "../taxes" : "../taxes/create");
+        } catch (error) {
+          console.error("Failed to resolve tax setup screen", error);
+          navigate("../taxes/create");
+        }
+      }
     } catch (error) {
       console.error("Failed to update tax status", error);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleToggleMasterInvoice(checked: boolean) {
+    setUpdating(true);
+    const nextStatus = checked ? "Enabled" : "Disabled";
+    try {
+      await financeApi.settings.masterInvoiceFeature(nextStatus);
+      setMasterInvoiceEnabled(checked);
+    } catch (error) {
+      console.error("Failed to update master invoice status", error);
     } finally {
       setUpdating(false);
     }
@@ -136,9 +177,20 @@ function SettingsPage() {
                   onChange={handleToggleTax}
                 />
               </div>
+              <div className="flex items-center justify-between py-2 pt-4">
+                <div>
+                  <div className="text-[17px] font-semibold text-slate-900">Master Invoice Feature</div>
+                  <div className="mt-1 text-sm text-slate-500">Enable or disable master invoice creation inside the finance module.</div>
+                </div>
+                <Switch
+                  checked={masterInvoiceEnabled}
+                  disabled={updating}
+                  onChange={handleToggleMasterInvoice}
+                />
+              </div>
             </div>
             <div className="mt-5 flex justify-end">
-              <Button type="button" variant="outline" onClick={() => navigate(toFinanceRoute("/finance/taxes"))}>
+              <Button type="button" variant="outline" onClick={() => navigate("../taxes")}>
                 Manage Taxes
               </Button>
             </div>

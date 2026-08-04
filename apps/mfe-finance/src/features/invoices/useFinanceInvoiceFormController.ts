@@ -22,6 +22,7 @@ import { buildInvoiceSubmissionPayload, validateInvoiceSubmission } from "./invo
 import { loadInvoiceFormOptions } from "./invoiceFormLoader";
 import { fetchCouponOptions, fetchDiscountOptions, fetchInvoiceTemplates } from "./invoiceAdjustmentLoader";
 import { fetchInvoiceTemplate, mapTemplateItems } from "./invoiceTemplateDetail";
+import { fetchCouponDetail } from "./invoiceAdjustmentDetails";
 import { buildCouponMutationPayload, buildDiscountMutationPayload, resolveTenantUid } from "./invoiceAdjustmentPayloads";
 import { createInvoiceCategory, fetchNextInvoiceNumber } from "./invoiceReferenceService";
 import { saveInvoiceItem } from "./invoiceItemBuilder";
@@ -652,14 +653,22 @@ export function useFinanceInvoiceFormController() {
       return;
     }
 
-    const activeCoupon = selectedCouponDetail ?? selectedCouponOption ?? null;
-    const couponUid = selectedCouponDetail?.uid ?? selectedCouponOption?.value ?? selectedCouponId;
-    const couponCode = activeCoupon?.code || "";
-    const couponName = activeCoupon?.name || selectedCouponOption?.label || "";
-
     setCouponSubmitting(true);
     setFormError("");
     try {
+      const activeCoupon =
+        selectedCouponDetail ??
+        await fetchCouponDetail(selectedCouponId, selectedCouponOption ?? null);
+      const couponUid = activeCoupon?.uid || selectedCouponOption?.value || selectedCouponId;
+      const couponCode = activeCoupon?.code || "";
+      const couponName = activeCoupon?.name || selectedCouponOption?.label || "";
+
+      if (!couponUid || !couponCode) {
+        setFormError("Selected coupon is incomplete. Reload coupon details and try again.");
+        setCouponSubmitting(false);
+        return;
+      }
+
       const tenantUid = resolveTenantUid(mfeProps.account);
       await financeApi.invoices.applyCoupon(id, buildCouponMutationPayload({
         ...activeCoupon,

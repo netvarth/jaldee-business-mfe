@@ -1,73 +1,129 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
-import { Button, Dialog, DialogFooter, Input, PageHeader, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import {
+  Button,
+  DatePicker,
+  Dialog,
+  DialogFooter,
+  Icon,
+  Input,
+  PageHeader,
+  Popover,
+  SectionCard,
+  Select,
+  Textarea,
+} from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
-function toFinanceRoute(routePath:string){const n=String(routePath||"").trim();if(!n)return "/";return n.replace(/^\/finance(?=\/|$)/,"")||"/";}
+
+function toFinanceRoute(routePath: string) {
+  const n = String(routePath || "").trim();
+  if (!n) return "/";
+  return n.replace(/^\/finance(?=\/|$)/, "") || "/";
+}
+
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+type SelectOption = { value: string; label: string };
+type LocationOption = SelectOption & {
+  storeUid?: string;
+  storeName?: string;
+  departmentUid?: string;
+  departmentName?: string;
+};
+
+const PAYMENT_MODE_OPTIONS: SelectOption[] = [
+  { value: "Cash", label: "Cash" },
+  { value: "CC", label: "Credit Card" },
+  { value: "DC", label: "Debit Card" },
+  { value: "NB", label: "Net banking" },
+  { value: "UPI", label: "UPI" },
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "Other", label: "Other" },
+];
 
 export default function ExpenseCreatePage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [statusId, setStatusId] = useState("");
-  const [amount, setAmount] = useState("");
+  const [vendorUid, setVendorUid] = useState("");
+  const [locationUid, setLocationUid] = useState(String(mfeProps.location?.id ?? ""));
   const [bookedOn, setBookedOn] = useState(new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState("");
+  const [referenceNo, setReferenceNo] = useState("");
+  const [paymentMode, setPaymentMode] = useState("Cash");
   const [description, setDescription] = useState("");
-  const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [categoryOptions, setCategoryOptions] = useState<SelectOption[]>([]);
+  const [statusOptions, setStatusOptions] = useState<SelectOption[]>([]);
+  const [vendorOptions, setVendorOptions] = useState<SelectOption[]>([]);
+  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newStatusName, setNewStatusName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [creatingStatus, setCreatingStatus] = useState(false);
+  const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedLocation = locationOptions.find((item) => item.value === locationUid);
 
   useEffect(() => {
     let active = true;
 
-    async function loadFormData(selectNew?: { categoryId?: string; statusId?: string }) {
-      const result = await Promise.allSettled([
+    function extractRecords(payload: any) {
+      return Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.content)
+          ? payload.content
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.data?.content)
+              ? payload.data.content
+              : [];
+    }
+
+    async function loadFormData() {
+      const [categoriesResult, statusesResult, vendorsResult, locationsResult] = await Promise.allSettled([
         financeApi.categories.search<any>({
           page: 0,
           size: 100,
           sort: [{ field: "createdAt", direction: "DESC" }],
-          filters: {
-            field: "categoryType",
-            operator: "IN",
-            values: ["Expense"],
-          },
+          filters: { field: "categoryType", operator: "IN", values: ["Expense"] },
           view: "SUMMARY",
         }),
         financeApi.statuses.search<any>({
           page: 0,
           size: 100,
           sort: [{ field: "createdAt", direction: "DESC" }],
-          filters: {
-            field: "categoryType",
-            operator: "IN",
-            values: ["Expense"],
-          },
+          filters: { field: "categoryType", operator: "IN", values: ["Expense"] },
           view: "SUMMARY",
         }),
+        financeApi.vendors.search<any>({
+          page: 0,
+          size: 100,
+          sort: [{ field: "createdAt", direction: "DESC" }],
+          view: "SUMMARY",
+        }),
+        financeApi.locations.tenant<any>({ page: 0, size: 100 }),
       ]);
 
       if (!active) return;
 
-      const categoriesResponse = result[0].status === "fulfilled" ? result[0].value : null;
-      const statusesResponse = result[1].status === "fulfilled" ? result[1].value : null;
-      const categories = Array.isArray(categoriesResponse?.data)
-        ? categoriesResponse.data
-        : Array.isArray(categoriesResponse?.data?.content)
-          ? categoriesResponse.data.content
-          : [];
-      const statuses = Array.isArray(statusesResponse?.data)
-        ? statusesResponse.data
-        : Array.isArray(statusesResponse?.data?.content)
-          ? statusesResponse.data.content
-          : [];
+      const categories = extractRecords(categoriesResult.status === "fulfilled" ? categoriesResult.value.data : null);
+      const statuses = extractRecords(statusesResult.status === "fulfilled" ? statusesResult.value.data : null);
+      const vendors = extractRecords(vendorsResult.status === "fulfilled" ? vendorsResult.value.data : null);
+      const locations = extractRecords(locationsResult.status === "fulfilled" ? locationsResult.value.data : null);
 
       const filteredCategories = categories.filter((item: any) => {
         const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
@@ -88,18 +144,35 @@ export default function ExpenseCreatePage() {
         value: String(item.uid ?? item.id ?? item.encId ?? `status-${index}`),
         label: String(item.name ?? item.statusName ?? item.vendorStatusName ?? "Status"),
       }));
+      const nextVendorOptions = vendors.map((item: any, index: number) => ({
+        value: String(item.encId ?? item.uid ?? item.id ?? `vendor-${index}`),
+        label: String(item.name ?? item.vendorName ?? "Vendor"),
+      }));
+      const nextLocationOptions = locations
+        .map((item: any) => ({
+          value: String(item.locationUid ?? item.uid ?? item.id ?? item.locationId ?? ""),
+          label: String(item.place ?? item.name ?? item.locationName ?? "Location"),
+          storeUid: String(item.storeUid ?? item.store?.uid ?? item.store?.encId ?? ""),
+          storeName: String(item.storeName ?? item.store?.name ?? ""),
+          departmentUid: String(item.departmentUid ?? item.department?.uid ?? item.department?.encId ?? ""),
+          departmentName: String(item.departmentName ?? item.department?.name ?? ""),
+        }))
+        .filter((item) => item.value);
 
       setCategoryOptions(nextCategoryOptions);
       setStatusOptions(nextStatusOptions);
-      setCategoryId((current) => selectNew?.categoryId || current || nextCategoryOptions[0]?.value || "");
-      setStatusId((current) => selectNew?.statusId || current || nextStatusOptions[0]?.value || "");
+      setVendorOptions(nextVendorOptions);
+      setLocationOptions(nextLocationOptions);
+      setCategoryId((current) => current || nextCategoryOptions[0]?.value || "");
+      setStatusId((current) => current || nextStatusOptions[0]?.value || "");
+      setLocationUid((current) => current || nextLocationOptions[0]?.value || "");
     }
 
     void loadFormData();
     return () => {
       active = false;
     };
-  }, []);
+  }, [mfeProps.location?.id]);
 
   async function handleCreateCategory() {
     setFormError("");
@@ -124,11 +197,7 @@ export default function ExpenseCreatePage() {
         page: 0,
         size: 100,
         sort: [{ field: "createdAt", direction: "DESC" }],
-        filters: {
-          field: "categoryType",
-          operator: "IN",
-          values: ["Expense"],
-        },
+        filters: { field: "categoryType", operator: "IN", values: ["Expense"] },
         view: "SUMMARY",
       });
       const categories = Array.isArray(categoriesResponse.data?.content) ? categoriesResponse.data.content : [];
@@ -174,11 +243,7 @@ export default function ExpenseCreatePage() {
         page: 0,
         size: 100,
         sort: [{ field: "createdAt", direction: "DESC" }],
-        filters: {
-          field: "categoryType",
-          operator: "IN",
-          values: ["Expense"],
-        },
+        filters: { field: "categoryType", operator: "IN", values: ["Expense"] },
         view: "SUMMARY",
       });
       const statuses = Array.isArray(statusesResponse.data?.content) ? statusesResponse.data.content : [];
@@ -201,13 +266,25 @@ export default function ExpenseCreatePage() {
     }
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleAttachmentChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setSelectedAttachments(Array.from(event.target.files ?? []));
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
 
     const parsedAmount = Number(amount);
+    if (!locationUid) {
+      setFormError("Location is required.");
+      return;
+    }
+    if (!categoryId) {
+      setFormError("Category is required.");
+      return;
+    }
     if (!title.trim()) {
-      setFormError("Expense title is required.");
+      setFormError("Expense for is required.");
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -226,8 +303,18 @@ export default function ExpenseCreatePage() {
         expenseDate: toIsoDateTime(bookedOn),
         createdDate: toIsoDateTime(bookedOn),
         description: description.trim() || undefined,
-        locationUid: mfeProps.location?.id ?? undefined,
-        locationName: mfeProps.location?.name ?? undefined,
+        referenceNo: referenceNo.trim() || undefined,
+        mode: paymentMode || undefined,
+        paymentMode: paymentMode || undefined,
+        consumerUid: vendorUid || undefined,
+        vendorUid: vendorUid || undefined,
+        locationUid: locationUid || undefined,
+        locationName: selectedLocation?.label || mfeProps.location?.name || undefined,
+        storeUid: selectedLocation?.storeUid || undefined,
+        storeName: selectedLocation?.storeName || undefined,
+        departmentUid: selectedLocation?.departmentUid || undefined,
+        departmentName: selectedLocation?.departmentName || undefined,
+        uploadedDocuments: [],
       });
       navigate("/finance/expense");
     } catch (error) {
@@ -256,28 +343,13 @@ export default function ExpenseCreatePage() {
               }
             >
               <div className="grid min-w-[220px] p-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal"
-                  onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=Expense`)}
-                >
+                <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=Expense`)}>
                   Expense category
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal"
-                  onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}
-                >
+                <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
                   Create Vendor
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal"
-                  onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=Expense`)}
-                >
+                <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=Expense`)}>
                   Expense Status
                 </Button>
               </div>
@@ -290,23 +362,45 @@ export default function ExpenseCreatePage() {
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5 p-5 md:p-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Expense Title" value={title} onChange={(event) => setTitle(event.target.value)} required />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">Category</label>
+              <label className="text-sm font-semibold text-slate-700">Category *</label>
               <div className="flex items-center">
                 <Select
                   value={categoryId}
                   onChange={(event) => setCategoryId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Select category" }, ...categoryOptions]}
+                  options={[{ value: "", label: "Category" }, ...categoryOptions]}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
                   +
                 </Button>
               </div>
             </div>
-            <Input label="Booked On" type="date" value={bookedOn} onChange={(event) => setBookedOn(event.target.value)} required />
+            <Select
+              label="Location *"
+              value={locationUid}
+              onChange={(event) => setLocationUid(event.target.value)}
+              options={[{ value: "", label: "Location" }, ...locationOptions]}
+            />
+            <Input label="Expense For *" value={title} onChange={(event) => setTitle(event.target.value)} required />
+            <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Reference Number" />
+            <Input label="Amount *" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Vendor</label>
+              <div className="flex items-center">
+                <Select
+                  value={vendorUid}
+                  onChange={(event) => setVendorUid(event.target.value)}
+                  containerClassName="flex-1"
+                  className="rounded-r-none border-r-0"
+                  options={[{ value: "", label: "Please choose Vendor" }, ...vendorOptions]}
+                />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
+                  +
+                </Button>
+              </div>
+            </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Status</label>
               <div className="flex items-center">
@@ -315,23 +409,56 @@ export default function ExpenseCreatePage() {
                   onChange={(event) => setStatusId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Select status" }, ...statusOptions]}
+                  options={[{ value: "", label: "New" }, ...statusOptions]}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
                   +
                 </Button>
               </div>
             </div>
-            <Input label="Amount" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+            <DatePicker label="Expense Date *" value={bookedOn} onChange={(event) => setBookedOn(event.target.value)} required />
+            <Select label="Payment Mode" value={paymentMode} onChange={(event) => setPaymentMode(event.target.value)} options={PAYMENT_MODE_OPTIONS} />
           </div>
-          <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+
+          <Textarea
+            label="Notes"
+            value={description}
+            onChange={(event) => setDescription(event.target.value.slice(0, 500))}
+            placeholder="Max.500 Characters"
+            rows={4}
+          />
+
+          <div className="grid gap-3">
+            <div className="text-sm font-semibold text-slate-700">Upload file/Attachment</div>
+            <input ref={attachmentInputRef} type="file" className="hidden" multiple onChange={handleAttachmentChange} />
+            <div className="flex flex-wrap items-start gap-3">
+              <button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                className="flex min-h-[132px] w-[104px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-slate-300 hover:bg-slate-100"
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                  <Icon name="folder" className="h-6 w-6" />
+                </div>
+                <span className="text-sm font-semibold text-violet-700">Upload File</span>
+              </button>
+              {selectedAttachments.length ? (
+                <div className="grid gap-2">
+                  {selectedAttachments.map((file) => (
+                    <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                      {file.name}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">{formError}</div> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate(toFinanceRoute("/finance/expense"))}>
-              Cancel
-            </Button>
+
+          <div className="flex justify-start gap-2">
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Creating..." : "Create Expense"}
+              {submitting ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>

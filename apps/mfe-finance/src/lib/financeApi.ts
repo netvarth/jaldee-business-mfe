@@ -73,15 +73,19 @@ function toTenantSearchBody(
     defaultView?: string;
   },
 ) {
-  const page = Number(filter.page ?? 0);
-  const size = Number(filter.size ?? 10);
+  const resolvedSize = Number(filter.size ?? filter.count ?? 10);
+  const resolvedPage = filter.page !== undefined
+    ? Number(filter.page)
+    : filter.from !== undefined
+      ? Math.floor(Number(filter.from) / (Number.isNaN(resolvedSize) || resolvedSize <= 0 ? 10 : resolvedSize))
+      : 0;
   const sort = Array.isArray(filter.sort) && filter.sort.length
     ? filter.sort
     : options?.defaultSort;
   const view = typeof filter.view === "string" && filter.view ? filter.view : options?.defaultView;
   const body: Record<string, unknown> = {
-    page: Number.isNaN(page) ? 0 : page,
-    size: Number.isNaN(size) ? 10 : size,
+    page: Number.isNaN(resolvedPage) ? 0 : resolvedPage,
+    size: Number.isNaN(resolvedSize) ? 10 : resolvedSize,
   };
   if (view) {
     body.view = view;
@@ -91,6 +95,13 @@ function toTenantSearchBody(
   }
   if (filter.filters) {
     body.filters = filter.filters;
+  } else if (filter.consumerUid) {
+    body.consumerUid = String(filter.consumerUid);
+    body.filters = {
+      field: "consumerUid",
+      operator: "IN",
+      values: [String(filter.consumerUid)],
+    };
   } else if (filter.locationUid) {
     body.filters = {
       field: "locationUid",
@@ -171,6 +182,9 @@ export const financeApi = {
     },
     invoiceFeature(status: "Enabled" | "Disabled") {
       return put(`${TENANT_SETTINGS_ENDPOINT}/invoice/${status}`);
+    },
+    masterInvoiceFeature(status: "Enabled" | "Disabled") {
+      return put(`${TENANT_SETTINGS_ENDPOINT}/master-invoice/${status}`);
     },
     taxFeature(status: "Enabled" | "Disabled") {
       return put(`${TENANT_SETTINGS_ENDPOINT}/enable-tax/${status}`);
@@ -298,6 +312,9 @@ export const financeApi = {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_EXPENSES_SEARCH_ENDPOINT, toTenantSearchBody(filter));
     },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_EXPENSES_SEARCH_ENDPOINT}/schema`);
+    },
     createPayout<T = unknown>(data: unknown) {
       return post<T>(TENANT_PAYMENTS_OUT_ENDPOINT, data);
     },
@@ -315,6 +332,9 @@ export const financeApi = {
         TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT,
         toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] }),
       );
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT}/schema`);
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_PAYMENTS_OUT_ENDPOINT}/${uid}`);
@@ -353,6 +373,9 @@ export const financeApi = {
         TENANT_PAYMENTS_IN_SEARCH_ENDPOINT,
         toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] }),
       );
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_PAYMENTS_IN_SEARCH_ENDPOINT}/schema`);
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_PAYMENTS_IN_ENDPOINT}/${uid}`);
@@ -757,6 +780,9 @@ export const financeApi = {
     ...taxes,
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_TAX_SEARCH_ENDPOINT, filter);
+    },
+    byFilter<T = unknown>(filter: ApiFilter = {}) {
+      return get<T>(TENANT_TAX_ENDPOINT, toMsQuery(filter));
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_TAX_ENDPOINT}/${uid}`);

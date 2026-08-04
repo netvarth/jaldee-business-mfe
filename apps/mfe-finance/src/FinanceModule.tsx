@@ -36,6 +36,9 @@ const CustomersPage = lazy(() =>
 const CustomerCreatePage = lazy(() =>
   import("./pages/customers/CustomerPages").then((module) => ({ default: module.CustomerCreatePage }))
 );
+const CustomerDetailPage = lazy(() =>
+  import("./pages/customers/CustomerPages").then((module) => ({ default: module.CustomerDetailPage }))
+);
 const InvoicesPage = lazy(() => import("./pages/invoices/InvoicesPage"));
 const MasterInvoicePage = lazy(() => import("./pages/invoices/MasterInvoicePage"));
 const VendorsPage = lazy(() => import("./pages/vendors/VendorsPage"));
@@ -241,6 +244,7 @@ export default function App() {
         <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
         <Route path="customers" element={withBoundary(<CustomersPage />)} />
         <Route path="customers/create" element={withBoundary(<CustomerCreatePage />)} />
+        <Route path="customers/:id" element={withBoundary(<CustomerDetailPage />)} />
           <Route path="vendors" element={withBoundary(<VendorsPage />)} />
           <Route path="vendors/create" element={withBoundary(<VendorCreatePage />)} />
           <Route path="vendors/edit/:id" element={withBoundary(<VendorCreatePage />)} />
