@@ -7,6 +7,7 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  Popover,
   type ColumnDef,
 } from "@jaldee/design-system";
 import {
@@ -15,10 +16,13 @@ import {
   compactSearchClauses,
 } from "@jaldee/shared-modules";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
-import { applyLocalSchemaFilters, formatAppliedLocalFilterSummary } from "../../services/localSchemaFilters";
+import { formatAppliedBookingUserFilterSummary } from "../../services/bookingUserSearch";
+import { useBookingApi } from "../../services/useBookingApi";
 import { useUsers } from "../../services/useUsers";
 import { useModal } from "../../contexts/ModalContext";
 import CreateUserModal from "./CreateUserModal";
+import UserProfileModal from "./UserProfileModal";
+import { useToast } from "../../contexts/ToastContext";
 import type { BookingUser } from "../../data/sessionStore";
 
 const USER_FILTER_SCHEMA: SearchSchema = {
@@ -42,65 +46,68 @@ const USER_FILTER_SCHEMA: SearchSchema = {
 };
 
 export default function UsersPage() {
-  const { users, loading, refresh } = useUsers();
+  const api = useBookingApi();
   const { openModal } = useModal();
+  const { showToast } = useToast();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const userSearchSchema = USER_FILTER_SCHEMA;
+  const { users, loading, refresh, error } = useUsers(advancedFilters, userSearchSchema);
 
   const appliedFilterCount = useMemo(
-    () => compactSearchClauses(advancedFilters, USER_FILTER_SCHEMA).length,
-    [advancedFilters]
+    () => compactSearchClauses(advancedFilters, userSearchSchema).length,
+    [advancedFilters, userSearchSchema]
   );
 
   const appliedFilterSummary = useMemo(
-    () => formatAppliedLocalFilterSummary(advancedFilters, USER_FILTER_SCHEMA),
-    [advancedFilters]
+    () => formatAppliedBookingUserFilterSummary(advancedFilters, userSearchSchema),
+    [advancedFilters, userSearchSchema]
   );
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const locallyFiltered = applyLocalSchemaFilters(users, advancedFilters, USER_FILTER_SCHEMA, {
-      displayName: (user) => (user as BookingUser).displayName,
-      firstName: (user) => (user as BookingUser).firstName,
-      lastName: (user) => (user as BookingUser).lastName,
-      title: (user) => (user as BookingUser).title,
-      email: (user) => (user as BookingUser).email,
-      phoneNumber: (user) => (user as BookingUser).phoneNumber,
-      status: (user) => (user as BookingUser).status,
-      hasLogin: (user) => (user as BookingUser).hasLogin,
-    });
-
-    return locallyFiltered.filter(
+    return users.filter(
       (user) =>
         !normalized ||
         user.displayName.toLowerCase().includes(normalized) ||
         `${user.firstName} ${user.lastName}`.toLowerCase().includes(normalized),
     );
-  }, [advancedFilters, query, users]);
+  }, [query, users]);
+
+  async function toggleStatus(user: BookingUser) {
+    const nextStatus = user.status === "Active" ? "INACTIVE" : "ACTIVE";
+    try {
+      await api.patch(`/booking-users/${user.userUid}/status`, undefined, {
+        params: { status: nextStatus },
+      });
+      showToast("Booking user status updated", "success");
+      refresh();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to update booking user status", "error");
+    }
+  }
 
   const columns = useMemo<ColumnDef<BookingUser>[]>(
     () => [
-      { key: "displayName", header: "Display name", sortable: true, className: "font-semibold" },
       {
-        key: "name",
+        key: "displayName",
         header: "Name",
         sortable: true,
-        render: (user) => `${user.firstName} ${user.lastName}`.trim() || "-",
+        className: "font-semibold",
+        render: (user) => user.displayName || `${user.firstName} ${user.lastName}`.trim() || "-",
         sortFn: (a, b) =>
-          `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
+          (a.displayName || `${a.firstName} ${a.lastName}`).localeCompare(
+            b.displayName || `${b.firstName} ${b.lastName}`
+          ),
       },
-      { key: "title", header: "Title / role", sortable: true, render: (user) => user.title || "-" },
       {
-        key: "hasLogin",
-        header: "Login",
-        render: (user) => (
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${user.hasLogin ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-            {user.hasLogin ? "Login · CRM" : "Booking only"}
-          </span>
-        ),
+        key: "phoneNumber",
+        header: "Mobile number",
+        sortable: true,
+        render: (user) => user.phoneNumber || "-",
       },
       {
         key: "status",
@@ -112,8 +119,65 @@ export default function UsersPage() {
           </span>
         ),
       },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        width: 90,
+        render: (user) => (
+          <div className="flex justify-end">
+            <Popover
+              trigger={
+                <button
+                  id={`bookings-user-actions-${user.userUid}`}
+                  data-testid={`bookings-user-actions-${user.userUid}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                  </svg>
+                </button>
+              }
+              placement="bottom"
+              align="end"
+              portal
+            >
+              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
+                <button
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openModal(<UserProfileModal user={user} mode="view" onSaved={refresh} />);
+                  }}
+                >
+                  View
+                </button>
+                <button
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openModal(<UserProfileModal user={user} mode="edit" onSaved={refresh} />);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void toggleStatus(user);
+                  }}
+                >
+                  {user.status === "Active" ? "Inactive" : "Active"}
+                </button>
+              </div>
+            </Popover>
+          </div>
+        ),
+      },
     ],
-    [],
+    [api, openModal, refresh, showToast],
   );
 
   return (
@@ -163,7 +227,7 @@ export default function UsersPage() {
               setDraftFilters(
                 advancedFilters.length > 0
                   ? advancedFilters
-                  : buildDefaultSearchClauses(USER_FILTER_SCHEMA)
+                  : buildDefaultSearchClauses(userSearchSchema)
               );
               setDrawerOpen(true);
             }}
@@ -191,7 +255,22 @@ export default function UsersPage() {
           mode: "client",
           onChange: setPage,
         }}
-        emptyState={<EmptyState title="No users found" description="Try changing the search." />}
+        emptyState={
+          <EmptyState
+            title={
+              loading
+                ? "Loading users..."
+                : error
+                  ? "Could not load users"
+                  : "No users found"
+            }
+            description={
+              error
+                ? error
+                : "Try changing the search."
+            }
+          />
+        }
         data-testid="bookings-users"
       />
 
@@ -205,13 +284,13 @@ export default function UsersPage() {
         <div className="flex h-full flex-1 flex-col overflow-hidden">
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
             <SchemaFilterBuilder
-              schema={USER_FILTER_SCHEMA}
+              schema={userSearchSchema}
               value={draftFilters}
               onChange={setDraftFilters}
               appliedCount={appliedFilterCount}
               appliedSummary={appliedFilterSummary}
               onClearAll={() => {
-                const resetClauses = buildDefaultSearchClauses(USER_FILTER_SCHEMA);
+                const resetClauses = buildDefaultSearchClauses(userSearchSchema);
                 setDraftFilters(resetClauses);
                 setAdvancedFilters(resetClauses);
                 setPage(1);
@@ -224,7 +303,7 @@ export default function UsersPage() {
               type="button"
               variant="outline"
               onClick={() => {
-                const resetClauses = buildDefaultSearchClauses(USER_FILTER_SCHEMA);
+                const resetClauses = buildDefaultSearchClauses(userSearchSchema);
                 setDraftFilters(resetClauses);
                 setAdvancedFilters(resetClauses);
                 setPage(1);

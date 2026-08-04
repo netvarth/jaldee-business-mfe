@@ -25,30 +25,30 @@ import type { ChangeLoginIdInput, CreateUserInput, UsersFilters } from "../types
 const USERS_KEY = "users";
 
 export function useUsersDataset() {
-  const { api } = useSharedModulesContext();
+  const { api, product } = useSharedModulesContext();
 
   return useQuery({
     queryKey: [USERS_KEY, "dataset"],
-    queryFn: () => getUsersDataset(api),
+    queryFn: () => getUsersDataset(api, product),
   });
 }
 
 export function useUsersList(filters: UsersFilters) {
-  const { api } = useSharedModulesContext();
+  const { api, product } = useSharedModulesContext();
 
   return useQuery({
     queryKey: [USERS_KEY, "list", filters],
-    queryFn: () => listUsers(api, filters),
+    queryFn: () => listUsers(api, filters, product),
     placeholderData: (prev) => prev,
   });
 }
 
 export function useUserDetail(userId?: string | null) {
-  const { api } = useSharedModulesContext();
+  const { api, product } = useSharedModulesContext();
 
   return useQuery({
     queryKey: [USERS_KEY, "detail", userId],
-    queryFn: () => getUserDetail(api, userId || ""),
+    queryFn: () => getUserDetail(api, userId || "", product),
     enabled: Boolean(userId),
   });
 }
@@ -197,11 +197,11 @@ export function useUserLocations() {
 }
 
 export function useUpdateTenantUser(uid: string | number) {
-  const { api } = useSharedModulesContext();
+  const { api, product } = useSharedModulesContext();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: unknown) => updateTenantUser(api, uid, payload),
+    mutationFn: (payload: unknown) => updateTenantUser(api, uid, payload, product),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [USERS_KEY, "detail", uid] }),
@@ -230,12 +230,12 @@ export function useUpdateTenantUserAvailableStatus() {
 }
 
 export function useUpdateTenantUserStatus() {
-  const { api } = useSharedModulesContext();
+  const { api, product } = useSharedModulesContext();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ uid, status }: { uid: string | number; status: string }) =>
-      updateTenantUserStatus(api, uid, status),
+      updateTenantUserStatus(api, uid, status, product),
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [USERS_KEY, "detail", variables.uid] }),

@@ -4,13 +4,22 @@ import {
   DialogFooter,
   FormSection,
   Input,
+  PhoneInput,
   Select,
   Switch,
+  type PhoneInputValue,
 } from "@jaldee/design-system";
 import { useModal } from "../../contexts/ModalContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useCreateUser } from "../../services/useCreateUser";
 import type { BookingUser } from "../../data/sessionStore";
+
+const EMPTY_PHONE: PhoneInputValue = { countryCode: "+91", number: "", e164Number: "" };
+
+function isValidPhone(value: PhoneInputValue) {
+  const digits = value.number.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
 
 export default function CreateUserModal({ onCreated }: { onCreated: (user: BookingUser) => void }) {
   const { closeModal } = useModal();
@@ -21,7 +30,7 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
   const [title, setTitle] = useState("Dr.");
   const [status, setStatus] = useState<BookingUser["status"]>("Active");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneValue, setPhoneValue] = useState<PhoneInputValue>(EMPTY_PHONE);
   const [connectToCrm, setConnectToCrm] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -30,13 +39,25 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
       showToast("First and last name are required", "error");
       return;
     }
-    if (connectToCrm && !email && !phone) {
-      showToast("Email or phone is required for a login", "error");
+    if (!email.trim() && !phoneValue.number.trim()) {
+      showToast("Email or phone is required", "error");
       return;
     }
-    const user = await createUser({ firstName, lastName, title, status, email, phoneNumber: phone, connectToCrm });
+    if (phoneValue.number.trim() && !isValidPhone(phoneValue)) {
+      showToast("Phone must be a valid mobile number", "error");
+      return;
+    }
+    const user = await createUser({
+      firstName,
+      lastName,
+      title,
+      status,
+      email,
+      phoneNumber: phoneValue.e164Number || "",
+      connectToCrm,
+    });
     onCreated(user);
-    showToast(connectToCrm ? "User created with login (base CRM)" : "Booking user created (no login)", "success");
+    showToast(connectToCrm ? "Booking user created with login access" : "Booking user created", "success");
     closeModal();
   };
 
@@ -53,15 +74,19 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
         <Select id="usr-status" testId="bookings-create-user-status" label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={["Active", "Inactive"].map((value) => ({ value, label: value }))} />
       </FormSection>
       <div className="my-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <Switch label="Connect to Base CRM" checked={connectToCrm} onChange={setConnectToCrm} />
-        <p className="mt-2 text-xs text-slate-500">Provisions a central account. Leave off for a booking-only provider.</p>
+        <Switch label="Allow login" checked={connectToCrm} onChange={setConnectToCrm} />
+        <p className="mt-2 text-xs text-slate-500">Enable login access for this booking user. Leave off for a booking-only provider.</p>
       </div>
-      {connectToCrm && (
-        <FormSection title="Login details">
-          <Input id="usr-email" data-testid="bookings-create-user-email" type="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input id="usr-phone" data-testid="bookings-create-user-phone" label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </FormSection>
-      )}
+      <FormSection title="Contact details">
+        <Input id="usr-email" data-testid="bookings-create-user-email" type="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <PhoneInput
+          id="usr-phone"
+          testId="bookings-create-user-phone"
+          label="Phone"
+          value={phoneValue}
+          onChange={setPhoneValue}
+        />
+      </FormSection>
       <DialogFooter>
         <Button variant="secondary" onClick={closeModal}>Cancel</Button>
         <Button type="submit" loading={submitting}>Create User</Button>

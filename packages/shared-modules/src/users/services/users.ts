@@ -15,6 +15,7 @@ import type {
   UsersDataset,
   UsersFilters,
 } from "../types";
+import type { ProductKey } from "@jaldee/auth-context";
 
 import {
   BASE_SERVICE_ENDPOINTS,
@@ -28,9 +29,12 @@ interface ScopedApi {
   get: <T>(path: string, config?: unknown) => Promise<{ data: T }>;
   post: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
   put: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
+  patch: <T>(path: string, data?: unknown, config?: unknown) => Promise<{ data: T }>;
 }
 
 type RawRecord = Record<string, unknown>;
+const BOOKING_USERS_ENDPOINT = "/booking-service/v1/api/tenant/booking-users";
+const BOOKING_USERS_SEARCH_ENDPOINT = "/booking-service/v1/api/tenant/booking-users/search";
 
 function asString(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -65,6 +69,28 @@ function readName(raw: RawRecord) {
   const lastName = asString(raw.lastName);
   const joined = `${firstName} ${lastName}`.trim();
   return joined || asString(raw.name) || asString(raw.userName) || asString(raw.businessName) || "Unnamed user";
+}
+
+function isBookingsProduct(product?: ProductKey | null) {
+  return product === "bookings";
+}
+
+function buildTenantUserDetailUrl(userId: string, product?: ProductKey | null) {
+  return isBookingsProduct(product)
+    ? `${BOOKING_USERS_ENDPOINT}/${encodeURIComponent(userId)}`
+    : buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId));
+}
+
+function buildTenantUserUpdateUrl(uid: string | number, product?: ProductKey | null) {
+  return isBookingsProduct(product)
+    ? `${BOOKING_USERS_ENDPOINT}/${encodeURIComponent(String(uid))}`
+    : buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.update(uid));
+}
+
+function buildTenantUserStatusUrl(uid: string | number, product?: ProductKey | null) {
+  return isBookingsProduct(product)
+    ? `${BOOKING_USERS_ENDPOINT}/${encodeURIComponent(String(uid))}/status`
+    : buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.userStatus(uid, "ACTIVE"));
 }
 
 function normalizeLocations(value: unknown): UserLocation[] {
@@ -432,6 +458,38 @@ function buildUsersQuery(filters: Partial<UsersFilters> & Record<string, unknown
   return params;
 }
 
+function buildBookingUserSearchBody(filters: UsersFilters) {
+  const conditions: Array<{ field: string; operator: string; values: string[] }> = [];
+
+  const addCondition = (field: string, operator: string, value?: string | number) => {
+    if (value === undefined || value === null) return;
+    const normalized = String(value).trim();
+    if (!normalized || normalized === "all") return;
+    conditions.push({ field, operator, values: [normalized] });
+  };
+
+  addCondition("status", "EQ", filters.status);
+  addCondition("userType", "EQ", filters.userType);
+  addCondition("departmentId", "EQ", filters.departmentId);
+  addCondition("locationId", "EQ", filters.locationId);
+  addCondition("firstName", "CONTAINS", filters.firstName);
+  addCondition("lastName", "CONTAINS", filters.lastName);
+  addCondition("userDisplayName", "CONTAINS", filters.userDisplayName);
+  addCondition("primaryPhoneNumber", "CONTAINS", filters.primaryPhoneNumber);
+  addCondition("email", "CONTAINS", filters.email);
+  addCondition("gender", "EQ", filters.gender);
+  addCondition("employeeId", "CONTAINS", filters.employeeId);
+  addCondition("availableStatus", "EQ", filters.availableStatus);
+  addCondition("keyword", "CONTAINS", filters.keyword ?? filters.searchText);
+
+  return {
+    filters: conditions.length > 0 ? { logic: "AND" as const, conditions } : null,
+    sort: [],
+    page: Math.max(0, (filters.page ?? 1) - 1),
+    size: filters.pageSize ?? 20,
+  };
+}
+
 function searchUsersLocally(users: UserSummary[], searchText?: string) {
   const needle = (searchText ?? "").trim().toLowerCase();
   if (!needle) return users;
@@ -465,8 +523,40 @@ function buildDatasetSummaries(users: UserSummary[], totalUsers: number, teams: 
 
 export async function listUsers(
   api: ScopedApi,
-  filters: UsersFilters
+  filters: UsersFilters,
+  product?: ProductKey | null
 ): Promise<{ users: UserSummary[]; total: number }> {
+  if (isBookingsProduct(product)) {
+    const usersResponse = await api.post<any>(
+      BOOKING_USERS_SEARCH_ENDPOINT,
+      buildBookingUserSearchBody(filters)
+    );
+
+    const responseData = usersResponse.data;
+    const rows = Array.isArray(responseData)
+      ? responseData
+      : Array.isArray(responseData?.content)
+        ? responseData.content
+        : Array.isArray(responseData?.data)
+          ? responseData.data
+          : Array.isArray(responseData?.items)
+            ? responseData.items
+            : [];
+
+    const users = rows.map(normalizeUser);
+    const total = Array.isArray(responseData)
+      ? responseData.length
+      : typeof responseData?.totalElements === "number"
+        ? responseData.totalElements
+        : typeof responseData?.total === "number"
+          ? responseData.total
+          : typeof responseData?.count === "number"
+            ? responseData.count
+            : rows.length;
+
+    return { users, total };
+  }
+
   const url = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.list);
 
   const usersResponse = await api.get<any>(
@@ -503,8 +593,12 @@ export async function listUsers(
   };
 }
 
-export async function getUserDetail(api: ScopedApi, userId: string): Promise<UserDetail> {
-  const detailUrl = buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.detail(userId));
+export async function getUserDetail(
+  api: ScopedApi,
+  userId: string,
+  product?: ProductKey | null
+): Promise<UserDetail> {
+  const detailUrl = buildTenantUserDetailUrl(userId, product);
   const detailResponse = await api.get<RawRecord>(detailUrl);
   const detailRaw =
     typeof detailResponse.data === "object" && detailResponse.data !== null
@@ -703,9 +797,12 @@ export async function changeUserLoginId(api: ScopedApi, input: ChangeLoginIdInpu
   });
 }
 
-export async function getUsersDataset(api: ScopedApi): Promise<UsersDataset> {
+export async function getUsersDataset(
+  api: ScopedApi,
+  product?: ProductKey | null
+): Promise<UsersDataset> {
   const [usersData, teams] = await Promise.all([
-    listUsers(api, { page: 1, pageSize: 25 }),
+    listUsers(api, { page: 1, pageSize: 25 }, product),
     listUserTeams(api),
   ]);
 
@@ -723,9 +820,10 @@ export async function getUsersDataset(api: ScopedApi): Promise<UsersDataset> {
 export async function updateTenantUser(
   api: ScopedApi,
   uid: string | number,
-  payload: unknown
+  payload: unknown,
+  product?: ProductKey | null
 ): Promise<void> {
-  await api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.update(uid)), payload);
+  await api.put(buildTenantUserUpdateUrl(uid, product), payload);
 }
 
 export async function updateTenantUserAvailableStatus(
@@ -739,7 +837,15 @@ export async function updateTenantUserAvailableStatus(
 export async function updateTenantUserStatus(
   api: ScopedApi,
   uid: string | number,
-  status: string
+  status: string,
+  product?: ProductKey | null
 ): Promise<void> {
+  if (isBookingsProduct(product)) {
+    await api.patch(buildTenantUserStatusUrl(uid, product), undefined, {
+      params: { status },
+    });
+    return;
+  }
+
   await api.put(buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenantUsers.userStatus(uid, status)));
 }

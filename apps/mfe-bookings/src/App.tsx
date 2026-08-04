@@ -91,10 +91,7 @@ export default function App() {
             <Route path="/services/groups/create" element={<CreateServiceGroupPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/staff" element={<StaffPage />} />
-            <Route path="/staff/:view" element={<StaffPage />} />
-            <Route path="/staff/:view/:subview" element={<StaffPage />} />
-            <Route path="/staff/:view/:subview/:recordId" element={<StaffPage />} />
-            <Route path="/staff/:recordId" element={<StaffPage />} />
+            <Route path="/staff/*" element={<StaffPage />} />
             <Route path="/holidays" element={<HolidaysPage />} />
             <Route path="/qr-links" element={<QrLinksPage />} />
             <Route path="/qrlinks" element={<QrLinksPage />} />

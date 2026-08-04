@@ -20,19 +20,29 @@ export interface CustomerLabel {
  *   CustomerController @ /customers —
  *     POST /apply-labels · POST /remove-labels  (body: { labelUids, targetUids })
  */
-export function useCustomerLabels() {
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildCustomerSearchBody } from "./customerSearch";
+
+export function useCustomerLabels(options?: {
+  filterClauses?: SearchFilterClause[];
+  schema?: SearchSchema | null;
+}) {
   const api = useBookingApi();
   const [labels, setLabels] = useState<CustomerLabel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const filterClauses = options?.filterClauses ?? [];
+  const schema = options?.schema ?? null;
+
   const search = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const requestBody = buildCustomerSearchBody({ filterClauses, schema, page: 0, size: 200 });
       const data = await api.post<unknown>(
         "/booking-consumer-labels/search",
-        {},
+        requestBody,
         { params: { page: 0, size: 200, sort: "createdAt,desc" } },
       );
       setLabels(unwrapList<CustomerLabel>(data));
@@ -42,7 +52,7 @@ export function useCustomerLabels() {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, filterClauses, schema]);
 
   useEffect(() => {
     void search();
