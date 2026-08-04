@@ -14,7 +14,13 @@ import { useHrApi } from "./useHrApi";
  * so they use a bare fetch. Tenant is resolved server-side from companySlug.
  */
 
-const PUBLIC_BASE = "/hr-service/v1/api/consumer/careers";
+function getPublicGatewayPrefix() {
+  const configured = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
+  if (!configured || configured === "/") return "";
+  return `/${configured.replace(/^\/+|\/+$/g, "")}`;
+}
+
+const PUBLIC_BASE = `${getPublicGatewayPrefix()}/hr-service/v1/api/consumer/careers`;
 
 export type JobPostingStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
 
