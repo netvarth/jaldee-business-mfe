@@ -9,7 +9,7 @@
   "scripts": {
     "clean": "turbo run clean",
     "dev": "turbo run dev --concurrency=12",
-    "build": "turbo run build",
+    "build": "turbo run build --concurrency=4",
     "preview": "turbo run preview",
     "serve": "turbo run serve",
     "check:finance-lines": "node scripts/check-finance-component-size.mjs",

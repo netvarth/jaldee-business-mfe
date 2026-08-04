@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import PublicJobList from "./PublicJobList";
 import PublicJobPage from "./PublicJobPage";
 
@@ -21,6 +21,7 @@ function parse(pathname: string): { companySlug?: string; jobSlug?: string } {
 
 export default function PublicCareersApp() {
   const [path, setPath] = useState(() => window.location.pathname);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname);
@@ -31,13 +32,25 @@ export default function PublicCareersApp() {
   const go = useCallback((to: string) => {
     window.history.pushState({}, "", to);
     setPath(to);
-    window.scrollTo(0, 0);
+    scrollContainerRef.current?.scrollTo({ top: 0 });
   }, []);
 
   const { companySlug, jobSlug } = parse(path);
 
   const wrap = (child: React.ReactNode) => (
-    <div style={{ minHeight: "100vh", background: "#F5F3FB", padding: "24px 16px" }}>{child}</div>
+    <div
+      ref={scrollContainerRef}
+      data-testid="public-careers-scroll-container"
+      style={{
+        height: "100vh",
+        overflowY: "auto",
+        overscrollBehavior: "contain",
+        background: "#F5F3FB",
+        padding: "24px 16px",
+      }}
+    >
+      {child}
+    </div>
   );
 
   if (!companySlug) {

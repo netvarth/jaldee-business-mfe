@@ -120,7 +120,12 @@ export default function CareersPublishPage() {
   // ---- generated-link success screen ----
   if (publishedSlug) {
     return (
-      <div data-testid="hr-careers-publish-success" style={{ padding: 24, maxWidth: 560, margin: "40px auto", textAlign: "center" }}>
+      <div
+        data-testid="hr-careers-publish-success"
+        className="page-section active hr-page-shell"
+        style={{ padding: 24, textAlign: "center" }}
+      >
+        <div style={{ width: "100%", maxWidth: 560, margin: "40px auto" }}>
         <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#D1FAE5", color: "#059669", display: "grid", placeItems: "center", margin: "0 auto 14px", fontSize: 26, fontWeight: 800 }}>✓</div>
         <h2 style={{ color: "#1E1B4B", margin: "0 0 4px" }}>Published to your careers site</h2>
         <p style={{ color: "#6b7280", margin: 0, fontSize: 14 }}>{requisition?.title} is now live. Share this link anywhere.</p>
@@ -133,13 +138,18 @@ export default function CareersPublishPage() {
           <button data-testid="hr-careers-publish-done" onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Done</button>
           <button data-testid="hr-careers-open-public-page" onClick={() => window.open(link, "_blank", "noopener,noreferrer")} style={btnPrimary}>Open public page →</button>
         </div>
+        </div>
       </div>
     );
   }
 
   // ---- publish + live preview screen ----
   return (
-    <div data-testid="hr-careers-publish-page" style={{ padding: "22px 24px 60px" }}>
+    <div
+      data-testid="hr-careers-publish-page"
+      className="page-section active hr-page-shell"
+      style={{ padding: "22px 24px 60px" }}
+    >
       <button onClick={() => navigate("/recruitment/requisitions")} style={backLink}>← Back to requisitions</button>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1E1B4B", margin: "8px 0 2px" }}>Publish to careers</h1>
       <p style={{ color: "#6b7280", fontSize: 13.5, margin: 0 }}>Add the public-facing copy. Core details come straight from the requisition.</p>
