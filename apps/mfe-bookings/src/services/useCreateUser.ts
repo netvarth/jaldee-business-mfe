@@ -75,10 +75,6 @@ export function useCreateUser() {
       const user = build(dto?.tenantUser?.uid ?? dto?.uid ?? dto?.userUid);
       addCreatedUser(user);
       return user;
-    } catch {
-      const user = build();
-      addCreatedUser(user);
-      return user;
     } finally {
       setSubmitting(false);
     }

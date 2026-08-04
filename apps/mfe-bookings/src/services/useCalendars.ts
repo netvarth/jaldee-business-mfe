@@ -78,16 +78,14 @@ export interface CreateSchedulePayload {
   timeWindows: CreateTimeWindowPayload[];
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
+
 
 function sanitizeCalendarUserIds(userIds: string[] | undefined) {
   if (!Array.isArray(userIds)) {
     return [];
   }
 
-  return userIds.filter((userUid) => typeof userUid === "string" && isUuid(userUid));
+  return userIds.filter((userUid) => typeof userUid === "string" && Boolean(userUid.trim()));
 }
 
 function sanitizeCalendarSettingsRequest(settings: CalendarSettingsRequest): CalendarSettingsRequest {
@@ -103,7 +101,7 @@ function sanitizeCreateCalendarPayload(payload: CreateCalendarPayload): CreateCa
     users: sanitizeCalendarUserIds(payload.users),
     services: payload.services.map((service) => ({
       ...service,
-      users: service.users.filter((user) => isUuid(user.userUid)),
+      users: service.users.filter((user) => Boolean(user.userUid?.trim())),
     })),
   };
 }

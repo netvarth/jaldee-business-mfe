@@ -40,7 +40,9 @@ export function useSlots() {
         if (date) params.append("date", date);
         if (startDate) params.append("startDate", startDate);
         if (endDate) params.append("endDate", endDate);
-        if (providerUid) params.append("providerUid", providerUid);
+        if (providerUid) {
+          params.append("tenantUserUid", providerUid);
+        }
         
         const url = `/bookings/availability?${params.toString()}`;
         const body = await api.get<unknown>(url);

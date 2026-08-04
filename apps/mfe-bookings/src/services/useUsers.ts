@@ -43,10 +43,6 @@ interface UserDto {
   mobileNumber?: string;
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
 function resolveUserUid(user: UserDto): string | undefined {
   for (const candidate of [
     user.userUid,
@@ -56,7 +52,7 @@ function resolveUserUid(user: UserDto): string | undefined {
     user.tenantUser?.uid,
     user.tenantUser?.id,
   ]) {
-    if (typeof candidate === "string" && candidate.trim() && isUuid(candidate.trim())) {
+    if (typeof candidate === "string" && candidate.trim()) {
       return candidate.trim();
     }
   }

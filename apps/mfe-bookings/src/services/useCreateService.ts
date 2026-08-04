@@ -140,14 +140,10 @@ function toLeadTimeMinutes(input: Pick<ServiceFormInput, "leadDays" | "leadHrs" 
   return Math.max(0, input.leadDays) * 24 * 60 + Math.max(0, input.leadHrs) * 60 + Math.max(0, input.leadMins);
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
 
 function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
   const userEntries = input.assignUsers
     ? Object.entries(input.practitionerPrices)
-        .filter(([userUid]) => isUuid(userUid))
         .map(([userUid, amount]) => ({
           userUid,
           price: Number.isFinite(amount) ? amount : 0,
@@ -184,7 +180,7 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
         input.requestType === "With Date & Time" ? "WITH_DATE_AND_TIME" :
         "NO_DATE_AND_TIME"
     } : {}),
-    ...(userEntries.length ? { users: userEntries } : {}),
+    users: userEntries,
     displayOrder: input.displayOrder,
     maxBookingsPerConsumer: input.maxBookings,
     prepaymentRequired: false,

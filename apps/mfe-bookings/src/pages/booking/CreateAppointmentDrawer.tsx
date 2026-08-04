@@ -27,7 +27,7 @@ import type { BookingChannel, Calendar, CustomerSearchResult, Slot } from "../..
 
 const WEEK = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -212,7 +212,7 @@ export default function CreateAppointmentDrawer({
       provider.uid === doctorUid || provider.id === doctorUid || provider.name === doctorUid,
     );
     const resolved = matchedProvider?.uid ?? matchedProvider?.id ?? doctorUid;
-    return UUID_PATTERN.test(resolved) ? resolved : "";
+    return typeof resolved === "string" ? resolved : "";
   }, [doctorUid, providers]);
 
   const selectedProvider = useMemo(() => providers.find(p => p.uid === selectedProviderUid || p.id === selectedProviderUid), [providers, selectedProviderUid]);
@@ -265,7 +265,7 @@ export default function CreateAppointmentDrawer({
   }, [calendarServiceMappings, calendarUid, effectiveCalendar, providers, serviceUid]);
 
   const providerOptions = useMemo(
-    () => availableProviders.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: !UUID_PATTERN.test(p.uid ?? p.id ?? "") })),
+    () => availableProviders.map((p) => ({ value: p.uid ?? p.id, label: p.name, disabled: false })),
     [availableProviders],
   );
   
@@ -333,11 +333,11 @@ export default function CreateAppointmentDrawer({
   useEffect(() => {
     setSlot(null);
     if (serviceUid && dateStr) {
-      fetchSlots({ serviceUid, calendarUid, date: dateStr });
+      fetchSlots({ serviceUid, calendarUid, date: dateStr, providerUid: doctorUid });
     } else {
       clearSlots();
     }
-  }, [serviceUid, dateStr, fetchSlots, clearSlots, calendarUid]);
+  }, [serviceUid, dateStr, doctorUid, fetchSlots, clearSlots, calendarUid]);
 
   useEffect(() => {
     if (!calendarUid) {
@@ -402,12 +402,15 @@ export default function CreateAppointmentDrawer({
   }, [clearSlots, serviceOptions, serviceUid]);
 
   useEffect(() => {
+    if (isFromCell && initialProviderUid && doctorUid === initialProviderUid) {
+      return;
+    }
     if (doctorUid && !providerOptions.some((provider) => provider.value === doctorUid)) {
       setDoctorUid("");
       setSlot(null);
       clearSlots();
     }
-  }, [clearSlots, providerOptions, doctorUid]);
+  }, [clearSlots, providerOptions, doctorUid, isFromCell, initialProviderUid]);
 
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
   const startOffset = (firstDay.getDay() + 6) % 7; 

@@ -32,9 +32,12 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
   const [email, setEmail] = useState("");
   const [phoneValue, setPhoneValue] = useState<PhoneInputValue>(EMPTY_PHONE);
   const [connectToCrm, setConnectToCrm] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (hasSubmitted) return;
+
     if (!firstName || !lastName) {
       showToast("First and last name are required", "error");
       return;
@@ -47,18 +50,25 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
       showToast("Phone must be a valid mobile number", "error");
       return;
     }
-    const user = await createUser({
-      firstName,
-      lastName,
-      title,
-      status,
-      email,
-      phoneNumber: phoneValue.e164Number || "",
-      connectToCrm,
-    });
-    onCreated(user);
-    showToast(connectToCrm ? "Booking user created with login access" : "Booking user created", "success");
-    closeModal();
+    
+    setHasSubmitted(true);
+    try {
+      const user = await createUser({
+        firstName,
+        lastName,
+        title,
+        status,
+        email,
+        phoneNumber: phoneValue.e164Number || "",
+        connectToCrm,
+      });
+      onCreated(user);
+      showToast(connectToCrm ? "Booking user created with login access" : "Booking user created", "success");
+      closeModal();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to create user", "error");
+      setHasSubmitted(false);
+    }
   };
 
   return (
@@ -88,8 +98,10 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
         />
       </FormSection>
       <DialogFooter>
-        <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-        <Button type="submit" loading={submitting}>Create User</Button>
+        <Button variant="secondary" onClick={closeModal} disabled={hasSubmitted}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={hasSubmitted} loading={submitting}>Create User</Button>
       </DialogFooter>
     </form>
   );

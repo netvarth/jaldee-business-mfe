@@ -238,7 +238,7 @@ export default function CreateServicePage() {
         assignUsers,
         practitionerPrices: Object.fromEntries(
           Object.entries(practitionerOverrides)
-            .filter(([uid, override]) => override.enabled && isUuid(uid))
+            .filter(([, override]) => override.enabled)
             .map(([uid, override]) => [uid, override.price])
         ),
       }, serviceId);
