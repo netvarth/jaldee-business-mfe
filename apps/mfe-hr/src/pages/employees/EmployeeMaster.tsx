@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Checkbox, DataTable, Dialog, Drawer, EmptyState, SectionCard, Select, Tooltip, cn } from "@jaldee/design-system";
+import { Button, DataTable, Dialog, Drawer, EmptyState, Input, SectionCard, Tooltip, cn } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -10,9 +10,8 @@ import {
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { Download, LayoutGrid, MapPin, Plus, Rows3, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
+import { Download, Filter, LayoutGrid, MapPin, Plus, Rows3, Search, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
-import { useBranches } from "../../services/useBranches";
 import { useEmployeeSearchSchema } from "../../services/useEmployeeSearchSchema";
 import { useHrApi } from "../../services/useHrApi";
 import { exportToCSV } from "../../lib/utils";
@@ -43,13 +42,21 @@ export default function EmployeeMaster() {
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const employeeSort = useMemo(
     () => sortKey ? [{ field: sortKey === "department" ? "hrDepartment" : sortKey, direction: sortDir.toUpperCase() }] : undefined,
     [sortDir, sortKey],
   );
   const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
+  const employeeFilters = useMemo<SearchFilterClause[]>(() => [
+    ...advancedFilters,
+    ...(debouncedSearchTerm
+      ? [{ id: "employee-list-search", field: "name", operator: "CONTAINS", values: [debouncedSearchTerm] } as SearchFilterClause]
+      : []),
+  ], [advancedFilters, debouncedSearchTerm]);
   const { data: employees, loading, error, reload, setStatus, totalElements, totalPages: serverTotalPages } = useEmployees(
-    advancedFilters,
+    employeeFilters,
     employeeSearchSchema,
     {
       enabled: !schemaLoading,
@@ -58,7 +65,6 @@ export default function EmployeeMaster() {
       sort: employeeSort,
     }
   );
-  const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const [importing, setImporting] = useState(false);
@@ -66,11 +72,6 @@ export default function EmployeeMaster() {
   const [importDragging, setImportDragging] = useState(false);
   const [statusEmployee, setStatusEmployee] = useState<Employee | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
-  const [selectedEmployeeUids, setSelectedEmployeeUids] = useState<string[]>([]);
-  const [assignLocationOpen, setAssignLocationOpen] = useState(false);
-  const [selectedLocationUid, setSelectedLocationUid] = useState("");
-  const [assigningLocation, setAssigningLocation] = useState(false);
-  const branches = useBranches();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInFlightRef = useRef(false);
 
@@ -79,17 +80,15 @@ export default function EmployeeMaster() {
     [advancedFilters, employeeSearchSchema]
   );
 
-  const filtered = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return employees.filter((e) => {
-      const matchesQ = !q ||
-        e.name?.toLowerCase().includes(q) ||
-        e.employeeId?.toLowerCase().includes(q) ||
-        e.email?.toLowerCase().includes(q) ||
-        e.designation?.toLowerCase().includes(q);
-      return matchesQ;
-    });
-  }, [employees, searchTerm]);
+  const filtered = employees;
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -109,16 +108,6 @@ export default function EmployeeMaster() {
 
   const totalPages = Math.max(1, serverTotalPages);
   const pagedEmployees = filtered;
-  const selectedUnassignedEmployeeUids = selectedEmployeeUids.filter((uid) => {
-      const employee = employees.find((item) => item.id === uid);
-      return employee && !employee.locationUid && !employee.locationName;
-    });
-  const visibleUnassignedEmployeeUids = filtered
-    .filter((employee) => !employee.locationUid && !employee.locationName)
-    .map((employee) => employee.id);
-  const allVisibleUnassignedSelected =
-    visibleUnassignedEmployeeUids.length > 0 &&
-    visibleUnassignedEmployeeUids.every((uid) => selectedEmployeeUids.includes(uid));
 
   const openFilters = () => {
     setDraftFilters(
@@ -255,29 +244,6 @@ export default function EmployeeMaster() {
     }
   };
 
-  const assignSelectedEmployeesToLocation = async () => {
-    if (!selectedUnassignedEmployeeUids.length || !selectedLocationUid) return;
-    setAssigningLocation(true);
-    try {
-      await api.post("/employees/locations/assign", {
-        employeeUids: selectedUnassignedEmployeeUids,
-        locationUids: [selectedLocationUid],
-      });
-      await reload();
-      emitToast(
-        "success",
-        `${selectedUnassignedEmployeeUids.length} employee${selectedUnassignedEmployeeUids.length === 1 ? "" : "s"} assigned to the selected location.`
-      );
-      setSelectedEmployeeUids([]);
-      setSelectedLocationUid("");
-      setAssignLocationOpen(false);
-    } catch (error) {
-      emitToast("error", error instanceof Error ? error.message : "Could not assign employees to the location.");
-    } finally {
-      setAssigningLocation(false);
-    }
-  };
-
   const columns: ColumnDef<Employee>[] = [
     {
       key: "name",
@@ -368,18 +334,6 @@ export default function EmployeeMaster() {
         actions={
           <div className="employee-master-header-actions">
             <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
-            {selectedUnassignedEmployeeUids.length > 0 && (
-              <Button
-                type="button"
-                id="hr-employees-assign-location"
-                data-testid="hr-employees-assign-location"
-                variant="primary"
-                icon={<MapPin size={16} />}
-                onClick={() => setAssignLocationOpen(true)}
-              >
-                Assign to Location
-              </Button>
-            )}
             <Button
               id="hr-employees-import-button"
               data-testid="hr-employees-import-button"
@@ -411,6 +365,28 @@ export default function EmployeeMaster() {
         }
       />
       <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+      <div className="flex flex-col gap-3 border-b border-[var(--color-border)] p-4 sm:flex-row sm:items-center">
+        <Input
+          id="hr-employees-search"
+          data-testid="hr-employees-search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Search employees by name"
+          icon={<Search size={16} />}
+          containerClassName="w-full sm:max-w-md"
+        />
+        <Button
+          id="hr-employees-filter-button"
+          data-testid="hr-employees-filter-button"
+          type="button"
+          variant={appliedFilterCount ? "primary" : "outline"}
+          icon={<Filter size={16} />}
+          onClick={openFilters}
+          disabled={schemaLoading}
+        >
+          Filters{appliedFilterCount ? ` (${appliedFilterCount})` : ""}
+        </Button>
+      </div>
       <div data-testid="hr-employees-table-container">
         {viewMode === "table" ? (
           <DataTable
@@ -420,10 +396,6 @@ export default function EmployeeMaster() {
             getRowId={(employee) => employee.id}
             loading={loading}
             onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
-            selection={{
-              selectedRowKeys: selectedEmployeeUids,
-              onChange: setSelectedEmployeeUids,
-            }}
             sorting={{
               sortKey,
               sortDir,
@@ -473,18 +445,6 @@ export default function EmployeeMaster() {
           />
         ) : (
           <div className="space-y-5 p-4">
-            <div className="flex items-center border-b border-[var(--color-border)] px-1 pb-3">
-              <Checkbox
-                label="Select all"
-                checked={allVisibleUnassignedSelected}
-                disabled={visibleUnassignedEmployeeUids.length === 0}
-                onChange={() => setSelectedEmployeeUids((current) =>
-                  allVisibleUnassignedSelected
-                    ? current.filter((uid) => !visibleUnassignedEmployeeUids.includes(uid))
-                    : Array.from(new Set([...current, ...visibleUnassignedEmployeeUids]))
-                )}
-              />
-            </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {pagedEmployees.map((employee) => (
                 <article
@@ -509,15 +469,6 @@ export default function EmployeeMaster() {
                         <div className="truncate text-xs text-[var(--color-text-secondary)]">{employee.employeeId || "—"}</div>
                       </div>
                     </div>
-                    <Checkbox
-                      checked={selectedEmployeeUids.includes(employee.id)}
-                      aria-label={`Select ${employee.name || "employee"}`}
-                      onChange={() => setSelectedEmployeeUids((current) =>
-                        current.includes(employee.id)
-                          ? current.filter((uid) => uid !== employee.id)
-                          : [...current, employee.id]
-                      )}
-                    />
                   </div>
                   <div className="mt-4 grid gap-3">
                     <div className="flex items-start justify-between gap-3">
@@ -650,53 +601,6 @@ export default function EmployeeMaster() {
         </div>
       </Dialog>
       <Dialog
-        open={assignLocationOpen}
-        onClose={() => !assigningLocation && setAssignLocationOpen(false)}
-        testId="hr-employees-assign-location-modal"
-        title="Assign Location"
-        description={`Assign ${selectedUnassignedEmployeeUids.length} selected employee${selectedUnassignedEmployeeUids.length === 1 ? "" : "s"} to a location.`}
-        size="sm"
-      >
-        <div className="space-y-5">
-          <Select
-            label="Location"
-            value={selectedLocationUid}
-            onChange={(event) => setSelectedLocationUid(event.target.value)}
-            disabled={branches.loading || assigningLocation}
-            options={[
-              {
-                value: "",
-                label: branches.loading ? "Loading locations..." : "Select location",
-              },
-              ...branches.data.map((branch) => ({
-                value: branch.uid || branch.id,
-                label: branch.name,
-              })),
-            ]}
-          />
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAssignLocationOpen(false)}
-              disabled={assigningLocation}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              data-testid="hr-employees-assign-location-confirm"
-              onClick={() => void assignSelectedEmployeesToLocation()}
-              disabled={!selectedLocationUid}
-              loading={assigningLocation}
-            >
-              Assign Location
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-      <Dialog
         open={!!statusEmployee}
         onClose={() => !statusSaving && setStatusEmployee(null)}
         testId="hr-employee-status-modal"
@@ -809,13 +713,14 @@ function EmployeeViewToggle({
         data-testid="hr-employees-view-table"
         onClick={() => onChange("table")}
         className={cn(
-          "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
+          "employee-master-view-toggle-button inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
           value === "table"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"
         )}
         aria-label="Table view"
         title="Table view"
+        style={{ color: value === "table" ? "#fff" : "var(--color-text-secondary)" }}
       >
         <Rows3 size={16} />
       </button>
@@ -824,13 +729,14 @@ function EmployeeViewToggle({
         data-testid="hr-employees-view-cards"
         onClick={() => onChange("cards")}
         className={cn(
-          "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
+          "employee-master-view-toggle-button inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
           value === "cards"
             ? "bg-[var(--color-primary)] text-white"
             : "bg-transparent text-[var(--color-text-secondary)]"
         )}
         aria-label="Card view"
         title="Card view"
+        style={{ color: value === "cards" ? "#fff" : "var(--color-text-secondary)" }}
       >
         <LayoutGrid size={16} />
       </button>

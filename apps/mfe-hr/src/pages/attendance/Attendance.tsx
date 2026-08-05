@@ -40,7 +40,7 @@ const th: CSSProperties = { textAlign: "left", padding: "12px 16px", fontSize: 1
 const tdc: CSSProperties = { padding: "14px 16px", fontSize: 13, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
 const sel: CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 14, fontWeight: 600, color: "var(--dark-text)" };
 
-function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }); }
 function minutesToHours(minutes?: number) {
   if (!minutes || minutes <= 0) return "0h";
   const h = Math.floor(minutes / 60);
@@ -417,7 +417,7 @@ export default function Attendance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoTrack, actor]);
 
-  const clockText = clockedIn ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
+  const clockText = clockedIn ? now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "--:--:--";
 
   return (
     <section id="hr-attendance-page" data-testid="hr-attendance-page" className="page-section active hr-page-shell">

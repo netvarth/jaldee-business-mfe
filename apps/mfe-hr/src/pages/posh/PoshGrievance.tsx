@@ -9,6 +9,7 @@ import {
   SectionCard
 } from "@jaldee/design-system";
 import { useEmployees } from "../../services/useEmployees";
+import { isActiveEmployee } from "../../services/usePagedEmployeeOptions";
 import { usePosh } from "../../services/usePoshApi";
 export function PoshGrievance() {
   const { data: myData, loading, reload, error, raise } = usePosh();
@@ -99,7 +100,7 @@ export function PoshGrievance() {
               searchPlaceholder="Search employee..."
               options={[
                 { value: "", label: employeesLoading ? "Loading employees..." : "Select employee" },
-                ...employees.map((employee) => ({
+                ...employees.filter(isActiveEmployee).map((employee) => ({
                   value: employee.id,
                   label: employee.employeeId ? `${employee.name} (${employee.employeeId})` : employee.name,
                   description: employee.department || employee.designation || undefined,
@@ -126,7 +127,7 @@ export function PoshGrievance() {
               searchPlaceholder="Search employee..."
               options={[
                 { value: "", label: employeesLoading ? "Loading employees..." : "Select employee" },
-                ...employees.map((employee) => ({
+                ...employees.filter(isActiveEmployee).map((employee) => ({
                   value: employee.id,
                   label: employee.employeeId ? `${employee.name} (${employee.employeeId})` : employee.name,
                   description: employee.department || employee.designation || undefined,

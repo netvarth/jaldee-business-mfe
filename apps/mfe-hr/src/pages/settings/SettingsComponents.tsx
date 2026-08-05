@@ -36,7 +36,7 @@ const LEAVE_CATEGORY_OPTIONS = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
-type FieldType = "text" | "phone" | "number" | "date" | "time" | "checkbox" | "select" | "multiselect" | "color" | "textarea" | "file";
+type FieldType = "text" | "phone" | "number" | "date" | "time" | "checkbox" | "radio" | "select" | "multiselect" | "color" | "textarea" | "file";
 interface Field {
   key: string;
   label: string;
@@ -49,6 +49,9 @@ interface Field {
   sourceKey?: string;
   optional?: boolean;
   is12Hour?: boolean;
+  showWhen?: { key: string; value: unknown };
+  min?: number;
+  max?: number;
 }
 type Row = Record<string, unknown>;
 
@@ -92,6 +95,10 @@ function leaveCategoryLabel(value: unknown): string {
 function buildPayload(fields: Field[], form: Row): Row {
   const out: Row = {};
   fields.forEach((f) => {
+    if (f.showWhen && (form[f.showWhen.key] ?? fields.find((item) => item.key === f.showWhen?.key)?.defaultValue) !== f.showWhen.value) {
+      out[f.key] = null;
+      return;
+    }
     const v = form[f.key] ?? f.defaultValue;
     if (f.serialize === "time12") out[f.key] = toBackendTime(v);
     else if (f.type === "time") out[f.key] = toTimeInputValue(v) || null;
@@ -143,6 +150,28 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
           label={f.label}
           className="!h-4 !w-4"
         />
+      </div>
+    );
+  }
+  if (f.type === "radio") {
+    return (
+      <div id={automationKey} data-testid={automationKey} className="flex min-h-11 flex-wrap items-center gap-x-6 gap-y-2">
+        {(f.options ?? []).map((option) => {
+          const item = typeof option === "string" ? { value: option, label: option } : option;
+          return (
+            <label key={item.value} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--dark-text)]">
+              <input
+                type="radio"
+                name={automationKey}
+                value={item.value}
+                checked={value === item.value}
+                onChange={() => onChange(item.value)}
+                className="h-4 w-4 accent-[var(--primary-color)]"
+              />
+              {item.label}
+            </label>
+          );
+        })}
       </div>
     );
   }
@@ -257,6 +286,8 @@ function FieldInput({ f, value, onChange, automationKey }: { f: Field; value: un
       type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
       value={(value as string) ?? ""}
       placeholder={f.placeholder}
+      min={f.min}
+      max={f.max}
       onChange={(e) => onChange(e.target.value)}
       className="rounded-xl !h-11"
     />
@@ -328,7 +359,16 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
   const { eventBus } = useMFEProps();
   const [form, setForm] = useState<Row>({});
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (data) setForm({ ...data }); }, [data]);
+  useEffect(() => {
+    if (!data) return;
+    const next = { ...data };
+    fields.forEach((fieldItem) => {
+      if (next[fieldItem.key] === undefined && fieldItem.sourceKey && data[fieldItem.sourceKey] !== undefined) {
+        next[fieldItem.key] = data[fieldItem.sourceKey];
+      }
+    });
+    setForm(next);
+  }, [data]);
 
   const save = async () => {
     setSaving(true);
@@ -350,17 +390,20 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
     }
   };
 
-  const renderField = (f: Field) => (
+  const renderField = (f: Field) => {
+    if (f.showWhen && (form[f.showWhen.key] ?? fields.find((item) => item.key === f.showWhen?.key)?.defaultValue) !== f.showWhen.value) return null;
+    return (
     <div key={f.key} className={f.type === "file" ? "self-center" : undefined} style={{ gridColumn: f.full && layout !== "companyProfile" ? "1 / -1" : undefined }}>
       {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
       <FieldInput
         f={f}
         automationKey={`${automationScope}-${slugify(f.key)}`}
-        value={form[f.key]}
+        value={form[f.key] ?? f.defaultValue}
         onChange={(value) => setForm((previous) => ({ ...previous, [f.key]: value }))}
       />
     </div>
-  );
+    );
+  };
 
   const fieldByKey = (key: string) => fields.find((fieldItem) => fieldItem.key === key);
   const companyReservedKeys = new Set(["logoUrl", "name", "legalName", "industry", "email", "phone"]);

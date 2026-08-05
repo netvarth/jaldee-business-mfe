@@ -23,6 +23,7 @@ export type ComponentCategory =
   | "ESI"
   | "BONUS";
 export type CalculationType = "FIXED_AMOUNT" | "PERCENTAGE" | "FORMULA" | "SLAB_BASED";
+export type PayrollCalculationBase = "GROSS" | "BASIC" | "COMPONENT";
 export type PayrollFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | "DAILY";
 export type CustomFieldTarget =
   | "PAYROLL_COMPONENT"
@@ -76,6 +77,8 @@ export interface StructureComponentMapping {
   calculationType: CalculationType;
   defaultAmount?: number;
   defaultPercentage?: number;
+  calculationBase?: PayrollCalculationBase;
+  baseComponentCode?: string;
   formulaExpression?: string;
   slabConfigJson?: SlabTier[] | string;
   minimumAmount?: number;
@@ -119,6 +122,8 @@ export interface EmployeeComponentValue {
   componentUid?: string;
   componentName?: string;
   componentCode?: string;
+  componentType?: ComponentType;
+  componentCategory?: ComponentCategory;
   structureComponentUid?: string;
   calculationType?: CalculationType;
   previousAmount?: number;
@@ -153,6 +158,7 @@ export interface PayslipLine {
   componentCode?: string;
   componentName?: string;
   componentType?: ComponentType;
+  componentCategory?: ComponentCategory;
   amount?: number;
   calculationType?: CalculationType;
   rate?: number;
@@ -168,7 +174,11 @@ export interface Payslip {
   monthStr?: string;
   netPay?: number;
   grossPay?: number;
+  grossEarnings?: number;
+  totalEarnings?: number;
   totalDeductions?: number;
+  totalDeduction?: number;
+  deductionTotal?: number;
   totalEmployerCost?: number;
   status?: string;
   generatedAt?: string;
@@ -344,6 +354,8 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
       calculationType: payload.calculationType || "FIXED_AMOUNT",
       defaultAmount: payload.defaultAmount ?? 0,
       defaultPercentage: payload.defaultPercentage ?? 0,
+      calculationBase: payload.calculationBase || "GROSS",
+      baseComponentCode: payload.calculationBase === "COMPONENT" ? payload.baseComponentCode : undefined,
       formulaExpression: payload.formulaExpression || "",
       slabConfigJson: typeof slabConfig === "string" ? slabConfig : JSON.stringify(slabConfig ?? []),
       minimumAmount: payload.minimumAmount ?? 0,
@@ -527,8 +539,14 @@ export function useEmployeePayroll(empUid: string | null, options: PayrollLoadOp
 }
 
 export function usePayslips(options?: PayrollLoadOptions) {
-  const { data, loading, error, reload } = usePayrollList<Payslip>("/payslips/all", options);
-  return { data, loading, error, reload };
+  const { api, data, loading, error, reload, setData } = usePayrollList<Payslip>("/payslips/all", options);
+  const fetchAll = useCallback(async () => {
+    const res = await api.get<unknown>(`${PAYROLL_ROOT}/payslips/all`);
+    const rows = asList<Payslip>(res);
+    setData(rows);
+    return rows;
+  }, [api, setData]);
+  return { data, loading, error, reload, fetchAll };
 }
 
 export function usePayslipDetails(payslipUid?: string | null) {

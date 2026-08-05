@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { KeyboardEvent } from "react";
 import { cn } from "../../utils";
 import { Badge } from "../Badge/Badge";
@@ -53,6 +54,8 @@ export function Combobox({
 }: ComboboxProps) {
   const comboId = id ?? label?.toLowerCase().replace(/\s+/g, "-") ?? "combobox";
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isControlled = value !== undefined;
   const isSearchControlled = searchValue !== undefined;
@@ -60,6 +63,7 @@ export function Combobox({
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0, width: 0, listMaxHeight: 216 });
 
   const selectedValue = isControlled ? value ?? "" : internalValue;
   const activeSearchQuery = isSearchControlled ? searchValue ?? "" : internalSearchQuery;
@@ -79,7 +83,7 @@ export function Combobox({
     }
 
     function handlePointerDown(event: globalThis.MouseEvent) {
-      if (!wrapperRef.current?.contains(event.target as Node)) {
+      if (!wrapperRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) {
         setOpen(false);
       }
     }
@@ -96,6 +100,32 @@ export function Combobox({
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const positionMenu = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const availableBelow = window.innerHeight - rect.bottom - 12;
+      const availableAbove = rect.top - 12;
+      const openAbove = availableBelow < 180 && availableAbove > availableBelow;
+      const availableSpace = openAbove ? availableAbove : availableBelow;
+      const listMaxHeight = Math.max(96, Math.min(320, availableSpace - 60));
+      setMenuPosition({
+        left: rect.left,
+        top: openAbove ? Math.max(8, rect.top - listMaxHeight - 60) : rect.bottom + 2,
+        width: rect.width,
+        listMaxHeight,
+      });
+    };
+    positionMenu();
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    return () => {
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
     };
   }, [open]);
 
@@ -164,6 +194,7 @@ export function Combobox({
 
       <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
           data-testid={testId}
           className={cn(
@@ -191,12 +222,16 @@ export function Combobox({
           <span className="text-xs text-gray-400">{open ? "^" : "v"}</span>
         </button>
 
-        {open && !disabled && (
+        {open && !disabled && typeof document !== "undefined" && createPortal(
           <div
+            ref={menuRef}
             id={`${comboId}-listbox`}
             role="listbox"
             data-testid={`${testId}-menu`}
-            className="absolute z-[160] mt-0 w-full rounded-b-xl rounded-t-none border border-gray-200 bg-white p-2 shadow-lg"
+            className="fixed z-[1000] rounded-b-xl rounded-t-none border border-gray-200 bg-white p-2 shadow-lg"
+            style={{ left: menuPosition.left, top: menuPosition.top, width: menuPosition.width, pointerEvents: "auto" }}
+            onWheel={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <input
               ref={inputRef}
@@ -208,7 +243,8 @@ export function Combobox({
             />
 
             <div
-              className="max-h-[216px] space-y-1 overflow-y-auto"
+              className="space-y-1 overflow-y-auto"
+              style={{ maxHeight: menuPosition.listMaxHeight }}
               onScroll={(event) => {
                 const element = event.currentTarget;
                 if (
@@ -262,7 +298,8 @@ export function Combobox({
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 

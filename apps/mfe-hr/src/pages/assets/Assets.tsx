@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Eye, MoreVertical, LayoutGrid, Rows3, Filter } from "lucide-react";
+import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Eye, MoreVertical, LayoutGrid, Rows3, Filter, CheckCircle2 } from "lucide-react";
 import { Badge, Button, Combobox, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
@@ -208,10 +208,13 @@ export default function Assets() {
 
   const openView = async (asset: Asset) => {
     setViewFor(asset);
-    setViewLoading(true);
-    try { setViewFor(await assets.getOne(asset.id)); } catch { setViewFor(asset); }
-    finally { setViewLoading(false); }
+    setViewLoading(false);
   };
+
+  const confirmRepair = (asset: Asset) => act(async () => {
+    if (!confirm(`Confirm that repair is complete for "${asset.name || "this asset"}"?`)) return;
+    await assets.confirmRepair(asset.id);
+  });
 
   const openReturn = async (asset: Asset) => {
     setMsg(null);
@@ -309,6 +312,7 @@ export default function Assets() {
             asset={asset}
             busy={busy}
             onReturn={() => void openReturn(asset)}
+            onConfirmRepair={() => void confirmRepair(asset)}
             onView={() => void openView(asset)}
             onHistory={() => void openHistory(asset)}
             onEdit={() => openEdit(asset)}
@@ -458,6 +462,7 @@ export default function Assets() {
                       asset={asset}
                       busy={busy}
                       onReturn={() => void openReturn(asset)}
+                      onConfirmRepair={() => void confirmRepair(asset)}
                       onView={() => void openView(asset)}
                       onHistory={() => void openHistory(asset)}
                       onEdit={() => openEdit(asset)}
@@ -859,6 +864,7 @@ function AssetActions({
   asset,
   busy,
   onReturn,
+  onConfirmRepair,
   onView,
   onHistory,
   onEdit,
@@ -866,6 +872,7 @@ function AssetActions({
   asset: Asset;
   busy: boolean;
   onReturn: () => void;
+  onConfirmRepair: () => void;
   onView: () => void;
   onHistory: () => void;
   onEdit: () => void;
@@ -897,6 +904,18 @@ function AssetActions({
           >
             <Undo2 size={15} />
             Return / Write Off
+          </button>
+        )}
+        {asset.status === "UnderRepair" && (
+          <button
+            type="button"
+            data-testid={`hr-assets-confirm-repair-${asset.id}`}
+            disabled={busy}
+            onClick={onConfirmRepair}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <CheckCircle2 size={15} />
+            Confirm Repair
           </button>
         )}
         <button

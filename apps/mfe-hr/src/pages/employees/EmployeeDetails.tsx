@@ -24,7 +24,7 @@ import { usePagedDepartments, usePagedDesignations } from "../../services/usePag
 import { useHrApi } from "../../services/useHrApi";
 import { useAttendance } from "../../services/useAttendanceData";
 import { useLeaves } from "../../services/useLeaveData";
-import { usePayslips, type Payslip } from "../../services/usePayrollData";
+import { useEmployeePayroll, usePayrollStructures, usePayslips, type EmployeeComponentValue, type Payslip, type StructureComponentMapping } from "../../services/usePayrollData";
 import { DOC_REQUEST_STATUSES, useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
 import { useDocumentRequestSearchSchema } from "../../services/useHrSearchSchema";
 import { useTelemetry } from "../../services/useTelemetry";
@@ -67,6 +67,14 @@ function toPhoneInputValue(value?: string | null): PhoneInputValue {
     : { countryCode: "+91", number: normalized.replace(/\D/g, ""), e164Number: "" };
 }
 function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+
+const DEDUCTION_COMPONENTS = new Set(["PF", "ESI", "TDS", "PROFESSIONAL_TAX", "LWF", "LOAN", "ADVANCE", "MEDICLAIM"]);
+function isDeductionComponent(component: EmployeeComponentValue) {
+  return DEDUCTION_COMPONENTS.has(String(component.componentCategory || component.componentCode || "").toUpperCase());
+}
+function componentValueKey(component: EmployeeComponentValue) {
+  return component.uid || component.id || component.structureComponentUid || component.componentUid || component.componentCode || component.componentName;
+}
 
 function employeeTabFromPath(pathname: string): Tab {
   const segments = pathname.split("/").filter(Boolean);
@@ -247,6 +255,8 @@ export default function EmployeeDetails() {
   const { data: allAttendance } = useAttendance(undefined, null, { enabled: tab === "attendance" });
   const { data: allLeaves } = useLeaves({ enabled: tab === "leaves" });
   const { data: allPayslips } = usePayslips({ enabled: tab === "payroll" });
+  const employeePayroll = useEmployeePayroll(employee?.uid || employee?.id || id || null, { enabled: tab === "payroll" });
+  const payrollStructures = usePayrollStructures({ enabled: tab === "payroll" });
   const [editTab, setEditTab] = useState<"personal" | "employment" | "bank">("personal");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -272,6 +282,7 @@ export default function EmployeeDetails() {
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [selectedDocumentRequest, setSelectedDocumentRequest] = useState<DocumentRequest | null>(null);
+  const [documentDeleteTarget, setDocumentDeleteTarget] = useState<DocumentRequest | null>(null);
   const [documentForm, setDocumentForm] = useState({ documentType: "", status: "REQUESTED" });
   const [documentStatusForm, setDocumentStatusForm] = useState({ status: "REQUESTED" });
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
@@ -383,7 +394,51 @@ export default function EmployeeDetails() {
   const managerName = useMemo(() => allEmployees.find((e) => e.id === employee?.reportingManagerUid)?.name, [employee, allEmployees]);
   const myAttendance = useMemo(() => allAttendance.filter((a) => a.employeeUid === employee?.id), [allAttendance, employee]);
   const myLeaves = useMemo(() => allLeaves.filter((l) => l.employeeUid === employee?.id), [allLeaves, employee]);
-  const myPayslips = useMemo(() => allPayslips.filter((p) => p.employeeUid === employee?.id), [allPayslips, employee]);
+  const myPayslips = useMemo(() => {
+    const employeeKeys = new Set([employee?.id, employee?.uid].filter(Boolean));
+    return allPayslips
+      .filter((p) => !!p.employeeUid && employeeKeys.has(p.employeeUid))
+      .sort((left, right) => String(right.generatedAt || right.monthStr || right.month || "").localeCompare(String(left.generatedAt || left.monthStr || left.month || "")));
+  }, [allPayslips, employee?.id, employee?.uid]);
+  const assignedStructureUid = employeePayroll.assignment?.structureUid || employeePayroll.assignment?.structure?.uid || employeePayroll.assignment?.structure?.id || "";
+  const assignedStructure = payrollStructures.data.find((structure) => (structure.uid || structure.id) === assignedStructureUid) || employeePayroll.assignment?.structure;
+  useEffect(() => {
+    if (tab !== "payroll" || !assignedStructureUid) return;
+    void payrollStructures.loadComponents(assignedStructureUid);
+  }, [assignedStructureUid, payrollStructures.loadComponents, tab]);
+  const assignedSalaryComponents = useMemo(() => {
+    const values = employeePayroll.componentValues;
+    const mappings = assignedStructure?.components || [];
+    const mappingFor = (value: EmployeeComponentValue) => mappings.find((mapping) =>
+      (value.structureComponentUid && value.structureComponentUid === (mapping.uid || mapping.id)) ||
+      (value.componentUid && (value.componentUid === mapping.componentUid || value.componentUid === mapping.payrollComponentUid))
+    );
+    const toRow = (value: EmployeeComponentValue, mapping?: StructureComponentMapping) => {
+      const assignedAmount = value.overrideAmount || value.previousAmount || mapping?.defaultAmount;
+      const assignedPercentage = value.overridePercentage || value.previousPercentage || mapping?.defaultPercentage;
+      const calculationType = value.calculationType || mapping?.calculationType;
+      return {
+        ...value,
+        componentUid: value.componentUid || mapping?.componentUid || mapping?.payrollComponentUid,
+        componentName: value.componentName || mapping?.componentName || mapping?.component?.componentName,
+        componentCode: value.componentCode || mapping?.componentCode || mapping?.component?.componentCode,
+        componentType: value.componentType || mapping?.component?.componentType,
+        componentCategory: value.componentCategory || mapping?.component?.componentCategory,
+        calculationType,
+        amount: assignedAmount,
+        displayValue: calculationType === "PERCENTAGE" && assignedPercentage != null
+          ? `${assignedPercentage}%`
+          : assignedAmount != null ? formatCurrency(assignedAmount) : "—",
+      };
+    };
+    const rows = values.map((value) => toRow(value, mappingFor(value)));
+    mappings.forEach((mapping) => {
+      if (!rows.some((row) => row.componentUid === (mapping.componentUid || mapping.payrollComponentUid))) rows.push(toRow({}, mapping));
+    });
+    return rows;
+  }, [assignedStructure?.components, employeePayroll.componentValues]);
+  const assignedEarnings = useMemo(() => assignedSalaryComponents.filter((component) => component.componentType === "EARNING" || (!component.componentType && !isDeductionComponent(component))), [assignedSalaryComponents]);
+  const assignedDeductions = useMemo(() => assignedSalaryComponents.filter((component) => component.componentType === "DEDUCTION" || (!component.componentType && isDeductionComponent(component))), [assignedSalaryComponents]);
   const documentRows = useMemo(() => [...documents.data].sort((a, b) => {
     const left = new Date(b.updatedAt || b.createdAt || 0).getTime();
     const right = new Date(a.updatedAt || a.createdAt || 0).getTime();
@@ -445,6 +500,7 @@ export default function EmployeeDetails() {
     setDocumentError(null);
     try {
       await documents.remove(uid);
+      setDocumentDeleteTarget(null);
     } catch (e) {
       setDocumentError(e instanceof Error ? e.message : "Unable to delete document.");
     } finally {
@@ -623,10 +679,12 @@ export default function EmployeeDetails() {
   );
 
   const emp = employee as Record<string, unknown>;
-  const s = employee.salaryStructure ?? {};
-  const earnings = (s.basic ?? 0) + (s.hra ?? 0) + (s.allowance ?? 0);
-  const deductions = (s.pf ?? 0) + (s.tax ?? 0) + (s.otherDeductions ?? 0);
-  const net = earnings - deductions;
+  const legacySalary = employee.salaryStructure ?? {};
+  const latestPayslipNet = myPayslips.find((payslip) => payslip.netPay != null)?.netPay;
+  const earnings = assignedEarnings.reduce((total, component) => total + (component.amount ?? 0), 0);
+  const deductions = assignedDeductions.reduce((total, component) => total + (component.amount ?? 0), 0);
+  const hasCompleteMonetaryValues = assignedSalaryComponents.length > 0 && assignedSalaryComponents.every((component) => component.amount != null);
+  const net = latestPayslipNet ?? (hasCompleteMonetaryValues ? earnings - deductions : null);
   const tenure = employee.doj ? `${Math.max(0, (Date.now() - new Date(employee.doj).getTime()) / (365.25 * 864e5)).toFixed(1)} Yrs` : "—";
   const onTime = myAttendance.length ? `${Math.round((myAttendance.filter((a) => (a.status || "").toLowerCase().includes("present")).length / myAttendance.length) * 100)}%` : "—";
 
@@ -1141,9 +1199,9 @@ export default function EmployeeDetails() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 24 }}>
                     <Field k="Bank Name" v={employee.bankDetails?.bankName} /><Field k="Account Number" v={employee.bankDetails?.accountNumber} mono />
                     <Field k="IFSC Code" v={employee.bankDetails?.ifscCode} mono />
-                    <Field k="Basic Salary" v={s.basic != null ? formatCurrency(s.basic) : undefined} />
-                    <Field k="HRA" v={s.hra != null ? formatCurrency(s.hra) : undefined} />
-                    <Field k="Allowance" v={s.allowance != null ? formatCurrency(s.allowance) : undefined} />
+                    <Field k="Basic Salary" v={legacySalary.basic != null ? formatCurrency(legacySalary.basic) : undefined} />
+                    <Field k="HRA" v={legacySalary.hra != null ? formatCurrency(legacySalary.hra) : undefined} />
+                    <Field k="Allowance" v={legacySalary.allowance != null ? formatCurrency(legacySalary.allowance) : undefined} />
                   </div>
                 </Panel>
               </div>
@@ -1241,24 +1299,30 @@ export default function EmployeeDetails() {
           {tab === "payroll" && (
             <>
               <Panel icon={<CreditCard size={20} />} title="Salary Structure" sub="Component breakdown of earnings versus safety contributions" full>
+                {employeePayroll.loading ? (
+                  <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={20} className="animate-spin" />&nbsp;Loading salary structure…</div>
+                ) : assignedSalaryComponents.length === 0 ? (
+                  <div style={{ padding: "32px 0", textAlign: "center", color: "var(--light-text)" }}>No assigned salary components found.</div>
+                ) : (
                 <div className="employee-details-payroll-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 24, alignItems: "stretch" }}>
                   <div>
                     <div style={{ ...lbl, marginBottom: 12 }}>Earnings</div>
-                    {[["Basic Salary", s.basic], ["HRA", s.hra], ["Allowances", s.allowance]].map(([k, v]) => (
-                      <div key={k as string} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14 }}><span style={{ color: "var(--dark-text)", fontWeight: 600 }}>{k}</span><b>{formatCurrency((v as number) ?? 0)}</b></div>
+                    {assignedEarnings.map((component) => (
+                      <div key={componentValueKey(component)} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14 }}><span style={{ color: "var(--dark-text)", fontWeight: 600 }}>{component.componentName || component.componentCode || "Component"}</span><b>{component.displayValue}</b></div>
                     ))}
                   </div>
                   <div>
                     <div style={{ ...lbl, marginBottom: 12 }}>Deductions</div>
-                    {[["PF Contribution", s.pf], ["Tax (TDS)", s.tax], ["Other Debits", s.otherDeductions]].map(([k, v]) => (
-                      <div key={k as string} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "var(--danger-color)" }}><span style={{ fontWeight: 600 }}>{k}</span><b>{formatCurrency((v as number) ?? 0)}</b></div>
+                    {assignedDeductions.map((component) => (
+                      <div key={componentValueKey(component)} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 14, color: "var(--danger-color)" }}><span style={{ fontWeight: 600 }}>{component.componentName || component.componentCode || "Component"}</span><b>{component.displayValue}</b></div>
                     ))}
                   </div>
                   <div className="employee-details-takehome-card" style={{ background: "var(--dark-bg)", borderRadius: 16, padding: "24px 32px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 200 }}>
                     <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>Monthly Take-Home</span>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: "white", marginTop: 8 }}>{formatCurrency(net)}</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: "white", marginTop: 8 }}>{net != null ? formatCurrency(net) : "—"}</div>
                   </div>
                 </div>
+                )}
               </Panel>
               <Panel icon={<FileText size={20} />} title="Payslip Archive" sub="Available monthly payment breakdowns and receipts" full
                 action={<CollectionViewToggle value={payslipViewMode} onChange={setPayslipViewMode} />}>
@@ -1325,7 +1389,7 @@ export default function EmployeeDetails() {
                               <Pencil size={16} />
                             </button>
                             <button type="button" data-testid={`hr-employee-document-download-${d.id}`} aria-label={`Download ${d.documentType || "document"}`} disabled={!d.attachment?.filePath && !d.documentUrl} onClick={() => void downloadDocument(d)} style={{ padding: 0, background: "none", border: "none", cursor: d.attachment?.filePath || d.documentUrl ? "pointer" : "not-allowed", color: d.attachment?.filePath || d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)" }}><Download size={16} /></button>
-                            <button data-testid={`hr-employee-document-delete-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
+                            <button data-testid={`hr-employee-document-delete-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => { setDocumentError(null); setDocumentDeleteTarget(d); }}><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
@@ -1356,7 +1420,7 @@ export default function EmployeeDetails() {
                           <Pencil size={16} />
                         </button>
                         <button type="button" data-testid={`hr-employee-document-download-card-${d.id}`} aria-label={`Download ${d.documentType || "document"}`} disabled={!d.attachment?.filePath && !d.documentUrl} onClick={() => void downloadDocument(d)} style={{ padding: 0, background: "none", border: "none", cursor: d.attachment?.filePath || d.documentUrl ? "pointer" : "not-allowed", color: d.attachment?.filePath || d.documentUrl ? "var(--light-text)" : "rgba(148,163,184,0.5)" }}><Download size={16} /></button>
-                        <button data-testid={`hr-employee-document-delete-card-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => void removeDocument(d)}><Trash2 size={16} /></button>
+                        <button data-testid={`hr-employee-document-delete-card-${d.id}`} style={{ background: "none", border: "none", color: "var(--danger-color)", cursor: "pointer" }} onClick={() => { setDocumentError(null); setDocumentDeleteTarget(d); }}><Trash2 size={16} /></button>
                       </div>
                     </div>
                   ))}
@@ -1557,6 +1621,40 @@ export default function EmployeeDetails() {
             Update Status
           </Button>
         </DialogFooter>
+      </Dialog>
+      <Dialog
+        open={!!documentDeleteTarget}
+        onClose={() => { if (!documentSaving) setDocumentDeleteTarget(null); }}
+        testId="hr-employee-document-delete-dialog"
+        title="Delete Document Request"
+        size="sm"
+      >
+        <div className="space-y-5">
+          {documentError ? (
+            <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-color)]">
+              {documentError}
+            </div>
+          ) : null}
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+            Delete the <strong className="text-[var(--color-text-primary)]">{documentDeleteTarget?.documentType || "document"}</strong> request? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setDocumentDeleteTarget(null)} disabled={documentSaving}>
+              Keep Request
+            </Button>
+            <Button
+              id="hr-employee-document-delete-confirm"
+              data-testid="hr-employee-document-delete-confirm"
+              variant="danger"
+              type="button"
+              loading={documentSaving}
+              disabled={documentSaving}
+              onClick={() => { if (documentDeleteTarget) void removeDocument(documentDeleteTarget); }}
+            >
+              Delete Request
+            </Button>
+          </DialogFooter>
+        </div>
       </Dialog>
     </section>
   );

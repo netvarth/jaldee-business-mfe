@@ -26,9 +26,11 @@ export interface AttendanceRule {
   faceRecognitionRequired?: boolean; allowedWorkModes?: ClockType[] | string[] | string; autoClockOutMinutes?: number;
 }
 export interface PayrollSetting {
-  uid?: string; payCycle?: string; payDay?: number; currency?: string; pfEnabled?: boolean; pfRate?: number;
+  uid?: string; payCycle?: string; payDay?: number; payDayType?: "FIXED_DATE" | "LAST_WORKING_DAY"; currency?: string; pfEnabled?: boolean; pfRate?: number;
+  pfEmployeeRate?: number; pfEmployerRate?: number;
+  workingDaysBasis?: "CALENDAR_DAYS" | "FIXED_DAYS" | "ACTUAL_WORKING_DAYS"; fixedWorkingDays?: number;
   esiEnabled?: boolean; esiRate?: number; professionalTax?: number; tdsEnabled?: boolean;
-  ptEnabled?: boolean; esiEmployerRate?: number; pfWageCeiling?: number;
+  ptEnabled?: boolean; esiEmployerRate?: number; pfWageCeiling?: number; pfBaseType?: "BASIC" | "GROSS" | "COMPONENTS";
   esiGrossCeiling?: number; lwfAmount?: number; state?: string;
 }
 

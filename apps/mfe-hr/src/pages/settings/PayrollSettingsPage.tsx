@@ -8,6 +8,7 @@ import {
   type PayrollStructure,
   type StructureComponentMapping,
   type CalculationType,
+  type PayrollCalculationBase,
 } from "../../services/usePayrollData";
 import { ConfigForm, PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 
@@ -59,11 +60,48 @@ export function PayrollSettingsPage() {
           automationScope="hr-settings-payroll"
           fields={[
             { key: "payCycle", label: "Pay Cycle", type: "select", options: ["Monthly", "Bi-Weekly", "Weekly"] },
-            { key: "payDay", label: "Pay Day (day of month)", type: "number" },
+            {
+              key: "payDayType",
+              label: "Pay Day",
+              type: "radio",
+              defaultValue: "FIXED_DATE",
+              options: [
+                { value: "FIXED_DATE", label: "Fixed date" },
+                { value: "LAST_WORKING_DAY", label: "Last working day" },
+              ],
+            },
+            { key: "payDay", label: "Day of Month (1–31)", type: "number", min: 1, max: 31, showWhen: { key: "payDayType", value: "FIXED_DATE" } },
             { key: "currency", label: "Currency", type: "select", options: ["INR", "USD", "EUR", "GBP", "AED"] },
+            {
+              key: "workingDaysBasis",
+              label: "Working Days Basis",
+              type: "select",
+              defaultValue: "CALENDAR_DAYS",
+              options: [
+                { value: "CALENDAR_DAYS", label: "Calendar days" },
+                { value: "FIXED_DAYS", label: "Fixed working days" },
+                { value: "ACTUAL_WORKING_DAYS", label: "Actual working days (exclude week-offs and holidays)" },
+              ],
+            },
+            { key: "fixedWorkingDays", label: "Fixed Working Days per Month", type: "number", min: 1, max: 31, showWhen: { key: "workingDaysBasis", value: "FIXED_DAYS" } },
             { key: "professionalTax", label: "Professional Tax (₹)", type: "number" },
-            { key: "pfRate", label: "PF Rate (%)", type: "number" },
-            { key: "esiRate", label: "ESI Rate (%)", type: "number" },
+            { key: "pfEmployeeRate", sourceKey: "pfRate", label: "PF Employee Rate (%)", type: "number", min: 0, max: 100 },
+            { key: "pfEmployerRate", sourceKey: "pfRate", label: "PF Employer Rate (%)", type: "number", min: 0, max: 100 },
+            { key: "pfWageCeiling", label: "PF Wage Ceiling (₹)", type: "number" },
+            {
+              key: "pfBaseType",
+              label: "PF Base",
+              type: "select",
+              defaultValue: "BASIC",
+              options: [
+                { value: "BASIC", label: "Basic" },
+                { value: "GROSS", label: "Gross" },
+                { value: "COMPONENTS", label: "Configured Components" },
+              ],
+            },
+            { key: "esiRate", label: "ESI Employee Rate (%)", type: "number", min: 0, max: 100 },
+            { key: "esiEmployerRate", label: "ESI Employer Rate (%)", type: "number", min: 0, max: 100 },
+            { key: "esiGrossCeiling", label: "ESI Eligibility Ceiling (₹)", type: "number", min: 0 },
             { key: "pfEnabled", label: "Provident Fund (PF) Enabled", type: "checkbox" },
             { key: "esiEnabled", label: "ESI Enabled", type: "checkbox" },
             { key: "tdsEnabled", label: "TDS Deduction Enabled", type: "checkbox" },
@@ -94,6 +132,8 @@ function SalaryStructuresManager() {
   const [calcType, setCalcType] = useState<CalculationType>("FIXED_AMOUNT");
   const [defaultAmount, setDefaultAmount] = useState(0);
   const [defaultPercentage, setDefaultPercentage] = useState(0);
+  const [calculationBase, setCalculationBase] = useState<PayrollCalculationBase>("GROSS");
+  const [baseComponentCode, setBaseComponentCode] = useState("");
   const [savingMapping, setSavingMapping] = useState(false);
 
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
@@ -153,6 +193,8 @@ function SalaryStructuresManager() {
     setCalcType(m?.calculationType || "FIXED_AMOUNT");
     setDefaultAmount(m?.defaultAmount ?? 0);
     setDefaultPercentage(m?.defaultPercentage ?? 0);
+    setCalculationBase(m?.calculationBase || "GROSS");
+    setBaseComponentCode(m?.baseComponentCode || "");
     setMapModalOpen(true);
   };
 
@@ -160,6 +202,7 @@ function SalaryStructuresManager() {
     if (!targetStructure) return;
     const sUid = targetStructure.uid || targetStructure.id;
     if (!sUid) return;
+    if (calcType === "PERCENTAGE" && calculationBase === "COMPONENT" && !baseComponentCode) return;
     setSavingMapping(true);
     try {
       await structuresHook.addComponent(sUid, {
@@ -169,6 +212,8 @@ function SalaryStructuresManager() {
         calculationType: calcType,
         defaultAmount,
         defaultPercentage,
+        calculationBase,
+        baseComponentCode: calculationBase === "COMPONENT" ? baseComponentCode : undefined,
       });
       setMapModalOpen(false);
     } catch (e) {
@@ -387,11 +432,45 @@ function SalaryStructuresManager() {
           {calcType === "FIXED_AMOUNT" ? (
             <Input id="hr-settings-payroll-map-amount" data-testid="hr-settings-payroll-map-amount" label="Default Amount (₹)" type="number" value={String(defaultAmount)} onChange={(e) => setDefaultAmount(Number(e.target.value))} />
           ) : (
-            <Input id="hr-settings-payroll-map-percentage" data-testid="hr-settings-payroll-map-percentage" label="Default Percentage (%)" type="number" value={String(defaultPercentage)} onChange={(e) => setDefaultPercentage(Number(e.target.value))} />
+            <div className="space-y-4">
+              <Input id="hr-settings-payroll-map-percentage" data-testid="hr-settings-payroll-map-percentage" label="Default Percentage (%)" type="number" value={String(defaultPercentage)} onChange={(e) => setDefaultPercentage(Number(e.target.value))} />
+              {calcType === "PERCENTAGE" && (
+                <>
+                  <Select
+                    id="hr-settings-payroll-map-calculation-base"
+                    data-testid="hr-settings-payroll-map-calculation-base"
+                    label="Calculation Base"
+                    value={calculationBase}
+                    onChange={(e) => setCalculationBase(e.target.value as PayrollCalculationBase)}
+                    options={[
+                      { value: "GROSS", label: "Gross" },
+                      { value: "BASIC", label: "Basic" },
+                      { value: "COMPONENT", label: "Component" },
+                    ]}
+                  />
+                  {calculationBase === "COMPONENT" && (
+                    <Select
+                      id="hr-settings-payroll-map-base-component"
+                      data-testid="hr-settings-payroll-map-base-component"
+                      label="Base Component"
+                      value={baseComponentCode}
+                      onChange={(e) => setBaseComponentCode(e.target.value)}
+                      options={(targetStructure?.components || [])
+                        .filter((mapping) => (mapping.componentUid || mapping.payrollComponentUid) !== selectedCompUid)
+                        .map((mapping) => ({
+                          value: mapping.componentCode || mapping.component?.componentCode || "",
+                          label: mapping.componentName || mapping.component?.componentName || mapping.componentCode || "Component",
+                        }))
+                        .filter((option) => option.value)}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           )}
           <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
             <Button id="hr-settings-payroll-map-cancel" data-testid="hr-settings-payroll-map-cancel" variant="outline" onClick={() => setMapModalOpen(false)}>Cancel</Button>
-            <Button id="hr-settings-payroll-map-save" data-testid="hr-settings-payroll-map-save" variant="primary" onClick={saveMappedComponent} disabled={savingMapping}>
+            <Button id="hr-settings-payroll-map-save" data-testid="hr-settings-payroll-map-save" variant="primary" onClick={saveMappedComponent} disabled={savingMapping || (calcType === "PERCENTAGE" && calculationBase === "COMPONENT" && !baseComponentCode)}>
               {savingMapping ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {editingMapping ? "Update Mapping" : "Save Mapping"}
             </Button>
           </div>

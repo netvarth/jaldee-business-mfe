@@ -27,10 +27,11 @@ import {
   Home,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Checkbox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, Dialog, DialogFooter, type ColumnDef } from "@jaldee/design-system";
+import { Button, Checkbox, Combobox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, Dialog, DialogFooter, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
-import { usePositions, useHierarchyLevels, useAreaManagers, useTransfers } from "../../services/useOrg";
+import { usePositions, useHierarchyLevels, useAreaManagers, useTransfers, type Transfer } from "../../services/useOrg";
 import { useEmployees } from "../../services/useEmployees";
+import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useBranches } from "../../services/useBranches";
 import { useDepartments, useDesignations, useBranchesAdmin, useShifts } from "../../services/useSettingsData";
 import { useShellFeedback } from "../../services/useShellFeedback";
@@ -497,6 +498,9 @@ export default function OrgStructure() {
 
   const [trOpen, setTrOpen] = useState(false);
   const [tr, setTr] = useState({ employeeUid: "", toLocationUid: "", toDepartmentUid: "", toShiftUid: "", toManagerUid: "", effectiveDate: "", reason: "" });
+  const transferEmployeeOptions = usePagedEmployeeOptions({ enabled: trOpen });
+  const [transferToEffect, setTransferToEffect] = useState<Transfer | null>(null);
+  const [transferToCancel, setTransferToCancel] = useState<Transfer | null>(null);
 
   const openDepartmentEditor = (department: (typeof departments.data)[number]) => {
     setDepEditing(department.id);
@@ -1473,8 +1477,8 @@ export default function OrgStructure() {
                         <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap", borderTop: "1px solid #d7e3f1", borderBottom: isLastRow ? "none" : undefined, borderBottomRightRadius: isLastRow ? 12 : undefined }}>
                           {t.status === "Scheduled" ? (
                             <>
-                              <Button id={`hr-org-transfer-effect-${t.id}`} data-testid={`hr-org-transfer-effect-${t.id}`} variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => act(() => transfers.effect(t.id))}><Play size={15} /></Button>
-                              <Button id={`hr-org-transfer-cancel-${t.id}`} data-testid={`hr-org-transfer-cancel-${t.id}`} variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => { if (confirm("Cancel this transfer?")) void act(() => transfers.cancel(t.id)); }}><X size={15} /></Button>
+                              <Button id={`hr-org-transfer-effect-${t.id}`} data-testid={`hr-org-transfer-effect-${t.id}`} variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => setTransferToEffect(t)}><Play size={15} /></Button>
+                              <Button id={`hr-org-transfer-cancel-${t.id}`} data-testid={`hr-org-transfer-cancel-${t.id}`} variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => setTransferToCancel(t)}><X size={15} /></Button>
                             </>
                           ) : null}
                         </td>
@@ -1508,8 +1512,8 @@ export default function OrgStructure() {
                       ]}
                       footer={t.status === "Scheduled" ? (
                         <>
-                          <Button id={`hr-org-transfer-effect-card-${t.id}`} data-testid={`hr-org-transfer-effect-card-${t.id}`} variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => act(() => transfers.effect(t.id))}><Play size={15} /></Button>
-                          <Button id={`hr-org-transfer-cancel-card-${t.id}`} data-testid={`hr-org-transfer-cancel-card-${t.id}`} variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => { if (confirm("Cancel this transfer?")) void act(() => transfers.cancel(t.id)); }}><X size={15} /></Button>
+                          <Button id={`hr-org-transfer-effect-card-${t.id}`} data-testid={`hr-org-transfer-effect-card-${t.id}`} variant="ghost" size="icon" title="Effect now" disabled={busy} onClick={() => setTransferToEffect(t)}><Play size={15} /></Button>
+                          <Button id={`hr-org-transfer-cancel-card-${t.id}`} data-testid={`hr-org-transfer-cancel-card-${t.id}`} variant="ghost" size="icon" title="Cancel" style={{ color: "#e11d48" }} disabled={busy} onClick={() => setTransferToCancel(t)}><X size={15} /></Button>
                         </>
                       ) : undefined}
                     />
@@ -1818,14 +1822,24 @@ export default function OrgStructure() {
           data-testid="hr-org-transfer-form"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select
+            <Combobox
               id="hr-org-transfer-employee"
-              testId="hr-org-transfer-employee"
+              data-testid="hr-org-transfer-employee"
               label="Employee to Transfer"
-              required
               value={tr.employeeUid}
-              onChange={(e) => setTr({ ...tr, employeeUid: e.target.value })}
-              options={[{ value: "", label: "Select employee" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]}
+              onValueChange={(employeeUid) => setTr({ ...tr, employeeUid })}
+              placeholder="Select employee"
+              searchPlaceholder="Search employees..."
+              searchValue={transferEmployeeOptions.searchValue}
+              onSearchChange={transferEmployeeOptions.onSearchChange}
+              loading={transferEmployeeOptions.loading}
+              hasMore={transferEmployeeOptions.hasMore}
+              onEndReached={transferEmployeeOptions.onLoadMore}
+              options={transferEmployeeOptions.data.map((employee) => ({
+                value: employee.id,
+                label: employee.name,
+                description: [employee.employeeId, employee.department].filter(Boolean).join(" · ") || undefined,
+              }))}
             />
             <Input
               id="hr-org-transfer-effective-date"
@@ -1909,6 +1923,74 @@ export default function OrgStructure() {
             </Button>
           </DialogFooter>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={!!transferToEffect}
+        onClose={() => { if (!busy) setTransferToEffect(null); }}
+        closeOnOutsideClick={false}
+        title="Confirm Employee Transfer"
+        size="sm"
+        testId="hr-org-transfer-effect-dialog"
+      >
+        <div className="space-y-5">
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+            Apply the scheduled transfer for <strong className="text-[var(--color-text-primary)]">{transferToEffect?.employeeName || transferToEffect?.employeeUid || "this employee"}</strong> now? The employee’s assigned organization details will be updated immediately.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setTransferToEffect(null)} disabled={busy}>
+              Go Back
+            </Button>
+            <Button
+              data-testid="hr-org-transfer-effect-confirm"
+              variant="primary"
+              type="button"
+              loading={busy}
+              disabled={busy}
+              onClick={() => {
+                if (!transferToEffect) return;
+                const transferUid = transferToEffect.id;
+                void act(() => transfers.effect(transferUid), "Transfer applied successfully.").then(() => setTransferToEffect(null));
+              }}
+            >
+              Confirm Transfer
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={!!transferToCancel}
+        onClose={() => { if (!busy) setTransferToCancel(null); }}
+        title="Cancel Scheduled Transfer"
+        size="sm"
+        testId="hr-org-transfer-cancel-dialog"
+      >
+        <div className="space-y-5">
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+            Cancel the scheduled transfer for <strong className="text-[var(--color-text-primary)]">{transferToCancel?.employeeName || transferToCancel?.employeeUid || "this employee"}</strong>? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setTransferToCancel(null)} disabled={busy}>
+              Keep Transfer
+            </Button>
+            <Button
+              id="hr-org-transfer-cancel-confirm"
+              data-testid="hr-org-transfer-cancel-confirm"
+              variant="danger"
+              type="button"
+              loading={busy}
+              disabled={busy}
+              onClick={() => {
+                if (!transferToCancel) return;
+                const transferUid = transferToCancel.id;
+                void act(() => transfers.cancel(transferUid), "Transfer cancelled.").then(() => setTransferToCancel(null));
+              }}
+            >
+              Cancel Transfer
+            </Button>
+          </DialogFooter>
+        </div>
       </Dialog>
     </section>
   );

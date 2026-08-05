@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Dialog, DialogFooter, Button, Input, Select, Textarea } from "@jaldee/design-system";
 import type { JobRequisition } from "../../types";
+import { isActiveEmployee } from "../../services/usePagedEmployeeOptions";
 
 export interface NewRequisitionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (req: Partial<JobRequisition>) => Promise<void>;
   departments: Array<{ id: string; name?: string }>;
-  employees: Array<{ id: string; name?: string; employeeId?: string }>;
+  employees: Array<{ id: string; name?: string; employeeId?: string; status?: string | null }>;
 }
 
 const employmentTypeOptions = [
@@ -100,7 +101,7 @@ export function NewRequisitionModal({ isOpen, onClose, onSave, departments, empl
           label="Hiring Manager"
           required
           placeholder="Select hiring manager"
-          options={employees.map((employee) => ({
+          options={employees.filter(isActiveEmployee).map((employee) => ({
             value: employee.id,
             label: employee.name || employee.employeeId || employee.id,
           }))}

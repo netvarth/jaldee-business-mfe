@@ -424,8 +424,17 @@ export default function EssPortal() {
 
   const submitEssLeaveApply = async () => {
     const employeeUid = profile.data?.id ?? profile.data?.uid;
-    if (!employeeUid || !leaveApplyForm.leaveTypeUid || !leaveApplyForm.startDate || !leaveApplyForm.reason) {
-      setLeaveApplyError("Leave type, start date and reason are required.");
+    const validationMessage = !employeeUid
+      ? "Employee profile is unavailable."
+      : !leaveApplyForm.leaveTypeUid
+        ? "Select a leave type."
+        : !leaveApplyForm.startDate
+          ? "Select a start date."
+          : !leaveApplyForm.reason.trim()
+            ? "Enter a reason for the leave request."
+            : null;
+    if (validationMessage) {
+      setLeaveApplyError(validationMessage);
       return;
     }
 
@@ -1293,6 +1302,7 @@ export default function EssPortal() {
       <Dialog
         open={leaveApplyOpen}
         onClose={() => setLeaveApplyOpen(false)}
+        closeOnOutsideClick={false}
         testId="ess-leave-apply-modal"
         hideHeader
         contentClassName="h-[100dvh] w-screen max-w-none rounded-none p-0 overflow-y-auto sm:h-auto sm:w-[calc(100vw-2rem)] sm:max-w-[900px] sm:rounded-xl sm:max-h-[calc(100dvh-2rem)]"

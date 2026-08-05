@@ -6,16 +6,17 @@ import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } 
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useHrApi } from "../../services/useHrApi";
 import { useHrSearchSchema } from "../../services/useHrSearchSchema";
+import { formatDateTime } from "../../lib/utils";
 
 type AuditRecord = Record<string, unknown> & { id?: string; uid?: string };
 
 const CONTEXT_OPTIONS = [
   { label: "All HR Operations", value: "ALL" },
-  { label: "Employees", value: "HR_EMPLOYEE" },
-  { label: "Attendance", value: "HR_ATTENDANCE" },
-  { label: "Leave", value: "HR_LEAVE" },
-  { label: "Payroll", value: "HR_PAYROLL" },
-  { label: "Recruitment", value: "HR_CAREERS" },
+  { label: "Employees", value: "EMPLOYEE" },
+  { label: "Attendance", value: "ATTENDANCE" },
+  { label: "Leave", value: "LEAVE" },
+  { label: "Payroll", value: "PAYROLL" },
+  { label: "Recruitment", value: "RECRUITMENT" },
 ];
 
 function value(record: AuditRecord, keys: string[], fallback = "-") {
@@ -28,9 +29,22 @@ function value(record: AuditRecord, keys: string[], fallback = "-") {
 
 function dateLabel(record: AuditRecord) {
   const raw = value(record, ["updatedAt", "createdAt", "timestamp", "eventTime"], "");
-  if (!raw) return "-";
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? raw : date.toLocaleString("en-IN");
+  return formatDateTime(raw) || "-";
+}
+
+function humanize(raw: string) {
+  return raw
+    .replace(/Auditlog$/i, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function actionStyle(action: string) {
+  const normalized = action.toUpperCase();
+  if (normalized === "DELETE") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (normalized === "CREATE") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  return "border-blue-200 bg-blue-50 text-blue-700";
 }
 
 function unwrapPage(response: unknown) {
@@ -65,7 +79,7 @@ export default function AuditLogs() {
     setLoading(true);
     setError("");
     const conditions = [
-      ...(context !== "ALL" ? [{ field: "featureModule", operator: "EQ", values: [context] }] : []),
+      ...(context !== "ALL" ? [{ field: "auditLogContext", operator: "EQ", values: [context] }] : []),
       ...compactSearchClauses(filters, schema).map((filter) => ({
         field: filter.field,
         operator: filter.operator,
@@ -98,10 +112,21 @@ export default function AuditLogs() {
   }, [rows, search]);
 
   const columns = useMemo<ColumnDef<AuditRecord>[]>(() => [
-    { key: "timestamp", header: "Time", render: (record) => <span className="font-mono text-xs text-slate-500">{dateLabel(record)}</span> },
-    { key: "action", header: "Action", render: (record) => <span className="font-bold text-slate-900">{value(record, ["action", "event", "type"], "UNKNOWN")}</span> },
-    { key: "actor", header: "Actor", render: (record) => <span className="font-semibold text-slate-700">{value(record, ["actorName", "actorEmail", "createdBy"], "System")}</span> },
-    { key: "target", header: "Target", render: (record) => <span className="text-xs text-slate-600">{value(record, ["targetName", "targetId", "entityId"], "-")}</span> },
+    { key: "timestamp", header: "Date & Time", width: "17%", render: (record) => <span className="text-xs text-slate-500">{dateLabel(record)}</span> },
+    {
+      key: "activity",
+      header: "Activity",
+      width: "31%",
+      render: (record) => (
+        <div className="min-w-0">
+          <div className="font-bold text-slate-900">{value(record, ["message"], humanize(value(record, ["entityName", "event", "type"], "Activity")))}</div>
+          <div className="mt-1 truncate text-xs text-slate-500">{value(record, ["subject"], humanize(value(record, ["entityName"], "HR record")))}</div>
+        </div>
+      ),
+    },
+    { key: "area", header: "Area", width: "14%", render: (record) => <span className="text-xs font-semibold text-slate-600">{humanize(value(record, ["auditLogContext", "featureModule", "feature"], "HR"))}</span> },
+    { key: "actor", header: "Performed By", width: "18%", render: (record) => <div><div className="font-semibold text-slate-700">{value(record, ["actorUserName", "actorName", "actorEmail", "createdBy"], "System")}</div><div className="mt-1 text-xs text-slate-400">{humanize(value(record, ["actorUserType"], "System"))}</div></div> },
+    { key: "action", header: "Change", width: "10%", render: (record) => { const action = value(record, ["action"], "UNKNOWN"); return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${actionStyle(action)}`}>{humanize(action)}</span>; } },
     {
       key: "inspect",
       header: "",
@@ -148,10 +173,8 @@ export default function AuditLogs() {
           <div className="flex flex-1 flex-wrap gap-2">
             {CONTEXT_OPTIONS.map((option) => <Button key={option.value} data-testid={`hr-audit-logs-context-${option.value.toLowerCase()}`} size="sm" variant={context === option.value ? "primary" : "outline"} onClick={() => { setContext(option.value); setPage(1); }}>{option.label}</Button>)}
           </div>
-          {/* Search & filter options hidden for now
           <Input data-testid="hr-audit-logs-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search current page..." icon={<Search size={16} />} containerClassName="w-full md:max-w-xs" />
           <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(schema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
-          */}
         </div>
         {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
         <div data-testid="hr-audit-logs-table" className="p-4">
@@ -178,8 +201,28 @@ export default function AuditLogs() {
         </div>
       </Drawer>
 
-      <Dialog open={!!selected} onClose={() => setSelected(null)} testId="hr-audit-log-inspector" title="Audit Record Inspector" size="lg">
-        {selected ? <pre data-testid="hr-audit-log-inspector-json" className="max-h-[60vh] overflow-auto rounded-xl bg-slate-950 p-5 text-xs text-emerald-300">{JSON.stringify(selected, null, 2)}</pre> : null}
+      <Dialog open={!!selected} onClose={() => setSelected(null)} testId="hr-audit-log-inspector" title="Audit Activity Details" size="lg">
+        {selected ? <div className="space-y-5" data-testid="hr-audit-log-inspector-details">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="text-lg font-bold text-slate-900">{value(selected, ["message"], humanize(value(selected, ["entityName"], "HR activity")))}</div>
+            <div className="mt-1 text-sm text-slate-600">{value(selected, ["subject"], "No subject provided")}</div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Date & Time</div><div className="mt-1 font-semibold text-slate-800">{dateLabel(selected)}</div></div>
+            <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Performed By</div><div className="mt-1 font-semibold text-slate-800">{value(selected, ["actorUserName", "actorName", "createdBy"], "System")}</div></div>
+            <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Area</div><div className="mt-1 font-semibold text-slate-800">{humanize(value(selected, ["auditLogContext", "featureModule"], "HR"))}</div></div>
+            <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Operation</div><div className="mt-1 font-semibold text-slate-800">{humanize(value(selected, ["entityName", "action"], "Activity"))}</div></div>
+          </div>
+          <details className="rounded-xl border border-slate-200 p-4">
+            <summary className="cursor-pointer text-sm font-bold text-slate-700">Technical details</summary>
+            <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2">
+              <div><dt className="text-slate-400">Event ID</dt><dd className="mt-1 break-all font-mono text-slate-700">{value(selected, ["eventUuid", "id"])}</dd></div>
+              <div><dt className="text-slate-400">Entity ID</dt><dd className="mt-1 break-all font-mono text-slate-700">{value(selected, ["entityUid", "entityId"])}</dd></div>
+              <div><dt className="text-slate-400">Actor ID</dt><dd className="mt-1 break-all font-mono text-slate-700">{value(selected, ["actorUserId"])}</dd></div>
+              <div><dt className="text-slate-400">Source</dt><dd className="mt-1 text-slate-700">{humanize(value(selected, ["sourceService"], "HR service"))}</dd></div>
+            </dl>
+          </details>
+        </div> : null}
         <DialogFooter><Button data-testid="hr-audit-log-inspector-close" variant="outline" onClick={() => setSelected(null)}>Close</Button></DialogFooter>
       </Dialog>
     </section>

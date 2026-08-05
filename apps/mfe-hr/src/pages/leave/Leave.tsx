@@ -10,6 +10,7 @@ import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions"
 import { useLeaves, useLeaveBalances, type LeaveRequest, type LeaveBalance } from "../../services/useLeaveData";
 import { useLeaveTypes } from "../../services/useSettingsData";
 import { useTelemetry } from "../../services/useTelemetry";
+import { formatDate } from "../../lib/utils";
 import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "../recruitment/recruitmentResponsive";
 
 type Tab = "overview" | "balances" | "ledger";
@@ -50,6 +51,7 @@ function statusStyle(status?: string): CSSProperties {
   return { background: "rgba(245,158,11,0.06)", color: "#d97706", border: "1px solid rgba(245,158,11,0.15)" };
 }
 const pill = (s?: string): CSSProperties => ({ ...statusStyle(s), display: "inline-block", padding: "3px 10px", borderRadius: 8, fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" });
+const formatLeaveDate = (value?: string) => formatDate(value) || "—";
 const balanceStatusPill = (status?: string): CSSProperties => {
   const s = (status || "ACTIVE").toUpperCase();
   if (s === "ACTIVE") return { background: "rgba(16,185,129,0.08)", color: "#047857", border: "1px solid rgba(16,185,129,0.18)" };
@@ -156,6 +158,7 @@ export default function Leave() {
   const [form, setForm] = useState({ employeeUid: "", leaveTypeUid: "", type: "", startDate: "", endDate: "", isHalfDay: false, reason: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [applyErrors, setApplyErrors] = useState<Partial<Record<"employeeUid" | "leaveTypeUid" | "startDate" | "reason", string>>>({});
 
   // detail modal
   const [selected, setSelected] = useState<LeaveRequest | null>(null);
@@ -166,24 +169,32 @@ export default function Leave() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
+  const assignedLeaveTypes = form.employeeUid
+    ? leaveTypes.data.filter((type) =>
+        balFor(form.employeeUid, type.name || type.id, type.uid || type.id)
+          .some((balance) => (balance.status || "ACTIVE").toUpperCase() === "ACTIVE")
+      )
+    : [];
   const requestedBalances = form.employeeUid && form.type ? balFor(form.employeeUid, form.type) : [];
   const requestedAvailable = requestedBalances
     .filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE")
     .reduce((sum, b) => sum + (b.available ?? 0), 0);
   const requestedDuration = calcDays(form.startDate, form.endDate || form.startDate, form.isHalfDay);
   const showInsufficientBalanceWarning = !!form.employeeUid && !!form.leaveTypeUid && requestedDuration > 0 && requestedAvailable < requestedDuration;
+  const missingApplyFields = Object.values(applyErrors).filter(Boolean) as string[];
+  const missingApplyFieldsText = missingApplyFields.length > 1
+    ? `${missingApplyFields.slice(0, -1).join(", ")} and ${missingApplyFields.at(-1)}`
+    : missingApplyFields[0];
 
   const submitApply = async () => {
-    if (!form.employeeUid || !form.leaveTypeUid || !form.startDate || !form.reason) {
-      const validationMessage = "Employee, leave type, start date and reason are required.";
-      setMsg(validationMessage);
-      eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "error",
-        title: "Apply leave",
-        message: validationMessage,
-      });
-      return;
-    }
+    const validationErrors = {
+      ...(!form.employeeUid ? { employeeUid: "Employee" } : {}),
+      ...(!form.leaveTypeUid ? { leaveTypeUid: "Leave type" } : {}),
+      ...(!form.startDate ? { startDate: "Start date" } : {}),
+      ...(!form.reason.trim() ? { reason: "Reason" } : {}),
+    };
+    setApplyErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
     setSaving(true); setMsg(null);
     try {
       const selectedLeaveType = leaveTypes.data.find((type) => type.id === form.leaveTypeUid || type.uid === form.leaveTypeUid);
@@ -257,7 +268,7 @@ export default function Leave() {
       rows={[
         { label: "Department", value: empDept(l.employeeUid) },
         { label: "Leave Type", value: l.leaveTypeName || l.type },
-        { label: "Period", value: `${l.startDate} to ${l.endDate}` },
+        { label: "Period", value: `${formatLeaveDate(l.startDate)} to ${formatLeaveDate(l.endDate)}` },
         { label: "Days", value: `${calcDays(l.startDate, l.endDate, l.isHalfDay)}d` },
         { label: "Reason", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
       ]}
@@ -288,7 +299,7 @@ export default function Leave() {
         actions={
           <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
             <span id="hr-leave-admin-badge" data-testid="hr-leave-admin-badge" className="hidden lg:inline-flex" style={{ ...lbl, color: TEAL, alignItems: "center", gap: 6, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", padding: "6px 12px", borderRadius: 10 }}><UserCheck size={14} /> Corporate Admin Control</span>
-            <Button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setApplyOpen(true); }} className="shrink-0 whitespace-nowrap">Apply for Leave</Button>
+            <Button id="hr-leave-apply-button" data-testid="hr-leave-apply-button" variant="primary" icon={<Plus size={16} />} onClick={() => { setMsg(null); setApplyErrors({}); setApplyOpen(true); }} className="shrink-0 whitespace-nowrap">Apply for Leave</Button>
           </div>
         }
       />
@@ -354,7 +365,7 @@ export default function Leave() {
                       </div>
                       <p style={{ ...lbl, marginTop: 4 }}>{empDept(l.employeeUid)} · {calcDays(l.startDate, l.endDate, l.isHalfDay)} days away</p>
                       <p style={{ fontSize: 11.5, color: "var(--dark-text)", fontStyle: "italic", margin: "6px 0 0", opacity: 0.8 }}>“{l.reason}”</p>
-                      <p style={{ ...lbl, marginTop: 8, color: "var(--light-text)" }}>{l.startDate} to {l.endDate}</p>
+                      <p style={{ ...lbl, marginTop: 8, color: "var(--light-text)" }}>{formatLeaveDate(l.startDate)} to {formatLeaveDate(l.endDate)}</p>
                     </div>
                   </div>
                 ))}
@@ -384,7 +395,7 @@ export default function Leave() {
                   <tr key={l.id}>
                     <td style={{ ...tdc, fontWeight: 700 }}>{empName(l.employeeUid)}<span style={{ display: "block", ...lbl, fontSize: 8 }}>Dept: {empDept(l.employeeUid)}</span></td>
                     <td style={{ ...tdc, fontWeight: 700 }}>{l.leaveTypeName || l.type}</td>
-                    <td style={{ ...tdc, fontFamily: "monospace", fontSize: 11, color: "var(--light-text)" }}>{l.startDate} → {l.endDate}</td>
+                    <td style={{ ...tdc, fontSize: 11, color: "var(--light-text)" }}>{formatLeaveDate(l.startDate)} → {formatLeaveDate(l.endDate)}</td>
                     <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</td>
                     <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
                     <td style={{ ...tdc, textAlign: "right" }}>
@@ -642,7 +653,7 @@ export default function Leave() {
                 <tr key={l.id}>
                   <td style={tdc}><div style={{ fontWeight: 800, fontSize: 12.5 }}>{empName(l.employeeUid)}</div><div style={{ ...lbl, fontSize: 9 }}>ID: {empCode(l.employeeUid)}</div></td>
                   <td style={{ ...tdc, fontWeight: 600 }}>{l.leaveTypeName || l.type}</td>
-                  <td style={{ ...tdc, fontFamily: "monospace", fontSize: 11, color: "var(--light-text)" }}>{l.startDate} → {l.endDate}</td>
+                  <td style={{ ...tdc, fontSize: 11, color: "var(--light-text)" }}>{formatLeaveDate(l.startDate)} → {formatLeaveDate(l.endDate)}</td>
                   <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</td>
                   <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
                   <td style={{ ...tdc, textAlign: "right" }}>
@@ -667,7 +678,7 @@ export default function Leave() {
                   rows={[
                     { label: "Employee ID", value: empCode(l.employeeUid) },
                     { label: "Category", value: l.leaveTypeName || l.type },
-                    { label: "Duration", value: `${l.startDate} to ${l.endDate}` },
+                    { label: "Duration", value: `${formatLeaveDate(l.startDate)} to ${formatLeaveDate(l.endDate)}` },
                     { label: "Days", value: `${calcDays(l.startDate, l.endDate, l.isHalfDay)}d` },
                     { label: "Statement", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
                     { label: "Status", value: <span style={pill(l.status)}>{l.status}</span> },
@@ -696,6 +707,7 @@ export default function Leave() {
       <Dialog
         open={applyOpen}
         onClose={() => setApplyOpen(false)}
+        closeOnOutsideClick={false}
         testId="hr-leave-apply-modal"
         hideHeader
         contentClassName="max-w-[900px] h-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] p-0 overflow-hidden flex flex-col"
@@ -715,7 +727,10 @@ export default function Leave() {
               data-testid="hr-leave-employee"
               label="Employee"
               value={form.employeeUid}
-              onValueChange={(employeeUid) => setForm({ ...form, employeeUid })}
+              onValueChange={(employeeUid) => {
+                setForm({ ...form, employeeUid, leaveTypeUid: "", type: "" });
+                setApplyErrors((current) => ({ ...current, employeeUid: undefined, leaveTypeUid: undefined }));
+              }}
               placeholder="Select employee"
               searchPlaceholder="Search employees..."
               searchValue={employeeOptions.searchValue}
@@ -733,13 +748,15 @@ export default function Leave() {
               onChange={(e) => {
                 const selectedLeaveType = leaveTypes.data.find((type) => type.id === e.target.value || type.uid === e.target.value);
                 setForm({ ...form, leaveTypeUid: e.target.value, type: selectedLeaveType?.name || "" });
+                setApplyErrors((current) => ({ ...current, leaveTypeUid: undefined }));
               }}
-              placeholder={leaveTypes.loading ? "Loading leave types" : "Select leave type"}
-              options={leaveTypes.data.map((type) => ({ value: type.id, label: type.name || type.id }))}
+              disabled={!form.employeeUid || leaveTypes.loading || balances.loading}
+              placeholder={!form.employeeUid ? "Select employee first" : (leaveTypes.loading || balances.loading) ? "Loading assigned leave types" : "Select leave type"}
+              options={assignedLeaveTypes.map((type) => ({ value: type.id, label: type.name || type.id }))}
             />
-            {!leaveTypes.loading && leaveTypes.data.length === 0 && (
+            {form.employeeUid && !leaveTypes.loading && !balances.loading && assignedLeaveTypes.length === 0 && (
               <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)", color: "#b45309", fontSize: 12, fontWeight: 700 }}>
-                No leave types are configured in Settings.
+                No active leave types are assigned to this employee.
               </div>
             )}
             <div className="max-[480px]:!grid-cols-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -748,7 +765,7 @@ export default function Leave() {
                 data-testid="hr-leave-start-date"
                 label="Start Date"
                 value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                onChange={(e) => { setForm({ ...form, startDate: e.target.value }); setApplyErrors((current) => ({ ...current, startDate: undefined })); }}
               />
               <DatePicker
                 id="hr-leave-end-date"
@@ -786,11 +803,16 @@ export default function Leave() {
               label="Detailed Statement / Reason"
               placeholder="Share a short note detailing the cause of your request…"
               value={form.reason}
-              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+              onChange={(e) => { setForm({ ...form, reason: e.target.value }); setApplyErrors((current) => ({ ...current, reason: undefined })); }}
               rows={5}
             />
           </div>
         </div>
+        {missingApplyFieldsText && (
+          <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>
+            {missingApplyFieldsText} {missingApplyFields.length === 1 ? "is" : "are"} required.
+          </div>
+        )}
         {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
         <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "16px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, shrink: 0 }}>
           <Button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" variant="outline" onClick={() => setApplyOpen(false)}>Close</Button>
@@ -821,7 +843,7 @@ export default function Leave() {
               <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: 20, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 10, borderBottom: "1px solid rgba(59,130,246,0.1)", marginBottom: 12 }}><Calendar size={16} color="#2563eb" /><span style={{ ...lbl, color: "#1e40af" }}>Duration Range Profile</span></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div><span style={{ ...lbl, fontSize: 8, color: "#2563eb" }}>Period</span><div style={{ fontSize: 13, fontWeight: 800, color: TEAL, marginTop: 2 }}>{selected.startDate} to {selected.endDate}</div></div>
+                  <div><span style={{ ...lbl, fontSize: 8, color: "#2563eb" }}>Period</span><div style={{ fontSize: 13, fontWeight: 800, color: TEAL, marginTop: 2 }}>{formatLeaveDate(selected.startDate)} to {formatLeaveDate(selected.endDate)}</div></div>
                   <div><span style={{ ...lbl, fontSize: 8, color: "#2563eb" }}>Requested</span><div><span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "3px 12px", borderRadius: 999, display: "inline-block", marginTop: 2 }}>{calcDays(selected.startDate, selected.endDate, selected.isHalfDay)} Days</span></div></div>
                 </div>
               </div>

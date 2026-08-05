@@ -15,7 +15,7 @@ import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions"
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
 import { useExpenseSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
-import { formatCurrency } from "../../lib/utils";
+import { formatCurrency, formatDate } from "../../lib/utils";
 
 type Tab = "ledger" | "approvals";
 const EXPENSE_ROUTES: Array<{ key: Tab; route: string; label: string }> = [
@@ -47,7 +47,7 @@ const field: CSSProperties = { width: "100%", height: 48, borderRadius: 14, bord
 const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 18 };
 type ViewMode = "table" | "cards";
 
-function fmtDate(d?: string) { if (!d) return "N/A"; const x = new Date(d); return isNaN(x.getTime()) ? "N/A" : x.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" }); }
+function fmtDate(d?: string) { return formatDate(d) || "N/A"; }
 function tabFromPath(pathname: string): Tab {
   const segment = pathname.split("/").filter(Boolean).at(-1);
   const match = EXPENSE_ROUTES.find((item) => item.route === segment || item.key === segment);
@@ -413,7 +413,7 @@ export default function Expenses() {
               ) : pagedRows.map((e) => (
                 <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
                   {!isEmployeeView && tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 14 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 10 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
-                  <td style={{ ...tdc, fontFamily: "monospace", fontWeight: 700, fontSize: "var(--text-xs)", color: TEXT_SECONDARY }}>{fmtDate(e.date)}</td>
+                  <td style={{ ...tdc, fontWeight: 700, fontSize: "var(--text-xs)", color: TEXT_SECONDARY }}>{fmtDate(e.date)}</td>
                   <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
                   <td style={{ ...tdc, fontWeight: 900, fontSize: "var(--text-sm)" }}>{formatCurrency(e.amount)}</td>
                   <td style={{ ...tdc, maxWidth: 200 }}>
@@ -656,7 +656,7 @@ export default function Expenses() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Amount</span><span style={{ fontSize: 22, fontWeight: 900, color: TEAL, display: "block", marginTop: 4 }}>{formatCurrency(selected.amount)}</span></div>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Category</span><span style={{ display: "block", marginTop: 6 }}><span style={tag(catStyle(selected.category))}>{selected.category}</span></span></div>
-                <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Submit Date</span><span style={{ fontSize: 14, fontWeight: 800, display: "block", marginTop: 4, fontFamily: "monospace" }}>{fmtDate(selected.date)}</span></div>
+                <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Submit Date</span><span style={{ fontSize: 14, fontWeight: 800, display: "block", marginTop: 4 }}>{fmtDate(selected.date)}</span></div>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Status</span><span style={{ display: "block", marginTop: 6 }}><span style={tag(statStyle(selected.status))}>{selected.status}</span></span></div>
               </div>
               {selected.category === "Travel" && selected.kms != null && (

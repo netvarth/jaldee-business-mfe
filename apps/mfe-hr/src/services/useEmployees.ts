@@ -41,7 +41,7 @@ function asIdentifier(value: unknown): string | null {
 
 /** Backend returns `uid`; the UI keys on `id`. Normalize once here. */
 function normalize(e: Record<string, unknown>): Employee {
-  const uid = (e.uid ?? e.id) as string | undefined;
+  const uid = (e.uid ?? e.id ?? e.employeeUid) as string | undefined;
   const hrDepartment = (e.hrDepartment ?? e.department) as string | undefined;
   const reportingManagerUid = asIdentifier(
     e.reportingManagerUid

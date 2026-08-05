@@ -3,6 +3,7 @@ import { CalendarDays } from "lucide-react";
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useHolidays } from "../../services/useSettingsData";
 import { useHolidaySearchSchema } from "../../services/useHrSearchSchema";
+import { formatDate } from "../../lib/utils";
 import { CrudPanel } from "./SettingsComponents";
 
 export function HolidaySettingsPage() {
@@ -16,7 +17,7 @@ export function HolidaySettingsPage() {
     { key: "type", label: "Type", type: "select", options: ["Public", "Optional", "Restricted"] },
   ]} columns={[
     { label: "Holiday", render: (row) => <b>{row.name as string}</b> },
-    { label: "Date", render: (row) => (row.date as string) || "—" },
+    { label: "Date", render: (row) => formatDate(row.date as string) || "—" },
     { label: "Type", render: (row) => (row.type as string) || "—" },
   ]} />;
 }

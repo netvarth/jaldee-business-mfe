@@ -44,6 +44,13 @@ function isGrossKey(key: string) {
   return norm === "gross" || norm === "grosspay" || norm === "grossearnings";
 }
 
+function payslipLineLabel(line: PayslipLine) {
+  const code = normalizedDeductionKey(line.componentCode || "");
+  const category = normalizedDeductionKey(line.componentCategory || "");
+  if (code === "lop" || category === "lop") return "Loss of Pay";
+  return displayLabel(line.componentName || line.componentCode || "-");
+}
+
 function isTotalDeductionKey(key: string) {
   const norm = key.toLowerCase().replace(/[^a-z]/g, "");
   return (
@@ -54,6 +61,19 @@ function isTotalDeductionKey(key: string) {
     norm === "deductions" ||
     norm === "totalstatutorydeductions"
   );
+}
+
+function normalizedDeductionKey(key: string) {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function isTdsKey(key: string) {
+  const norm = normalizedDeductionKey(key);
+  return norm === "tds" || norm === "taxdeductedatsource";
+}
+
+function isLegacyTaxKey(key: string) {
+  return normalizedDeductionKey(key) === "tax";
 }
 
 function formatDeductionLabel(label: string) {
@@ -69,10 +89,22 @@ function formatDeductionLabel(label: string) {
   return cleanName;
 }
 
+function isEmployerContributionLabel(label: string) {
+  return normalizedDeductionKey(label).includes("employer");
+}
+
 function resolveLineBuckets(payslip: Payslip) {
-  const lines = payslip.lines || payslip.lineItems || [];
+  const rawLines = payslip.lines || payslip.lineItems || [];
+  const hasTdsLine = rawLines.some((line) => isTdsKey(line.componentCode || line.componentName || "") && (line.amount ?? 0) !== 0);
+  const lines = hasTdsLine
+    ? rawLines.filter((line) => !isLegacyTaxKey(line.componentCode || line.componentName || ""))
+    : rawLines;
   const explicitEarnings = Object.entries(payslip.earnings || {});
-  const explicitDeductions = Object.entries(payslip.deductions || {});
+  const rawExplicitDeductions = Object.entries(payslip.deductions || {});
+  const hasExplicitTds = rawExplicitDeductions.some(([label, amount]) => isTdsKey(label) && (amount ?? 0) !== 0);
+  const explicitDeductions = hasExplicitTds
+    ? rawExplicitDeductions.filter(([label]) => !isLegacyTaxKey(label))
+    : rawExplicitDeductions;
 
   if (explicitEarnings.length > 0 || explicitDeductions.length > 0) {
     const grossEntry = explicitEarnings.find(([label]) => isGrossKey(label));
@@ -102,10 +134,10 @@ function resolveLineBuckets(payslip: Payslip) {
 
   const earnings = lines
     .filter((line) => line.componentType !== "DEDUCTION" && (line.amount ?? 0) !== 0 && !isGrossKey(line.componentName || line.componentCode || ""))
-    .map((line) => [displayLabel(line.componentName || line.componentCode || "-"), line.amount ?? 0] as const);
+    .map((line) => [payslipLineLabel(line), line.amount ?? 0] as const);
   const deductions = lines
     .filter((line) => line.componentType === "DEDUCTION" && (line.amount ?? 0) !== 0 && !isTotalDeductionKey(line.componentName || line.componentCode || ""))
-    .map((line) => [formatDeductionLabel(line.componentName || line.componentCode || "-"), line.amount ?? 0] as const);
+    .map((line) => [formatDeductionLabel(payslipLineLabel(line)), line.amount ?? 0] as const);
 
   return { earnings, deductions, lines: lines.filter((line) => (line.amount ?? 0) !== 0), explicitGrossVal, explicitTotalDeductionsVal };
 }
@@ -145,6 +177,18 @@ function lineAmount(line: PayslipLine) {
   return line.amount ?? 0;
 }
 
+function firstNumericTotal(...values: unknown[]) {
+  let zeroValue: number | undefined;
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) continue;
+    if (numeric !== 0) return numeric;
+    zeroValue = numeric;
+  }
+  return zeroValue;
+}
+
 export function PayslipStatementView({
   payslip,
   employeeName,
@@ -158,24 +202,38 @@ export function PayslipStatementView({
 }) {
   const printRootRef = useRef<HTMLDivElement | null>(null);
   const bucketData = resolveLineBuckets(payslip);
+  const employeeDeductionEntries = bucketData.deductions.filter(([label]) => !isEmployerContributionLabel(label));
+  const employerContributionEntries = bucketData.deductions.filter(([label]) => isEmployerContributionLabel(label));
   const sumEarnings = bucketData.earnings.reduce((sum, [, amount]) => sum + Math.abs(amount), 0);
-  const gross = payslip.grossPay && payslip.grossPay !== 0
-    ? payslip.grossPay
-    : bucketData.explicitGrossVal && bucketData.explicitGrossVal !== 0
+  const payslipRecord = payslip as Payslip & Record<string, unknown>;
+  const computedGross = firstNumericTotal(
+    payslip.grossPay,
+    payslip.grossEarnings,
+    payslip.totalEarnings,
+    payslipRecord.gross,
+  );
+  const gross = computedGross != null && computedGross !== 0
+    ? Math.abs(computedGross)
+    : bucketData.explicitGrossVal != null && bucketData.explicitGrossVal !== 0
       ? Math.abs(bucketData.explicitGrossVal)
       : sumEarnings;
 
-  const employeeDeductionSum = bucketData.deductions
-    .filter(([label]) => !label.toLowerCase().includes("employer") && !isTotalDeductionKey(label))
+  const employeeDeductionSum = employeeDeductionEntries
+    .filter(([label]) => !isTotalDeductionKey(label))
     .reduce((sum, [, amount]) => sum + Math.abs(amount), 0);
+  const employerContributionTotal = employerContributionEntries.reduce((sum, [, amount]) => sum + Math.abs(amount), 0);
 
-  const deductions = employeeDeductionSum > 0
-    ? employeeDeductionSum
-    : bucketData.explicitTotalDeductionsVal && bucketData.explicitTotalDeductionsVal !== 0
+  const computedDeductions = firstNumericTotal(
+    payslip.totalDeductions,
+    payslip.totalDeduction,
+    payslip.deductionTotal,
+    payslipRecord.employeeDeductions,
+  );
+  const deductions = computedDeductions != null && computedDeductions !== 0
+    ? Math.abs(computedDeductions)
+    : bucketData.explicitTotalDeductionsVal != null && bucketData.explicitTotalDeductionsVal !== 0
       ? Math.abs(bucketData.explicitTotalDeductionsVal)
-      : payslip.totalDeductions && payslip.totalDeductions !== 0
-        ? Math.abs(payslip.totalDeductions)
-        : 0;
+      : employeeDeductionSum;
   const net = payslip.netPay ?? gross - deductions;
   const payslipId = payslip.id || payslip.uid || "-";
 
@@ -289,11 +347,21 @@ export function PayslipStatementView({
           <StatementColumn
             title="2. Statutory Deductions"
             amountLabel="Amount (INR)"
-            entries={bucketData.deductions}
+            entries={employeeDeductionEntries}
             totalLabel="Total Employee Deductions (B)"
             totalValue={deductions}
             tone="negative"
           />
+          {employerContributionEntries.length > 0 && (
+            <StatementColumn
+              title="3. Employer Contributions"
+              amountLabel="Amount (INR)"
+              entries={employerContributionEntries}
+              totalLabel="Total Employer Contributions"
+              totalValue={employerContributionTotal}
+              tone="positive"
+            />
+          )}
         </div>
 
         {bucketData.lines.length > 0 && (
@@ -312,7 +380,7 @@ export function PayslipStatementView({
                 <tbody>
                   {bucketData.lines.map((line, index) => (
                     <tr key={line.uid || line.id || index}>
-                      <td style={detailCellStrong}>{displayLabel(line.componentName || line.componentCode || "-")}</td>
+                      <td style={detailCellStrong}>{payslipLineLabel(line)}</td>
                       <td style={detailCell}>{labelize(line.componentType)}</td>
                       <td style={detailCell}>{labelize(line.calculationType)}</td>
                       <td style={{ ...detailCellStrong, textAlign: "right" }}>{summaryValue(lineAmount(line))}</td>

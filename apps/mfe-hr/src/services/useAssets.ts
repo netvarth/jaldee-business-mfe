@@ -286,12 +286,16 @@ export function useAssets(
     });
     await load();
   }, [api, load]);
+  const confirmRepair = useCallback(async (uid: string) => {
+    await api.post(`/assets/${uid}/confirm-repair`, {});
+    await load();
+  }, [api, load]);
   const history = useCallback(async (uid: string) => {
     const res = await api.get<Record<string, unknown>[]>(`/assets/${uid}/history`);
     return Array.isArray(res) ? res.map((r) => withId<AssetAllocation>(r)) : [];
   }, [api]);
 
-  return { data, loading, error, reload: load, create, getOne, update, remove, allocate, returnAsset, history, uploadAttachments };
+  return { data, loading, error, reload: load, create, getOne, update, remove, allocate, returnAsset, confirmRepair, history, uploadAttachments };
 }
 
 /** Assets currently (or historically) held by one employee. */

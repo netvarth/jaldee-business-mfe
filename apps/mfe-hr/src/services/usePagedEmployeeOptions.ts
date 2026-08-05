@@ -6,6 +6,11 @@ import { useEmployeeSearchSchema } from "./useEmployeeSearchSchema";
 const PAGE_SIZE = 100;
 const EMPTY_FILTERS: SearchFilterClause[] = [];
 
+export function isActiveEmployee(employee: { status?: string | null }) {
+  const status = (employee.status || "Active").trim().toLowerCase();
+  return !["inactive", "disabled", "deactivated"].includes(status);
+}
+
 export function usePagedEmployeeOptions({ enabled = true, filters: baseFilters = EMPTY_FILTERS }: { enabled?: boolean; filters?: SearchFilterClause[] } = {}) {
   const [page, setPage] = useState(0);
   const [loaded, setLoaded] = useState<ReturnType<typeof useEmployees>["data"]>([]);
@@ -25,6 +30,7 @@ export function usePagedEmployeeOptions({ enabled = true, filters: baseFilters =
 
   const filters = useMemo<SearchFilterClause[]>(() => [
     ...baseFilters,
+    { id: "employee-option-active", field: "status", operator: "EQ", values: ["Active"] } as SearchFilterClause,
     ...(debouncedSearch.length >= 3
       ? [{ id: "employee-option-search", field: "name", operator: "CONTAINS", values: [debouncedSearch] } as SearchFilterClause]
       : []),
@@ -33,8 +39,12 @@ export function usePagedEmployeeOptions({ enabled = true, filters: baseFilters =
 
   useEffect(() => {
     setLoaded((current) => {
-      const merged = new Map((page === 0 ? [] : current).map((employee) => [employee.id, employee]));
-      result.data.forEach((employee) => merged.set(employee.id, employee));
+      const optionKey = (employee: ReturnType<typeof useEmployees>["data"][number], index: number) =>
+        employee.id || employee.uid || employee.employeeId || employee.email || `employee-option-${page}-${index}`;
+      const merged = new Map((page === 0 ? [] : current).map((employee, index) => [optionKey(employee, index), employee]));
+      // The search request already applies status = Active. Preserve every row
+      // returned by the API instead of applying a second, stricter client check.
+      result.data.forEach((employee, index) => merged.set(optionKey(employee, index), employee));
       return Array.from(merged.values());
     });
   }, [page, result.data]);

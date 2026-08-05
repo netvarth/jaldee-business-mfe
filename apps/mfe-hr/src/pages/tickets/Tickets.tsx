@@ -16,6 +16,7 @@ import { useTickets, type Ticket } from "../../services/useEngagement";
 import { useTicketSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
+import { formatDate } from "../../lib/utils";
 
 const TEAL = "var(--primary-color)";
 const CATEGORIES = ["Payroll", "IT Support", "HR Policy", "Admin/Facility"];
@@ -464,7 +465,7 @@ export default function Tickets() {
                     >
                       <div>
                         <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created</p>
-                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdAtTs ? new Date(t.createdAtTs).toLocaleDateString() : "N/A"}</p>
+                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{formatDate(t.createdAtTs) || "N/A"}</p>
                       </div>
                       <div>
                         <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Dept</p>
@@ -714,7 +715,7 @@ export default function Tickets() {
                         <div key={replyKey} data-testid={`hr-ticket-reply-${liveSelected.id}-${replyKey}`} style={{ background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 14, padding: 14 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                             <span style={{ ...lbl, fontSize: 9, color: TEAL }}>{r.respondedBy || "Support Desk"}</span>
-                            <span style={{ ...lbl, fontSize: 8 }}>{r.respondedAt ? new Date(r.respondedAt).toLocaleString() : ""}</span>
+                            <span style={{ ...lbl, fontSize: 8 }}>{formatDate(r.respondedAt)}</span>
                           </div>
                           <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dark-text)", margin: 0 }}>{r.message}</p>
                         </div>

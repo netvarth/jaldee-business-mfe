@@ -27,6 +27,7 @@ export interface DialogProps {
   closeButtonClassName?: string;
   closeLabel?: string;
   closeIcon?: ReactNode;
+  closeOnOutsideClick?: boolean;
 }
 
 const sizeMap = {
@@ -52,6 +53,7 @@ export function Dialog({
   bodyClassName,
   closeButtonClassName,
   closeLabel = "Close dialog",
+  closeOnOutsideClick = false,
   closeIcon = "×",
 }: DialogProps) {
   const shouldRenderHeader = !hideHeader && (title || description || showCloseButton);
@@ -64,6 +66,9 @@ export function Dialog({
           className={cn("fixed inset-0 bg-black/40 z-[200] animate-in fade-in-0", overlayClassName)}
         />
         <Content
+          onPointerDownOutside={(event) => {
+            if (!closeOnOutsideClick) event.preventDefault();
+          }}
           data-testid={testId}
           data-state={open ? "open" : "closed"}
           className={cn(

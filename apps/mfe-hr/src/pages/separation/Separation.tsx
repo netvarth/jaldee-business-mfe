@@ -6,7 +6,8 @@ import { useExits, type ExitRequest, type ClearanceStatus } from "../../services
 import { useEmployees } from "../../services/useEmployees";
 import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useApprovalSteps } from "../../services/useApprovals";
-import { useShellErrorToast } from "../../services/useShellFeedback";
+import { useShellErrorToast, useShellFeedback } from "../../services/useShellFeedback";
+import { formatDate } from "../../lib/utils";
 
 /**
  * W2 / R6.2 + R6.5 + R6.6 — separation workflow: raise → approve (W1 chain
@@ -56,6 +57,7 @@ function canRecordExitInterview(status?: string) {
 export default function Separation() {
   const exits = useExits();
   const { data: employees } = useEmployees();
+  const { toast } = useShellFeedback("hr.separation");
   useShellErrorToast("hr.separation", "Separation", exits.error);
 
   const [raiseOpen, setRaiseOpen] = useState(false);
@@ -114,6 +116,21 @@ export default function Separation() {
     return normalized !== "completed" && normalized !== "rejected" && normalized !== "cancelled" && normalized !== "canceled";
   };
 
+  const saveExitInterview = async (exitUid: string) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await exits.saveInterview(exitUid, interview);
+      toast("success", "Exit interview saved", "The interview responses were saved successfully.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to save the exit interview.";
+      setMsg(message);
+      toast("error", "Unable to save exit interview", message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section id="hr-separation-page" data-testid="hr-separation-page" className="page-section active hr-page-shell">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
@@ -154,7 +171,7 @@ export default function Separation() {
               { key: "separationType", header: "Type", width: "14%", render: (e) => e.separationType || "—" },
               { key: "status", header: "Status", width: "14%", render: (e) => <StatusPill s={e.status} /> },
               { key: "noticePeriodDays", header: "Notice", width: "14%", render: (e) => e.noticePeriodDays != null ? `${e.noticePeriodDays}d${e.noticeWaivedDays ? ` (−${e.noticeWaivedDays} waived)` : ""}` : "—" },
-              { key: "lastWorkingDay", header: "Last Working Day", width: "16%", render: (e) => e.lastWorkingDay || "—" },
+              { key: "lastWorkingDay", header: "Last Working Day", width: "16%", render: (e) => formatDate(e.lastWorkingDay) || "—" },
               { key: "clearanceStatus", header: "Clearance", width: "12%", render: (e) => e.clearanceStatus || "—" },
               { key: "action", header: "Action", width: "10%", align: "right", render: (e) => <Button data-testid={`hr-separation-open-${e.id}`} variant="secondary" onClick={() => openDetail(e)}>Open</Button> },
             ] as ColumnDef<ExitRequest>[]}
@@ -175,7 +192,7 @@ export default function Separation() {
                   <td style={td}>{e.separationType || "—"}</td>
                   <td style={td}><StatusPill s={e.status} /></td>
                   <td style={td}>{e.noticePeriodDays != null ? `${e.noticePeriodDays}d${e.noticeWaivedDays ? ` (−${e.noticeWaivedDays} waived)` : ""}` : "—"}</td>
-                  <td style={td}>{e.lastWorkingDay || "—"}</td>
+                  <td style={td}>{formatDate(e.lastWorkingDay) || "—"}</td>
                   <td style={td}>{e.clearanceStatus || "—"}</td>
                   <td style={{ ...td, textAlign: "right" }}><Button data-testid={`hr-separation-open-${e.id}`} variant="secondary" onClick={() => openDetail(e)}>Open</Button></td>
                 </tr>
@@ -196,7 +213,7 @@ export default function Separation() {
                 </div>
                 <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}><span style={lbl}>Notice</span><strong style={{ fontSize: 12 }}>{e.noticePeriodDays != null ? `${e.noticePeriodDays}d${e.noticeWaivedDays ? ` (−${e.noticeWaivedDays} waived)` : ""}` : "—"}</strong></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}><span style={lbl}>Last Working Day</span><strong style={{ fontSize: 12 }}>{e.lastWorkingDay || "—"}</strong></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}><span style={lbl}>Last Working Day</span><strong style={{ fontSize: 12 }}>{formatDate(e.lastWorkingDay) || "—"}</strong></div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}><span style={lbl}>Clearance</span><strong style={{ fontSize: 12 }}>{e.clearanceStatus || "—"}</strong></div>
                 </div>
                 <Button data-testid={`hr-separation-open-${e.id}`} variant="secondary" className="mt-4 w-full" onClick={() => openDetail(e)}>Open</Button>
@@ -276,7 +293,7 @@ export default function Separation() {
                     </>
                   )}
                 </div>
-                <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Last Working Day</span><div style={{ fontSize: 13, fontWeight: 800, marginTop: 3 }}>{current.lastWorkingDay || "—"}</div></div>
+                <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Last Working Day</span><div style={{ fontSize: 13, fontWeight: 800, marginTop: 3 }}>{formatDate(current.lastWorkingDay) || "—"}</div></div>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Clearance</span><div style={{ fontSize: 13, fontWeight: 800, marginTop: 3 }}>{current.clearanceStatus || "Pending"}</div></div>
               </div>
               {current.reason && <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Reason</span><p style={{ fontSize: 12.5, fontWeight: 600, margin: "4px 0 0", fontStyle: "italic" }}>“{current.reason}”</p></div>}
@@ -395,7 +412,7 @@ export default function Separation() {
                       </div>
                     ))}
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                      <Button variant="secondary" disabled={busy} onClick={() => act(() => exits.saveInterview(current.id, interview))}>Save Interview</Button>
+                      <Button variant="secondary" loading={busy} disabled={busy} onClick={() => void saveExitInterview(current.id)}>Save Interview</Button>
                     </div>
                   </div>
                 )}

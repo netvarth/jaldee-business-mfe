@@ -610,6 +610,18 @@ a:hover {
     white-space: nowrap;
 }
 
+.employee-master-header-actions .employee-master-view-toggle-button {
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+}
+
+.employee-master-header-actions .employee-master-view-toggle-button svg {
+    display: block;
+    color: currentColor;
+    flex: 0 0 auto;
+}
+
 .employee-master-header-actions .btn-primary {
     border: none;
     background: var(--primary-color);
@@ -668,6 +680,11 @@ a:hover {
         width: 100%;
         padding-left: 10px !important;
         padding-right: 10px !important;
+    }
+
+    .employee-master-header-actions .employee-master-view-toggle-button {
+        width: 100%;
+        padding: 0 !important;
     }
 
     .employee-master-header-actions #hr-employees-create-button {

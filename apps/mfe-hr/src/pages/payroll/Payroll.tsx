@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowLeft,
   CircleCheck,
@@ -43,6 +43,7 @@ import {
   type EmployeeComponentValue,
   type PayrollComponent,
   type PayrollCustomField,
+  type PayrollCalculationBase,
   type PayrollStructure,
   type Payslip,
   type SlabTier,
@@ -109,6 +110,8 @@ const emptyMapping: Partial<StructureComponentMapping> = {
   calculationType: "FIXED_AMOUNT",
   defaultAmount: undefined,
   defaultPercentage: undefined,
+  calculationBase: "GROSS",
+  baseComponentCode: "",
   formulaExpression: "",
   slabConfigJson: [],
   isMandatory: true,
@@ -264,6 +267,7 @@ export default function Payroll() {
 
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [runMonth, setRunMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedEmployee, setSelectedEmployee] = useState(routeState.employeeAssignUid || "");
   const activeEmployeeUid = routeState.employeeAssignUid || selectedEmployee;
@@ -298,6 +302,7 @@ export default function Payroll() {
   const [builderStructureUid, setBuilderStructureUid] = useState("");
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [mappingForm, setMappingForm] = useState<Partial<StructureComponentMapping>>(emptyMapping);
+  const hydratedStructuresRef = useRef("");
   const [componentsView, setComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
   const [structuresView, setStructuresView] = useState<ViewMode>(() => getPreferredViewMode());
   const [builderComponentsView, setBuilderComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
@@ -350,6 +355,22 @@ export default function Payroll() {
       setMessage(getErrorMessage(e));
     });
   }, [effectiveBuilderUid, routeState.isStructureBuilder, structures.loadComponents]);
+
+  useEffect(() => {
+    if (tab !== "structures") {
+      hydratedStructuresRef.current = "";
+      return;
+    }
+    const structureUids = structures.data.map(uidOf).filter(Boolean);
+    if (structures.loading || structureUids.length === 0) return;
+    const hydrationKey = structureUids.sort().join("|");
+    if (hydratedStructuresRef.current === hydrationKey) return;
+    hydratedStructuresRef.current = hydrationKey;
+    void Promise.all(structureUids.map((structureUid) => structures.loadComponents(structureUid))).catch((e) => {
+      hydratedStructuresRef.current = "";
+      setMessage(`Failed to refresh salary structure values: ${getErrorMessage(e)}`);
+    });
+  }, [structures.data, structures.loadComponents, structures.loading, tab]);
 
   useEffect(() => {
     if (!routeState.isEmployeeAssign || !activeStructureUid) return;
@@ -476,6 +497,10 @@ export default function Payroll() {
       setMessage("Select a structure and component.");
       return;
     }
+    if (mappingForm.calculationType === "PERCENTAGE" && mappingForm.calculationBase === "COMPONENT" && !mappingForm.baseComponentCode) {
+      setMessage("Select a base component for percentage calculation.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -581,19 +606,32 @@ export default function Payroll() {
     }
   };
 
-  const exportPayslips = () => {
-    exportToCSV(
-      ["Employee", "Month", "Gross", "Deductions", "Net", "Status"],
-      payslips.data.map((p) => [
-        p.employeeName || employeeName(p.employeeUid),
-        p.monthStr || p.month || "",
-        p.grossPay ?? "",
-        p.totalDeductions ?? "",
-        p.netPay ?? "",
-        p.status ?? "",
-      ]),
-      "payroll-payslips.csv"
-    );
+  const exportPayslips = async () => {
+    setExporting(true);
+    setMessage(null);
+    try {
+      const exportDataset = await payslips.fetchAll();
+      if (exportDataset.length === 0) {
+        setMessage("No generated payslips are available to export.");
+        return;
+      }
+      exportToCSV(
+        ["Employee", "Month", "Gross", "Deductions", "Net", "Status"],
+        exportDataset.map((p) => [
+          p.employeeName || employeeName(p.employeeUid),
+          p.monthStr || p.month || "",
+          p.grossPay ?? "",
+          p.totalDeductions ?? "",
+          p.netPay ?? "",
+          p.status ?? "",
+        ]),
+        "payroll-payslips.csv"
+      );
+    } catch (e) {
+      setMessage(`Export failed: ${getErrorMessage(e)}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const componentLookup = useMemo(() => new Map(components.data.map((component) => [uidOf(component), component] as const)), [components.data]);
@@ -807,6 +845,8 @@ export default function Payroll() {
       calculationType: mapping.calculationType || "FIXED_AMOUNT",
       defaultAmount: mapping.defaultAmount ?? 0,
       defaultPercentage: mapping.defaultPercentage ?? 0,
+      calculationBase: mapping.calculationBase || "GROSS",
+      baseComponentCode: mapping.baseComponentCode || "",
       formulaExpression: mapping.formulaExpression || "",
       minimumAmount: mapping.minimumAmount ?? 0,
       maximumAmount: mapping.maximumAmount ?? 0,
@@ -1138,8 +1178,8 @@ export default function Payroll() {
             <button id="hr-payroll-run-month" data-testid="hr-payroll-run-month" className="btn btn-secondary" onClick={processRun} disabled={busy} style={buttonStyle}>
               {busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Run Month
             </button>
-            <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={exportPayslips} style={{ ...buttonStyle, background: "var(--primary-color)", border: "none", color: "white" }}>
-              <Download size={16} /> Export
+            <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={exportPayslips} disabled={exporting} style={{ ...buttonStyle, background: "var(--primary-color)", border: "none", color: "white" }}>
+              {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} {exporting ? "Exporting…" : "Export"}
             </button>
           </>
         }
@@ -1863,12 +1903,42 @@ function StructureBuilderDialog({
             />
           )}
           {form.calculationType === "PERCENTAGE" && (
-            <TextField
-              label="Default Percentage"
-              type="number"
-              value={form.defaultPercentage ?? ""}
-              onChange={(value) => onChange({ ...form, defaultPercentage: numericOrUndefined(value) })}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <TextField
+                label="Default Percentage"
+                type="number"
+                value={form.defaultPercentage ?? ""}
+                onChange={(value) => onChange({ ...form, defaultPercentage: numericOrUndefined(value) })}
+              />
+              <Select
+                id="hr-payroll-structure-builder-calculation-base"
+                testId="hr-payroll-structure-builder-calculation-base"
+                label="Calculation Base"
+                value={form.calculationBase || "GROSS"}
+                onChange={(e) => onChange({ ...form, calculationBase: e.target.value as PayrollCalculationBase })}
+                options={[
+                  { value: "GROSS", label: "Gross" },
+                  { value: "BASIC", label: "Basic" },
+                  { value: "COMPONENT", label: "Component" },
+                ]}
+              />
+              {form.calculationBase === "COMPONENT" && (
+                <Select
+                  id="hr-payroll-structure-builder-base-component"
+                  testId="hr-payroll-structure-builder-base-component"
+                  label="Base Component"
+                  value={form.baseComponentCode || ""}
+                  onChange={(e) => onChange({ ...form, baseComponentCode: e.target.value })}
+                  options={(selectedStructure?.components || [])
+                    .filter((mapping) => (mapping.componentUid || mapping.payrollComponentUid) !== form.componentUid)
+                    .map((mapping) => ({
+                      value: mapping.componentCode || mapping.component?.componentCode || "",
+                      label: mapping.componentName || mapping.component?.componentName || mapping.componentCode || "Component",
+                    }))
+                    .filter((option) => option.value)}
+                />
+              )}
+            </div>
           )}
           {form.calculationType === "FORMULA" && (
             <TextAreaField
