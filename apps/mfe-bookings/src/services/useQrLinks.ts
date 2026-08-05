@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import { unwrapList } from "./response";
+import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { buildCustomerSearchBody } from "./customerSearch";
 
 /** Mirrors backend QrLinkEntity (qr_link_tbl). */
 export interface QrLink {
@@ -14,6 +16,7 @@ export interface QrLink {
   timeWindow?: string[];
   user?: unknown[];
   service?: unknown[];
+  startDate?: string; // ISO yyyy-mm-dd
   expiryDate?: string; // ISO yyyy-mm-dd
   qrLink?: string;
   status?: string;
@@ -29,18 +32,35 @@ export interface QrLinkQuery {
  * QR links — QrLinkController @ /qr-links:
  *   POST /search · GET /{id} · POST · PUT /{id}
  */
-export function useQrLinks() {
+const emptyFilterClauses: SearchFilterClause[] = [];
+
+export function useQrLinks(options?: {
+  filterClauses?: SearchFilterClause[];
+  schema?: SearchSchema | null;
+} = {}) {
   const api = useBookingApi();
   const [qrLinks, setQrLinks] = useState<QrLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const filterClauses = options?.filterClauses ?? emptyFilterClauses;
+  const schema = options?.schema ?? null;
 
   const search = useCallback(
     async (query: QrLinkQuery = {}) => {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.post<unknown>("/qr-links/search", query, {
+        const requestBody = buildCustomerSearchBody({ filterClauses, schema, page: 0, size: 200 });
+        
+        // Merge any explicit query params into the request body if needed, 
+        // though typically they are handled via filterClauses now.
+        if (query.q) {
+           requestBody.filters = requestBody.filters || { logic: "AND", conditions: [] };
+           requestBody.filters.conditions.push({ field: "name", operator: "CONTAINS", values: [query.q] });
+        }
+
+        const data = await api.post<unknown>("/qr-links/search", requestBody, {
           params: { page: 0, size: 200 },
         });
         setQrLinks(unwrapList<QrLink>(data));
@@ -51,7 +71,7 @@ export function useQrLinks() {
         setLoading(false);
       }
     },
-    [api],
+    [api, filterClauses, schema],
   );
 
   useEffect(() => {

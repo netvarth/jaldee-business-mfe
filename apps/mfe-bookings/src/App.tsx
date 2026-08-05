@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { cn } from "@jaldee/design-system";
 import "./index.css";
 import { ModalProvider } from "./contexts/ModalContext";
@@ -33,11 +33,25 @@ const HolidaysPage = lazy(() => import("./pages/holidays/HolidaysPage"));
 const QrLinksPage = lazy(() => import("./pages/qrlinks/QrLinksPage"));
 const QrLinkDetailsPage = lazy(() => import("./pages/qrlinks/QrLinkDetailsPage"));
 const CustomerLabelsPage = lazy(() => import("./pages/labels/CustomerLabelsPage"));
+const CreateQrLinkPage = lazy(() => import("./pages/qrlinks/CreateQrLinkPage"));
 
 function CalendarPage() {
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
+
+  useEffect(() => {
+    const shellContent = document.querySelector<HTMLElement>('[data-testid="shell-content"]');
+    if (shellContent) {
+      shellContent.scrollTop = 0;
+    }
+
+    const calendarContainer = document.getElementById("calendar-page-container");
+    if (calendarContainer) {
+      calendarContainer.scrollTop = 0;
+    }
+  }, []);
+
   return (
-    <div id="calendar-page-container" className="flex h-full relative overflow-hidden">
+    <div id="calendar-page-container" className="relative flex h-full min-h-0 overflow-hidden">
       <div className={cn("flex-1 h-full min-w-0 min-h-0 transition-all duration-300", selectedBooking ? "hidden lg:block" : "block")}>
         <CalendarDashboard onBookingSelect={setSelectedBooking} />
       </div>
@@ -53,7 +67,63 @@ function CalendarPage() {
   );
 }
 
+function useShellContentHeightSync() {
+  const location = useLocation();
+
+  useLayoutEffect(() => {
+    const appRoot = document.getElementById("bookings-app-root");
+    if (!appRoot) {
+      return;
+    }
+
+    const shellContent = appRoot.closest('[data-testid="shell-content"]') as HTMLElement | null;
+    const isCalendarRoute =
+      location.pathname === "/" || location.pathname === "/calendar";
+
+    const previousOverflowY = shellContent?.style.overflowY ?? "";
+    const previousOverflowX = shellContent?.style.overflowX ?? "";
+    const previousDisplay = shellContent?.style.display ?? "";
+
+    const syncHeight = () => {
+      const nextHeight = shellContent?.clientHeight ?? window.innerHeight;
+      appRoot.style.setProperty("--bookings-shell-content-height", `${nextHeight}px`);
+    };
+
+    if (shellContent && isCalendarRoute) {
+      shellContent.style.overflowY = "hidden";
+      shellContent.style.overflowX = "hidden";
+      shellContent.style.display = "flex";
+    }
+
+    syncHeight();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && shellContent
+        ? new ResizeObserver(() => {
+            syncHeight();
+          })
+        : null;
+
+    if (shellContent && resizeObserver) {
+      resizeObserver.observe(shellContent);
+    }
+
+    window.addEventListener("resize", syncHeight);
+    return () => {
+      window.removeEventListener("resize", syncHeight);
+      resizeObserver?.disconnect();
+      if (shellContent && isCalendarRoute) {
+        shellContent.style.overflowY = previousOverflowY;
+        shellContent.style.overflowX = previousOverflowX;
+        shellContent.style.display = previousDisplay;
+      }
+    };
+  }, [location.pathname, location.key]);
+}
+
 export default function App() {
+  useShellContentHeightSync();
+
   return (
     <ModalProvider>
       <AppShell>
@@ -95,6 +165,8 @@ export default function App() {
             <Route path="/holidays" element={<HolidaysPage />} />
             <Route path="/qr-links" element={<QrLinksPage />} />
             <Route path="/qrlinks" element={<QrLinksPage />} />
+            <Route path="/qrlinks/create" element={<CreateQrLinkPage />} />
+            <Route path="/qrlinks/:uid/edit" element={<CreateQrLinkPage />} />
             <Route path="/qrlinks/:uid" element={<QrLinkDetailsPage />} />
             <Route path="/customer-labels" element={<CustomerLabelsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PageHeader, Button, Badge } from "@jaldee/design-system";
-import { Download, Copy, Share2, Calendar, Clock, Activity } from "lucide-react";
+import { PageHeader, Button, Badge, Popover } from "@jaldee/design-system";
+import { Download, Copy, Share2, Activity, Edit3, ArrowLeft, Mail, MessageCircle, Smartphone } from "lucide-react";
 import { useQrLinks, type QrLink } from "../../services/useQrLinks";
 import { useToast } from "../../contexts/ToastContext";
+import { useModal } from "../../contexts/ModalContext";
+import ShareQrModal from "./ShareQrModal";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function QrLinkDetailsPage() {
   const { uid } = useParams<{ uid: string }>();
   const navigate = useNavigate();
   const { getById } = useQrLinks();
   const { showToast } = useToast();
+  const { openModal } = useModal();
   const [qrLink, setQrLink] = useState<QrLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +52,63 @@ export default function QrLinkDetailsPage() {
     };
   }, [getById, uid]);
 
+  const handleCopyLink = () => {
+    if (qrLink?.qrLink) {
+      navigator.clipboard.writeText(qrLink.qrLink);
+      showToast("Link copied to clipboard!", "success");
+    }
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrLink?.qrLink) return;
+    const svg = document.querySelector(".qr-code-svg-container svg");
+    if (!svg) return;
+    
+    // Create canvas to draw the SVG
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      if (ctx) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        
+        const a = document.createElement("a");
+        a.download = `qr-link-${qrLink.name || qrLink.uid}.png`;
+        a.href = canvas.toDataURL("image/png");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    };
+    
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share && qrLink?.qrLink) {
+      try {
+        await navigator.share({
+          title: qrLink.name || "QR Link",
+          text: "Check out this QR Link",
+          url: qrLink.qrLink,
+        });
+      } catch (err) {
+        // user aborted or error
+      }
+    }
+  };
+
   if (loading) {
-    return <div className="p-6">Loading details...</div>;
+    return <div className="p-8 text-center text-slate-500">Loading details...</div>;
   }
 
-  if (!qrLink) {
+  if (error || !qrLink) {
     return (
       <div className="p-6 flex flex-col gap-4">
         <PageHeader
@@ -67,111 +123,129 @@ export default function QrLinkDetailsPage() {
     );
   }
 
-  const handleCopyLink = () => {
-    if (qrLink.qrLink) {
-      navigator.clipboard.writeText(qrLink.qrLink);
-      showToast("Link copied to clipboard!", "success");
-    }
-  };
-
   const isExpired = qrLink.expiryDate && new Date(qrLink.expiryDate) < new Date();
+  const displayStatus = isExpired ? "Expired" : qrLink.status === "Enabled" ? "Active" : "Inactive";
   const statusColor = isExpired ? "danger" : qrLink.status === "Enabled" ? "success" : "neutral";
 
   return (
-    <div className="p-4 md:p-6 h-full max-w-5xl mx-auto flex flex-col gap-6">
-      <PageHeader
-        title={qrLink.name || "QR Link Details"}
-        subtitle={qrLink.description || "View and share your QR code"}
-        back={{ label: "Back to QR Links", href: "/qrlinks" }}
-        onNavigate={() => navigate("/qrlinks")}
-      />
+    <main className="flex h-full flex-col overflow-y-auto bg-slate-50">
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-sm px-4 py-2 md:px-8 md:py-3 shadow-sm">
+        <PageHeader
+          title={qrLink.name || "QR Link Details"}
+          subtitle={qrLink.description || "View and share your QR code"}
+          back={{ label: "Back to QR Links", href: "/qrlinks" }}
+          onNavigate={() => navigate("/qrlinks")}
+          variant="navigation"
+          className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => window.open(qrLink.qrLink, "_blank")} disabled={!qrLink.qrLink}>
+                Preview QR Link
+              </Button>
+              <Button variant="primary" onClick={() => navigate(`/qrlinks`)}>
+                Edit QR Link
+              </Button>
+            </>
+          }
+        />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <div className="bg-white border border-slate-200 rounded-xl p-8 flex flex-col items-center shadow-sm">
-            <div className="aspect-square w-full max-w-[240px] bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center p-4 mb-6">
-              <div className="text-center text-slate-400">
-                <Activity size={48} className="mx-auto mb-2 opacity-20" />
-                <span className="text-xs font-medium uppercase tracking-wider">QR Code Preview</span>
-              </div>
+      <div className="flex w-full flex-col p-4 md:p-6 lg:p-8 gap-6 max-w-[1600px]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 flex flex-col items-center justify-start bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <p className="text-sm text-slate-500 font-medium self-start mb-4">QR</p>
+
+            <div className="qr-code-svg-container aspect-square w-full max-w-[260px] bg-slate-50 rounded-lg flex items-center justify-center p-4 mb-6">
+              {qrLink.qrLink ? (
+                <QRCodeSVG value={qrLink.qrLink} size={220} level="M" />
+              ) : (
+                <div className="text-center text-slate-400">
+                  <Activity size={48} className="mx-auto mb-2 opacity-20" />
+                  <span className="text-xs font-medium uppercase tracking-wider">No Link Generated</span>
+                </div>
+              )}
             </div>
 
-            <div className="w-full space-y-3">
+            {qrLink.qrLink && (
+              <div className="w-full bg-slate-50 border border-slate-100 rounded-md px-3 py-2 mb-6 flex items-center justify-between gap-3">
+                <span className="text-xs text-slate-600 truncate font-mono" title={qrLink.qrLink}>
+                  {qrLink.qrLink}
+                </span>
+                <button
+                  onClick={handleCopyLink}
+                  className="text-slate-400 hover:text-indigo-600 transition-colors shrink-0"
+                  title="Copy Link"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
+            )}
+
+            <div className="w-full flex flex-wrap gap-3">
               <Button
-                className="w-full"
-                variant="primary"
-                onClick={() => window.open(qrLink.qrLink, "_blank")}
+                className="flex-1 min-w-[80px] flex items-center gap-2 justify-center"
+                variant="secondary"
                 disabled={!qrLink.qrLink}
+                onClick={() => openModal(<ShareQrModal qrLinkName={qrLink.name} />)}
               >
-                <Share2 size={16} className="mr-2" />
-                Open Link
+                <Share2 size={16} /> Share QR
               </Button>
-              <Button className="w-full" variant="secondary" onClick={handleCopyLink} disabled={!qrLink.qrLink}>
-                <Copy size={16} className="mr-2" />
-                Copy Link
-              </Button>
-              <Button className="w-full" variant="secondary" disabled>
-                <Download size={16} className="mr-2" />
-                Download PNG
+              <Button className="flex-1 min-w-[80px] flex items-center gap-2 justify-center" variant="secondary" onClick={handleDownloadQr} disabled={!qrLink.qrLink}>
+                <Download size={16} /> Download
               </Button>
             </div>
           </div>
-        </div>
 
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-6 pb-4 border-b border-slate-100">
-              Configuration Details
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
-              <div>
-                <p className="text-xs font-medium text-slate-400 mb-1">Status</p>
-                <div className="flex items-center gap-2">
-                  <Badge variant={statusColor as never}>{isExpired ? "Expired" : qrLink.status}</Badge>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium text-slate-400 mb-1">Type</p>
-                <p className="text-sm font-semibold text-slate-800">{qrLink.type || "—"}</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium text-slate-400 mb-1">Mapped Calendar</p>
-                <div className="flex items-center gap-2">
-                  <Calendar size={14} className="text-slate-400" />
-                  <p className="text-sm font-semibold text-slate-800">{qrLink.calendarName || qrLink.calendarUid || "—"}</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium text-slate-400 mb-1">Expiry Date</p>
-                <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-slate-400" />
-                  <p className="text-sm font-semibold text-slate-800">
-                    {qrLink.expiryDate ? new Date(qrLink.expiryDate).toLocaleDateString() : "Never expires"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <p className="text-xs font-medium text-slate-400 mb-1">Description</p>
-                <p className="text-sm text-slate-700">{qrLink.description || "No description provided."}</p>
-              </div>
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                Configuration Details
+              </h3>
+              <Badge variant={statusColor as never}>{displayStatus}</Badge>
             </div>
-          </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 pb-4 border-b border-slate-100">
-              Live Link
-            </h3>
-            <div className="bg-slate-50 border border-slate-200 rounded px-4 py-3 font-mono text-sm break-all text-slate-600">
-              {qrLink.qrLink || "Not generated yet."}
+            <div className="grid grid-cols-1 gap-y-6 max-w-md">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-indigo-900 mb-1">Type</p>
+                  <div className="inline-flex w-full items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
+                    {qrLink.type || "—"}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-indigo-900 mb-1">Expiry Date</p>
+                  <div className="inline-flex w-full items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
+                    {qrLink.expiryDate ? new Date(qrLink.expiryDate).toLocaleDateString() : "No expiry date"}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-indigo-900 mb-1">Mapped Calendar</p>
+                <div className="inline-flex items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
+                  {qrLink.calendarName || qrLink.calendarUid || "—"}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-indigo-900 mb-1">Schedule</p>
+                <div className="inline-flex items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
+                  {qrLink.schedule?.[0] || "—"}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-indigo-900 mb-1">Time Window</p>
+                <div className="inline-flex items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
+                  {qrLink.timeWindow?.[0] || "—"}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </main>
   );
 }

@@ -177,7 +177,8 @@ export default function CustomerLabelsPage() {
       <PageHeader
         title="Customer Labels"
         subtitle="Tags for segmenting customers (e.g. VIP, New, Follow-up)."
-        actions={<Button onClick={openCreate}>New Label</Button>}
+        actions={!formOpen ? <Button onClick={openCreate}>New Label</Button> : undefined}
+        stackOnMobile={false}
       />
 
       {formOpen && (

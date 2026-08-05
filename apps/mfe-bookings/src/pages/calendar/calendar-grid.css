@@ -343,6 +343,7 @@
 }
 
 .calendar-cell {
+  height: 60px;
   min-height: 60px;
   padding: 6px 8px;
   display: flex;
@@ -368,6 +369,7 @@
 .calendar-grid.week-view .calendar-cell {
   align-items: flex-start;
   justify-content: flex-start;
+  height: 100px;
   min-height: 100px;
 }
 
@@ -1455,6 +1457,7 @@
   }
 
   .calendar-cell {
+    height: 50px;
     min-height: 50px;
     padding: 2px 4px;
   }

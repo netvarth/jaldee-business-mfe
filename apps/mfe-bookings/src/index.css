@@ -96,8 +96,14 @@
 
 .dashboard-sidebar.collapsed {
     width: 0;
-    overflow: hidden;
+    overflow: visible;
     border-right: none;
+}
+
+.dashboard-sidebar.collapsed .sidebar-scrollable-content {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
 }
 
 .sidebar-scrollable-content {
@@ -124,7 +130,7 @@
     color: var(--light-text);
     cursor: pointer;
     box-shadow: var(--shadow-sm);
-    z-index: 5;
+    z-index: 260;
     transition: all 0.2s;
 }
 
@@ -135,6 +141,20 @@
 
 .dashboard-sidebar.collapsed .sidebar-collapse-btn {
     right: -36px;
+    transform: rotate(180deg);
+}
+
+.sidebar-collapse-btn-floating {
+    position: absolute;
+    top: 14px;
+}
+
+.sidebar-collapse-btn-floating.is-open {
+    left: calc(var(--db-sidebar-width) - 14px);
+}
+
+.sidebar-collapse-btn-floating.is-collapsed {
+    left: 8px;
     transform: rotate(180deg);
 }
 
@@ -591,6 +611,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     width: 100%;
     overflow: hidden;
     background-color: var(--app-bg);
@@ -1217,7 +1238,8 @@ a:hover {
     display: none;
     flex-grow: 1;
     flex-direction: column;
-    height: calc(100vh - var(--header-height));
+    min-height: 0;
+    height: var(--bookings-shell-content-height, 100dvh);
     overflow: hidden;
 }
 
@@ -1452,8 +1474,14 @@ a:hover {
 
 .dashboard-sidebar.collapsed {
     width: 0;
-    overflow: hidden;
+    overflow: visible;
     border-right: none;
+}
+
+.dashboard-sidebar.collapsed .sidebar-scrollable-content {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
 }
 
 .sidebar-scrollable-content {
@@ -1480,7 +1508,7 @@ a:hover {
     color: var(--light-text);
     cursor: pointer;
     box-shadow: var(--shadow-sm);
-    z-index: 5;
+    z-index: 260;
     transition: all 0.2s;
 }
 
@@ -1491,6 +1519,20 @@ a:hover {
 
 .dashboard-sidebar.collapsed .sidebar-collapse-btn {
     right: -36px;
+    transform: rotate(180deg);
+}
+
+.sidebar-collapse-btn-floating {
+    position: absolute;
+    top: 14px;
+}
+
+.sidebar-collapse-btn-floating.is-open {
+    left: calc(var(--db-sidebar-width) - 14px);
+}
+
+.sidebar-collapse-btn-floating.is-collapsed {
+    left: 8px;
     transform: rotate(180deg);
 }
 
@@ -3461,7 +3503,8 @@ a:hover {
 #page-appointment-details {
     display: none;
     flex-direction: column;
-    height: calc(100vh - var(--header-height));
+    min-height: 0;
+    height: var(--bookings-shell-content-height, 100dvh);
     background-color: #F8FAFC;
     overflow-y: auto;
 }

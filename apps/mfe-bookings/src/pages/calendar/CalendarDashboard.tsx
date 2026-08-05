@@ -582,30 +582,30 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
       </div>
 
       <div className="dashboard-body flex-1 overflow-hidden">
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          icon={
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`sidebar-toggle-chevron ${isSidebarCollapsed ? "collapsed" : "open"}`}>
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          }
+          id="bookings-sidebar-collapse"
+          data-testid="bookings-sidebar-collapse"
+          className={`sidebar-collapse-btn sidebar-collapse-btn-floating ${isSidebarCollapsed ? "is-collapsed" : "is-open"}`}
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          title="Toggle Sidebar Panel"
+          aria-label="Toggle sidebar panel"
+          data-state={isSidebarCollapsed ? "collapsed" : "open"}
+        />
+
         <aside
           className={`dashboard-sidebar ${isSidebarCollapsed ? "collapsed" : ""}`}
           id="dashboard-sidebar-panel"
           data-testid="bookings-dashboard-sidebar"
           data-state={isSidebarCollapsed ? "collapsed" : "open"}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`sidebar-toggle-chevron ${isSidebarCollapsed ? "collapsed" : "open"}`}>
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            }
-            id="bookings-sidebar-collapse"
-            data-testid="bookings-sidebar-collapse"
-            className="sidebar-collapse-btn"
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            title="Toggle Sidebar Panel"
-            aria-label="Toggle sidebar panel"
-            data-state={isSidebarCollapsed ? "collapsed" : "open"}
-          />
-
           <div className="sidebar-scrollable-content">
             <div className="px-3 pt-2 pb-1 flex justify-end">
               <Button

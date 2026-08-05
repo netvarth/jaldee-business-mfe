@@ -1,136 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Button, DataTable, EmptyState, Input, PageHeader, Select, Textarea, type ColumnDef, Badge, Popover
+  Button, DataTable, EmptyState, Input, PageHeader, type ColumnDef, Badge, Popover, Drawer
 } from "@jaldee/design-system";
+import { LayoutGrid, List, Filter } from "lucide-react";
 import { useQrLinks, type QrLink } from "../../services/useQrLinks";
-import { useCalendars } from "../../services/useCalendars";
+import { useQrLinkSearchSchema } from "../../services/useQrLinkSearchSchema";
 import { useToast } from "../../contexts/ToastContext";
-import type { Schedule } from "../../types";
-
-const QR_TYPE_OPTIONS = [
-  { value: "CALENDAR", label: "Calendar" },
-  { value: "SCHEDULE", label: "Schedule" },
-  { value: "TIMEWINDOW", label: "Time Window" },
-];
-
-interface FormState {
-  uid?: string;
-  name: string;
-  description: string;
-  type: string;
-  calendarUid: string;
-  scheduleUid: string;
-  timeWindowUid: string;
-  expiryDate: string;
-  status: string;
-}
-
-const EMPTY_FORM: FormState = {
-  name: "", description: "", type: "CALENDAR", calendarUid: "", scheduleUid: "", timeWindowUid: "", expiryDate: "", status: "Enabled",
-};
-
-function fmtDate(d?: string): string {
-  if (!d) return "—";
-  const date = new Date(`${d}T00:00:00`);
-  return isNaN(date.getTime()) ? d : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
+import {
+  SchemaFilterBuilder,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { formatAppliedCustomerFilterSummary } from "../../services/customerSearch";
 
 export default function QrLinksPage() {
   const navigate = useNavigate();
-  const { qrLinks, loading, error, create, update, remove } = useQrLinks();
-  const { calendars, searchSchedules } = useCalendars();
+  
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const { schema, loading: schemaLoading } = useQrLinkSearchSchema();
+  const { qrLinks, loading, error, update, remove } = useQrLinks({
+    filterClauses: advancedFilters,
+    schema,
+  });
   const { showToast } = useToast();
 
   const [searchVal, setSearchVal] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loadingSchedules, setLoadingSchedules] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    if (!form.calendarUid) {
-      setSchedules([]);
-      return;
-    }
-    setLoadingSchedules(true);
-    searchSchedules(form.calendarUid)
-      .then(data => {
-        if (active) setSchedules(data);
-      })
-      .catch(e => {
-        console.error("Failed to load schedules", e);
-      })
-      .finally(() => {
-        if (active) setLoadingSchedules(false);
-      });
-    return () => { active = false; };
-  }, [form.calendarUid, searchSchedules]);
-
-  const calendarOptions = useMemo(
-    () => [
-      { value: "", label: "Select calendar" },
-      ...calendars.map((c) => ({ value: c.uid, label: c.name })),
-    ],
-    [calendars],
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
   );
-
-  const scheduleOptions = useMemo(() => {
-    return [
-      { value: "", label: "Select schedule" },
-      ...schedules.map(s => ({ value: s.uid, label: s.name }))
-    ];
-  }, [schedules]);
-
-  const timeWindowOptions = useMemo(() => {
-    const activeSchedule = schedules.find(s => s.uid === form.scheduleUid);
-    const windows = activeSchedule?.timeWindows || [];
-    return [
-      { value: "", label: "Select time window" },
-      ...windows.map(w => ({ value: w.uid, label: `${w.startTime} - ${w.endTime}` }))
-    ];
-  }, [schedules, form.scheduleUid]);
-
-  const openCreate = () => { setForm(EMPTY_FORM); setFormOpen(true); };
-  const openEdit = (q: QrLink) => {
-    setForm({
-      uid: q.uid, name: q.name ?? "", description: q.description ?? "",
-      type: q.type ?? "CALENDAR", calendarUid: q.calendarUid ?? "",
-      scheduleUid: q.schedule?.[0] ?? "", timeWindowUid: q.timeWindow?.[0] ?? "",
-      expiryDate: q.expiryDate ?? "", status: q.status ?? "Enabled",
-    });
-    setFormOpen(true);
-  };
-
-  const save = async () => {
-    if (!form.name.trim()) { showToast("Name is required", "error"); return; }
-    setSaving(true);
-    try {
-      const calendarName = calendars.find((c) => c.uid === form.calendarUid)?.name;
-      const payload: QrLink = {
-        name: form.name.trim(),
-        description: form.description.trim() || undefined,
-        type: form.type,
-        calendarUid: form.calendarUid || undefined,
-        calendarName,
-        schedule: form.scheduleUid ? [form.scheduleUid] : undefined,
-        timeWindow: form.timeWindowUid ? [form.timeWindowUid] : undefined,
-        expiryDate: form.expiryDate || undefined,
-        status: form.status,
-      };
-      if (form.uid) await update(form.uid, payload);
-      else await create(payload);
-      showToast(form.uid ? "QR link updated" : "QR link created", "success");
-      setFormOpen(false);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "Failed to save QR link", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const toggle = async (q: QrLink) => {
     try {
@@ -216,7 +120,7 @@ export default function QrLinksPage() {
                 </button>
                 <button
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => openEdit(q)}
+                  onClick={() => navigate(`/qrlinks/${q.uid}/edit`)}
                 >
                   Edit
                 </button>
@@ -245,51 +149,150 @@ export default function QrLinksPage() {
       <PageHeader
         title="QR Links"
         subtitle="Shareable QR codes for calendars, schedules and time windows."
-        actions={<Button onClick={openCreate}>New QR Link</Button>}
+        actions={<Button onClick={() => navigate("/qrlinks/create")}>New QR Link</Button>}
+        stackOnMobile={false}
       />
 
-      {formOpen && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <Select label="Type" value={form.type} options={QR_TYPE_OPTIONS}
-              onChange={(e) => setForm({ ...form, type: e.target.value, scheduleUid: "", timeWindowUid: "" })} />
-            <Select label="Calendar" value={form.calendarUid} options={calendarOptions}
-              onChange={(e) => setForm({ ...form, calendarUid: e.target.value, scheduleUid: "", timeWindowUid: "" })} />
-            
-            {(form.type === "SCHEDULE" || form.type === "TIMEWINDOW") && (
-              <Select label="Schedule" value={form.scheduleUid} options={scheduleOptions}
-                onChange={(e) => setForm({ ...form, scheduleUid: e.target.value, timeWindowUid: "" })} disabled={loadingSchedules} />
-            )}
-            
-            {form.type === "TIMEWINDOW" && (
-              <Select label="Time Window" value={form.timeWindowUid} options={timeWindowOptions}
-                onChange={(e) => setForm({ ...form, timeWindowUid: e.target.value })} disabled={!form.scheduleUid} />
-            )}
+      <div className="-mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+        <Input placeholder="Search QR links…" value={searchVal} onChange={(e) => setSearchVal(e.target.value)} containerClassName="w-full sm:max-w-xs" />
+        
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+          
+          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`flex items-center justify-center rounded-md p-1.5 transition ${viewMode === "list" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+              aria-label="List View"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`flex items-center justify-center rounded-md p-1.5 transition ${viewMode === "grid" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+              aria-label="Grid View"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
 
-            <Input type="date" label="Expiry Date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
-          </div>
-          <Textarea label="Description" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setFormOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-          </div>
+          <Button
+            variant="secondary"
+            className="flex items-center gap-2 whitespace-nowrap bg-white border-slate-200"
+            onClick={() => {
+              setDraftFilters(advancedFilters);
+              setDrawerOpen(true);
+            }}
+          >
+            <Filter className="h-4 w-4 text-slate-500" />
+            <span className="hidden sm:inline">Filters</span>
+            {appliedFilterCount > 0 && (
+              <Badge variant="primary" className="ml-1 h-5 min-w-[20px] px-1 text-[10px]">
+                {appliedFilterCount}
+              </Badge>
+            )}
+          </Button>
+          
+        </div>
+      </div>
+      
+      {error && <div className="text-sm text-red-600 mt-2">{error}</div>}
+
+      {viewMode === "list" ? (
+        <DataTable
+          data={filtered}
+          columns={columns}
+          getRowId={(q) => String(q.uid ?? q.name)}
+          loading={loading || schemaLoading}
+          emptyState={<EmptyState title="No QR links" description="Create a QR link to share booking access." />}
+          tableClassName="min-w-[700px]"
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+          {loading || schemaLoading ? (
+            <div className="col-span-full py-12 text-center text-sm text-slate-500">Loading QR links...</div>
+          ) : filtered.length === 0 ? (
+            <div className="col-span-full">
+              <EmptyState title="No QR links" description="Create a QR link to share booking access." />
+            </div>
+          ) : (
+            filtered.map((q) => {
+              const isActive = (q.status ?? "").toLowerCase() === "enabled";
+              let typeLabel = q.type ?? "—";
+              if (q.type === "CALENDAR") typeLabel = "Calendar";
+              if (q.type === "SCHEDULE") typeLabel = "Schedule";
+              if (q.type === "TIMEWINDOW") typeLabel = "Time Window";
+
+              return (
+                <div key={String(q.uid ?? q.name)} className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+                  <div className="flex items-start justify-between mb-4 gap-4">
+                    <div className="font-semibold text-slate-800 break-all">{q.name ?? "—"}</div>
+                    {columns.find(c => c.key === "actions")?.render?.(q, 0)}
+                  </div>
+                  <div className="flex-1 text-sm text-slate-600 mb-4 space-y-2">
+                    <div><span className="font-medium text-slate-700">Type:</span> {typeLabel}</div>
+                    <div><span className="font-medium text-slate-700">Calendar:</span> {q.calendarName ?? "—"}</div>
+                    {q.qrLink && (
+                      <div className="truncate">
+                        <span className="font-medium text-slate-700">Link:</span>{" "}
+                        <a href={q.qrLink} target="_blank" rel="noreferrer" className="text-violet-600 underline">Open</a>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <span className="text-xs text-slate-400">{(q.uid || "").slice(0, 8)}...</span>
+                    <Badge variant={isActive ? "success" : "neutral"}>
+                      {isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       )}
 
-      {!formOpen && (
-        <>
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          <Input placeholder="Search QR links…" value={searchVal} onChange={(e) => setSearchVal(e.target.value)} containerClassName="sm:max-w-xs" />
-          <DataTable
-            data={filtered}
-            columns={columns}
-            getRowId={(q) => String(q.uid ?? q.name)}
-            loading={loading}
-            emptyState={<EmptyState title="No QR links" description="Create a QR link to share booking access." />}
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Filter QR Links"
+        size="md"
+        footer={
+          <div className="flex w-full justify-between gap-3 px-4 py-3 sm:px-6">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDraftFilters([]);
+                setAdvancedFilters([]);
+                setDrawerOpen(false);
+              }}
+            >
+              Clear All
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setDrawerOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setAdvancedFilters(draftFilters);
+                  setDrawerOpen(false);
+                }}
+              >
+                Apply Filters
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="p-4 sm:p-6">
+          <SchemaFilterBuilder
+            schema={schema}
+            value={draftFilters}
+            onChange={setDraftFilters}
           />
-        </>
-      )}
+        </div>
+      </Drawer>
     </div>
   );
 }

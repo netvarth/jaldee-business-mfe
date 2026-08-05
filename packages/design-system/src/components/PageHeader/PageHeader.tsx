@@ -25,6 +25,7 @@ export interface PageHeaderProps {
   hidden?: boolean;
   className?: string;
   onNavigate?: (href: string) => void;
+  stackOnMobile?: boolean;
 }
 
 export function PageHeader({
@@ -40,6 +41,7 @@ export function PageHeader({
   hidden,
   className,
   onNavigate,
+  stackOnMobile = true,
 }: PageHeaderProps) {
   if (hidden) return null;
 
@@ -114,7 +116,7 @@ export function PageHeader({
 
   return (
     <div data-testid="page-header" className={cn("mb-6", className)}>
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+      <div className={cn("flex items-start justify-between gap-4 sm:flex-row sm:items-center", stackOnMobile ? "flex-col" : "flex-row")}>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {back && (
             <button
@@ -186,7 +188,7 @@ export function PageHeader({
         {actions && (
           <div
             data-testid="page-header-actions"
-            className="flex w-full items-center gap-3 sm:w-auto sm:justify-end"
+            className={cn("flex items-center gap-3", stackOnMobile ? "w-full sm:w-auto sm:justify-end" : "shrink-0 justify-end")}
           >
             {actions}
           </div>
