@@ -135,7 +135,7 @@ export function ShellCustomersPage() {
             moduleName: "customers",
             product,
             apiScope: "global",
-            basePath: "/customers",
+            basePath: "/baseCRM/customers",
             user,
             account: normalizeAccountContext(account),
             location: null,
@@ -201,7 +201,7 @@ export function ShellUsersPage() {
   const account = useShellStore((s) => s.account);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
-  const navigateWithinModule = useModuleNavigate("/users");
+  const navigateWithinModule = useModuleNavigate("/baseCRM/users");
   const { routeSegments } = useRouteSegments("users");
 
   const routeState = useMemo(() => {
@@ -261,7 +261,7 @@ export function ShellUsersPage() {
             moduleName: "users",
             product,
             apiScope: "global",
-            basePath: "/users",
+            basePath: "/baseCRM/users",
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
@@ -304,7 +304,7 @@ export function ShellDrivePage() {
             moduleName: "drive",
             product,
             apiScope: "global",
-            basePath: "/drive",
+            basePath: "/baseCRM/drive",
             user,
             account: normalizeAccountContext(account),
             location: null,
@@ -331,7 +331,7 @@ export function ShellTasksPage() {
   const account = useShellStore((s) => s.account);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
-  const navigateWithinModule = useModuleNavigate("/tasks");
+  const navigateWithinModule = useModuleNavigate("/baseCRM/tasks");
   const { routeSegments, tab } = useRouteSegments("tasks");
 
   const routeState = useMemo(() => {
@@ -366,7 +366,7 @@ export function ShellTasksPage() {
             moduleName: "tasks",
             product,
             apiScope: "global",
-            basePath: "/tasks",
+            basePath: "/baseCRM/tasks",
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
@@ -396,7 +396,7 @@ export function ShellMembershipPage() {
   const availableLocations = useShellStore((s) => s.availableLocations);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
-  const navigateWithinModule = useModuleNavigate("/membership");
+  const navigateWithinModule = useModuleNavigate("/baseCRM/membership");
   const { routeSegments, tab } = useRouteSegments("membership");
 
   if (!user || !account) {
@@ -411,7 +411,7 @@ export function ShellMembershipPage() {
             moduleName: "membership",
             product,
             apiScope: "global",
-            basePath: "/membership",
+            basePath: "/baseCRM/membership",
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),
@@ -455,7 +455,7 @@ export function ShellReportsPage() {
             moduleName: "reports",
             product,
             apiScope: "global",
-            basePath: "/reports",
+            basePath: "/baseCRM/reports",
             user,
             account: normalizeAccountContext(account),
             location: null,
@@ -482,7 +482,7 @@ export function ShellAuditLogPage() {
   const account = useShellStore((s) => s.account);
   const product = usePreferredProduct();
   const queryClient = useSharedQueryClient();
-  const navigateWithinModule = useModuleNavigate("/audit-log");
+  const navigateWithinModule = useModuleNavigate("/baseCRM/audit-log");
 
   if (!user || !account) {
     return <ShellContextEmptyState title="Audit Log" />;
@@ -496,7 +496,7 @@ export function ShellAuditLogPage() {
             moduleName: "leads",
             product,
             apiScope: "global",
-            basePath: "/audit-log",
+            basePath: "/baseCRM/audit-log",
             navigate: navigateWithinModule,
             user,
             account: normalizeAccountContext(account),

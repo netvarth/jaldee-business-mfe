@@ -26,7 +26,7 @@ export function getPreferredLandingPathFromProducts(products?: readonly string[]
     return PRODUCT_HOME_PATHS[prioritizedProduct] ?? `/${prioritizedProduct}`;
   }
 
-  return "/customers";
+  return "/baseCRM/customers";
 }
 
 export function getPreferredLandingPath(account?: AccountContext | null): string {

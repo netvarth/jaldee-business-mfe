@@ -33,18 +33,7 @@ const PRODUCT_HOME_PATHS: Partial<Record<ProductKey, string>> = {
   karty: "/karty/orders/dashboard",
 };
 
-const BASE_CRM_PATH_PREFIXES = [
-  "/customers",
-  "/users",
-  "/reports",
-  "/drive",
-  "/tasks",
-  "/membership",
-  "/leads",
-  "/jaldee-leads",
-  "/audit-log",
-  "/ivr",
-];
+const BASE_CRM_PATH_PREFIXES = ["/baseCRM"];
 
 interface IconRailProps {
   submenuVisible: boolean;
@@ -125,7 +114,7 @@ export default function IconRail({
     onRailNavigate();
     setActiveProduct(null);
     setSidebarVisible(true);
-    navigate("/customers");
+    navigate("/baseCRM/customers");
   }
 
   function handleSettings() {

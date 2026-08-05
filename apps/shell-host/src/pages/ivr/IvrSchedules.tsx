@@ -459,7 +459,7 @@ export default function IvrSchedules() {
     <div className="shell-home" data-testid="ivr-schedules">
       <PageHeader
         title="Schedules"
-        back={{ label: "Back", href: "/ivr" }}
+        back={{ label: "Back", href: "/baseCRM/ivr" }}
         onNavigate={navigate}
         actions={
           <div className="flex items-center gap-4">

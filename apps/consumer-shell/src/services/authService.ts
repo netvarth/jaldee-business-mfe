@@ -375,8 +375,7 @@ async function logout(): Promise<void> {
 }
 
 export function configureApiClient(onSessionExpired: () => void) {
-  const gatewayPrefix = getServiceGatewayPrefix();
-  initApiClient(new URL(`${gatewayPrefix || "/"}`, window.location.origin).toString().replace(/\/$/, ""));
+  initApiClient(window.location.origin);
   setApiClientAuthHandlers({
     refreshSession,
     onSessionExpired: () => {

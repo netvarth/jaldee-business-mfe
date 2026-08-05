@@ -9,7 +9,6 @@ import { PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 const dayShort = (d: string) => d.slice(0, 3);
 const asDays = (v: unknown): string[] => Array.isArray(v) ? (v as string[]) : typeof v === "string" && v ? v.split(",").map((s) => s.trim()) : [];
-const hhmm = (t?: string) => (t || "").slice(0, 5);
 const to12HourTime = (value?: string) => {
   const input = String(value ?? "").trim();
   const twelveHour = input.match(/^(\d{1,2})[.:](\d{2})\s*([AP]M)$/i);
@@ -23,6 +22,7 @@ const to12HourTime = (value?: string) => {
   const hour12 = hour24 % 12 || 12;
   return `${String(hour12).padStart(2, "0")}:${twentyFourHour[2]} ${period}`;
 };
+const displayTime = (value?: string) => to12HourTime(value) || "—";
 
 type Tab = "shifts" | "rotations";
 
@@ -105,8 +105,7 @@ function ShiftsTab() {
                 {data.map((s) => (
                   <tr key={s.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-6 py-3 font-medium text-gray-900">{s.name || "—"}</td>
-                    <td className="px-4 py-3 text-gray-700">{hhmm(s.startTime)} – {hhmm(s.endTime)}
-                      {s.startTime && s.endTime && s.endTime < s.startTime ? <span className="ml-1 text-xs text-amber-600">(overnight)</span> : null}</td>
+                    <td className="px-4 py-3 text-gray-700">{displayTime(s.startTime)} – {displayTime(s.endTime)}</td>
                     <td className="px-4 py-3 text-gray-600">{s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</td>
@@ -127,7 +126,7 @@ function ShiftsTab() {
               <div key={s.uid} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
                 <div>
                   <h4 className="font-semibold text-gray-900 text-base mb-1">{s.name || "Untitled Shift"}</h4>
-                  <p className="text-sm font-medium text-teal-700 mb-2">{hhmm(s.startTime)} – {hhmm(s.endTime)} {s.startTime && s.endTime && s.endTime < s.startTime ? "(overnight)" : ""}</p>
+                  <p className="text-sm font-medium text-teal-700 mb-2">{displayTime(s.startTime)} – {displayTime(s.endTime)}</p>
                   <div className="text-xs text-gray-500 space-y-1">
                     <p><b>Grace:</b> {s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</p>
                     <p><b>Half-day threshold:</b> {s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</p>

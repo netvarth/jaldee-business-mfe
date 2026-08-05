@@ -13,7 +13,6 @@ import {
   Plus,
   ReceiptText,
   Settings2,
-  SlidersHorizontal,
   ToggleLeft,
   ToggleRight,
   Trash2,
@@ -40,7 +39,6 @@ import {
   type CalculationType,
   type ComponentCategory,
   type ComponentType,
-  type CustomFieldDataType,
   type CustomFieldTarget,
   type EmployeeComponentValue,
   type PayrollComponent,
@@ -52,7 +50,7 @@ import {
 } from "../../services/usePayrollData";
 import { exportToCSV, formatCurrency, formatDate } from "../../lib/utils";
 
-type Tab = "components" | "structures" | "employees" | "payslips" | "fields";
+type Tab = "components" | "structures" | "employees" | "payslips";
 type ViewMode = "table" | "cards";
 
 const PAYROLL_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: LucideIcon }> = [
@@ -60,7 +58,6 @@ const PAYROLL_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: Luci
   { key: "structures", route: "structures", label: "Structures", Icon: Layers3 },
   { key: "employees", route: "employees", label: "Employees", Icon: UserCog },
   { key: "payslips", route: "payslips", label: "Payslips", Icon: ReceiptText },
-  { key: "fields", route: "custom-fields", label: "Custom Fields", Icon: SlidersHorizontal },
 ];
 
 const COMPONENT_TYPES: ComponentType[] = ["EARNING", "DEDUCTION", "EMPLOYER_CONTRIBUTION", "MEMO"];
@@ -84,8 +81,6 @@ const CATEGORIES: ComponentCategory[] = [
   "CUSTOM",
 ];
 const CALC_TYPES: CalculationType[] = ["FIXED_AMOUNT", "PERCENTAGE", "FORMULA", "SLAB_BASED"];
-const TARGET_TYPES: CustomFieldTarget[] = PAYROLL_CUSTOM_FIELD_TARGETS;
-const FIELD_TYPES: CustomFieldDataType[] = ["TEXT", "NUMBER", "DECIMAL", "DATE", "BOOLEAN", "DROPDOWN", "MULTI_SELECT", "JSON"];
 
 const emptyComponent: Partial<PayrollComponent> = {
   componentName: "",
@@ -118,15 +113,6 @@ const emptyMapping: Partial<StructureComponentMapping> = {
   slabConfigJson: [],
   isMandatory: true,
   allowEmployeeOverride: false,
-};
-
-const emptyField: Partial<PayrollCustomField> = {
-  targetType: "EMPLOYEE_PAYROLL_STRUCTURE",
-  fieldKey: "",
-  fieldLabel: "",
-  dataType: "TEXT",
-  isRequired: false,
-  defaultValue: "",
 };
 
 const money = (value?: number) => formatCurrency(value ?? 0);
@@ -265,11 +251,9 @@ export default function Payroll() {
   const needsEmployees = tab === "employees" || tab === "payslips";
   const needsRuns = tab === "payslips";
   const needsPayslips = tab === "payslips";
-  const needsCustomFields = tab === "fields" || tab === "employees" || tab === "payslips";
+  const needsCustomFields = tab === "payslips";
   const customFieldTargets = useMemo<CustomFieldTarget[]>(() => {
-    if (tab === "employees") return ["EMPLOYEE_PAYROLL_STRUCTURE"];
-    if (tab === "payslips") return ["PAYSLIP"];
-    return PAYROLL_CUSTOM_FIELD_TARGETS;
+    return tab === "payslips" ? ["PAYSLIP"] : PAYROLL_CUSTOM_FIELD_TARGETS;
   }, [tab]);
   const components = usePayrollComponents({ enabled: needsComponents });
   const structures = usePayrollStructures({ enabled: needsStructures });
@@ -326,10 +310,7 @@ export default function Payroll() {
     effectiveFrom: new Date().toISOString().slice(0, 10),
     effectiveTo: "",
   });
-  const [employeeCustomValues, setEmployeeCustomValues] = useState<Record<string, unknown>>({});
   const [overrideDrafts, setOverrideDrafts] = useState<Record<string, EmployeeComponentValue>>({});
-  const [fieldOpen, setFieldOpen] = useState(false);
-  const [fieldForm, setFieldForm] = useState<Partial<PayrollCustomField>>(emptyField);
 
   const selectedStructure = useMemo(() => {
     const activeBuilderUid = routeState.builderStructureUid || builderStructureUid;
@@ -341,7 +322,6 @@ export default function Payroll() {
   const activeStructureUid = employeePayroll.assignment?.structureUid || uidOf(employeePayroll.assignment?.structure);
   const activeStructure = structures.data.find((s) => uidOf(s) === activeStructureUid) || employeePayroll.assignment?.structure;
   const activeEmployeeRecord = employees.find((employee) => employee.id === activeEmployeeUid);
-  const employeeFields = customFields.data.filter((f) => f.targetType === "EMPLOYEE_PAYROLL_STRUCTURE");
   const payslipFields = customFields.data.filter((f) => f.targetType === "PAYSLIP");
   const apiError = components.error || structures.error || runs.error || payslips.error || customFields.error || employeePayroll.error;
 
@@ -392,11 +372,6 @@ export default function Payroll() {
       effectiveFrom: employeePayroll.assignment?.effectiveFrom || new Date().toISOString().slice(0, 10),
       effectiveTo: employeePayroll.assignment?.effectiveTo || "",
     });
-    setEmployeeCustomValues(
-      employeePayroll.assignment?.customFields ||
-      employeePayroll.assignment?.customFieldsJson ||
-      {}
-    );
   }, [activeEmployeeUid, employeePayroll.assignment, routeState.isEmployeeAssign]);
 
   useEffect(() => {
@@ -529,7 +504,6 @@ export default function Payroll() {
         effectiveFrom: assignmentForm.effectiveFrom,
         effectiveTo: assignmentForm.effectiveTo || undefined,
         status: "Enabled",
-        customFields: employeeCustomValues,
       });
       await reloadEmployees();
       setMessage("Employee payroll structure assigned.");
@@ -602,25 +576,6 @@ export default function Payroll() {
       setMessage(`Processed payroll for ${run?.monthStr || run?.month || runMonth}.`);
     } catch (e) {
       setMessage(getErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveCustomField = async () => {
-    if (!fieldForm.fieldKey || !fieldForm.fieldLabel) {
-      setMessage("Field key and label are required.");
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    try {
-      await customFields.save({ ...fieldForm, fieldKey: normalizeCode(fieldForm.fieldKey).toLowerCase() });
-      setFieldOpen(false);
-      setFieldForm({ ...emptyField });
-      setMessage("Custom field saved.");
-    } catch (error) {
-      setMessage(getErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -780,7 +735,7 @@ export default function Payroll() {
     },
     {
       key: "defaults",
-      header: "Default",
+      header: "Assigned Value",
       render: (mapping: StructureComponentMapping) => {
         if (mapping.defaultAmount != null) return money(mapping.defaultAmount);
         if (mapping.defaultPercentage != null) return `${mapping.defaultPercentage}%`;
@@ -1117,7 +1072,7 @@ export default function Payroll() {
         rows={[
           { label: "Type", value: labelize(component?.componentType) },
           { label: "Calculation", value: labelize(mapping.calculationType) },
-          { label: "Default", value: defaultValue },
+          { label: "Assigned Value", value: defaultValue },
         ]}
         footer={<FlagList flags={[mapping.isMandatory && "Mandatory", mapping.allowEmployeeOverride && "Override"]} />}
         action={
@@ -1421,7 +1376,6 @@ export default function Payroll() {
                 />
                 <DatePicker label="Effective From" value={assignmentForm.effectiveFrom} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
                 <DatePicker label="Effective To" value={assignmentForm.effectiveTo} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveTo: e.target.value }))} />
-                <DynamicFields fields={employeeFields} values={employeeCustomValues} onChange={setEmployeeCustomValues} />
                 <button id="hr-payroll-employee-assign" data-testid="hr-payroll-employee-assign" className="btn btn-primary" onClick={assignStructure} disabled={busy || !activeEmployeeUid} style={primaryButton}>Assign Structure</button>
               </div>
             </Panel>
@@ -1446,7 +1400,7 @@ export default function Payroll() {
                   </div>
 
                   <Table
-                    headers={["Component", "Type", "Previous Amount", "Override", "Applicable"]}
+                    headers={["Component", "Type", "Actual Value", "Override", "Applicable"]}
                     empty={employeeComponentRows.length === 0 ? "No employee component values found for the active structure." : null}
                   >
                     {employeeComponentRows.map(({ value, mapping }) => {
@@ -1576,31 +1530,6 @@ export default function Payroll() {
         </div>
       )}
 
-      {tab === "fields" && (
-        <Panel
-          title="Payroll Custom Fields"
-          action={<button id="hr-payroll-custom-field-new" data-testid="hr-payroll-custom-field-new" className="btn btn-primary" onClick={() => setFieldOpen(true)} style={primaryButton}><Plus size={16} /> New Field</button>}
-        >
-          {customFields.loading ? <SkeletonTable rows={5} columns={5} /> : (
-            <Table
-              headers={["Target", "Key", "Label", "Data Type", "Required", "Default"]}
-              empty={customFields.data.length === 0 ? "No custom fields configured." : null}
-            >
-              {customFields.data.map((customField) => (
-                <tr key={customField.id}>
-                  <td style={tdStyle}>{labelize(customField.targetType)}</td>
-                  <td style={tdStrong}>{customField.fieldKey}</td>
-                  <td style={tdStyle}>{customField.fieldLabel}</td>
-                  <td style={tdStyle}>{customField.dataType}</td>
-                  <td style={tdStyle}>{customField.isRequired ? "Yes" : "No"}</td>
-                  <td style={tdStyle}>{customField.defaultValue || "-"}</td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </Panel>
-      )}
-
       <ComponentDialog
         open={componentOpen}
         form={componentForm}
@@ -1626,14 +1555,6 @@ export default function Payroll() {
         onClose={() => setBuilderDialogOpen(false)}
         onSave={addStructureComponent}
         onChange={setMappingForm}
-      />
-      <CustomFieldDialog
-        open={fieldOpen}
-        form={fieldForm}
-        busy={busy}
-        onClose={() => setFieldOpen(false)}
-        onSave={saveCustomField}
-        onChange={setFieldForm}
       />
       <PayslipStatementDialog
         payslip={viewSlip}
@@ -1819,41 +1740,6 @@ function OverrideInput({
   return <input type="number" value={value.overrideAmount ?? ""} onChange={(e) => onChange({ overrideAmount: numericOrUndefined(e.target.value) })} style={{ ...fieldStyle, minWidth: 150 }} />;
 }
 
-function DynamicFields({
-  fields,
-  values,
-  onChange,
-}: {
-  fields: PayrollCustomField[];
-  values: Record<string, unknown>;
-  onChange: (values: Record<string, unknown>) => void;
-}) {
-  if (fields.length === 0) return null;
-  return (
-    <div style={{ display: "grid", gap: 10 }}>
-      <div style={sectionLabel}>Custom Fields</div>
-      {fields.map((field) => {
-        const current = values[field.fieldKey] ?? field.defaultValue ?? "";
-        const set = (value: unknown) => onChange({ ...values, [field.fieldKey]: value });
-        if (field.dataType === "BOOLEAN") {
-          return <ToggleRow key={field.id} label={field.fieldLabel} checked={Boolean(current)} onChange={set} />;
-        }
-        const isNumeric = field.dataType === "NUMBER" || field.dataType === "DECIMAL";
-        return (
-          <TextField
-            key={field.id}
-            label={field.fieldLabel}
-            required={field.isRequired}
-            type={isNumeric ? "number" : field.dataType === "DATE" ? "date" : "text"}
-            value={String(current)}
-            onChange={(value) => set(isNumeric ? numericOrUndefined(value) : value)}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 function ComponentDialog({
   open,
   form,
@@ -2004,39 +1890,6 @@ function StructureBuilderDialog({
         <Button id="hr-payroll-structure-builder-cancel" data-testid="hr-payroll-structure-builder-cancel" variant="outline" size="md" onClick={onClose}>Cancel</Button>
         <Button id="hr-payroll-structure-add-component" data-testid="hr-payroll-structure-add-component" variant="primary" size="md" loading={busy} onClick={onSave}>{isEditing ? "Update Component" : "Add Component"}</Button>
       </div>
-    </Dialog>
-  );
-}
-
-function CustomFieldDialog({
-  open,
-  form,
-  busy,
-  onClose,
-  onSave,
-  onChange,
-}: {
-  open: boolean;
-  form: Partial<PayrollCustomField>;
-  busy: boolean;
-  onClose: () => void;
-  onSave: () => void;
-  onChange: (form: Partial<PayrollCustomField>) => void;
-}) {
-  return (
-    <Dialog open={open} onClose={onClose} hideHeader contentClassName="max-w-[560px] p-0 overflow-hidden">
-      <DialogHeader title="Custom Field" onClose={onClose} />
-      <div style={dialogBody}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select label="Target Type" value={form.targetType} onChange={(event) => onChange({ ...form, targetType: event.target.value as CustomFieldTarget })} options={TARGET_TYPES.map((value) => ({ value, label: labelize(value) }))} />
-          <Select label="Data Type" value={form.dataType} onChange={(event) => onChange({ ...form, dataType: event.target.value as CustomFieldDataType })} options={FIELD_TYPES.map((value) => ({ value, label: labelize(value) }))} />
-          <TextField label="Field Key" required value={form.fieldKey} onChange={(value) => onChange({ ...form, fieldKey: normalizeCode(value).toLowerCase() })} />
-          <TextField label="Field Label" required value={form.fieldLabel} onChange={(value) => onChange({ ...form, fieldLabel: value })} />
-          <TextField label="Default Value" value={form.defaultValue} onChange={(value) => onChange({ ...form, defaultValue: value })} />
-          <ToggleRow label="Required" checked={form.isRequired} onChange={(value) => onChange({ ...form, isRequired: value })} />
-        </div>
-      </div>
-      <DialogActions busy={busy} onClose={onClose} onSave={onSave} />
     </Dialog>
   );
 }

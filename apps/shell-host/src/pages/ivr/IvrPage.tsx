@@ -764,7 +764,7 @@ export default function IvrPage() {
 
         <div className="flex flex-wrap gap-3">
           <button onClick={() => window.open("https://jaldeeuiscale.s3.ap-south-1.amazonaws.com/ivr/ivr-helpline.jpg", "_blank")} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 text-sm font-semibold rounded shadow-sm">Helpline</button>
-          <button onClick={() => navigate("/ivr/schedules")} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 text-sm font-semibold rounded shadow-sm">IVR Schedules</button>
+          <button onClick={() => navigate("/baseCRM/ivr/schedules")} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 text-sm font-semibold rounded shadow-sm">IVR Schedules</button>
           <button onClick={() => setShowLanguages(true)} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 text-sm font-semibold rounded shadow-sm">IVR Language</button>
         </div>
 
@@ -1042,7 +1042,7 @@ export default function IvrPage() {
               {schedules.length === 0 && <p className="py-6 text-center text-xs text-gray-400">No schedules loaded.</p>}
             </div>
             <div className="mt-5 pt-4 border-t border-gray-100 flex justify-between items-center">
-              <button onClick={() => { setShowSchedules(false); navigate("/ivr/schedules"); }} className="text-blue-900 hover:underline font-bold text-sm">
+              <button onClick={() => { setShowSchedules(false); navigate("/baseCRM/ivr/schedules"); }} className="text-blue-900 hover:underline font-bold text-sm">
                 View All Schedules
               </button>
               <button onClick={() => setShowSchedules(false)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded font-bold text-sm transition-colors shadow-sm">

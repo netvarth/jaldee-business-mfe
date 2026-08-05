@@ -150,15 +150,15 @@ function SidebarItemRow({
 
   function normalizePathForMatching(path: string): string {
     let normalized = path;
-    if (normalized === "/membership/service") {
-      normalized = "/membership/services";
-    } else if (normalized.startsWith("/membership/service/")) {
-      normalized = "/membership/services" + normalized.slice("/membership/service".length);
+    if (normalized === "/baseCRM/membership/service") {
+      normalized = "/baseCRM/membership/services";
+    } else if (normalized.startsWith("/baseCRM/membership/service/")) {
+      normalized = "/baseCRM/membership/services" + normalized.slice("/baseCRM/membership/service".length);
     }
-    if (normalized === "/membership/paymentInfo") {
-      normalized = "/membership/fee-management";
-    } else if (normalized.startsWith("/membership/paymentInfo/")) {
-      normalized = "/membership/fee-management" + normalized.slice("/membership/paymentInfo".length);
+    if (normalized === "/baseCRM/membership/paymentInfo") {
+      normalized = "/baseCRM/membership/fee-management";
+    } else if (normalized.startsWith("/baseCRM/membership/paymentInfo/")) {
+      normalized = "/baseCRM/membership/fee-management" + normalized.slice("/baseCRM/membership/paymentInfo".length);
     }
     return normalized;
   }

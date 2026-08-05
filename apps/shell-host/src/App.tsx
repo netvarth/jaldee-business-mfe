@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Suspense, lazy } from "react";
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
@@ -35,6 +35,11 @@ import "./App.css";
 function HomePage() {
   const account = useShellStore((s) => s.account);
   return <Navigate to={getPreferredLandingPath(account)} replace />;
+}
+
+function LegacyBaseCrmRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/baseCRM${location.pathname}${location.search}${location.hash}`} replace />;
 }
 
 
@@ -104,18 +109,27 @@ export default function App() {
                 <Routes>
                   <Route path="/home" element={<HomePage />} />
                   <Route path="/base" element={<Navigate to="/home" replace />} />
-                  <Route path="/customers/*" element={<ShellCustomersPage />} />
-                  <Route path="/users/*" element={<ShellUsersPage />} />
-                  <Route path="/reports/*" element={<ShellReportsPage />} />
-                  <Route path="/drive/*" element={<ShellDrivePage />} />
-                  <Route path="/tasks/*" element={<ShellTasksPage />} />
-                  <Route path="/membership/*" element={<ShellMembershipPage />} />
-                  <Route path="/leads/*" element={<LeadsPage />} />
-                  <Route path="/audit-log/*" element={<ShellAuditLogPage />} />
+                  <Route path="/baseCRM/customers/*" element={<ShellCustomersPage />} />
+                  <Route path="/baseCRM/users/*" element={<ShellUsersPage />} />
+                  <Route path="/baseCRM/reports/*" element={<ShellReportsPage />} />
+                  <Route path="/baseCRM/drive/*" element={<ShellDrivePage />} />
+                  <Route path="/baseCRM/tasks/*" element={<ShellTasksPage />} />
+                  <Route path="/baseCRM/membership/*" element={<ShellMembershipPage />} />
+                  <Route path="/baseCRM/leads/*" element={<LeadsPage />} />
+                  <Route path="/baseCRM/audit-log/*" element={<ShellAuditLogPage />} />
                   <Route path="/settings/*" element={<SettingsPage />} />
-                  <Route path="/ivr" element={<IvrPage />} />
-                  <Route path="/ivr/calllogs" element={<IvrCallLogs />} />
-                  <Route path="/ivr/schedules" element={<IvrSchedules />} />
+                  <Route path="/baseCRM/ivr" element={<IvrPage />} />
+                  <Route path="/baseCRM/ivr/calllogs" element={<IvrCallLogs />} />
+                  <Route path="/baseCRM/ivr/schedules" element={<IvrSchedules />} />
+                  <Route path="/customers/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/users/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/reports/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/drive/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/tasks/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/membership/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/leads/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/audit-log/*" element={<LegacyBaseCrmRedirect />} />
+                  <Route path="/ivr/*" element={<LegacyBaseCrmRedirect />} />
                   <Route path="/health/*" element={
                     <div className="mfe-wrapper">
                       <HealthMFE />

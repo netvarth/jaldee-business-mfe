@@ -32,7 +32,7 @@ export default function LeadsPage() {
           moduleName: "leads",
           product: preferredProduct,
           apiScope: "global",
-          basePath: "/leads",
+          basePath: "/baseCRM/leads",
           user,
           account: normalizeAccountContext(account),
           location: activeLocation ?? availableLocations[0] ?? null,

@@ -468,7 +468,7 @@ export default function IvrCallLogs() {
       <PageHeader
         title="Call Log Viewer"
         subtitle="Review, search, filter, and audit entire call history records in real-time."
-        back={{ label: "Back", href: "/ivr" }}
+        back={{ label: "Back", href: "/baseCRM/ivr" }}
         onNavigate={navigate}
         actions={
           <div className="flex items-center gap-3">
