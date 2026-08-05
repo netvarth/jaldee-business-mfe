@@ -74,6 +74,11 @@ export interface Employee {
   password?: string | null;
   role?: string;
   employmentType?: EmploymentType | string;
+  pan?: string | null;
+  uan?: string | null;
+  esicNumber?: string | null;
+  pfAccountNo?: string | null;
+  aadhaarRef?: string | null;
   bankDetails?: BankDetails | null;
   salaryStructure?: SalaryStructure | null;
   documents?: EmployeeDocument[];

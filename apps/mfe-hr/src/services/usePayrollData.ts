@@ -21,6 +21,7 @@ export type ComponentCategory =
   | "HRA"
   | "REIMBURSEMENT"
   | "ESI"
+  | "LOP"
   | "BONUS";
 export type CalculationType = "FIXED_AMOUNT" | "PERCENTAGE" | "FORMULA" | "SLAB_BASED";
 export type PayrollCalculationBase = "GROSS" | "BASIC" | "COMPONENT";
@@ -80,11 +81,13 @@ export interface StructureComponentMapping {
   calculationBase?: PayrollCalculationBase;
   baseComponentCode?: string;
   formulaExpression?: string;
+  slabConfig?: SlabTier[];
   slabConfigJson?: SlabTier[] | string;
   minimumAmount?: number;
   maximumAmount?: number;
   isMandatory?: boolean;
   allowEmployeeOverride?: boolean;
+  isEsiEligible?: boolean;
   displayOrder?: number;
   status?: string;
   customFields?: Record<string, unknown>;
@@ -187,6 +190,17 @@ export interface Payslip {
   lines?: PayslipLine[];
   lineItems?: PayslipLine[];
   customFieldsJson?: Record<string, unknown>;
+  companyProfile?: {
+    name?: string;
+    legalName?: string;
+    addressLine?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    email?: string;
+    phone?: string;
+    attachment?: string;
+  };
 }
 
 export interface PayrollCustomField {
@@ -220,7 +234,16 @@ function asList<T extends { uid?: string; id?: string }>(res: unknown): T[] {
 
 function asStructureComponentList(value: unknown): StructureComponentMapping[] {
   return Array.isArray(value)
-    ? value.map((item) => withId<StructureComponentMapping>(item as Record<string, unknown>))
+    ? value.map((item) => {
+        const record = item as Record<string, unknown>;
+        const normalized = withId<StructureComponentMapping>(record);
+        return {
+          ...normalized,
+          slabConfig: Array.isArray(record.slabConfig) ? record.slabConfig as SlabTier[] : undefined,
+          slabConfigJson: record.slabConfig ?? record.slabConfigJson,
+          isEsiEligible: record.isEsiEligible == null ? true : Boolean(record.isEsiEligible),
+        };
+      })
     : [];
 }
 
@@ -346,7 +369,7 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
     await load();
   }, [api, load]);
   const addComponent = useCallback(async (structureUid: string, payload: Partial<StructureComponentMapping>) => {
-    const slabConfig = payload.slabConfigJson;
+    const slabConfig = payload.slabConfig ?? payload.slabConfigJson;
     const requestBody = {
       uid: payload.uid,
       structureUid,
@@ -357,11 +380,12 @@ export function usePayrollStructures(options?: PayrollLoadOptions) {
       calculationBase: payload.calculationBase || "GROSS",
       baseComponentCode: payload.calculationBase === "COMPONENT" ? payload.baseComponentCode : undefined,
       formulaExpression: payload.formulaExpression || "",
-      slabConfigJson: typeof slabConfig === "string" ? slabConfig : JSON.stringify(slabConfig ?? []),
+      slabConfig: typeof slabConfig === "string" ? JSON.parse(slabConfig || "[]") : slabConfig ?? [],
       minimumAmount: payload.minimumAmount ?? 0,
       maximumAmount: payload.maximumAmount ?? 0,
       isMandatory: payload.isMandatory ?? true,
       allowEmployeeOverride: payload.allowEmployeeOverride ?? false,
+      isEsiEligible: payload.isEsiEligible ?? true,
       displayOrder: payload.displayOrder ?? 0,
       status: payload.status || "Enabled",
       customFields: payload.customFields || {},

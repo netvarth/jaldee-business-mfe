@@ -105,7 +105,7 @@ function ShiftsTab() {
                 {data.map((s) => (
                   <tr key={s.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-6 py-3 font-medium text-gray-900">{s.name || "—"}</td>
-                    <td className="px-4 py-3 text-gray-700">{displayTime(s.startTime)} – {displayTime(s.endTime)}</td>
+                    <td className="px-4 py-3 text-gray-700">{displayTime(s.startTime)} – {displayTime(s.endTime)} {s.isOvernight === true && <Badge variant="info">Overnight</Badge>}</td>
                     <td className="px-4 py-3 text-gray-600">{s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</td>
@@ -127,6 +127,7 @@ function ShiftsTab() {
                 <div>
                   <h4 className="font-semibold text-gray-900 text-base mb-1">{s.name || "Untitled Shift"}</h4>
                   <p className="text-sm font-medium text-teal-700 mb-2">{displayTime(s.startTime)} – {displayTime(s.endTime)}</p>
+                  {s.isOvernight === true && <Badge variant="info">Overnight</Badge>}
                   <div className="text-xs text-gray-500 space-y-1">
                     <p><b>Grace:</b> {s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</p>
                     <p><b>Half-day threshold:</b> {s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</p>

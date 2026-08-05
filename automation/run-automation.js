@@ -10,7 +10,9 @@ function slugify(value) {
 
 async function run() {
   const isHeaded = !process.argv.includes("--headless");
-  const pauseDelay = 400;
+  const speedMultiplier = Math.max(0.1, Number(process.env.AUTOMATION_SPEED_MULTIPLIER || "0.25"));
+  const pauseDelay = Math.round(400 * speedMultiplier);
+  const interactionDelay = Math.max(40, Math.round(250 * speedMultiplier));
   const suffix = `${Date.now()}`.slice(-6);
   let managedEmployeeLoginId = "";
   let currentRunEmployeeUid = "";
@@ -30,7 +32,7 @@ async function run() {
 
   const launchOptions = {
     headless: !isHeaded,
-    slowMo: isHeaded ? 250 : 0,
+    slowMo: isHeaded ? Math.max(25, Math.round(100 * speedMultiplier)) : 0,
     args: ["--start-maximized"],
   };
   let browser;
@@ -68,7 +70,7 @@ async function run() {
         await closeBtns.first().click().catch(() => {});
       }
       await page.keyboard.press("Escape").catch(() => {});
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(interactionDelay);
     }
   }
 
@@ -78,7 +80,7 @@ async function run() {
       if (labelName) console.log(`   [Field] Entering ${labelName}: "${text}"`);
       await el.click().catch(() => {});
       await el.fill(text).catch(() => {});
-      await page.waitForTimeout(250);
+      await page.waitForTimeout(interactionDelay);
       return true;
     }
     return false;
@@ -146,7 +148,7 @@ async function run() {
       verify();
     }), dateStr);
     console.log(`   [Date] Confirmed ${labelName || selector}: "${await el.inputValue()}"`);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(interactionDelay);
     return true;
   }
 
@@ -162,7 +164,7 @@ async function run() {
         throw new Error(`Option "${value}" is not available for ${labelName || selector}`);
       }
       await el.selectOption(matchingOption);
-      await page.waitForTimeout(250);
+      await page.waitForTimeout(interactionDelay);
       return true;
     }
     return false;
@@ -171,6 +173,14 @@ async function run() {
   async function slowSelectFirstOption(selector, labelName) {
     const el = page.locator(selector).first();
     if (await el.isVisible({ timeout: 10000 }).catch(() => false)) {
+      if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
+        await el.click();
+        const option = page.locator('[role="option"]:visible').first();
+        await option.waitFor({ state: "visible", timeout: 10000 });
+        await option.click();
+        await page.waitForTimeout(interactionDelay);
+        return true;
+      }
       for (let attempt = 0; attempt < 5; attempt++) {
         await el.locator('option:not([value=""]):not([disabled])').first()
           .waitFor({ state: "attached", timeout: 3000 })
@@ -183,10 +193,10 @@ async function run() {
         if (options.length > 0) {
           if (labelName) console.log(`   [Select] Choosing first available ${labelName}: "${options[0].value}"`);
           await el.selectOption(options[0].value).catch(() => {});
-          await page.waitForTimeout(250);
+          await page.waitForTimeout(interactionDelay);
           return true;
         }
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(Math.max(200, Math.round(1000 * speedMultiplier)));
       }
     }
     return false;
@@ -195,6 +205,16 @@ async function run() {
   async function slowSelectOptionByLabel(selector, optionLabel, labelName) {
     const el = page.locator(selector).first();
     if (!(await el.isVisible({ timeout: 5000 }).catch(() => false))) return false;
+    if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
+      await el.click();
+      const searchInput = page.locator('[role="listbox"]:visible input, [data-testid$="-menu"]:visible input').first();
+      if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) await searchInput.fill(String(optionLabel));
+      const option = page.getByRole("option", { name: String(optionLabel), exact: false }).first();
+      await option.waitFor({ state: "visible", timeout: 10000 });
+      await option.click();
+      await page.waitForTimeout(interactionDelay);
+      return true;
+    }
     const value = await el.locator("option").evaluateAll((options, expectedLabel) => {
       const expected = String(expectedLabel).trim();
       const match = options.find((option) => option.textContent.trim() === expected || option.label.trim() === expected);
@@ -203,7 +223,7 @@ async function run() {
     if (!value) return false;
     console.log(`   [Select] Choosing created ${labelName}: "${optionLabel}"`);
     await el.selectOption(value);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(interactionDelay);
     return true;
   }
 
@@ -246,35 +266,35 @@ async function run() {
           el = el.parentElement;
         }
       }, { tId: testId, val: formatted12 }).catch(() => {});
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(interactionDelay);
 
       const trigger = page.locator(`[data-testid="${testId}-trigger"]`).or(inputEl).first();
       if (await trigger.isVisible().catch(() => false)) {
         await trigger.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(interactionDelay);
 
         const hourBtn = page.locator(`[data-testid="${testId}-hour-${hour2Digits}"]`).first();
         if (await hourBtn.isVisible({ timeout: 1200 }).catch(() => false)) {
           await hourBtn.click().catch(() => {});
-          await page.waitForTimeout(150);
+          await page.waitForTimeout(interactionDelay);
 
           const minBtn = page.locator(`[data-testid="${testId}-min-${min}"]`).first();
           if (await minBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
             await minBtn.click().catch(() => {});
-            await page.waitForTimeout(150);
+            await page.waitForTimeout(interactionDelay);
           }
 
           const periodBtn = page.locator(`[data-testid="${testId}-period-${period}"]`).first();
           if (await periodBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
             await periodBtn.click().catch(() => {});
-            await page.waitForTimeout(150);
+            await page.waitForTimeout(interactionDelay);
           }
 
           const modalHeader = page.locator('h3:has-text("Add Shift"), h3:has-text("Edit Shift")').first();
           if (await modalHeader.isVisible().catch(() => false)) {
             await modalHeader.click({ force: true }).catch(() => {});
           }
-          await page.waitForTimeout(150);
+          await page.waitForTimeout(interactionDelay);
         }
       }
       return true;
@@ -308,7 +328,7 @@ async function run() {
   async function visitHr(path, labelName) {
     console.log(`\n>>> ${labelName}...`);
     await page.goto(`http://localhost:3000${path}`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(Math.max(200, Math.round(900 * speedMultiplier)));
   }
 
   async function openSettingsSection(section, readySelector) {
@@ -352,12 +372,12 @@ async function run() {
     if (await saveBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       console.log(`   [Action] Saving modal for ${scope}`);
       await saveBtn.click();
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(Math.max(100, Math.round(800 * speedMultiplier)));
       let closed = await modal.waitFor({ state: "hidden", timeout: 15000 }).then(() => true).catch(() => false);
       if (!closed && await saveBtn.isVisible().catch(() => false)) {
         console.log(`   [Retry] Retrying save button click for ${scope}...`);
         await saveBtn.click();
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(Math.max(100, Math.round(800 * speedMultiplier)));
         closed = await modal.waitFor({ state: "hidden", timeout: 20000 }).then(() => true).catch(() => false);
       }
       if (!closed) {
@@ -365,13 +385,13 @@ async function run() {
         throw new Error(`${scope} was not saved: ${errorText.join(" ").trim() || "modal remained open"}`);
       }
       console.log(`   [View] Waiting on ${scope} list to verify the saved record`);
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(Math.max(250, Math.round(3000 * speedMultiplier)));
     } else {
       const fallbackBtn = page.locator(`[data-testid="${scope}-save"]`).first();
       if (await fallbackBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         console.log(`   [Action] Saving modal fallback for ${scope}`);
         await fallbackBtn.click();
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(Math.max(100, Math.round(800 * speedMultiplier)));
       } else {
         throw new Error(`Save button was not available for ${scope}`);
       }
@@ -382,7 +402,7 @@ async function run() {
   const signupLoginId = `hrdemo${suffix}`;
   const signupPhone = uniquePhone(0);
   await page.goto("http://localhost:3000/signup", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(Math.max(200, Math.round(1000 * speedMultiplier)));
   await slowType('[data-testid="signup-login-id-input"]', signupLoginId, "Signup Login ID");
   await slowType('[data-testid="signup-tenant-name-input"]', `Dhyandarsh IT Technologies ${suffix}`, "Business Name");
   await slowType('[data-testid="signup-first-name-input"]', "Automation", "First Name");
@@ -403,15 +423,15 @@ async function run() {
   await signupOtpDigits.first().waitFor({ state: "visible", timeout: 10000 });
   for (let i = 0; i < 6; i++) {
     await signupOtpDigits.nth(i).fill("5");
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(interactionDelay);
   }
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(Math.max(250, Math.round(2000 * speedMultiplier)));
   console.log("   [Action] Clicking Verify Signup OTP");
   await page.locator('[data-testid="signup-verify-otp-button"]').first().evaluate((button) => button.click());
   await page.locator('[data-testid="onboarding-page"]').waitFor({ state: "visible", timeout: 60000 });
   {
     console.log("\n>>> SIGNUP ONBOARDING - COMPLETE ALL 4 STEPS...");
-    const onboardingPause = 1500;
+    const onboardingPause = Math.max(150, Math.round(1500 * speedMultiplier));
     await slowType('[data-testid="onboarding-company-name-input"]', `Dhyandarsh IT Technologies ${suffix}`, "Onboarding Company Name");
     await page.waitForTimeout(onboardingPause);
     await slowSelect('[data-testid="onboarding-country-select"]', "india", "Onboarding Country");
@@ -453,7 +473,7 @@ async function run() {
     }, null, { timeout: 10000 });
     const detectedLatitude = await latitudeInput.inputValue();
     const detectedLongitude = await page.locator('[data-testid="onboarding-longitude-input"]').inputValue();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(Math.max(250, Math.round(2000 * speedMultiplier)));
     const fillLocationFallback = async (selector, value, label) => {
       const field = page.locator(selector).first();
       if (!(await field.inputValue()).trim()) await slowType(selector, value, `${label} Fallback`);
@@ -465,10 +485,10 @@ async function run() {
     await slowSelect('[data-testid="onboarding-parking-select"]', "FREE", "Parking");
     const alwaysOpen = page.locator('[data-testid="onboarding-always-open-checkbox"]').first();
     if (!(await alwaysOpen.isChecked().catch(() => false))) await alwaysOpen.click();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(Math.max(300, Math.round(3000 * speedMultiplier)));
     await slowClick('[data-testid="onboarding-continue-button"]', "Create Business Location");
     await page.locator('[data-testid="onboarding-page"][data-state="step-4"]').waitFor({ state: "visible", timeout: 30000 });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(Math.max(300, Math.round(3000 * speedMultiplier)));
     await slowClick('[data-testid="onboarding-go-to-dashboard-button"]', "Go to Dashboard");
     const navOk = await page.waitForURL((url) => !url.pathname.includes("/onboarding"), { timeout: 15000 }).then(() => true).catch(() => false);
     if (!navOk) {
@@ -479,7 +499,7 @@ async function run() {
   }
 
   console.log("\n>>> 2. SETTINGS - COMPANY PROFILE FORM (IT TECH ENTERPRISE)...");
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(Math.max(250, Math.round(2000 * speedMultiplier)));
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     const errorReloadBtn = page.locator('button:has-text("Reload page")').first();
     if (await errorReloadBtn.isVisible().catch(() => false)) {
@@ -799,8 +819,10 @@ async function run() {
   await slowType('[data-testid="hr-settings-attendance-geofenceradiusmeters"]', "200", "Geofence Radius Metres");
   await slowType('[data-testid="hr-settings-attendance-autoclockoutminutes"]', "720", "Auto Clock-out Minutes");
   await slowClick('[data-testid="hr-settings-attendance-allowedworkmodes"]', "Allowed Work Modes");
-  await slowClick('[data-testid="hr-settings-attendance-allowedworkmodes-option-Office"]', "Office Work Mode");
-  await slowClick('[data-testid="hr-settings-attendance-allowedworkmodes-option-Home"]', "Home Work Mode");
+  for (const workMode of ["Office", "Home"]) {
+    const option = page.locator(`[data-testid="hr-settings-attendance-allowedworkmodes-option-${workMode}"]`);
+    if (await option.getAttribute("aria-pressed") !== "true") await option.click();
+  }
   await page.keyboard.press("Escape");
   const faceRecognition = page.locator('[data-testid="hr-settings-attendance-facerecognitionrequired"]').first();
   if (await faceRecognition.isVisible().catch(() => false) && await faceRecognition.isChecked().catch(() => false)) {
@@ -819,11 +841,25 @@ async function run() {
         throw new Error(`Attendance Rules save failed (${attendanceSaveResponse.status()}): ${resText}`);
       }
     }
+    const savedRules = attendanceSaveResponse.request().postDataJSON?.() || {};
+    if (savedRules.faceRecognitionRequired !== false || !savedRules.allowedWorkModes?.includes?.("Office")) {
+      throw new Error("Attendance Rules did not save the punch-ready configuration (Office mode allowed, face recognition disabled).");
+    }
   }
 
   console.log("\n>>> SETTINGS - PAYROLL SETTINGS...");
   await openSettingsSection("payroll", '[data-testid="hr-settings-payroll-save"]');
+  await page.locator('[data-testid="hr-settings-payroll-paydaytype"] input[value="FIXED_DATE"]').check();
   await slowType('[data-testid="hr-settings-payroll-payday"]', "28", "Payroll Day");
+  await slowSelect('[data-testid="hr-settings-payroll-workingdaysbasis"]', "FIXED_DAYS", "Working Days Basis");
+  await slowType('[data-testid="hr-settings-payroll-fixedworkingdays"]', "26", "Fixed Working Days");
+  await slowType('[data-testid="hr-settings-payroll-pfemployeerate"]', "12", "PF Employee Rate");
+  await slowType('[data-testid="hr-settings-payroll-pfemployerrate"]', "12", "PF Employer Rate");
+  await slowType('[data-testid="hr-settings-payroll-pfwageceiling"]', "15000", "PF Wage Ceiling");
+  await slowSelect('[data-testid="hr-settings-payroll-pfbasetype"]', "BASIC", "PF Base");
+  await slowType('[data-testid="hr-settings-payroll-esirate"]', "0.75", "ESI Employee Rate");
+  await slowType('[data-testid="hr-settings-payroll-esiemployerrate"]', "3.25", "ESI Employer Rate");
+  await slowType('[data-testid="hr-settings-payroll-esigrossceiling"]', "21000", "ESI Eligibility Ceiling");
   const payrollSettingsResponsePromise = page.waitForResponse((response) => response.url().includes("/payroll-settings"), { timeout: 15000 }).catch(() => null);
   await slowClick('[data-testid="hr-settings-payroll-save"]', "Save Payroll Settings");
   const payrollSettingsResponse = await payrollSettingsResponsePromise;
@@ -861,6 +897,13 @@ async function run() {
     const ruleModal = page.locator('[data-testid="hr-settings-policy-rules-modal"], [role="dialog"]').first();
     await ruleModal.waitFor({ state: "visible", timeout: 10000 });
     await slowType('[data-testid="hr-settings-policy-rules-name"], input[placeholder*="e.g. Late"]', item.name, "Rule Name");
+    if (item.domain === "attendance") {
+      await ruleModal.getByLabel("Condition", { exact: true }).selectOption("WORK_MODE");
+      await ruleModal.getByLabel("Operator", { exact: true }).selectOption("!=");
+      await ruleModal.getByLabel("Value", { exact: true }).selectOption("Office");
+      await ruleModal.getByLabel("Action", { exact: true }).selectOption("BLOCK_PUNCH");
+      console.log("   [Rule] Office punches are allowed; only non-Office work modes are blocked");
+    }
     const saveRuleBtn = ruleModal.locator('[data-testid="hr-settings-policy-rules-save"], button:has-text("Save rule")').first();
     await saveRuleBtn.click();
     await ruleModal.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
@@ -1082,8 +1125,9 @@ async function run() {
     const requestedEndDate = isTwoDayLeave ? futureDate(31 + i * 3) : leaveStartDate;
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-leave-apply-button"], button:has-text("Apply For Leave")', `Apply Leave ${i + 1}`);
-    const employeeSelected = await slowSelectFirstOption('[data-testid="hr-leave-employee"]', `Employee ${i + 1}`);
+    const employeeSelected = await slowSelectOptionByLabel('[data-testid="hr-leave-employee"]', currentRunEmployeeName, `Employee ${i + 1}`);
     if (!employeeSelected) throw new Error(`No employee is available for leave application ${i + 1}`);
+    await page.locator('[data-testid="hr-leave-type"]:not([disabled])').waitFor({ state: "visible", timeout: 15000 });
     const leaveTypeSelected = await slowSelectFirstOption('[data-testid="hr-leave-type"]', `Leave Type ${i + 1}`);
     if (!leaveTypeSelected) throw new Error(`No leave type is available for leave application ${i + 1}`);
     await slowDate('[data-testid="hr-leave-start-date"]', leaveStartDate, `Start Date ${i + 1}`);
@@ -1255,6 +1299,7 @@ async function run() {
     console.log("   [Verified] Employee document download opened");
     const documentDeleteResponsePromise = page.waitForResponse((response) => response.request().method() === "DELETE" && /\/document-requests\/[^/?]+/.test(response.url()), { timeout: 30000 });
     await documentRow.locator('[data-testid^="hr-employee-document-delete-"]').click();
+    await slowClick('[data-testid="hr-employee-document-delete-confirm"]', "Confirm Employee Document Delete");
     const documentDeleteResponse = await documentDeleteResponsePromise;
     console.log(`   [Response] Delete Employee Document: ${documentDeleteResponse.status()} ${documentDeleteResponse.statusText()}`);
     if (!documentDeleteResponse.ok()) throw new Error(`Employee document delete failed (${documentDeleteResponse.status()}): ${await documentDeleteResponse.text()}`);
@@ -1269,11 +1314,29 @@ async function run() {
   console.log("\n>>> ATTENDANCE - CLOCK, HISTORY, VERIFICATIONS AND MODES...");
   await visitHr("/hr/attendance", "ATTENDANCE ACTIONS");
   await slowSelectFirstOption('[data-testid="hr-attendance-actor"]', "Attendance Employee");
+  await slowSelect('[data-testid="hr-attendance-mode"]', "Office", "Punch Work Mode");
+  await page.waitForFunction(() => {
+    const button = document.querySelector('[data-testid="hr-attendance-punch-button"]');
+    return button && !button.disabled;
+  }, null, { timeout: 15000 });
+  const punchResponsePromise = page.waitForResponse((response) => {
+    const method = response.request().method();
+    const path = new URL(response.url()).pathname;
+    return (method === "POST" && /\/attendance\/?$/.test(path))
+      || (method === "PUT" && /\/attendance\/[^/]+\/punch-out$/.test(path));
+  }, { timeout: 45000 }).catch(() => null);
   await slowClick('[data-testid="hr-attendance-punch-button"]', "Clock In / Clock Out");
   const punchMessage = page.locator('[data-testid="hr-attendance-punch-message"]');
-  await punchMessage.waitFor({ state: "visible", timeout: 20000 });
-  const punchResult = await punchMessage.textContent();
-  if (!/Clocked in|Clocked out|already has an attendance|blocked by policy/i.test(punchResult || "")) throw new Error(`Attendance punch failed: ${punchResult}`);
+  const punchResponse = await punchResponsePromise;
+  const punchMessageVisible = await punchMessage.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
+  const punchResult = punchMessageVisible ? await punchMessage.textContent() : "";
+  if (punchResponse && !punchResponse.ok() && punchResponse.status() !== 409) {
+    throw new Error(`Attendance punch failed (${punchResponse.status()}): ${punchResult || await punchResponse.text().catch(() => punchResponse.statusText())}`);
+  }
+  if (!punchResponse && !/Clocked in|Clocked out|already has an attendance|blocked by policy/i.test(punchResult || "")) {
+    throw new Error(`Attendance punch produced neither an API response nor a result message: ${punchResult || "no feedback"}`);
+  }
+  console.log(`   [Verified] Attendance punch ${punchResponse ? `API returned ${punchResponse.status()}` : punchResult}`);
   console.log("   [Verified] Attendance location uses 10.5116834, 76.2164267");
   for (const subtab of ["logs", "pending", "overtime", "field", "compoff", "onduty", "kiosk"]) {
     await slowClick(`[data-testid="hr-attendance-subtab-${subtab}"]`, `Attendance ${subtab}`);
@@ -1451,8 +1514,9 @@ async function run() {
   async function runOrganizationBranches() {
   await visitHr("/hr/org/branches", "ORGANIZATION /branches");
   await slowClick('button:has-text("Assign Employee")', "Assign Employee to Branch");
-  await page.getByLabel("Employee").selectOption({ label: `Rahul Sharma ${suffix}` });
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await slowType('[data-testid="hr-org-assign-search"]', `Rahul Sharma ${suffix}`, "Branch Employee Search");
+  await page.getByLabel(`Select Rahul Sharma ${suffix}`, { exact: true }).check();
+  await slowClick('[data-testid="hr-org-assign-submit"]', "Assign Employee to Branch");
   await slowClick('button[aria-label^="Expand "]', "Expand Location to View Mapped Employees");
 
   }
@@ -1506,7 +1570,7 @@ async function run() {
   await page.waitForTimeout(5000);
   await visitHr("/hr/org/transfers", "ORGANIZATION /transfers");
   await slowClick('[data-testid="hr-org-transfer-open"]', "Schedule Employee Transfer");
-  await page.locator('[data-testid="hr-org-transfer-employee"]').selectOption({ label: `Rahul Sharma ${suffix}` });
+  await slowSelectOptionByLabel('[data-testid="hr-org-transfer-employee"]', `Rahul Sharma ${suffix}`, "Transfer Employee");
   await page.locator('[data-testid="hr-org-transfer-branch"]').selectOption({ label: "Thrissur1" });
   await page.locator('[data-testid="hr-org-transfer-department"]').selectOption({ index: 1 });
   await page.locator('[data-testid="hr-org-transfer-shift"]').selectOption({ index: 1 });
@@ -1521,6 +1585,7 @@ async function run() {
   console.log("   [View] Showing the newly scheduled transfer on the list");
   await page.waitForTimeout(5000);
   await slowClick('[data-testid^="hr-org-transfer-effect-"]:not([data-testid^="hr-org-transfer-effect-card-"])', "Effect Transfer Now");
+  await slowClick('[data-testid="hr-org-transfer-effect-confirm"]', "Confirm Transfer Effect");
   }
 
   async function runPayrollActions() {
@@ -1528,6 +1593,20 @@ async function run() {
   const payrollComponentName = "Basic Salary";
   const payrollStructureName = `IT Monthly Structure ${suffix}`;
   await visitHr("/hr/payroll/components", "PAYROLL COMPONENTS");
+  await page.locator('[data-testid="hr-payroll-page"]').waitFor({ state: "visible", timeout: 30000 });
+  let newPayrollComponentButton = page.locator('[data-testid="hr-payroll-component-new"]');
+  if (!(await newPayrollComponentButton.isVisible({ timeout: 10000 }).catch(() => false))) {
+    const componentsTab = page.locator('[data-testid="hr-payroll-tab-components"]');
+    if (await componentsTab.isVisible({ timeout: 5000 }).catch(() => false)) {
+      console.log("   [Nav] Opening the Payroll Components tab");
+      await componentsTab.click();
+    } else {
+      console.log("   [Nav] Reloading the Payroll Components route after the HR module initialized");
+      await page.goto(`${AUTOMATION_BASE_URL}/hr/payroll/components`, { waitUntil: "domcontentloaded" });
+      await page.locator('[data-testid="hr-payroll-page"]').waitFor({ state: "visible", timeout: 30000 });
+    }
+    await newPayrollComponentButton.waitFor({ state: "visible", timeout: 30000 });
+  }
   const payrollComponents = [
     { name: "Basic Salary", code: "BASIC", type: "EARNING", category: "BASIC", calculation: "FIXED_AMOUNT", statutory: false, taxable: true, gross: true, net: true, ctc: true, payslip: true },
     { name: "House Rent Allowance", code: "HRA", type: "EARNING", category: "HRA", calculation: "PERCENTAGE", statutory: false, taxable: true, gross: true, net: true, ctc: true, payslip: true },
@@ -1540,20 +1619,27 @@ async function run() {
   };
   let payrollDialog;
   for (const component of payrollComponents) {
-    await slowClick('[data-testid="hr-payroll-component-new"]', `New Payroll Component ${component.name}`);
-    payrollDialog = page.getByRole("dialog").filter({ hasText: "Payroll Component" }).first();
-    await payrollDialog.getByLabel("Component Name").fill(component.name);
-    await payrollDialog.getByLabel("Component Code").fill(component.code);
-    await payrollDialog.getByTestId("type").selectOption(component.type);
-    await payrollDialog.getByTestId("category").selectOption(component.category);
-    await payrollDialog.getByTestId("calculation-type").selectOption(component.calculation);
+    await newPayrollComponentButton.waitFor({ state: "visible", timeout: 30000 });
+    await newPayrollComponentButton.click();
+    console.log(`   [Action] Clicking New Payroll Component ${component.name}`);
+    payrollDialog = page.locator('[data-testid="hr-payroll-component-modal"]:visible, [role="dialog"]:visible').last();
+    const dialogOpened = await payrollDialog.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
+    if (!dialogOpened) {
+      const pageErrors = await page.locator('[role="alert"], [data-testid$="-error"]').allTextContents().catch(() => []);
+      throw new Error(`Payroll Component dialog did not open at ${page.url()}. ${pageErrors.join(" ").trim() || "No UI error was shown; reload the shell to refresh the HR MFE bundle."}`);
+    }
+    await payrollDialog.getByTestId("hr-payroll-component-name").or(payrollDialog.getByLabel("Component Name")).first().fill(component.name);
+    await payrollDialog.getByTestId("hr-payroll-component-code").or(payrollDialog.getByLabel("Component Code")).first().fill(component.code);
+    await payrollDialog.getByTestId("hr-payroll-component-type").or(payrollDialog.getByLabel("Type", { exact: true })).first().selectOption(component.type);
+    await payrollDialog.getByTestId("hr-payroll-component-category").or(payrollDialog.getByLabel("Category", { exact: true })).first().selectOption(component.category);
+    await payrollDialog.getByTestId("hr-payroll-component-calc-type").or(payrollDialog.getByLabel("Calculation Type", { exact: true })).first().selectOption(component.calculation);
     await setComponentFlag(payrollDialog, "isStatutory", component.statutory);
     await setComponentFlag(payrollDialog, "isTaxable", component.taxable);
     await setComponentFlag(payrollDialog, "affectsGrossPay", component.gross);
     await setComponentFlag(payrollDialog, "affectsNetPay", component.net);
     await setComponentFlag(payrollDialog, "affectsCtc", component.ctc);
     await setComponentFlag(payrollDialog, "visibleInPayslip", component.payslip);
-    await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
+    await payrollDialog.getByTestId("hr-payroll-component-save").click();
     await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
     await page.locator("tr").filter({ hasText: component.name }).first().waitFor({ state: "visible", timeout: 10000 });
   }
@@ -1561,25 +1647,28 @@ async function run() {
   let payrollRow = page.locator("tr").filter({ hasText: payrollComponentName }).first();
   await payrollRow.waitFor({ state: "visible", timeout: 10000 });
   await payrollRow.locator('[data-testid^="hr-payroll-component-edit-"]').click();
-  payrollDialog = page.getByRole("dialog").filter({ hasText: "Payroll Component" }).first();
-  await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
+  payrollDialog = page.locator('[data-testid="hr-payroll-component-modal"]:visible, [role="dialog"]:visible').last();
+  await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
+  await payrollDialog.getByTestId("hr-payroll-component-save").click();
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   await visitHr("/hr/payroll/structures", "PAYROLL STRUCTURES");
   await slowClick('[data-testid="hr-payroll-structure-new"]', "New Payroll Structure");
-  payrollDialog = page.getByRole("dialog").filter({ hasText: "Payroll Structure" }).first();
-  await payrollDialog.getByLabel("Structure Name").fill(payrollStructureName);
-  await payrollDialog.getByLabel("Structure Code").fill(`IT_MONTHLY_${suffix}`);
-  await payrollDialog.getByLabel("Frequency").selectOption("MONTHLY");
-  await payrollDialog.getByLabel("Currency").fill("INR");
+  payrollDialog = page.locator('[data-testid="hr-payroll-structure-modal"]:visible, [role="dialog"]:visible').last();
+  await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
+  await payrollDialog.getByTestId("hr-payroll-structure-name").fill(payrollStructureName);
+  await payrollDialog.getByTestId("hr-payroll-structure-code").fill(`IT_MONTHLY_${suffix}`);
+  await payrollDialog.getByTestId("hr-payroll-structure-frequency").selectOption("MONTHLY");
+  await payrollDialog.getByTestId("hr-payroll-structure-currency").fill("INR");
   await payrollDialog.getByLabel("Description").fill("Monthly payroll structure for current-run IT employees");
-  await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await payrollDialog.getByTestId("hr-payroll-structure-save").click();
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   payrollRow = page.locator("tr").filter({ hasText: payrollStructureName }).first();
   await payrollRow.waitFor({ state: "visible", timeout: 10000 });
   await payrollRow.locator('[data-testid^="hr-payroll-structure-edit-"]').click();
-  payrollDialog = page.getByRole("dialog").filter({ hasText: "Payroll Structure" }).first();
+  payrollDialog = page.locator('[data-testid="hr-payroll-structure-modal"]:visible, [role="dialog"]:visible').last();
+  await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
   await payrollDialog.getByLabel("Description").fill("Updated monthly payroll structure with basic salary component");
-  await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await payrollDialog.getByTestId("hr-payroll-structure-save").click();
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   payrollRow = page.locator("tr").filter({ hasText: payrollStructureName }).first();
   await payrollRow.locator('[data-testid^="hr-payroll-structure-build-"]').click();
@@ -1626,7 +1715,7 @@ async function run() {
     await printButton.waitFor({ state: "visible", timeout: 10000 });
     console.log("   [Action] Clicking Print Payslip");
     await printButton.evaluate((button) => button.click());
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(interactionDelay);
   }
   await visitHr("/hr/payroll/custom-fields", "PAYROLL CUSTOM FIELDS");
   await slowClick('[data-testid="hr-payroll-custom-field-new"]', "New Payroll Custom Field");
@@ -1685,7 +1774,7 @@ async function run() {
     const actOnExitRequest = async (outcome, sequence) => {
       await slowClick('[data-testid="hr-separation-raise-open"]', `Raise Separation Request ${sequence}`);
       await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "visible", timeout: 10000 });
-      await page.locator('[data-testid="hr-separation-employee"]').selectOption({ label: `Rahul Sharma ${suffix}` });
+      await slowSelectOptionByLabel('[data-testid="hr-separation-employee"]', `Rahul Sharma ${suffix}`, "Separation Employee");
       await page.locator('[data-testid="hr-separation-type"]').selectOption("Resignation");
       await slowType('[data-testid="hr-separation-notice-days"]', "30", `Separation Notice ${sequence}`);
       await slowType('[data-testid="hr-separation-reason"]', `${outcome} separation automation ${suffix}-${sequence}`, `Separation Reason ${sequence}`);
@@ -1700,6 +1789,7 @@ async function run() {
         await slowClick('[data-testid="hr-separation-reject"]', "Reject Separation Request");
       } else if (outcome === "Cancelled") {
         await slowClick('[data-testid="hr-separation-cancel-request"]', "Cancel Separation Request");
+        await slowClick('[data-testid="hr-separation-confirm-submit"]', "Confirm Separation Cancellation");
       } else {
         await slowType('[data-testid="hr-separation-decision-remarks"]', `Approved by automation ${suffix}`, "Approval Remarks");
         await slowClick('[data-testid="hr-separation-approve"]', "Approve Separation Request");

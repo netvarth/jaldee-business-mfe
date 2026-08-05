@@ -95,6 +95,7 @@ export default function Assets() {
   const [returnStatus, setReturnStatus] = useState<AssetStatus>("Available");
   const [returnRemarks, setReturnRemarks] = useState("");
   const [returnFiles, setReturnFiles] = useState<File[]>([]);
+  const [repairFor, setRepairFor] = useState<Asset | null>(null);
 
   const [histFor, setHistFor] = useState<Asset | null>(null);
   const [hist, setHist] = useState<AssetAllocation[]>([]);
@@ -211,10 +212,7 @@ export default function Assets() {
     setViewLoading(false);
   };
 
-  const confirmRepair = (asset: Asset) => act(async () => {
-    if (!confirm(`Confirm that repair is complete for "${asset.name || "this asset"}"?`)) return;
-    await assets.confirmRepair(asset.id);
-  });
+  const confirmRepair = (asset: Asset) => setRepairFor(asset);
 
   const openReturn = async (asset: Asset) => {
     setMsg(null);
@@ -681,10 +679,10 @@ export default function Assets() {
             <Select
               id="hr-assets-return-status"
               testId="hr-assets-return-status"
-              label="Next Status"
+              label="Condition"
               value={returnStatus}
               onChange={(e) => setReturnStatus(e.target.value as AssetStatus)}
-              options={RETURN_STATUS_OPTIONS.map((status) => ({ value: status, label: status }))}
+              options={RETURN_STATUS_OPTIONS.map((status) => ({ value: status, label: status === "UnderRepair" ? "Under Repair" : status }))}
             />
             <Textarea
               id="hr-assets-return-remarks"
@@ -746,7 +744,7 @@ export default function Assets() {
                   const uploaded = await assets.uploadAttachments(returnFor.uid ?? returnFor.id, returnFiles);
                   await assets.returnAsset(returnFor.id, {
                     asset: returnFor,
-                    status: returnStatus,
+                    condition: returnStatus,
                     remarks: returnRemarks.trim(),
                     attachment: [...(returnFor.attachment || []), ...uploaded],
                   });
@@ -835,6 +833,34 @@ export default function Assets() {
           </div>
         </Dialog>
       )}
+      <Dialog
+        open={repairFor != null}
+        onClose={() => !busy && setRepairFor(null)}
+        title="Confirm repair completion?"
+        testId="hr-assets-confirm-repair-dialog"
+      >
+        <p style={{ margin: 0, color: "var(--light-text)", fontSize: 13 }}>
+          Confirm that repair is complete for <strong style={{ color: "var(--dark-text)" }}>{repairFor?.name || "this asset"}</strong>. The asset will become available.
+        </p>
+        <DialogFooter>
+          <Button data-testid="hr-assets-confirm-repair-cancel" variant="secondary" disabled={busy} onClick={() => setRepairFor(null)}>Cancel</Button>
+          <Button
+            data-testid="hr-assets-confirm-repair-submit"
+            disabled={busy}
+            loading={busy}
+            onClick={() => {
+              if (!repairFor) return;
+              const asset = repairFor;
+              void act(async () => {
+                await assets.confirmRepair(asset.id);
+                setRepairFor(null);
+              });
+            }}
+          >
+            Confirm Repair
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </section>
   );
 }

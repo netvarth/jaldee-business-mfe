@@ -339,8 +339,11 @@ export default function EmployeeDetails() {
       gender: employee.gender, dob: employee.dob, doj: employee.doj, department: employee.department,
       designation: employee.designation, status: employee.status, employmentType: employee.employmentType,
       reportingManagerUid: employee.reportingManagerUid ?? undefined,
-      pan: (employee as Record<string, unknown>).pan as string | undefined,
-      uan: (employee as Record<string, unknown>).uan as string | undefined,
+      pan: employee.pan ?? undefined,
+      uan: employee.uan ?? undefined,
+      esicNumber: employee.esicNumber ?? undefined,
+      pfAccountNo: employee.pfAccountNo ?? undefined,
+      aadhaarRef: employee.aadhaarRef ?? undefined,
       bankDetails: employee.bankDetails ?? { accountNumber: "", bankName: "", ifscCode: "" },
       salaryStructure: employee.salaryStructure ?? {},
       });
@@ -557,13 +560,9 @@ export default function EmployeeDetails() {
   const handleSave = async () => {
     if (!employee) return;
     if (!form.name || !form.email || !contactNumber.number) {
-      const message = "Name, email, and contact number are required.";
+      const missing = [!form.name && "Name", !form.email && "Email", !contactNumber.number && "Contact number"].filter(Boolean);
+      const message = `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required.`;
       setSaveError(message);
-      eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "error",
-        title: "Employee update",
-        message,
-      });
       setEditTab("personal");
       return;
     }
@@ -583,7 +582,10 @@ export default function EmployeeDetails() {
         // to the shell's currently selected branch. Preserve their assigned
         // primary location; branch changes belong to the assignment/transfer flow.
         status: form.status || "Active", locationUid: employee.locationUid ?? null,
-        pan: form.pan || null, uan: form.uan || null, bankDetails: form.bankDetails, salaryStructure: form.salaryStructure,
+        pan: form.pan || null, uan: form.uan || null,
+        esicNumber: form.esicNumber || null, pfAccountNo: form.pfAccountNo || null,
+        aadhaarRef: form.aadhaarRef || null,
+        bankDetails: form.bankDetails, salaryStructure: form.salaryStructure,
       };
       if (form.reportingManagerUid) payload.reportingManagerUid = form.reportingManagerUid;
       const desigLevel = designations.find((d) => d.name === form.designation)?.level;
@@ -750,6 +752,9 @@ export default function EmployeeDetails() {
                 <div className="employee-edit-field-pair">
                   <div className="form-group"><label>PAN</label><input className={field} value={form.pan ?? ""} onChange={setF("pan")} /></div>
                   <div className="form-group"><label>UAN</label><input className={field} value={form.uan ?? ""} onChange={setF("uan")} /></div>
+                  <div className="form-group"><label>ESIC Number</label><input className={field} value={form.esicNumber ?? ""} onChange={setF("esicNumber")} /></div>
+                  <div className="form-group"><label>PF Account Number</label><input className={field} value={form.pfAccountNo ?? ""} onChange={setF("pfAccountNo")} /></div>
+                  <div className="form-group"><label>Aadhaar Reference</label><input className={field} value={form.aadhaarRef ?? ""} onChange={setF("aadhaarRef")} /></div>
                 </div>
               </>),
               employment: (<>
@@ -772,6 +777,7 @@ export default function EmployeeDetails() {
                       ...(form.designation && !designations.some((d) => d.name === form.designation) ? [{ value: form.designation, label: form.designation }] : [])
                     ]}
                     />
+                    {form.employmentType === "Intern" && <div style={{ marginTop: 6, fontSize: 12, color: "var(--light-text)" }}>Interns are excluded from PF deductions.</div>}
                   </div>
                   <div className="form-group">
                     <Combobox
@@ -1191,6 +1197,8 @@ export default function EmployeeDetails() {
                     <Field k="Joining Date" v={formatDate(employee.doj)} /><Field k="System Role" v={employee.role} />
                     <Field k="Employment Type" v={employee.employmentType || "Full-Time"} /><Field k="Reporting Manager" v={managerName || "No Manager Assigned"} />
                     <Field k="PAN" v={emp.pan as string} mono /><Field k="UAN" v={emp.uan as string} mono />
+                    <Field k="ESIC Number" v={emp.esicNumber as string} mono /><Field k="PF Account Number" v={emp.pfAccountNo as string} mono />
+                    <Field k="Aadhaar Reference" v={emp.aadhaarRef as string} mono />
                     <Field k="ESS Portal Login" v={employee.hasAuthUser ? "Enabled" : "Not Enabled"} />
                     <Field k="Login ID" v={employee.hasAuthUser ? employee.employeeId : undefined} mono />
                   </div>

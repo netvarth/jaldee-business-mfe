@@ -11,7 +11,14 @@ export function DesignationsSettingsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const { schema, loading } = useDesignationSearchSchema();
-  const designations = useDesignations(filters, schema, { enabled: !loading, page: page - 1, pageSize });
+  const filterSchema = useMemo(() => schema ? {
+    ...schema,
+    fields: schema.fields.filter((field) => {
+      const key = `${field.key} ${field.label}`.toLowerCase();
+      return key.includes("role") || key.includes("designation") || key.includes("department") || key.includes("level");
+    }),
+  } : null, [schema]);
+  const designations = useDesignations(filters, filterSchema, { enabled: !loading, page: page - 1, pageSize });
   const departments = useDepartments();
   const levels = useHierarchyLevels();
 
@@ -41,7 +48,7 @@ export function DesignationsSettingsPage() {
     };
   }, [designations, levels.data]);
 
-  return <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={wrappedDesignations} automationScope="hr-settings-designations" searchSchema={schema} filterClauses={filters} onFilterClausesChange={setFilters} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} statusToggle={{ isEnabled: (row) => String(row.status || "Enabled").toLowerCase() !== "disabled", onChange: designations.setStatus }} fields={[
+  return <CrudPanel title="Roles & Designations" subtitle="Job roles / titles, bands & owning department" icon={<BadgeCheck size={20} />} addLabel="Add Role / Designation" hook={wrappedDesignations} automationScope="hr-settings-designations" searchSchema={filterSchema} filterClauses={filters} onFilterClausesChange={setFilters} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} statusToggle={{ isEnabled: (row) => String(row.status || "Enabled").toLowerCase() !== "disabled", onChange: designations.setStatus }} fields={[
     { key: "name", label: "Role / Designation" }, { key: "code", label: "Code" },
     { key: "hrDepartmentUid", label: "Department", type: "select", options: departments.data.map((department) => ({ value: department.id, label: department.name as string })), optional: true },
     { key: "orgLevelUid", label: "Level / Band", type: "select", options: levels.data.map((l) => ({ value: l.id, label: l.label ? `L${l.levelNo} - ${l.label}` : `L${l.levelNo}` })), optional: true },

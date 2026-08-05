@@ -13,7 +13,7 @@ export function ShiftsSettingsPage() {
     { key: "weeklyOffDays", label: "Weekly Off", type: "multiselect", options: ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"], full: true },
   ]} columns={[
     { label: "Name", render: (row) => <b>{row.name as string}</b> },
-    { label: "Timing", render: (row) => `${(row.startTime as string) || "—"} – ${(row.endTime as string) || "—"}` },
+    { label: "Timing", render: (row) => <span>{`${(row.startTime as string) || "—"} – ${(row.endTime as string) || "—"}`}{row.isOvernight === true && <small style={{ marginLeft: 8, color: "#0f766e", fontWeight: 700 }}>Overnight</small>}</span> },
     { label: "Grace", render: (row) => row.graceMinutes != null ? `${row.graceMinutes}m` : "—" },
     { label: "Break", render: (row) => row.break_minutes != null || row.breakMinutes != null ? `${row.break_minutes ?? row.breakMinutes}m` : "—" },
     { label: "Weekly Off", render: (row) => Array.isArray(row.weeklyOffDays) ? row.weeklyOffDays.join(", ") : (row.weeklyOffDays as string) || "—" },

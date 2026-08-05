@@ -6,6 +6,7 @@ import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } 
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useHrApi } from "../../services/useHrApi";
 import { useHrSearchSchema } from "../../services/useHrSearchSchema";
+import { buildHrSearchBody } from "../../services/hrSearch";
 import { formatDateTime } from "../../lib/utils";
 
 type AuditRecord = Record<string, unknown> & { id?: string; uid?: string };
@@ -71,22 +72,27 @@ export default function AuditLogs() {
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [selected, setSelected] = useState<AuditRecord | null>(null);
   const { schema, loading: schemaLoading, error: schemaError } = useHrSearchSchema("/audit-logs");
-  const appliedCount = useMemo(() => compactSearchClauses(filters, schema).length, [filters, schema]);
+  const auditSchema = useMemo(() => schema ? {
+    ...schema,
+    fields: schema.fields.filter((field) => field.key !== "featureModule"),
+  } : null, [schema]);
+  const appliedCount = useMemo(() => compactSearchClauses(filters, auditSchema).length, [filters, auditSchema]);
 
   useEffect(() => {
     if (schemaLoading) return;
     let active = true;
     setLoading(true);
     setError("");
-    const conditions = [
-      ...(context !== "ALL" ? [{ field: "auditLogContext", operator: "EQ", values: [context] }] : []),
-      ...compactSearchClauses(filters, schema).map((filter) => ({
+    const requestFilters: SearchFilterClause[] = [
+      ...(context !== "ALL" ? [{ id: "audit-context", field: "auditLogContext", operator: "EQ", values: [context] }] : []),
+      ...compactSearchClauses(filters, auditSchema).map((filter) => ({
+        id: filter.id,
         field: filter.field,
         operator: filter.operator,
         values: filter.values,
       })),
     ];
-    const payload = { page: page - 1, pageSize, conditions };
+    const payload = buildHrSearchBody(requestFilters, auditSchema, page - 1, pageSize);
     api.post("/audit-logs/search", payload)
       .then((res) => {
         if (!active) return;
@@ -103,7 +109,7 @@ export default function AuditLogs() {
       });
 
     return () => { active = false; };
-  }, [api, context, filters, page, pageSize, schema, schemaLoading]);
+  }, [api, auditSchema, context, filters, page, pageSize, schemaLoading]);
 
   const visibleRows = useMemo(() => {
     if (!search.trim()) return rows;
@@ -174,7 +180,7 @@ export default function AuditLogs() {
             {CONTEXT_OPTIONS.map((option) => <Button key={option.value} data-testid={`hr-audit-logs-context-${option.value.toLowerCase()}`} size="sm" variant={context === option.value ? "primary" : "outline"} onClick={() => { setContext(option.value); setPage(1); }}>{option.label}</Button>)}
           </div>
           <Input data-testid="hr-audit-logs-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search current page..." icon={<Search size={16} />} containerClassName="w-full md:max-w-xs" />
-          <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(schema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
+          <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(auditSchema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
         </div>
         {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
         <div data-testid="hr-audit-logs-table" className="p-4">
@@ -186,16 +192,16 @@ export default function AuditLogs() {
         <div data-testid="hr-audit-logs-filter-drawer" className="flex h-full flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
             <SchemaFilterBuilder
-              schema={schema}
+              schema={auditSchema}
               value={draftFilters}
               onChange={setDraftFilters}
               appliedCount={appliedCount}
-              onClearAll={() => setDraftFilters(buildDefaultSearchClauses(schema))}
+              onClearAll={() => setDraftFilters(buildDefaultSearchClauses(auditSchema))}
               emptyStateMessage="No audit-log filters are available from the schema."
             />
           </div>
           <div className="flex gap-3 border-t border-slate-200 p-5">
-            <Button data-testid="hr-audit-logs-filter-reset" variant="outline" className="flex-1" onClick={() => { const reset = buildDefaultSearchClauses(schema); setDraftFilters(reset); setFilters(reset); setPage(1); setFiltersOpen(false); }}>Reset</Button>
+            <Button data-testid="hr-audit-logs-filter-reset" variant="outline" className="flex-1" onClick={() => { const reset = buildDefaultSearchClauses(auditSchema); setDraftFilters(reset); setFilters(reset); setPage(1); setFiltersOpen(false); }}>Reset</Button>
             <Button data-testid="hr-audit-logs-filter-apply" className="flex-1" onClick={() => { setFilters(draftFilters); setPage(1); setFiltersOpen(false); }}>Apply</Button>
           </div>
         </div>

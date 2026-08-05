@@ -50,13 +50,9 @@ export default function NewEmployeeWizard() {
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!personal.name || !personal.email || !contactNumber.number) {
-      const message = "Name, email, and contact number are required.";
+      const missing = [!personal.name && "Name", !personal.email && "Email", !contactNumber.number && "Contact number"].filter(Boolean);
+      const message = `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required.`;
       setError(message);
-      eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "error",
-        title: "Employee creation",
-        message,
-      });
       setStep(1);
       return;
     }
@@ -231,6 +227,7 @@ export default function NewEmployeeWizard() {
                             { value: "MALE", label: "Male" }
                           ]}
                         />
+                        {employment.employmentType === "Intern" && <div style={{ marginTop: 6, fontSize: 12, color: "var(--light-text)" }}>Interns are excluded from PF deductions.</div>}
                       </div>
                       <div className="form-group">
                         <DatePicker
