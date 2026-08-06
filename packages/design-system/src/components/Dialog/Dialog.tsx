@@ -13,6 +13,13 @@ import { cn } from "../../utils";
 export interface DialogProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Set to false when the dialog contains an independently-portalled control
+   * (for example Combobox). Radix's modal focus trap otherwise treats that
+   * control's portal as outside the dialog and prevents its input from being
+   * focused.
+   */
+  modal?: boolean;
   testId?: string;
   title?: ReactNode;
   description?: ReactNode;
@@ -40,6 +47,7 @@ const sizeMap = {
 export function Dialog({
   open,
   onClose,
+  modal = true,
   testId = "dialog",
   title,
   description,
@@ -59,7 +67,7 @@ export function Dialog({
   const shouldRenderHeader = !hideHeader && (title || description || showCloseButton);
 
   return (
-    <Root open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+    <Root modal={modal} open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <Portal>
         <Overlay
           data-testid={`${testId}-overlay`}

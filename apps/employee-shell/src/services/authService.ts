@@ -430,12 +430,10 @@ async function logout(): Promise<void> {
 }
 
 export function configureApiClient(onSessionExpired: () => void) {
-  const configuredApiBase = getConfiguredAuthServiceBaseUrl() || getServiceGatewayPrefix();
-  initApiClient(
-    configuredApiBase
-      ? new URL(`${configuredApiBase}/`, window.location.origin).toString().replace(/\/$/, "")
-      : window.location.origin
-  );
+  // Keep the Axios base at the host origin. buildAuthServiceUrl (and the
+  // shared request interceptor) already applies the configured `/api`
+  // gateway prefix; using `/api` as the base as well produces `/api/api/...`.
+  initApiClient(window.location.origin);
   setApiClientAuthHandlers({
     refreshSession,
     onSessionExpired: () => {

@@ -271,6 +271,8 @@ export default function Leave() {
     .slice().sort((a, b) => (b.appliedAt || "").localeCompare(a.appliedAt || "")), [leaves.data, statusFilter]);
 
   const balanceRows = useMemo(() => employees.filter((e) => {
+    const s = (e.status || "").toLowerCase();
+    if (s === "inactive" || s === "left") return false;
     const q = search.toLowerCase();
     return !q || e.name.toLowerCase().includes(q) || (e.employeeId || "").toLowerCase().includes(q) || (e.department || "").toLowerCase().includes(q);
   }), [employees, search]);
@@ -723,6 +725,7 @@ export default function Leave() {
       <Dialog
         open={applyOpen}
         onClose={() => setApplyOpen(false)}
+        modal={false}
         closeOnOutsideClick={false}
         testId="hr-leave-apply-modal"
         hideHeader

@@ -72,7 +72,7 @@ export function useLeaveBalances() {
     await api.post("/leaves/balances/assign", payload); await load();
   }, [api, load]);
   const revoke = useCallback(async (uid: string) => {
-    await api.delete(`/leaves/balances/${uid}/revoke`); await load();
+    await api.del(`/leaves/balances/${uid}/revoke`); await load();
   }, [api, load]);
   return { data, loading, error, reload: load, assign, revoke };
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Badge, Button, Checkbox, Dialog, DialogFooter, EmptyState, Input, PageHeader, SectionCard, Select, Switch, Textarea } from "@jaldee/design-system";
+import { Badge, Button, Checkbox, Dialog, DialogFooter, EmptyState, FileUpload, Input, PageHeader, PhoneInput, QRCodeSVG, SectionCard, Select, Switch, Textarea } from "@jaldee/design-system";
+import type { PhoneInputValue } from "@jaldee/design-system";
 import { apiClient } from "@jaldee/api-client";
 import { SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -565,6 +566,20 @@ function buildEnabledModulesFromSelection(currentModules: string[] | undefined, 
   return Array.from(modules);
 }
 
+const tenantDetailPromiseCache = new Map<string, Promise<any>>();
+
+function fetchTenantDetailDeduplicated(tenantUid: string) {
+  if (!tenantDetailPromiseCache.has(tenantUid)) {
+    const req = apiClient.get<unknown>(
+      buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenants.detail(tenantUid))
+    ).finally(() => {
+      setTimeout(() => tenantDetailPromiseCache.delete(tenantUid), 3000);
+    });
+    tenantDetailPromiseCache.set(tenantUid, req);
+  }
+  return tenantDetailPromiseCache.get(tenantUid)!;
+}
+
 export default function SettingsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -574,6 +589,7 @@ export default function SettingsPage() {
       ? requestedReturnTo
       : null;
   const account = useShellStore((state) => state.account);
+  const user = useShellStore((state) => state.user);
   const setAccount = useShellStore((state) => state.setAccount);
   const setAvailableLocations = useShellStore((state) => state.setAvailableLocations);
   const setActiveLocation = useShellStore((state) => state.setLocation);
@@ -613,10 +629,32 @@ export default function SettingsPage() {
   const [coreProducts, setCoreProducts] = useState(CORE_PRODUCTS);
   const [addOnModules, setAddOnModules] = useState(ADD_ON_MODULES);
 
+  // Additional Tenant & TenantProfile Fields
+  const [customId, setCustomId] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [businessUserName, setBusinessUserName] = useState("");
+  const [businessDesc, setBusinessDesc] = useState("");
+  const [customDomainName, setCustomDomainName] = useState("");
+  const [domainName, setDomainName] = useState("");
+  const [subDomainName, setSubDomainName] = useState("");
+  const [primaryEmail, setPrimaryEmail] = useState("");
+  const [secondaryEmail, setSecondaryEmail] = useState("");
+  const [primaryPhone, setPrimaryPhone] = useState<PhoneInputValue>({ countryCode: "+91", number: "", e164Number: "" });
+  const [secondaryPhone, setSecondaryPhone] = useState<PhoneInputValue>({ countryCode: "+91", number: "", e164Number: "" });
+  const [whatsappPhone, setWhatsappPhone] = useState<PhoneInputValue>({ countryCode: "+91", number: "", e164Number: "" });
+  const [telegramPhone, setTelegramPhone] = useState<PhoneInputValue>({ countryCode: "+91", number: "", e164Number: "" });
+  const [salutation, setSalutation] = useState("NONE");
+  const [contactFirstName, setContactFirstName] = useState("");
+  const [contactLastName, setContactLastName] = useState("");
+  const [howDoYouHear, setHowDoYouHear] = useState("");
+  const [coverPicture, setCoverPicture] = useState("");
+
   // Theme & Branding
   const [brandColor, setBrandColor] = useState(account?.theme?.primaryColor ?? "#5B21D1");
   const [logoUrl, setLogoUrl] = useState(account?.theme?.logoUrl ?? "");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [faviconUrl, setFaviconUrl] = useState(account?.theme?.faviconUrl ?? "");
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Personal Preferences
   const userPreferences = useShellStore((state) => state.userPreferences);
@@ -683,16 +721,68 @@ export default function SettingsPage() {
           return;
         }
 
-        const data = toRecord(response);
+        let data = toRecord(response);
+        const tenantUid = account?.tenantUid ?? account?.id;
+        if (tenantUid) {
+          try {
+            const tenantDetailRes = await fetchTenantDetailDeduplicated(tenantUid);
+            if (tenantDetailRes?.data) {
+              data = { ...data, ...toRecord(tenantDetailRes.data) };
+            }
+          } catch {
+            // ignore detail fetch fallback
+          }
+        }
+
         const profile = toRecord(data.tenantProfile);
         setTenantSettings(data);
+        setCustomId(readString(data.customId) || "");
         setCompanyName(readString(data.tenantName, data.businessName, profile.businessName, account?.name) || "Jaldee Business");
         setDisplayName(readString(data.brandName, data.displayName, data.tenantName, account?.name) || "Jaldee Business");
-        setIndustry(readString(data.industry, data.domain, account?.domain) || "healthcare");
+        setShortName(readString(profile.shortName) || "");
+        setBusinessUserName(readString(profile.businessUserName) || "");
+        setBusinessDesc(readString(profile.businessDesc) || "");
+        setCustomDomainName(readString(data.customDomainName) || "");
+        setDomainName(readString(profile.domainName) || "");
+        setSubDomainName(readString(profile.subDomainName) || "");
+        setIndustry(readString(profile.industryType, data.industry, data.domain, account?.domain) || "healthcare");
+        setPrimaryEmail(readString(profile.email) || "");
+        setSecondaryEmail(readString(profile.secondaryEmail) || "");
+        
+        const primNo = toRecord(profile.primaryNumber);
+        setPrimaryPhone({
+          countryCode: readString(primNo.countryCode) || "+91",
+          number: readString(primNo.number) || "",
+        });
+
+        const secNo = toRecord(profile.secondaryNumber);
+        setSecondaryPhone({
+          countryCode: readString(secNo.countryCode) || "+91",
+          number: readString(secNo.number) || "",
+        });
+
+        const waNo = toRecord(profile.whatsappNumber);
+        setWhatsappPhone({
+          countryCode: readString(waNo.countryCode) || "+91",
+          number: readString(waNo.number) || "",
+        });
+
+        const tgNo = toRecord(profile.telegramNumber);
+        setTelegramPhone({
+          countryCode: readString(tgNo.countryCode) || "+91",
+          number: readString(tgNo.number) || "",
+        });
+
+        setSalutation(readString(profile.salutation) || "NONE");
+        setContactFirstName(readString(profile.tenantUserFirstname) || "");
+        setContactLastName(readString(profile.tenantUserLastname) || "");
         setLegalEntityName(readString(data.legalEntityName, profile.legalEntityName, profile.licenseName) || "");
         setGstin(readString(data.gstin, data.gstIn, profile.gstin, profile.licenseName) || "");
         setPan(readString(data.pan, profile.pan) || "");
         setRegisteredAddress(readString(data.registeredAddress, data.address, profile.address) || "");
+        setHowDoYouHear(readString(profile.howDoYouHear) || "");
+        setCoverPicture(readString(profile.coverPicture) || "");
+
         setCurrency(readString(data.currency, data.defaultCurrency, data.locationCurrency) || "INR");
         setTimezone(readString(data.timezone, data.defaultTimezone) || "Asia/Kolkata");
         setDateFormat(readString(data.dateFormat) || "DD/MM/YYYY");
@@ -1158,6 +1248,160 @@ export default function SettingsPage() {
     setSettingsSaving(true);
     setSettingsError(null);
 
+    if (activeKey === "company") {
+      const tenantUid = account?.tenantUid ?? account?.id;
+      if (!tenantUid) {
+        setSettingsError("Unable to save company profile because tenant UID is missing.");
+        setSettingsSaving(false);
+        return;
+      }
+
+      // --- Logo upload on save ---
+      let resolvedLogoUrl = logoUrl.startsWith("blob:") ? "" : logoUrl;
+      let logoAttachments: unknown[] = [];
+
+      if (logoFile) {
+        setIsUploadingLogo(true);
+        try {
+          const currentTenantUid = tenantUid;
+          const currentUserId = user?.id ?? tenantUid;
+          const currentUserName = user?.name || account?.name || "TenantUser";
+
+          const driveMetadata = {
+            action: "ADD",
+            caption: "Business logo",
+            contextType: "BUSINESS_LOGO",
+            featureModuleName: "BUSINESS_CORE",
+            featureServiceName: "BASE",
+            fileName: logoFile.name,
+            fileType: logoFile.type.includes("/") ? logoFile.type.split("/")[1] : "file",
+            fileSize: logoFile.size,
+            owner: currentTenantUid,
+            ownerName: currentUserName,
+            ownerType: "TenantUser",
+            sharedType: "secureShare",
+            tenantUid: currentTenantUid,
+            uploadedBy: currentUserId,
+            uploadedByName: currentUserName,
+          };
+
+          const initRes = await apiClient.post<{ fileUid: string; uploadUrl: string; filePath?: string }>(
+            "/platform-service/v1/api/drive/initiate-upload",
+            driveMetadata
+          );
+          const target = initRes.data;
+
+          const s3Res = await fetch(target.uploadUrl, {
+            method: "PUT",
+            body: logoFile,
+            headers: logoFile.type ? { "Content-Type": logoFile.type } : undefined,
+          });
+          if (!s3Res.ok) throw new Error("S3 upload failed");
+
+          await apiClient.patch(
+            `/platform-service/v1/api/drive/${target.fileUid}/status?status=COMPLETE`,
+            null
+          );
+
+          resolvedLogoUrl = target.filePath || target.uploadUrl.split("?")[0];
+          logoAttachments = [{ ...driveMetadata, fileUid: target.fileUid, filePath: resolvedLogoUrl }];
+          setLogoUrl(resolvedLogoUrl);
+          setLogoFile(null);
+        } catch (uploadErr) {
+          console.error("Logo upload failed:", uploadErr);
+          eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Logo upload failed", message: "Unable to upload logo. Please try again." });
+          setSettingsSaving(false);
+          setIsUploadingLogo(false);
+          return;
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      }
+
+      const logoItem = resolvedLogoUrl ? [{ name: logoFile?.name ?? "logo", url: resolvedLogoUrl, contentType: "image/png", size: 1024 }] : [];
+
+      const putPayload = {
+        uid: tenantUid,
+        customId: customId.trim(),
+        tenantName: companyName.trim(),
+        brandName: displayName.trim(),
+        customDomainName: customDomainName.trim(),
+        timezone,
+        tenantType: "BRANCH",
+        accessChannel: "ANDROID",
+        status: "Enabled",
+        attachments: logoAttachments.length > 0 ? logoAttachments : undefined,
+        tenantProfile: {
+          tenantUid,
+          businessName: companyName.trim(),
+          businessUserName: businessUserName.trim(),
+          businessDesc: businessDesc.trim(),
+          shortName: shortName.trim(),
+          licenseName: legalEntityName.trim() || gstin.trim(),
+          domainName: domainName.trim(),
+          subDomainName: subDomainName.trim(),
+          industryType: industry,
+          email: primaryEmail.trim(),
+          secondaryEmail: secondaryEmail.trim(),
+          salutation: salutation || "NONE",
+          tenantUserFirstname: contactFirstName.trim(),
+          tenantUserLastname: contactLastName.trim(),
+          address: registeredAddress.trim(),
+          howDoYouHear: howDoYouHear.trim(),
+          primaryNumber: {
+            countryCode: primaryPhone.countryCode.trim() || "+91",
+            number: primaryPhone.number.trim(),
+          },
+          secondaryNumber: {
+            countryCode: secondaryPhone.countryCode.trim() || "+91",
+            number: secondaryPhone.number.trim(),
+          },
+          whatsappNumber: {
+            countryCode: whatsappPhone.countryCode.trim() || "+91",
+            number: whatsappPhone.number.trim(),
+          },
+          telegramNumber: {
+            countryCode: telegramPhone.countryCode.trim() || "+91",
+            number: telegramPhone.number.trim(),
+          },
+          logo: logoItem,
+          businessLogo: logoItem,
+          coverPicture: coverPicture.trim(),
+          s3Uploaded: logoAttachments.length > 0,
+          phoneVerified: true,
+          emailVerified: true,
+          prodAcc: true,
+        },
+      };
+
+      try {
+        await apiClient.put(
+          buildBaseServiceUrl(BASE_SERVICE_ENDPOINTS.tenants.update(tenantUid)),
+          putPayload,
+        );
+
+        if (account) {
+          setAccount({
+            ...account,
+            name: companyName.trim() || account.name,
+          });
+        }
+
+        eventBus.emit(SHELL_TOAST_EVENT, {
+          intent: "success",
+          title: "Company profile saved",
+          message: "Company profile settings saved successfully.",
+        });
+      } catch (error) {
+        const message = readErrorMessage(error, "Unable to save company profile.");
+        setSettingsError(message);
+        eventBus.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Save failed", message });
+      } finally {
+        setSettingsSaving(false);
+      }
+      return;
+    }
+
     if (activeKey === "branding") {
       try {
         const customCssValidation = validateWhiteLabelCss(customCss);
@@ -1319,55 +1563,374 @@ export default function SettingsPage() {
 
         {activeItem.key === "company" ? (
           <div className="settings-page__cards">
+            {/* 1. Business Identity Card */}
             <SectionCard className="settings-card settings-card--company">
-              <CardHeading icon="building" title="Profile" subtitle="Public information about your business" />
+              <CardHeading icon="building" title="Business Identity" subtitle="Core organization identity, branding, and handles" />
               <div className="settings-form-grid settings-form-grid--two">
-                <Input label="Company Name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
+                <Input label="Company / Tenant Name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
                 <div>
-                  <Input label="Display Name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-                  <p className="settings-field-note">Shown on invoices and receipts</p>
+                  <Input label="Brand / Display Name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+                  <p className="settings-field-note">Shown on invoices, customer receipts, and consumer portals</p>
                 </div>
-                <div className="settings-field-span">
-                  <Select
-                    label="Industry"
-                    value={industry}
-                    onChange={(event) => setIndustry(event.target.value)}
-                    options={[
-                      { value: "healthcare", label: "healthcare" },
-                      { value: "retail", label: "retail" },
-                      { value: "services", label: "services" },
-                    ]}
+                <Input label="Short Name (Abbreviation)" placeholder="e.g. JB-HQ" value={shortName} onChange={(event) => setShortName(event.target.value)} />
+                <Input label="Business Username / Handle" placeholder="e.g. jaldeebusiness" value={businessUserName} onChange={(event) => setBusinessUserName(event.target.value)} />
+                <Input label="Custom Domain Name" placeholder="e.g. portal.mybusiness.com" value={customDomainName} onChange={(event) => setCustomDomainName(event.target.value)} />
+                <div />
+                <div className="settings-field-span settings-field-span--full">
+                  <Textarea
+                    label="Business Description"
+                    rows={3}
+                    placeholder="Brief description of your business operations..."
+                    value={businessDesc}
+                    onChange={(event) => setBusinessDesc(event.target.value)}
                   />
                 </div>
               </div>
 
-              <div className="settings-logo-row">
-                <div className="settings-logo-uploader">
-                  <ActionGlyph kind="upload" className="settings-logo-uploader__icon" />
-                  <span>UPLOAD</span>
-                </div>
-                <div className="settings-logo-copy">
-                  <p className="settings-logo-copy__title">Change your business logo</p>
-                  <p className="settings-logo-copy__meta">Square images work best. Max 2MB, PNG or JPG.</p>
-                  <button type="button" id="settings-company-remove-logo" data-testid="settings-company-remove-logo" className="settings-link-danger">Remove logo</button>
+              {/* Logo Section (2 Columns) */}
+              <div style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid var(--color-border)" }}>
+                <div className="settings-form-grid settings-form-grid--two" style={{ alignItems: "flex-start" }}>
+                  {/* Left Column: FileUpload */}
+                  <div>
+                    <FileUpload
+                      label="Business Logo"
+                      hint="PNG, JPG, or SVG. Max 2MB."
+                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                      maxSize={2 * 1024 * 1024}
+                      onUpload={(files) => {
+                        const file = files[0];
+                        if (!file) return;
+                        // Store file for upload on Save; show local preview immediately
+                        setLogoFile(file);
+                        setLogoUrl(URL.createObjectURL(file));
+                      }}
+                    />
+                    {logoUrl ? (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "16px",
+                        marginTop: "16px",
+                        padding: "12px 16px",
+                        borderRadius: "12px",
+                        background: "#ffffff",
+                        border: "1px solid var(--color-border, #e2e8f0)",
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)"
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                          <img
+                            src={logoUrl}
+                            alt="Business Logo Preview"
+                            style={{
+                              width: "64px",
+                              height: "64px",
+                              objectFit: "contain",
+                              borderRadius: "10px",
+                              border: "1px solid var(--color-border)",
+                              background: "#f8fafc",
+                              padding: "4px",
+                            }}
+                            onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                          />
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b" }}>Uploaded Logo</span>
+                              <Badge variant={isUploadingLogo ? "warning" : "success"} size="sm">
+                                {isUploadingLogo ? "Uploading..." : "Active Preview"}
+                              </Badge>
+                            </div>
+                            <p style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                              {isUploadingLogo ? "Uploading to secure business drive..." : "Ready for display on invoices and customer web portals"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isUploadingLogo}
+                          onClick={() => setLogoUrl("")}
+                          style={{ fontSize: "12px", color: "#ef4444", padding: "6px 12px", borderRadius: "6px", border: "1px solid #fecaca", background: "#fef2f2", cursor: "pointer", fontWeight: 500 }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Right Column: Logo URL */}
+                  <div>
+                    <Input
+                      label="Logo URL (Optional)"
+                      placeholder="https://example.com/logo.png"
+                      value={logoUrl.startsWith("blob:") ? "" : logoUrl}
+                      onChange={(event) => setLogoUrl(event.target.value)}
+                    />
+                    <p className="settings-field-note" style={{ marginTop: "6px" }}>
+                      Direct HTTPS image link to your organization logo
+                    </p>
+                  </div>
                 </div>
               </div>
             </SectionCard>
 
+            {/* 2. Account Administrator Contact Person */}
             <SectionCard className="settings-card">
-              <CardHeading icon="scale" title="Legal & Tax" subtitle="Government registrations and tax compliance" />
+              <CardHeading icon="users" title="Primary Contact & Account Administrator" subtitle="Primary administrator details and account notification emails" />
               <div className="settings-form-grid settings-form-grid--two">
-                <Input label="Legal Entity Name" value={legalEntityName} onChange={(event) => setLegalEntityName(event.target.value)} />
+                {/* Inline Salutation + First Name */}
+                <div>
+                  <label className="ds-form-label">First Name</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%" }}>
+                    <div style={{ width: "95px", flexShrink: 0 }}>
+                      <Select
+                        value={salutation}
+                        onChange={(e) => setSalutation(e.target.value)}
+                        options={[
+                          { value: "NONE", label: "None" },
+                          { value: "MR", label: "Mr." },
+                          { value: "MRS", label: "Mrs." },
+                          { value: "MS", label: "Ms." },
+                          { value: "DR", label: "Dr." },
+                        ]}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Input placeholder="First name" value={contactFirstName} onChange={(e) => setContactFirstName(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                <Input label="Last Name" placeholder="Last name" value={contactLastName} onChange={(e) => setContactLastName(e.target.value)} />
+                <Input label="Primary Email" type="email" placeholder="contact@business.com" value={primaryEmail} onChange={(event) => setPrimaryEmail(event.target.value)} />
+                <Input label="Secondary Email" type="email" placeholder="support@business.com" value={secondaryEmail} onChange={(event) => setSecondaryEmail(event.target.value)} />
+              </div>
+            </SectionCard>
+
+            {/* 3. Custom Tenant ID & Public Link Preview Group */}
+            <SectionCard className="settings-card" style={{ padding: "24px" }}>
+              <CardHeading icon="share2" title="Custom Tenant ID & Public Link" subtitle="Configure custom tenant ID and share your public booking & customer link" />
+              
+              <div style={{ marginBottom: "20px" }}>
+                <Input
+                  label="Custom Tenant ID (customId)"
+                  placeholder="e.g. dhyandarshbakers"
+                  value={customId}
+                  onChange={(event) => setCustomId(event.target.value)}
+                />
+                <p className="settings-field-note" style={{ marginTop: "6px" }}>
+                  Primary system identifier used to generate public links, API integrations, and tenant routing
+                </p>
+              </div>
+
+              {/* QR Code and Link Live Preview Box */}
+              <div style={{ padding: "20px", borderRadius: "16px", background: "var(--color-bg-secondary, #f8fafc)", border: "1px solid var(--color-border, #e2e8f0)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "16px", fontWeight: 600, color: "var(--color-text-primary, #0f172a)" }}>
+                      Here is your QR code and Link
+                    </span>
+                    <Badge variant="success" size="sm" style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0", fontWeight: 600 }}>
+                      Active
+                    </Badge>
+                  </div>
+                  <button
+                    type="button"
+                    style={{ fontSize: "14px", fontWeight: 500, color: "#0284c7", background: "none", border: "none", cursor: "pointer" }}
+                    onClick={() => navigate("/settings/company")}
+                  >
+                    Manage
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "28px" }}>
+                  {/* QR Code Display Container */}
+                  <div style={{
+                    padding: "10px",
+                    borderRadius: "14px",
+                    background: "#ffffff",
+                    boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
+                    border: "1px solid #e2e8f0",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <QRCodeSVG
+                      value={`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`}
+                      size={110}
+                      level="M"
+                    />
+                  </div>
+
+                  {/* URL and Share Icon Row */}
+                  <div style={{ flex: 1, minWidth: "280px" }}>
+                    <div style={{ fontSize: "15px", fontWeight: 500, color: "#334155", marginBottom: "16px", wordBreak: "break-all" }}>
+                      {`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`}
+                    </div>
+
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "18px" }}>
+                      {/* Facebook */}
+                      <a
+                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
+                      >
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#3b5998", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "18px", fontWeight: "bold", boxShadow: "0 4px 10px rgba(59,89,152,0.3)" }}>
+                          f
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#3b5998", fontWeight: 600 }}>Facebook</span>
+                      </a>
+
+                      {/* WhatsApp */}
+                      <a
+                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
+                      >
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "18px", boxShadow: "0 4px 10px rgba(37,211,102,0.3)" }}>
+                          💬
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 600 }}>WhatsApp</span>
+                      </a>
+
+                      {/* Email */}
+                      <a
+                        href={`mailto:?subject=${encodeURIComponent(companyName)}&body=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
+                      >
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#ff8c00", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "18px", boxShadow: "0 4px 10px rgba(255,140,0,0.3)" }}>
+                          ✉
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#ea580c", fontWeight: 600 }}>Email</span>
+                      </a>
+
+                      {/* Telegram */}
+                      <a
+                        href={`https://t.me/share/url?url=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
+                      >
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#0088cc", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "18px", boxShadow: "0 4px 10px rgba(0,136,204,0.3)" }}>
+                          ✈
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#0284c7", fontWeight: 600 }}>Telegram</span>
+                      </a>
+
+                      {/* Copy Link */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`);
+                          eventBus.emit(SHELL_TOAST_EVENT, { intent: "success", title: "Link copied", message: "Business link copied to clipboard." });
+                        }}
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", cursor: "pointer" }}
+                      >
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#546e7a", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "18px", boxShadow: "0 4px 10px rgba(84,110,122,0.3)" }}>
+                          🔗
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Copy link</span>
+                      </button>
+
+                      {/* Download */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const svg = document.querySelector(".settings-card svg");
+                          if (svg) {
+                            const svgData = new XMLSerializer().serializeToString(svg);
+                            const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = `${customId || businessUserName || "business"}-qr.svg`;
+                            link.click();
+                            URL.revokeObjectURL(url);
+                          }
+                        }}
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", cursor: "pointer" }}
+                      >
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center", color: "#0284c7", fontSize: "18px", boxShadow: "0 4px 10px rgba(2,132,199,0.15)" }}>
+                          ☁
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#0284c7", fontWeight: 600 }}>Download</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* 3. Communication Channels & Phone Numbers */}
+            <SectionCard className="settings-card">
+              <CardHeading icon="messageSquare" title="Communication Channels & Direct Lines" subtitle="Direct voice lines, SMS, WhatsApp, and Telegram dispatch numbers" />
+              <div className="settings-form-grid settings-form-grid--two">
+                <PhoneInput
+                  label="Primary Phone"
+                  value={primaryPhone}
+                  onChange={setPrimaryPhone}
+                />
+
+                <PhoneInput
+                  label="Secondary Phone"
+                  value={secondaryPhone}
+                  onChange={setSecondaryPhone}
+                />
+
+                <PhoneInput
+                  label="WhatsApp Business Line"
+                  value={whatsappPhone}
+                  onChange={setWhatsappPhone}
+                />
+
+                <PhoneInput
+                  label="Telegram Channel Number"
+                  value={telegramPhone}
+                  onChange={setTelegramPhone}
+                />
+              </div>
+            </SectionCard>
+
+            {/* 4. Domain & Industry Sector Taxonomy */}
+            <SectionCard className="settings-card">
+              <CardHeading icon="share2" title="Industry & Taxonomy Mapping" subtitle="Specify system industry classification, domain, and sub-domain categorization" />
+              <div className="settings-form-grid settings-form-grid--two">
+                <Select
+                  label="Industry Type"
+                  value={industry}
+                  onChange={(event) => setIndustry(event.target.value)}
+                  options={[
+                    { value: "healthcare", label: "Healthcare & Wellness" },
+                    { value: "retail", label: "Retail & E-commerce" },
+                    { value: "services", label: "Professional Services" },
+                    { value: "hospitality", label: "Hospitality & Dining" },
+                    { value: "financial", label: "Financial Services" },
+                  ]}
+                />
+                <div />
+                <Input label="Domain Name" placeholder="e.g. health" value={domainName} onChange={(event) => setDomainName(event.target.value)} />
+                <Input label="Sub-Domain Name" placeholder="e.g. clinic" value={subDomainName} onChange={(event) => setSubDomainName(event.target.value)} />
+              </div>
+            </SectionCard>
+
+            {/* 5. Legal & Tax Registrations */}
+            <SectionCard className="settings-card">
+              <CardHeading icon="scale" title="Legal & Tax Compliance" subtitle="Government registrations, license entity names, and GST compliance" />
+              <div className="settings-form-grid settings-form-grid--two">
+                <Input label="License / Legal Entity Name" value={legalEntityName} onChange={(event) => setLegalEntityName(event.target.value)} />
                 <Input label="GSTIN" value={gstin} onChange={(event) => setGstin(event.target.value)} />
                 <Input label="PAN" value={pan} onChange={(event) => setPan(event.target.value)} />
-                <div />
+                <Input label="How did you hear about us?" placeholder="e.g. Referral, Search Engine" value={howDoYouHear} onChange={(event) => setHowDoYouHear(event.target.value)} />
                 <div className="settings-field-span settings-field-span--full">
                   <Input label="Registered Address" value={registeredAddress} onChange={(event) => setRegisteredAddress(event.target.value)} />
-                  <p className="settings-field-note">This address appears on all GST invoices</p>
+                  <p className="settings-field-note">This address appears on all tax invoices and customer receipts</p>
                 </div>
               </div>
             </SectionCard>
 
+            {/* 6. Operating Defaults */}
             <SectionCard className="settings-card">
               <CardHeading icon="slidersHorizontal" title="Operating Defaults" subtitle="Default regional and time settings" />
               <div className="settings-form-grid settings-form-grid--four">

@@ -24,17 +24,21 @@ export function usePagedEmployeeOptions({ enabled = true, filters: baseFilters =
   }, [searchValue]);
 
   useEffect(() => {
-    setPage(0);
-    setLoaded([]);
+    if (debouncedSearch.length === 0 || debouncedSearch.length > 3) {
+      setPage(0);
+      setLoaded([]);
+    }
   }, [debouncedSearch, baseFilters]);
 
+  const searchReady = debouncedSearch.length > 3;
+  const requestEnabled = debouncedSearch.length === 0 || searchReady;
   const filters = useMemo<SearchFilterClause[]>(() => [
     ...baseFilters,
-    ...(debouncedSearch.length >= 3
+    ...(searchReady
       ? [{ id: "employee-option-search", field: "name", operator: "CONTAINS", values: [debouncedSearch] } as SearchFilterClause]
       : []),
-  ], [baseFilters, debouncedSearch]);
-  const result = useEmployees(filters, schema, { enabled, page, pageSize: PAGE_SIZE });
+  ], [baseFilters, debouncedSearch, searchReady]);
+  const result = useEmployees(filters, schema, { enabled: enabled && requestEnabled, page, pageSize: PAGE_SIZE });
 
   useEffect(() => {
     setLoaded((current) => {
