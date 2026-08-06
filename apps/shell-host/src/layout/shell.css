@@ -1,3 +1,7 @@
+html {
+  font-size: 14px;
+}
+
 .shell-layout {
   display: flex;
   height: 100vh;

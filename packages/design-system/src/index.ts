@@ -55,7 +55,6 @@ export type { ComboboxProps, ComboboxOption } from "./components/Combobox/Combob
 export { MultiCombobox }                  from "./components/MultiCombobox/MultiCombobox";
 export type { MultiComboboxProps, MultiComboboxOption } from "./components/MultiCombobox/MultiCombobox";
 
-
 export { DatePicker }                     from "./components/DatePicker/DatePicker";
 export type { DatePickerProps }           from "./components/DatePicker/DatePicker";
 export { DatePickerPopover }              from "./components/DatePickerPopover/DatePickerPopover";
@@ -86,6 +85,9 @@ export type { FileUploadProps }           from "./components/FileUpload/FileUplo
 
 export { FormSection }                    from "./components/FormSection/FormSection";
 export type { FormSectionProps }          from "./components/FormSection/FormSection";
+
+export { QRCode, QRCodeSVG }              from "./components/QRCode/QRCode";
+export type { QRCodeProps }               from "./components/QRCode/QRCode";
 
 // Layer 3 — Feedback & Overlay
 export { Alert }                          from "./components/Alert/Alert";
@@ -132,23 +134,18 @@ export type { ErrorStateProps }           from "./components/ErrorState/ErrorSta
 export { BulkActionBar }                  from "./components/BulkActionBar/BulkActionBar";
 export type { BulkActionBarProps, BulkAction } from "./components/BulkActionBar/BulkActionBar";
 
-export { Skeleton, SkeletonTable, SkeletonCard } from "./components/Skeleton/Skeleton";
-
 // Layer 5 — Data Display
-export { DataTable, DataTablePagination, DataTableToolbar }  from "./components/DataTable/DataTable";
-export type { DataTablePaginationProps, DataTableProps, ColumnDef, DataTableColumnFilter } from "./components/DataTable/DataTable";
-
-
-export { DescriptionList }                from "./components/DescriptionList/DescriptionList";
-export type { DescriptionListProps, DescriptionItem } from "./components/DescriptionList/DescriptionList";
+export { DataTable, DataTableToolbar, DataTablePagination } from "./components/DataTable/DataTable";
+export type { ColumnDef, DataTableProps, DataTablePaginationProps } from "./components/DataTable/DataTable";
 
 export { Timeline }                       from "./components/Timeline/Timeline";
 export type { TimelineProps, TimelineEvent } from "./components/Timeline/Timeline";
 
+export { Calendar }                       from "./components/Calendar/Calendar";
+export type { CalendarProps, CalendarEvent } from "./components/Calendar/Calendar";
+
 export { KanbanBoard }                    from "./components/KanbanBoard/KanbanBoard";
-export type { KanbanBoardProps, KanbanColumn, KanbanItem } from "./components/KanbanBoard/KanbanBoard";
-
-
+export type { KanbanColumn, KanbanItem }  from "./components/KanbanBoard/KanbanBoard";
 
 export { LiveQueue }                      from "./components/LiveQueue/LiveQueue";
 export type { LiveQueueProps, LiveQueueItem } from "./components/LiveQueue/LiveQueue";
@@ -156,8 +153,9 @@ export type { LiveQueueProps, LiveQueueItem } from "./components/LiveQueue/LiveQ
 export { VitalsChart }                    from "./components/VitalsChart/VitalsChart";
 export type { VitalsChartProps, VitalPoint } from "./components/VitalsChart/VitalsChart";
 
-export { Calendar }                       from "./components/Calendar/Calendar";
-export type { CalendarProps, CalendarEvent } from "./components/Calendar/Calendar";
+export { DescriptionList }              from "./components/DescriptionList/DescriptionList";
+export type { DescriptionListProps, DescriptionItem } from "./components/DescriptionList/DescriptionList";
+
+export { Skeleton, SkeletonCard, SkeletonTable } from "./components/Skeleton/Skeleton";
 
 export * from "./components/widgets";
-

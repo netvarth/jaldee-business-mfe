@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
+import type { ProductKey } from "@jaldee/auth-context";
 import IconRail from "./IconRail";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
 import ShellToastHost from "./ShellToastHost";
 import { useShellStore } from "../store/shellStore";
 import { telemetryService } from "../services/telemetry";
+import { themeService } from "../theme/ThemeService";
 import "./shell.css";
 
 interface Props {
@@ -17,12 +19,32 @@ export default function ShellLayout({ children }: Props) {
   const sidebarVisible = useShellStore((s) => s.sidebarVisible);
   const setSidebarVisible = useShellStore((s) => s.setSidebarVisible);
   const activeProduct = useShellStore((s) => s.activeProduct);
+  const setActiveProduct = useShellStore((s) => s.setActiveProduct);
   const [collapseSubmenuAfterSelection, setCollapseSubmenuAfterSelection] = useState(false);
   const isSmallScreen = useIsSmallScreen();
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const navigationOpen = isSmallScreen ? sidebarVisible : true;
   const submenuVisible = isSmallScreen ? navigationOpen : sidebarVisible;
   const showSidebarPanel = !isSettingsRoute && submenuVisible;
+
+  useEffect(() => {
+    const path = location.pathname;
+    let matchedProduct: ProductKey | null = null;
+    if (path.startsWith("/hr")) matchedProduct = "hr";
+    else if (path.startsWith("/finance")) matchedProduct = "finance";
+    else if (path.startsWith("/bookings")) matchedProduct = "bookings";
+    else if (path.startsWith("/health")) matchedProduct = "health";
+    else if (path.startsWith("/gold-erp") || path.startsWith("/golderp")) matchedProduct = "golderp";
+    else if (path.startsWith("/karty")) matchedProduct = "karty";
+    else if (path.startsWith("/lending")) matchedProduct = "lending";
+
+    if (matchedProduct) {
+      setActiveProduct(matchedProduct);
+      themeService.applyProductAccent(matchedProduct);
+    } else {
+      themeService.clearProductAccent();
+    }
+  }, [location.pathname, setActiveProduct]);
 
   useEffect(() => {
     setSidebarVisible(!isSmallScreen);

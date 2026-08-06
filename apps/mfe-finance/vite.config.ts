@@ -5,6 +5,7 @@ import path from "path";
 
 export default defineConfig({
   envDir: path.resolve(__dirname, "../shell-host"),
+  base: "./",
   plugins: [
     react(),
     federation({
@@ -28,13 +29,12 @@ export default defineConfig({
   build: {
     target: "esnext",
     minify: "esbuild",
-    cssCodeSplit: true,
+    cssCodeSplit: false,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("react-dom") || id.includes("/react/")) return "react-vendor";
           if (id.includes("axios")) return "http-client";
-          if (id.includes("/packages/design-system/")) return "design-system";
           return undefined;
         },
       },
@@ -42,5 +42,10 @@ export default defineConfig({
   },
   server: {
     port: 3005,
+    origin: "http://localhost:3005",
+  },
+  preview: {
+    port: 3005,
+    strictPort: true,
   },
 });

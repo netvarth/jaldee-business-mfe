@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PageHeader, Button, Badge, Popover } from "@jaldee/design-system";
-import { Download, Copy, Share2, Activity, Edit3, ArrowLeft, Mail, MessageCircle, Smartphone } from "lucide-react";
+import { PageHeader, Button, Badge, QRCodeSVG } from "@jaldee/design-system";
+import { Download, Copy, Share2, Activity } from "lucide-react";
 import { useQrLinks, type QrLink } from "../../services/useQrLinks";
 import { useToast } from "../../contexts/ToastContext";
 import { useModal } from "../../contexts/ModalContext";
 import ShareQrModal from "./ShareQrModal";
-import { QRCodeSVG } from "qrcode.react";
 
 export default function QrLinkDetailsPage() {
   const { uid } = useParams<{ uid: string }>();
@@ -88,20 +87,6 @@ export default function QrLinkDetailsPage() {
     };
     
     img.src = "data:image/svg+xml;base64," + btoa(svgData);
-  };
-
-  const handleNativeShare = async () => {
-    if (navigator.share && qrLink?.qrLink) {
-      try {
-        await navigator.share({
-          title: qrLink.name || "QR Link",
-          text: "Check out this QR Link",
-          url: qrLink.qrLink,
-        });
-      } catch (err) {
-        // user aborted or error
-      }
-    }
   };
 
   if (loading) {

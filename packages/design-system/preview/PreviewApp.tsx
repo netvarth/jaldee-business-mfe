@@ -41,6 +41,7 @@ import {
   PhoneInput,
   Popover,
   PopoverSection,
+  QRCodeSVG,
   RadioGroup,
   RichTextEditor,
   SectionCard,
@@ -1367,6 +1368,36 @@ const [selectedMonthDate, setSelectedMonthDate] = useState<Date | null>(new Date
                   refreshable blocks.
                 </p>
               </SectionCard>
+            </PreviewFieldCard>
+            <PreviewFieldCard
+              title="QR Code SVG"
+              type="Media / Data Display"
+              description="Native, zero-dependency QR code SVG renderer with Reed-Solomon error correction."
+              snippet={`<QRCodeSVG
+  value="https://jaldee.com"
+  size={180}
+  level="M"
+  includeMargin
+/>`}
+            >
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <QRCodeSVG
+                    value="https://jaldee.com"
+                    size={180}
+                    level="M"
+                    includeMargin
+                  />
+                </div>
+                <div className="space-y-1 text-sm text-slate-600">
+                  <div className="font-medium text-slate-900">Scan payload</div>
+                  <div className="font-mono text-xs text-slate-500">https://jaldee.com</div>
+                  <div className="flex gap-2 pt-2">
+                    <Badge variant="success">Zero dependencies</Badge>
+                    <Badge variant="info">Spec compliant</Badge>
+                  </div>
+                </div>
+              </div>
             </PreviewFieldCard>
           </div>
         </SectionCard>

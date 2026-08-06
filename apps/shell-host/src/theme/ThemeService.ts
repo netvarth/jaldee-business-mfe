@@ -53,6 +53,12 @@ class ThemeService {
   accountLogoUrl: string | null = null;
   accountFaviconUrl: string | null = null;
 
+  constructor() {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--text-base", "14px");
+    }
+  }
+
   // Called at login — Layer 2
   applyAccountTheme(theme: AccountTheme) {
     this.currentAccountTheme = theme;
@@ -96,10 +102,9 @@ class ThemeService {
     );
 
     const fontSizeMap = { sm: "13px", md: "14px", lg: "15px" };
-    document.documentElement.style.setProperty(
-      "--text-base",
-      fontSizeMap[prefs.fontSize]
-    );
+    const size = fontSizeMap[prefs?.fontSize] || "14px";
+    document.documentElement.style.fontSize = size;
+    document.documentElement.style.setProperty("--text-base", size);
   }
 
   // Enterprise White Label Config
