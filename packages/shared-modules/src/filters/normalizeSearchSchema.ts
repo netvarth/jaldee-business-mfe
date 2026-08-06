@@ -104,11 +104,20 @@ function normalizeOperatorDefinition(raw: Record<string, unknown>): SearchOperat
 }
 
 export function normalizeSearchSchema(schema: unknown): SearchSchema | null {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+  if (!schema) {
     return null;
   }
 
-  const raw = schema as Record<string, unknown>;
+  const raw = Array.isArray(schema)
+    ? ({ fields: schema } as Record<string, unknown>)
+    : typeof schema === "object"
+      ? (schema as Record<string, unknown>)
+      : null;
+
+  if (!raw) {
+    return null;
+  }
+
   const fields = Array.isArray(raw.fields)
     ? raw.fields
         .filter(

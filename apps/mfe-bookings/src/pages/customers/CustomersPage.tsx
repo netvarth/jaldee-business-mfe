@@ -33,7 +33,8 @@ function fullName(customer: Customer): string {
 }
 
 function isActiveCustomer(customer: Customer): boolean {
-  return String(customer.status || "").toUpperCase() === "ENABLED";
+  const status = String(customer.status || "").toUpperCase();
+  return status === "ENABLED" || status === "ACTIVE";
 }
 
 export default function CustomersPage() {

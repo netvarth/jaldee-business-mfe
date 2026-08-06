@@ -306,6 +306,9 @@ export interface BookingDetails {
   label?: string[];
   isInvoiceCreated?: boolean;
   allowedActions: AllowedAction[];
+  amountDue?: number;
+  amountPaid?: number;
+  price?: number;
 }
 
 export interface TimelineEvent {

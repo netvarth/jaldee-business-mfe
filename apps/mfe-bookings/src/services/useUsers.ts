@@ -38,6 +38,7 @@ interface UserDto {
   status?: string;
   email?: string;
   emailId?: string;
+  phoneE164?: string;
   phoneNumber?: string;
   primaryPhoneNumber?: string;
   mobileNumber?: string;
@@ -84,6 +85,7 @@ function toUser(d: UserDto): BookingUser {
     displayName: userDisplayName,
     email: d.email ?? d.emailId ?? tenantUser?.email ?? tenantUser?.emailId ?? "",
     phoneNumber:
+      d.phoneE164 ??
       d.phoneNumber ??
       d.primaryPhoneNumber ??
       d.mobileNumber ??

@@ -22,28 +22,11 @@ import { useUsers } from "../../services/useUsers";
 import { useModal } from "../../contexts/ModalContext";
 import CreateUserModal from "./CreateUserModal";
 import UserProfileModal from "./UserProfileModal";
+import { useUserSearchSchema } from "../../services/useUserSearchSchema";
 import { useToast } from "../../contexts/ToastContext";
 import type { BookingUser } from "../../data/sessionStore";
 
-const USER_FILTER_SCHEMA: SearchSchema = {
-  label: "User Filters",
-  fields: [
-    { key: "displayName", label: "Display Name", type: "TEXT", operators: ["CONTAINS", "STARTS_WITH", "EQ"] },
-    { key: "firstName", label: "First Name", type: "TEXT", operators: ["CONTAINS", "STARTS_WITH", "EQ"] },
-    { key: "lastName", label: "Last Name", type: "TEXT", operators: ["CONTAINS", "STARTS_WITH", "EQ"] },
-    { key: "title", label: "Title / Role", type: "TEXT", operators: ["CONTAINS", "STARTS_WITH", "EQ"] },
-    { key: "email", label: "Email", type: "TEXT", operators: ["CONTAINS", "STARTS_WITH", "EQ"] },
-    { key: "phoneNumber", label: "Phone Number", type: "TEXT", inputType: "phone", operators: ["EQ", "STARTS_WITH", "CONTAINS"] },
-    { key: "status", label: "Status", type: "ENUM", operators: ["EQ", "IN"], values: ["Active", "Inactive"] },
-    { key: "hasLogin", label: "Login Enabled", type: "BOOLEAN", operators: ["EQ"] },
-  ],
-  operatorCatalog: [
-    { operator: "EQ", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
-    { operator: "CONTAINS", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
-    { operator: "STARTS_WITH", arity: "EXACTLY_ONE", minValues: 1, maxValues: 1 },
-    { operator: "IN", arity: "AT_LEAST_ONE", minValues: 1, maxValues: -1 },
-  ],
-};
+
 
 export default function UsersPage() {
   const api = useBookingApi();
@@ -54,7 +37,7 @@ export default function UsersPage() {
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const userSearchSchema = USER_FILTER_SCHEMA;
+  const { schema: userSearchSchema, loading: schemaLoading, error: schemaError } = useUserSearchSchema();
   const { users, loading, refresh, error } = useUsers(advancedFilters, userSearchSchema);
 
   const appliedFilterCount = useMemo(
@@ -243,36 +226,40 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <DataTable
-        data={filtered}
-        columns={columns}
-        getRowId={(user) => user.userUid}
-        loading={loading}
-        pagination={{
-          page,
-          pageSize: 10,
-          total: filtered.length,
-          mode: "client",
-          onChange: setPage,
-        }}
-        emptyState={
-          <EmptyState
-            title={
-              loading
-                ? "Loading users..."
-                : error
-                  ? "Could not load users"
-                  : "No users found"
-            }
-            description={
-              error
-                ? error
-                : "Try changing the search."
-            }
-          />
-        }
-        data-testid="bookings-users"
-      />
+      <div className="w-full overflow-x-auto">
+        <DataTable
+          data={filtered}
+          columns={columns}
+          getRowId={(user) => user.userUid}
+          loading={loading}
+          pagination={{
+            page,
+            pageSize: 10,
+            total: filtered.length,
+            mode: "client",
+            onChange: setPage,
+          }}
+          emptyState={
+            <EmptyState
+              title={
+                loading
+                  ? "Loading users..."
+                  : error
+                    ? "Could not load users"
+                    : "No users found"
+              }
+              description={
+                error
+                  ? error
+                  : schemaError 
+                    ? schemaError
+                    : "Try changing the search."
+              }
+            />
+          }
+          data-testid="bookings-users"
+        />
+      </div>
 
       <Drawer
         open={drawerOpen}
@@ -283,26 +270,38 @@ export default function UsersPage() {
       >
         <div className="flex h-full flex-1 flex-col overflow-hidden">
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
-            <SchemaFilterBuilder
-              schema={userSearchSchema}
-              value={draftFilters}
-              onChange={setDraftFilters}
-              appliedCount={appliedFilterCount}
-              appliedSummary={appliedFilterSummary}
-              onClearAll={() => {
-                const resetClauses = buildDefaultSearchClauses(userSearchSchema);
-                setDraftFilters(resetClauses);
-                setAdvancedFilters(resetClauses);
-                setPage(1);
-              }}
-              emptyStateMessage="No user filters are available."
-            />
+            {schemaLoading && !userSearchSchema ? (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                Loading filters...
+              </div>
+            ) : schemaError ? (
+              <div className="flex h-full items-center justify-center text-sm text-red-500">
+                {schemaError}
+              </div>
+            ) : userSearchSchema ? (
+              <SchemaFilterBuilder
+                schema={userSearchSchema}
+                value={draftFilters}
+                onChange={setDraftFilters}
+                appliedCount={appliedFilterCount}
+                appliedSummary={appliedFilterSummary}
+                onClearAll={() => {
+                  const resetClauses = buildDefaultSearchClauses(userSearchSchema);
+                  setDraftFilters(resetClauses);
+                  setAdvancedFilters(resetClauses);
+                  setPage(1);
+                }}
+                emptyStateMessage="No user filters are available."
+              />
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
             <Button
               type="button"
               variant="outline"
+              disabled={schemaLoading || !userSearchSchema}
               onClick={() => {
+                if (!userSearchSchema) return;
                 const resetClauses = buildDefaultSearchClauses(userSearchSchema);
                 setDraftFilters(resetClauses);
                 setAdvancedFilters(resetClauses);
@@ -313,6 +312,7 @@ export default function UsersPage() {
             </Button>
             <Button
               type="button"
+              disabled={schemaLoading || !userSearchSchema}
               onClick={() => {
                 setAdvancedFilters(draftFilters);
                 setPage(1);

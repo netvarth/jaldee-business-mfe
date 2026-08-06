@@ -461,7 +461,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                             variant="outline"
                             size="sm"
                             className={cn(
-                              "h-11 rounded-[14px] border px-2 text-[12px] font-bold shadow-none",
+                              "min-h-[44px] h-full rounded-[14px] border px-2 text-[12px] font-bold shadow-none flex-col items-center justify-center py-2",
                               action === "CANCEL"
                                 ? "border-[#fecaca] bg-white text-[#ff2b2b] hover:bg-[#fff5f5]"
                                 : "border-[#d8e0ee] bg-white text-[#334155] hover:bg-slate-50",
@@ -469,8 +469,16 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                             onClick={() => handleAction(action)}
                             disabled={!!acting}
                         >
-                            {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
-                            {meta?.label || action}
+                            <div className="flex items-center gap-1.5">
+                                {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
+                                <span>{meta?.label || action}</span>
+                            </div>
+                            {(action === "CREATE_INVOICE" || action === "VIEW_INVOICE") && (
+                                <div className="flex flex-col items-center mt-1 text-[10px] font-semibold w-full leading-[1.2]">
+                                    <span className="text-slate-600">Due: ₹{finance?.amountDue ?? details.amountDue ?? (details as any).price ?? 0}</span>
+                                    <span className="text-emerald-600">Paid: ₹{finance?.amountPaid ?? details.amountPaid ?? 0}</span>
+                                </div>
+                            )}
                         </Button>
                     );
                 })}
@@ -494,6 +502,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
           onClose={() => setInvoiceModalOpen(false)}
           details={details}
           finance={finance}
+          payments={payments}
           onPay={recordPayment}
         />
     </div>

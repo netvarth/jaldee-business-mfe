@@ -165,7 +165,7 @@ export default function OverviewPage() {
 
   return (
     <section id="page-home" className="page-section active" style={{ overflowY: "auto", background: "#f8fafc" }}>
-      <div style={{ padding: "24px 28px" }}>
+      <div className="p-4 md:p-6 lg:p-7">
         <PageHeader
           title="Bookings Analytics"
           subtitle="Real-time reports for booking quotas, active schedules, and provider utilization."
@@ -187,7 +187,7 @@ export default function OverviewPage() {
         )}
 
         {/* KPI CARDS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 16, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           {kpis.map((k) => (
             <div key={k.label} style={{ background: "white", border: "1px solid #f1f5f9", borderRadius: 20, padding: 20, position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
               <div style={{ position: "absolute", right: 0, top: 0, width: 100, height: 100, background: k.bg, pointerEvents: "none" }} />
@@ -208,12 +208,12 @@ export default function OverviewPage() {
         </div>
 
         {/* TOP WIDGETS ROW 1 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
           {/* UPCOMING APPOINTMENTS FEED */}
-          <div style={{ ...card, gridColumn: "span 2" }}>
+          <div className="lg:col-span-2" style={card}>
             <h3 style={cardTitle}>Upcoming Appointments</h3>
             <p style={cardSub}>Next scheduled visits</p>
-            <div style={{ marginTop: 20 }}>
+            <div style={{ marginTop: 20, overflowX: "auto" }}>
               {upcoming.length > 0 ? (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
@@ -287,7 +287,7 @@ export default function OverviewPage() {
         </div>
 
         {/* MIDDLE WIDGETS ROW 2 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
           {/* TOP SERVICES */}
           <div style={card}>
             <h3 style={cardTitle}>Top Services</h3>
@@ -353,7 +353,7 @@ export default function OverviewPage() {
         </div>
 
         {/* BOTTOM ROW (ORIGINAL CHANNELS/REVENUE) */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
           <div style={card}>
             <h3 style={cardTitle}>Acquisition Channels</h3>
             <p style={cardSub}>Bookings via patient portals vs walk-in visitors.</p>

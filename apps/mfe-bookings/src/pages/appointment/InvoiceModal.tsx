@@ -3,7 +3,7 @@ import { useMFEProps } from "@jaldee/auth-context";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { BookingDetails } from "../../types";
-import { BookingFinance, PayInput } from "../../services/useBookingDetails";
+import { BookingFinance, PayInput, PaymentRecord } from "../../services/useBookingDetails";
 import { formatIsoTime } from "../../utils/dateTime";
 
 interface Props {
@@ -11,13 +11,15 @@ interface Props {
   onClose: () => void;
   details: BookingDetails | null;
   finance: BookingFinance | null;
+  payments?: PaymentRecord[];
   onPay?: (input: PayInput) => Promise<void>;
 }
 
-export default function InvoiceModal({ isOpen, onClose, details, finance, onPay }: Props) {
+export default function InvoiceModal({ isOpen, onClose, details, finance, payments, onPay }: Props) {
   const mfeProps = useMFEProps();
   const [isPaying, setIsPaying] = useState(false);
   const [payAmount, setPayAmount] = useState<string>("");
+  const [showHistory, setShowHistory] = useState(false);
   
   if (!isOpen || !details) return null;
 
@@ -33,10 +35,9 @@ export default function InvoiceModal({ isOpen, onClose, details, finance, onPay 
   const date = new Date(details.bookingDate || Date.now()).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
 
   const serviceName = details.serviceName || "Consultation";
-  const amountDue = finance?.amountDue ?? details.price ?? 0;
-  const amountPaid = finance?.amountPaid ?? 0;
+  const amountDue = finance?.amountDue ?? details.amountDue ?? details.price ?? 0;
+  const amountPaid = finance?.amountPaid ?? details.amountPaid ?? 0;
   const totalAmount = amountDue + amountPaid;
-  const isPartiallyPaid = finance?.paymentStatus === "PARTIALLY_PAID";
 
   const isPaid = finance?.paymentStatus === "PAID" || finance?.paymentStatus === "Settled";
   const paymentStatusText = isPaid ? "PAID (ONLINE UPI)" : (finance?.paymentStatus || "UNPAID");
@@ -107,17 +108,41 @@ export default function InvoiceModal({ isOpen, onClose, details, finance, onPay 
                 <div className="text-sm font-bold text-[#1a1b25]">₹{totalAmount}</div>
               </div>
 
-              {isPartiallyPaid && (
+              {amountPaid > 0 && (
                 <>
-                  <div className="flex justify-between items-center px-5 py-3 border-b border-slate-100 bg-slate-50/30">
+                  <div 
+                    className={`flex justify-between items-center px-5 py-3 border-b border-slate-100 bg-slate-50/30 ${payments && payments.length > 0 ? 'cursor-pointer hover:bg-slate-50/50 transition-colors' : ''}`}
+                    onClick={() => { if (payments && payments.length > 0) setShowHistory(!showHistory); }}
+                  >
                     <div className="text-sm font-semibold text-[#8a92a6]">Amount Paid</div>
-                    <div className="text-sm font-semibold text-green-600">₹{amountPaid}</div>
+                    <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold text-green-600">₹{amountPaid}</div>
+                        {payments && payments.length > 0 && (
+                            <svg className={`w-4 h-4 text-slate-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        )}
+                    </div>
                   </div>
+                  {showHistory && payments && payments.length > 0 && (
+                      <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 space-y-3 shadow-inner">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Payment History</div>
+                          {payments.map((p, i) => (
+                              <div key={i} className="flex justify-between items-center">
+                                  <div>
+                                      <div className="text-sm font-bold text-slate-700">{p.mode || 'Cash'}</div>
+                                      <div className="text-[11px] font-semibold text-slate-500">{new Date(p.paymentOn || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                  </div>
+                                  <div className="text-sm font-bold text-green-600">₹{p.amount}</div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
                 </>
               )}
 
               <div className="flex justify-between items-center px-5 py-4 bg-slate-50/80">
-                <div className="text-sm font-bold text-[#1a1b25] uppercase tracking-wider">{isPartiallyPaid ? 'Amount Due' : 'Grand Total'}</div>
+                <div className="text-sm font-bold text-[#1a1b25] uppercase tracking-wider">{amountDue === 0 ? 'Total' : 'Amount Due'}</div>
                 <div className="text-lg font-bold text-[#4b3394]">₹{amountDue}</div>
               </div>
             </div>

@@ -98,7 +98,11 @@ export const useCustomers = (
       prev.map((item) => {
         if (item.id !== id) return item;
         const current = String(item.status || "").toUpperCase();
-        const next = current === "ENABLED" ? "DISABLED" : "ENABLED";
+        let next = "ENABLED";
+        if (current === "ENABLED") next = "DISABLED";
+        else if (current === "DISABLED") next = "ENABLED";
+        else if (current === "ACTIVE") next = "INACTIVE";
+        else if (current === "INACTIVE") next = "ACTIVE";
         return { ...item, status: next };
       })
     );

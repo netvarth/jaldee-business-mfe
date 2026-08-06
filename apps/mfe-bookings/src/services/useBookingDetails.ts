@@ -126,12 +126,17 @@ export function useBookingDetails() {
     async (uid: string) => {
       // Finance summary is optional (no invoice yet ⇒ 404). Payment history is
       // best-effort so a missing endpoint never blocks the details panel.
-      // Invoice is fetched explicitly via viewInvoice()
       try {
-        const history = await api.get<unknown>(`/finance/${uid}/payment/history`);
+        const history = await api.get<unknown>(`/booking/finance/${uid}/payment/history`);
         setPayments(unwrapList<PaymentRecord>(history));
       } catch {
         setPayments([]);
+      }
+      try {
+        const f = await api.get<any>(`/booking/finance/${uid}`);
+        setFinance(f?.invoiceAdapter ?? f ?? null);
+      } catch {
+        setFinance(null);
       }
     },
     [api]
@@ -206,8 +211,8 @@ export function useBookingDetails() {
   const viewInvoice = useCallback(async () => {
     if (!details) return;
     try {
-      const f = await api.get<BookingFinance>(`/booking/finance/${details.uid}`);
-      setFinance(f ?? null);
+      const f = await api.get<any>(`/booking/finance/${details.uid}`);
+      setFinance(f?.invoiceAdapter ?? f ?? null);
     } catch {
       setFinance(null);
     }

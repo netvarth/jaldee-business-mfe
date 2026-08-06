@@ -46,6 +46,15 @@ function asString(value: unknown, fallback = "") {
 }
 
 function toPhoneValueFromDetail(detail: BookingUserDetail): PhoneInputValue {
+  const tenantUser = typeof detail.tenantUser === "object" && detail.tenantUser !== null 
+    ? (detail.tenantUser as Record<string, unknown>) 
+    : {};
+
+  const e164 = tenantUser.phoneE164 || detail.phoneE164;
+  if (e164 && typeof e164 === "string") {
+    return toPhoneValue(e164);
+  }
+
   const phoneNumber =
     typeof detail.phoneNumber === "object" && detail.phoneNumber !== null
       ? (detail.phoneNumber as Record<string, unknown>)
@@ -60,6 +69,7 @@ function toPhoneValueFromDetail(detail: BookingUserDetail): PhoneInputValue {
 
 function buildUpdatePayload(params: {
   detail: BookingUserDetail;
+  userUid: string;
   firstName: string;
   lastName: string;
   title: string;
@@ -68,29 +78,30 @@ function buildUpdatePayload(params: {
   allowLogin: boolean;
   status: BookingUser["status"];
 }) {
-  const { detail, firstName, lastName, title, email, phoneValue, allowLogin, status } = params;
+  const { detail, userUid, firstName, lastName, title, email, phoneValue, allowLogin, status } = params;
+
+  const existingTenantUser =
+    typeof detail.tenantUser === "object" && detail.tenantUser !== null
+      ? (detail.tenantUser as Record<string, unknown>)
+      : {};
 
   return {
-    ...detail,
-    title: title.trim(),
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    phoneNumber: {
-      countryCode: phoneValue.countryCode || "",
-      number: phoneValue.number || "",
+    tenantUser: {
+      uid: existingTenantUser.uid || userUid,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      phoneE164: phoneValue.e164Number || "",
+      allowLogin,
+      contactProvided: Boolean(email.trim() || phoneValue.number?.trim()),
     },
-    primaryCountryCode: phoneValue.countryCode || "",
-    primaryNumber: phoneValue.number || "",
-    email: email.trim(),
-    status: status.toUpperCase(),
-    displayName: `${firstName.trim()} ${lastName.trim()}`.trim(),
-    allowLogin,
     primaryClassification:
       asString(detail.primaryClassification) || DEFAULT_CLASSIFICATION,
     classifications:
       Array.isArray(detail.classifications) && detail.classifications.length > 0
         ? detail.classifications
         : [asString(detail.primaryClassification) || DEFAULT_CLASSIFICATION],
+    tenantUserInputValid: true,
     primaryClassificationIncluded: true,
   };
 }
@@ -137,7 +148,7 @@ export default function UserProfileModal({
       try {
         const response = await api.get<BookingUserDetail>(`/booking-users/${user.userUid}`);
         if (!active) return;
-        const nextDetail = response.data ?? {};
+        const nextDetail = response ?? {};
         setDetail(nextDetail);
         setFirstName(asString(nextDetail.firstName) || user.firstName);
         setLastName(asString(nextDetail.lastName) || user.lastName);
@@ -185,12 +196,13 @@ export default function UserProfileModal({
     setSubmitting(true);
     try {
       const existingDetail =
-        detail ?? (await api.get<BookingUserDetail>(`/booking-users/${user.userUid}`)).data ?? {};
+        detail ?? (await api.get<BookingUserDetail>(`/booking-users/${user.userUid}`)) ?? {};
 
       await api.put(
         `/booking-users/${user.userUid}`,
         buildUpdatePayload({
           detail: existingDetail,
+          userUid: user.userUid,
           firstName,
           lastName,
           title,
