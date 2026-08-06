@@ -30,7 +30,7 @@ export function OfferDetailsModal({ isOpen, onClose, offer, candidate, onConvert
   const salary = offer.offeredSalary != null ? `${offer.currency || "₹"} ${Number(offer.offeredSalary).toLocaleString()}` : "—";
 
   return (
-    <Dialog open={isOpen} onClose={onClose} title="Offer details" size="md">
+    <Dialog open={isOpen} onClose={onClose} title="Offer details" size="md" testId="hr-recruitment-offer-details-dialog">
       <div className="space-y-4">
         <div className="rounded-lg bg-violet-50 border border-violet-100 px-4 py-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-violet-700">Candidate</div>
@@ -50,7 +50,7 @@ export function OfferDetailsModal({ isOpen, onClose, offer, candidate, onConvert
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button data-testid="hr-recruitment-offer-details-close" variant="outline" onClick={onClose}>Close</Button>
           {v === "ACCEPTED" && onConvert && (
             <Button variant="primary" onClick={() => { onClose(); onConvert(); }}>Convert to Employee</Button>
           )}

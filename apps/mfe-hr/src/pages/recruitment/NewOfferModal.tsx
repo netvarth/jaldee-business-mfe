@@ -76,15 +76,17 @@ export function NewOfferModal({ isOpen, onClose, applications, onSave }: NewOffe
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} title="New Offer" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Dialog open={isOpen} onClose={onClose} title="New Offer" size="md" testId="hr-recruitment-new-offer-dialog">
+      <form data-testid="hr-recruitment-new-offer-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div data-testid="hr-recruitment-new-offer-error" className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         <Select
+          id="hr-recruitment-new-offer-application"
+          testId="hr-recruitment-new-offer-application"
           label="Application"
           required
           options={applicationOptions}
@@ -93,27 +95,27 @@ export function NewOfferModal({ isOpen, onClose, applications, onSave }: NewOffe
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Designation" value={form.designation} onChange={set("designation")} placeholder="e.g. Software Engineer" />
-          <Select label="Status" options={statusOptions} value={form.status} onChange={set("status")} />
+          <Input id="hr-recruitment-new-offer-designation" data-testid="hr-recruitment-new-offer-designation" label="Designation" value={form.designation} onChange={set("designation")} placeholder="e.g. Software Engineer" />
+          <Select id="hr-recruitment-new-offer-status" testId="hr-recruitment-new-offer-status" label="Status" options={statusOptions} value={form.status} onChange={set("status")} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Annual CTC" type="number" min={0} value={form.annualCtc} onChange={set("annualCtc")} placeholder="e.g. 1200000" />
+          <Input id="hr-recruitment-new-offer-ctc" data-testid="hr-recruitment-new-offer-ctc" label="Annual CTC" type="number" min={0} value={form.annualCtc} onChange={set("annualCtc")} placeholder="e.g. 1200000" />
           <Input label="Currency" value={form.currency} onChange={set("currency")} placeholder="INR" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Joining Date" type="date" value={form.joiningDate} onChange={set("joiningDate")} />
-          <Input label="Valid Till" type="date" value={form.validTill} onChange={set("validTill")} />
+          <Input id="hr-recruitment-new-offer-joining-date" data-testid="hr-recruitment-new-offer-joining-date" label="Joining Date" type="date" value={form.joiningDate} onChange={set("joiningDate")} />
+          <Input id="hr-recruitment-new-offer-valid-till" data-testid="hr-recruitment-new-offer-valid-till" label="Valid Till" type="date" value={form.validTill} onChange={set("validTill")} />
         </div>
 
         <Input label="Probation Period" value={form.probationPeriod} onChange={set("probationPeriod")} placeholder="e.g. 3 months" />
 
         <DialogFooter>
-          <Button variant="outline" type="button" onClick={onClose} disabled={loading}>
+          <Button data-testid="hr-recruitment-new-offer-cancel" variant="outline" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit" loading={loading}>
+          <Button data-testid="hr-recruitment-new-offer-submit" variant="primary" type="submit" loading={loading}>
             Create Offer
           </Button>
         </DialogFooter>

@@ -176,15 +176,17 @@ function ToggleRow({
   label,
   checked,
   onChange,
+  testId,
 }: {
   label: string;
   checked?: boolean;
   onChange: (checked: boolean) => void;
+  testId?: string;
 }) {
   return (
     <label style={toggleStyle}>
       <span>{label}</span>
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
+      <input data-testid={testId} type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }
@@ -218,15 +220,19 @@ function TextAreaField({
   label,
   value,
   onChange,
+  id,
+  testId,
 }: {
   label: string;
   value?: string;
   onChange: (value: string) => void;
+  id?: string;
+  testId?: string;
 }) {
   return (
     <label style={fieldWrap}>
       <span style={fieldLabel}>{label}</span>
-      <textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={3} style={{ ...fieldStyle, resize: "vertical" }} />
+      <textarea id={id} data-testid={testId || id} value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={3} style={{ ...fieldStyle, resize: "vertical" }} />
     </label>
   );
 }
@@ -1411,6 +1417,8 @@ export default function Payroll() {
                   </div>
                 </div>
                 <Select
+                  id="hr-payroll-employee-structure"
+                  testId="hr-payroll-employee-structure"
                   label="Assign Structure"
                   value={assignmentForm.structureUid}
                   onChange={(e) => setAssignmentForm((f) => ({ ...f, structureUid: e.target.value }))}
@@ -1811,7 +1819,7 @@ function ComponentDialog({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" style={{ marginTop: 18 }}>
           {(["isStatutory", "isTaxable", "affectsGrossPay", "affectsNetPay", "affectsCtc", "visibleInPayslip"] as const).map((key) => (
-            <ToggleRow key={key} label={labelize(key)} checked={!!form[key]} onChange={(checked) => onChange({ ...form, [key]: checked })} />
+            <ToggleRow key={key} testId={`hr-payroll-component-flag-${key}`} label={labelize(key)} checked={!!form[key]} onChange={(checked) => onChange({ ...form, [key]: checked })} />
           ))}
         </div>
       </div>
@@ -1846,7 +1854,7 @@ function StructureDialog({
           <TextField id="hr-payroll-structure-currency" testId="hr-payroll-structure-currency" label="Currency" value={form.currencyCode} onChange={(v) => onChange({ ...form, currencyCode: v.toUpperCase() })} />
         </div>
         <div style={{ marginTop: 14 }}>
-          <TextAreaField label="Description" value={form.description} onChange={(v) => onChange({ ...form, description: v })} />
+          <TextAreaField id="hr-payroll-structure-description" testId="hr-payroll-structure-description" label="Description" value={form.description} onChange={(v) => onChange({ ...form, description: v })} />
         </div>
       </div>
       <DialogActions saveTestId="hr-payroll-structure-save" busy={busy} onClose={onClose} onSave={onSave} />
@@ -1875,7 +1883,7 @@ function StructureBuilderDialog({
 }) {
   const isEditing = Boolean(form.uid || form.id);
   return (
-    <Dialog open={open} onClose={onClose} hideHeader contentClassName="w-[calc(100vw-1.5rem)] max-w-[760px] p-0 overflow-hidden">
+    <Dialog open={open} onClose={onClose} hideHeader testId="hr-payroll-structure-builder-modal" contentClassName="w-[calc(100vw-1.5rem)] max-w-[760px] p-0 overflow-hidden">
       <DialogHeader title={`${isEditing ? "Update Component" : "Add Component"}${selectedStructure?.structureName ? ` - ${selectedStructure.structureName}` : ""}`} onClose={onClose} />
       <div style={dialogBody}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1899,6 +1907,8 @@ function StructureBuilderDialog({
         <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
           {form.calculationType === "FIXED_AMOUNT" && (
             <TextField
+              id="hr-payroll-structure-builder-default-amount"
+              testId="hr-payroll-structure-builder-default-amount"
               label="Default Amount"
               type="number"
               value={form.defaultAmount ?? ""}
@@ -1955,7 +1965,7 @@ function StructureBuilderDialog({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ToggleRow label="Mandatory" checked={form.isMandatory} onChange={(value) => onChange({ ...form, isMandatory: value })} />
-            <ToggleRow label="Employee Override" checked={form.allowEmployeeOverride} onChange={(value) => onChange({ ...form, allowEmployeeOverride: value })} />
+            <ToggleRow testId="hr-payroll-structure-builder-employee-override" label="Employee Override" checked={form.allowEmployeeOverride} onChange={(value) => onChange({ ...form, allowEmployeeOverride: value })} />
             <ToggleRow label="ESI Eligible" checked={form.isEsiEligible ?? true} onChange={(value) => onChange({ ...form, isEsiEligible: value })} />
           </div>
         </div>

@@ -84,7 +84,27 @@ function useCrud<T extends { uid?: string; id?: string }>(
     finally { if (!silent) setLoading(false); }
   }, [api, enabled, endpoint, options.filters, options.schema, options.search, page, pageSize]);
   useEffect(() => { void load(); }, [load]);
-  const create = useCallback(async (payload: Record<string, unknown>) => { await api.post(endpoint, payload); await load(true); }, [api, endpoint, load]);
+  const create = useCallback(async (payload: Record<string, unknown>) => {
+    const response = await api.post<unknown>(endpoint, payload);
+    const responseRecord = response && typeof response === "object" && !Array.isArray(response)
+      ? response as Record<string, unknown>
+      : null;
+    const nestedRecord = responseRecord?.data && typeof responseRecord.data === "object" && !Array.isArray(responseRecord.data)
+      ? responseRecord.data as Record<string, unknown>
+      : null;
+    const createdRecord = nestedRecord ?? responseRecord;
+    const createdUid = createdRecord?.uid ?? createdRecord?.id;
+
+    if (createdRecord && createdUid) {
+      const created = withId<T>(createdRecord);
+      setData((current) => [created, ...current.filter((item) => item.id !== created.id)].slice(0, pageSize));
+      setTotalElements((current) => current + (current === 0 || !data.some((item) => item.id === created.id) ? 1 : 0));
+      return created;
+    }
+
+    await load(true);
+    return null;
+  }, [api, data, endpoint, load, pageSize]);
   const update = useCallback(async (uid: string, payload: Record<string, unknown>) => { await api.put(`${endpoint}/${uid}`, payload); await load(true); }, [api, endpoint, load]);
   const remove = useCallback(async (uid: string) => { await api.del(`${endpoint}/${uid}`); await load(true); }, [api, endpoint, load]);
   return { data, loading, error, reload: load, create, update, remove, totalElements, totalPages };

@@ -91,7 +91,7 @@ function ErrBar({ text }: { text: string }) {
   );
 }
 
-function Modal({ title, onClose, children, footer, fullScreen }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode; fullScreen?: boolean }) {
+function Modal({ title, onClose, children, footer, fullScreen, testId }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode; fullScreen?: boolean; testId?: string }) {
   const titleId = useId();
   const customBoxStyle: CSSProperties = fullScreen
     ? { ...modalBox, maxWidth: "96vw", width: "95vw", height: "90vh", maxHeight: "90vh", display: "flex", flexDirection: "column" }
@@ -101,6 +101,7 @@ function Modal({ title, onClose, children, footer, fullScreen }: { title: string
     <div style={overlay} onClick={onClose}>
       <div
         role="dialog"
+        data-testid={testId}
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
@@ -493,8 +494,8 @@ export default function OrgStructure() {
   const [lvl, setLvl] = useState({ levelNo: "", label: "" });
 
   const [amOpen, setAmOpen] = useState(false);
-  const [amSearch, setAmSearch] = useState("");
   const [am, setAm] = useState({ managerEmployeeUids: [] as string[], locationUid: "" });
+  const assignEmployeeOptions = usePagedEmployeeOptions({ enabled: amOpen });
 
   const [trOpen, setTrOpen] = useState(false);
   const [tr, setTr] = useState({ employeeUid: "", toLocationUid: "", toDepartmentUid: "", toShiftUid: "", toManagerUid: "", effectiveDate: "", reason: "" });
@@ -520,15 +521,7 @@ export default function OrgStructure() {
     }, `Department ${nextStatus.toLowerCase()} successfully.`);
   };
 
-  const assignableEmployees = useMemo(() => {
-    const query = amSearch.trim().toLowerCase();
-    if (!query) return employees;
-    return employees.filter((employee) =>
-      [employee.name, employee.employeeId, employee.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    );
-  }, [amSearch, employees]);
+  const assignableEmployees = assignEmployeeOptions.data;
 
   const positionColumns = useMemo<ColumnDef<(typeof positions.data)[number]>[]>(() => [
     {
@@ -559,6 +552,8 @@ export default function OrgStructure() {
       render: (row) => (
         <div className="flex items-center justify-end gap-2">
           <Button
+            id={`hr-org-position-edit-${row.id}`}
+            data-testid={`hr-org-position-edit-${row.id}`}
             variant="ghost"
             size="icon"
             onClick={() => {
@@ -606,6 +601,8 @@ export default function OrgStructure() {
       render: (row) => (
         <div className="flex items-center justify-end gap-2">
           <Button
+            id={`hr-org-level-edit-${row.id}`}
+            data-testid={`hr-org-level-edit-${row.id}`}
             variant="ghost"
             size="icon"
             onClick={() => {
@@ -842,6 +839,8 @@ export default function OrgStructure() {
                                <td className="px-4 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <Button
+                                    id={`hr-org-department-edit-${department.id}`}
+                                    data-testid={`hr-org-department-edit-${department.id}`}
                                     variant="ghost"
                                     size="icon"
                                     disabled={busy}
@@ -1129,7 +1128,7 @@ export default function OrgStructure() {
                               <Button id={`hr-org-branch-assign-${branch.id}`} data-testid={`hr-org-branch-assign-${branch.id}`} size="sm" onClick={(event) => {
                                 event.stopPropagation();
                                 setAm({ managerEmployeeUids: [], locationUid: branch.id });
-                                setAmSearch("");
+                                assignEmployeeOptions.onSearchChange("");
                                 setAmOpen(true);
                               }}>
                                 Assign Employee
@@ -1220,7 +1219,7 @@ export default function OrgStructure() {
                         </div>
                         <Button size="sm" onClick={() => {
                           setAm({ managerEmployeeUids: [], locationUid: branch.id });
-                          setAmSearch("");
+                          assignEmployeeOptions.onSearchChange("");
                           setAmOpen(true);
                         }}>
                           Assign Employee
@@ -1285,7 +1284,7 @@ export default function OrgStructure() {
             label="Seats allocated per role across branches, departments, and shifts."
             action={
               <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
-                <Button icon={<Plus size={15} />} onClick={() => { setPosEditing(null); setPos({ designationUid: "", departmentUid: "", locationUid: "", sanctionedCount: "" }); setPosOpen(true); }}>
+                <Button id="hr-org-position-add" data-testid="hr-org-position-add" icon={<Plus size={15} />} onClick={() => { setPosEditing(null); setPos({ designationUid: "", departmentUid: "", locationUid: "", sanctionedCount: "" }); setPosOpen(true); }}>
                   Allocate Headcount
                 </Button>
                 <div className="ml-auto shrink-0">
@@ -1395,6 +1394,7 @@ export default function OrgStructure() {
             ) : levelsView === "table" ? (
               <div className="overflow-hidden rounded-[12px] border border-[#d7e3f1] bg-white">
                 <DataTable
+                  data-testid="hr-org-level"
                   data={levels.data}
                   columns={levelColumns}
                   getRowId={(row) => row.id}
@@ -1421,16 +1421,17 @@ export default function OrgStructure() {
                     description="Hierarchy level labels will appear here once they are configured."
                   />
                 ) : levels.data.map((l) => (
+                  <div key={l.id} data-testid={`hr-org-level-card-${l.id}`}>
                   <MobileCard
-                    key={l.id}
                     title={<span style={{ color: TEAL }}>L{l.levelNo}</span>}
                     rows={[{ label: "Label", value: l.label || "-" }]}
                     footer={
                       <>
-                        <Button variant="ghost" size="icon" disabled={busy} onClick={() => { setLvlEditing(l.id); setLvl({ levelNo: String(l.levelNo ?? ""), label: l.label || "" }); setLvlOpen(true); }}><Pencil size={15} /></Button>
+                        <Button id={`hr-org-level-card-edit-${l.id}`} data-testid={`hr-org-level-card-edit-${l.id}`} variant="ghost" size="icon" disabled={busy} onClick={() => { setLvlEditing(l.id); setLvl({ levelNo: String(l.levelNo ?? ""), label: l.label || "" }); setLvlOpen(true); }}><Pencil size={15} /></Button>
                       </>
                     }
                   />
+                  </div>
                 ))}
               </div>
             )}
@@ -1628,6 +1629,7 @@ export default function OrgStructure() {
 
       {depOpen && (
         <Modal
+          testId="hr-org-department-modal"
           title={depEditing ? "Edit Department" : "Add Department"}
           onClose={() => setDepOpen(false)}
           footer={
@@ -1695,6 +1697,7 @@ export default function OrgStructure() {
 
       {lvlOpen && (
         <Modal
+          testId="hr-org-level-modal"
           title={lvlEditing ? "Edit Level" : "Add Level"}
           onClose={() => setLvlOpen(false)}
           footer={
@@ -1717,6 +1720,7 @@ export default function OrgStructure() {
       {amOpen && (
         <Modal
           title="Assign Employees to Branch"
+          testId="hr-org-assign-modal"
           onClose={() => !busy && setAmOpen(false)}
           footer={
             <>
@@ -1752,12 +1756,16 @@ export default function OrgStructure() {
           <Input
             id="hr-org-assign-search"
             data-testid="hr-org-assign-search"
-            value={amSearch}
-            onChange={(event) => setAmSearch(event.target.value)}
+            value={assignEmployeeOptions.searchValue}
+            onChange={(event) => assignEmployeeOptions.onSearchChange(event.target.value)}
             placeholder="Search by name, ID or email"
           />
           <div className="max-h-[320px] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
-            {assignableEmployees.length === 0 ? (
+            {assignEmployeeOptions.loading && assignableEmployees.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                Loading employees...
+              </div>
+            ) : assignableEmployees.length === 0 ? (
               <div className="px-3 py-8 text-center text-sm text-[var(--color-text-secondary)]">
                 No employees found.
               </div>

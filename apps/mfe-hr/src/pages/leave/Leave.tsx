@@ -216,6 +216,11 @@ export default function Leave() {
       });
       setForm({ employeeUid: "", leaveTypeUid: "", type: "", startDate: "", endDate: "", isHalfDay: false, reason: "" });
       setApplyOpen(false);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Leave application submitted",
+        message: `${leaveTypeName || "Leave"} application was submitted successfully.`,
+      });
     } catch (e) {
       captureError(e instanceof Error ? e : new Error("Leave apply failed"), { employeeUid: form.employeeUid });
       const errorMessage = e instanceof Error ? e.message : "Failed to submit.";
@@ -246,9 +251,17 @@ export default function Leave() {
         type: selected.type,
       });
       setSelected(null); setRemarks("");
+      const success = action === "APPROVE"
+        ? { title: "Leave approved", message: "The leave request was approved successfully." }
+        : action === "APPROVE_AS_LOSS_OF_PAY"
+          ? { title: "Leave approved as loss of pay", message: "The leave request was approved as loss of pay." }
+          : { title: "Leave rejected", message: "The leave request was rejected successfully." };
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "success", ...success });
     } catch (e) {
       captureError(e instanceof Error ? e : new Error("Leave status update failed"), { leaveId: selected.id });
-      setApprovalError(e instanceof Error ? e.message : "Action failed.");
+      const message = e instanceof Error ? e.message : "Action failed.";
+      setApprovalError(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave action failed", message });
     }
     finally { setActing(false); }
   };

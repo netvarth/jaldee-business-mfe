@@ -60,7 +60,7 @@ export class MFEErrorBoundary extends React.Component<Props, State> {
             {productLabel} encountered an unexpected error. Your data is safe.
           </p>
           <div className="mt-6 flex gap-3">
-            <Button onClick={() => window.location.reload()}>Reload page</Button>
+            <Button id="hr-error-reload" data-testid="hr-error-reload" onClick={() => window.location.reload()}>Reload page</Button>
             <Button variant="ghost" onClick={() => window.history.back()}>
               Go back
             </Button>

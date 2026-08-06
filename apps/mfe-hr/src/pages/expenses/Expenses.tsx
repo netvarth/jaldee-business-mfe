@@ -266,7 +266,20 @@ export default function Expenses() {
       await expenses.create(payload);
       setForm({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
       setAddOpen(false);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Failed to submit."); }
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Expense claim submitted",
+        message: "The expense claim was submitted successfully.",
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to submit.";
+      setMsg(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Expense claim submission failed",
+        message,
+      });
+    }
     finally { setSaving(false); }
   };
 
@@ -277,7 +290,17 @@ export default function Expenses() {
       if (kind === "approve") await expenses.approve(selected.id);
       else await expenses.update(selected.id, { status: kind === "reject" ? "Rejected" : "Reimbursed" });
       setSelected(null);
-    } catch (e) { setMsg(e instanceof Error ? e.message : "Action failed."); }
+      const success = kind === "approve"
+        ? { title: "Expense claim approved", message: "The expense claim was approved successfully." }
+        : kind === "reject"
+          ? { title: "Expense claim declined", message: "The expense claim was declined successfully." }
+          : { title: "Expense reimbursed", message: "The expense claim was marked as reimbursed." };
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "success", ...success });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Action failed.";
+      setMsg(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Expense action failed", message });
+    }
     finally { setActing(false); }
   };
 

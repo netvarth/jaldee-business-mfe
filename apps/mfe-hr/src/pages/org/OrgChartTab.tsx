@@ -155,10 +155,10 @@ export default function OrgChartTab() {
     <div style={{ height: "100%" }}>
 
       <div className="org-chart-toolbar" style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-        <div className="org-chart-search" style={{ position: "relative", width: 320, maxWidth: "100%" }}>
+        <div data-testid="hr-org-chart-search" className="org-chart-search" style={{ position: "relative", width: 320, maxWidth: "100%" }}>
           <Input placeholder="Search name, designation, department, ID…" value={q} onChange={(e) => setQ(e.target.value)} icon={<Search size={16} />} />
         </div>
-        <button className="org-chart-expand-button" onClick={expandedAll ? collapseAll : expandAll} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", fontWeight: 800, fontSize: 12, cursor: "pointer", color: "var(--dark-text)" }}>
+        <button id="hr-org-chart-expand-toggle" data-testid="hr-org-chart-expand-toggle" className="org-chart-expand-button" onClick={expandedAll ? collapseAll : expandAll} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", fontWeight: 800, fontSize: 12, cursor: "pointer", color: "var(--dark-text)" }}>
           {expandedAll ? "Collapse all" : "Expand all"}
         </button>
         <div className="org-chart-stats" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

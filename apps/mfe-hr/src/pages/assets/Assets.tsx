@@ -13,6 +13,7 @@ import { useAssetSearchSchema } from "../../services/useAssetSearchSchema";
 import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useShellErrorToast } from "../../services/useShellFeedback";
 import { usePagedDepartments } from "../../services/usePagedSettingsOptions";
+import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 
 /**
  * W9 / R9.1 - asset register: create/edit assets, allocate to an employee
@@ -69,6 +70,7 @@ function formatHistoryDateTime(value?: string | null) {
 }
 
 export default function Assets() {
+  const { eventBus } = useMFEProps();
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -129,10 +131,17 @@ export default function Assets() {
     [advancedFilters, assetSearchSchema]
   );
 
-  const act = async (fn: () => Promise<void>) => {
+  const act = async (fn: () => Promise<void>, success?: { title: string; message: string }) => {
     setBusy(true);
     setMsg(null);
-    try { await fn(); } catch (error) { setMsg(error instanceof Error ? error.message : "Action failed."); }
+    try {
+      await fn();
+      if (success) eventBus?.emit(SHELL_TOAST_EVENT, { intent: "success", ...success });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Action failed.";
+      setMsg(message);
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Asset action failed", message });
+    }
     finally { setBusy(false); }
   };
 
@@ -197,6 +206,9 @@ export default function Assets() {
     if (editing) await assets.update(editing.id, payload);
     else await assets.create(payload);
     setFormOpen(false);
+  }, {
+    title: editing ? "Asset updated" : "Asset registered",
+    message: editing ? `${form.name.trim()} was updated successfully.` : `${form.name.trim()} was registered successfully.`,
   });
 
   const openHistory = async (asset: Asset) => {
@@ -334,7 +346,7 @@ export default function Assets() {
       <PageHeader
         title="Assets"
         subtitle="Registry, allocation & returns - coordinated with Accounts"
-        actions={<Button onClick={openAdd} icon={<Plus size={16} />}>Register Asset</Button>}
+        actions={<Button id="hr-assets-register-open" data-testid="hr-assets-register-open" onClick={openAdd} icon={<Plus size={16} />}>Register Asset</Button>}
       />
 
       {(assets.error || msg) && (
@@ -663,7 +675,7 @@ export default function Assets() {
           <div style={{ padding: "0 24px 20px" }}>
             <DialogFooter>
               <Button id="hr-assets-allocate-cancel" data-testid="hr-assets-allocate-cancel" variant="secondary" onClick={() => setAllocFor(null)}>Cancel</Button>
-              <Button id="hr-assets-allocate-save" data-testid="hr-assets-allocate-save" disabled={busy || !allocEmp} loading={busy} onClick={() => act(async () => { await assets.allocate(allocFor.id, allocEmp, allocCond); setAllocFor(null); })}>Allocate</Button>
+              <Button id="hr-assets-allocate-save" data-testid="hr-assets-allocate-save" disabled={busy || !allocEmp} loading={busy} onClick={() => act(async () => { await assets.allocate(allocFor.id, allocEmp, allocCond); setAllocFor(null); }, { title: "Asset allocated", message: `${allocFor.name} was allocated successfully.` })}>Allocate</Button>
             </DialogFooter>
           </div>
         </Dialog>
@@ -752,6 +764,9 @@ export default function Assets() {
                   setReturnStatus("Available");
                   setReturnRemarks("");
                   setReturnFiles([]);
+                }, {
+                  title: "Asset status updated",
+                  message: `${returnFor.name} was updated to ${returnStatus === "UnderRepair" ? "Under Repair" : returnStatus}.`,
                 })}
               >
                 Save Status
@@ -854,7 +869,7 @@ export default function Assets() {
               void act(async () => {
                 await assets.confirmRepair(asset.id);
                 setRepairFor(null);
-              });
+              }, { title: "Repair completed", message: `${asset.name} is now available.` });
             }}
           >
             Confirm Repair

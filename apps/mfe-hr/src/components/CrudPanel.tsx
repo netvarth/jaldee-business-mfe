@@ -66,11 +66,11 @@ export function buildPayload(fields: Field[], form: Row): Row {
   return out;
 }
 
-export function FieldInput({ f, value, onChange }: { f: Field; value: unknown; onChange: (v: unknown) => void }) {
+export function FieldInput({ f, value, onChange, testId }: { f: Field; value: unknown; onChange: (v: unknown) => void; testId?: string }) {
   if (f.type === "checkbox") {
     return (
       <div style={{ height: 44, display: "flex", alignItems: "center" }}>
-        <Checkbox label={f.label} checked={!!value} onCheckedChange={(v) => onChange(v as boolean)} />
+        <Checkbox id={testId} data-testid={testId} label={f.label} checked={!!value} onCheckedChange={(v) => onChange(v as boolean)} />
       </div>
     );
   }
@@ -82,6 +82,8 @@ export function FieldInput({ f, value, onChange }: { f: Field; value: unknown; o
     );
     return (
       <Combobox
+        id={testId}
+        data-testid={testId}
         value={(value as string) ?? ""}
         onValueChange={onChange}
         options={options}
@@ -101,7 +103,7 @@ export function FieldInput({ f, value, onChange }: { f: Field; value: unknown; o
       }
       return { value: String(o), label: String(o) };
     });
-    return <Select value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} options={[{value:"",label:"—"}, ...opts]} />;
+    return <Select id={testId} testId={testId} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} options={[{value:"",label:"—"}, ...opts]} />;
   }
   if (f.type === "multiselect") {
     const selected = toList(value);
@@ -116,13 +118,13 @@ export function FieldInput({ f, value, onChange }: { f: Field; value: unknown; o
     );
   }
   if (f.type === "textarea") {
-    return <Textarea value={(value as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} rows={4} />;
+    return <Textarea id={testId} data-testid={testId} value={(value as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} rows={4} />;
   }
   if (f.type === "color") {
     return <div style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="color" value={(value as string) || "#115E59"} onChange={(e) => onChange(e.target.value)} style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--border-color)", padding: 2, background: "var(--surface-bg)" }} /><Input value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="#115E59" /></div>;
   }
   const tv = f.type === "time" && typeof value === "string" ? value.slice(0, 5) : value;
-  return <Input type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"} value={(tv as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} />;
+  return <Input id={testId} data-testid={testId} type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"} value={(tv as string) ?? ""} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} />;
 }
 
 /* ---- Google Places location picker ---- */
@@ -326,7 +328,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           width: 116,
           render: (row: Row & { id: string }) => (
             <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
+              <Button id={`${resolvedAutomationScope}-edit-${row.id}`} data-testid={`${resolvedAutomationScope}-edit-${row.id}`} variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
               {statusToggle ? (() => {
                 const enabled = statusToggle.isEnabled(row);
                 const action = enabled ? "disable" : "enable";
@@ -384,7 +386,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
   const showCardView = viewMode === "cards" && typeof cardTitle === "function" && typeof cardRows === "function";
   const actionNode = (
     <div className="flex w-full items-center justify-between gap-3 flex-wrap sm:w-auto sm:justify-end" style={{ minHeight: 44 }}>
-      {!readOnly ? <Button onClick={openAdd} icon={<Plus size={16} />}>{addLabel}</Button> : null}
+      {!readOnly ? <Button id={`${resolvedAutomationScope}-add`} data-testid={`${resolvedAutomationScope}-add`} onClick={openAdd} icon={<Plus size={16} />}>{addLabel}</Button> : null}
       {/* Filter option hidden for now
       {searchSchema && onFilterClausesChange ? (
         <Button
@@ -444,7 +446,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           ) : (
             <div className={cardGridClassName ?? "grid gap-3 p-[14px]"}>
               {hook.data.map((row) => (
-                <div key={row.id} style={{ border: "1px solid var(--border-color)", borderRadius: 18, padding: 16, background: "var(--surface-bg)", display: "grid", gap: 12 }}>
+                <div key={row.id} data-testid={`${resolvedAutomationScope}-card-${row.id}`} style={{ border: "1px solid var(--border-color)", borderRadius: 18, padding: 16, background: "var(--surface-bg)", display: "grid", gap: 12 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "var(--dark-text)" }}>{cardTitle(row)}</div>
                   <div style={{ display: "grid", gap: 10 }}>
                     {cardRows(row).map((item) => (
@@ -456,7 +458,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
                   </div>
                   {!readOnly ? (
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
+                      <Button id={`${resolvedAutomationScope}-card-edit-${row.id}`} data-testid={`${resolvedAutomationScope}-card-edit-${row.id}`} variant="ghost" size="icon" onClick={() => openEdit(row)} title="Edit"><Pencil size={15} /></Button>
                       {statusToggle ? (() => {
                         const enabled = statusToggle.isEnabled(row);
                         const action = enabled ? "disable" : "enable";
@@ -487,6 +489,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           )
         ) : (
           <DataTable
+            data-testid={resolvedAutomationScope}
             data={hook.data as Array<Row & { id: string }>}
             columns={tableColumns}
             getRowId={(row) => row.id}
@@ -524,7 +527,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
 
       {open && (
         <div className="max-[520px]:!p-0" style={overlay} onClick={() => setOpen(false)}>
-          <div className="max-[520px]:!h-[100dvh] max-[520px]:!max-h-none max-[520px]:!max-w-none max-[520px]:!rounded-none max-[520px]:flex max-[520px]:flex-col" onClick={(e) => e.stopPropagation()} style={modalBox}>
+          <div data-testid={`${resolvedAutomationScope}-modal`} className="max-[520px]:!h-[100dvh] max-[520px]:!max-h-none max-[520px]:!max-w-none max-[520px]:!rounded-none max-[520px]:flex max-[520px]:flex-col" onClick={(e) => e.stopPropagation()} style={modalBox}>
             <div className="max-[520px]:!px-4 max-[520px]:!py-4" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
                <h3 style={{ fontSize: 18, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>{editing ? "Edit" : addLabel}</h3>
               <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" }}><X size={20} /></button>
@@ -543,16 +546,16 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
                 </div>
               )}
               {fields.map((f) => (
-                <div key={f.key} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
+                <div key={f.key} data-testid={`${resolvedAutomationScope}-field-${f.key}`} style={{ gridColumn: f.full ? "1 / -1" : undefined }}>
                   {f.type !== "checkbox" && <label style={{ ...lbl, display: "block", marginBottom: 6 }}>{f.label}</label>}
-                  <FieldInput f={f} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
+                  <FieldInput f={f} testId={`${resolvedAutomationScope}-field-${f.key}-control`} value={form[f.key]} onChange={(v) => setForm((p) => ({ ...p, [f.key]: v }))} />
                 </div>
               ))}
             </div>
             {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
             <div className="max-[520px]:!px-4 max-[520px]:[&>button]:flex-1" style={{ padding: "18px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={save} disabled={saving} loading={saving} icon={!saving && <Save size={16} />}>{editing ? "Update" : "Create"}</Button>
+              <Button id={`${resolvedAutomationScope}-cancel`} data-testid={`${resolvedAutomationScope}-cancel`} variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button id={`${resolvedAutomationScope}-save`} data-testid={`${resolvedAutomationScope}-save`} onClick={save} disabled={saving} loading={saving} icon={!saving && <Save size={16} />}>{editing ? "Update" : "Create"}</Button>
             </div>
           </div>
         </div>

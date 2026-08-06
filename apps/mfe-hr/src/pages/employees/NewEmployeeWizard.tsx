@@ -244,7 +244,7 @@ export default function NewEmployeeWizard() {
                       <div className="employee-personal-pair">
                         <div className="form-group">
                           <label>PAN Number</label>
-                          <input type="text" placeholder="ABCDE1234F" style={{ textTransform: "uppercase" }} value={personal.pan} onChange={(e) => setPersonal(p => ({ ...p, pan: e.target.value.toUpperCase() }))} />
+                          <input id="hr-new-employee-pan" data-testid="hr-new-employee-pan" type="text" placeholder="ABCDE1234F" style={{ textTransform: "uppercase" }} value={personal.pan} onChange={(e) => setPersonal(p => ({ ...p, pan: e.target.value.toUpperCase() }))} />
                         </div>
                         <div className="form-group">
                           <label>UAN</label>

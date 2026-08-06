@@ -76,6 +76,17 @@ function withId(r: Record<string, unknown>): DocumentRequest {
   return { ...(r as object), id: String(uid ?? ""), uid } as DocumentRequest;
 }
 
+function unwrapDocumentRequest(response: unknown): DocumentRequest | null {
+  let value = response;
+  for (let index = 0; index < 3; index += 1) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    if (record.uid != null || record.id != null) return withId(record);
+    value = record.data;
+  }
+  return null;
+}
+
 export function useDocumentRequests(
   employeeUid?: string,
   filterClauses: SearchFilterClause[] = EMPTY_SEARCH_FILTERS,
@@ -121,13 +132,18 @@ export function useDocumentRequests(
   }, [api, employeeUid, load]);
 
   const create = useCallback(async (payload: DocumentRequestPayload) => {
-    await api.post("/document-requests", {
+    const response = await api.post<unknown>("/document-requests", {
       employeeUid,
       status: "REQUESTED",
       ...payload,
     });
+    const created = unwrapDocumentRequest(response);
     await load();
-  }, [api, employeeUid, load]);
+    if (created?.id) {
+      setData((current) => [created, ...current.filter((item) => item.id !== created.id)].slice(0, pageSize));
+      setTotalElements((current) => Math.max(current, 1));
+    }
+  }, [api, employeeUid, load, pageSize]);
 
   const setStatus = useCallback(async (uid: string, status: string) => {
     await api.put(`/document-requests/${uid}`, { status });

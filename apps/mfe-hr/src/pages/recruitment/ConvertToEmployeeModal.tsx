@@ -134,10 +134,10 @@ export function ConvertToEmployeeModal({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} title="Convert to Employee" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Dialog open={isOpen} onClose={onClose} title="Convert to Employee" size="lg" testId="hr-recruitment-convert-dialog">
+      <form data-testid="hr-recruitment-convert-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div data-testid="hr-recruitment-convert-error" className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -149,6 +149,8 @@ export function ConvertToEmployeeModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
+            id="hr-recruitment-convert-employee-id"
+            data-testid="hr-recruitment-convert-employee-id"
             label="Employee ID"
             required
             value={form.employeeId}
@@ -160,7 +162,7 @@ export function ConvertToEmployeeModal({
         <Input label="Full Name" required value={form.name} onChange={set("name")} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Email" type="email" value={form.email} onChange={set("email")} />
+          <Input id="hr-recruitment-convert-email" data-testid="hr-recruitment-convert-email" label="Email" type="email" required value={form.email} onChange={set("email")} />
           <PhoneInput
             label="Contact Number"
             required
@@ -199,6 +201,8 @@ export function ConvertToEmployeeModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
+            id="hr-recruitment-convert-location"
+            testId="hr-recruitment-convert-location"
             label="Work Location"
             required
             options={branchOptions}
@@ -219,7 +223,7 @@ export function ConvertToEmployeeModal({
           <Button variant="outline" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit" loading={loading}>
+          <Button data-testid="hr-recruitment-convert-submit" variant="primary" type="submit" loading={loading}>
             Convert to Employee
           </Button>
         </DialogFooter>

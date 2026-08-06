@@ -294,7 +294,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
   };
 
   return (
-    <Dialog open onClose={onClose} title={initial.uid ? "Edit rule" : "New rule"} size="lg">
+    <Dialog open onClose={onClose} title={initial.uid ? "Edit rule" : "New rule"} size="lg" testId="hr-settings-policy-rules-modal">
       <form onSubmit={submit} className="space-y-4">
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
 
@@ -304,10 +304,10 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
         <div className="rounded-lg border border-gray-200 p-4">
           <div className="text-xs font-bold uppercase tracking-wide text-violet-700 mb-3">When</div>
           <div className="grid grid-cols-3 gap-3">
-            <Select label="Condition" options={d.conditions.map((c) => ({ value: c.type, label: c.label }))}
+            <Select id="hr-settings-policy-rules-condition" testId="hr-settings-policy-rules-condition" label="Condition" options={d.conditions.map((c) => ({ value: c.type, label: c.label }))}
               value={r.conditionType} onChange={(e) => onConditionChange(e.target.value)} />
             {cond && cond.valueType !== "none" && cond.valueType !== "boolean" && (
-              <Select label="Operator" options={(cond.operators ?? [">"]).map((o) => ({ value: o, label: o }))}
+              <Select id="hr-settings-policy-rules-operator" testId="hr-settings-policy-rules-operator" label="Operator" options={(cond.operators ?? [">"]).map((o) => ({ value: o, label: o }))}
                 value={r.operator ?? ">"} onChange={(e) => set("operator", e.target.value as Operator)} />
             )}
             {cond && cond.valueType === "number" && (
@@ -317,7 +317,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
               <Input label="Value" value={r.conditionValue ?? ""} onChange={(e) => set("conditionValue", e.target.value)} />
             )}
             {cond && cond.valueType === "select" && (
-              <Select label="Value" options={cond.options ?? []} value={r.conditionValue ?? ""} onChange={(e) => set("conditionValue", e.target.value)} />
+              <Select id="hr-settings-policy-rules-value" testId="hr-settings-policy-rules-value" label="Value" options={cond.options ?? []} value={r.conditionValue ?? ""} onChange={(e) => set("conditionValue", e.target.value)} />
             )}
             {cond && cond.valueType === "boolean" && (
               <Select label="Value" options={[{ value: "true", label: "Yes" }, { value: "false", label: "No" }]} value={r.conditionValue ?? "true"} onChange={(e) => set("conditionValue", e.target.value)} />
@@ -331,7 +331,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
             Then{cond?.phase ? <span className="ml-2 font-normal normal-case text-gray-400">Â· {cond.phase === "PUNCH" ? "punch-time" : "reconciliation"} actions only</span> : null}
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Select label="Action" options={validActions.map((a) => ({ value: a.type, label: a.label }))}
+            <Select id="hr-settings-policy-rules-action" testId="hr-settings-policy-rules-action" label="Action" options={validActions.map((a) => ({ value: a.type, label: a.label }))}
               value={r.actionType} onChange={(e) => set("actionType", e.target.value)} />
             {(act?.params ?? []).map((p) => (
               p.valueType === "select" ? (
@@ -367,7 +367,7 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
 
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" type="submit" loading={busy}>Save rule</Button>
+          <Button id="hr-settings-policy-rules-save" data-testid="hr-settings-policy-rules-save" variant="primary" type="submit" loading={busy}>Save rule</Button>
         </DialogFooter>
       </form>
     </Dialog>

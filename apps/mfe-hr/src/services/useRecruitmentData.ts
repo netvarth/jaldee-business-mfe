@@ -409,7 +409,7 @@ export function useApplications(options?: { autoload?: boolean }) {
 
   /**
    * Convert a hired candidate into an employee. The backend requires a valid
-   * CreateEmployeeRequest body (employeeId, contactNumber, locationUid are
+   * CreateEmployeeRequest body (employeeId, email, contactNumber, locationUid are
    * mandatory); it creates the employee, moves the application to HIRED and
    * decrements the requisition openings in one transaction.
    */

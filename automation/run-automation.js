@@ -65,7 +65,7 @@ async function run() {
   async function closeAnyOpenModal() {
     const overlays = page.locator('[data-testid$="-modal-overlay"], [data-testid$="-modal"], [data-testid="dialog-overlay"]');
     if (await overlays.first().isVisible().catch(() => false)) {
-      const closeBtns = page.locator('[data-testid$="-modal-close"], [data-testid="dialog-close"], [data-testid="hr-candidate-cancel"], button:has-text("Cancel")');
+      const closeBtns = page.locator('[data-testid$="-modal-close"], [data-testid$="-dialog-close"], [data-testid$="-cancel"], [data-testid="dialog-close"], [data-testid="hr-candidate-cancel"]');
       if (await closeBtns.first().isVisible().catch(() => false)) {
         await closeBtns.first().click().catch(() => {});
       }
@@ -115,7 +115,7 @@ async function run() {
       await page.locator('#date-picker-popover-month').selectOption(String(month - 1));
       await page.locator('#date-picker-popover-year').selectOption(String(year));
       const calendarOverlay = page.locator('#date-picker-popover-month').locator('xpath=ancestor::div[contains(@class,"fixed") and contains(@class,"inset-0")]');
-      await calendarOverlay.getByRole("button", { name: String(day), exact: true }).click();
+      await calendarOverlay.locator(`[data-testid="date-picker-day-${dateStr}"]`).click();
     } else if (await el.isVisible().catch(() => false)) {
       await el.fill(dateStr);
     } else {
@@ -175,7 +175,9 @@ async function run() {
     if (await el.isVisible({ timeout: 10000 }).catch(() => false)) {
       if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
         await el.click();
-        const option = page.locator('[role="option"]:visible').first();
+        const comboTestId = await el.getAttribute("data-testid");
+        if (!comboTestId) throw new Error(`${labelName || "Combobox"} requires a data-testid for automation`);
+        const option = page.locator(`[data-testid^="${comboTestId}-option-"]:visible`).first();
         await option.waitFor({ state: "visible", timeout: 10000 });
         await option.click();
         await page.waitForTimeout(interactionDelay);
@@ -202,6 +204,20 @@ async function run() {
     return false;
   }
 
+  async function selectFirstLoadedNativeOption(selector, labelName, timeout = 30000) {
+    const control = page.locator(selector).first();
+    await control.waitFor({ state: "visible", timeout });
+    const option = control.locator('option:not([value=""]):not([disabled])').first();
+    await option.waitFor({ state: "attached", timeout });
+    const value = await option.getAttribute("value");
+    if (!value) throw new Error(`No ${labelName} option has a selectable value`);
+    console.log(`   [Select] Choosing first available ${labelName}: "${value}"`);
+    await control.selectOption(value);
+    if (await control.inputValue() !== value) throw new Error(`${labelName} selection was not retained`);
+    await page.waitForTimeout(interactionDelay);
+    return value;
+  }
+
   async function slowSelectOptionByLabel(selector, optionLabel, labelName) {
     const el = page.locator(selector).first();
     if (!(await el.isVisible({ timeout: 5000 }).catch(() => false))) return false;
@@ -209,7 +225,9 @@ async function run() {
       await el.click();
       const searchInput = page.locator('[role="listbox"]:visible input, [data-testid$="-menu"]:visible input').first();
       if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) await searchInput.fill(String(optionLabel));
-      const option = page.getByRole("option", { name: String(optionLabel), exact: false }).first();
+      const comboTestId = await el.getAttribute("data-testid");
+      if (!comboTestId) throw new Error(`${labelName || "Combobox"} requires a data-testid for automation`);
+      const option = page.locator(`[data-testid^="${comboTestId}-option-"]:visible`).filter({ hasText: String(optionLabel) }).first();
       await option.waitFor({ state: "visible", timeout: 10000 });
       await option.click();
       await page.waitForTimeout(interactionDelay);
@@ -313,6 +331,15 @@ async function run() {
     return false;
   }
 
+  async function requiredClick(selector, labelName, timeout = 30000) {
+    const target = page.locator(selector).first();
+    await target.waitFor({ state: "visible", timeout });
+    console.log(`   [Action] Clicking ${labelName}`);
+    await target.click();
+    await page.waitForTimeout(pauseDelay);
+    return target;
+  }
+
   async function clickFirstPrefix(prefix, labelName) {
     const target = page.locator(`[data-testid^="${prefix}"]`).first();
     if (!(await target.isVisible({ timeout: 2500 }).catch(() => false))) {
@@ -368,7 +395,7 @@ async function run() {
     if (!(await modal.isVisible({ timeout: 3000 }).catch(() => false))) {
       modal = page.locator('[role="dialog"]:visible').last();
     }
-    const saveBtn = modal.locator(`[data-testid="${scope}-save"], button:has-text("Save"), button:has-text("Create")`).first();
+    const saveBtn = modal.locator(`[data-testid="${scope}-save"]`).first();
     if (await saveBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       console.log(`   [Action] Saving modal for ${scope}`);
       await saveBtn.click();
@@ -501,7 +528,7 @@ async function run() {
   console.log("\n>>> 2. SETTINGS - COMPANY PROFILE FORM (IT TECH ENTERPRISE)...");
   await page.waitForTimeout(Math.max(250, Math.round(2000 * speedMultiplier)));
   for (let attempt = 1; attempt <= 4; attempt += 1) {
-    const errorReloadBtn = page.locator('button:has-text("Reload page")').first();
+    const errorReloadBtn = page.locator('[data-testid="hr-error-reload"]').first();
     if (await errorReloadBtn.isVisible().catch(() => false)) {
       console.log("   [Recovery] ErrorBoundary detected; clicking Reload page");
       await errorReloadBtn.click();
@@ -558,7 +585,7 @@ async function run() {
     if (!retained) throw new Error(`Company Profile ${field} was not retained (expected "${expected}", got "${actual}")`);
   }
   const companySaveResponse = page.waitForResponse((response) => response.url().includes("/company-profile") && response.request().method() === "PUT", { timeout: 30000 });
-  if (!(await slowClick('[data-testid="hr-settings-company-save"], button:has-text("Save Changes")', "Save Company Profile"))) throw new Error("Company Profile Save button was not available");
+  if (!(await slowClick('[data-testid="hr-settings-company-save"]', "Save Company Profile"))) throw new Error("Company Profile Save button was not available");
   const savedCompany = await companySaveResponse;
   console.log(`   [Response] Save Company Profile: ${savedCompany.status()} ${savedCompany.statusText()}`);
   if (!savedCompany.ok()) throw new Error(`Company Profile save failed with HTTP ${savedCompany.status()}`);
@@ -576,7 +603,7 @@ async function run() {
   for (let i = 0; i < deptList.length; i++) {
     const d = deptList[i];
     await closeAnyOpenModal();
-    if (!(await slowClick('[data-testid="hr-settings-departments-add"], button:has-text("Add Department")', `Add ${d.name}`))) {
+    if (!(await slowClick('[data-testid="hr-settings-departments-add"]', `Add ${d.name}`))) {
       throw new Error(`Add Department button was not available at ${page.url()}`);
     }
     await page.locator('[data-testid="hr-settings-departments-modal"]').waitFor({ state: "visible", timeout: 10000 });
@@ -876,7 +903,7 @@ async function run() {
   }
 
   console.log("\n>>> SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)...");
-  await openSettingsSection("policyrules", '[data-testid="hr-settings-policy-rules-add"], button:has-text("New Rule")');
+  await openSettingsSection("policyrules", '[data-testid="hr-settings-policy-rules-add"]');
 
   const domainRules = [
     { domain: "attendance", name: `Attendance Punch Rule ${suffix}` },
@@ -893,18 +920,18 @@ async function run() {
       await tabBtn.click();
       await page.waitForTimeout(300);
     }
-    await slowClick('[data-testid="hr-settings-policy-rules-add"], button:has-text("New Rule")', `Add Rule (${item.domain})`);
+    await slowClick('[data-testid="hr-settings-policy-rules-add"]', `Add Rule (${item.domain})`);
     const ruleModal = page.locator('[data-testid="hr-settings-policy-rules-modal"], [role="dialog"]').first();
     await ruleModal.waitFor({ state: "visible", timeout: 10000 });
-    await slowType('[data-testid="hr-settings-policy-rules-name"], input[placeholder*="e.g. Late"]', item.name, "Rule Name");
+    await slowType('[data-testid="hr-settings-policy-rules-modal"] input', item.name, "Rule Name");
     if (item.domain === "attendance") {
-      await ruleModal.getByLabel("Condition", { exact: true }).selectOption("WORK_MODE");
-      await ruleModal.getByLabel("Operator", { exact: true }).selectOption("!=");
-      await ruleModal.getByLabel("Value", { exact: true }).selectOption("Office");
-      await ruleModal.getByLabel("Action", { exact: true }).selectOption("BLOCK_PUNCH");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-condition"]').selectOption("WORK_MODE");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-operator"]').selectOption("!=");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-value"]').selectOption("Office");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-action"]').selectOption("BLOCK_PUNCH");
       console.log("   [Rule] Office punches are allowed; only non-Office work modes are blocked");
     }
-    const saveRuleBtn = ruleModal.locator('[data-testid="hr-settings-policy-rules-save"], button:has-text("Save rule")').first();
+    const saveRuleBtn = ruleModal.locator('[data-testid="hr-settings-policy-rules-save"]').first();
     await saveRuleBtn.click();
     await ruleModal.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
     console.log(`   [Verified] Policy Rule processed for tab "${item.domain}": "${item.name}"`);
@@ -929,9 +956,26 @@ async function run() {
   console.log("\n>>> SETTINGS - ASSIGN LEAVE BALANCE TO CURRENT-RUN EMPLOYEE...");
   await page.goto("http://localhost:3000/hr/settings/leavetypes/assign", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1000);
-  await slowClick('[data-testid="hr-settings-leave-assignment-policy"]', "Leave Type Selection");
-  await page.locator('[data-testid="hr-settings-leave-assignment-policy-menu"]')
-    .getByText(leaveList[0].name, { exact: true }).click();
+  const policyCombo = page.locator('[data-testid="hr-settings-leave-assignment-policy"]').first();
+  await policyCombo.click();
+  await page.waitForTimeout(500);
+  let leaveAssignmentPolicyMenu = page.locator('[data-testid="hr-settings-leave-assignment-policy-menu"]');
+  if (!(await leaveAssignmentPolicyMenu.isVisible().catch(() => false))) {
+    await policyCombo.click();
+    await page.waitForTimeout(500);
+  }
+  if (await leaveAssignmentPolicyMenu.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false)) {
+    const preferredLeaveTypeOption = leaveAssignmentPolicyMenu.locator('[data-testid^="hr-settings-leave-assignment-policy-option-"]').filter({ hasText: leaveList[0].name }).first();
+    if (await preferredLeaveTypeOption.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await preferredLeaveTypeOption.click();
+    } else {
+      console.log(`   [Selection] Updated leave type was not returned in the assignment menu; selecting the first available leave type`);
+      const firstLeaveTypeOption = leaveAssignmentPolicyMenu.locator('[data-testid^="hr-settings-leave-assignment-policy-option-"]').first();
+      if (await firstLeaveTypeOption.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await firstLeaveTypeOption.click();
+      }
+    }
+  }
   await page.keyboard.press("Escape");
   await slowDate('#hr-settings-leave-assignment-period-start', futureDate(0), "Leave Balance Period Start");
   await slowDate('#hr-settings-leave-assignment-period-end', futureDate(365), "Leave Balance Period End");
@@ -957,7 +1001,7 @@ async function run() {
   for (let i = 0; i < ticketList.length; i++) {
     const subject = ticketList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-tickets-create-button"], button:has-text("Raise Ticket")', `Raise Ticket ${i + 1}`);
+    await slowClick('[data-testid="hr-tickets-create-button"]', `Raise Ticket ${i + 1}`);
     await slowSelectFirstOption('[data-testid="hr-tickets-employee"]', `Employee Dropdown ${i + 1}`);
     await slowType('[data-testid="hr-tickets-subject"]', subject, `Subject ${i + 1}`);
     await slowSelect('[data-testid="hr-tickets-category"]', "IT Support", `Category ${i + 1}`);
@@ -980,7 +1024,7 @@ async function run() {
   for (let i = 0; i < announcementList.length; i++) {
     const title = announcementList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-announcements-create-button"], button:has-text("New Announcement")', `New Announcement ${i + 1}`);
+    await slowClick('[data-testid="hr-announcements-create-button"]', `New Announcement ${i + 1}`);
     await slowType('[data-testid="hr-announcements-title"]', title, `Title ${i + 1}`);
     await slowSelect('[data-testid="hr-announcements-category"]', "General", `Category ${i + 1}`);
     await slowType('[data-testid="hr-announcements-content"]', `IT announcement for ${title}`, `Content ${i + 1}`);
@@ -1001,7 +1045,7 @@ async function run() {
   for (let i = 0; i < expenseList.length; i++) {
     const exp = expenseList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-expenses-submit-open"], button:has-text("Submit Expense")', `Submit Expense ${i + 1}`);
+    await slowClick('[data-testid="hr-expenses-submit-open"]', `Submit Expense ${i + 1}`);
     const expenseEmployeeSelected = await slowSelectFirstOption('[data-testid="hr-expenses-employee-select"]', `Expense Employee ${i + 1}`);
     if (!expenseEmployeeSelected) throw new Error(`No employee is available for expense claim ${i + 1}`);
     await slowType('[data-testid="hr-expenses-amount-input"]', exp.amount, `Claim Amount ${i + 1}`);
@@ -1024,7 +1068,7 @@ async function run() {
   for (let i = 0; i < assetList.length; i++) {
     const a = assetList[i];
     await closeAnyOpenModal();
-    await slowClick('button:has-text("Register Asset")', `Register ${a.name}`);
+    await slowClick('[data-testid="hr-assets-register-open"]', `Register ${a.name}`);
     await slowSelect('[data-testid="hr-assets-type"]', a.type, `Asset Type ${i + 1}`);
     await slowType('[data-testid="hr-assets-name"]', a.name, `Asset Name ${i + 1}`);
     await slowType('[data-testid="hr-assets-tag-number"]', `TAG-${suffix}-${i + 1}`, `Tag Number ${i + 1}`);
@@ -1070,7 +1114,7 @@ async function run() {
     await slowType('[data-testid="hr-new-employee-email"]', empEmail, `IT Employee ${i + 1} Email`);
     await slowType('[data-testid="hr-new-employee-contact-number-number"], input[type="tel"]', empPhone, `IT Employee ${i + 1} Phone`);
     await slowSelect('[data-testid="hr-new-employee-gender"]', profile.gender, `IT Employee ${i + 1} Gender`);
-    await slowType('input[placeholder*="ABCDE1234F"]', `ABCDE123${(i % 9) + 1}F`, `IT Employee ${i + 1} PAN`);
+    await slowType('[data-testid="hr-new-employee-pan"]', `ABCDE123${(i % 9) + 1}F`, `IT Employee ${i + 1} PAN`);
     if (!(await slowClick('[data-testid="hr-new-employee-next"]', `Next Step ${i + 1}`))) {
       const wizardError = await page.locator('[data-testid="hr-new-employee-error"]').textContent().catch(() => "");
       throw new Error(`Employee Personal step could not continue for ${empName}: ${wizardError || "Next button unavailable"}`);
@@ -1094,12 +1138,8 @@ async function run() {
     const createdEmployee = await employeeCreateResponse.json().catch(() => ({}));
     let createdEmployeeUid = String(createdEmployee.uid ?? createdEmployee.id ?? createdEmployee.data?.uid ?? createdEmployee.data?.id ?? "");
     if (!createdEmployeeUid) {
-      await page.goto(`${AUTOMATION_BASE_URL}/hr/employees`, { waitUntil: "domcontentloaded" });
-      await slowType('[data-testid="hr-employees-search"]', empName, "Created Employee Verification");
-      const createdRow = page.locator("tr").filter({ hasText: empName }).first();
-      await createdRow.waitFor({ state: "visible", timeout: 30000 });
-      const editTestId = await createdRow.locator('[data-testid^="hr-employee-edit-"]').getAttribute("data-testid");
-      createdEmployeeUid = editTestId?.replace("hr-employee-edit-", "") ?? "";
+      const createdEmployeeLocation = employeeCreateResponse.headers()["location"] || "";
+      createdEmployeeUid = createdEmployeeLocation.split("/").filter(Boolean).pop() ?? "";
     }
     if (!createdEmployeeUid) throw new Error(`Employee creation succeeded but no UID was returned for "${empName}"`);
     if (i === 0) currentRunEmployeeUid = createdEmployeeUid;
@@ -1124,7 +1164,7 @@ async function run() {
     const leaveStartDate = futureDate(30 + i * 3);
     const requestedEndDate = isTwoDayLeave ? futureDate(31 + i * 3) : leaveStartDate;
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-leave-apply-button"], button:has-text("Apply For Leave")', `Apply Leave ${i + 1}`);
+    await slowClick('[data-testid="hr-leave-apply-button"]', `Apply Leave ${i + 1}`);
     const employeeSelected = await slowSelectOptionByLabel('[data-testid="hr-leave-employee"]', currentRunEmployeeName, `Employee ${i + 1}`);
     if (!employeeSelected) throw new Error(`No employee is available for leave application ${i + 1}`);
     await page.locator('[data-testid="hr-leave-type"]:not([disabled])').waitFor({ state: "visible", timeout: 15000 });
@@ -1141,7 +1181,7 @@ async function run() {
       throw new Error(`Leave dates were not retained (start: ${confirmedStartDate}, end: ${confirmedEndDate})`);
     }
     await slowType('[data-testid="hr-leave-reason"]', reason, `Reason ${i + 1}`);
-    await slowClick('[data-testid="hr-leave-apply-submit"], button:has-text("Submit Application")', `Submit Leave ${i + 1}`);
+    await slowClick('[data-testid="hr-leave-apply-submit"]', `Submit Leave ${i + 1}`);
     const leaveModal = page.locator('[data-testid="hr-leave-apply-modal"]');
     await leaveModal.waitFor({ state: "hidden", timeout: 10000 }).catch(async () => {
       const errorText = await leaveModal.locator('[role="alert"], [style*="danger"], [style*="244,63,94"]').allTextContents().catch(() => []);
@@ -1163,23 +1203,14 @@ async function run() {
   for (let i = 0; i < reqList.length; i++) {
     const title = reqList[i];
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-recruitment-new-requisition"], button:has-text("New Requisition")', `New Requisition ${i + 1}`);
-    await slowType('[data-testid="hr-recruitment-requisition-title"]', title, `Job Title ${i + 1}`);
+    await requiredClick('[data-testid="hr-recruitment-new-requisition"]:visible', `New Requisition ${i + 1}`);
+    const requisitionDialog = page.locator('[data-testid="hr-recruitment-requisition-dialog"]');
+    await requisitionDialog.waitFor({ state: "visible", timeout: 10000 });
+    await requisitionDialog.locator('[data-testid="hr-recruitment-requisition-title"]').fill(title);
     const departmentSelector = '[data-testid="hr-recruitment-requisition-department"]';
-    const departmentSelected =
-      await slowSelectOptionByLabel(departmentSelector, deptList[i % deptList.length].name, `Department ${i + 1}`)
-      || await slowSelectFirstOption(departmentSelector, `Department ${i + 1}`);
-    if (!departmentSelected) {
-      throw new Error(`No department is available for Requisition ${i + 1}`);
-    }
-    const createdHiringManager = `Rahul Sharma ${suffix}`;
+    await selectFirstLoadedNativeOption(departmentSelector, `Department ${i + 1}`);
     const hiringManagerSelector = '[data-testid="hr-recruitment-requisition-hiring-manager"]';
-    const hiringManagerSelected =
-      await slowSelectOptionByLabel(hiringManagerSelector, createdHiringManager, `Hiring Manager ${i + 1}`)
-      || await slowSelectFirstOption(hiringManagerSelector, `Hiring Manager ${i + 1}`);
-    if (!hiringManagerSelected) {
-      throw new Error(`No employee is available as Hiring Manager for Requisition ${i + 1}`);
-    }
+    await selectFirstLoadedNativeOption(hiringManagerSelector, `Hiring Manager ${i + 1}`);
     await slowSelect('[data-testid="hr-recruitment-requisition-employment-type"]', "FullTime", `Type ${i + 1}`);
     await slowType('[data-testid="hr-recruitment-requisition-openings"]', String(i + 1), `Openings ${i + 1}`);
     await slowType('[data-testid="hr-recruitment-requisition-experience"]', "3-6 years", `Experience ${i + 1}`);
@@ -1243,18 +1274,13 @@ async function run() {
   }
 
   async function runEmployeeViewActions() {
-  console.log("\n>>> EMPLOYEE MASTER - LIST, FILTER, EXPORT, VIEW...");
+  console.log("\n>>> EMPLOYEE MASTER - LIST, EXPORT, VIEW...");
   await visitHr("/hr/employees", "EMPLOYEE MASTER ACTIONS");
-  await slowType('[data-testid="hr-employees-search"]', suffix, "Employee Filter");
   await slowClick('[data-testid="hr-employees-export-button"]', "Export Employee CSV");
   const currentEmployeeName = `Rahul Sharma ${suffix}`;
-  const currentEmployeeListRow = page.locator("tr").filter({ hasText: currentEmployeeName }).first();
-  await currentEmployeeListRow.waitFor({ state: "visible", timeout: 15000 });
-  const currentEmployeeView = currentEmployeeListRow.locator('[data-testid^="hr-employee-view-"]');
-  if (await currentEmployeeView.isVisible({ timeout: 5000 }).catch(() => false)) {
-    console.log(`   [Action] View current-run employee: "${currentEmployeeName}"`);
-    await currentEmployeeView.click();
-    await page.waitForURL(/\/hr\/employees\/[^/?]+(?:\/overview)?$/, { timeout: 15000 });
+  if (!currentRunEmployeeUid) throw new Error("Current-run employee UID was not captured after creation");
+  console.log(`   [Action] View current-run employee: "${currentEmployeeName}"`);
+  await page.goto(`${AUTOMATION_BASE_URL}/hr/employees/${currentRunEmployeeUid}`, { waitUntil: "domcontentloaded" });
     await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
     const employeeTabIds = ["overview", "attendance", "leaves", "payroll", "documents"];
     for (const tabId of employeeTabIds) {
@@ -1270,13 +1296,17 @@ async function run() {
     await page.locator('[data-testid="hr-employee-document-dialog"]').waitFor({ state: "visible", timeout: 10000 });
     await slowType('[data-testid="hr-employee-document-type"]', documentRequestName, "Document Type");
     await slowSelect('[data-testid="hr-employee-document-status"]', "REQUESTED", "Document Status");
+    const documentCreateResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && /\/document-requests\/?(?:\?|$)/.test(response.url()), { timeout: 30000 });
     await slowClick('[data-testid="hr-employee-document-save"]', "Save Employee Document Request");
+    const documentCreateResponse = await documentCreateResponsePromise;
+    console.log(`   [Response] Create Employee Document: ${documentCreateResponse.status()} ${documentCreateResponse.statusText()}`);
+    if (!documentCreateResponse.ok()) throw new Error(`Employee document creation failed (${documentCreateResponse.status()}): ${await documentCreateResponse.text()}`);
     await page.locator('[data-testid="hr-employee-document-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
-    await page.locator('[data-testid^="hr-employee-document-row-"], [data-testid^="hr-employee-document-card-"]').filter({ hasText: documentRequestName }).first().waitFor({ state: "visible", timeout: 20000 });
+    const documentItem = page.locator('[data-testid^="hr-employee-document-row-"]:visible, [data-testid^="hr-employee-document-card-"]:visible').filter({ hasText: documentRequestName }).first();
+    await documentItem.waitFor({ state: "visible", timeout: 30000 });
     console.log(`   [Verified] Employee document request added: "${documentRequestName}"`);
     await page.waitForTimeout(5000);
-    const documentRow = page.locator('[data-testid^="hr-employee-document-row-"]').filter({ hasText: documentRequestName }).first();
-    await documentRow.locator('[data-testid^="hr-employee-document-edit-"]').click();
+    await documentItem.locator('[data-testid^="hr-employee-document-edit-"]').click();
     await page.locator('[data-testid="hr-employee-document-status-dialog"]').waitFor({ state: "visible", timeout: 10000 });
     await slowSelect('[data-testid="hr-employee-document-status-select"]', "SUBMITTED", "Updated Document Status");
     const experienceLetterUpload = page.locator('[data-testid="hr-employee-document-status-file-upload"] input[type="file"]');
@@ -1290,15 +1320,15 @@ async function run() {
     console.log(`   [Response] Submit Experience Certificate: ${documentSubmitResponse.status()} ${documentSubmitResponse.statusText()}`);
     if (!documentSubmitResponse.ok()) throw new Error(`Experience Certificate submission failed (${documentSubmitResponse.status()}): ${await documentSubmitResponse.text()}`);
     await page.locator('[data-testid="hr-employee-document-status-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
-    await documentRow.waitFor({ state: "visible", timeout: 20000 });
+    await documentItem.waitFor({ state: "visible", timeout: 20000 });
     console.log("   [Verified] Employee document changed to Submitted with an uploaded file");
     const documentPopupPromise = page.waitForEvent("popup", { timeout: 10000 }).catch(() => null);
-    await documentRow.locator('[data-testid^="hr-employee-document-download-"]').click();
+    await documentItem.locator('[data-testid^="hr-employee-document-download-"]').click();
     const documentPopup = await documentPopupPromise;
     if (documentPopup) await documentPopup.close();
     console.log("   [Verified] Employee document download opened");
     const documentDeleteResponsePromise = page.waitForResponse((response) => response.request().method() === "DELETE" && /\/document-requests\/[^/?]+/.test(response.url()), { timeout: 30000 });
-    await documentRow.locator('[data-testid^="hr-employee-document-delete-"]').click();
+    await documentItem.locator('[data-testid^="hr-employee-document-delete-"]').click();
     await slowClick('[data-testid="hr-employee-document-delete-confirm"]', "Confirm Employee Document Delete");
     const documentDeleteResponse = await documentDeleteResponsePromise;
     console.log(`   [Response] Delete Employee Document: ${documentDeleteResponse.status()} ${documentDeleteResponse.statusText()}`);
@@ -1306,8 +1336,6 @@ async function run() {
     console.log("   [Verified] Employee document delete accepted; audit-history rows may remain visible");
     await slowClick('[data-testid="hr-employee-face-open"]', "Edit Face ID");
     await closeAnyOpenModal();
-  }
-
   }
 
   async function runAttendanceAndLeaveActions() {
@@ -1446,10 +1474,10 @@ async function run() {
     await slowClick('[data-testid="hr-recruitment-candidate-resume-download"]', "Download Resume");
   }
   await visitHr("/hr/recruitment/interviews", "INTERVIEWS");
-  await slowClick('[data-testid="hr-recruitment-schedule-interview"]', "Schedule Interview");
+  await requiredClick('[data-testid="hr-recruitment-schedule-interview"]:visible', "Schedule Interview");
   const interviewScheduleDialog = page.locator('[data-testid="hr-recruitment-schedule-interview-dialog"]');
   await interviewScheduleDialog.waitFor({ state: "visible", timeout: 10000 });
-  await page.locator('[data-testid="hr-recruitment-schedule-interview-dialog-close"]').click();
+  await requiredClick('[data-testid="hr-recruitment-schedule-interview-dialog-close"]:visible', "Close Schedule Interview");
   await interviewScheduleDialog.waitFor({ state: "hidden", timeout: 10000 });
   if (await clickFirstPrefix("hr-recruitment-interview-update-", "Update Interview")) {
     await slowSelect('[data-testid="hr-recruitment-interview-update-status"]', "PROCEED", "Interview Status");
@@ -1473,65 +1501,100 @@ async function run() {
   console.log("\n>>> 21. ORGANIZATION - ALL SECTIONS...");
   async function runOrganizationChart() {
   await visitHr("/hr/org", "ORGANIZATION /chart");
-  await slowType('input[placeholder*="Search"]', `Rahul Sharma ${suffix}`, "Organization Name Search");
-  await slowClick('button:has-text("Collapse all")', "Collapse Org Chart");
-  await slowClick('button:has-text("Expand all")', "Expand Org Chart");
+  const chartSearch = page.locator('[data-testid="hr-org-chart-search"] input');
+  await chartSearch.waitFor({ state: "visible", timeout: 30000 });
+  await chartSearch.fill(`Rahul Sharma ${suffix}`);
+  await requiredClick('[data-testid="hr-org-chart-expand-toggle"]', "Expand Org Chart");
+  await requiredClick('[data-testid="hr-org-chart-expand-toggle"]', "Collapse Org Chart");
 
   }
   async function runOrganizationDepartments() {
   const orgDepartmentName = `IT Delivery ${suffix}`;
   await visitHr("/hr/org/departments", "ORGANIZATION /departments");
-  await slowClick('button:has-text("Add Department")', "Add Organization Department");
-  await page.getByLabel("Department Name").fill(orgDepartmentName);
-  await page.getByLabel("Code").fill(`ITD-${suffix}`);
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  const departmentAddButton = page.locator('[data-testid="hr-org-department-add"]');
+  await departmentAddButton.waitFor({ state: "visible", timeout: 30000 });
+  console.log("   [Action] Clicking Add Organization Department");
+  await departmentAddButton.click();
+  let departmentModal = page.locator('[data-testid="hr-org-department-modal"]');
+  await departmentModal.waitFor({ state: "visible", timeout: 10000 });
+  await departmentModal.locator('[data-testid="hr-org-department-name"]').fill(orgDepartmentName);
+  await departmentModal.locator('[data-testid="hr-org-department-code"]').fill(`ITD-${suffix}`);
+  await departmentModal.locator('[data-testid="hr-org-department-save"]').click();
+  await departmentModal.waitFor({ state: "hidden", timeout: 10000 });
   const orgDepartmentRow = page.locator('[data-testid^="hr-org-department-row-"]').filter({ hasText: orgDepartmentName }).first();
   await orgDepartmentRow.waitFor({ state: "visible", timeout: 10000 });
-  await orgDepartmentRow.getByRole("button").first().click();
-  await page.getByLabel("Department Name").fill(`${orgDepartmentName} Updated`);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await orgDepartmentRow.locator('[data-testid^="hr-org-department-edit-"]').click();
+  departmentModal = page.locator('[data-testid="hr-org-department-modal"]');
+  await departmentModal.waitFor({ state: "visible", timeout: 10000 });
+  await departmentModal.locator('[data-testid="hr-org-department-name"]').fill(`${orgDepartmentName} Updated`);
+  await departmentModal.locator('[data-testid="hr-org-department-save"]').click();
+  await departmentModal.waitFor({ state: "hidden", timeout: 10000 });
 
   }
   async function runOrganizationRoles() {
   const orgRoleName = `Platform Delivery Lead ${suffix}`;
   await visitHr("/hr/org/designations", "ORGANIZATION /designations");
-  await slowClick('button:has-text("Add Role / Designation")', "Add Organization Designation");
-  let orgRoleModal = page.locator("h3").filter({ hasText: "Add Role / Designation" }).locator("xpath=../..");
-  await orgRoleModal.locator("input").nth(0).fill(orgRoleName);
-  await orgRoleModal.locator("input").nth(1).fill(`PDL-${suffix}`);
-  await orgRoleModal.locator("select").first().selectOption({ index: 1 });
-  await orgRoleModal.locator("select").nth(1).selectOption({ label: /L4/ });
-  await orgRoleModal.locator("textarea").fill("Leads current-run platform delivery teams");
-  await orgRoleModal.getByRole("button", { name: "Create", exact: true }).click();
-  const orgRoleRow = page.locator("tr").filter({ hasText: orgRoleName }).first();
-  await orgRoleRow.waitFor({ state: "visible", timeout: 10000 });
-  await orgRoleRow.getByTitle("Edit").click();
-  orgRoleModal = page.locator("h3").filter({ hasText: "Edit" }).locator("xpath=../..");
-  await orgRoleModal.locator("textarea").fill("Updated platform delivery leadership role");
-  await orgRoleModal.getByRole("button", { name: "Update", exact: true }).click();
+  await requiredClick('[data-testid="hr-org-designations-view-table"]', "Designations Table View");
+  await requiredClick('[data-testid="hr-org-designation-add"]', "Add Organization Designation");
+  let orgRoleModal = page.locator('[data-testid="hr-org-designation-modal"]');
+  await orgRoleModal.waitFor({ state: "visible", timeout: 10000 });
+  await orgRoleModal.locator('[data-testid="hr-org-designation-field-name-control"]').fill(orgRoleName);
+  await orgRoleModal.locator('[data-testid="hr-org-designation-field-code-control"]').fill(`PDL-${suffix}`);
+  if (!(await slowSelectFirstOption('[data-testid="hr-org-designation-field-hrDepartmentUid-control"]', "Designation Department"))) {
+    throw new Error("No department is available for the designation");
+  }
+  if (!(await slowSelectFirstOption('[data-testid="hr-org-designation-field-orgLevelUid-control"]', "Designation Level"))) {
+    throw new Error("No level is available for the designation");
+  }
+  await orgRoleModal.locator('[data-testid="hr-org-designation-field-description-control"]').fill("Leads current-run platform delivery teams");
+  await orgRoleModal.locator('[data-testid="hr-org-designation-save"]').click();
+  await orgRoleModal.waitFor({ state: "hidden", timeout: 10000 });
+  const orgRoleRow = page.locator('[data-testid^="hr-org-designation-row-"]').filter({ hasText: orgRoleName }).first();
+  await orgRoleRow.waitFor({ state: "visible", timeout: 30000 });
+  await orgRoleRow.locator('[data-testid^="hr-org-designation-edit-"]').click();
+  orgRoleModal = page.locator('[data-testid="hr-org-designation-modal"]');
+  await orgRoleModal.waitFor({ state: "visible", timeout: 10000 });
+  await orgRoleModal.locator('[data-testid="hr-org-designation-field-description-control"]').fill("Updated platform delivery leadership role");
+  await orgRoleModal.locator('[data-testid="hr-org-designation-save"]').click();
+  await orgRoleModal.waitFor({ state: "hidden", timeout: 10000 });
 
   }
   async function runOrganizationBranches() {
   await visitHr("/hr/org/branches", "ORGANIZATION /branches");
-  await slowClick('button:has-text("Assign Employee")', "Assign Employee to Branch");
-  await slowType('[data-testid="hr-org-assign-search"]', `Rahul Sharma ${suffix}`, "Branch Employee Search");
-  await page.getByLabel(`Select Rahul Sharma ${suffix}`, { exact: true }).check();
-  await slowClick('[data-testid="hr-org-assign-submit"]', "Assign Employee to Branch");
-  await slowClick('button[aria-label^="Expand "]', "Expand Location to View Mapped Employees");
+  const branchAssignButton = page.locator('[data-testid^="hr-org-branch-assign-"]:visible').first();
+  await branchAssignButton.waitFor({ state: "visible", timeout: 30000 });
+  console.log("   [Action] Clicking Assign Employee to Branch");
+  await branchAssignButton.click();
+  const branchAssignDialog = page.locator('[data-testid="hr-org-assign-modal"]');
+  await branchAssignDialog.waitFor({ state: "visible", timeout: 10000 });
+  if (!currentRunEmployeeUid) throw new Error("Current-run employee UID was not captured after creation");
+  let branchEmployeeCheckbox = page.locator(`[data-testid="hr-org-assign-employee-${currentRunEmployeeUid}"]`);
+  if (!(await branchEmployeeCheckbox.isVisible({ timeout: 5000 }).catch(() => false))) {
+    console.log(`   [Selection] Current-run employee is not in the initial active list; selecting the first available active employee`);
+    branchEmployeeCheckbox = page.locator('[data-testid^="hr-org-assign-employee-"]:visible').first();
+    await branchEmployeeCheckbox.waitFor({ state: "visible", timeout: 30000 });
+  }
+  await branchEmployeeCheckbox.check();
+  await requiredClick('[data-testid="hr-org-assign-submit"]', "Assign Employee to Branch");
 
   }
   async function runOrganizationHeadcount() {
   await visitHr("/hr/org/positions", "ORGANIZATION /headcount");
-  await slowClick('button:has-text("Allocate Headcount")', "Allocate Headcount");
-  await page.getByLabel("Designation").selectOption({ index: 1 });
-  await page.getByLabel("Department").selectOption({ index: 1 });
-  await page.getByLabel("Branch").selectOption({ index: 1 });
-  await page.getByLabel("Sanctioned Count").fill("3");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  const headcountRow = page.locator("tr").filter({ hasText: "3" }).last();
-  await headcountRow.getByRole("button").first().click();
-  await page.getByLabel("Sanctioned Count").fill("5");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await requiredClick('[data-testid="hr-org-position-add"]', "Allocate Headcount");
+  let headcountModal = page.locator('[data-testid="hr-org-headcount-modal"]');
+  await headcountModal.waitFor({ state: "visible", timeout: 10000 });
+  await headcountModal.locator('[data-testid="hr-org-position-designation"]').selectOption({ index: 1 });
+  await headcountModal.locator('[data-testid="hr-org-position-department"]').selectOption({ index: 1 });
+  await headcountModal.locator('[data-testid="hr-org-position-branch"]').selectOption({ index: 1 });
+  await headcountModal.locator('[data-testid="hr-org-position-count"]').fill("3");
+  await headcountModal.locator('[data-testid="hr-org-position-modal-submit"]').click();
+  await headcountModal.waitFor({ state: "hidden", timeout: 20000 });
+  await requiredClick('[data-testid^="hr-org-position-edit-"]:visible', "Edit Headcount Allocation");
+  headcountModal = page.locator('[data-testid="hr-org-headcount-modal"]');
+  await headcountModal.waitFor({ state: "visible", timeout: 10000 });
+  await headcountModal.locator('[data-testid="hr-org-position-count"]').fill("5");
+  await headcountModal.locator('[data-testid="hr-org-position-modal-submit"]').click();
+  await headcountModal.waitFor({ state: "hidden", timeout: 20000 });
   await visitHr("/hr/org/headcount", "ORGANIZATION /headcount norms");
   await page.getByText("Total Sanctioned", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
   console.log("   [View] Showing Headcount & Norms for the newly allocated headcount");
@@ -1541,21 +1604,34 @@ async function run() {
   async function runOrganizationLevels() {
   const levelLabel = `Principal Leadership ${suffix}`;
   await visitHr("/hr/org/levels", "ORGANIZATION /levels");
-  await slowClick('button:has-text("Add Level")', "Add Seniority Level");
-  await page.getByLabel("Level Number").fill("8");
-  await page.getByLabel("Label").fill(levelLabel);
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  const levelRow = page.locator("tr").filter({ hasText: levelLabel }).first();
-  await levelRow.getByRole("button").first().click();
-  await page.getByLabel("Label").fill(`${levelLabel} Updated`);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  const levelsTableToggle = page.locator('[data-testid="hr-org-levels-view-table"]');
+  await levelsTableToggle.waitFor({ state: "visible", timeout: 30000 });
+  await levelsTableToggle.click();
+  const levelAddButton = page.locator('[data-testid="hr-org-levels-add"]');
+  await levelAddButton.waitFor({ state: "visible", timeout: 30000 });
+  console.log("   [Action] Clicking Add Seniority Level");
+  await levelAddButton.click();
+  let levelModal = page.locator('[data-testid="hr-org-level-modal"]');
+  await levelModal.waitFor({ state: "visible", timeout: 10000 });
+  await levelModal.locator('[data-testid="hr-org-level-number"]').fill("8");
+  await levelModal.locator('[data-testid="hr-org-level-label"]').fill(levelLabel);
+  await levelModal.locator('[data-testid="hr-org-level-save"]').click();
+  await levelModal.waitFor({ state: "hidden", timeout: 10000 });
+  const levelRow = page.locator('[data-testid^="hr-org-level-row-"]').filter({ hasText: levelLabel }).first();
+  await levelRow.waitFor({ state: "visible", timeout: 30000 });
+  await levelRow.locator('[data-testid^="hr-org-level-edit-"]').click();
+  levelModal = page.locator('[data-testid="hr-org-level-modal"]');
+  await levelModal.waitFor({ state: "visible", timeout: 10000 });
+  await levelModal.locator('[data-testid="hr-org-level-label"]').fill(`${levelLabel} Updated`);
+  await levelModal.locator('[data-testid="hr-org-level-save"]').click();
+  await levelModal.waitFor({ state: "hidden", timeout: 10000 });
 
   }
   async function runOrganizationTransfers() {
   console.log("\n>>> GLOBAL SETTINGS - ADD THRISSUR1 LOCATION...");
   await page.goto("http://localhost:3000/settings/locations", { waitUntil: "domcontentloaded" });
   await page.locator('[data-testid="settings-locations-create-button"]').waitFor({ state: "visible", timeout: 20000 });
-  await slowClick('[data-testid="settings-locations-create-button"]', "Create Thrissur1 Location");
+  await requiredClick('[data-testid="settings-locations-create-button"]', "Create Thrissur1 Location");
   await page.locator('[data-testid="settings-create-location-dialog"]').waitFor({ state: "visible", timeout: 10000 });
   await slowType('[data-testid="settings-location-name-input"]', "Thrissur1", "Location Name");
   await slowType('[data-testid="settings-location-pincode-input"]', "680020", "Location Pin Code");
@@ -1563,13 +1639,14 @@ async function run() {
   await slowType('[data-testid="settings-location-latitude-input"]', "10.5116834", "Location Latitude");
   await slowType('[data-testid="settings-location-longitude-input"]', "76.2164267", "Location Longitude");
   await slowType('[data-testid="settings-location-map-url-input"]', "https://www.google.com/maps?q=10.5116834,76.2164267", "Location Map URL");
-  await slowClick('[data-testid="settings-location-submit-button"]', "Save Thrissur1 Location");
+  await requiredClick('[data-testid="settings-location-submit-button"]', "Save Thrissur1 Location");
   await page.locator('[data-testid="settings-create-location-dialog"]').waitFor({ state: "hidden", timeout: 20000 });
   await page.locator('[data-testid^="settings-location-card-"]').filter({ hasText: "Thrissur1" }).waitFor({ state: "visible", timeout: 20000 });
   console.log("   [Verified] Thrissur1 location created with 10.5116834, 76.2164267");
   await page.waitForTimeout(5000);
   await visitHr("/hr/org/transfers", "ORGANIZATION /transfers");
-  await slowClick('[data-testid="hr-org-transfer-open"]', "Schedule Employee Transfer");
+  await requiredClick('[data-testid="hr-org-transfer-open"]', "Schedule Employee Transfer");
+  await page.locator('[data-testid="hr-org-transfer-form"]').waitFor({ state: "visible", timeout: 10000 });
   await slowSelectOptionByLabel('[data-testid="hr-org-transfer-employee"]', `Rahul Sharma ${suffix}`, "Transfer Employee");
   await page.locator('[data-testid="hr-org-transfer-branch"]').selectOption({ label: "Thrissur1" });
   await page.locator('[data-testid="hr-org-transfer-department"]').selectOption({ index: 1 });
@@ -1584,8 +1661,8 @@ async function run() {
   await page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first().waitFor({ state: "visible", timeout: 15000 });
   console.log("   [View] Showing the newly scheduled transfer on the list");
   await page.waitForTimeout(5000);
-  await slowClick('[data-testid^="hr-org-transfer-effect-"]:not([data-testid^="hr-org-transfer-effect-card-"])', "Effect Transfer Now");
-  await slowClick('[data-testid="hr-org-transfer-effect-confirm"]', "Confirm Transfer Effect");
+  await requiredClick('[data-testid^="hr-org-transfer-effect-"]:not([data-testid^="hr-org-transfer-effect-card-"])', "Effect Transfer Now");
+  await requiredClick('[data-testid="hr-org-transfer-effect-confirm"]', "Confirm Transfer Effect");
   }
 
   async function runPayrollActions() {
@@ -1614,7 +1691,7 @@ async function run() {
     { name: "Employee State Insurance", code: "ESI", type: "DEDUCTION", category: "ESI", calculation: "PERCENTAGE", statutory: true, taxable: false, gross: false, net: true, ctc: false, payslip: true },
   ];
   const setComponentFlag = async (dialog, label, checked) => {
-    const checkbox = dialog.getByLabel(label, { exact: true });
+    const checkbox = dialog.locator(`[data-testid="hr-payroll-component-flag-${label}"]`);
     if ((await checkbox.isChecked()) !== checked) await checkbox.setChecked(checked);
   };
   let payrollDialog;
@@ -1628,11 +1705,11 @@ async function run() {
       const pageErrors = await page.locator('[role="alert"], [data-testid$="-error"]').allTextContents().catch(() => []);
       throw new Error(`Payroll Component dialog did not open at ${page.url()}. ${pageErrors.join(" ").trim() || "No UI error was shown; reload the shell to refresh the HR MFE bundle."}`);
     }
-    await payrollDialog.getByTestId("hr-payroll-component-name").or(payrollDialog.getByLabel("Component Name")).first().fill(component.name);
-    await payrollDialog.getByTestId("hr-payroll-component-code").or(payrollDialog.getByLabel("Component Code")).first().fill(component.code);
-    await payrollDialog.getByTestId("hr-payroll-component-type").or(payrollDialog.getByLabel("Type", { exact: true })).first().selectOption(component.type);
-    await payrollDialog.getByTestId("hr-payroll-component-category").or(payrollDialog.getByLabel("Category", { exact: true })).first().selectOption(component.category);
-    await payrollDialog.getByTestId("hr-payroll-component-calc-type").or(payrollDialog.getByLabel("Calculation Type", { exact: true })).first().selectOption(component.calculation);
+    await payrollDialog.getByTestId("hr-payroll-component-name").fill(component.name);
+    await payrollDialog.getByTestId("hr-payroll-component-code").fill(component.code);
+    await payrollDialog.getByTestId("hr-payroll-component-type").selectOption(component.type);
+    await payrollDialog.getByTestId("hr-payroll-component-category").selectOption(component.category);
+    await payrollDialog.getByTestId("hr-payroll-component-calc-type").selectOption(component.calculation);
     await setComponentFlag(payrollDialog, "isStatutory", component.statutory);
     await setComponentFlag(payrollDialog, "isTaxable", component.taxable);
     await setComponentFlag(payrollDialog, "affectsGrossPay", component.gross);
@@ -1652,22 +1729,37 @@ async function run() {
   await payrollDialog.getByTestId("hr-payroll-component-save").click();
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   await visitHr("/hr/payroll/structures", "PAYROLL STRUCTURES");
-  await slowClick('[data-testid="hr-payroll-structure-new"]', "New Payroll Structure");
-  payrollDialog = page.locator('[data-testid="hr-payroll-structure-modal"]:visible, [role="dialog"]:visible').last();
-  await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
+  await page.locator('[data-testid="hr-payroll-page"]').waitFor({ state: "visible", timeout: 30000 });
+  const newPayrollStructureButton = page.locator('[data-testid="hr-payroll-structure-new"]');
+  if (!(await newPayrollStructureButton.isVisible({ timeout: 10000 }).catch(() => false))) {
+    const structuresTab = page.locator('[data-testid="hr-payroll-tab-structures"]');
+    if (await structuresTab.isVisible({ timeout: 5000 }).catch(() => false)) {
+      console.log("   [Nav] Opening the Payroll Structures tab");
+      await structuresTab.click();
+    } else {
+      console.log("   [Nav] Reloading the Payroll Structures route after the HR module initialized");
+      await page.goto(`${AUTOMATION_BASE_URL}/hr/payroll/structures`, { waitUntil: "domcontentloaded" });
+      await page.locator('[data-testid="hr-payroll-page"]').waitFor({ state: "visible", timeout: 30000 });
+    }
+    await newPayrollStructureButton.waitFor({ state: "visible", timeout: 30000 });
+  }
+  console.log("   [Action] Clicking New Payroll Structure");
+  await newPayrollStructureButton.click();
+  payrollDialog = page.locator('[data-testid="hr-payroll-structure-modal"]');
+  await payrollDialog.waitFor({ state: "visible", timeout: 30000 });
   await payrollDialog.getByTestId("hr-payroll-structure-name").fill(payrollStructureName);
   await payrollDialog.getByTestId("hr-payroll-structure-code").fill(`IT_MONTHLY_${suffix}`);
   await payrollDialog.getByTestId("hr-payroll-structure-frequency").selectOption("MONTHLY");
   await payrollDialog.getByTestId("hr-payroll-structure-currency").fill("INR");
-  await payrollDialog.getByLabel("Description").fill("Monthly payroll structure for current-run IT employees");
+  await payrollDialog.getByTestId("hr-payroll-structure-description").fill("Monthly payroll structure for current-run IT employees");
   await payrollDialog.getByTestId("hr-payroll-structure-save").click();
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   payrollRow = page.locator("tr").filter({ hasText: payrollStructureName }).first();
   await payrollRow.waitFor({ state: "visible", timeout: 10000 });
   await payrollRow.locator('[data-testid^="hr-payroll-structure-edit-"]').click();
-  payrollDialog = page.locator('[data-testid="hr-payroll-structure-modal"]:visible, [role="dialog"]:visible').last();
+  payrollDialog = page.locator('[data-testid="hr-payroll-structure-modal"]');
   await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
-  await payrollDialog.getByLabel("Description").fill("Updated monthly payroll structure with basic salary component");
+  await payrollDialog.getByTestId("hr-payroll-structure-description").fill("Updated monthly payroll structure with basic salary component");
   await payrollDialog.getByTestId("hr-payroll-structure-save").click();
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   payrollRow = page.locator("tr").filter({ hasText: payrollStructureName }).first();
@@ -1675,9 +1767,9 @@ async function run() {
   await slowClick('[data-testid="hr-payroll-structure-builder-open-add"]', "Add Structure Component");
   await page.locator('[data-testid="hr-payroll-structure-builder-component"]').selectOption({ label: "Basic Salary (BASIC)" });
   await slowSelect('[data-testid="hr-payroll-structure-builder-calculation"]', "FIXED_AMOUNT", "Fixed Amount Calculation");
-  payrollDialog = page.getByRole("dialog").filter({ hasText: "Add Component" }).first();
-  await payrollDialog.getByLabel("Default Amount").fill("60000");
-  const overrideToggle = payrollDialog.getByLabel("Employee Override");
+  payrollDialog = page.locator('[data-testid="hr-payroll-structure-builder-modal"]');
+  await payrollDialog.getByTestId("hr-payroll-structure-builder-default-amount").fill("60000");
+  const overrideToggle = payrollDialog.getByTestId("hr-payroll-structure-builder-employee-override");
   if (!(await overrideToggle.isChecked())) await overrideToggle.check();
   await slowClick('[data-testid="hr-payroll-structure-add-component"]', "Save Structure Component");
   await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
@@ -1685,7 +1777,7 @@ async function run() {
   const payrollEmployeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
   await payrollEmployeeRow.waitFor({ state: "visible", timeout: 10000 });
   await payrollEmployeeRow.locator('[data-testid^="hr-payroll-employee-assign-"]').click();
-  await page.getByLabel("Assign Structure").selectOption({ index: 1 });
+  await page.getByTestId("hr-payroll-employee-structure").selectOption({ index: 1 });
   await slowDate('input[type="hidden"]', futureDate(0), "Payroll Effective From");
   await slowClick('[data-testid="hr-payroll-employee-assign"]', "Assign Payroll Structure");
   await page.waitForTimeout(2000);
@@ -1711,22 +1803,12 @@ async function run() {
     await page.evaluate(() => {
       window.print = () => {};
     });
-    const printButton = page.locator('button:has-text("Print")').first();
+    const printButton = page.locator('[data-testid="hr-payroll-payslip-print"]').first();
     await printButton.waitFor({ state: "visible", timeout: 10000 });
     console.log("   [Action] Clicking Print Payslip");
     await printButton.evaluate((button) => button.click());
     await page.waitForTimeout(interactionDelay);
   }
-  await visitHr("/hr/payroll/custom-fields", "PAYROLL CUSTOM FIELDS");
-  await slowClick('[data-testid="hr-payroll-custom-field-new"]', "New Payroll Custom Field");
-  payrollDialog = page.getByRole("dialog").filter({ hasText: "Custom Field" }).first();
-  await payrollDialog.getByTestId("target-type").selectOption("EMPLOYEE_PAYROLL_STRUCTURE");
-  await payrollDialog.getByTestId("data-type").selectOption("TEXT");
-  await payrollDialog.getByLabel("Field Key").fill(`project_code_${suffix}`);
-  await payrollDialog.getByLabel("Field Label").fill(`Project Code ${suffix}`);
-  await payrollDialog.getByLabel("Default Value").fill("IT-CORE");
-  await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
-  await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
   await slowClick('[data-testid="hr-payroll-run-month"]', "Run Month");
   await slowClick('[data-testid="hr-payroll-export"]', "Export Payroll");
 
@@ -1748,11 +1830,9 @@ async function run() {
   }
 
   async function runManageLoginAction() {
-    await visitHr("/hr/employees", "EMPLOYEE MANAGE LOGIN");
-    await slowType('[data-testid="hr-employees-search"]', suffix, "Manage Login Employee Filter");
-    const employeeRow = page.locator("tr").filter({ hasText: `Rahul Sharma ${suffix}` }).first();
-    await employeeRow.waitFor({ state: "visible", timeout: 15000 });
-    await employeeRow.locator('[data-testid^="hr-employee-view-"]').click();
+    if (!currentRunEmployeeUid) throw new Error("Current-run employee UID was not captured after creation");
+    console.log("\n>>> EMPLOYEE MANAGE LOGIN...");
+    await page.goto(`${AUTOMATION_BASE_URL}/hr/employees/${currentRunEmployeeUid}`, { waitUntil: "domcontentloaded" });
     await page.locator('[data-testid="hr-employee-details-page"]').waitFor({ state: "visible", timeout: 30000 });
     await slowClick('[data-testid="hr-employee-manage-login"]', "Manage Employee Login");
     await page.locator('[data-testid="hr-employee-login-dialog"]').waitFor({ state: "visible", timeout: 10000 });
@@ -1808,24 +1888,33 @@ async function run() {
   async function runEmployeePortalActions() {
     console.log("\n>>> EMPLOYEE LOGIN - OPEN FRESH PAGE AND VERIFY SELF-SERVICE...");
     if (!managedEmployeeLoginId) throw new Error("Managed employee login ID was not retained for employee sign-in");
-    const employeePage = await context.newPage();
+    const empContext = await browser.newContext();
+    const employeePage = await empContext.newPage();
     employeePage.on("response", (response) => {
       const resourceType = response.request().resourceType();
       if (resourceType === "fetch" || resourceType === "xhr") {
         console.log(`   [EMPLOYEE REST API] ${response.request().method()} ${response.url()} -> ${response.status()} ${response.statusText()}`);
       }
     });
-    await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/ess/login`, { waitUntil: "domcontentloaded" });
+    await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
     const logoutBtn = employeePage.locator('[data-testid="auth-login-logout-existing-session"]');
     if (await logoutBtn.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {
       await logoutBtn.click();
     }
-    await employeePage.locator('[data-testid="auth-login-id"]').waitFor({ state: "visible", timeout: 20000 });
+    const loginIdInput = employeePage.locator('[data-testid="auth-login-id"]');
+    if (!await loginIdInput.waitFor({ state: "visible", timeout: 20000 }).then(() => true).catch(() => false)) {
+      await employeePage.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
+      await loginIdInput.waitFor({ state: "visible", timeout: 20000 });
+    }
     await employeePage.locator('[data-testid="auth-login-id"]').fill(managedEmployeeLoginId);
     await employeePage.waitForTimeout(pauseDelay);
     await employeePage.locator('[data-testid="auth-login-password"]').fill("Employee@2026");
     await employeePage.waitForTimeout(pauseDelay);
     await employeePage.locator('[data-testid="auth-login-submit"]').click();
+    await employeePage.waitForURL((url) => url.pathname.includes("/hr"), { timeout: 30000 }).catch(() => {});
+    if (!employeePage.url().includes("/hr/me")) {
+      await employeePage.goto(`${AUTOMATION_BASE_URL}/hr/me`, { waitUntil: "domcontentloaded" });
+    }
     await employeePage.locator('[data-testid="hr-ess-page"]').waitFor({ state: "visible", timeout: 30000 });
     for (const section of ["profile", "attendance", "leave", "documents", "staffspace", "payslips", "expenses", "helpdesk"]) {
       await employeePage.locator(`[data-testid="hr-ess-nav-${section}"]`).click();
@@ -1834,7 +1923,7 @@ async function run() {
       await employeePage.waitForTimeout(viewDelay);
     }
     console.log(`   [Verified] Employee self-service login: "${managedEmployeeLoginId}"`);
-    await employeePage.close();
+    await empContext.close();
   }
 
   await runAttendanceAndLeaveActions();

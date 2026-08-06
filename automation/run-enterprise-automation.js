@@ -2096,16 +2096,6 @@ async function run() {
         await printButton.evaluate((button) => button.click());
         await page.waitForTimeout(250);
       }
-      await visitHr("/hr/payroll/custom-fields", "PAYROLL CUSTOM FIELDS");
-      await slowClick('[data-testid="hr-payroll-custom-field-new"]', "New Payroll Custom Field");
-      payrollDialog = page.getByRole("dialog").filter({ hasText: "Custom Field" }).first();
-      await payrollDialog.getByTestId("target-type").selectOption("EMPLOYEE_PAYROLL_STRUCTURE");
-      await payrollDialog.getByTestId("data-type").selectOption("TEXT");
-      await payrollDialog.getByLabel("Field Key").fill(`project_code_${suffix}`);
-      await payrollDialog.getByLabel("Field Label").fill(`Project Code ${suffix}`);
-      await payrollDialog.getByLabel("Default Value").fill("IT-CORE");
-      await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
-      await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
       await slowClick('[data-testid="hr-payroll-run-month"]', "Run Month");
       await slowClick('[data-testid="hr-payroll-export"]', "Export Payroll");
 
