@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import { Button, DataTable, EmptyState, Icon, Input, SectionCard, Select, StatCard, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
@@ -170,6 +170,7 @@ export function CashInHandPage() {
 
 export function CashReserveViewPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { id } = useParams<{ id: string }>();
   const [reserve, setReserve] = useState<{
     reserveType: "Cash IN" | "Cash OUT";
@@ -239,11 +240,13 @@ export function CashReserveViewPage() {
     };
   }, [id]);
 
+  const backHref = pathname.includes("cashRegister") ? "/cashRegister" : "/cashInhand";
+
   return (
     <PageShell
       title="Cash Reserve"
       subtitle="View cash reserve details."
-      actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+      back={{ label: "Back to Cash Reserve", href: backHref }}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         {loading ? (
@@ -469,6 +472,7 @@ export function CashRegisterPage() {
 export function CashReserveCreatePage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [reserveType, setReserveType] = useState<"paymentsIn" | "paymentsOut">("paymentsIn");
   const [locationUid, setLocationUid] = useState(String(mfeProps.location?.id ?? ""));
   const [referenceNo, setReferenceNo] = useState("");
@@ -550,7 +554,8 @@ export function CashReserveCreatePage() {
         paymentInfo: [{ paymentMode: "Cash" }],
       };
       await financeApi.cash.createReserve(reserveType, payload);
-      navigate("../..", { relative: "path" });
+      const backPath = pathname.includes("cashRegister") ? "/cashRegister" : "/cashInhand";
+      navigate(backPath);
     } catch (error) {
       console.error("[mfe-finance] Failed to create cash reserve", error);
       setFormError(error instanceof Error ? error.message : "Could not create cash reserve.");
@@ -559,11 +564,13 @@ export function CashReserveCreatePage() {
     }
   }
 
+  const backHref = pathname.includes("cashRegister") ? "/cashRegister" : "/cashInhand";
+
   return (
     <PageShell
       title="Create Cash Reserve"
       subtitle="Create a cash in or cash out reserve entry."
-      actions={<Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>}
+      back={{ label: "Back to Cash Reserve", href: backHref }}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
@@ -628,8 +635,8 @@ export function CashReserveCreatePage() {
             </div>
           ) : null}
 
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("../..", { relative: "path" })}>
+          <div className="flex justify-start gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate(backHref)}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

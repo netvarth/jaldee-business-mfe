@@ -212,10 +212,20 @@ function ItemsCreatePage() {
     <PageShell
       title="Create Item"
       subtitle="Add a new finance item/procedure to the catalog."
-      actions={<Button variant="outline" onClick={() => navigate("/items", { replace: true })}>Back</Button>}
+      back={{ label: "Back to Items", href: "/items" }}
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <form className="grid gap-5" onSubmit={handleSubmit}>
+      <SectionCard className="border-slate-200 shadow-sm p-6">
+        <form className="grid gap-6" onSubmit={handleSubmit}>
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+              <Icon name="package" className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Catalog Item Configuration</h3>
+              <p className="text-xs text-slate-500">Configure item code, pricing, and default settings.</p>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Item Name *" value={itemName} onChange={(e) => setItemName(e.target.value)} required />
             <Input label="Display Name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
@@ -241,8 +251,10 @@ function ItemsCreatePage() {
                 { value: "Disabled", label: "Disabled" },
               ]}
             />
+          </div>
 
-            <div className="flex flex-col gap-3 justify-center pt-2">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-3 justify-center">
               <div className="flex items-center gap-3">
                 <Switch checked={rateEditable} onChange={setRateEditable} />
                 <label className="text-sm font-semibold text-slate-700">Rate Editable</label>
@@ -253,7 +265,7 @@ function ItemsCreatePage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 justify-center pt-2">
+            <div className="flex flex-col gap-3 justify-center">
               <div className="flex items-center gap-3">
                 <Switch checked={discountApplicable} onChange={setDiscountApplicable} />
                 <label className="text-sm font-semibold text-slate-700">Discount Applicable</label>
@@ -273,12 +285,12 @@ function ItemsCreatePage() {
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/items", { replace: true })}>
+          <div className="flex justify-start gap-2 border-t border-slate-100 pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate("/items")}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Create Item"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>
@@ -384,10 +396,20 @@ function ItemsEditPage() {
     <PageShell
       title="Edit Item"
       subtitle="Modify catalog item properties."
-      actions={<Button variant="outline" onClick={() => navigate("/finance/items")}>Back</Button>}
+      back={{ label: "Back to Items", href: "/items" }}
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <form className="grid gap-5" onSubmit={handleSubmit}>
+      <SectionCard className="border-slate-200 shadow-sm p-6">
+        <form className="grid gap-6" onSubmit={handleSubmit}>
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+              <Icon name="package" className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Catalog Item Configuration</h3>
+              <p className="text-xs text-slate-500">Update item details for invoicing and tracking.</p>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="Item Name *" value={itemName} onChange={(e) => setItemName(e.target.value)} required />
             <Input label="Display Name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
@@ -413,8 +435,10 @@ function ItemsEditPage() {
                 { value: "Disabled", label: "Disabled" },
               ]}
             />
+          </div>
 
-            <div className="flex flex-col gap-3 justify-center pt-2">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-3 justify-center">
               <div className="flex items-center gap-3">
                 <Switch checked={rateEditable} onChange={setRateEditable} />
                 <label className="text-sm font-semibold text-slate-700">Rate Editable</label>
@@ -425,7 +449,7 @@ function ItemsEditPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 justify-center pt-2">
+            <div className="flex flex-col gap-3 justify-center">
               <div className="flex items-center gap-3">
                 <Switch checked={discountApplicable} onChange={setDiscountApplicable} />
                 <label className="text-sm font-semibold text-slate-700">Discount Applicable</label>
@@ -445,12 +469,12 @@ function ItemsEditPage() {
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/finance/items")}>
+          <div className="flex justify-start gap-2 border-t border-slate-100 pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate("/items")}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Update Item"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>

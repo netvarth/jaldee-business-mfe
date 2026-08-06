@@ -14,6 +14,7 @@ import {
 } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { vendorPaymentModeOptions } from "../../lib/financeOptions";
+import { PageShell } from "../../components/FinancePageLayout";
 
 function toFinanceRoute(routePath: string) {
   const normalized = String(routePath || "").trim();
@@ -420,13 +421,11 @@ export default function VendorFormPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={isEditMode ? "Edit Vendor" : "Create Vendor"}
-        subtitle={isEditMode ? "Update vendor profile details." : "Add a vendor profile for payouts and expense tracking."}
-        actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
-      />
-
+    <PageShell
+      title={isEditMode ? "Edit Vendor" : "Create Vendor"}
+      subtitle={isEditMode ? "Update vendor profile details." : "Add a vendor profile for payouts and expense tracking."}
+      back={{ label: "Back to Vendors", href: "/vendors" }}
+    >
       <SectionCard className="border-slate-200 shadow-sm">
         {loadingVendor ? <div className="pb-4 text-sm text-slate-500">Loading vendor...</div> : null}
         <form className="grid gap-5" onSubmit={handleSubmit}>
@@ -467,25 +466,25 @@ export default function VendorFormPage() {
               label="Location *"
               value={locationUid}
               onChange={(event) => setLocationUid(event.target.value)}
-              options={[{ value: "", label: "Select location" }, ...locationOptions]}
+              options={[{ value: "", label: "Location" }, ...locationOptions]}
             />
             <Input label="Contact Name" value={contactName} onChange={(event) => setContactName(event.target.value)} />
             <Input label="Phone Number" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} />
-            <Input label="Alternative Phone" value={alternativePhoneNum} onChange={(event) => setAlternativePhoneNum(event.target.value)} />
+            <Input label="Alternative Phone No." value={alternativePhoneNum} onChange={(event) => setAlternativePhoneNum(event.target.value)} />
             <Input label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
             <Input label="State" value={state} onChange={(event) => setState(event.target.value)} />
             <Input label="Pincode" value={pincode} onChange={(event) => setPincode(event.target.value)} />
-            <Input label="PAN Card No" value={pancardNo} onChange={(event) => setPancardNo(event.target.value)} />
+            <Input label="PAN Card No." value={pancardNo} onChange={(event) => setPancardNo(event.target.value)} />
             <Input label="GST Number" value={gstNumber} onChange={(event) => setGstNumber(event.target.value)} />
-            <Input label="Bank Account No" value={bankaccountNo} onChange={(event) => setBankaccountNo(event.target.value)} />
-            <Input label="IFSC Code" value={ifscCode} onChange={(event) => setIfscCode(event.target.value)} />
+            <Input label="Bank Account No." value={bankaccountNo} onChange={(event) => setBankaccountNo(event.target.value)} />
             <Input label="Bank Name" value={bankName} onChange={(event) => setBankName(event.target.value)} />
+            <Input label="IFSC Code" value={ifscCode} onChange={(event) => setIfscCode(event.target.value)} />
             <Input label="UPI ID" value={upiId} onChange={(event) => setUpiId(event.target.value)} />
             <Select
               label="Preferred Payment Mode"
               value={preferredPaymentMode}
               onChange={(event) => setPreferredPaymentMode(event.target.value)}
-              options={vendorPaymentModeOptions}
+              options={[{ value: "", label: "Choose Payment Mode" }, ...vendorPaymentModeOptions]}
             />
             <Input label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} />
             <Input label="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
@@ -499,12 +498,12 @@ export default function VendorFormPage() {
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("..", { relative: "path" })}>
+          <div className="flex justify-start gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("/vendors")}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? (isEditMode ? "Saving..." : "Creating...") : (isEditMode ? "Save Vendor" : "Create Vendor")}
+              {submitting ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>
@@ -547,6 +546,6 @@ export default function VendorFormPage() {
           </DialogFooter>
         </div>
       </Dialog>
-    </div>
+    </PageShell>
   );
 }

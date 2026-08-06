@@ -246,7 +246,7 @@ export function CouponCreatePage() {
     <PageShell
       title="Create Coupon"
       subtitle="Add a finance coupon using the tenant coupons API."
-      actions={<Button variant="outline" onClick={navigateToCouponList}>Back</Button>}
+      back={{ label: "Back to Coupons", href: "/coupons" }}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
@@ -301,12 +301,12 @@ export function CouponCreatePage() {
           <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
           <Textarea label="Terms & Conditions" value={termsConditions} onChange={(event) => setTermsConditions(event.target.value)} />
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={navigateToCouponList}>
+          <div className="flex justify-start gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("/coupons")}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : "Create Coupon"}
+              {submitting ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>
@@ -424,7 +424,7 @@ export function CouponEditPage() {
     <PageShell
       title="Edit Coupon"
       subtitle="Update coupon details for invoice use."
-      actions={<Button variant="outline" onClick={navigateToCouponList}>Back</Button>}
+      back={{ label: "Back to Coupons", href: "/coupons" }}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
@@ -479,12 +479,12 @@ export function CouponEditPage() {
           <Textarea label="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
           <Textarea label="Terms & Conditions" value={termsConditions} onChange={(event) => setTermsConditions(event.target.value)} />
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={navigateToCouponList}>
+          <div className="flex justify-start gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("/coupons")}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Update Coupon"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>

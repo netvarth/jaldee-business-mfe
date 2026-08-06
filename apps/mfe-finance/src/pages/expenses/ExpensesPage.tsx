@@ -293,9 +293,6 @@ export default function ExpensesPage() {
         subtitle="Operational and compliance expense tracking."
         actions={
           <div className="flex items-center gap-4">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-              Back
-            </Button>
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-slate-800">Enable Auto Payout</span>
               <Switch checked={autoPayoutEnabled} disabled={settingsUpdating} onChange={handleToggleAutoPayout} />
