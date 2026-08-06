@@ -11,7 +11,9 @@ import {
   SectionCard,
   StatCard,
 } from "@jaldee/design-system";
+import type { PageHeaderProps } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
+import { FinancePageHeader } from "./FinancePageHeader";
 
 type Accent = "indigo" | "emerald" | "amber" | "rose";
 
@@ -168,17 +170,21 @@ export function PageShell({
   title,
   subtitle,
   actions,
+  back,
+  onNavigate,
   children,
 }: {
   title: string;
   subtitle: string;
   actions?: ReactNode;
+  back?: PageHeaderProps["back"];
+  onNavigate?: PageHeaderProps["onNavigate"];
   children: ReactNode;
 }) {
   return (
     <div className="min-h-screen min-w-0 bg-slate-50/60 px-4 py-6 md:px-6">
       <div className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-5">
-        <PageHeader title={title} subtitle={subtitle} actions={actions} />
+        <FinancePageHeader title={title} subtitle={subtitle} actions={actions} back={back} onNavigate={onNavigate} />
         {children}
       </div>
     </div>
@@ -192,6 +198,7 @@ export function FinanceFeatureLayout({
   stats,
   main,
   aside,
+  back,
 }: {
   title: string;
   subtitle: string;
@@ -199,9 +206,10 @@ export function FinanceFeatureLayout({
   stats?: Array<{ label: string; value: string; accent: Accent }>;
   main: ReactNode;
   aside?: ReactNode;
+  back?: PageHeaderProps["back"];
 }) {
   return (
-    <PageShell title={title} subtitle={subtitle} actions={actions}>
+    <PageShell title={title} subtitle={subtitle} actions={actions} back={back}>
       {stats && stats.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {stats.map((card) => (
@@ -308,7 +316,7 @@ export function DataTableCard<T extends object>({
           mode: "client",
         }}
         className="rounded-none border-0 bg-transparent shadow-none"
-        tableClassName="!w-max min-w-full !table-auto [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:whitespace-nowrap [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+        tableClassName="!w-max min-w-full !table-auto [&_thead_tr]:border-[var(--color-border)] [&_tbody_tr]:border-[var(--color-border)] [&_thead_th]:h-12 [&_thead_th]:whitespace-nowrap [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3 [&_tbody_td]:whitespace-nowrap"
         emptyState={<EmptyState title={emptyTitle} description={emptyDescription} />}
       /> : (
         <>

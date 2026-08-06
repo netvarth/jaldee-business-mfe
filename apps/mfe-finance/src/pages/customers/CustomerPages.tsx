@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  Badge,
   Button,
   EmptyState,
   Icon,
@@ -412,7 +413,7 @@ export function CustomerDetailPage() {
         key: "actions",
         header: "Actions",
         render: (row) => (
-          <Button variant="outline" size="sm" onClick={() => navigate(`/finance/invoice/view/${row.detailUid || row.id}`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/invoice/view/${row.detailUid || row.id}`)}>
             View
           </Button>
         ),
@@ -425,48 +426,46 @@ export function CustomerDetailPage() {
     <PageShell
       title={customer ? customer.name : "Consumer"}
       subtitle="Consumer-level invoice view for finance operations."
+      back={{ label: "Back to Customers", href: "/customers" }}
       actions={(
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>
-            Back
-          </Button>
-          <Button onClick={() => navigate(`/finance/invoice/newInvoice?consumerUid=${id}`)}>
-            Create Invoice
-          </Button>
-        </div>
+        <Button onClick={() => navigate(`/invoice/newInvoice?consumerUid=${id}`)}>
+          Create Invoice
+        </Button>
       )}
     >
       {customer ? (
         <div className="grid gap-4">
-          <SectionCard className="border-slate-200 shadow-sm">
+          <SectionCard className="border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-200 text-3xl font-semibold text-slate-600">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-subtle)] text-2xl font-extrabold text-[var(--color-primary)]">
                     {String(customer.name || "C").trim().charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div className="text-[34px] font-semibold leading-tight text-slate-900">{customer.name}</div>
-                    <div className="mt-1 text-base font-semibold text-indigo-700">Consumer Id : {id}</div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{customer.name}</h1>
+                    <p className="text-xs font-semibold text-[var(--color-primary)]">Consumer ID: {id}</p>
                   </div>
                 </div>
-                <div className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white">
-                  {String(customer.status || "ACTIVE")}
+                <div>
+                  <Badge variant={customer.status === "ACTIVE" || !customer.status ? "success" : "neutral"} className="text-xs font-bold uppercase tracking-wider px-3 py-1.5">
+                    {customer.status || "ACTIVE"}
+                  </Badge>
                 </div>
               </div>
 
-              <div className="border-t border-slate-200 pt-4">
-                <div className="text-sm text-slate-500">Phone</div>
-                <div className="mt-1 text-2xl font-semibold text-indigo-700">{customer.phone || "-"}</div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="text-sm text-slate-500">Consumer Type</div>
-                  <div className="mt-1 text-base font-semibold text-slate-900">{customer.consumerType || "-"}</div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                  <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Phone Number</div>
+                  <div className="mt-1 text-sm font-bold text-slate-900">{customer.phone || "-"}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="text-sm text-slate-500">Location</div>
-                  <div className="mt-1 text-base font-semibold text-slate-900">{customer.locationName || "-"}</div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                  <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Consumer Type</div>
+                  <div className="mt-1 text-sm font-bold text-slate-900">{customer.consumerType || "NONE"}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                  <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Location</div>
+                  <div className="mt-1 text-sm font-bold text-slate-900">{customer.locationName || "-"}</div>
                 </div>
               </div>
             </div>
@@ -533,7 +532,7 @@ export function CustomerDetailPage() {
                     variant="ghost"
                     size="sm"
                     className="justify-start font-normal"
-                    onClick={() => navigate(`/finance/invoice/newInvoice?consumerUid=${id}`)}
+                    onClick={() => navigate(`/invoice/newInvoice?consumerUid=${id}`)}
                   >
                     New Invoice
                   </Button>
@@ -664,9 +663,10 @@ export function CustomerCreatePage() {
     <PageShell
       title="Create Consumer"
       subtitle="Create a finance consumer using the finance consumer API."
+      back={{ label: "Back to Customers", href: "/customers" }}
     >
       <SectionCard className="border-slate-200 shadow-sm">
-        <form className="grid gap-4 md:max-w-2xl" onSubmit={handleSubmit}>
+        <form className="grid gap-5 p-5 md:p-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <Select
               label="Title"
@@ -687,12 +687,8 @@ export function CustomerCreatePage() {
               options={[{ value: "NONE", label: "None" }]}
               fullWidth
             />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
             <Input label="First Name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="John" fullWidth />
             <Input label="Last Name" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Doe" fullWidth />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
             <Select
               label="Status"
               value={status}
@@ -714,25 +710,28 @@ export function CustomerCreatePage() {
               ]}
               fullWidth
             />
+            <div className="grid gap-4 grid-cols-[100px_1fr]">
+              <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} placeholder="+91" fullWidth />
+              <Input label="Phone Number" value={phoneNo} onChange={(event) => setPhoneNo(event.target.value)} placeholder="9876543210" fullWidth />
+            </div>
+            <Input label="Date of Birth" type="date" value={dob} onChange={(event) => setDob(event.target.value)} fullWidth />
+            <Input label="Email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="john@example.com" fullWidth />
           </div>
-          <div className="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-            <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} placeholder="+91" fullWidth />
-            <Input label="Phone Number" value={phoneNo} onChange={(event) => setPhoneNo(event.target.value)} placeholder="9876543210" fullWidth />
-          </div>
-          <Input label="Date of Birth" type="date" value={dob} onChange={(event) => setDob(event.target.value)} fullWidth />
-          <Input label="Email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="john@example.com" fullWidth />
+
           <Textarea label="Address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Add address" />
+
           {formError ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">
               {formError}
             </div>
           ) : null}
-          <div className="flex gap-3">
-            <Button type="button" variant="secondary" onClick={() => navigate("..", { relative: "path" })}>
+
+          <div className="flex justify-start gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("/customers")}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Creating" : "Create Consumer"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>

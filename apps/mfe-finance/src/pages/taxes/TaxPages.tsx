@@ -55,6 +55,22 @@ function readTaxPercentage(item: any) {
   return Number(item?.percentage ?? item?.taxPercentage ?? item?.taxPercent ?? item?.gstPercentage ?? item?.gstPercent ?? item?.value ?? 0) || 0;
 }
 
+function buildTaxDetailsSource(settings: any, taxes: any[]) {
+  const primaryTax = Array.isArray(taxes) && taxes.length > 0 ? taxes[0] : {};
+  return {
+    ...primaryTax,
+    taxCode: String(settings?.gstNumber ?? "").trim() || primaryTax?.taxCode,
+    gstNumber: String(settings?.gstNumber ?? "").trim() || primaryTax?.gstNumber,
+    taxName: String(settings?.nameAsInGst ?? "").trim() || primaryTax?.taxName,
+    name: String(settings?.nameAsInGst ?? "").trim() || primaryTax?.name,
+    displayName: String(settings?.nameAsInGst ?? "").trim() || primaryTax?.displayName,
+    gstAddress: String(settings?.gstAddress ?? "").trim() || primaryTax?.gstAddress,
+    address: String(settings?.gstAddress ?? "").trim() || primaryTax?.address,
+    taxPercentage: Number(settings?.taxPercentage) || primaryTax?.taxPercentage || 0,
+    percentage: Number(settings?.taxPercentage) || primaryTax?.percentage || 0,
+  };
+}
+
 function isTaxEnabledValue(value: any) {
   return value === "Enabled" || value === true;
 }
@@ -112,27 +128,107 @@ function sortPercentages(values: number[]) {
   return [...values].sort((a, b) => a - b);
 }
 
+function buildTaxPercentageOptions(records: any[]): TaxOption[] {
+  const fallbackValues = fallbackPercentageOptions.map((option) => Number(option.value));
+  const percentages = sortPercentages(
+    Array.from(
+      new Set(
+        [...records.map((item: any) => readTaxPercentage(item)), ...fallbackValues]
+          .filter((value: number) => Number.isFinite(value))
+      )
+    )
+  );
+
+  return percentages.map((value) => ({ value: String(value), label: `GST ${value}%` }));
+}
+
 async function loadTaxPercentageOptions(): Promise<TaxOption[]> {
   try {
-    const response = await financeApi.taxes.byFilter<any>({ page: 0, size: 100 });
+    const response = await financeApi.taxes.byFilter<any>({ taxType: "GST" });
     const records = extractRecords(response.data);
-    const percentages = sortPercentages(
-      Array.from(
-        new Set(
-          records
-            .map((item: any) => readTaxPercentage(item))
-            .filter((value: number) => Number.isFinite(value))
-        )
-      )
-    );
-    if (!percentages.length) {
+    const options = buildTaxPercentageOptions(records);
+    if (!options.length) {
       return fallbackPercentageOptions;
     }
-    return percentages.map((value) => ({ value: String(value), label: `GST ${value}%` }));
+    return options;
   } catch (error) {
     console.error("Failed to load tax percentages", error);
     return fallbackPercentageOptions;
   }
+}
+
+async function loadTaxCreationContext() {
+  const [taxResponse, settingsResponse] = await Promise.all([
+    financeApi.taxes.byFilter<any>({ taxType: "GST" }),
+    financeApi.settings.provider<any>(),
+  ]);
+
+  return {
+    taxes: extractRecords(taxResponse.data),
+    settings: settingsResponse.data || {},
+  };
+}
+
+function buildTaxSettingsPayload(input: {
+  currentSettings: any;
+  tenantUid?: string;
+  gstNumber: string;
+  gstName: string;
+  gstAddress: string;
+  taxPercentage: number;
+  taxDtos: any[];
+}) {
+  const updatedTaxes = input.taxDtos.map((tax: any) => tax.uid).filter(Boolean);
+
+  return sanitizeFinancePayload({
+    ...input.currentSettings,
+    tenantUid: input.tenantUid || input.currentSettings?.tenantUid,
+    enableTax: true,
+    taxPercentage: input.taxPercentage,
+    gstNumber: input.gstNumber,
+    nameAsInGst: input.gstName,
+    gstAddress: input.gstAddress,
+    taxes: updatedTaxes,
+    taxDtos: input.taxDtos,
+    taxPreference: input.currentSettings?.taxPreference ?? "NON_TAXABLE",
+  });
+}
+
+async function saveTaxRecord(input: {
+  uid?: string;
+  tenantUid?: string;
+  gstNumber: string;
+  gstName: string;
+  gstAddress: string;
+  taxPercentage: number;
+}) {
+  const components = splitGstPercentage(input.taxPercentage);
+  const taxPayload = buildTaxPayload({
+    ...(input.uid ? { uid: input.uid } : {}),
+    tenantUid: input.tenantUid,
+    countryCode: "IN",
+    taxCode: input.gstNumber.trim(),
+    taxName: input.gstName.trim(),
+    taxRegime: "GST",
+    status: "Enabled",
+    taxPercentage: input.taxPercentage,
+    cgst: components.cgst,
+    sgst: components.sgst,
+    igst: components.igst,
+    address: input.gstAddress.trim(),
+  });
+
+  if (input.uid) {
+    const response = await financeApi.taxes.update<any>(input.uid, taxPayload);
+    return response.data;
+  }
+
+  const response = await financeApi.taxes.create<any>(taxPayload);
+  return response.data;
+}
+
+function resolveTaxUid(payload: any, fallbackUid = "") {
+  return String(payload?.uid ?? payload?.id ?? fallbackUid).trim();
 }
 
 function TaxDetailsView({
@@ -148,56 +244,111 @@ function TaxDetailsView({
   onToggle: (checked: boolean) => void;
   updating: boolean;
 }) {
+  const taxCode = readTaxCode(tax) || "-";
+  const taxName = readTaxName(tax) || "-";
+  const taxAddress = readTaxAddress(tax) || "-";
+  const taxPercentage = readTaxPercentage(tax);
+  const taxStatus = String(tax?.status ?? (taxEnabled ? "Enabled" : "Disabled"));
+
   return (
     <PageShell
       title="Tax"
       subtitle='Set up your tax requirements here. Enable the "Tax Settings" toggle switch to apply taxes for your services.'
+      back={{ label: "Back to Finance Settings", href: "/settings" }}
       actions={<Button variant="outline" onClick={onEdit}>Edit</Button>}
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <div className="grid gap-6">
-          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-            <div className="space-y-5">
-              <div>
-                <div className="text-lg font-semibold text-slate-900">Tax details</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">15 digit GST number</div>
-                <div className="mt-1 text-base font-medium text-slate-900">{readTaxCode(tax) || "-"}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Enter Name as in GST</div>
-                <div className="mt-1 text-base font-medium text-slate-900">{readTaxName(tax) || "-"}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Tax Percentage</div>
-                <div className="mt-1 text-base font-medium text-slate-900">{`GST ${readTaxPercentage(tax)}%`}</div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-500">Enter Address as in GST</div>
-                <div className="mt-1 whitespace-pre-wrap text-base font-medium text-slate-900">{readTaxAddress(tax) || "-"}</div>
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+        <SectionCard className="hidden overflow-hidden border-slate-200 shadow-sm xl:block">
+          <div className="h-24 bg-[linear-gradient(135deg,var(--color-primary)_0%,var(--color-primary-hover)_100%)]" />
+          <div className="-mt-9 px-6 pb-6">
+            <div className="flex h-18 w-18 items-center justify-center rounded-2xl border-4 border-white bg-white shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-lg font-extrabold text-[var(--color-primary)]">
+                GST
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-10 w-10 rounded-full p-0"
-              icon={<Icon name="edit2" className="h-4 w-4" />}
-              aria-label="Edit tax"
-              onClick={onEdit}
-            />
-          </div>
-          <div className="flex items-center justify-between border-t border-slate-200 pt-5">
-            <div className="text-sm font-semibold text-slate-900">Tax Settings</div>
-            <div className="flex items-center gap-3">
-              <Switch checked={taxEnabled} disabled={updating} onChange={onToggle} />
-              <span className={`text-sm font-semibold ${taxEnabled ? "text-emerald-600" : "text-slate-500"}`}>
-                {taxEnabled ? "Enabled" : "Disabled"}
-              </span>
+            <div className="mt-4 space-y-3">
+              <div>
+                <div className="text-xl font-extrabold tracking-tight text-slate-950">{taxName}</div>
+                <div className="mt-1 text-sm font-medium text-slate-500">{taxCode}</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={taxStatus === "Enabled" ? "success" : "neutral"}>{taxStatus}</Badge>
+                <Badge variant="neutral">{`GST ${taxPercentage}%`}</Badge>
+              </div>
+              <Button
+                variant="outline"
+                className="mt-1 w-full rounded-xl border-[var(--color-primary-muted)] text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
+                icon={<Icon name="edit2" className="h-4 w-4" />}
+                onClick={onEdit}
+              >
+                Edit Tax
+              </Button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Tax Percentage</div>
+                <div className="mt-1 text-lg font-bold text-slate-950">{`GST ${taxPercentage}%`}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Tax Code</div>
+                <div className="mt-1 break-all text-sm font-semibold text-slate-900">{taxCode}</div>
+              </div>
             </div>
           </div>
+        </SectionCard>
+
+        <div className="space-y-6">
+          <SectionCard className="border-slate-200 shadow-sm">
+            <div className="grid gap-6">
+              <div className="border-b border-slate-200 pb-4">
+                <div className="text-xl font-extrabold tracking-tight text-slate-950">Tax Details</div>
+                <div className="mt-1 text-sm text-slate-500">Registered GST identity and rate information for finance transactions.</div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">GST Number</div>
+                  <div className="mt-2 break-all text-base font-bold text-slate-950">{taxCode}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">Name As In GST</div>
+                  <div className="mt-2 text-base font-bold text-slate-950">{taxName}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">Tax Percentage</div>
+                  <div className="mt-2 text-base font-bold text-slate-950">{`GST ${taxPercentage}%`}</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">Current Status</div>
+                  <div className="mt-2">
+                    <Badge variant={taxStatus === "Enabled" ? "success" : "neutral"}>{taxStatus}</Badge>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">Address As In GST</div>
+                  <div className="mt-2 whitespace-pre-wrap text-base font-medium text-slate-900">{taxAddress}</div>
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard className="border-slate-200 shadow-sm">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="text-lg font-extrabold tracking-tight text-slate-950">Tax Settings</div>
+                <div className="mt-1 text-sm text-slate-500">Control whether this GST configuration is available across finance flows.</div>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <Switch checked={taxEnabled} disabled={updating} onChange={onToggle} />
+                <span className={`text-sm font-bold ${taxEnabled ? "text-emerald-600" : "text-slate-500"}`}>
+                  {taxEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+          </SectionCard>
         </div>
-      </SectionCard>
+      </div>
     </PageShell>
   );
 }
@@ -205,6 +356,7 @@ function TaxDetailsView({
 function TaxesPage() {
   const navigate = useNavigate();
   const [taxes, setTaxes] = useState<any[]>([]);
+  const [taxSettings, setTaxSettings] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [updatingTaxStatus, setUpdatingTaxStatus] = useState(false);
@@ -213,18 +365,16 @@ function TaxesPage() {
     setLoading(true);
     try {
       const [taxResponse, settingsResponse] = await Promise.all([
-        financeApi.taxes.list<any>({
-          page: 0,
-          size: 100,
-          sort: [{ field: "createdAt", direction: "DESC" }],
-        }),
+        financeApi.taxes.byFilter<any>({}),
         financeApi.settings.provider<any>(),
       ]);
       setTaxes(extractRecords(taxResponse.data));
+      setTaxSettings(settingsResponse.data || {});
       setTaxEnabled(readTaxEnabled(settingsResponse.data));
     } catch (error) {
       console.error("Failed to fetch taxes", error);
       setTaxes([]);
+      setTaxSettings({});
     } finally {
       setLoading(false);
     }
@@ -292,7 +442,26 @@ function TaxesPage() {
                   onClick={async () => {
                     const nextStatus: TaxStatus = String(row.status ?? "Enabled") === "Enabled" ? "Disabled" : "Enabled";
                     try {
-                      await financeApi.taxes.updateStatus(String(row.uid), nextStatus);
+                      if (row.uid) {
+                        await financeApi.taxes.updateStatus(String(row.uid), nextStatus);
+                      }
+                      const settingsResponse = await financeApi.settings.provider<any>();
+                      const currentSettings = settingsResponse.data || {};
+                      const existingTaxDtos = Array.isArray(currentSettings.taxDtos) ? currentSettings.taxDtos : [];
+                      const updatedTaxDtos = existingTaxDtos.map((t: any) => {
+                        if (t.uid === row.uid) {
+                          return { ...t, status: nextStatus };
+                        }
+                        return t;
+                      });
+                      const updatedTaxes = updatedTaxDtos.map((t: any) => t.uid).filter(Boolean);
+                      
+                      const taxSettingsPayload = {
+                        ...currentSettings,
+                        taxes: updatedTaxes,
+                        taxDtos: updatedTaxDtos,
+                      };
+                      await financeApi.settings.taxSettings(taxSettingsPayload);
                       await loadTaxes();
                     } catch (error) {
                       console.error("Failed to update tax status", error);
@@ -311,13 +480,19 @@ function TaxesPage() {
     [navigate]
   );
 
+  const detailTax = useMemo(() => buildTaxDetailsSource(taxSettings, taxes), [taxSettings, taxes]);
+  const primaryTaxUid = useMemo(
+    () => String(taxSettings?.taxes?.[0] ?? taxes[0]?.uid ?? ""),
+    [taxSettings, taxes]
+  );
+
   if (!loading && taxes.length > 0) {
     return (
       <TaxDetailsView
-        tax={taxes[0]}
+        tax={detailTax}
         taxEnabled={taxEnabled}
         updating={updatingTaxStatus}
-        onEdit={() => navigate(`edit/${taxes[0].uid}`)}
+        onEdit={() => navigate(primaryTaxUid ? `edit/${primaryTaxUid}` : "create")}
         onToggle={handleTaxFeatureToggle}
       />
     );
@@ -325,7 +500,7 @@ function TaxesPage() {
 
   return (
     <FinanceFeatureLayout
-      title="Taxes"
+      title="Manage Tax"
       subtitle="Manage finance tax configurations and availability."
       actions={<Button onClick={() => navigate("create")}>Create Tax</Button>}
       main={
@@ -355,6 +530,7 @@ function TaxesPage() {
 
 function TaxCreatePage() {
   const navigate = useNavigate();
+  const navigateToManageTax = () => navigate("..", { relative: "path", replace: true });
   const mfeProps = useMFEProps();
   const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
   const tenantUid = String(accountRecord.tenantUid ?? accountRecord.uid ?? accountRecord.id ?? "");
@@ -368,17 +544,27 @@ function TaxCreatePage() {
 
   useEffect(() => {
     let active = true;
-    void loadTaxPercentageOptions().then((options) => {
-      if (!active) return;
-      setPercentageOptions(options);
-      if (!options.some((option) => option.value === taxPercentage) && options[0]) {
-        setTaxPercentage(options[0].value);
-      }
-    });
+    void loadTaxCreationContext()
+      .then(({ taxes, settings }) => {
+        if (!active) return;
+        const options = buildTaxPercentageOptions(taxes);
+
+        setPercentageOptions(options);
+
+        const settingsPercentage = Number(settings?.taxPercentage);
+        if (Number.isFinite(settingsPercentage) && settingsPercentage > 0) {
+          setTaxPercentage(String(settingsPercentage));
+        } else if (!options.some((option) => option.value === taxPercentage) && options[0]) {
+          setTaxPercentage(options[0].value);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load tax creation data", error);
+      });
     return () => {
       active = false;
     };
-  }, [taxPercentage]);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -395,22 +581,64 @@ function TaxCreatePage() {
     setSubmitting(true);
     try {
       const percentage = Number(taxPercentage) || 0;
+
+      let currentSettings: any = {};
+      let existingTaxes: any[] = [];
+      try {
+        const context = await loadTaxCreationContext();
+        currentSettings = context.settings;
+        existingTaxes = context.taxes;
+      } catch (err) {
+        console.warn("[mfe-finance] Failed to fetch tax context, using empty defaults", err);
+      }
+
+      const savedTax = await saveTaxRecord({
+        tenantUid: tenantUid || currentSettings.tenantUid || undefined,
+        gstNumber,
+        gstName,
+        gstAddress,
+        taxPercentage: percentage,
+      });
+      const savedTaxUid = resolveTaxUid(savedTax, crypto.randomUUID());
       const components = splitGstPercentage(percentage);
-      await financeApi.taxes.create(
-        buildTaxPayload({
-          tenantUid: tenantUid || undefined,
-          countryCode: gstNumber.trim().slice(0, 2),
-          taxCode: gstNumber.trim(),
-          taxName: gstName.trim(),
-          taxRegime: "GST",
-          status: "Enabled",
-          taxPercentage: percentage,
-          cgst: components.cgst,
-          sgst: components.sgst,
-          igst: components.igst,
-          address: gstAddress.trim() || undefined,
-        })
-      );
+      const newTaxDto = {
+        uid: savedTaxUid,
+        tenantUid: tenantUid || currentSettings.tenantUid || undefined,
+        countryCode: gstNumber.trim().slice(0, 2) || "IN",
+        taxCode: gstNumber.trim(),
+        taxName: gstName.trim(),
+        taxRegime: "GST",
+        status: "Enabled",
+        taxPercentage: percentage,
+        cgst: components.cgst,
+        sgst: components.sgst,
+        igst: components.igst,
+      };
+
+      const existingTaxDtos = Array.isArray(currentSettings.taxDtos) && currentSettings.taxDtos.length
+        ? currentSettings.taxDtos
+        : existingTaxes;
+      const updatedTaxDtos = [...existingTaxDtos];
+      const matchIndex = updatedTaxDtos.findIndex((t: any) => t.taxCode === gstNumber.trim());
+
+      if (matchIndex !== -1) {
+        updatedTaxDtos[matchIndex] = { ...updatedTaxDtos[matchIndex], ...newTaxDto };
+      } else {
+        updatedTaxDtos.push(newTaxDto);
+      }
+
+      const taxSettingsPayload = buildTaxSettingsPayload({
+        currentSettings,
+        tenantUid: tenantUid || currentSettings.tenantUid,
+        gstNumber: gstNumber.trim(),
+        gstName: gstName.trim(),
+        gstAddress: gstAddress.trim(),
+        taxPercentage: percentage,
+        taxDtos: updatedTaxDtos,
+      });
+
+      await financeApi.settings.taxSettings(taxSettingsPayload);
+
       navigate("..", { relative: "path", replace: true });
     } catch (error) {
       console.error("[mfe-finance] Failed to create tax", error);
@@ -423,8 +651,8 @@ function TaxCreatePage() {
   return (
     <PageShell
       title="Create Tax"
-      subtitle="Set up your GST tax details."
-      actions={<Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>}
+      subtitle="Manage Tax"
+      back={{ label: "Back to Manage Tax", href: "/taxes" }}
     >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
@@ -457,7 +685,7 @@ function TaxCreatePage() {
           </div>
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("..", { relative: "path" })}>
+            <Button type="button" variant="outline" onClick={navigateToManageTax}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -472,6 +700,7 @@ function TaxCreatePage() {
 
 function TaxEditPage() {
   const navigate = useNavigate();
+  const navigateToManageTax = () => navigate("../..", { relative: "path", replace: true });
   const { id } = useParams<{ id: string }>();
   const mfeProps = useMFEProps();
   const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
@@ -490,18 +719,26 @@ function TaxEditPage() {
     async function loadTax() {
       if (!id) return;
       try {
-        const [taxResponse, options] = await Promise.all([
-          financeApi.taxes.detail<any>(id),
+        const [taxResponse, settingsResponse, options] = await Promise.all([
+          financeApi.taxes.byFilter<any>({}),
+          financeApi.settings.provider<any>(),
           loadTaxPercentageOptions(),
         ]);
         if (!active) return;
         setPercentageOptions(options);
-        const data = taxResponse.data;
-        setGstNumber(readTaxCode(data));
-        setGstName(readTaxName(data));
-        const percentageValue = String(readTaxPercentage(data) || 0);
-        setTaxPercentage(percentageValue);
-        setGstAddress(readTaxAddress(data));
+        const records = extractRecords(taxResponse.data);
+        const settings = settingsResponse.data || {};
+        const data = records.find((t: any) => t.uid === id);
+        const selectedTax = data ? buildTaxDetailsSource(settings, [data]) : buildTaxDetailsSource(settings, records);
+        if (selectedTax && (readTaxCode(selectedTax) || readTaxName(selectedTax) || readTaxPercentage(selectedTax))) {
+          setGstNumber(readTaxCode(selectedTax));
+          setGstName(readTaxName(selectedTax));
+          const percentageValue = String(readTaxPercentage(selectedTax) || 0);
+          setTaxPercentage(percentageValue);
+          setGstAddress(readTaxAddress(selectedTax));
+        } else {
+          console.error("Tax not found with id:", id);
+        }
       } catch (error) {
         console.error("Failed to load tax", error);
       } finally {
@@ -530,24 +767,61 @@ function TaxEditPage() {
     setSubmitting(true);
     try {
       const percentage = Number(taxPercentage) || 0;
+
+      let currentSettings: any = {};
+      try {
+        const settingsRes = await financeApi.settings.provider<any>();
+        currentSettings = settingsRes.data || {};
+      } catch (err) {
+        console.warn("[mfe-finance] Failed to fetch current settings, using empty defaults", err);
+      }
+
+      const savedTax = await saveTaxRecord({
+        uid: id,
+        tenantUid: tenantUid || currentSettings.tenantUid || undefined,
+        gstNumber,
+        gstName,
+        gstAddress,
+        taxPercentage: percentage,
+      });
+      const savedTaxUid = resolveTaxUid(savedTax, id);
       const components = splitGstPercentage(percentage);
-      await financeApi.taxes.update(
-        id,
-        buildTaxPayload({
-          uid: id,
-          tenantUid: tenantUid || undefined,
-          countryCode: gstNumber.trim().slice(0, 2),
-          taxCode: gstNumber.trim(),
-          taxName: gstName.trim(),
-          taxRegime: "GST",
-          status: "Enabled",
-          taxPercentage: percentage,
-          cgst: components.cgst,
-          sgst: components.sgst,
-          igst: components.igst,
-          address: gstAddress.trim() || undefined,
-        })
-      );
+      const newTaxDto = {
+        uid: savedTaxUid,
+        tenantUid: tenantUid || currentSettings.tenantUid || undefined,
+        countryCode: gstNumber.trim().slice(0, 2) || "IN",
+        taxCode: gstNumber.trim(),
+        taxName: gstName.trim(),
+        taxRegime: "GST",
+        status: "Enabled",
+        taxPercentage: percentage,
+        cgst: components.cgst,
+        sgst: components.sgst,
+        igst: components.igst,
+      };
+
+      const existingTaxDtos = Array.isArray(currentSettings.taxDtos) ? currentSettings.taxDtos : [];
+      const updatedTaxDtos = [...existingTaxDtos];
+      const matchIndex = updatedTaxDtos.findIndex((t: any) => t.uid === id || t.uid === savedTaxUid);
+
+      if (matchIndex !== -1) {
+        updatedTaxDtos[matchIndex] = { ...updatedTaxDtos[matchIndex], ...newTaxDto };
+      } else {
+        updatedTaxDtos.push(newTaxDto);
+      }
+
+      const taxSettingsPayload = buildTaxSettingsPayload({
+        currentSettings,
+        tenantUid: tenantUid || currentSettings.tenantUid,
+        gstNumber: gstNumber.trim(),
+        gstName: gstName.trim(),
+        gstAddress: gstAddress.trim(),
+        taxPercentage: percentage,
+        taxDtos: updatedTaxDtos,
+      });
+
+      await financeApi.settings.taxSettings(taxSettingsPayload);
+
       navigate("../..", { relative: "path", replace: true });
     } catch (error) {
       console.error("[mfe-finance] Failed to update tax", error);
@@ -561,52 +835,120 @@ function TaxEditPage() {
     return <div className="p-8 text-center text-slate-500">Loading tax...</div>;
   }
 
+  const taxPercentageLabel = `GST ${taxPercentage || "0"}%`;
+  const gstDisplayName = gstName.trim() || "Tax record";
+  const gstDisplayCode = gstNumber.trim() || "-";
+  const gstDisplayAddress = gstAddress.trim() || "-";
+
   return (
     <PageShell
       title="Edit Tax"
-      subtitle="Update GST tax details."
-      actions={<Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>}
+      subtitle="Manage Tax"
+      back={{ label: "Back to Manage Tax", href: "/taxes" }}
     >
-      <SectionCard className="border-slate-200 shadow-sm">
-        <form className="grid gap-5" onSubmit={handleSubmit}>
-          <div className="grid gap-4">
-            <Input
-              label="Enter 15 digit GST number *"
-              value={gstNumber}
-              maxLength={15}
-              onChange={(event) => setGstNumber(event.target.value.toUpperCase())}
-              required
-            />
-            <Input
-              label="Enter Name as in GST"
-              value={gstName}
-              onChange={(event) => setGstName(event.target.value)}
-              required
-            />
-            <Select
-              label="Tax Percentage"
-              value={taxPercentage}
-              onChange={(event) => setTaxPercentage(event.target.value)}
-              options={percentageOptions}
-            />
-            <Textarea
-              label="Enter Address as in GST"
-              value={gstAddress}
-              onChange={(event) => setGstAddress(event.target.value)}
-              rows={4}
-            />
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+        <SectionCard className="overflow-hidden border-slate-200 shadow-sm">
+          <div className="h-24 bg-[linear-gradient(135deg,var(--color-primary)_0%,var(--color-primary-hover)_100%)]" />
+          <div className="-mt-9 px-6 pb-6">
+            <div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border-4 border-white bg-white shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-lg font-extrabold text-[var(--color-primary)]">
+                GST
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-xl font-extrabold tracking-tight text-slate-950">{gstDisplayName}</div>
+              <div className="mt-1 break-all text-sm font-medium text-slate-500">{gstDisplayCode}</div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="success">Enabled</Badge>
+              <Badge variant="neutral">{taxPercentageLabel}</Badge>
+            </div>
+            <div className="mt-5 space-y-3">
+              <div className="rounded-xl border border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] px-4 py-3">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--color-primary)]">Current Percentage</div>
+                <div className="mt-1 text-lg font-bold text-slate-950">{taxPercentageLabel}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500">GST Number</div>
+                <div className="mt-1 break-all text-sm font-semibold text-slate-900">{gstDisplayCode}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Address Preview</div>
+                <div className="mt-1 whitespace-pre-wrap text-sm font-medium text-slate-900">{gstDisplayAddress}</div>
+              </div>
+            </div>
           </div>
-          {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</div> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("../..", { relative: "path" })}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : "Update Tax"}
-            </Button>
-          </div>
-        </form>
-      </SectionCard>
+        </SectionCard>
+
+        <SectionCard className="border-slate-200 shadow-sm">
+          <form className="grid gap-6" onSubmit={handleSubmit}>
+            <div className="border-b border-slate-200 pb-4">
+              <div className="text-xl font-extrabold tracking-tight text-slate-950">Edit Tax Details</div>
+              <div className="mt-1 text-sm text-slate-500">Update GST identity, percentage, and registered address using the Jaldee finance configuration flow.</div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
+                <Input
+                  label="Enter 15 digit GST number *"
+                  value={gstNumber}
+                  maxLength={15}
+                  onChange={(event) => setGstNumber(event.target.value.toUpperCase())}
+                  required
+                />
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <Input
+                  label="Enter Name as in GST"
+                  value={gstName}
+                  onChange={(event) => setGstName(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <Select
+                  label="Tax Percentage"
+                  value={taxPercentage}
+                  onChange={(event) => setTaxPercentage(event.target.value)}
+                  options={percentageOptions}
+                />
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
+                <Textarea
+                  label="Enter Address as in GST"
+                  value={gstAddress}
+                  onChange={(event) => setGstAddress(event.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            {formError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {formError}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-medium text-slate-500">
+                Changes update both the tax record and tenant tax settings.
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={navigateToManageTax}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-text)] hover:bg-[var(--color-primary-hover)]"
+                >
+                  {submitting ? "Saving..." : "Update Tax"}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </SectionCard>
+      </div>
     </PageShell>
   );
 }

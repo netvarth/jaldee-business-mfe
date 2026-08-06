@@ -345,6 +345,7 @@ export default function ReceivableCreatePage() {
     <PageShell
       title="Create Revenue"
       subtitle="Create a finance record for incoming revenue."
+      back={{ label: "Back to Receivables", href: "/receivables" }}
       actions={
         <div className="flex items-center gap-2">
           <Popover
@@ -384,7 +385,6 @@ export default function ReceivableCreatePage() {
               </Button>
             </div>
           </Popover>
-          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
         </div>
       }
     >

@@ -321,6 +321,7 @@ export default function PayableCreatePage() {
     <PageShell
       title="Create Payout"
       subtitle="Create an outgoing payment using the tenant payments-out API."
+      back={{ label: "Back to Payouts", href: "/payable" }}
       actions={
         <div className="flex items-center gap-2">
           <Popover
@@ -360,7 +361,6 @@ export default function PayableCreatePage() {
               </Button>
             </div>
           </Popover>
-          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
         </div>
       }
     >

@@ -208,6 +208,7 @@ function SequenceSettingsPage() {
     <FinanceFeatureLayout
       title="Sequence Settings"
       subtitle="Manage finance sequence settings that drive numbering contexts."
+      back={{ label: "Back to Settings", href: "../settings" }}
       actions={<Button onClick={() => navigate("create")}>Create Sequence Setting</Button>}
       main={
         <DataTableCard

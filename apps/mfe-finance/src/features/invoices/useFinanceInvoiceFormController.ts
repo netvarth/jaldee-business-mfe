@@ -450,7 +450,34 @@ export function useFinanceInvoiceFormController() {
         if (!active) return;
         setCategoryOptions(nextCategoryOptions);
         setStatusOptions(nextStatusOptions);
-        setConsumerOptions(nextConsumerOptions);
+
+        let finalConsumerOptions = [...nextConsumerOptions];
+        if (preselectedConsumerUid && !nextConsumerOptions.some((option) => option.value === preselectedConsumerUid)) {
+          try {
+            const res = await financeApi.customers.detail<any>(preselectedConsumerUid);
+            const customerObj = res.data;
+            if (customerObj) {
+              const phone = String(customerObj.consumerPhone || customerObj.mobile || customerObj.mobileNo || customerObj.phoneNo || customerObj.phone || customerObj.primaryPhone || "");
+              const email = String(customerObj.consumerEmail || customerObj.email || customerObj.primaryEmail || "");
+              const label = String(customerObj.name || customerObj.consumerName || [customerObj.firstName, customerObj.lastName].filter(Boolean).join(" ") || customerObj.displayName || "Selected Consumer");
+              const extraOption = {
+                value: preselectedConsumerUid,
+                label,
+                consumerUid: preselectedConsumerUid,
+                consumerType: String(customerObj.consumerType || customerObj.type || customerObj.consumerSnapshot?.consumerType || "NONE"),
+                phone,
+                email,
+                address: String(customerObj.billedToAddress || customerObj.consumerGstAddress || customerObj.address || customerObj.addressLine1 || customerObj.location || ""),
+                description: [phone, email].filter(Boolean).join(" | ") || undefined,
+              };
+              finalConsumerOptions.push(extraOption);
+            }
+          } catch (err) {
+            console.error("[mfe-finance] Failed to load preselected consumer details", err);
+          }
+        }
+
+        setConsumerOptions(finalConsumerOptions);
         setLocationOptions(nextLocationOptions);
         setCategoryId((current) => current || nextCategoryOptions[0]?.value || "");
         setStatusId((current) => current || nextStatusOptions[0]?.value || "");

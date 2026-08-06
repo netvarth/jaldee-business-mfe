@@ -112,6 +112,7 @@ function SequenceTemplatesPage() {
     <FinanceFeatureLayout
       title="Sequence Templates"
       subtitle="Manage finance numbering templates used by sequence settings and invoice numbering."
+      back={{ label: "Back to Settings", href: "../settings" }}
       actions={<Button onClick={() => navigate("create")}>Create Sequence Template</Button>}
       main={
         <DataTableCard

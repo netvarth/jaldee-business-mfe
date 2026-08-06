@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Icon, SectionCard, Switch } from "@jaldee/design-system";
-import { FeedCard, FinanceFeatureLayout, SummaryList } from "../../components/FinancePageLayout";
+import { Badge, Button, Icon, SectionCard, Switch } from "@jaldee/design-system";
+import { FinanceFeatureLayout } from "../../components/FinancePageLayout";
 import { financeApi } from "../../lib/financeApi";
 import { useFinanceLiveData } from "../../lib/financeLive";
 
@@ -92,18 +92,17 @@ function SettingsPage() {
       setTaxEnabled(checked);
       if (checked) {
         try {
-          const response = await financeApi.taxes.list<any>({
-            page: 0,
-            size: 1,
-            sort: [{ field: "createdAt", direction: "DESC" }],
-          });
-          const records = Array.isArray(response.data)
-            ? response.data
-            : Array.isArray((response.data as any)?.content)
-              ? (response.data as any).content
-              : Array.isArray((response.data as any)?.data)
-                ? (response.data as any).data
-                : [];
+          const response = await financeApi.taxes.byFilter<any>({});
+          const payload = response.data;
+          const records = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.content)
+              ? payload.content
+              : Array.isArray(payload?.data)
+                ? payload.data
+                : Array.isArray(payload?.data?.content)
+                  ? payload.data.content
+                  : [];
           navigate(records.length > 0 ? "../taxes" : "../taxes/create");
         } catch (error) {
           console.error("Failed to resolve tax setup screen", error);
@@ -130,105 +129,135 @@ function SettingsPage() {
     }
   }
 
+  const moduleControls = [
+    {
+      key: "expense",
+      title: "Expense Feature",
+      description: "Enable or disable the operational expense tracking feature inside the finance module.",
+      enabled: expenseEnabled,
+      onChange: handleToggleExpense,
+      icon: "history" as const,
+    },
+    {
+      key: "invoice",
+      title: "Invoice Feature",
+      description: "Enable or disable the invoicing feature inside the finance module.",
+      enabled: invoiceEnabled,
+      onChange: handleToggleInvoice,
+      icon: "list" as const,
+    },
+    {
+      key: "tax",
+      title: "Tax Feature",
+      description: "Enable or disable tax configuration and tax usage inside the finance module.",
+      enabled: taxEnabled,
+      onChange: handleToggleTax,
+      icon: "globe" as const,
+    },
+    {
+      key: "masterInvoice",
+      title: "Master Invoice Feature",
+      description: "Enable or disable master invoice creation inside the finance module.",
+      enabled: masterInvoiceEnabled,
+      onChange: handleToggleMasterInvoice,
+      icon: "layers" as const,
+    },
+  ];
+
   return (
     <FinanceFeatureLayout
       title="Finance Settings"
       subtitle="Template, category, vendor, and dashboard administration."
-      stats={[
-        { label: "Categories", value: String(financeCategories.length), accent: "indigo" },
-        { label: "Statuses", value: String(financeStatuses.length), accent: "emerald" },
-        { label: "Vendors", value: String(financeVendors.length), accent: "amber" },
-        { label: "Active Vendors", value: String(financeVendors.filter((v) => v.status === "Active").length), accent: "rose" },
-      ]}
       main={
         <div className="space-y-6">
           <SectionCard className="border-slate-200 shadow-sm" title="Module Controls">
-            <div className="space-y-4 divide-y divide-slate-100">
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <div className="text-[17px] font-semibold text-slate-900">Expense Feature</div>
-                  <div className="mt-1 text-sm text-slate-500">Enable or disable the operational expense tracking feature inside the finance module.</div>
-                </div>
-                <Switch
-                  checked={expenseEnabled}
-                  disabled={updating}
-                  onChange={handleToggleExpense}
-                />
-              </div>
-              <div className="flex items-center justify-between py-2 pt-4">
-                <div>
-                  <div className="text-[17px] font-semibold text-slate-900">Invoice Feature</div>
-                  <div className="mt-1 text-sm text-slate-500">Enable or disable the invoicing feature inside the finance module.</div>
-                </div>
-                <Switch
-                  checked={invoiceEnabled}
-                  disabled={updating}
-                  onChange={handleToggleInvoice}
-                />
-              </div>
-              <div className="flex items-center justify-between py-2 pt-4">
-                <div>
-                  <div className="text-[17px] font-semibold text-slate-900">Tax Feature</div>
-                  <div className="mt-1 text-sm text-slate-500">Enable or disable tax configuration and tax usage inside the finance module.</div>
-                </div>
-                <Switch
-                  checked={taxEnabled}
-                  disabled={updating}
-                  onChange={handleToggleTax}
-                />
-              </div>
-              <div className="flex items-center justify-between py-2 pt-4">
-                <div>
-                  <div className="text-[17px] font-semibold text-slate-900">Master Invoice Feature</div>
-                  <div className="mt-1 text-sm text-slate-500">Enable or disable master invoice creation inside the finance module.</div>
-                </div>
-                <Switch
-                  checked={masterInvoiceEnabled}
-                  disabled={updating}
-                  onChange={handleToggleMasterInvoice}
-                />
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end">
-              <Button type="button" variant="outline" onClick={() => navigate("../taxes")}>
-                Manage Taxes
-              </Button>
-            </div>
-          </SectionCard>
-
-          {/* <SectionCard className="border-slate-200 shadow-sm">
-            <div className="text-[22px] font-semibold text-slate-900">Settings Areas</div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {[
-                "Dashboard Actions",
-                "Invoice Templates",
-                "Vendor Permissions",
-                "Status Definitions",
-                "Category Mapping",
-                "Cash Register Rules",
-                "Report Preferences",
-                "Role Access",
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700">
-                  {item}
+            <div className="grid gap-4 md:grid-cols-2">
+              {moduleControls.map((control) => (
+                <div
+                  key={control.key}
+                  className={`rounded-2xl border px-5 py-5 shadow-sm transition ${
+                    control.enabled
+                      ? "border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)]"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                          control.enabled
+                            ? "bg-white text-[var(--color-primary)]"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        <Icon name={control.icon} className="h-5 w-5" />
+                      </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <div className="text-[17px] font-semibold text-slate-950">{control.title}</div>
+                        <Badge variant={control.enabled ? "success" : "neutral"}>
+                          {control.enabled ? "Enabled" : "Disabled"}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-slate-600">{control.description}</div>
+                    </div>
+                    <div className="rounded-full border border-slate-200 bg-white px-2 py-2 shadow-sm">
+                      <Switch
+                        checked={control.enabled}
+                        disabled={updating}
+                        onChange={control.onChange}
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-          </SectionCard> */}
+
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+              <div className="grid gap-4 lg:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("../taxes")}
+                  className="flex items-start gap-3 rounded-2xl border border-[var(--color-primary-muted)] bg-white px-4 py-4 text-left transition hover:bg-[var(--color-primary-subtle)]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+                    <Icon name="globe" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">Manage Taxes</div>
+                    <div className="mt-1 text-sm text-slate-500">Open GST details and tax percentages.</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("../sequence-template")}
+                  className="flex items-start gap-3 rounded-2xl border border-[var(--color-primary-muted)] bg-white px-4 py-4 text-left transition hover:bg-[var(--color-primary-subtle)]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+                    <Icon name="layers" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">Sequence Templates</div>
+                    <div className="mt-1 text-sm text-slate-500">Manage numbering templates used across finance flows.</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("../sequence-settings")}
+                  className="flex items-start gap-3 rounded-2xl border border-[var(--color-primary-muted)] bg-white px-4 py-4 text-left transition hover:bg-[var(--color-primary-subtle)]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+                    <Icon name="database" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">Sequence Settings</div>
+                    <div className="mt-1 text-sm text-slate-500">Configure numbering contexts and sequence behavior.</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </SectionCard>
         </div>
       }
-      // aside={
-      //   <FeedCard title="Migration Notes">
-      //     <SummaryList
-      //       rows={[
-      //         { label: "Dashboard", value: "Migrated", note: "Legacy action grid and cards are now present." },
-      //         { label: "Invoices", value: "Migrated", note: "List, detail shell, and dashboard block added." },
-      //         { label: "Vendors", value: "Migrated", note: "Directory and dashboard feed added." },
-      //         { label: "Deep Forms", value: "Pending", note: "Backend-connected create/edit flows still need service wiring." },
-      //       ]}
-      //     />
-      //   </FeedCard>
-      // }
     />
   );
 }

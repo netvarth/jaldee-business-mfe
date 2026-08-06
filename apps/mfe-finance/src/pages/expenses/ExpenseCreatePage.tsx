@@ -16,6 +16,7 @@ import {
   Textarea,
 } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
+import { PageShell } from "../../components/FinancePageLayout";
 
 function toFinanceRoute(routePath: string) {
   const n = String(routePath || "").trim();
@@ -326,39 +327,37 @@ export default function ExpenseCreatePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Create Expense"
-        subtitle="Create a finance expense record."
-        actions={
-          <div className="flex items-center gap-2">
-            <Popover
-              portal
-              placement="bottom"
-              align="end"
-              trigger={
-                <Button type="button" variant="outline">
-                  Actions
-                </Button>
-              }
-            >
-              <div className="grid min-w-[220px] p-1">
-                <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=Expense`)}>
-                  Expense category
-                </Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
-                  Create Vendor
-                </Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=Expense`)}>
-                  Expense Status
-                </Button>
-              </div>
-            </Popover>
-            <Button variant="outline" onClick={() => navigate(toFinanceRoute("/finance/expense"))}>Back</Button>
-          </div>
-        }
-      />
-
+    <PageShell
+      title="Create Expense"
+      subtitle="Create a finance expense record."
+      back={{ label: "Back to Expenses", href: "/expense" }}
+      actions={
+        <div className="flex items-center gap-2">
+          <Popover
+            portal
+            placement="bottom"
+            align="end"
+            trigger={
+              <Button type="button" variant="outline">
+                Actions
+              </Button>
+            }
+          >
+            <div className="grid min-w-[220px] p-1">
+              <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(`${toFinanceRoute("/finance/category")}?categoryType=Expense`)}>
+                Expense category
+              </Button>
+              <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
+                Create Vendor
+              </Button>
+              <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => navigate(`${toFinanceRoute("/finance/status")}?categoryType=Expense`)}>
+                Expense Status
+              </Button>
+            </div>
+          </Popover>
+        </div>
+      }
+    >
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5 p-5 md:p-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -457,6 +456,9 @@ export default function ExpenseCreatePage() {
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">{formError}</div> : null}
 
           <div className="flex justify-start gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate(toFinanceRoute("/finance/expense"))}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? "Saving..." : "Save"}
             </Button>
@@ -487,6 +489,6 @@ export default function ExpenseCreatePage() {
           </DialogFooter>
         </div>
       </Dialog>
-    </div>
+    </PageShell>
   );
 }

@@ -514,214 +514,212 @@ function MasterInvoicePage() {
         : getStatusVariant(invoice.status);
 
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
-        <button
-          type="button"
-          onClick={() => navigate("/invoice")}
-          className="w-fit px-2 text-lg font-medium text-slate-800"
-        >
-          ← Back
-        </button>
-
-        <SectionCard className="border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-[20px] font-semibold text-slate-800">Invoice :#{invoice.invoiceNum}</div>
-                <div className="mt-1 text-sm text-slate-500">
-                  <Badge variant={invoiceBadgeVariant}>{invoice.status}</Badge>
-                </div>
+    <PageShell
+      title={`Invoice: #${invoice.invoiceNum}`}
+      subtitle="Set up and view your transaction itemizations, payments, and balances."
+      back={{ label: "Back to Invoices", href: "/invoice" }}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>
+          <Button variant="outline" onClick={handlePrintInvoice}>Print</Button>
+          <Button variant="outline" onClick={() => navigate(`/invoice/edit/${uid}`)}>Edit</Button>
+          <Button variant="outline" disabled>Log</Button>
+        </div>
+      }
+    >
+      <SectionCard className="border-slate-200 bg-white shadow-sm p-0 overflow-hidden">
+        <div className="flex flex-col gap-6 p-6">
+          <div id="finance-invoice-print" className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            {/* Header Info */}
+            <div className="grid gap-6 border-b border-slate-100 pb-6 md:grid-cols-2">
+              <div className="space-y-1">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Billed From</div>
+                <div className="text-lg font-extrabold text-slate-900">Oasis Hospital's</div>
+                <div className="text-sm font-medium text-slate-500">{invoice.location || "Thrissur"}</div>
+                <div className="text-sm text-slate-500">{invoice.billedToAddress || "-"}</div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>
-                <Button variant="outline" onClick={handlePrintInvoice}>Print</Button>
-                <Button variant="outline" onClick={() => navigate(`/invoice/edit/${uid}`)}>Edit</Button>
-                <Button variant="outline" disabled>Log</Button>
+              <div className="space-y-1 md:text-right">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Billed To</div>
+                <div className="text-lg font-extrabold text-slate-900">{invoice.customer || "Customer"}</div>
+                <div className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Invoice Information</div>
+                <div className="text-sm font-semibold text-slate-700">Date: <span className="font-normal text-slate-500">{invoice.invoiceDate}</span></div>
+                <div className="text-sm font-semibold text-slate-700">Category: <span className="font-normal text-slate-500">{invoice.category}</span></div>
               </div>
             </div>
 
-            <div id="finance-invoice-print" className="rounded-xl border border-slate-200 bg-white p-4 lg:p-6">
-              <div className="grid gap-8 lg:grid-cols-[1.2fr_0.9fr]">
-                <div className="space-y-2 text-sm text-slate-600">
-                  <div className="pb-2 text-[18px] font-semibold text-slate-800">Oasis Hospital's</div>
-                  <div>{invoice.billedToAddress}</div>
-                  <div><span className="font-semibold text-slate-700">{invoice.location}</span></div>
-                  <div>Invoice To : <span className="font-semibold text-slate-700">{invoice.customer}</span></div>
-                </div>
-
-                <div className="space-y-1 text-sm text-slate-600 lg:justify-self-end">
-                  <div className="pb-2 text-right text-[18px] font-semibold text-slate-800">Invoice : #{invoice.invoiceNum}</div>
-                  {/* <div className="flex justify-between gap-6"><span>Booking Reference :</span><span className="font-semibold text-slate-700">{invoice.referenceNo}</span></div> */}
-                  {/* <div className="flex justify-between gap-6"><span>Patient Id :</span><span className="font-semibold text-slate-700">{invoice.patientId}</span></div> */}
-                  {/* <div className="flex justify-between gap-6"><span>Created On :</span><span className="font-semibold text-slate-700">{invoice.createdOn}</span></div> */}
-                  <div className="pb-2 text-right text-[18px] font-semibold text-slate-800"><span>Invoice Date :</span><span className="font-semibold text-slate-700">{invoice.invoiceDate}</span></div>
-                  {/* <div className="flex justify-between gap-6"><span>Created By :</span><span className="font-semibold text-slate-700">{invoice.createdBy}</span></div> */}
-                  <div className="pb-2 text-right text-[18px] font-semibold text-slate-800"><span>Category :</span><span className="font-semibold text-slate-700">{invoice.category}</span></div>
-                  {/* <div className="flex justify-between gap-6"><span>Product :</span><span className="font-semibold text-slate-700">{invoice.product}</span></div> */}
-                </div>
-              </div>
-
-              <div className="mt-8 overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-700">
-                      <th className="px-4 py-3 font-semibold">Procedure/Item</th>
-                      <th className="px-4 py-3 font-semibold">Date</th>
-                      <th className="px-4 py-3 font-semibold text-right">Rate</th>
-                      <th className="px-4 py-3 font-semibold text-right">Qty</th>
-                      <th className="px-4 py-3 font-semibold text-right">Total Rate</th>
-                      <th className="px-4 py-3 font-semibold text-right">Discount</th>
-                      <th className="px-4 py-3 font-semibold text-right">After Discount</th>
-                      <th className="px-4 py-3 font-semibold text-right">Tax</th>
-                      <th className="px-4 py-3 font-semibold text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {invoice.detailList.length ? (
-                      invoice.detailList.map((item: any) => (
-                        <tr key={item.id} className="text-slate-700">
-                          <td className="px-4 py-4 font-semibold text-slate-800">{item.itemName}</td>
-                          <td className="px-4 py-4">{item.processedDate}</td>
-                          <td className="px-4 py-4 text-right">{formatCurrency(item.rate)}</td>
-                          <td className="px-4 py-4 text-right">{item.quantity}</td>
-                          <td className="px-4 py-4 text-right">{formatCurrency(item.totalRate)}</td>
-                          <td className="px-4 py-4 text-right">{formatCurrency(item.discount)}</td>
-                          <td className="px-4 py-4 text-right">{formatCurrency(item.afterDiscount)}</td>
-                          <td className="px-4 py-4 text-right">{formatCurrency(item.tax)}</td>
-                          <td className="px-4 py-4 text-right font-semibold text-slate-800">{formatCurrency(item.total)}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-slate-400">No invoice items available.</td>
+            {/* Items Table */}
+            <div className="mt-8 overflow-x-auto rounded-xl border border-slate-100">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/80 text-left text-slate-600">
+                    <th className="px-4 py-3.5 font-bold whitespace-nowrap">Procedure/Item</th>
+                    <th className="px-4 py-3.5 font-bold whitespace-nowrap">Date</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">Rate</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">Qty</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">Total Rate</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">Discount</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">After Discount</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">Tax</th>
+                    <th className="px-4 py-3.5 font-bold text-right whitespace-nowrap">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {invoice.detailList.length ? (
+                    invoice.detailList.map((item: any) => (
+                      <tr key={item.id} className="text-slate-700 hover:bg-slate-50/50 transition">
+                        <td className="px-4 py-4 font-semibold text-slate-900 whitespace-nowrap">{item.itemName}</td>
+                        <td className="px-4 py-4 text-slate-500 whitespace-nowrap">{item.processedDate}</td>
+                        <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">{formatCurrency(item.rate)}</td>
+                        <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">{item.quantity}</td>
+                        <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">{formatCurrency(item.totalRate)}</td>
+                        <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">{formatCurrency(item.discount)}</td>
+                        <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">{formatCurrency(item.afterDiscount)}</td>
+                        <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">{formatCurrency(item.tax)}</td>
+                        <td className="px-4 py-4 text-right font-bold text-slate-900 whitespace-nowrap">{formatCurrency(item.total)}</td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400">No invoice items available.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals & Summary */}
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              <div className="flex flex-col gap-2 items-start justify-start">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400 mb-1">Invoice Status</div>
+                <Badge variant={invoiceBadgeVariant} className="text-sm font-bold uppercase tracking-wider px-3 py-1">
+                  {invoice.status}
+                </Badge>
               </div>
 
-              <div className="mt-6 flex justify-end">
-                <div className="w-full max-w-md space-y-2 text-sm text-slate-700">
-                  <div className="flex items-center justify-between">
-                    <span>Total Amount :</span>
-                    <span className="font-semibold text-slate-800">{formatCurrency(invoice.totalAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Net Total :</span>
-                    <span className="font-semibold text-slate-800">{formatCurrency(invoice.netTotal)}</span>
-                  </div>
-                  {amountPaid > 0 ? (
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        className="font-semibold text-slate-600 underline decoration-slate-300 underline-offset-4"
-                        onClick={() => void loadPaymentEntries(true)}
-                      >
-                        Amount Paid :
-                      </button>
-                      <button
-                        type="button"
-                        className="font-semibold text-slate-800 underline decoration-slate-300 underline-offset-4"
-                        onClick={() => void loadPaymentEntries(true)}
-                      >
-                        {formatCurrency(amountPaid)}
-                      </button>
-                    </div>
-                  ) : null}
+              <div className="space-y-3 text-sm text-slate-600">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="font-medium">Total Amount :</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(invoice.totalAmount)}</span>
                 </div>
-              </div>
-
-              <div className="mt-6 rounded-lg bg-slate-100 px-4 py-4">
-                <div className="flex items-center justify-end gap-6 text-[18px] font-semibold text-slate-800">
-                  <span>Amount Due</span>
-                  <span>{formatCurrency(invoice.amountDue)}</span>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="font-medium">Net Total :</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(invoice.netTotal)}</span>
                 </div>
-              </div>
-
-              {String(invoice.status).toLowerCase().includes("cancel") && invoice.reasonForCancel ? (
-                <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  <span className="font-semibold">Cancellation Reason:</span> {invoice.reasonForCancel}
-                </div>
-              ) : null}
-
-              {statusError ? (
-                <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-                  {statusError}
-                </div>
-              ) : null}
-
-              {!isInvoiceSettled && !isInvoiceCancelled ? (
-                <div className="mt-6 flex flex-wrap gap-3">
-                  {canShowGetPayment ? (
-                    <Popover
-                      portal
-                      placement="top"
-                      align="start"
-                      trigger={<Button>Get Payment</Button>}
+                {amountPaid > 0 ? (
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <button
+                      type="button"
+                      className="font-medium text-slate-500 hover:text-slate-800 underline decoration-slate-300 underline-offset-4 transition"
+                      onClick={() => void loadPaymentEntries(true)}
                     >
-                      <div className="grid min-w-[220px] p-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start font-normal"
-                          onClick={() => {
-                            setPaymentAction("paylink");
-                            setPaymentDialogOpen(true);
-                            setPaymentError("");
-                          }}
-                        >
-                          Share Payment Link
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start font-normal"
-                          onClick={() => {
-                            setPaymentAction("paycash");
-                            setPaymentDialogOpen(true);
-                            setPaymentError("");
-                          }}
-                        >
-                          Pay by Cash
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start font-normal"
-                          onClick={() => {
-                            setPaymentAction("payothers");
-                            setPaymentDialogOpen(true);
-                            setPaymentError("");
-                          }}
-                        >
-                          Pay by Others
-                        </Button>
-                      </div>
-                    </Popover>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleInvoiceStatusUpdate("Settled")}
-                    disabled={statusUpdating}
-                  >
-                    {statusUpdating ? "Updating..." : "Settle Invoice"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-rose-500"
-                    onClick={() => void handleInvoiceStatusUpdate("Cancel")}
-                    disabled={statusUpdating}
-                  >
-                    {statusUpdating ? "Updating..." : "Cancel Invoice"}
-                  </Button>
+                      Amount Paid :
+                    </button>
+                    <button
+                      type="button"
+                      className="font-bold text-slate-900 hover:text-slate-800 underline decoration-slate-300 underline-offset-4 transition"
+                      onClick={() => void loadPaymentEntries(true)}
+                    >
+                      {formatCurrency(amountPaid)}
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                  <div className="flex items-center justify-between text-base font-bold text-slate-900">
+                    <span>Amount Due</span>
+                    <span className="text-lg font-extrabold text-[var(--color-primary)]">{formatCurrency(invoice.amountDue)}</span>
+                  </div>
                 </div>
-              ) : null}
+              </div>
             </div>
           </div>
-        </SectionCard>
-      </div>
+
+          {String(invoice.status).toLowerCase().includes("cancel") && invoice.reasonForCancel ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <span className="font-bold">Cancellation Reason:</span> {invoice.reasonForCancel}
+            </div>
+          ) : null}
+
+          {statusError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+              {statusError}
+            </div>
+          ) : null}
+
+          {!isInvoiceSettled && !isInvoiceCancelled ? (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 border-t border-slate-100 pt-5">
+              {canShowGetPayment ? (
+                <Popover
+                  portal
+                  placement="top"
+                  align="start"
+                  trigger={
+                    <Button className="w-full sm:w-auto border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-text)] hover:bg-[var(--color-primary-hover)]">
+                      Get Payment
+                    </Button>
+                  }
+                >
+                  <div className="grid min-w-[220px] p-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start font-normal"
+                      onClick={() => {
+                        setPaymentAction("paylink");
+                        setPaymentDialogOpen(true);
+                        setPaymentError("");
+                      }}
+                    >
+                      Share Payment Link
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start font-normal"
+                      onClick={() => {
+                        setPaymentAction("paycash");
+                        setPaymentDialogOpen(true);
+                        setPaymentError("");
+                      }}
+                    >
+                      Pay by Cash
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start font-normal"
+                      onClick={() => {
+                        setPaymentAction("payothers");
+                        setPaymentDialogOpen(true);
+                        setPaymentError("");
+                      }}
+                    >
+                      Pay by Others
+                    </Button>
+                  </div>
+                </Popover>
+              ) : null}
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => void handleInvoiceStatusUpdate("Settled")}
+                disabled={statusUpdating}
+              >
+                {statusUpdating ? "Updating..." : "Settle Invoice"}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto text-rose-600 border-rose-200 hover:bg-rose-50/50"
+                onClick={() => void handleInvoiceStatusUpdate("Cancel")}
+                disabled={statusUpdating}
+              >
+                {statusUpdating ? "Updating..." : "Cancel Invoice"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </SectionCard>
 
       <MasterInvoiceDialogs
         paymentDialogOpen={paymentDialogOpen}
@@ -766,7 +764,7 @@ function MasterInvoicePage() {
         editPaymentSubmitting={editPaymentSubmitting}
         submitEditedPayment={submitEditedPayment}
       />
-    </div>
+    </PageShell>
   );
 }
 

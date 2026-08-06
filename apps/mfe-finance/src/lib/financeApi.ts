@@ -189,6 +189,9 @@ export const financeApi = {
     taxFeature(status: "Enabled" | "Disabled") {
       return put(`${TENANT_SETTINGS_ENDPOINT}/enable-tax/${status}`);
     },
+    taxSettings<T = unknown>(data: unknown) {
+      return put<T>(`${TENANT_SETTINGS_ENDPOINT}/tax-settings`, data);
+    },
     dashboardActions<T = unknown>(data: unknown) {
       return post<T>("provider/styleconfig/styletype/FinanceStyleConfig", data);
     },
