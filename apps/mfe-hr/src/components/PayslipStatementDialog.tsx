@@ -6,11 +6,6 @@ import type { Employee } from "../types";
 import { HrPageHeader } from "./HrPageHeader";
 import { formatCurrency, formatDate } from "../lib/utils";
 
-const COMPANY_NAME = "JALDEE HR";
-const COMPANY_LEGAL = "Jaldee Technologies Pvt. Ltd.";
-const COMPANY_ADDRESS = "Building 4B, Infopark, Kakkanad, Kochi, Kerala - 682030";
-const COMPANY_CONTACT = "Phone: +91 484 2748301 | Email: accounts@jaldee.com";
-
 function labelize(value?: string) {
   return value ? value.replaceAll("_", " ") : "-";
 }
@@ -202,8 +197,13 @@ export function PayslipStatementView({
 }) {
   const printRootRef = useRef<HTMLDivElement | null>(null);
   const bucketData = resolveLineBuckets(payslip);
-  const employeeDeductionEntries = bucketData.deductions.filter(([label]) => !isEmployerContributionLabel(label));
-  const employerContributionEntries = bucketData.deductions.filter(([label]) => isEmployerContributionLabel(label));
+  const isIntern = employee?.employmentType?.toLowerCase() === "intern";
+  const isPfEntry = (label: string) => /\bpf\b|provident\s*fund/i.test(label);
+  const visibleDeductions = isIntern
+    ? bucketData.deductions.filter(([label]) => !isPfEntry(label))
+    : bucketData.deductions;
+  const employeeDeductionEntries = visibleDeductions.filter(([label]) => !isEmployerContributionLabel(label));
+  const employerContributionEntries = visibleDeductions.filter(([label]) => isEmployerContributionLabel(label));
   const sumEarnings = bucketData.earnings.reduce((sum, [, amount]) => sum + Math.abs(amount), 0);
   const payslipRecord = payslip as Payslip & Record<string, unknown>;
   const computedGross = firstNumericTotal(
@@ -290,16 +290,19 @@ export function PayslipStatementView({
     const str = String(raw).trim();
     return str !== "" && str !== "-";
   });
+  const company = payslip.companyProfile;
+  const companyAddress = [company?.addressLine, company?.city, company?.state, company?.country].filter(Boolean).join(", ");
+  const companyContact = [company?.phone ? `Phone: ${company.phone}` : "", company?.email ? `Email: ${company.email}` : ""].filter(Boolean).join(" | ");
 
   return (
     <div ref={printRootRef} data-payslip-print-root style={shell}>
       <div style={topAccent} />
       <div style={headerBlock}>
         <div style={{ display: "grid", gap: 2, alignContent: "start", alignSelf: "start" }}>
-          <div style={brand}>{COMPANY_NAME}</div>
-          <div style={metaText}>{COMPANY_LEGAL}</div>
-          <div style={metaText}>{COMPANY_ADDRESS}</div>
-          <div style={metaText}>{COMPANY_CONTACT}</div>
+          <div style={brand}>{company?.name || company?.legalName || "Company"}</div>
+          {company?.legalName && company.legalName !== company.name && <div style={metaText}>{company.legalName}</div>}
+          {companyAddress && <div style={metaText}>{companyAddress}</div>}
+          {companyContact && <div style={metaText}>{companyContact}</div>}
         </div>
         <div style={{ display: "grid", gap: 6, textAlign: "right" }}>
           <div style={title}>Payslip Statement</div>

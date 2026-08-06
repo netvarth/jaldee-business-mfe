@@ -60,7 +60,7 @@ type AssetUploadDescriptor = {
 
 interface ReturnAssetOptions {
   asset: Asset;
-  status: AssetStatus;
+  condition: AssetStatus;
   remarks?: string;
   attachment?: AssetAttachment[];
 }
@@ -265,24 +265,11 @@ export function useAssets(
     return uploaded;
   }, [account.id, account.tenantUid, markUploadComplete, requestUploadTargets, user.id, user.name]);
   const returnAsset = useCallback(async (uid: string, opts: ReturnAssetOptions) => {
-    const asset = opts.asset;
     await api.post(`/assets/${uid}/return`, {
-      uid: asset.uid ?? asset.id,
-      assetType: asset.assetType ?? null,
-      name: asset.name ?? null,
-      tagNumber: asset.tagNumber ?? null,
-      serialNumber: asset.serialNumber ?? null,
-      assetValue: asset.assetValue ?? null,
-      departmentUid: asset.departmentUid ?? null,
-      departmentName: asset.departmentName ?? asset.ownerDepartment ?? null,
-      accountsRef: asset.accountsRef ?? null,
-      status: opts.status,
-      notes: asset.notes ?? null,
-      holderEmployeeUid: asset.holderEmployeeUid ?? null,
-      holderEmployeeName: asset.holderEmployeeName ?? null,
-      issuedOn: asset.issuedOn ?? null,
+      returnedOn: new Date().toISOString().slice(0, 10),
+      condition: opts.condition === "UnderRepair" ? "Under Repair" : opts.condition,
       remarks: opts.remarks ?? null,
-      attachment: opts.attachment ?? asset.attachment ?? [],
+      attachment: opts.attachment ?? opts.asset.attachment ?? [],
     });
     await load();
   }, [api, load]);

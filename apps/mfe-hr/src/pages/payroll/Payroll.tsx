@@ -72,6 +72,7 @@ const CATEGORIES: ComponentCategory[] = [
   "REIMBURSEMENT",
   "PF",
   "ESI",
+  "LOP",
   "TDS",
   "PROFESSIONAL_TAX",
   "LWF",
@@ -116,6 +117,7 @@ const emptyMapping: Partial<StructureComponentMapping> = {
   slabConfigJson: [],
   isMandatory: true,
   allowEmployeeOverride: false,
+  isEsiEligible: true,
 };
 
 const money = (value?: number) => formatCurrency(value ?? 0);
@@ -852,6 +854,7 @@ export default function Payroll() {
       maximumAmount: mapping.maximumAmount ?? 0,
       isMandatory: mapping.isMandatory ?? true,
       allowEmployeeOverride: mapping.allowEmployeeOverride ?? false,
+      isEsiEligible: mapping.isEsiEligible ?? true,
       displayOrder: mapping.displayOrder ?? 0,
     });
     setBuilderDialogOpen(true);
@@ -1953,6 +1956,7 @@ function StructureBuilderDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ToggleRow label="Mandatory" checked={form.isMandatory} onChange={(value) => onChange({ ...form, isMandatory: value })} />
             <ToggleRow label="Employee Override" checked={form.allowEmployeeOverride} onChange={(value) => onChange({ ...form, allowEmployeeOverride: value })} />
+            <ToggleRow label="ESI Eligible" checked={form.isEsiEligible ?? true} onChange={(value) => onChange({ ...form, isEsiEligible: value })} />
           </div>
         </div>
       </div>
@@ -1973,11 +1977,21 @@ function DialogHeader({ title, onClose }: { title: string; onClose: () => void }
   );
 }
 
-function DialogActions({ busy, onClose, onSave }: { busy: boolean; onClose: () => void; onSave: () => void }) {
+function DialogActions({
+  busy,
+  onClose,
+  onSave,
+  saveTestId,
+}: {
+  busy: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  saveTestId?: string;
+}) {
   return (
     <div style={dialogActions}>
       <button className="btn btn-secondary" onClick={onClose} style={buttonStyle}>Cancel</button>
-      <button className="btn btn-primary" onClick={onSave} disabled={busy} style={primaryButton}>{busy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
+      <button data-testid={saveTestId} className="btn btn-primary" onClick={onSave} disabled={busy} style={primaryButton}>{busy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
     </div>
   );
 }

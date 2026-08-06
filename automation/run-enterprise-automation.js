@@ -212,6 +212,14 @@ async function run() {
     const el = page.locator(selector).first();
     const visible = await el.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
     if (visible) {
+      if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
+        await el.click();
+        const option = page.locator('[role="option"]:visible').first();
+        await option.waitFor({ state: "visible", timeout: 10000 });
+        await option.click();
+        await page.waitForTimeout(250);
+        return true;
+      }
       await el.locator('option:not([value=""]):not([disabled])').first()
         .waitFor({ state: "attached", timeout: 5000 })
         .catch(() => { });
@@ -234,6 +242,16 @@ async function run() {
     const el = page.locator(selector).first();
     const visible = await el.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
     if (!visible) return false;
+    if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
+      await el.click();
+      const searchInput = page.locator('[role="listbox"]:visible input, [data-testid$="-menu"]:visible input').first();
+      if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) await searchInput.fill(String(optionLabel));
+      const option = page.getByRole("option", { name: String(optionLabel), exact: false }).first();
+      await option.waitFor({ state: "visible", timeout: 10000 });
+      await option.click();
+      await page.waitForTimeout(250);
+      return true;
+    }
     const value = await el.locator("option").evaluateAll((options, expectedLabel) => {
       const expected = String(expectedLabel).trim();
       const match = options.find((option) => option.textContent.trim() === expected || option.label.trim() === expected);
@@ -1109,7 +1127,17 @@ async function run() {
 
     console.log("\n>>> SETTINGS - PAYROLL SETTINGS...");
     await openSettingsSection("payroll", '[data-testid="hr-settings-payroll-save"]');
+    await page.locator('[data-testid="hr-settings-payroll-paydaytype"] input[value="FIXED_DATE"]').check();
     await slowType('[data-testid="hr-settings-payroll-payday"]', "28", "Payroll Day");
+    await slowSelect('[data-testid="hr-settings-payroll-workingdaysbasis"]', "FIXED_DAYS", "Working Days Basis");
+    await slowType('[data-testid="hr-settings-payroll-fixedworkingdays"]', "26", "Fixed Working Days");
+    await slowType('[data-testid="hr-settings-payroll-pfemployeerate"]', "12", "PF Employee Rate");
+    await slowType('[data-testid="hr-settings-payroll-pfemployerrate"]', "12", "PF Employer Rate");
+    await slowType('[data-testid="hr-settings-payroll-pfwageceiling"]', "15000", "PF Wage Ceiling");
+    await slowSelect('[data-testid="hr-settings-payroll-pfbasetype"]', "BASIC", "PF Base");
+    await slowType('[data-testid="hr-settings-payroll-esirate"]', "0.75", "ESI Employee Rate");
+    await slowType('[data-testid="hr-settings-payroll-esiemployerrate"]', "3.25", "ESI Employer Rate");
+    await slowType('[data-testid="hr-settings-payroll-esigrossceiling"]', "21000", "ESI Eligibility Ceiling");
     const payrollSettingsResponsePromise = page.waitForResponse((response) => response.url().includes("/payroll-settings"), { timeout: 15000 }).catch(() => null);
     await slowClick('[data-testid="hr-settings-payroll-save"]', "Save Payroll Settings");
     const payrollSettingsResponse = await payrollSettingsResponsePromise;
@@ -1436,8 +1464,9 @@ async function run() {
       const requestedEndDate = isTwoDayLeave ? futureDate(31 + i * 3) : leaveStartDate;
       await closeAnyOpenModal();
       await slowClick('[data-testid="hr-leave-apply-button"], button:has-text("Apply For Leave")', `Apply Leave ${i + 1}`);
-      const employeeSelected = await slowSelectFirstOption('[data-testid="hr-leave-employee"]', `Employee ${i + 1}`);
+      const employeeSelected = await slowSelectOptionByLabel('[data-testid="hr-leave-employee"]', primaryEmployeeName, `Employee ${i + 1}`);
       if (!employeeSelected) throw new Error(`No employee is available for leave application ${i + 1}`);
+      await page.locator('[data-testid="hr-leave-type"]:not([disabled])').waitFor({ state: "visible", timeout: 15000 });
       const leaveTypeSelected = await slowSelectFirstOption('[data-testid="hr-leave-type"]', `Leave Type ${i + 1}`);
       if (!leaveTypeSelected) throw new Error(`No leave type is available for leave application ${i + 1}`);
       await slowDate('[data-testid="hr-leave-start-date"]', leaveStartDate, `Start Date ${i + 1}`);
@@ -1609,6 +1638,7 @@ async function run() {
         console.log("   [Verified] Employee document download opened");
         const documentDeleteResponsePromise = page.waitForResponse((response) => response.request().method() === "DELETE" && /\/document-requests\/[^/?]+/.test(response.url()), { timeout: 30000 });
         await documentRow.locator('[data-testid^="hr-employee-document-delete-"]').click();
+        await slowClick('[data-testid="hr-employee-document-delete-confirm"]', "Confirm Employee Document Delete");
         const documentDeleteResponse = await documentDeleteResponsePromise;
         console.log(`   [Response] Delete Employee Document: ${documentDeleteResponse.status()} ${documentDeleteResponse.statusText()}`);
         if (!documentDeleteResponse.ok()) throw new Error(`Employee document delete failed (${documentDeleteResponse.status()}): ${await documentDeleteResponse.text()}`);
@@ -1860,7 +1890,7 @@ async function run() {
       await page.waitForTimeout(5000);
       await visitHr("/hr/org/transfers", "ORGANIZATION /transfers");
       await slowClick('[data-testid="hr-org-transfer-open"]', "Schedule Employee Transfer");
-      await page.locator('[data-testid="hr-org-transfer-employee"]').selectOption({ label: primaryEmployeeName });
+      await slowSelectOptionByLabel('[data-testid="hr-org-transfer-employee"]', primaryEmployeeName, "Transfer Employee");
       await page.locator('[data-testid="hr-org-transfer-branch"]').selectOption({ label: "Thrissur1" });
       await page.locator('[data-testid="hr-org-transfer-department"]').selectOption({ index: 1 });
       await page.locator('[data-testid="hr-org-transfer-shift"]').selectOption({ index: 1 });
@@ -1875,6 +1905,7 @@ async function run() {
       console.log("   [View] Showing the newly scheduled transfer on the list");
       await page.waitForTimeout(5000);
       await slowClick('[data-testid^="hr-org-transfer-effect-"]:not([data-testid^="hr-org-transfer-effect-card-"])', "Effect Transfer Now");
+      await slowClick('[data-testid="hr-org-transfer-effect-confirm"]', "Confirm Transfer Effect");
     }
 
     async function runPayrollActions() {
@@ -1926,19 +1957,20 @@ async function run() {
           continue;
         }
         await slowClick('[data-testid="hr-payroll-component-new"]', `New Payroll Component ${component.name}`);
-        payrollDialog = page.getByRole("dialog").filter({ hasText: "Payroll Component" }).first();
-        await payrollDialog.getByLabel("Component Name").fill(component.name);
-        await payrollDialog.getByLabel("Component Code").fill(component.code);
-        await payrollDialog.getByTestId("type").selectOption(component.type);
-        await payrollDialog.getByTestId("category").selectOption(component.category);
-        await payrollDialog.getByTestId("calculation-type").selectOption(component.calculation);
+        payrollDialog = page.getByTestId("hr-payroll-component-modal");
+        await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
+        await payrollDialog.getByTestId("hr-payroll-component-name").fill(component.name);
+        await payrollDialog.getByTestId("hr-payroll-component-code").fill(component.code);
+        await payrollDialog.getByTestId("hr-payroll-component-type").selectOption(component.type);
+        await payrollDialog.getByTestId("hr-payroll-component-category").selectOption(component.category);
+        await payrollDialog.getByTestId("hr-payroll-component-calc-type").selectOption(component.calculation);
         await setComponentFlag(payrollDialog, "isStatutory", component.statutory);
         await setComponentFlag(payrollDialog, "isTaxable", component.taxable);
         await setComponentFlag(payrollDialog, "affectsGrossPay", component.gross);
         await setComponentFlag(payrollDialog, "affectsNetPay", component.net);
         await setComponentFlag(payrollDialog, "affectsCtc", component.ctc);
         await setComponentFlag(payrollDialog, "visibleInPayslip", component.payslip);
-        await payrollDialog.getByRole("button", { name: "Save", exact: true }).click();
+        await payrollDialog.getByTestId("hr-payroll-component-save").click();
         await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
         await page.locator("tr").filter({ hasText: component.name }).first().waitFor({ state: "visible", timeout: 10000 });
       }
@@ -1946,8 +1978,9 @@ async function run() {
       let payrollRow = page.locator("tr").filter({ hasText: payrollComponentName }).first();
       await payrollRow.waitFor({ state: "visible", timeout: 10000 });
       await payrollRow.locator('[data-testid^="hr-payroll-component-edit-"]').click();
-      payrollDialog = page.getByRole("dialog").filter({ hasText: "Payroll Component" }).first();
-      await payrollDialog.getByRole("button", { name: /^(Save|Update Component)$/i }).click();
+      payrollDialog = page.getByTestId("hr-payroll-component-modal");
+      await payrollDialog.waitFor({ state: "visible", timeout: 10000 });
+      await payrollDialog.getByTestId("hr-payroll-component-save").click();
       await payrollDialog.waitFor({ state: "hidden", timeout: 20000 });
       await visitHr("/hr/payroll/structures", "PAYROLL STRUCTURES");
       const fixed = (code, amount = 0) => ({ code, calculation: "FIXED_AMOUNT", amount });
@@ -2139,7 +2172,7 @@ async function run() {
       const actOnExitRequest = async (outcome, sequence) => {
         await slowClick('[data-testid="hr-separation-raise-open"]', `Raise Separation Request ${sequence}`);
         await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "visible", timeout: 10000 });
-        await page.locator('[data-testid="hr-separation-employee"]').selectOption({ label: primaryEmployeeName });
+        await slowSelectOptionByLabel('[data-testid="hr-separation-employee"]', primaryEmployeeName, "Separation Employee");
         await page.locator('[data-testid="hr-separation-type"]').selectOption("Resignation");
         await slowType('[data-testid="hr-separation-notice-days"]', "30", `Separation Notice ${sequence}`);
         await slowType('[data-testid="hr-separation-reason"]', `${outcome} separation automation ${suffix}-${sequence}`, `Separation Reason ${sequence}`);
@@ -2154,6 +2187,7 @@ async function run() {
           await slowClick('[data-testid="hr-separation-reject"]', "Reject Separation Request");
         } else if (outcome === "Cancelled") {
           await slowClick('[data-testid="hr-separation-cancel-request"]', "Cancel Separation Request");
+          await slowClick('[data-testid="hr-separation-confirm-submit"]', "Confirm Separation Cancellation");
         } else {
           await slowType('[data-testid="hr-separation-decision-remarks"]', `Approved by automation ${suffix}`, "Approval Remarks");
           await slowClick('[data-testid="hr-separation-approve"]', "Approve Separation Request");

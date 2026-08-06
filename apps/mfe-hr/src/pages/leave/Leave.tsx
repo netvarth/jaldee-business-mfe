@@ -90,6 +90,8 @@ export default function Leave() {
   const leaveTypes = useLeaveTypes();
   const isLoading = leaves.loading || balances.loading || empLoading;
   const { trackEvent, captureError } = useTelemetry();
+  const [revokeBalance, setRevokeBalance] = useState<LeaveBalance | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => {
     const err = leaves.error || balances.error || leaveTypes.error;
@@ -494,6 +496,7 @@ export default function Leave() {
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, color: "var(--dark-text)" }}><span>{avl} avl</span>{totalQuota ? <span style={{ color: "var(--light-text)" }}>/ {totalQuota}</span> : null}</div>
                             <div style={{ height: 4, background: "rgba(100,116,139,0.15)", borderRadius: 999, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", width: `${percent}%`, background: inactive ? "#94a3b8" : q.color, borderRadius: 999 }} /></div>
                             <span style={{ ...balanceStatusPill(status), display: "inline-block", marginTop: 6, padding: "2px 6px", borderRadius: 7, fontSize: 8, fontWeight: 800, letterSpacing: "0.06em" }}>{status}</span>
+                            {activeList.length === 1 && <button type="button" data-testid={`hr-leave-balance-remove-${activeList[0].uid || activeList[0].id}`} onClick={() => setRevokeBalance(activeList[0])} style={{ display: "block", marginTop: 5, padding: 0, border: 0, background: "transparent", color: "#e11d48", fontSize: 9, fontWeight: 800, cursor: "pointer" }}>Remove</button>}
                           </div>
                         </td>
                       );
@@ -906,6 +909,19 @@ export default function Leave() {
             </div>
           </>
         )}
+      </Dialog>
+      <Dialog open={revokeBalance != null} onClose={() => !revoking && setRevokeBalance(null)} title="Remove assigned leave?" testId="hr-leave-balance-remove-dialog">
+        <p style={{ margin: 0, color: "var(--light-text)", fontSize: 13 }}>The remaining balance will be reversed and this assignment will become inactive.</p>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+          <Button data-testid="hr-leave-balance-remove-cancel" variant="secondary" disabled={revoking} onClick={() => setRevokeBalance(null)}>Keep Assignment</Button>
+          <Button data-testid="hr-leave-balance-remove-confirm" disabled={revoking} loading={revoking} onClick={async () => {
+            if (!revokeBalance) return;
+            setRevoking(true);
+            try { await balances.revoke(revokeBalance.uid || revokeBalance.id); setRevokeBalance(null); }
+            catch (error) { eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave balance", message: error instanceof Error ? error.message : "Unable to remove leave assignment." }); }
+            finally { setRevoking(false); }
+          }}>Remove Assignment</Button>
+        </div>
       </Dialog>
     </section>
   );

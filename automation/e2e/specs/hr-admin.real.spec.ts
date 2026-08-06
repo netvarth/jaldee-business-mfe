@@ -434,7 +434,17 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
 
     // Payroll Settings
     await navigateToHrRoute(page, "/hr/settings/payroll");
+    await page.locator('[data-testid="hr-settings-payroll-paydaytype"] input[value="FIXED_DATE"]').check();
     await fillByTestId(page, "hr-settings-payroll-payday", "28");
+    await selectByTestId(page, "hr-settings-payroll-workingdaysbasis", "FIXED_DAYS");
+    await fillByTestId(page, "hr-settings-payroll-fixedworkingdays", "26");
+    await fillByTestId(page, "hr-settings-payroll-pfemployeerate", "12");
+    await fillByTestId(page, "hr-settings-payroll-pfemployerrate", "12");
+    await fillByTestId(page, "hr-settings-payroll-pfwageceiling", "15000");
+    await selectByTestId(page, "hr-settings-payroll-pfbasetype", "BASIC");
+    await fillByTestId(page, "hr-settings-payroll-esirate", "0.75");
+    await fillByTestId(page, "hr-settings-payroll-esiemployerrate", "3.25");
+    await fillByTestId(page, "hr-settings-payroll-esigrossceiling", "21000");
     await clickByTestId(page, "hr-settings-payroll-save");
 
     console.log("=== MODULE 3: EMPLOYEE MASTER (15 IT ENGINEER EMPLOYEES) ===");

@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { LogOut, Plus, X, AlertCircle, Loader2, ShieldCheck, Scissors, MessageSquare, Rows3, LayoutGrid } from "lucide-react";
-import { Button, Combobox, DataTable, EmptyState, Input, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import { Button, Combobox, DataTable, Dialog, DialogFooter, EmptyState, Input, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useExits, type ExitRequest, type ClearanceStatus } from "../../services/useExits";
 import { useEmployees } from "../../services/useEmployees";
@@ -81,6 +81,7 @@ export default function Separation() {
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [noticeEditOpen, setNoticeEditOpen] = useState(false);
   const [noticeEditDays, setNoticeEditDays] = useState("");
+  const [confirmAction, setConfirmAction] = useState<"undo-waiver" | "cancel" | null>(null);
 
   const openDetail = (e: ExitRequest) => {
     setSelected(e); setRemarks(""); setWaive({ days: "", reason: "" });
@@ -90,7 +91,8 @@ export default function Separation() {
   };
 
   const submitRaise = async () => {
-    if (!form.employeeUid || !form.separationType) { setMsg("Employee and separation type are required."); return; }
+    const missing = [!form.employeeUid && "Employee", !form.separationType && "Separation type", !form.noticePeriodDays && "Notice period"].filter(Boolean);
+    if (missing.length) { setMsg(`${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required.`); return; }
     setBusy(true); setMsg(null);
     try {
       await exits.raise({
@@ -344,11 +346,7 @@ export default function Separation() {
                         variant="secondary"
                         disabled={busy}
                         loading={busy}
-                        onClick={() => {
-                          if (confirm("Undo the notice waiver and restore the original notice period?")) {
-                            void act(() => exits.undoNoticeWaiver(current.id));
-                          }
-                        }}
+                        onClick={() => setConfirmAction("undo-waiver")}
                       >
                         Undo Waiver
                       </Button>
@@ -422,7 +420,7 @@ export default function Separation() {
               {awaitingApproval(current.status) && (
                 <div style={{ display: "flex", justifyContent: "flex-start" }}>
                   <Button id="hr-separation-cancel-request" data-testid="hr-separation-cancel-request" variant="ghost" disabled={busy} style={{ color: "#e11d48" }}
-                    onClick={() => { if (confirm("Cancel this exit request?")) void act(() => exits.cancel(current.id)); }}>
+                    onClick={() => setConfirmAction("cancel")}>
                     Cancel Request
                   </Button>
                 </div>
@@ -433,6 +431,20 @@ export default function Separation() {
           </div>
         </div>
       )}
+      <Dialog open={confirmAction != null} onClose={() => setConfirmAction(null)} title={confirmAction === "cancel" ? "Cancel exit request?" : "Undo notice waiver?"} testId="hr-separation-confirm-dialog">
+        <p style={{ margin: 0, color: "var(--light-text)", fontSize: 13 }}>
+          {confirmAction === "cancel" ? "This exit request will be cancelled." : "The original notice period and last working day will be restored."}
+        </p>
+        <DialogFooter>
+          <Button data-testid="hr-separation-confirm-keep" variant="secondary" onClick={() => setConfirmAction(null)}>Keep</Button>
+          <Button data-testid="hr-separation-confirm-submit" disabled={busy} loading={busy} onClick={() => {
+            if (!current || !confirmAction) return;
+            const action = confirmAction;
+            setConfirmAction(null);
+            void act(() => action === "cancel" ? exits.cancel(current.id) : exits.undoNoticeWaiver(current.id));
+          }}>{confirmAction === "cancel" ? "Cancel Request" : "Undo Waiver"}</Button>
+        </DialogFooter>
+      </Dialog>
     </section>
   );
 }

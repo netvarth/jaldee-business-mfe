@@ -7,7 +7,7 @@ import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 
 export interface Designation { id: string; uid?: string; name?: string; code?: string; department?: string; hrDepartment?: string; hrDepartmentUid?: string | null; orgLevelUid?: string | null; level?: number; description?: string; status?: string; }
-export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; status?: string; }
+export interface Shift { id: string; uid?: string; name?: string; startTime?: string; endTime?: string; isOvernight?: boolean; graceMinutes?: number; halfDayThresholdMinutes?: number; breakMinutes?: number; break_minutes?: number; weeklyOffDays?: string[]; status?: string; }
 export interface ShiftRotation { id: string; uid?: string; name?: string; shiftUids?: string[]; rotationPeriodDays?: number; startDate?: string; active?: boolean; }
 export interface Consent { id: string; uid?: string; employeeUid?: string; purpose?: string; status?: string; policyVersion?: string; grantedAt?: string; }
 export interface BranchRow { id: string; uid?: string; name?: string; code?: string; address?: string; latitude?: number; longitude?: number; radius?: number; }
