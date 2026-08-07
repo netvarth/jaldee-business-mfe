@@ -36,23 +36,30 @@ const CustomersPage = lazy(() =>
 const CustomerCreatePage = lazy(() =>
   import("./pages/customers/CustomerPages").then((module) => ({ default: module.CustomerCreatePage }))
 );
+const CustomerEditPage = lazy(() =>
+  import("./pages/customers/CustomerPages").then((module) => ({ default: module.CustomerEditPage }))
+);
 const CustomerDetailPage = lazy(() =>
   import("./pages/customers/CustomerPages").then((module) => ({ default: module.CustomerDetailPage }))
 );
 const InvoicesPage = lazy(() => import("./pages/invoices/InvoicesPage"));
 const MasterInvoicePage = lazy(() => import("./pages/invoices/MasterInvoicePage"));
+const MasterInvoiceViewPage = lazy(() => import("./pages/invoices/MasterInvoiceViewPage"));
 const VendorsPage = lazy(() => import("./pages/vendors/VendorsPage"));
 const VendorDetailPage = lazy(() => import("./pages/vendors/VendorDetailPage"));
 const VendorCreatePage = lazy(() => import("./pages/vendors/VendorFormPage"));
 const ReceivablesPage = lazy(() => import("./pages/receivables/ReceivablesPage"));
 const ReceivablesCreatePage = lazy(() => import("./pages/receivables/ReceivableCreatePage"));
 const ReceivablesEditPage = lazy(() => import("./pages/receivables/ReceivableEditPage"));
+const ReceivableDetailPage = lazy(() => import("./pages/receivables/ReceivableDetailPage"));
 const PayablesPage = lazy(() => import("./pages/payables/PayablesPage"));
 const PayablesCreatePage = lazy(() => import("./pages/payables/PayableCreatePage"));
 const PayablesEditPage = lazy(() => import("./pages/payables/PayableEditPage"));
+const PayableDetailPage = lazy(() => import("./pages/payables/PayableDetailPage"));
 const ExpensesPage = lazy(() => import("./pages/expenses/ExpensesPage"));
 const ExpensesCreatePage = lazy(() => import("./pages/expenses/ExpenseCreatePage"));
 const ExpensesEditPage = lazy(() => import("./pages/expenses/ExpenseEditPage"));
+const ExpenseDetailPage = lazy(() => import("./pages/expenses/ExpenseDetailPage"));
 const DiscountsPage = lazy(() => import("./pages/discounts/DiscountPages").then(m => ({ default: m.DiscountsPage })));
 const DiscountCreatePage = lazy(() => import("./pages/discounts/DiscountPages").then(m => ({ default: m.DiscountCreatePage })));
 const DiscountEditPage = lazy(() => import("./pages/discounts/DiscountPages").then(m => ({ default: m.DiscountEditPage })));
@@ -244,6 +251,7 @@ export default function App() {
         <Route path="estimates/:id" element={withBoundary(<EstimatesPage />)} />
         <Route path="customers" element={withBoundary(<CustomersPage />)} />
         <Route path="customers/create" element={withBoundary(<CustomerCreatePage />)} />
+        <Route path="customers/edit/:id" element={withBoundary(<CustomerEditPage />)} />
         <Route path="customers/:id" element={withBoundary(<CustomerDetailPage />)} />
           <Route path="vendors" element={withBoundary(<VendorsPage />)} />
           <Route path="vendors/create" element={withBoundary(<VendorCreatePage />)} />
@@ -253,12 +261,15 @@ export default function App() {
         <Route path="receivables" element={withBoundary(<ReceivablesPage />)} />
         <Route path="receivables/create" element={withBoundary(<ReceivablesCreatePage />)} />
         <Route path="receivables/edit/:id" element={withBoundary(<ReceivablesEditPage />)} />
+        <Route path="receivables/view/:id" element={withBoundary(<ReceivableDetailPage />)} />
         <Route path="payable" element={withBoundary(<PayablesPage />)} />
         <Route path="payable/create" element={withBoundary(<PayablesCreatePage />)} />
         <Route path="payable/edit/:id" element={withBoundary(<PayablesEditPage />)} />
+        <Route path="payable/view/:id" element={withBoundary(<PayableDetailPage />)} />
         <Route path="expense" element={withBoundary(<ExpensesPage />)} />
         <Route path="expense/new" element={withBoundary(<ExpensesCreatePage />)} />
         <Route path="expense/edit/:id" element={withBoundary(<ExpensesEditPage />)} />
+        <Route path="expense/view/:id" element={withBoundary(<ExpenseDetailPage />)} />
         <Route path="discount" element={withBoundary(<DiscountsPage />)} />
         <Route path="discount/create" element={withBoundary(<DiscountCreatePage />)} />
         <Route path="discount/edit/:id" element={withBoundary(<DiscountEditPage />)} />
@@ -292,7 +303,7 @@ export default function App() {
         <Route path="cashRegister" element={withBoundary(<CashRegisterPage />)} />
         <Route path="cashRegister/reserve/new" element={withBoundary(<CashReserveCreatePage />)} />
         <Route path="activity-log" element={withBoundary(<ActivityLogPage />)} />
-        <Route path="master-invoice/:uid" element={withBoundary(<MasterInvoicePage />)} />
+        <Route path="master-invoice/:uid" element={withBoundary(<MasterInvoiceViewPage />)} />
         <Route path="reports" element={withBoundary(<ReportsPage />)} />
         <Route path="settings" element={withBoundary(<SettingsPage />)} />
         {placeholderRoutes.map((path) => (

@@ -24,6 +24,14 @@ function toFinanceRoute(routePath: string) {
   return stripped || "/";
 }
 
+const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 export default function ReceivableCreatePage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();

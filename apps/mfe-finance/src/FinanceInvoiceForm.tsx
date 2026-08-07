@@ -15,6 +15,7 @@ import {
   Textarea,
 } from "@jaldee/design-system";
 import { financeApi } from "./lib/financeApi";
+import { PageShell } from "./components/FinancePageLayout";
 
 import {
   InvoiceItem,
@@ -70,14 +71,13 @@ export default function FinanceInvoiceForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
-        <PageHeader
-          title={isEditing ? "Edit Invoice" : "Create Invoice"}
-          subtitle={isEditing ? "Modify an existing invoice." : "Issue new billing manually."}
-          actions={<Button variant="outline" data-testid="finance-invoice-back" onClick={navigateToInvoiceList}>Back</Button>}
-        />
-
+    <>
+      <PageShell
+        title={isEditing ? "Edit Invoice" : "Create Invoice"}
+        subtitle={isEditing ? "Modify an existing invoice." : "Issue new billing manually."}
+        back={{ label: "Back to Invoices", href: "/invoice" }}
+        onNavigate={navigateToInvoiceList}
+      >
         <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-6" data-testid="finance-invoice-form" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -407,7 +407,7 @@ export default function FinanceInvoiceForm() {
           </div>
         </form>
         </SectionCard>
-      </div>
+      </PageShell>
 
       <Dialog open={showCategoryDialog} onClose={() => setShowCategoryDialog(false)} title="Create Invoice Category" size="md">
         <div className="space-y-5 pt-2">
@@ -692,6 +692,6 @@ export default function FinanceInvoiceForm() {
           </DialogFooter>
         </div>
       </Dialog>
-    </div>
+    </>
   );
 }

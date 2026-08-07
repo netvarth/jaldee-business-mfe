@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Badge, Button, Dialog, DialogFooter, EmptyState, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import { formatCurrency, getStatusVariant } from "../../lib/financeData";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
@@ -9,6 +9,7 @@ import MasterInvoiceDialogs from "./MasterInvoiceDialogs";
 function MasterInvoicePage() {
   const { uid = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -104,6 +105,7 @@ function MasterInvoicePage() {
       location: String(res.data.locationName || res.data.location || res.data.locationPlace || "-"),
       referenceNo: String(res.data.referenceNo || res.data.bookingReference || "-"),
       patientId: String(res.data.consumerId || res.data.patientId || "-"),
+      consumerUid: String(res.data.consumerUid || res.data.consumerId || ""),
       invoiceDate: res.data.invoiceDate ? new Date(res.data.invoiceDate).toLocaleDateString() : "-",
       createdOn: res.data.createdDate || res.data.createdAt
         ? new Date(res.data.createdDate || res.data.createdAt).toLocaleString()
@@ -513,11 +515,13 @@ function MasterInvoicePage() {
         ? "danger"
         : getStatusVariant(invoice.status);
 
+  const backHref = location.state?.from || "/invoice";
+
   return (
     <PageShell
       title={`Invoice: #${invoice.invoiceNum}`}
       subtitle="Set up and view your transaction itemizations, payments, and balances."
-      back={{ label: "Back to Invoices", href: "/invoice" }}
+      back={{ label: "Back to Invoices", href: backHref }}
       actions={
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>

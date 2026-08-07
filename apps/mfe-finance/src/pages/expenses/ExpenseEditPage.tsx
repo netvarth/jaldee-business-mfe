@@ -7,6 +7,14 @@ import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
 function toFinanceRoute(routePath:string){const n=String(routePath||"").trim();if(!n)return "/";return n.replace(/^\/finance(?=\/|$)/,"")||"/";}
 
+const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 export default function ExpenseEditPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
@@ -147,9 +155,13 @@ export default function ExpenseEditPage() {
       setVendorUid(nextVendorUid && nextVendorUid !== EMPTY_UUID ? nextVendorUid : "");
       setLocationUid(String(detail.locationUid ?? detail.locationId ?? mfeProps.location?.id ?? nextLocationOptions[0]?.value ?? ""));
       setBookedOn(String(detail.expenseDate ?? detail.createdDate ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10));
-      setAmount(String(detail.amount ?? ""));
-      setAmountDue(String(detail.amountDue ?? detail.balanceAmount ?? detail.amount ?? ""));
-      setAmountPaid(String(detail.amountPaid ?? detail.paidAmount ?? 0));
+      const amountVal = detail.amount ?? "";
+      const amountPaidVal = detail.amountPaid ?? detail.paidAmount ?? detail.amountPaidTotal ?? 0;
+      const amountDueVal = detail.amountDue ?? detail.balanceAmount ?? detail.dueAmount ?? (Number(amountVal) - Number(amountPaidVal)) ?? "";
+
+      setAmount(String(amountVal));
+      setAmountDue(String(amountDueVal));
+      setAmountPaid(String(amountPaidVal));
       setReferenceNo(String(detail.referenceNo ?? ""));
       setPaymentMode(String(detail.mode ?? detail.paymentMode ?? "Cash"));
       setDescription(String(detail.description ?? ""));
@@ -308,7 +320,7 @@ export default function ExpenseEditPage() {
         locationId: locationUid || undefined,
         locationName: selectedLocation?.label || mfeProps.location?.name || undefined,
       });
-      navigate("/finance/expense");
+      navigate("../..", { relative: "path" });
     } catch (error) {
       console.error("[mfe-finance] Failed to update expense", error);
       setFormError(error instanceof Error ? error.message : "Could not update expense.");
@@ -325,6 +337,7 @@ export default function ExpenseEditPage() {
     <PageShell
       title="Update Expense"
       subtitle="Manage your Expense"
+      back={{ label: "Back to Expenses", href: "/expense" }}
       actions={
         <div className="flex items-center gap-2">
           <Popover
@@ -364,7 +377,6 @@ export default function ExpenseEditPage() {
               </Button>
             </div>
           </Popover>
-          <Button variant="outline" onClick={() => navigate("/finance/expense")}>Back</Button>
         </div>
       }
     >
@@ -487,7 +499,7 @@ export default function ExpenseEditPage() {
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">{formError}</div> : null}
 
           <div className="flex justify-start gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/finance/expense")}>
+            <Button type="button" variant="outline" onClick={() => navigate("../..", { relative: "path" })}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>

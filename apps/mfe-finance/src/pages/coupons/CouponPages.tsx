@@ -162,11 +162,11 @@ export function CouponsPage() {
     <FinanceFeatureLayout
       title="Coupons"
       subtitle="Manage finance coupons used in invoice and billing flows."
-      actions={<Button onClick={() => navigate("create")}>Create Coupon</Button>}
       main={(
         <DataTableCard
           title="Coupon List"
           subtitle="Available finance coupons."
+          actions={<Button onClick={() => navigate("create")}>Create Coupon</Button>}
           data={coupons}
           columns={columns}
           getRowId={(row) => String(row.uid)}

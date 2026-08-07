@@ -240,7 +240,7 @@ export function QuickActions({
           key={action.label}
           type="button"
           onClick={() => navigate(toFinanceRoute(action.path))}
-          className="min-h-[92px] w-[110px] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+          className="min-h-[92px] w-[110px] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--color-primary-muted)] hover:shadow-md"
         >
           <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${action.tone}`}>
             <Icon name={action.icon} className="h-4 w-4" />
@@ -344,9 +344,9 @@ export function FeedCard({
   return (
     <SectionCard className="border-slate-200 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="text-[22px] font-semibold text-slate-900">{title}</div>
+        <div className="text-lg font-bold text-[var(--color-text-primary)]">{title}</div>
         {actionLabel && onAction ? (
-          <button type="button" onClick={onAction} className="text-base font-semibold text-indigo-700">
+          <button type="button" onClick={onAction} className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition">
             {actionLabel}
           </button>
         ) : null}

@@ -123,11 +123,11 @@ export function DiscountsPage() {
     <FinanceFeatureLayout
       title="Discounts"
       subtitle="Manage finance discounts used in invoices and item-level discount application."
-      actions={<Button onClick={() => navigate("create")}>Create Discount</Button>}
       main={
         <DataTableCard
           title="Discount List"
           subtitle="Available finance discounts."
+          actions={<Button onClick={() => navigate("create")}>Create Discount</Button>}
           data={discounts}
           columns={columns}
           getRowId={(row) => String(row.uid)}

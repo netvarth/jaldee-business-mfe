@@ -121,7 +121,7 @@ export default function VendorDetailPage() {
 
   if (loading) {
     return (
-      <PageShell title="Vendor Details" subtitle="Loading vendor details...">
+      <PageShell title="Vendor Details" subtitle="Loading vendor details..." back={{ label: "Back to Vendors", href: "/vendors" }}>
         <SectionCard className="border-slate-200 shadow-sm">
           <div className="py-8 text-center text-slate-500">Loading vendor details...</div>
         </SectionCard>
@@ -132,9 +132,9 @@ export default function VendorDetailPage() {
   return (
     <PageShell
       title="Vendor Details"
+      back={{ label: "Back to Vendors", href: "/vendors" }}
       actions={
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("..", { relative: "path" })}>Back</Button>
           <Button disabled>Ledger</Button>
         </div>
       }

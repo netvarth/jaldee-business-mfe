@@ -650,6 +650,12 @@ export const financeApi = {
     detail<T = unknown>(id: string) {
       return get<T>(`${TENANT_CONSUMER_ENDPOINT}/${id}`);
     },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_CONSUMER_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_CONSUMER_ENDPOINT}/${uid}`, data);
+    },
   },
   assets: {
     generateUploadPath<T = unknown>(data: unknown) {

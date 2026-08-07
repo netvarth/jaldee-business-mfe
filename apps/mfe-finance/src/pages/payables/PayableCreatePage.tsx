@@ -7,6 +7,12 @@ import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
 function toFinanceRoute(routePath:string){const n=String(routePath||"").trim();if(!n)return "/";return n.replace(/^\/finance(?=\/|$)/,"")||"/";}
 
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 export default function PayableCreatePage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();

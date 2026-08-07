@@ -60,7 +60,7 @@ export function PageHeader({
         data-testid="page-header"
         data-variant="navigation"
         className={cn(
-          "-mx-4 mb-6 flex min-h-16 flex-nowrap items-center justify-between gap-3 bg-[var(--surface-bg)] px-4 py-3 shadow-[var(--shadow-sm)] sm:-mx-6 sm:px-6",
+          "-mx-4 mb-6 flex min-h-16 flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-3 bg-[var(--surface-bg)] px-4 py-3 shadow-[var(--shadow-sm)] sm:-mx-6 sm:px-6",
           className
         )}
       >
@@ -105,7 +105,7 @@ export function PageHeader({
         {actions && (
           <div
             data-testid="page-header-actions"
-            className="flex shrink-0 items-center justify-end gap-2"
+            className="flex w-full sm:w-auto shrink-0 flex-wrap items-center justify-start sm:justify-end gap-2 mt-2 sm:mt-0"
           >
             {actions}
           </div>

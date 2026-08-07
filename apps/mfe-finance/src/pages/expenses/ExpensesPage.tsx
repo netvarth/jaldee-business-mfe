@@ -250,7 +250,7 @@ export default function ExpensesPage() {
               size="sm"
               className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
               data-testid={`finance-expense-view-${row.id}`}
-              onClick={() => navigate(`edit/${row.id}`)}
+              onClick={() => navigate(`view/${row.id}`)}
             >
               View
             </Button>
@@ -272,9 +272,15 @@ export default function ExpensesPage() {
                   />
                 }
               >
-                <div className="flex min-w-[160px] flex-col gap-1">
-                  <Button variant="ghost" size="sm" className="justify-start w-full" data-testid={`finance-expense-more-edit-${row.id}`} onClick={() => navigate(`edit/${row.id}`)}>
-                    Edit Expense
+                <div className="flex min-w-[120px] flex-col gap-0.5 p-1">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start h-8 px-2 text-[13px] font-normal text-slate-700 hover:bg-slate-50"
+                    data-testid={`finance-expense-more-edit-${row.id}`}
+                    onClick={() => navigate(`edit/${row.id}`)}
+                    icon={<Icon name="pencil" className="h-3.5 w-3.5 text-slate-500" />}
+                  >
+                    Edit
                   </Button>
                 </div>
               </Popover>

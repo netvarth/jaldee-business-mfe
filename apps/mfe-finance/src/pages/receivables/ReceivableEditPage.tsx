@@ -24,6 +24,12 @@ function toFinanceRoute(routePath: string) {
   return stripped || "/";
 }
 
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 export default function ReceivableEditPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
@@ -351,6 +357,7 @@ export default function ReceivableEditPage() {
     <PageShell
       title="Edit Revenue"
       subtitle="Update a finance payment-in record."
+      back={{ label: "Back to Receivables", href: "/receivables" }}
       actions={
         <div className="flex items-center gap-2">
           <Popover
@@ -390,7 +397,6 @@ export default function ReceivableEditPage() {
               </Button>
             </div>
           </Popover>
-          <Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>
         </div>
       }
     >

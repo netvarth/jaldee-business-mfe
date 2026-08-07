@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Button,
   Icon,
+  Popover,
   Select,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
@@ -153,21 +154,56 @@ export default function InvoicesPage() {
         key: "actions",
         header: "Actions",
         headerClassName: "text-sm font-semibold text-slate-900",
-        className: "py-4",
-        render: (row) => (
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => navigate(`view/${row.detailUid || row.id}`)}>
-              View
-            </Button>
-            <button
-              type="button"
-              className="flex h-9 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50"
-              aria-label={`More actions for invoice ${row.invoiceNum}`}
-            >
-              <Icon name="moreVertical" className="h-4 w-4" />
-            </button>
-          </div>
-        ),
+        className: "py-4 text-right",
+        render: (row) => {
+          const isMaster = String(row.invoiceType || "").toUpperCase().includes("MASTER");
+          return (
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (isMaster) {
+                    navigate(`/master-invoice/${row.detailUid || row.id}`);
+                  } else {
+                    navigate(`view/${row.detailUid || row.id}`);
+                  }
+                }}
+              >
+                View
+              </Button>
+              {!isMaster && (
+                <Popover
+                  placement="bottom"
+                  align="end"
+                  portal
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label={`More actions for invoice ${row.invoiceNum || row.id}`}
+                      className="h-8 w-8 px-0"
+                      icon={<Icon name="moreVertical" className="text-[var(--color-text-secondary)]" aria-hidden="true" />}
+                    />
+                  }
+                >
+                  <div className="flex min-w-[120px] flex-col gap-0.5 p-1">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start h-8 px-2 text-[13px] font-normal text-slate-700 hover:bg-slate-50"
+                      onClick={() => navigate(`edit/${row.detailUid || row.id}`)}
+                      icon={<Icon name="pencil" className="h-3.5 w-3.5 text-slate-500" />}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </Popover>
+              )}
+            </div>
+          );
+        },
       },
     ],
     [navigate]

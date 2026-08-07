@@ -130,10 +130,10 @@ export default function ReceivablesPage() {
               variant="outline"
               size="sm"
               className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
-              data-testid={`finance-revenue-edit-${row.id}`}
-              onClick={() => navigate(`edit/${row.id}`)}
+              data-testid={`finance-revenue-view-${row.id}`}
+              onClick={() => navigate(`view/${row.id}`)}
             >
-              Edit
+              View
             </Button>
             <Popover
               placement="bottom"
@@ -152,8 +152,14 @@ export default function ReceivablesPage() {
                 />
               }
             >
-              <div className="flex min-w-[160px] flex-col gap-1">
-                <Button variant="ghost" className="w-full justify-start" data-testid={`finance-revenue-more-edit-${row.id}`} onClick={() => navigate(`edit/${row.id}`)}>
+              <div className="flex min-w-[120px] flex-col gap-0.5 p-1">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start h-8 px-2 text-[13px] font-normal text-slate-700 hover:bg-slate-50"
+                  data-testid={`finance-revenue-more-edit-${row.id}`}
+                  onClick={() => navigate(`edit/${row.id}`)}
+                  icon={<Icon name="pencil" className="h-3.5 w-3.5 text-slate-500" />}
+                >
                   Edit
                 </Button>
               </div>

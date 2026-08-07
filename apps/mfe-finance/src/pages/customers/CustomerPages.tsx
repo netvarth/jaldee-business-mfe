@@ -96,9 +96,44 @@ export function CustomersPage() {
       key: "actions",
       header: "Actions",
       render: (row) => (
-        <Button variant="outline" size="sm" onClick={() => navigate(row.uid)}>
-          View
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
+            onClick={() => navigate(row.uid)}
+          >
+            View
+          </Button>
+          <Popover
+            placement="bottom"
+            align="end"
+            portal
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={`More actions for consumer ${row.name}`}
+                className="h-8 w-8 px-0"
+                icon={<Icon name="moreVertical" className="text-[var(--color-text-secondary)]" aria-hidden="true" />}
+              />
+            }
+          >
+            <div className="flex min-w-[120px] flex-col gap-0.5 p-1">
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-8 px-2 text-[13px] font-normal text-slate-700 hover:bg-slate-50"
+                onClick={() => navigate(`edit/${row.uid}`)}
+                icon={<Icon name="pencil" className="h-3.5 w-3.5 text-slate-500" />}
+              >
+                Edit
+              </Button>
+            </div>
+          </Popover>
+        </div>
       ),
     },
   ], [navigate]);
@@ -107,11 +142,13 @@ export function CustomersPage() {
     <PageShell
       title={`Finance Consumers (${customers.length})`}
       subtitle="Manage consumers available in the finance module."
-      actions={<Button onClick={() => navigate("create")}>Create Consumer</Button>}
     >
       <DataTableCard
         actions={
-          <FinanceFilterButton testId="finance-consumers-filter" />
+          <div className="flex items-center gap-2">
+            <Button onClick={() => navigate("create")}>Create Consumer</Button>
+            <FinanceFilterButton testId="finance-consumers-filter" />
+          </div>
         }
         data={customers}
         columns={columns}
@@ -129,7 +166,7 @@ export function CustomerDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
   const [customer, setCustomer] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [locations, setLocations] = useState<Array<{ value: string; label: string }>>([]);
+  const [locations, setLocations] = useState<Array<{ value: string; id?: number; label: string }>>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [masterSelectionMode, setMasterSelectionMode] = useState(false);
   const [creatingMasterInvoice, setCreatingMasterInvoice] = useState(false);
@@ -161,21 +198,35 @@ export function CustomerDetailPage() {
     return String(item?.detailUid || item?.uid || item?.id || item?.invoiceNum || "");
   }
 
-  function buildMasterInvoicePayload(baseInvoice: any, linkedInvoiceUids: string[]) {
+  function buildMasterInvoicePayload(baseInvoice: any, linkedInvoiceUids: string[], fallbackLocationId?: string) {
     const nowIso = new Date().toISOString();
-    const resolvedLocationId = locationFilter !== "ALL"
-      ? locationFilter
-      : baseInvoice?.locationId ?? baseInvoice?.locationUid;
+    const resolvedLocationStr = (locationFilter !== "ALL" ? locationFilter : "")
+      || baseInvoice?.locationId
+      || baseInvoice?.locationUid
+      || fallbackLocationId
+      || customer?.locationId
+      || locations[0]?.value
+      || "";
+
+    const matchedLoc = locations.find((loc) => 
+      String(loc.value).toLowerCase() === resolvedLocationStr.toLowerCase() 
+      || String(loc.id) === resolvedLocationStr
+    );
+    const finalLocationUid = matchedLoc?.value ?? resolvedLocationStr;
+
     return sanitizeFinancePayload({
       tenantId: baseInvoice?.tenantId ?? baseInvoice?.tenantUid,
-      locationId: resolvedLocationId,
+      locationUid: finalLocationUid,
       sourceService: "FINANCE_SERVICE",
+      feature: "FINANCE",
       sourceServiceCategory: "FINANCE",
       invoiceDate: nowIso,
       createdDate: nowIso,
       dueDate: baseInvoice?.dueDate ?? nowIso,
       consumerType: baseInvoice?.consumerType ?? "TENANT_CONSUMER",
       consumerUid: baseInvoice?.consumerUid ?? id,
+      partyType: baseInvoice?.partyType ?? "B2C",
+      supplyType: baseInvoice?.supplyType ?? "INTRA_STATE",
       linkedInvoices: linkedInvoiceUids.map((uid) => ({ uid })),
     });
   }
@@ -210,18 +261,38 @@ export function CustomerDetailPage() {
               : Array.isArray(locationResponse.data)
                 ? locationResponse.data
                 : [];
-        setLocations(
-          rawLocations
-            .map((item: any) => ({
-              value: String(item.uid ?? item.locationUid ?? item.id ?? ""),
-              label: String(item.locationName ?? item.name ?? item.displayName ?? "").trim(),
-            }))
-            .filter((item: { value: string; label: string }) => item.value && item.label)
-        );
+        const nextLocations = rawLocations
+          .map((item: any) => ({
+            value: String(item.locationUid ?? item.uid ?? item.locationId ?? ""),
+            id: item.id !== undefined && item.id !== null ? Number(item.id) : undefined,
+            label: String(item.place ?? item.locationName ?? item.name ?? item.displayName ?? "Location").trim(),
+          }))
+          .filter((item: any) => item.value && item.label);
+        setLocations(nextLocations);
+        if (nextLocations.length === 1 && locationFilter === "ALL") {
+          setLocationFilter(nextLocations[0].value);
+        }
 
         const customerData = customerResponse.data ?? {};
         const payload = extractInvoiceRecords(invoiceResponse.data);
         const firstInvoiceRecord = payload?.[0] ?? {};
+
+        const customerLocationId = String(
+          customerData.locationId 
+          || customerData.locationUid 
+          || customerData.location?.id 
+          || customerData.location?.uid 
+          || firstInvoiceRecord.locationId 
+          || firstInvoiceRecord.locationUid 
+          || ""
+        );
+        const matchedLocation = nextLocations.find((loc: any) => loc.value === customerLocationId);
+        const resolvedLocationName = customerData.locationName 
+          || matchedLocation?.label 
+          || firstInvoiceRecord.locationName 
+          || firstInvoiceRecord.location 
+          || "-";
+
         setCustomer({
           uid: id,
           name: String(
@@ -248,7 +319,8 @@ export function CustomerDetailPage() {
             "-"
           ).trim(),
           consumerType: String(customerData.consumerType ?? firstInvoiceRecord.consumerType ?? "NONE").trim(),
-          locationName: String(customerData.locationName ?? firstInvoiceRecord.locationName ?? firstInvoiceRecord.location ?? "-").trim(),
+          locationId: customerLocationId,
+          locationName: String(resolvedLocationName).trim(),
           status: String(customerData.status ?? "ACTIVE").trim(),
         });
 
@@ -272,9 +344,16 @@ export function CustomerDetailPage() {
           location: String(item.locationName || item.location || item.locationPlace || "Unknown"),
           consumerUid: readInvoiceConsumerUid(item),
           tenantUid: String(item.tenantUid || ""),
-          locationId: String(item.locationId || item.locationUid || ""),
-          locationUid: String(item.locationUid || ""),
-          locationName: String(item.locationName || item.location || ""),
+          locationId: String(
+            item.locationId 
+            || item.locationUid 
+            || item.location?.id 
+            || item.location?.uid 
+            || item.location?.locationId 
+            || ""
+          ),
+          locationUid: String(item.locationUid || item.location?.uid || ""),
+          locationName: String(item.locationName || item.location?.name || item.location || ""),
           storeUid: String(item.storeUid || ""),
           storeName: String(item.storeName || ""),
           departmentUid: String(item.departmentUid || ""),
@@ -332,6 +411,7 @@ export function CustomerDetailPage() {
       const payload = buildMasterInvoicePayload(
         detailResponse.data ?? {},
         selectedInvoices.map((item) => String(item.detailUid || item.id)).filter(Boolean),
+        primaryInvoice?.locationId || primaryInvoice?.locationUid,
       );
       const response = await financeApi.invoices.createMaster<any>(payload);
       const masterInvoiceUid = String(
@@ -345,7 +425,7 @@ export function CustomerDetailPage() {
       setMasterSelectionMode(false);
       setSelectedInvoiceIds([]);
       if (masterInvoiceUid) {
-        navigate(`/finance/master-invoice/${masterInvoiceUid}`);
+        navigate(`/master-invoice/${masterInvoiceUid}`, { state: { from: `/customers/${id}` } });
         return;
       }
       await Promise.all([
@@ -412,11 +492,24 @@ export function CustomerDetailPage() {
       {
         key: "actions",
         header: "Actions",
-        render: (row) => (
-          <Button variant="outline" size="sm" onClick={() => navigate(`/invoice/view/${row.detailUid || row.id}`)}>
-            View
-          </Button>
-        ),
+        render: (row) => {
+          const isMaster = String(row.invoiceType || "").toUpperCase().includes("MASTER");
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (isMaster) {
+                  navigate(`/master-invoice/${row.detailUid || row.id}`, { state: { from: `/customers/${id}` } });
+                } else {
+                  navigate(`/invoice/view/${row.detailUid || row.id}`, { state: { from: `/customers/${id}` } });
+                }
+              }}
+            >
+              View
+            </Button>
+          );
+        },
       },
     );
     return columns;
@@ -428,9 +521,14 @@ export function CustomerDetailPage() {
       subtitle="Consumer-level invoice view for finance operations."
       back={{ label: "Back to Customers", href: "/customers" }}
       actions={(
-        <Button onClick={() => navigate(`/invoice/newInvoice?consumerUid=${id}`)}>
-          Create Invoice
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/customers/edit/${id}`)}>
+            Edit Consumer
+          </Button>
+          <Button onClick={() => navigate(`/invoice/newInvoice?consumerUid=${id}`)}>
+            Create Invoice
+          </Button>
+        </div>
       )}
     >
       {customer ? (
@@ -735,6 +833,230 @@ export function CustomerCreatePage() {
             </Button>
           </div>
         </form>
+      </SectionCard>
+    </PageShell>
+  );
+}
+
+export function CustomerEditPage() {
+  const navigate = useNavigate();
+  const { id = "" } = useParams<{ id: string }>();
+  const [originalCustomer, setOriginalCustomer] = useState<any>(null);
+  
+  const [title, setTitle] = useState("Mr");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [consumerType, setConsumerType] = useState("NONE");
+  const [status, setStatus] = useState("INACTIVE");
+  const [countryCode, setCountryCode] = useState("+91");
+  const [phoneNo, setPhoneNo] = useState("");
+  const [email, setEmail] = useState("");
+  const [gender, setGender] = useState("MALE");
+  const [dob, setDob] = useState("");
+  const [address, setAddress] = useState("");
+  
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadCustomer() {
+      try {
+        const response = await financeApi.customers.detail<any>(id);
+        if (!active) return;
+        const data = response.data ?? {};
+        setOriginalCustomer(data);
+
+        setTitle(data.title || data.consumerSnapshot?.title || "Mr");
+        setFirstName(data.firstName || data.consumerSnapshot?.firstName || "");
+        setLastName(data.lastName || data.consumerSnapshot?.lastName || "");
+        setConsumerType(data.consumerType || "NONE");
+        setStatus(data.status || "INACTIVE");
+        setGender(data.consumerSnapshot?.gender || "MALE");
+        setEmail(data.email || data.consumerSnapshot?.email || "");
+        setDob(data.consumerSnapshot?.dob || "");
+        setAddress(data.consumerSnapshot?.address || "");
+
+        const rawCountryCode = data.phoneNumber?.countryCode ?? "";
+        const rawNumber = data.phoneNumber?.number ?? "";
+        let resolvedCountryCode = rawCountryCode || "+91";
+        let resolvedNumber = rawNumber;
+
+        if (!resolvedNumber && data.consumerSnapshot?.phoneE164) {
+          const phoneE164 = String(data.consumerSnapshot.phoneE164);
+          if (phoneE164.startsWith("+")) {
+            if (phoneE164.startsWith("+91")) {
+              resolvedCountryCode = "+91";
+              resolvedNumber = phoneE164.slice(3);
+            } else {
+              resolvedCountryCode = phoneE164.slice(0, 3);
+              resolvedNumber = phoneE164.slice(3);
+            }
+          } else {
+            resolvedNumber = phoneE164;
+          }
+        }
+        setCountryCode(resolvedCountryCode);
+        setPhoneNo(resolvedNumber);
+      } catch (error) {
+        if (!active) return;
+        console.error("[mfe-finance] Failed to load consumer detail for editing", error);
+        setFormError(error instanceof Error ? error.message : "Could not load consumer details.");
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    void loadCustomer();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!firstName.trim()) {
+      setFormError("First name is required.");
+      return;
+    }
+
+    if (!phoneNo.trim() && !email.trim()) {
+      setFormError("Phone number or email is required.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const displayName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ").trim();
+      const normalizedPhone = phoneNo.trim().replace(/\s+/g, "");
+      const normalizedCountryCode = countryCode.trim() || "+91";
+      const phoneE164 = normalizedPhone ? `${normalizedCountryCode}${normalizedPhone}`.replace(/\s+/g, "") : undefined;
+      const statusEnum = status === "ACTIVE" ? "Enabled" : "Disabled";
+
+      const payload = {
+        ...originalCustomer,
+        consumerType,
+        title: title.trim() || undefined,
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || undefined,
+        phoneNumber: normalizedPhone ? {
+          countryCode: normalizedCountryCode,
+          number: normalizedPhone,
+        } : undefined,
+        email: email.trim() || undefined,
+        status,
+        consumerSnapshot: {
+          ...(originalCustomer?.consumerSnapshot ?? {}),
+          title: title.trim() || undefined,
+          firstName: firstName.trim(),
+          lastName: lastName.trim() || undefined,
+          displayName: displayName || firstName.trim(),
+          statusEnum,
+          phoneE164,
+          email: email.trim() || undefined,
+          gender,
+          dob: dob || undefined,
+          systemGeneratedDob: originalCustomer?.consumerSnapshot?.systemGeneratedDob ?? false,
+          address: address.trim() || undefined,
+          allowLogin: originalCustomer?.consumerSnapshot?.allowLogin ?? false,
+          internationalConsumer: normalizedCountryCode !== "+91",
+        },
+      };
+
+      await financeApi.customers.update(id, payload);
+      navigate(`/customers/${id}`);
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update consumer", error);
+      setFormError(error instanceof Error ? error.message : "Could not update consumer.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Edit Consumer"
+      subtitle="Edit a finance consumer using the finance consumer API."
+      back={{ label: "Back to Consumer Details", href: `/customers/${id}` }}
+    >
+      <SectionCard className="border-slate-200 shadow-sm">
+        {loading ? (
+          <div className="py-8 text-center text-slate-500">Loading consumer details...</div>
+        ) : (
+          <form className="grid gap-5 p-5 md:p-6" onSubmit={handleSubmit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select
+                label="Title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                options={[
+                  { value: "Mr", label: "Mr" },
+                  { value: "Ms", label: "Ms" },
+                  { value: "Mrs", label: "Mrs" },
+                  { value: "Dr", label: "Dr" },
+                ]}
+                fullWidth
+              />
+              <Select
+                label="Consumer Type"
+                value={consumerType}
+                onChange={(event) => setConsumerType(event.target.value)}
+                options={[{ value: "NONE", label: "None" }]}
+                fullWidth
+              />
+              <Input label="First Name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="John" fullWidth />
+              <Input label="Last Name" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Doe" fullWidth />
+              <Select
+                label="Status"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                options={[
+                  { value: "ACTIVE", label: "Active" },
+                  { value: "INACTIVE", label: "Inactive" },
+                ]}
+                fullWidth
+              />
+              <Select
+                label="Gender"
+                value={gender}
+                onChange={(event) => setGender(event.target.value)}
+                options={[
+                  { value: "MALE", label: "Male" },
+                  { value: "FEMALE", label: "Female" },
+                  { value: "OTHER", label: "Other" },
+                ]}
+                fullWidth
+              />
+              <div className="grid gap-4 grid-cols-[100px_1fr]">
+                <Input label="Country Code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} placeholder="+91" fullWidth />
+                <Input label="Phone Number" value={phoneNo} onChange={(event) => setPhoneNo(event.target.value)} placeholder="9876543210" fullWidth />
+              </div>
+              <Input label="Date of Birth" type="date" value={dob} onChange={(event) => setDob(event.target.value)} fullWidth />
+              <Input label="Email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="john@example.com" fullWidth />
+            </div>
+
+            <Textarea label="Address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Add address" />
+
+            {formError ? (
+              <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">
+                {formError}
+              </div>
+            ) : null}
+
+            <div className="flex justify-start gap-2">
+              <Button type="button" variant="outline" onClick={() => navigate(`/customers/${id}`)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </form>
+        )}
       </SectionCard>
     </PageShell>
   );

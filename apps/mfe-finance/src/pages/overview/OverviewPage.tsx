@@ -11,6 +11,12 @@ import { normalizeReceivableRows } from "../../lib/receivableMappers";
 import { normalizePayableRows } from "../../lib/payableMappers";
 import { FeedCard, PageShell, QuickActions } from "../../components/FinancePageLayout";
 
+function toFinanceRoute(routePath: string) {
+  const n = String(routePath || "").trim();
+  if (!n) return "/";
+  return n.replace(/^\/finance(?=\/|$)/, "") || "/";
+}
+
 type Accent = "indigo" | "emerald" | "amber" | "rose";
 type ExpenseBreakdownFilter = "TODAY" | "PREVIOUS_WEEK" | "CURRENT_MONTH" | "PREVIOUS_MONTH" | "DATE_RANGE";
 type QuickAction = {
@@ -318,24 +324,22 @@ function OverviewPage() {
   const latestCashUpdate = financeCashInHand.at(-1)?.updatedOn ?? "-";
   const recentInvoices = financeInvoices.slice(0, 5);
   const recentVendors = financeVendors.slice(0, 5);
+
   const userRecord = (mfeProps.user ?? {}) as Record<string, unknown>;
   const userName = String(userRecord.firstName || userRecord.name || userRecord.userName || "Sachin Sathish").trim();
 
   return (
     <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[var(--color-primary-active)] via-[var(--color-primary)] to-[var(--color-primary-hover)] p-6 md:p-8 text-white shadow-md">
-          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-xl"></div>
-          <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-white/5 blur-lg"></div>
-          
-          <div className="relative z-10 flex flex-col gap-2">
-            <div className="text-xs font-bold uppercase tracking-wider text-white/80">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
+        <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">
               Welcome back, {userName} 👋
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--color-text-primary)] sm:text-3xl">
               Finance Manager Dashboard
             </h1>
-            <p className="max-w-2xl text-xs md:text-sm text-white/90 font-medium">
+            <p className="text-sm font-medium text-slate-500">
               Keep a tab on your Finance and manage your finance operations smoothly.
             </p>
           </div>
@@ -347,8 +351,8 @@ function OverviewPage() {
           <div className="space-y-6">
             <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="text-[18px] font-semibold text-slate-900">Account Balance</div>
-                <div className="w-28">
+                <div className="text-[18px] font-semibold text-[var(--color-text-primary)]">Account Balance</div>
+                <div className="w-32">
                   <Select
                     options={[
                       { value: "today", label: "Today" },
@@ -361,63 +365,88 @@ function OverviewPage() {
                   />
                 </div>
               </div>
-              <div className="mt-4 flex min-h-[78px] items-center justify-between rounded-xl bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-active)] px-5 py-5 text-white shadow-sm">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-white/85">Your Account Balance</div>
-                  <div className="mt-1.5 text-2xl font-bold">{formatCurrency(accountBalance)}</div>
+              <div className="relative overflow-hidden mt-4 flex min-h-[92px] items-start justify-between rounded-2xl bg-[linear-gradient(135deg,var(--color-primary)_0%,var(--color-primary-active)_100%)] px-6 py-6 text-white shadow-lg border border-[var(--color-primary-active)]">
+                {/* Decorative background shapes */}
+                <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-xl pointer-events-none" />
+                <div className="absolute -left-4 -top-4 w-16 h-16 rounded-full bg-white/5 blur-lg pointer-events-none" />
+                
+                <div className="relative z-10">
+                  <div className="text-xs font-bold uppercase tracking-wider text-white/70">Your Account</div>
+                  <div className="text-[16px] font-semibold text-white mt-0.5">Balance</div>
+                </div>
+                <div className="relative z-10 pt-1 text-right text-3xl font-extrabold tracking-tight">{formatCurrency(accountBalance)}</div>
+              </div>
+
+              <div className="mt-8 text-[18px] font-semibold text-[var(--color-text-primary)]">Recent Summary</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white pl-5 pr-4 py-4 shadow-sm hover:shadow-md transition duration-200">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenue</div>
+                  <div className="mt-1 text-[22px] font-extrabold text-[var(--color-text-primary)]">{formatCurrency(revenueTotal)}</div>
+                </div>
+                <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white pl-5 pr-4 py-4 shadow-sm hover:shadow-md transition duration-200">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Expenses</div>
+                  <div className="mt-1 text-[22px] font-extrabold text-[var(--color-text-primary)]">{formatCurrency(expenseTotal)}</div>
+                </div>
+                <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white pl-5 pr-4 py-4 shadow-sm hover:shadow-md transition duration-200">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Payout</div>
+                  <div className="mt-1 text-[22px] font-extrabold text-[var(--color-text-primary)]">{formatCurrency(payoutTotal)}</div>
                 </div>
               </div>
 
-              <div className="mt-6 text-[18px] font-semibold text-slate-900">Recent Transaction</div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                  <div className="text-sm text-slate-500">Revenue</div>
-                  <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(revenueTotal)}</div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                  <div className="text-sm text-slate-500">Expenses</div>
-                  <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(expenseTotal)}</div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                  <div className="text-sm text-slate-500">Payout</div>
-                  <div className="mt-1 text-[22px] font-semibold text-slate-900">{formatCurrency(payoutTotal)}</div>
-                </div>
-              </div>
-
-              <div className="mt-5 flex gap-7 border-b border-slate-200 text-[15px] font-semibold">
+              <div className="mt-6 flex gap-6 border-b border-slate-200 text-sm font-semibold">
                 {(["All", "Revenue", "Payout"] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"
                     onClick={() => setTransactionFilter(tab)}
-                    className={`border-b-2 px-0 pb-3 transition ${
-                      transactionFilter === tab
-                        ? "border-[var(--color-primary)] text-[var(--color-primary)]"
-                        : "border-transparent text-slate-800 hover:text-[var(--color-primary)]"
-                    }`}
+                    className={`border-b-2 px-1 pb-2.5 transition duration-150 ${transactionFilter === tab
+                        ? "border-[var(--color-primary)] text-[var(--color-primary)] font-bold"
+                        : "border-transparent text-slate-500 hover:text-[var(--color-primary)]"
+                      }`}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-5 divide-y divide-slate-100 border-t border-slate-100">
+              <div className="mt-4 divide-y divide-slate-100">
                 {transactionRows.slice(0, 15).map((row) => (
                   <button
                     key={row.id}
                     type="button"
                     onClick={() => mfeProps.navigate(row.kind === "Revenue" ? "/finance/payments" : "/finance/payable")}
-                    className="grid w-full gap-4 py-5 text-left transition hover:bg-slate-50 md:grid-cols-[1.5fr_0.9fr_auto] md:items-start"
+                    className="flex w-full items-center justify-between gap-4 py-4 px-2 text-left transition rounded-xl hover:bg-slate-50"
                   >
-                    <div>
-                      <div className="text-[14px] font-semibold text-slate-900">{row.title}</div>
-                      <div className="text-[14px] text-slate-500">{row.subtitle || "-"}</div>
-                      <div className={`mt-1 text-[12px] font-semibold ${row.kind === "Revenue" ? "text-emerald-600" : "text-rose-500"}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {row.kind === "Revenue" ? (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 5L5 19M5 19h10M5 19V9" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 19L19 5M19 5H9M19 5v10" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-800 truncate">{row.title}</div>
+                        <div className="text-xs text-slate-500 truncate">{row.subtitle || "-"}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{row.date}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-slate-900">{formatCurrency(row.amount)}</div>
+                      <div className={`mt-0.5 text-xs font-semibold ${row.kind === "Revenue" ? "text-emerald-600" : "text-rose-600"}`}>
                         {row.note}
                       </div>
                     </div>
-                    <div className="text-[14px] text-slate-500 md:pt-1">{row.date}</div>
-                    <div className="text-right text-[14px] font-bold text-slate-900 md:pt-1">{formatCurrency(row.amount)}</div>
                   </button>
                 ))}
                 {!transactionRows.length ? (
@@ -427,32 +456,34 @@ function OverviewPage() {
                 ) : null}
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    transactionFilter === "Revenue"
-                      ? toFinanceRoute("/finance/receivables")
-                      : transactionFilter === "Payout"
-                        ? toFinanceRoute("/finance/payable")
-                        : toFinanceRoute("/finance/total"),
-                  )
-                }
-                className="mt-4 text-sm font-bold text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition"
-              >
-                See All({transactionRows.length})
-              </button>
+              <div className="mt-4 pt-2 border-t border-slate-100 flex justify-start">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      transactionFilter === "Revenue"
+                        ? toFinanceRoute("/finance/receivables")
+                        : transactionFilter === "Payout"
+                          ? toFinanceRoute("/finance/payable")
+                          : toFinanceRoute("/finance/total"),
+                    )
+                  }
+                  className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition"
+                >
+                  See All Transactions ({transactionRows.length}) &rarr;
+                </button>
+              </div>
             </SectionCard>
           </div>
 
           <div className="space-y-6">
             <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="text-[18px] font-semibold text-slate-900">Cash Inhand</div>
+                <div className="text-[18px] font-semibold text-[var(--color-text-primary)]">Cash Inhand</div>
                 <button
                   type="button"
                   onClick={() => window.location.reload()}
-                  className="rounded-md p-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                  className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                   title="Refresh"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -460,27 +491,29 @@ function OverviewPage() {
                   </svg>
                 </button>
               </div>
-              <div className="mt-4 flex min-h-[78px] items-center justify-between rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 px-5 py-5 text-white shadow-sm">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Cash Inhand</div>
-                  <div className="mt-1.5 text-2xl font-bold text-white">{formatCurrency(cashInHandTotal)}</div>
+              <div className="relative overflow-hidden mt-4 flex min-h-[92px] items-center justify-between rounded-2xl bg-[linear-gradient(135deg,#374151_0%,#111827_100%)] px-6 py-6 text-white shadow-lg">
+                <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-white/5 blur-lg pointer-events-none" />
+                <div className="relative z-10">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-300">Amount</div>
+                  <div className="mt-0.5 text-2xl font-extrabold tracking-tight text-white">{formatCurrency(cashInHandTotal)}</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => mfeProps.navigate("/finance/cashRegister")}
-                  className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-slate-50 transition shadow-sm"
+                  className="relative z-10 rounded-xl bg-white px-4 py-2 text-xs font-bold text-[var(--color-primary)] transition hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 >
                   Cash Register &rarr;
                 </button>
               </div>
-              <div className="mt-3 text-xs font-medium text-slate-400">
-                Last Updated On {latestCashUpdate}
+              <div className="mt-3 text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Last Updated: {latestCashUpdate}
               </div>
             </SectionCard>
 
             <SectionCard className="border-slate-200 bg-white px-4 py-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="text-[22px] font-semibold text-slate-900">Expenses Breakdown</div>
+                <div className="text-[18px] font-semibold text-[var(--color-text-primary)]">Expenses Breakdown</div>
                 <div className="w-48">
                   <Select
                     options={[
@@ -504,21 +537,31 @@ function OverviewPage() {
               <div className="mt-4 space-y-3">
                 {expenseBreakdownRows.length ? (
                   expenseBreakdownRows.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 hover:bg-slate-50 transition">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <div className="font-semibold text-slate-900">{item.category}</div>
-                          <div className={`text-sm ${item.percentage === 0 ? "text-slate-500" : item.increased ? "text-rose-500" : "text-emerald-600"}`}>
-                            {item.percentage === 0 ? "No change" : item.increased ? "Increase" : "Decrease"} {Math.abs(item.percentage).toFixed(2)}%
+                          <div className="font-bold text-slate-800">{item.category}</div>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              item.percentage === 0 
+                                ? "bg-slate-100 text-slate-600" 
+                                : item.increased 
+                                  ? "bg-rose-50 text-rose-700" 
+                                  : "bg-emerald-50 text-emerald-700"
+                            }`}>
+                              {item.percentage === 0 ? "No change" : item.increased ? "↑" : "↓"} {Math.abs(item.percentage).toFixed(1)}%
+                            </span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-lg font-semibold text-slate-900">{formatCurrency(item.amountDifference)}</div>
+                          <div className="text-base font-extrabold text-slate-900">{formatCurrency(item.amountDifference)}</div>
                         </div>
                       </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/80">
                         <div
-                          className={`h-full rounded-full ${item.percentage === 0 ? "bg-slate-300" : item.increased ? "bg-rose-400" : "bg-emerald-400"}`}
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            item.percentage === 0 ? "bg-slate-300" : item.increased ? "bg-rose-500" : "bg-emerald-500"
+                          }`}
                           style={{ width: `${Math.max(6, Math.min(Math.abs(item.percentage), 100))}%` }}
                         />
                       </div>
@@ -536,13 +579,13 @@ function OverviewPage() {
                   </div>
                 )}
               </div>
-              <div className="mt-4 text-left">
+              <div className="mt-4 text-left border-t border-slate-100 pt-3">
                 <button
                   type="button"
                   onClick={() => mfeProps.navigate("/finance/expense")}
-                  className="text-sm font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition"
+                  className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition"
                 >
-                  See All Expenses({expenseBreakdownRows.length})
+                  See All Expenses ({expenseBreakdownRows.length}) &rarr;
                 </button>
               </div>
             </SectionCard>
@@ -579,11 +622,11 @@ function OverviewPage() {
                       key={invoice.id}
                       type="button"
                       onClick={() => mfeProps.navigate(`/finance/invoice/view/${invoice.detailUid || invoice.id}`)}
-                      className="block w-full border-b border-slate-200 py-3 text-left transition hover:bg-slate-50 last:border-b-0 last:pb-0"
+                      className="block w-full border-b border-slate-100 py-3.5 text-left transition hover:bg-slate-50 last:border-b-0 last:pb-0"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          {index === 0 ? <div className="text-xs font-semibold text-[var(--color-primary)]">Most Recent</div> : null}
+                          {index === 0 ? <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)] mb-0.5">Most Recent</div> : null}
                           <div className="truncate text-sm font-semibold text-slate-700">Invoice : #{invoice.id.replace("INV-", "")}</div>
                           <div className="mt-1 truncate text-sm font-semibold text-slate-900">{invoice.customer}</div>
                           <div className="mt-1 text-xs text-slate-500">
@@ -600,9 +643,11 @@ function OverviewPage() {
                     </div>
                   ) : null}
                 </div>
-                <button type="button" onClick={() => navigate(toFinanceRoute("/finance/invoice"))} className="mt-4 text-sm font-bold text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition">
-                  See All({invoiceCount})
-                </button>
+                <div className="mt-4 pt-2 border-t border-slate-100 flex justify-start">
+                  <button type="button" onClick={() => navigate(toFinanceRoute("/finance/invoice"))} className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition">
+                    See All Invoices ({invoiceCount}) &rarr;
+                  </button>
+                </div>
               </FeedCard>
 
               <FeedCard title="Vendors" actionLabel="+ Add New" onAction={() => mfeProps.navigate("/finance/vendors/create")}>
@@ -612,17 +657,17 @@ function OverviewPage() {
                       key={vendor.id}
                       type="button"
                       onClick={() => mfeProps.navigate(`/finance/vendors/${vendor.id}`)}
-                      className="flex w-full items-center justify-between border-b border-slate-200 py-3 text-left transition hover:bg-slate-50 last:border-b-0"
+                      className="flex w-full items-center justify-between border-b border-slate-100 py-3 text-left transition hover:bg-slate-50 last:border-b-0"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                          <Icon name="globe" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+                          <Icon name="globe" className="h-4 w-4" />
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-slate-900">{vendor.name}</div>
+                          <div className="text-sm font-semibold text-slate-800">{vendor.name}</div>
                         </div>
                       </div>
-                      <div className="text-xl text-slate-400">→</div>
+                      <div className="text-slate-400 transition group-hover:translate-x-1">&rarr;</div>
                     </button>
                   ))}
                   {!recentVendors.length ? (
@@ -631,15 +676,17 @@ function OverviewPage() {
                     </div>
                   ) : null}
                 </div>
-                <button type="button" onClick={() => navigate(toFinanceRoute("/finance/vendors"))} className="mt-4 text-sm font-bold text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition">
-                  See All({vendorCount})
-                </button>
+                <div className="mt-4 pt-2 border-t border-slate-100 flex justify-start">
+                  <button type="button" onClick={() => navigate(toFinanceRoute("/finance/vendors"))} className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition">
+                    See All Vendors ({vendorCount}) &rarr;
+                  </button>
+                </div>
               </FeedCard>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
   );
 }
 

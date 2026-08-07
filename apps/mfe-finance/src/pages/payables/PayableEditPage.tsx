@@ -7,6 +7,14 @@ import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
 function toFinanceRoute(routePath:string){const n=String(routePath||"").trim();if(!n)return "/";return n.replace(/^\/finance(?=\/|$)/,"")||"/";}
 
+const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+
+function toIsoDateTime(value: string) {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 export default function PayableEditPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
@@ -338,6 +346,7 @@ export default function PayableEditPage() {
     <PageShell
       title="Update Payout"
       subtitle="Manage your Payable"
+      back={{ label: "Back to Payouts", href: "/payable" }}
       actions={
         <div className="flex items-center gap-2">
           <Popover
@@ -377,7 +386,6 @@ export default function PayableEditPage() {
               </Button>
             </div>
           </Popover>
-          <Button variant="outline" onClick={() => navigate("../..", { relative: "path" })}>Back</Button>
         </div>
       }
     >

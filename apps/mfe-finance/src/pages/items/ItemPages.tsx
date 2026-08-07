@@ -137,11 +137,11 @@ function ItemsPage() {
     <FinanceFeatureLayout
       title="Finance Items"
       subtitle="Manage items and procedures for invoicing."
-      actions={<Button onClick={() => navigate("create")}>New Item</Button>}
       main={
         <DataTableCard
           title={`Items (${items.length})`}
           subtitle="Recent and active items"
+          actions={<Button onClick={() => navigate("create")}>New Item</Button>}
           data={items}
           columns={columns}
           getRowId={(row) => String(row.uid)}

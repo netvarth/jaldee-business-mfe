@@ -100,31 +100,37 @@ export default function VendorsPage() {
         header: "Actions",
         render: (row) => (
           <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => navigate(row.id)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-[52px] px-3 text-[length:var(--text-xs)]"
+              onClick={() => navigate(row.id)}
+            >
               View
             </Button>
             <Popover
-              portal
               placement="bottom"
               align="end"
+              portal
               trigger={
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 w-9 p-0 text-slate-700"
-                  aria-label={`More actions for ${row.name}`}
-                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
-                >
-                </Button>
-              }
-            >
-              <div className="grid min-w-[200px] p-1">
-                <Button
                   variant="ghost"
                   size="sm"
-                  className="justify-start font-normal"
+                  iconOnly
+                  aria-label={`More actions for vendor ${row.name}`}
+                  className="h-8 w-8 px-0"
+                  icon={<Icon name="moreVertical" className="text-[var(--color-text-secondary)]" aria-hidden="true" />}
+                />
+              }
+            >
+              <div className="flex min-w-[120px] flex-col gap-0.5 p-1">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start h-8 px-2 text-[13px] font-normal text-slate-700 hover:bg-slate-50"
                   onClick={() => navigate(`edit/${row.id}`)}
+                  icon={<Icon name="pencil" className="h-3.5 w-3.5 text-slate-500" />}
                 >
                   Edit
                 </Button>
@@ -141,11 +147,13 @@ export default function VendorsPage() {
     <FinanceFeatureLayout
       title={`Vendors (${totalRecords})`}
       subtitle="Vendor directory for finance operations."
-      actions={<Button onClick={() => navigate("create")}>Create Vendor</Button>}
       main={
         <ServerDataTableCard
             actions={
-              <FinanceFilterButton testId="finance-vendors-filter" />
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate("create")}>Create Vendor</Button>
+                <FinanceFilterButton testId="finance-vendors-filter" />
+              </div>
             }
             data={vendors}
             columns={columns}
