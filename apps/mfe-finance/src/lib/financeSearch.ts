@@ -159,3 +159,33 @@ export function useExpensesSearchSchema(enabled = true) {
 
   return { schema, loading, error, refresh: load };
 }
+
+export function useCustomersSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.customers.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load consumer search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}

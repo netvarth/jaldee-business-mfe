@@ -310,10 +310,21 @@ export default function PayableCreatePage() {
         isPaymentsIn: false,
         financeDirect: true,
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Payout",
+        message: "Payout created successfully.",
+      });
       navigate("..", { relative: "path" });
     } catch (error) {
       console.error("[mfe-finance] Failed to create payout", error);
-      setFormError(error instanceof Error ? error.message : "Could not create payout.");
+      const msg = error instanceof Error ? error.message : "Could not create payout.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Payout",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

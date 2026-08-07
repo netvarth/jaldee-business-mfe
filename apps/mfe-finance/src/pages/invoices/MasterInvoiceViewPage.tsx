@@ -5,8 +5,10 @@ import { formatCurrency, getStatusVariant } from "../../lib/financeData";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
 import MasterInvoiceDialogs from "./MasterInvoiceDialogs";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 
 function MasterInvoiceViewPage() {
+  const { eventBus } = useMFEProps();
   const { uid = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,6 +47,13 @@ function MasterInvoiceViewPage() {
   const [selectedToLink, setSelectedToLink] = useState<string[]>([]);
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const [linkError, setLinkError] = useState("");
+
+  // Unlink Invoice Dialog State
+  const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false);
+  const [unlinkInvoiceUid, setUnlinkInvoiceUid] = useState<string | null>(null);
+  const [unlinkSubmitting, setUnlinkSubmitting] = useState(false);
+  const [unlinkError, setUnlinkError] = useState("");
+  const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
 
   function normalizePaymentEntries(payload: any) {
     const rawEntries = Array.isArray(payload)
@@ -570,6 +579,11 @@ function MasterInvoiceViewPage() {
       await financeApi.invoices.linkInvoices(invoice.uid, selectedToLink.map((uid) => ({ uid })));
       await fetchDetail();
       setLinkDialogOpen(false);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Link Invoices",
+        message: "Invoices linked successfully.",
+      });
     } catch (err) {
       console.error("Failed to link invoices", err);
       setLinkError(err instanceof Error ? err.message : "Failed to link invoices.");
@@ -578,16 +592,25 @@ function MasterInvoiceViewPage() {
     }
   }
 
-  async function handleUnlinkInvoice(linkedInvoiceUid: string) {
-    if (!window.confirm("Are you sure you want to unlink this invoice from the master invoice?")) {
-      return;
-    }
+  async function submitUnlinkInvoice() {
+    if (!unlinkInvoiceUid || unlinkSubmitting) return;
+    setUnlinkSubmitting(true);
+    setUnlinkError("");
     try {
-      await financeApi.invoices.unlinkInvoices(invoice.uid, [{ uid: linkedInvoiceUid }]);
+      await financeApi.invoices.unlinkInvoices(invoice.uid, { uid: unlinkInvoiceUid });
       await fetchDetail();
+      setUnlinkDialogOpen(false);
+      setUnlinkInvoiceUid(null);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Unlink Invoice",
+        message: "Invoice unlinked successfully.",
+      });
     } catch (err) {
       console.error("Failed to unlink invoice", err);
-      alert(err instanceof Error ? err.message : "Failed to unlink invoice.");
+      setUnlinkError(err instanceof Error ? err.message : "Failed to unlink invoice.");
+    } finally {
+      setUnlinkSubmitting(false);
     }
   }
 
@@ -718,6 +741,8 @@ function MasterInvoiceViewPage() {
                           portal
                           placement="bottom"
                           align="end"
+                          open={activePopoverId === li.uid}
+                          onOpenChange={(isOpen) => setActivePopoverId(isOpen ? li.uid : null)}
                           trigger={
                             <button className="p-1 hover:bg-slate-100 rounded text-slate-500">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -731,7 +756,12 @@ function MasterInvoiceViewPage() {
                               variant="ghost"
                               size="sm"
                               className="w-full text-left justify-start font-medium text-rose-600 hover:bg-rose-50 border-none"
-                              onClick={() => handleUnlinkInvoice(li.uid)}
+                              onClick={() => {
+                                setActivePopoverId(null);
+                                setUnlinkError("");
+                                setUnlinkInvoiceUid(li.uid);
+                                setUnlinkDialogOpen(true);
+                              }}
                             >
                               Unlink Invoice
                             </Button>
@@ -991,6 +1021,53 @@ function MasterInvoiceViewPage() {
               disabled={linkSubmitting || selectedToLink.length === 0}
             >
               {linkSubmitting ? "Linking..." : `Link Selected (${selectedToLink.length})`}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      {/* Unlink Invoice Dialog */}
+      <Dialog
+        open={unlinkDialogOpen}
+        onClose={() => {
+          if (!unlinkSubmitting) {
+            setUnlinkDialogOpen(false);
+            setUnlinkError("");
+          }
+        }}
+        title="Unlink Invoice"
+        size="md"
+      >
+        <div className="space-y-4 pt-2">
+          {unlinkError ? (
+            <div className="rounded-[var(--radius-control)] bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              {unlinkError}
+            </div>
+          ) : null}
+
+          <p className="text-slate-600 text-sm">
+            Are you sure you want to unlink this invoice from the master invoice?
+          </p>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setUnlinkDialogOpen(false);
+                setUnlinkError("");
+              }}
+              disabled={unlinkSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-rose-600 hover:bg-rose-700 text-white border-none font-medium"
+              onClick={() => void submitUnlinkInvoice()}
+              disabled={unlinkSubmitting}
+            >
+              {unlinkSubmitting ? "Unlinking..." : "Unlink"}
             </Button>
           </DialogFooter>
         </div>

@@ -15,7 +15,7 @@ import {
   Textarea,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
 import { formatCurrency } from "../../lib/financeData";
@@ -155,6 +155,7 @@ function ItemsPage() {
 
 function ItemsCreatePage() {
   const navigate = useNavigate();
+  const mfeProps = useMFEProps();
   const [itemName, setItemName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [itemCode, setItemCode] = useState("");
@@ -199,10 +200,21 @@ function ItemsCreatePage() {
         displayOrder: 0,
         taxList: [],
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Item",
+        message: "Item created successfully.",
+      });
       navigate("/items", { replace: true });
     } catch (error) {
       console.error("[mfe-finance] Failed to create item", error);
-      setFormError(error instanceof Error ? error.message : "Could not create item.");
+      const msg = error instanceof Error ? error.message : "Could not create item.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Item",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }
@@ -302,6 +314,7 @@ function ItemsCreatePage() {
 function ItemsEditPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const mfeProps = useMFEProps();
 
   const [itemName, setItemName] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -379,10 +392,21 @@ function ItemsEditPage() {
         displayOrder: 0,
         taxList: [],
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Item",
+        message: "Item updated successfully.",
+      });
       navigate("/finance/items");
     } catch (error) {
       console.error("[mfe-finance] Failed to update item", error);
-      setFormError(error instanceof Error ? error.message : "Could not update item.");
+      const msg = error instanceof Error ? error.message : "Could not update item.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Item",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }

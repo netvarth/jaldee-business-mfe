@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import {
   Button,
   DatePicker,
@@ -338,12 +338,22 @@ export default function ReceivableEditPage() {
         description: description.trim() || undefined,
         paymentMode: paymentMode || undefined,
         receivedDate,
-        paymentCategory: "Invoice",
+      });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Revenue",
+        message: "Revenue updated successfully.",
       });
       navigate("../..", { relative: "path" });
     } catch (error) {
       console.error("[mfe-finance] Failed to update revenue", error);
-      setFormError(error instanceof Error ? error.message : "Could not update revenue.");
+      const msg = error instanceof Error ? error.message : "Could not update revenue.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Revenue",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

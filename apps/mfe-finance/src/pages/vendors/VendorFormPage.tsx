@@ -408,13 +408,29 @@ export default function VendorFormPage() {
 
       if (isEditMode && id) {
         await financeApi.vendors.update(id, payload);
+        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+          intent: "success",
+          title: "Update Vendor",
+          message: "Vendor updated successfully.",
+        });
       } else {
         await financeApi.vendors.create(payload);
+        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+          intent: "success",
+          title: "Create Vendor",
+          message: "Vendor created successfully.",
+        });
       }
       navigate(toFinanceRoute("/finance/vendors"));
     } catch (error) {
       console.error(`[mfe-finance] Failed to ${isEditMode ? "update" : "create"} vendor`, error);
-      setFormError(error instanceof Error ? error.message : `Could not ${isEditMode ? "update" : "create"} vendor.`);
+      const msg = error instanceof Error ? error.message : `Could not ${isEditMode ? "update" : "create"} vendor.`;
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: isEditMode ? "Update Vendor" : "Create Vendor",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

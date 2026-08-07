@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import {
   Button,
   DatePicker,
@@ -317,10 +317,21 @@ export default function ExpenseCreatePage() {
         departmentName: selectedLocation?.departmentName || undefined,
         uploadedDocuments: [],
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Expense",
+        message: "Expense created successfully.",
+      });
       navigate("/finance/expense");
     } catch (error) {
       console.error("[mfe-finance] Failed to create expense", error);
-      setFormError(error instanceof Error ? error.message : "Could not create expense.");
+      const msg = error instanceof Error ? error.message : "Could not create expense.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Expense",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

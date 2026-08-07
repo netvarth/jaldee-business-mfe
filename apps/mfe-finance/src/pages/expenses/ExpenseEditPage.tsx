@@ -320,10 +320,21 @@ export default function ExpenseEditPage() {
         locationId: locationUid || undefined,
         locationName: selectedLocation?.label || mfeProps.location?.name || undefined,
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Expense",
+        message: "Expense updated successfully.",
+      });
       navigate("../..", { relative: "path" });
     } catch (error) {
       console.error("[mfe-finance] Failed to update expense", error);
-      setFormError(error instanceof Error ? error.message : "Could not update expense.");
+      const msg = error instanceof Error ? error.message : "Could not update expense.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Expense",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

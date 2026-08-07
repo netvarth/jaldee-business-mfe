@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { financeApi } from "../../lib/financeApi";
 import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
 type DiscountCalculationType="FIXED_AMOUNT"|"FIXED_PCT";type DiscountType="PREDEFINED"|"ONDEMAND";type DiscountStatus="ACTIVE"|"INACTIVE"|"RETIRED";
@@ -175,10 +175,21 @@ export function DiscountCreatePage() {
         discountedAmount: Number(discountValue) || 0,
         status,
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Discount",
+        message: "Discount created successfully.",
+      });
       navigateToDiscountList();
     } catch (error) {
       console.error("[mfe-finance] Failed to create discount", error);
-      setFormError(error instanceof Error ? error.message : "Could not create discount.");
+      const msg = error instanceof Error ? error.message : "Could not create discount.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Discount",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -306,10 +317,21 @@ export function DiscountEditPage() {
         discountedAmount: Number(discountValue) || 0,
         status,
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Discount",
+        message: "Discount updated successfully.",
+      });
       navigateToDiscountList();
     } catch (error) {
       console.error("[mfe-finance] Failed to update discount", error);
-      setFormError(error instanceof Error ? error.message : "Could not update discount.");
+      const msg = error instanceof Error ? error.message : "Could not update discount.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Discount",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }

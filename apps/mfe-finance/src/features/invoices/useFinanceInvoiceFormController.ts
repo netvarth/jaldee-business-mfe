@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { financeApi } from "../../lib/financeApi";
 
 import {
@@ -793,14 +793,30 @@ export function useFinanceInvoiceFormController() {
 
       if (isEditing && id) {
         await financeApi.invoices.updateGeneral(id, payload);
+        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+          intent: "success",
+          title: "Update Invoice",
+          message: "Invoice updated successfully.",
+        });
       } else {
         await financeApi.invoices.createGeneral(payload);
+        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+          intent: "success",
+          title: "Create Invoice",
+          message: "Invoice created successfully.",
+        });
       }
 
       navigateToInvoiceList();
     } catch (error) {
       console.error("[mfe-finance] Failed to save invoice", error);
-      setFormError(error instanceof Error ? error.message : "Could not save invoice.");
+      const msg = error instanceof Error ? error.message : "Could not save invoice.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: isEditing ? "Update Invoice" : "Create Invoice",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

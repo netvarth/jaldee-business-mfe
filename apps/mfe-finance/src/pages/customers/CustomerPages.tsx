@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Badge,
   Button,
+  Drawer,
   EmptyState,
   Icon,
   Input,
@@ -15,20 +16,62 @@ import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { DataTableCard, FinanceFilterButton, PageShell } from "../../components/FinancePageLayout";
 import { formatCurrency } from "../../lib/financeData";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, useCustomersSearchSchema } from "../../lib/financeSearch";
 
 export function CustomersPage() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const { schema } = useCustomersSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
 
   useEffect(() => {
     let active = true;
 
     async function loadCustomers() {
+      setLoading(true);
       try {
+        const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 200);
         const response = await financeApi.customers.search<any>({
-          page: 0,
-          size: 200,
+          ...searchBody,
           // view: "SUMMARY",
         });
         if (!active) {
@@ -86,7 +129,7 @@ export function CustomersPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [advancedFilters, schema]);
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     { key: "name", header: "Consumer Name", render: (row) => <span className="font-medium text-slate-900">{row.name}</span> },
@@ -147,7 +190,12 @@ export function CustomersPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button onClick={() => navigate("create")}>Create Consumer</Button>
-            <FinanceFilterButton testId="finance-consumers-filter" />
+            <FinanceFilterButton
+              testId="finance-consumers-filter"
+              label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+              active={appliedFilterCount > 0}
+              onClick={openFilters}
+            />
           </div>
         }
         data={customers}
@@ -157,6 +205,46 @@ export function CustomersPage() {
         emptyDescription="Finance consumers will appear here once available from the finance consumer API."
         getRowId={(row) => row.uid}
       />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-consumers-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={schema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No consumer filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="finance-consumers-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="finance-consumers-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </PageShell>
   );
 }
@@ -683,6 +771,7 @@ export function CustomerDetailPage() {
 }
 
 export function CustomerCreatePage() {
+  const { eventBus } = useMFEProps();
   const navigate = useNavigate();
   const [title, setTitle] = useState("Mr");
   const [firstName, setFirstName] = useState("");
@@ -747,11 +836,21 @@ export function CustomerCreatePage() {
           internationalConsumer: normalizedCountryCode !== "+91",
         },
       });
-
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Consumer",
+        message: "Consumer created successfully.",
+      });
       navigate("..", { relative: "path", replace: true });
     } catch (error) {
       console.error("[mfe-finance] Failed to create consumer", error);
-      setFormError(error instanceof Error ? error.message : "Could not create consumer.");
+      const msg = error instanceof Error ? error.message : "Could not create consumer.";
+      setFormError(msg);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Consumer",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }
@@ -839,6 +938,7 @@ export function CustomerCreatePage() {
 }
 
 export function CustomerEditPage() {
+  const { eventBus } = useMFEProps();
   const navigate = useNavigate();
   const { id = "" } = useParams<{ id: string }>();
   const [originalCustomer, setOriginalCustomer] = useState<any>(null);
@@ -968,10 +1068,21 @@ export function CustomerEditPage() {
       };
 
       await financeApi.customers.update(id, payload);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Consumer",
+        message: "Consumer updated successfully.",
+      });
       navigate(`/customers/${id}`);
     } catch (error) {
       console.error("[mfe-finance] Failed to update consumer", error);
-      setFormError(error instanceof Error ? error.message : "Could not update consumer.");
+      const msg = error instanceof Error ? error.message : "Could not update consumer.";
+      setFormError(msg);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Consumer",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }

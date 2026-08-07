@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { Button, DatePicker, Dialog, DialogFooter, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
@@ -327,12 +327,22 @@ export default function PayableEditPage() {
         paymentFor: "VERIFY",
         purpose: "REVENUE",
         isPaymentsIn: false,
-        financeDirect: true,
+      });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Payout",
+        message: "Payout updated successfully.",
       });
       navigate("../..", { relative: "path" });
     } catch (error) {
       console.error("[mfe-finance] Failed to update payout", error);
-      setFormError(error instanceof Error ? error.message : "Could not update payout.");
+      const msg = error instanceof Error ? error.message : "Could not update payout.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Payout",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

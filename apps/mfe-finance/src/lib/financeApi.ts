@@ -647,6 +647,9 @@ export const financeApi = {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_CONSUMER_SEARCH_ENDPOINT, toTenantSearchBody(filter));
     },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_CONSUMER_SEARCH_ENDPOINT}/schema`);
+    },
     detail<T = unknown>(id: string) {
       return get<T>(`${TENANT_CONSUMER_ENDPOINT}/${id}`);
     },

@@ -5,6 +5,7 @@ import { Badge, Button, Icon, Input, Popover, SectionCard, Select, Textarea } fr
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 type CouponStatus="ACTIVE"|"INACTIVE"|"RETIRED";
 
 export function CouponsPage() {
@@ -180,6 +181,7 @@ export function CouponsPage() {
 
 export function CouponCreatePage() {
   const navigate = useNavigate();
+  const mfeProps = useMFEProps();
   const navigateToCouponList = () => navigate("..", { relative: "path", replace: true });
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -233,10 +235,21 @@ export function CouponCreatePage() {
         status,
         rules: [],
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Coupon",
+        message: "Coupon created successfully.",
+      });
       navigateToCouponList();
     } catch (error) {
       console.error("[mfe-finance] Failed to create coupon", error);
-      setFormError(error instanceof Error ? error.message : "Could not create coupon.");
+      const msg = error instanceof Error ? error.message : "Could not create coupon.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Coupon",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -317,6 +330,7 @@ export function CouponCreatePage() {
 
 export function CouponEditPage() {
   const navigate = useNavigate();
+  const mfeProps = useMFEProps();
   const navigateToCouponList = () => navigate("../..", { relative: "path", replace: true });
   const { id } = useParams<{ id: string }>();
   const [code, setCode] = useState("");
@@ -407,10 +421,21 @@ export function CouponEditPage() {
         discountType,
         rules: [],
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Update Coupon",
+        message: "Coupon updated successfully.",
+      });
       navigateToCouponList();
     } catch (error) {
       console.error("[mfe-finance] Failed to update coupon", error);
-      setFormError(error instanceof Error ? error.message : "Could not update coupon.");
+      const msg = error instanceof Error ? error.message : "Could not update coupon.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Update Coupon",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }

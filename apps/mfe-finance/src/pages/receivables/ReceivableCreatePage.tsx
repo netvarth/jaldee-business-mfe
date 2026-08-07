@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import {
   Button,
   DatePicker,
@@ -336,10 +336,21 @@ export default function ReceivableCreatePage() {
         paymentMode: paymentMode || undefined,
         paymentInfo: paymentMode ? [{ paymentMode }] : undefined,
       });
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Revenue",
+        message: "Revenue created successfully.",
+      });
       navigate("..", { relative: "path" });
     } catch (error) {
       console.error("[mfe-finance] Failed to create revenue", error);
-      setFormError(error instanceof Error ? error.message : "Could not create revenue.");
+      const msg = error instanceof Error ? error.message : "Could not create revenue.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Revenue",
+        message: msg,
+      });
     } finally {
       setSubmitting(false);
     }

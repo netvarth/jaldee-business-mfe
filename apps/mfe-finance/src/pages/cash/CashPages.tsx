@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { Button, DataTable, EmptyState, Icon, Input, SectionCard, Select, StatCard, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
@@ -554,11 +554,22 @@ export function CashReserveCreatePage() {
         paymentInfo: [{ paymentMode: "Cash" }],
       };
       await financeApi.cash.createReserve(reserveType, payload);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Create Cash Reserve",
+        message: "Cash reserve entry created successfully.",
+      });
       const backPath = pathname.includes("cashRegister") ? "/cashRegister" : "/cashInhand";
       navigate(backPath);
     } catch (error) {
       console.error("[mfe-finance] Failed to create cash reserve", error);
-      setFormError(error instanceof Error ? error.message : "Could not create cash reserve.");
+      const msg = error instanceof Error ? error.message : "Could not create cash reserve.";
+      setFormError(msg);
+      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Create Cash Reserve",
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }
