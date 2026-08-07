@@ -248,7 +248,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
       children: [
         { id: "karty-finance-overview", label: "Overview", icon: "", path: "/karty/finance" },
         { id: "karty-finance-invoices", label: "Invoices", icon: "", path: "/karty/finance/invoices" },
-        { id: "karty-finance-receivables", label: "Receivables", icon: "", path: "/karty/finance/receivables" },
+        { id: "karty-finance-receivables", label: "Revenue", icon: "", path: "/karty/finance/receivables" },
         { id: "karty-finance-expenses", label: "Expenses", icon: "", path: "/karty/finance/expense" },
         { id: "karty-finance-vendors", label: "Vendors", icon: "", path: "/karty/finance/vendors" },
         { id: "karty-finance-payouts", label: "Payouts", icon: "", path: "/karty/finance/payout" },
@@ -279,7 +279,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
   ],
   finance: [
     { id: "finance-overview", label: "Overview", icon: "\u25A6", path: "/finance" },
-    { id: "finance-receivables", label: "Receivables", icon: "\u{1F4B5}", path: "/finance/receivables" },
+    { id: "finance-receivables", label: "Revenue", icon: "\u{1F4B5}", path: "/finance/receivables" },
     { id: "finance-payouts", label: "Payouts", icon: "\u{1F4B8}", path: "/finance/payable" },
     { id: "finance-expense", label: "Expenses", icon: "\u{1F4B3}", path: "/finance/expense" },
     { id: "finance-customers", label: "Finance Consumers", icon: "\u{1F465}", path: "/finance/customers" },
