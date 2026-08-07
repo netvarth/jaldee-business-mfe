@@ -560,7 +560,6 @@ async function resolveGroupUid(api: ScopedApi, groupNameOrUid: string) {
 function toCustomer(raw: Record<string, unknown>): Customer {
   const phoneE164 = typeof raw.phoneE164 === "string" ? raw.phoneE164 : undefined;
   const labels = Array.isArray(raw.labels)
-    // const labels = Array.isArray(raw.labels)
 
            
     ? raw.labels.reduce<Record<string, true>>((acc, item) => {
