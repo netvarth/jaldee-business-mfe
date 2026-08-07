@@ -36,6 +36,15 @@ function fmtSlot(t: string): string {
   return t.split(":").slice(0, 2).join(":");
 }
 
+function parseTimeStr(timeStr: string) {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function getSlotDuration(slot: Slot) {
+  return parseTimeStr(slot.endTime) - parseTimeStr(slot.startTime);
+}
+
 function buildCustomerLabel(customer: CustomerSearchResult): string {
   const fullName = `${customer.firstName ?? ""} ${customer.lastName ?? ""}`.trim();
   return fullName || customer.phone || customer.email || "Customer";
@@ -157,7 +166,7 @@ export default function CreateAppointmentDrawer({
   // Step 2 State
   const [month, setMonth] = useState(() => initialDate ? new Date(initialDate.getFullYear(), initialDate.getMonth(), 1) : new Date(2026, 4, 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
-  const [slot, setSlot] = useState<Slot | null>(initialTime ? { startTime: initialTime, endTime: "23:59", availableCount: 1, isAvailable: true } : null);
+  const [selectedSlots, setSelectedSlots] = useState<Slot[]>(initialTime ? [{ startTime: initialTime, endTime: "23:59", availableCount: 1, isAvailable: true }] : []);
   const [notes, setNotes] = useState("");
   const [scheduleOptions, setScheduleOptions] = useState<{ value: string; label: string }[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
@@ -331,7 +340,7 @@ export default function CreateAppointmentDrawer({
   }, [calendarUid, getCalendar]);
 
   useEffect(() => {
-    setSlot(null);
+    setSelectedSlots([]);
     if (serviceUid && dateStr) {
       fetchSlots({ serviceUid, calendarUid, date: dateStr, providerUid: doctorUid });
     } else {
@@ -387,7 +396,7 @@ export default function CreateAppointmentDrawer({
     if (scheduleUid && !scheduleOptions.some((schedule) => schedule.value === scheduleUid)) {
       scheduleManuallySelectedRef.current = false;
       setScheduleUid(scheduleOptions[0]?.value ?? "");
-      setSlot(null);
+      setSelectedSlots([]);
       clearSlots();
     }
   }, [clearSlots, scheduleOptions, scheduleUid]);
@@ -396,7 +405,7 @@ export default function CreateAppointmentDrawer({
     if (serviceUid && !serviceOptions.some((service) => service.value === serviceUid)) {
       setServiceUid("");
       setDoctorUid("");
-      setSlot(null);
+      setSelectedSlots([]);
       clearSlots();
     }
   }, [clearSlots, serviceOptions, serviceUid]);
@@ -407,7 +416,7 @@ export default function CreateAppointmentDrawer({
     }
     if (doctorUid && !providerOptions.some((provider) => provider.value === doctorUid)) {
       setDoctorUid("");
-      setSlot(null);
+      setSelectedSlots([]);
       clearSlots();
     }
   }, [clearSlots, providerOptions, doctorUid, isFromCell, initialProviderUid]);
@@ -447,10 +456,13 @@ export default function CreateAppointmentDrawer({
 
     if (schedulingMode === "book") {
       if (!resolvedPatientName) { showToast("Patient name is required", "error"); return; }
-      if (!calendarUid || !serviceUid || !scheduleUid || !selectedDate || !slot) {
+      if (!calendarUid || !serviceUid || !scheduleUid || !selectedDate || selectedSlots.length === 0) {
         showToast("Please complete calendar, service, date and slot", "error");
         return;
       }
+
+      const combinedStartTime = selectedSlots[0].startTime;
+      const combinedEndTime = selectedSlots[selectedSlots.length - 1].endTime;
 
       if (isRecurring) {
         if (!until) { showToast("Please pick a 'Repeat Until' date", "error"); return; }
@@ -465,8 +477,8 @@ export default function CreateAppointmentDrawer({
             scheduleUid,
             providerUid: selectedProviderUid,
             channel: "WALK_IN",
-            startTime: slot.startTime,
-            endTime: slot.endTime,
+            startTime: combinedStartTime,
+            endTime: combinedEndTime,
             startDate: dateStr,
             frequency,
             interval,
@@ -481,7 +493,7 @@ export default function CreateAppointmentDrawer({
               serviceId: serviceUid, serviceUid,
               userId: selectedProviderUid, userUid: selectedProviderUid, providerId: selectedProviderUid,
               patientName: resolvedPatientName, customerName: resolvedPatientName,
-              startTime: fmtSlot(slot.startTime), endTime: fmtSlot(slot.endTime), time: fmtSlot(slot.startTime),
+              startTime: fmtSlot(combinedStartTime), endTime: fmtSlot(combinedEndTime), time: fmtSlot(combinedStartTime),
               status: "Checked-in",
               bookingDate: r.date ?? dateStr,
             });
@@ -513,58 +525,103 @@ export default function CreateAppointmentDrawer({
         }
       }
 
-      const result = await createBooking({
-        calendarUid, serviceUid, providerUid: selectedProviderUid, scheduleUid,
-        date: dateStr, startTime: slot.startTime, endTime: slot.endTime,
-        patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel: "WALK_IN", notes,
-        customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
-        attachments: driveAttachments.length > 0 ? driveAttachments : undefined,
-      });
+      try {
+        const result = await createBooking({
+          calendarUid, serviceUid, providerUid: selectedProviderUid, scheduleUid,
+          date: dateStr, startTime: combinedStartTime, endTime: combinedEndTime,
+          patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel: "WALK_IN", notes,
+          customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
+          attachments: driveAttachments.length > 0 ? driveAttachments : undefined,
+        });
 
-      const createdUid = result.uid || `bk-${Date.now()}`;
+        const createdUid = result.uid || `bk-${Date.now()}`;
 
-      addCreatedBooking({
-        id: createdUid, uid: createdUid,
-        calendarId: calendarUid, calendarUid,
-        serviceId: serviceUid, serviceUid,
-        userId: selectedProviderUid, userUid: selectedProviderUid, providerId: selectedProviderUid,
-        patientName: resolvedPatientName, customerName: resolvedPatientName,
-        startTime: fmtSlot(slot.startTime), endTime: fmtSlot(slot.endTime), time: fmtSlot(slot.startTime),
-        status: "Checked-in",
-        bookingDate: dateStr,
-      });
+        addCreatedBooking({
+          id: createdUid, uid: createdUid,
+          calendarId: calendarUid, calendarUid,
+          serviceId: serviceUid, serviceUid,
+          userId: selectedProviderUid, userUid: selectedProviderUid, providerId: selectedProviderUid,
+          patientName: resolvedPatientName, customerName: resolvedPatientName,
+          startTime: fmtSlot(combinedStartTime), endTime: fmtSlot(combinedEndTime), time: fmtSlot(combinedStartTime),
+          status: "Checked-in",
+          bookingDate: dateStr,
+        });
 
-      showToast("Appointment booked", "success");
-      closeDrawer();
+        showToast("Appointment booked", "success");
+        closeDrawer();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Failed to book appointment", "error");
+      }
     } else {
       if (!calendarUid || !scheduleUid || !selectedDate) {
         showToast("Please complete calendar, and select a date", "error");
         return;
       }
 
-      let startTime = slot?.startTime || "00:00:00";
-      let endTime = slot?.endTime || "23:59:59";
-
-      if (blockDurationType === "single" && !slot) {
+      if (blockDurationType === "single" && selectedSlots.length === 0) {
         showToast("Please pick a slot", "error");
         return;
       }
 
-      if (blockDurationType === "full") {
-        startTime = "00:00:00";
-        endTime = "23:59:59";
-      }
-
       try {
-        await blockSlot({
-          scheduleUid,
-          serviceUid: serviceUid || undefined,
-          providerUid: doctorUid || undefined,
-          date: dateStr,
-          startTime,
-          endTime,
-          notes: blockReason,
-        });
+        if (blockDurationType === "full") {
+          const res = await blockSlot({
+            scheduleUid,
+            serviceUid: serviceUid || undefined,
+            providerUid: doctorUid || undefined,
+            date: dateStr,
+            startTime: "00:00:00",
+            endTime: "23:59:59",
+            notes: blockReason,
+          });
+          if (res.uid) {
+            addCreatedBooking({
+              id: res.uid, uid: res.uid,
+              calendarId: calendarUid, calendarUid,
+              serviceId: serviceUid, serviceUid,
+              userId: doctorUid, userUid: doctorUid, providerId: doctorUid,
+              patientName: "Blocked", customerName: "Blocked",
+              startTime: "00:00:00", endTime: "23:59:59", time: "00:00:00",
+              status: "Blocked",
+              bookingDate: dateStr,
+            });
+          }
+        } else {
+          const sortedSlots = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+          const groups: Slot[][] = [];
+          for (const s of sortedSlots) {
+            const lastGroup = groups[groups.length - 1];
+            if (lastGroup && lastGroup[lastGroup.length - 1].endTime === s.startTime) {
+              lastGroup.push(s);
+            } else {
+              groups.push([s]);
+            }
+          }
+          await Promise.all(groups.map(async (group) => {
+            const res = await blockSlot({
+              scheduleUid,
+              serviceUid: serviceUid || undefined,
+              providerUid: doctorUid || undefined,
+              date: dateStr,
+              startTime: group[0].startTime,
+              endTime: group[group.length - 1].endTime,
+              notes: blockReason,
+            });
+            if (res.uid) {
+              addCreatedBooking({
+                id: res.uid, uid: res.uid,
+                calendarId: calendarUid, calendarUid,
+                serviceId: serviceUid, serviceUid,
+                userId: doctorUid, userUid: doctorUid, providerId: doctorUid,
+                patientName: "Blocked", customerName: "Blocked",
+                startTime: fmtSlot(group[0].startTime), endTime: fmtSlot(group[group.length - 1].endTime), time: fmtSlot(group[0].startTime),
+                status: "Blocked",
+                bookingDate: dateStr,
+              });
+            }
+          }));
+        }
+
         showToast("Slot Block created successfully", "success");
         closeDrawer();
       } catch (err) {
@@ -942,9 +999,9 @@ export default function CreateAppointmentDrawer({
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                   2. Choose Slot
                 </h3>
-                {slot && (
+                {selectedSlots.length > 0 && (
                   <span className="text-xs font-bold text-[#31028C] bg-[#f5f3ff] px-3 py-1 rounded-md">
-                    {fmtSlot(slot.startTime)}
+                    {schedulingMode === "block" ? `${selectedSlots.length} slot(s) selected` : `${fmtSlot(selectedSlots[0].startTime)} - ${fmtSlot(selectedSlots[selectedSlots.length - 1].endTime)}`}
                   </span>
                 )}
               </div>
@@ -959,15 +1016,67 @@ export default function CreateAppointmentDrawer({
                 ) : slots.length === 0 ? (
                   <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this selection.</div>
                 ) : (
-                  slots.map((s) => {
+                  slots.map((s, index) => {
                     const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
-                    const active = slot?.startTime === s.startTime;
+                    const active = selectedSlots.some(selected => selected.startTime === s.startTime);
                     return (
                       <button
                         key={s.startTime}
                         type="button"
                         disabled={!available}
-                        onClick={() => setSlot(s)}
+                        onClick={() => {
+                          if (schedulingMode === "block") {
+                            const isSelected = selectedSlots.some(selected => selected.startTime === s.startTime);
+                            if (isSelected) {
+                              setSelectedSlots(selectedSlots.filter(selected => selected.startTime !== s.startTime));
+                            } else {
+                              setSelectedSlots([...selectedSlots, s].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+                            }
+                            return;
+                          }
+
+                          let slotInterval = 0;
+                          if (slots[index + 1]) {
+                            slotInterval = parseTimeStr(slots[index + 1].startTime) - parseTimeStr(slots[index].startTime);
+                          } else if (slots[index - 1]) {
+                            slotInterval = parseTimeStr(slots[index].startTime) - parseTimeStr(slots[index - 1].startTime);
+                          } else if (slots.length > 1) {
+                            slotInterval = parseTimeStr(slots[1].startTime) - parseTimeStr(slots[0].startTime);
+                          }
+                          
+                          if (slotInterval <= 0) {
+                            slotInterval = getSlotDuration(s) || 15;
+                          }
+
+                          const serviceDuration = selectedService?.duration || slotInterval;
+                          const requiredSlots = Math.ceil(serviceDuration / slotInterval);
+                          
+                          let continuous = true;
+                          const selection: Slot[] = [];
+                          
+                          for (let i = 0; i < requiredSlots; i++) {
+                            const currentSlot = slots[index + i];
+                            if (!currentSlot) { continuous = false; break; }
+                            const isAvail = currentSlot.isAvailable !== false && (currentSlot.availableCount ?? 1) > 0;
+                            if (!isAvail) { continuous = false; break; }
+                            
+                            if (i > 0) {
+                              const diff = parseTimeStr(currentSlot.startTime) - parseTimeStr(selection[i-1].startTime);
+                              if (diff !== slotInterval) {
+                                continuous = false; break;
+                              }
+                            }
+                            selection.push(currentSlot);
+                          }
+                          
+                          if (!continuous) {
+                            showToast("Insufficient continuous slots available for the service duration.", "error");
+                            setSelectedSlots([]);
+                            return;
+                          }
+                          
+                          setSelectedSlots(selection);
+                        }}
                         className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all shadow-sm ${active ? 'border-[#31028C] bg-[#31028C] text-white shadow-md' : available ? 'border-slate-200 bg-white text-slate-700 hover:border-[#31028C] hover:text-[#31028C]' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed shadow-none'}`}
                       >
                         {fmtSlot(s.startTime)}

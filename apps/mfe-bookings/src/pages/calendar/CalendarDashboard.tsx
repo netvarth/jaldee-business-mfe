@@ -88,10 +88,37 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
   const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
   const dateTriggerRef = React.useRef<HTMLButtonElement | null>(null);
 
+  const effectiveAdvancedFilters = useMemo(() => {
+    if (advancedFilters.some((f) => f.field === "status")) {
+      return advancedFilters;
+    }
+    return [
+      ...advancedFilters,
+      {
+        field: "status",
+        operator: "IN",
+        values: [
+          "REQUESTED",
+          "PREPAYMENT_PENDING",
+          "CONFIRMED",
+          "CHECKED_IN",
+          "WAITING",
+          "IN_PROGRESS",
+          "COMPLETED",
+          "CANCELLED",
+          "NO_SHOW",
+          "REJECTED",
+          "FOLLOWUP",
+          "BLOCKED",
+        ],
+      },
+    ];
+  }, [advancedFilters]);
+
   const { bookings: liveBookings, refresh: refreshBookings } = useBookings(
     format(date, "yyyy-MM-dd"),
     viewMode,
-    advancedFilters,
+    effectiveAdvancedFilters,
     bookingSearchSchema,
     { enabled: !bookingSearchSchemaLoading }
   );

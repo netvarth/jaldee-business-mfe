@@ -70,9 +70,6 @@ export function useCreateBooking() {
       // Try to extract uid from the response
       const uid = (response?.data as any)?.uid || (response as any)?.uid || undefined;
       return { success: true, uid };
-    } catch {
-      // No live endpoint — treat as accepted so the prototype flow completes.
-      return { success: true };
     } finally {
       setSubmitting(false);
     }

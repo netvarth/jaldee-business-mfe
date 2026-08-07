@@ -61,7 +61,8 @@ function resolveUserUid(user: UserDto): string | undefined {
 }
 
 function toUiStatus(status?: string): BookingUser["status"] {
-  return String(status ?? "").toUpperCase() === "DISABLED" ? "Inactive" : "Active";
+  const s = String(status ?? "").toUpperCase();
+  return (s === "DISABLED" || s === "INACTIVE") ? "Inactive" : "Active";
 }
 
 function toUser(d: UserDto): BookingUser {

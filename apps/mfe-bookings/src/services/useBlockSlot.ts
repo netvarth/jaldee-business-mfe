@@ -24,7 +24,7 @@ export function useBlockSlot() {
   const { preference } = useBookingPreferences();
   const [submitting, setSubmitting] = useState(false);
 
-  const blockSlot = async (input: BlockSlotInput): Promise<boolean> => {
+  const blockSlot = async (input: BlockSlotInput): Promise<{ success: boolean; uid?: string }> => {
     const payload = {
       scheduleUid: input.scheduleUid,
       serviceUid: input.serviceUid || undefined,
@@ -35,8 +35,9 @@ export function useBlockSlot() {
     };
     setSubmitting(true);
     try {
-      await api.post("/bookings/block", payload);
-      return true;
+      const response = await api.post("/bookings/block", payload);
+      const uid = (response?.data as any)?.uid || (response as any)?.uid || undefined;
+      return { success: true, uid };
     } finally {
       setSubmitting(false);
     }

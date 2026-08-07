@@ -130,7 +130,11 @@ export function useBookings(
         toCalendarBooking(booking, preference?.timezone)
       ) as never[];
       lastCompletedRequestKeyRef.current = requestKey;
-      setBookings([...sessionBookings, ...live]);
+      const liveUids = new Set(live.map((b: any) => b.uid || b.id));
+      const filteredSessionBookings = sessionBookings.filter(
+        (b: any) => !(b.uid && liveUids.has(b.uid)) && !(b.id && liveUids.has(b.id))
+      );
+      setBookings([...filteredSessionBookings, ...live]);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load bookings.");
       setBookings([...sessionBookings]);

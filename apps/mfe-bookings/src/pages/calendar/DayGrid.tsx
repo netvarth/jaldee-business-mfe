@@ -182,17 +182,31 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     const calColor = cal?.color || '#db2777';
                                                                                     const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
                                                                                     const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                    const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
                                                                                     return (
                                                                                         <div
                                                                                             key={bk.id || bk.uid}
-                                                                                            className="pointer-events-auto flex flex-col items-start w-[85px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0"
-                                                                                            style={{ backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.4)}` }}
+                                                                                            className="pointer-events-auto flex flex-col items-start w-[100px] px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0"
+                                                                                            style={isBlocked 
+                                                                                                ? { backgroundColor: '#ffffff', border: `1px dashed #cbd5e1` }
+                                                                                                : { backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.4)}` }
+                                                                                            }
                                                                                             onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
                                                                                         >
-                                                                                            <div className="flex flex-col min-w-0 flex-1 pr-1 w-full">
-                                                                                                <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
-                                                                                            </div>
+                                                                                            {isBlocked ? (
+                                                                                                <div className="flex items-center justify-between w-full h-full gap-1">
+                                                                                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                                        <span className="truncate" style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Blocked</span>
+                                                                                                    </div>
+                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }} className="shrink-0">{timeLabel}</span>
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <div className="flex flex-col min-w-0 flex-1 pr-1 w-full">
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                     );
                                                                                 })}
@@ -209,13 +223,14 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     const user = users.find(u => u.uid === uid);
                                                                                     const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                     const bgTheme = '#db2777';
+                                                                                    const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                     return (
-                                                                                        <div key={uid} className="flex flex-col items-center rounded-full py-0.5 px-0.5 shadow-sm cursor-pointer" style={{ backgroundColor: bgTheme, border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
-                                                                                            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: bgTheme }}>
-                                                                                                {initials}
+                                                                                        <div key={uid} className="flex flex-col items-center rounded-full py-0.5 px-0.5 shadow-sm cursor-pointer" style={isBlockedGroup ? { backgroundColor: '#ffffff', border: '1px dashed #cbd5e1' } : { backgroundColor: bgTheme, border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
+                                                                                            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: isBlockedGroup ? '#94a3b8' : bgTheme }}>
+                                                                                                {isBlockedGroup ? <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> : initials}
                                                                                             </div>
-                                                                                            <span className="text-[11px] font-bold text-white my-0.5">{bks.length}</span>
-                                                                                            <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] font-bold cursor-pointer text-white" style={{ backgroundColor: bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} isFromCell={true} />); }}>
+                                                                                            <span className="text-[11px] font-bold my-0.5" style={{ color: isBlockedGroup ? '#475569' : 'white' }}>{bks.length}</span>
+                                                                                            <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] font-bold cursor-pointer text-white" style={{ backgroundColor: isBlockedGroup ? '#94a3b8' : bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} isFromCell={true} />); }}>
                                                                                                 +
                                                                                             </div>
                                                                                         </div>
@@ -231,22 +246,27 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 const user = users.find(u => u.uid === uid);
                                                                                 const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                 const bgTheme = '#db2777'; // Dark pink background/border
+                                                                                const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                 
                                                                                 return (
-                                                                                    <div key={uid} className="relative flex flex-col w-[48px] shrink rounded-[6px] shadow-sm h-[52px] cursor-pointer hover:opacity-90 bg-white" style={{ border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
+                                                                                    <div key={uid} className="relative flex flex-col w-[48px] shrink rounded-[6px] shadow-sm h-[52px] cursor-pointer hover:opacity-90 bg-white" style={isBlockedGroup ? { border: '1px dashed #cbd5e1' } : { border: `1px solid ${bgTheme}` }} onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(id, uid); onViewByChange?.('doctors'); } }}>
                                                                                         {/* Top Half */}
-                                                                                        <div className="w-full h-[22px] rounded-t-[5px] flex items-center justify-center" style={{ backgroundColor: bgTheme }}>
-                                                                                            <span className="text-[12px] font-bold text-white">{initials}</span>
+                                                                                        <div className="w-full h-[22px] rounded-t-[5px] flex items-center justify-center" style={{ backgroundColor: isBlockedGroup ? '#f8fafc' : bgTheme }}>
+                                                                                            {isBlockedGroup ? (
+                                                                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                            ) : (
+                                                                                                <span className="text-[12px] font-bold text-white">{initials}</span>
+                                                                                            )}
                                                                                         </div>
                                                                                         
                                                                                         {/* Bottom Half */}
                                                                                         <div className="w-full flex-1 flex flex-col items-center justify-center pb-0.5">
-                                                                                            <span className="text-[14px] font-extrabold text-slate-800 leading-none">{bks.length}</span>
-                                                                                            <span className="text-[7px] text-slate-400 font-medium tracking-wide">Bookings</span>
+                                                                                            <span className="text-[14px] font-extrabold leading-none" style={{ color: isBlockedGroup ? '#475569' : '#1e293b' }}>{bks.length}</span>
+                                                                                            <span className="text-[7px] font-medium tracking-wide" style={{ color: isBlockedGroup ? '#64748b' : '#94a3b8' }}>{isBlockedGroup ? 'Blocked' : 'Bookings'}</span>
                                                                                         </div>
-
+                                                                                        
                                                                                         {/* + Circle */}
-                                                                                        <div className="absolute -top-1.5 -right-1.5 w-[14px] h-[14px] box-content border-[2px] border-white rounded-full flex items-center justify-center text-[12px] leading-none shadow-sm cursor-pointer hover:scale-110 transition-transform text-white" style={{ backgroundColor: bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} isFromCell={true} />); }}>
+                                                                                        <div className="absolute -top-1.5 -right-1.5 w-[14px] h-[14px] box-content border-[2px] border-white rounded-full flex items-center justify-center text-[12px] leading-none shadow-sm cursor-pointer hover:scale-110 transition-transform text-white" style={{ backgroundColor: isBlockedGroup ? '#94a3b8' : bgTheme }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={id} isFromCell={true} />); }}>
                                                                                             +
                                                                                         </div>
                                                                                     </div>
@@ -274,8 +294,9 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 {calGroups.map(([calId, bks]: [string, any[]]) => {
                                                                                     const cal = calendars.find(c => (c.uid || c.id) === calId);
                                                                                     const calColor = cal?.color || '#9333EA';
+                                                                                    const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                     return (
-                                                                                        <div key={calId} className="w-2.5 h-10 rounded-sm shadow-sm cursor-pointer" style={{ backgroundColor: toRgba(calColor, 0.7) }} title={`${bks.length} Bookings`} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(calId, id); }} />
+                                                                                        <div key={calId} className="w-2.5 h-10 rounded-sm shadow-sm cursor-pointer" style={isBlockedGroup ? { backgroundColor: '#ffffff', border: '1px dashed #cbd5e1' } : { backgroundColor: toRgba(calColor, 0.7) }} title={`${bks.length} ${isBlockedGroup ? 'Blocked' : 'Bookings'}`} onClick={(e) => { e.stopPropagation(); onGroupSelect?.(calId, id); }} />
                                                                                     );
                                                                                 })}
                                                                             </div>
@@ -299,35 +320,57 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                         const bk = bks[0];
                                                                                         const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
                                                                                         const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                        const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
                                                                                         return (
                                                                                             <div
                                                                                                 key={bk.id || bk.uid}
-                                                                                                className="pointer-events-auto flex flex-col items-start px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm flex-1 min-w-[70px]"
-                                                                                                style={{ backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }}
+                                                                                                className="pointer-events-auto flex flex-col items-start px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm flex-1 min-w-[85px]"
+                                                                                                style={isBlocked 
+                                                                                                    ? { backgroundColor: '#ffffff', border: `1px dashed #cbd5e1` }
+                                                                                                    : { backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }
+                                                                                                }
                                                                                                 onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
                                                                                             >
-                                                                                                <div className="flex flex-col min-w-0 flex-1 w-full">
-                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
-                                                                                                </div>
+                                                                                                {isBlocked ? (
+                                                                                                    <div className="flex items-center justify-between w-full h-full gap-1">
+                                                                                                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                                            <span className="truncate" style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Blocked</span>
+                                                                                                        </div>
+                                                                                                        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }} className="shrink-0">{timeLabel}</span>
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <div className="flex flex-col min-w-0 flex-1 w-full">
+                                                                                                        <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                    </div>
+                                                                                                )}
                                                                                             </div>
                                                                                         );
                                                                                     }
                                                                                     
+                                                                                    const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                     return (
                                                                                         <div
                                                                                             key={calId}
                                                                                             className="pointer-events-auto flex flex-col flex-1 min-w-[48px] max-w-full rounded-md transition-all hover:opacity-90 cursor-pointer overflow-hidden shadow-sm h-[52px]"
-                                                                                            style={{ border: `1px solid ${toRgba(calColor, 0.3)}` }}
+                                                                                            style={isBlockedGroup ? { backgroundColor: '#ffffff', border: '1px dashed #cbd5e1' } : { border: `1px solid ${toRgba(calColor, 0.3)}` }}
                                                                                             onClick={(e) => { e.stopPropagation(); onGroupSelect?.(calId, id); }}
                                                                                         >
-                                                                                            <div className="flex-1 flex flex-col items-center justify-center w-full pb-0.5" style={{ backgroundColor: toRgba(calColor, 0.1) }}>
-                                                                                                <span className="text-[14px] font-bold text-slate-900 leading-none">{bks.length}</span>
-                                                                                                <span className="text-[7px] text-slate-600 font-medium tracking-wide mt-0.5">Bookings</span>
+                                                                                            <div className="flex-1 flex flex-col items-center justify-center w-full pb-0.5" style={isBlockedGroup ? { backgroundColor: '#ffffff' } : { backgroundColor: toRgba(calColor, 0.1) }}>
+                                                                                                {isBlockedGroup ? (
+                                                                                                    <div className="flex items-center gap-1">
+                                                                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                                        <span className="text-[14px] font-bold text-[#475569] leading-none">{bks.length}</span>
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <span className="text-[14px] font-bold text-slate-900 leading-none">{bks.length}</span>
+                                                                                                )}
+                                                                                                <span className="text-[7px] font-medium tracking-wide mt-0.5" style={{ color: isBlockedGroup ? '#64748b' : '#475569' }}>{isBlockedGroup ? 'Blocked' : 'Bookings'}</span>
                                                                                             </div>
-                                                                                            <div className="flex items-center justify-center w-full py-0.5 bg-white border-t" style={{ borderTopColor: toRgba(calColor, 0.15) }}>
-                                                                                                <div className="w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer hover:opacity-80" style={{ backgroundColor: toRgba(calColor, 0.2) }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialProviderUid={id} isFromCell={true} />); }}>
-                                                                                                    <span className="text-[10px] font-bold" style={{ color: toRgba(calColor, 0.8) }}>+</span>
+                                                                                            <div className="flex items-center justify-center w-full py-0.5 bg-white border-t" style={isBlockedGroup ? { borderTopColor: '#f1f5f9' } : { borderTopColor: toRgba(calColor, 0.15) }}>
+                                                                                                <div className="w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer hover:opacity-80" style={{ backgroundColor: isBlockedGroup ? '#f1f5f9' : toRgba(calColor, 0.2) }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={date} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialProviderUid={id} isFromCell={true} />); }}>
+                                                                                                    <span className="text-[10px] font-bold" style={{ color: isBlockedGroup ? '#64748b' : toRgba(calColor, 0.8) }}>+</span>
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>
@@ -344,24 +387,38 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 const calColor = cal?.color || '#9333EA';
                                                                                 const customerName = bk.customer?.name || bk.patientName || 'Customer';
                                                                                 const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
                                                                                 return (
                                                                                     <div
                                                                                         key={bk.id || bk.uid}
-                                                                                        className="pointer-events-auto flex flex-col items-start w-[85px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm"
-                                                                                        style={{ backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }}
+                                                                                        className="pointer-events-auto flex flex-col items-start w-[100px] px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm"
+                                                                                        style={isBlocked 
+                                                                                            ? { backgroundColor: '#ffffff', border: `1px dashed #cbd5e1` }
+                                                                                            : { backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }
+                                                                                        }
                                                                                         onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
                                                                                     >
-                                                                                        <div className="flex items-start justify-between w-full">
-                                                                                            <div className="flex flex-col min-w-0 flex-1 pr-1">
-                                                                                                <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                        {isBlocked ? (
+                                                                                            <div className="flex items-center justify-between w-full h-full gap-1">
+                                                                                                <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                                    <span className="truncate" style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>Blocked</span>
+                                                                                                </div>
+                                                                                                <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }} className="shrink-0">{timeLabel}</span>
                                                                                             </div>
-                                                                                            <div className="absolute top-1.5 right-1 flex flex-col gap-[1.5px] items-center justify-center w-3 h-3 text-slate-400">
-                                                                                                <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
-                                                                                                <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
-                                                                                                <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
+                                                                                        ) : (
+                                                                                            <div className="flex items-start justify-between w-full">
+                                                                                                <div className="flex flex-col min-w-0 flex-1 pr-1">
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                </div>
+                                                                                                <div className="absolute top-1.5 right-1 flex flex-col gap-[1.5px] items-center justify-center w-3 h-3 text-slate-400">
+                                                                                                    <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
+                                                                                                    <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
+                                                                                                    <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>
+                                                                                                </div>
                                                                                             </div>
-                                                                                        </div>
+                                                                                        )}
                                                                                     </div>
                                                                                 );
                                                                             })}

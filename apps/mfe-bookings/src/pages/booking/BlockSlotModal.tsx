@@ -57,7 +57,19 @@ export default function BlockSlotModal({ initialDate, initialProviderUid, initia
     if (!date) { showToast("Pick a date", "error"); return; }
     if (endTime <= startTime) { showToast("End time must be after start time", "error"); return; }
     try {
-      await blockSlot({ scheduleUid, serviceUid: serviceUid || undefined, providerUid: resolvedProviderUid || undefined, date, startTime, endTime, notes });
+      const res = await blockSlot({ scheduleUid, serviceUid: serviceUid || undefined, providerUid: resolvedProviderUid || undefined, date, startTime, endTime, notes });
+      if (res.uid) {
+        addCreatedBooking({
+          id: res.uid, uid: res.uid,
+          calendarId: calendarUid, calendarUid,
+          serviceId: serviceUid, serviceUid,
+          userId: resolvedProviderUid, userUid: resolvedProviderUid, providerId: resolvedProviderUid,
+          patientName: "Blocked", customerName: "Blocked",
+          startTime, endTime, time: startTime,
+          status: "Blocked",
+          bookingDate: date,
+        });
+      }
       showToast("Slot blocked", "success");
       closeModal();
     } catch (err) {

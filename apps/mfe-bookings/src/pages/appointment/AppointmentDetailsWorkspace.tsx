@@ -213,8 +213,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const getDerivedActions = (status: string, allowed: AllowedAction[], isInvoiceCreated: boolean = false): AllowedAction[] => {
     const invoiceAction = isInvoiceCreated ? "VIEW_INVOICE" : "CREATE_INVOICE";
     switch (status) {
-      case "REQUESTED": return ["CONFIRM", "CANCEL"];
-      case "CONFIRMED": return ["CHECK_IN", invoiceAction, "CANCEL"];
+      case "REQUESTED": return ["CONFIRM", "RESCHEDULE", "CANCEL"];
+      case "CONFIRMED": return ["CHECK_IN", "RESCHEDULE", invoiceAction, "CANCEL"];
       case "CHECKED_IN": return ["START", "CANCEL"];
       case "IN_PROGRESS": return ["COMPLETE", "CANCEL"];
       default: return allowed.map(a => a === "CREATE_INVOICE" ? invoiceAction : a);
@@ -450,8 +450,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     Start Consultation
                   </Button>
                 )}
-                <div className="grid grid-cols-3 gap-2">
-                {actionsToShow.filter((action) => action !== "START").slice(0, 3).map((action) => {
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {actionsToShow.filter((action) => action !== "START").map((action) => {
                     const meta = ACTION_META[action];
                     const Icon = meta?.icon || Play;
                     const isBusy = acting === action;

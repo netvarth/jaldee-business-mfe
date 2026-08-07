@@ -158,15 +158,31 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                     const color = sanitizeColor(users[0]?.color);
                                                                                     const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
                                                                                     const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                    const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
                                                                                     return (
                                                                                         <div
                                                                                             key={bk.id || bk.uid}
-                                                                                            className="pointer-events-auto flex flex-col items-start w-[65px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0 border"
-                                                                                            style={{ backgroundColor: toRgba(color, 0.1), borderColor: color }}
+                                                                                            className="pointer-events-auto flex flex-col items-start w-[85px] px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0 border"
+                                                                                            style={isBlocked 
+                                                                                                ? { backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderStyle: 'dashed' }
+                                                                                                : { backgroundColor: toRgba(color, 0.1), borderColor: color }
+                                                                                            }
                                                                                             onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
                                                                                         >
-                                                                                            <span className="truncate w-full text-left" style={{ fontSize: '8px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                            <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                            {isBlocked ? (
+                                                                                                <div className="flex items-center justify-between w-full h-full gap-1">
+                                                                                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                                        <span className="truncate" style={{ fontSize: '8px', color: '#475569', fontWeight: 600 }}>Blocked</span>
+                                                                                                    </div>
+                                                                                                    <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }} className="shrink-0">{timeLabel}</span>
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '8px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                </>
+                                                                                            )}
                                                                                         </div>
                                                                                     );
                                                                                 })}
@@ -183,23 +199,24 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                 const user = users.find(u => u.uid === uid);
                                                                                 const initials = user ? (user.code || user.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                 const color = sanitizeColor(user?.color);
+                                                                                const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                 
                                                                                 return (
                                                                                     <div
                                                                                         key={uid}
                                                                                         className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[3px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1"
-                                                                                        style={{ borderColor: color, backgroundColor: '#ffffff' }}
+                                                                                        style={isBlockedGroup ? { borderColor: '#cbd5e1', backgroundColor: '#ffffff', borderStyle: 'dashed' } : { borderColor: color, backgroundColor: '#ffffff' }}
                                                                                         onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.("", uid); } }}
                                                                                     >
-                                                                                        <div className="flex items-center justify-center h-full w-[24px] shrink-0 text-white text-[10px] font-bold rounded-l-[3px]" style={{ backgroundColor: color }}>
-                                                                                            {initials}
+                                                                                        <div className="flex items-center justify-center h-full w-[24px] shrink-0 text-white text-[10px] font-bold rounded-l-[3px]" style={{ backgroundColor: isBlockedGroup ? '#cbd5e1' : color }}>
+                                                                                            {isBlockedGroup ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> : initials}
                                                                                         </div>
                                                                                         
                                                                                         <div className="flex-1 px-1.5 flex items-center leading-none">
-                                                                                            <span style={{ fontSize: '11px', color: '#333333', fontWeight: 700 }}>{bks.length} Bookings</span>
+                                                                                            <span style={{ fontSize: '11px', color: isBlockedGroup ? '#475569' : '#333333', fontWeight: 700 }}>{bks.length} {isBlockedGroup ? 'Blocked' : 'Bookings'}</span>
                                                                                         </div>
                                                                                         
-                                                                                        <div className="flex items-center justify-center h-full shrink-0 pr-1.5" style={{ color: color, fontSize: '16px', fontWeight: 400 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={dayDate} initialTime={`${hour.toString().padStart(2, '0')}:00`} isFromCell={true} />); }}>
+                                                                                        <div className="flex items-center justify-center h-full shrink-0 pr-1.5" style={{ color: isBlockedGroup ? '#94a3b8' : color, fontSize: '16px', fontWeight: 400 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={dayDate} initialTime={`${hour.toString().padStart(2, '0')}:00`} isFromCell={true} />); }}>
                                                                                             +
                                                                                         </div>
                                                                                     </div>
@@ -212,12 +229,13 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                         {userGroups.slice(3).map(([uid, bks]) => {
                                                                                             const u = users.find(u => u.uid === uid);
                                                                                             const ini = u ? (u.code || u.name?.substring(0, 2)?.toUpperCase()) : '?';
+                                                                                            const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                             return (
                                                                                                 <div key={uid} className="flex items-center gap-1.5 pr-2 cursor-pointer hover:bg-black/10 p-1 rounded" onClick={(e) => { e.stopPropagation(); onGroupSelect?.("", uid); }}>
-                                                                                                    <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] bg-white/20 text-white font-bold text-[9px]">
-                                                                                                        {ini}
+                                                                                                    <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] font-bold text-[9px]" style={isBlockedGroup ? { backgroundColor: '#ffffff', color: '#475569' } : { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}>
+                                                                                                        {isBlockedGroup ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> : ini}
                                                                                                     </div>
-                                                                                                    <span className="text-white text-[10px] font-semibold whitespace-nowrap">{bks.length} Bookings</span>
+                                                                                                    <span className="text-white text-[10px] font-semibold whitespace-nowrap">{bks.length} {isBlockedGroup ? 'Blocked' : 'Bookings'}</span>
                                                                                                 </div>
                                                                                             );
                                                                                         })}
@@ -254,15 +272,31 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                     const calColor = sanitizeColor(calendars[0]?.color);
                                                                                     const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
                                                                                     const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
+                                                                                    const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
                                                                                     return (
                                                                                         <div
                                                                                             key={bk.id || bk.uid}
-                                                                                            className="pointer-events-auto flex flex-col items-start w-[65px] px-1 py-0.5 rounded-sm transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0 border"
-                                                                                            style={{ backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
+                                                                                            className="pointer-events-auto flex flex-col items-start w-[85px] px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0 border"
+                                                                                            style={isBlocked 
+                                                                                                ? { backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderStyle: 'dashed' }
+                                                                                                : { backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }
+                                                                                            }
                                                                                             onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
                                                                                         >
-                                                                                            <span className="truncate w-full text-left" style={{ fontSize: '8px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                            <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                            {isBlocked ? (
+                                                                                                <div className="flex items-center justify-between w-full h-full gap-1">
+                                                                                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                                                                        <span className="truncate" style={{ fontSize: '8px', color: '#475569', fontWeight: 600 }}>Blocked</span>
+                                                                                                    </div>
+                                                                                                    <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }} className="shrink-0">{timeLabel}</span>
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '8px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '7.5px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                </>
+                                                                                            )}
                                                                                         </div>
                                                                                     );
                                                                                 })}
@@ -278,17 +312,21 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                             {visibleGroups.map(([uid, bks]: [string, any[]]) => {
                                                                                 const cal = calendars.find(c => c.uid === uid);
                                                                                 const calColor = sanitizeColor(cal?.color);
+                                                                                const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                 
                                                                                 return (
                                                                                     <div
                                                                                         key={uid}
                                                                                         className="pointer-events-auto flex items-center justify-between w-full h-[22px] rounded-[4px] border shadow-sm transition-opacity hover:opacity-90 cursor-pointer mb-1 px-1.5"
-                                                                                        style={{ backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
+                                                                                        style={isBlockedGroup ? { backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderStyle: 'dashed' } : { backgroundColor: toRgba(calColor, 0.1), borderColor: calColor }}
                                                                                         onClick={(e) => { e.stopPropagation(); if (bks.length === 1) { onBookingSelect(bks[0].id || bks[0].uid); } else { onGroupSelect?.(uid, ""); onViewByChange?.('doctors'); } }}
                                                                                     >
-                                                                                        <span style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600 }}>{bks.length} Bookings</span>
+                                                                                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                            {isBlockedGroup && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>}
+                                                                                            <span className="truncate" style={{ fontSize: '11px', color: isBlockedGroup ? '#475569' : '#1e293b', fontWeight: 600 }}>{bks.length} {isBlockedGroup ? 'Blocked' : 'Bookings'}</span>
+                                                                                        </div>
                                                                                         
-                                                                                        <div className="flex items-center justify-center shrink-0" style={{ color: calColor, fontSize: '15px', fontWeight: 700 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={dayDate} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={uid} isFromCell={true} />); }}>
+                                                                                        <div className="flex items-center justify-center shrink-0" style={{ color: isBlockedGroup ? '#94a3b8' : calColor, fontSize: '15px', fontWeight: 700 }} onClick={(e) => { e.stopPropagation(); openDrawer(<CreateAppointmentDrawer initialDate={dayDate} initialTime={`${hour.toString().padStart(2, '0')}:00`} initialCalendarUid={uid} isFromCell={true} />); }}>
                                                                                             +
                                                                                         </div>
                                                                                     </div>
@@ -302,12 +340,13 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                                             const cal = calendars.find(c => c.uid === uid);
                                                                                             const ini = cal ? (cal.name?.substring(0, 2)?.toUpperCase()) : '?';
                                                                                             const calColor = sanitizeColor(cal?.color);
+                                                                                            const isBlockedGroup = bks.every((bk: any) => bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK');
                                                                                             return (
                                                                                                 <div key={uid} className="flex items-center gap-1.5 pr-2 cursor-pointer hover:bg-black/5 p-1 rounded" onClick={(e) => { e.stopPropagation(); onGroupSelect?.(uid, ""); onViewByChange?.('doctors'); }}>
-                                                                                                    <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] text-white font-bold text-[9px]" style={{ backgroundColor: calColor }}>
-                                                                                                        {ini}
+                                                                                                    <div className="w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-[3px] font-bold text-[9px]" style={isBlockedGroup ? { backgroundColor: '#f1f5f9', color: '#475569', border: '1px dashed #cbd5e1' } : { backgroundColor: calColor, color: 'white' }}>
+                                                                                                        {isBlockedGroup ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> : ini}
                                                                                                     </div>
-                                                                                                    <span className="text-slate-700 text-[10px] font-semibold whitespace-nowrap">{bks.length} Bookings</span>
+                                                                                                    <span className="text-slate-700 text-[10px] font-semibold whitespace-nowrap">{bks.length} {isBlockedGroup ? 'Blocked' : 'Bookings'}</span>
                                                                                                 </div>
                                                                                             );
                                                                                         })}
