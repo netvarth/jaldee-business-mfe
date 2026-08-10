@@ -382,6 +382,46 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       }
     }
 
+    // Rotation: an ordered sequence assigns exactly one effective shift per day.
+    await clickByTestId(page, "hr-settings-shifts-tab-rotations");
+    await clickByTestId(page, "hr-settings-rotations-add");
+    const rotationModal = page.getByTestId("hr-settings-rotations-modal");
+    if (await rotationModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+      await fillByTestId(page, "hr-settings-rotations-name", `IT Support Weekly Rotation ${suffix}`);
+      const shiftSelect = page.getByTestId("hr-settings-rotations-add-shift");
+      const shiftValues = await shiftSelect.locator("option").evaluateAll((options) => options
+        .map((option) => (option as HTMLOptionElement).value)
+        .filter(Boolean));
+      if (shiftValues.length >= 2) {
+        await shiftSelect.selectOption(shiftValues[0]);
+        await shiftSelect.selectOption(shiftValues[1]);
+        await expect(page.getByTestId(`hr-settings-rotations-sequence-${shiftValues[0]}`)).toBeVisible();
+        await expect(page.getByTestId(`hr-settings-rotations-sequence-${shiftValues[1]}`)).toBeVisible();
+        await page.getByTestId(`hr-settings-rotations-sequence-up-${shiftValues[1]}`).click();
+        await fillByTestId(page, "hr-settings-rotations-period", "7");
+        await fillByTestId(page, "hr-settings-rotations-startdate", "2026-01-01");
+        await expect(page.getByTestId("hr-settings-rotations-active")).toBeChecked();
+        await clickByTestId(page, "hr-settings-rotations-save");
+        await rotationModal.waitFor({ state: "hidden", timeout: 10_000 });
+      } else {
+        await clickIfVisible(page.getByTestId("hr-settings-rotations-modal-close"));
+      }
+    }
+
+    // Policy Rules: create an active attendance punch rule using the outcomes model.
+    await navigateToHrRoute(page, "/hr/settings/policyrules");
+    await clickByTestId(page, "hr-settings-policy-rules-add");
+    const policyModal = page.getByTestId("hr-settings-policy-rules-modal");
+    if (await policyModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+      await fillByTestId(page, "hr-settings-policy-rules-name", `Office Punch Policy ${suffix}`);
+      await expect(page.getByTestId("hr-settings-policy-rules-outcome-0")).toBeVisible();
+      await selectByTestId(page, "hr-settings-policy-rules-value-0", "Office");
+      await fillByTestId(page, "hr-settings-policy-rules-priority", "100");
+      await expect(page.getByTestId("hr-settings-policy-rules-active")).toBeChecked();
+      await clickByTestId(page, "hr-settings-policy-rules-save");
+      await policyModal.waitFor({ state: "hidden", timeout: 10_000 });
+    }
+
     // 4. Leave Policy & Leave Types (5 IT Section Leave Types)
     await navigateToHrRoute(page, "/hr/settings/leavetypes");
     const leaveList = [
