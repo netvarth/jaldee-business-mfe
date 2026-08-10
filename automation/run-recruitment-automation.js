@@ -188,9 +188,13 @@ async function run() {
   if (!candidateResponse.ok()) throw new Error(`Candidate creation failed: ${await candidateResponse.text()}`);
 
   await page.locator('[data-testid="hr-candidate-modal-form"]').waitFor({ state: "hidden", timeout: 20000 });
-  const candidateRow = page.locator("tr").filter({ hasText: candidateName }).first();
-  await candidateRow.waitFor({ state: "visible", timeout: 20000 });
-  await candidateRow.locator('[data-testid^="hr-recruitment-candidate-view-"]').click();
+  const createdCandidate = await candidateResponse.json().catch(() => ({}));
+  let candidateUid = typeof createdCandidate === "string"
+    ? createdCandidate
+    : String(createdCandidate.uid ?? createdCandidate.id ?? createdCandidate.data?.uid ?? createdCandidate.data?.id ?? "");
+  if (!candidateUid) candidateUid = (candidateResponse.headers()["location"] || "").split("/").filter(Boolean).pop() || "";
+  if (!candidateUid) throw new Error(`Candidate creation succeeded but no UID was returned for "${candidateName}"`);
+  await page.goto(`${BASE_URL}/hr/recruitment/candidates/${candidateUid}`, { waitUntil: "domcontentloaded" });
 
   console.log("\n>>> UPLOAD CANDIDATE RESUME AUTOMATICALLY...");
   await page.locator('[data-testid="hr-recruitment-candidate-resume-file"]').waitFor({ state: "attached", timeout: 30000 });

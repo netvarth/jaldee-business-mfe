@@ -874,9 +874,12 @@ export default function EssPortal() {
                       <div className="mt-5">
                         {attendanceViewMode === "table" ? (
                           <SimpleTable
-                            headers={["Date", "In", "Out", "Mode", "Hours", "Status"]}
+                            headers={["Date", "Effective Shift", "In", "Out", "Mode", "Hours", "Status"]}
                             rows={attendance.data.map((item) => [
                               item.dateStr ? formatDate(item.dateStr) : "--",
+                              item.noShiftAssigned || item.shiftResolutionSource?.toUpperCase() === "NONE"
+                                ? "No shift assigned"
+                                : item.effectiveShiftName || item.shiftName || "--",
                               time(item.clockIn),
                               time(item.clockOut),
                               item.clockInType ?? "--",

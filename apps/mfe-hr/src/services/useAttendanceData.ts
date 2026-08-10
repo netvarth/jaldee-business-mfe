@@ -37,6 +37,11 @@ export interface AttendanceRecord {
   totalBreakMinutes?: number; breaks?: import("../types").AttendanceBreak[];
   overtimeMinutes?: number; overtimeStatus?: "Pending" | "Approved" | "Rejected" | string;
   approvedOvertimeMinutes?: number;
+  shiftUid?: string; shiftName?: string;
+  effectiveShiftUid?: string; effectiveShiftName?: string;
+  shiftResolutionSource?: "ROTATION" | "DEFAULT" | "GENERAL" | "NONE" | string;
+  noShiftAssigned?: boolean; validationFlags?: string[]; attendanceFlags?: string[];
+  lateMinutes?: number; earlyDepartureMinutes?: number;
   shiftStartTime?: string; shiftEndTime?: string; systemGenerated?: boolean; generatedBy?: string; source?: string;
 }
 export interface OnDutyRequest {
@@ -127,7 +132,9 @@ export function useAttendance(
         return alreadyLoaded ? current : [createdRecord, ...current];
       });
       setTotalElements((current) => Math.max(current, data.length + 1));
+      return createdRecord;
     }
+    return null;
   }, [api, data.length, load]);
   const punchOut = useCallback(async (uid: string) => {
     const record = data.find((item) => item.id === uid || item.uid === uid);

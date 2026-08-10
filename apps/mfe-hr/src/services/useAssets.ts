@@ -110,7 +110,9 @@ export interface AssetAllocation {
 
 function withId<T extends { uid?: string; id?: string }>(r: Record<string, unknown>): T {
   const uid = (r.uid ?? r.id) as string | undefined;
-  return { ...(r as object), id: String(uid ?? ""), uid } as T;
+  const holderEmployeeName = (r.holderName ?? r.holderEmployeeName) as string | undefined;
+  const ownerDepartment = (r.departmentName ?? r.ownerDepartment) as string | undefined;
+  return { ...(r as object), id: String(uid ?? ""), uid, holderEmployeeName, ownerDepartment } as T;
 }
 
 function resolveFileType(file: File) {
@@ -268,6 +270,7 @@ export function useAssets(
     await api.post(`/assets/${uid}/return`, {
       returnedOn: new Date().toISOString().slice(0, 10),
       condition: opts.condition === "UnderRepair" ? "Under Repair" : opts.condition,
+      lost: opts.condition === "Lost",
       remarks: opts.remarks ?? null,
       attachment: opts.attachment ?? opts.asset.attachment ?? [],
     });

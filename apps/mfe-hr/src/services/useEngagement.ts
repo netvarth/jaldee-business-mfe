@@ -12,7 +12,8 @@ export interface Announcement {
 export interface TicketResponse { message?: string; respondedBy?: string; respondedAt?: string; }
 export interface Ticket {
   id: string; uid?: string; employeeUid?: string; title?: string; category?: string;
-  description?: string; department?: string; status?: string; createdAtTs?: string;
+  description?: string; department?: string; hrDepartmentUid?: string; status?: string; createdAtTs?: string;
+  createdBy?: string; createdByName?: string; fileUrl?: string;
   responses?: TicketResponse[];
 }
 
@@ -32,7 +33,10 @@ function isUseAnnouncementsOptions(value: unknown): value is UseAnnouncementsOpt
 function withId<T extends { uid?: string; id?: string }>(r: Record<string, unknown>): T {
   const uid = (r.uid ?? r.id) as string | undefined;
   const employeeUid = (r.employeeUid ?? r.employeeId ?? r.createdBy) as string | undefined;
-  return { ...(r as object), id: String(uid ?? ""), uid, employeeUid } as T;
+  const createdAtTs = (r.createdAtTs ?? r.createdAt ?? r.createdDate) as string | undefined;
+  const createdByName = (r.createdByName ?? r.employeeName ?? r.createdByDisplayName) as string | undefined;
+  const department = (r.departmentName ?? r.department) as string | undefined;
+  return { ...(r as object), id: String(uid ?? ""), uid, employeeUid, createdAtTs, createdByName, department } as T;
 }
 
 function normalizeListResponse<T extends { uid?: string; id?: string }>(res: unknown): T[] {

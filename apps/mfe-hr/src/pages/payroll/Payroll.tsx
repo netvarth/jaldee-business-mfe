@@ -118,6 +118,7 @@ const emptyMapping: Partial<StructureComponentMapping> = {
   isMandatory: true,
   allowEmployeeOverride: false,
   isEsiEligible: true,
+  isPfEligible: true,
 };
 
 const money = (value?: number) => formatCurrency(value ?? 0);
@@ -1530,7 +1531,6 @@ export default function Payroll() {
               <button id="hr-payroll-process" data-testid="hr-payroll-process" className="btn btn-primary" onClick={processRun} disabled={busy} style={primaryButton}>
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Process Payroll
               </button>
-              <div style={noticeStyle}>409 conflicts are shown when a month is already processing or finalized. 422 validation errors should be resolved in the employee payroll setup before rerunning payroll.</div>
             </div>
             <div style={{ marginTop: 18 }}>
               <Table headers={["Month", "Status", "Employees"]} compact empty={runs.data.length === 0 ? "No payroll runs yet." : null}>
@@ -1966,6 +1966,7 @@ function StructureBuilderDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ToggleRow label="Mandatory" checked={form.isMandatory} onChange={(value) => onChange({ ...form, isMandatory: value })} />
             <ToggleRow testId="hr-payroll-structure-builder-employee-override" label="Employee Override" checked={form.allowEmployeeOverride} onChange={(value) => onChange({ ...form, allowEmployeeOverride: value })} />
+            <ToggleRow testId="hr-payroll-structure-builder-pf-eligible" label="Include in PF Base" checked={form.isPfEligible ?? true} onChange={(value) => onChange({ ...form, isPfEligible: value })} />
             <ToggleRow label="ESI Eligible" checked={form.isEsiEligible ?? true} onChange={(value) => onChange({ ...form, isEsiEligible: value })} />
           </div>
         </div>

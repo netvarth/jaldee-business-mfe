@@ -16,7 +16,7 @@ const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"))
 import { useEmployees } from "../../services/useEmployees";
 import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useBranches } from "../../services/useBranches";
-import { useAttendance, useOnDuty, useCompOffs, useLocationLogs } from "../../services/useAttendanceData";
+import { useAttendance, useOnDuty, useCompOffs, useLocationLogs, type AttendanceRecord } from "../../services/useAttendanceData";
 import { useAttendanceSearchSchema } from "../../services/useAttendanceSearchSchema";
 import { useAttendanceRules } from "../../services/useSettingsData";
 import { formatDate } from "../../lib/utils";
@@ -58,7 +58,7 @@ function statusBadge(status?: string): CSSProperties {
   return { background: "rgba(100,116,139,0.08)", color: "var(--light-text)", border: "1px solid var(--border-color)" };
 }
 function StatusBadge({ status }: { status?: string }) {
-  return <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{status || "—"}</span>;
+  return <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{status || "Pending"}</span>;
 }
 function OvertimePill({ minutes, status, approved }: { minutes?: number; status?: string; approved?: number }) {
   if (!minutes || minutes <= 0) return null;
@@ -75,6 +75,20 @@ function OvertimePill({ minutes, status, approved }: { minutes?: number; status?
 function isSystemFlagged(status?: string, generated?: boolean, source?: string, generatedBy?: string) {
   const key = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
   return !!generated || /system|cron|auto/i.test(source || "") || /system|cron|auto/i.test(generatedBy || "") || key === "absent" || key === "holiday";
+}
+function hasNoShiftFlag(record: AttendanceRecord) {
+  const flags = [...(record.validationFlags ?? []), ...(record.attendanceFlags ?? [])];
+  return record.noShiftAssigned === true
+    || record.shiftResolutionSource?.toUpperCase() === "NONE"
+    || flags.some((flag) => /NO[_\s-]?SHIFT/i.test(flag));
+}
+function effectiveShiftLabel(record: AttendanceRecord) {
+  if (hasNoShiftFlag(record)) return "No shift assigned";
+  const name = record.effectiveShiftName || record.shiftName;
+  const time = record.shiftStartTime || record.shiftEndTime
+    ? `${fmtTime(record.shiftStartTime)} – ${fmtTime(record.shiftEndTime)}`
+    : "";
+  return name && time ? `${name} (${time})` : name || time || "—";
 }
 function subtabFromPath(pathname: string): SubTab {
   const segment = pathname.split("/").filter(Boolean).at(-1);
@@ -575,7 +589,11 @@ export default function Attendance() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{todayLogs.map((a) => (
               <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12, background: "rgba(100,116,139,0.02)" }}>
-                <div><div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 13 }}>{a.clockInType || "Office"}</div><div style={{ fontSize: 12, color: "var(--light-text)", marginTop: 2 }}>In {fmtTime(a.clockIn)} · Out {fmtTime(a.clockOut)}</div></div>
+                <div>
+                  <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 13 }}>{a.clockInType || "Office"}</div>
+                  <div style={{ fontSize: 12, color: "var(--light-text)", marginTop: 2 }}>In {fmtTime(a.clockIn)} · Out {fmtTime(a.clockOut)}</div>
+                  <div data-testid={`hr-attendance-timeline-effective-shift-${a.id}`} style={{ fontSize: 11, color: hasNoShiftFlag(a) ? "var(--color-warning)" : "var(--light-text)", marginTop: 2 }}>{effectiveShiftLabel(a)}</div>
+                </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                   <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} />
                   <StatusBadge status={a.status || "Present"} />
@@ -705,6 +723,16 @@ export default function Attendance() {
                         ),
                       },
                       { key: "dateStr", header: "Date", width: "12%", render: (a) => formatDate(a.dateStr) },
+                      {
+                        key: "effectiveShiftUid",
+                        header: "Effective Shift",
+                        width: "18%",
+                        render: (a) => (
+                          <span data-testid={`hr-attendance-effective-shift-${a.id}`} style={{ color: hasNoShiftFlag(a) ? "var(--color-warning)" : "var(--dark-text)", fontWeight: hasNoShiftFlag(a) ? 700 : 500 }}>
+                            {effectiveShiftLabel(a)}
+                          </span>
+                        ),
+                      },
                       { key: "clockInType", header: "Work Type", width: "12%", render: (a) => <span style={{ color: "var(--light-text)" }}>{a.clockInType || "—"}</span> },
                       { key: "clockIn", header: "Clock In", width: "12%", render: (a) => fmtTime(a.clockIn) },
                       { key: "clockOut", header: "Clock Out", width: "12%", render: (a) => fmtTime(a.clockOut) },
@@ -714,7 +742,7 @@ export default function Attendance() {
                     getRowId={(a) => a.id}
                     loading={attendance.loading}
                     className="rounded-none border-0 bg-transparent shadow-none"
-                    tableClassName="min-w-[780px]"
+                    tableClassName="min-w-[980px]"
                     pagination={{
                       page: attPage + 1,
                       pageSize: attPageSize,
@@ -726,13 +754,17 @@ export default function Attendance() {
                         setAttPage(0);
                       },
                     }}
-                    emptyState={<EmptyState title="No attendance logs" description="Adjust filters or date range to find records." />}
+                    emptyState={(
+                      <div data-testid="hr-attendance-logs-empty">
+                        <EmptyState title="No attendance logs" description="Adjust filters or date range to find records." />
+                      </div>
+                    )}
                   />
                 ) : (
                   <>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
                       {attendance.data.length === 0 ? (
-                        <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No attendance logs.</div>
+                        <div data-testid="hr-attendance-logs-empty" style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No attendance logs.</div>
                       ) : (
                         attendance.data.map((a) => (
                           <div key={a.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12, background: isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? "rgba(245,158,11,0.02)" : "var(--surface-bg)", border: isSystemFlagged(a.status, a.systemGenerated, a.source, a.generatedBy) ? "1px solid rgba(245,158,11,0.2)" : "1px solid var(--border-color)" }}>
@@ -761,6 +793,10 @@ export default function Attendance() {
                               <div>
                                 <div style={lbl}>Clock Out</div>
                                 <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{fmtTime(a.clockOut)}</div>
+                              </div>
+                              <div style={{ gridColumn: "1/-1" }}>
+                                <div style={lbl}>Effective Shift</div>
+                                <div data-testid={`hr-attendance-card-effective-shift-${a.id}`} style={{ fontWeight: 600, color: hasNoShiftFlag(a) ? "var(--color-warning)" : "var(--dark-text)", marginTop: 2 }}>{effectiveShiftLabel(a)}</div>
                               </div>
                             </div>
                             {a.overtimeMinutes > 0 && (

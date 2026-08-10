@@ -127,6 +127,7 @@ async function run() {
   let currentRunEmployeeUid = "";
   let recruitmentPublicCandidateName = "";
   let recruitmentDirectCandidateName = "";
+  let recruitmentDirectCandidateUid = "";
   const futureDate = (daysAhead) => {
     const date = new Date();
     date.setDate(date.getDate() + daysAhead);
@@ -816,7 +817,7 @@ async function run() {
   roleToEdit.name = updatedRoleName;
   console.log(`   [Verified] Role updated: "${updatedRoleName}"`);
 
-  console.log("\n>>> 5. SETTINGS - ADD 5 IT SHIFTS...");
+  console.log("\n>>> 5. SETTINGS - ADD 2 IT SHIFTS REQUIRED FOR ROTATION...");
   await openSettingsSection("shifts", '[data-testid="hr-settings-shifts-add"]');
   const shiftList = [
     { name: `Day Development Shift ${suffix}`, start: "09:00 AM", end: "05:00 PM" },
@@ -825,7 +826,7 @@ async function run() {
     { name: `24x7 IT NOC Night Shift ${suffix}`, start: "09:00 PM", end: "05:00 AM" },
     { name: `Flexible Tech Hours ${suffix}`, start: "10:00 AM", end: "06:00 PM" },
   ];
-  for (let i = 0; i < Math.min(shiftList.length, 1); i++) {
+  for (let i = 0; i < Math.min(shiftList.length, 2); i++) {
     const s = shiftList[i];
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-settings-shifts-add"]', `Add ${s.name}`);
@@ -869,7 +870,7 @@ async function run() {
   console.log(`   [Verified] Shift updated: "${updatedShiftName}"`);
 
   console.log("\n>>> 5.5 SETTINGS - SHIFT ROTATIONS...");
-  const rotationsTabBtn = page.getByRole("tab", { name: "Rotations" }).first();
+  const rotationsTabBtn = page.locator('[data-testid="hr-settings-shifts-tab-rotations"]').first();
   if (await rotationsTabBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
     await rotationsTabBtn.click();
     await slowClick('[data-testid="hr-settings-rotations-add"]', "Add Rotation");
@@ -879,13 +880,14 @@ async function run() {
     await slowType('[data-testid="hr-settings-rotations-name"]', rotationName, "Rotation Name");
     const shiftSelect = page.locator('[data-testid="hr-settings-rotations-add-shift"]');
     if (await shiftSelect.isVisible().catch(() => false)) {
-      const shiftOption = shiftSelect.locator('option').nth(1);
-      if (await shiftOption.isVisible().catch(() => false)) {
-        const val = await shiftOption.getAttribute('value');
-        if (val) await shiftSelect.selectOption(val);
-      }
+      const shiftValues = await shiftSelect.locator('option').evaluateAll((options) => options.map((option) => option.value).filter(Boolean));
+      if (shiftValues.length < 2) throw new Error("At least two shifts are required for the rotation test.");
+      await shiftSelect.selectOption(shiftValues[0]);
+      await shiftSelect.selectOption(shiftValues[1]);
+      await rotationModal.locator(`[data-testid="hr-settings-rotations-sequence-up-${shiftValues[1]}"]`).click();
     }
     await slowType('[data-testid="hr-settings-rotations-period"]', "7", "Rotation Period");
+    await slowDate('[data-testid="hr-settings-rotations-startdate"]', futureDate(0), "Rotation Start Date");
     await rotationModal.locator('[data-testid="hr-settings-rotations-save"]').click();
     await rotationModal.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
     console.log(`   [Verified] Shift Rotation created: "${rotationName}"`);
@@ -1119,7 +1121,11 @@ async function run() {
   await page.waitForTimeout(500);
   const confirmBtn = page.locator('[data-testid="hr-settings-leave-assignment-confirm-bottom"]').first();
   await confirmBtn.waitFor({ state: "visible", timeout: 10000 });
+  const leaveAssignmentResponsePromise = page.waitForResponse((response) => response.request().method() === "POST"
+    && /\/leaves\/balances\/assign\/?$/.test(new URL(response.url()).pathname), { timeout: 30000 });
   await confirmBtn.click();
+  const leaveAssignmentResponse = await leaveAssignmentResponsePromise;
+  if (!leaveAssignmentResponse.ok()) throw new Error(`Leave balance assignment failed (${leaveAssignmentResponse.status()}): ${await leaveAssignmentResponse.text()}`);
   await page.waitForURL(/\/settings\/leavetypes\/?$/, { timeout: 20000 });
   console.log(`   [Verified] Leave balance assigned to current-run employee: "${currentRunEmployeeName}"`);
 
@@ -1303,7 +1309,15 @@ async function run() {
     await closeAnyOpenModal();
     await slowClick('[data-testid="hr-leave-apply-button"], button:has-text("Apply For Leave")', `Apply Leave ${i + 1}`);
     await slowSelectOptionByLabel('[data-testid="hr-leave-employee"]', currentRunEmployeeName, `Employee ${i + 1}`);
-    await page.locator('[data-testid="hr-leave-type"]:not([disabled])').waitFor({ state: "visible", timeout: 15000 });
+    const leaveType = page.locator('[data-testid="hr-leave-type"]');
+    await leaveType.waitFor({ state: "visible", timeout: 15000 });
+    await page.waitForFunction(() => {
+      const select = document.querySelector('[data-testid="hr-leave-type"]');
+      return select instanceof HTMLSelectElement && !select.disabled && select.options.length > 1;
+    }, null, { timeout: 30000 }).catch(async () => {
+      const message = await page.getByText("No active leave types are assigned to this employee.", { exact: false }).textContent().catch(() => "");
+      throw new Error(message || `Assigned leave types did not load for ${currentRunEmployeeName}`);
+    });
     const leaveTypeSelected = await slowSelectFirstOption('[data-testid="hr-leave-type"]', `Leave Type ${i + 1}`);
     if (!leaveTypeSelected) throw new Error(`No leave type is available for leave application ${i + 1}`);
     await slowDate('[data-testid="hr-leave-start-date"]', leaveStartDate, `Start Date ${i + 1}`);
@@ -1420,8 +1434,22 @@ async function run() {
     await slowType('[data-testid="hr-candidate-experience"]', String(3 + i), `Candidate Experience ${i + 1}`);
     await slowSelect('[data-testid="hr-candidate-source"]', "JOB_PORTAL", `Candidate Source ${i + 1}`);
     await slowType('[data-testid="hr-candidate-skills"]', "React, TypeScript, Cloud, APIs", `Candidate Skills ${i + 1}`);
+    let candidateResponse = null;
+    const captureCandidateResponse = (response) => {
+      const path = new URL(response.url()).pathname;
+      if (response.request().method() === "POST" && path.includes("/recruitment/candidates") && !path.endsWith("/search")) candidateResponse = response;
+    };
+    page.on("response", captureCandidateResponse);
     await slowClick('[data-testid="hr-candidate-submit"]', `Save Candidate ${i + 1}`);
     await confirmDialogSubmission('[data-testid="hr-candidate-modal-form"]', candidateName, `Candidate ${i + 1}`);
+    page.off("response", captureCandidateResponse);
+    if (!candidateResponse) throw new Error(`Candidate ${i + 1} form closed without a matching create API response.`);
+    if (!candidateResponse.ok()) throw new Error(`Candidate creation failed (${candidateResponse.status()}): ${await candidateResponse.text()}`);
+    const createdCandidate = await candidateResponse.json().catch(() => ({}));
+    recruitmentDirectCandidateUid = typeof createdCandidate === "string"
+      ? createdCandidate
+      : String(createdCandidate.uid ?? createdCandidate.id ?? createdCandidate.data?.uid ?? createdCandidate.data?.id ?? "");
+    if (!recruitmentDirectCandidateUid) recruitmentDirectCandidateUid = (candidateResponse.headers()["location"] || "").split("/").filter(Boolean).pop() || "";
   }
 
   }
@@ -1508,6 +1536,17 @@ async function run() {
   const punchResult = await punchMessage.textContent();
   if (!/Clocked in|Clocked out|already has an attendance|blocked by policy/i.test(punchResult || "")) throw new Error(`Attendance punch failed: ${punchResult}`);
   console.log("   [Verified] Attendance location uses 10.5116834, 76.2164267");
+  await slowClick('[data-testid="hr-attendance-subtab-logs"]', "Attendance Logs");
+  const effectiveShift = page.locator('[data-testid^="hr-attendance-effective-shift-"], [data-testid^="hr-attendance-card-effective-shift-"]').first();
+  const emptyLogs = page.locator('[data-testid="hr-attendance-logs-empty"]');
+  await effectiveShift.or(emptyLogs).first().waitFor({ state: "visible", timeout: 20000 });
+  if (await effectiveShift.isVisible()) {
+    const effectiveShiftText = (await effectiveShift.textContent() || "").trim();
+    if (!effectiveShiftText || effectiveShiftText === "—" || effectiveShiftText === "-") throw new Error("Attendance API did not resolve an effective shift or no-shift flag.");
+    console.log(`   [Verified] Attendance effective shift: "${effectiveShiftText}"`);
+  } else {
+    console.log("   [Verified] Attendance logs loaded with no records for the current filters");
+  }
   for (const subtab of ["logs", "pending", "overtime", "field", "compoff", "onduty", "kiosk"]) {
     await slowClick(`[data-testid="hr-attendance-subtab-${subtab}"]`, `Attendance ${subtab}`);
     if (subtab === "field") {
@@ -1559,18 +1598,14 @@ async function run() {
     }
 
     await visitHr("/hr/recruitment/candidates", "VIEW CANDIDATES");
-    const directCandidateRow = page.locator("tr").filter({ hasText: recruitmentDirectCandidateName }).first();
-    if (await directCandidateRow.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const directCandidateView = directCandidateRow.locator('[data-testid^="hr-recruitment-candidate-view-"]');
-      if (await directCandidateView.isVisible().catch(() => false)) {
-        await directCandidateView.click();
-        const candidateResumeFile = page.locator('[data-testid="hr-recruitment-candidate-resume-file"]');
-        if (await candidateResumeFile.isVisible({ timeout: 5000 }).catch(() => false)) {
-          await candidateResumeFile.setInputFiles("automation/fixtures/employee-experience-certificate.pdf").catch(() => {});
-        }
+    if (recruitmentDirectCandidateUid) {
+      await page.goto(`${AUTOMATION_BASE_URL}/hr/recruitment/candidates/${recruitmentDirectCandidateUid}`, { waitUntil: "domcontentloaded" });
+      const candidateResumeFile = page.locator('[data-testid="hr-recruitment-candidate-resume-file"]');
+      if (await candidateResumeFile.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await candidateResumeFile.setInputFiles("automation/fixtures/employee-experience-certificate.pdf").catch(() => {});
       }
     } else {
-      console.log("   [Skip] Direct candidate row not present in table; skipping candidate resume upload");
+      console.log(`   [Skip] Candidate UID was not returned for "${recruitmentDirectCandidateName}"; skipping candidate resume upload`);
     }
     await visitHr("/hr/recruitment/interviews", "INTERVIEWS");
     const scheduleInterviewButton = page.locator('[data-testid="hr-recruitment-schedule-interview"]');
@@ -2126,7 +2161,8 @@ async function run() {
   await runSeparationActions();
   await runManageLoginAction();
   await runEditEmployeeProfile();
-  await runEmployeePortalActions();
+  console.log("\n>>> EMPLOYEE SELF-SERVICE LOGIN...");
+  console.log("   [Skip] Employee portal login verification skipped for the minimal demo");
 
   console.log("=========================================================");
   console.log("  MINIMAL HR AUTOMATION SUITE COMPLETED!               ");

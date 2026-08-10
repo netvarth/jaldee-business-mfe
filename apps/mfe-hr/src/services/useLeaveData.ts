@@ -18,6 +18,16 @@ function withId<T extends { uid?: string; id?: string }>(r: Record<string, unkno
   return { ...(r as object), id: String(uid ?? ""), uid } as T;
 }
 
+function normalizeLeaveBalance(r: Record<string, unknown>): LeaveBalance {
+  const nestedType = r.leaveType && typeof r.leaveType === "object" ? r.leaveType as Record<string, unknown> : null;
+  return {
+    ...withId<LeaveBalance>(r),
+    employeeUid: String(r.employeeUid ?? r.employeeId ?? "") || undefined,
+    leaveTypeUid: String(r.leaveTypeUid ?? r.leaveTypeId ?? nestedType?.uid ?? nestedType?.id ?? "") || undefined,
+    leaveTypeName: String(r.leaveTypeName ?? nestedType?.name ?? (typeof r.leaveType === "string" ? r.leaveType : "")) || undefined,
+  };
+}
+
 export function useLeaves({ enabled = true }: { enabled?: boolean } = {}) {
   const api = useHrApi();
   const [data, setData] = useState<LeaveRequest[]>([]);
@@ -61,7 +71,7 @@ export function useLeaveBalances() {
     setLoading(true); setError(null);
     try {
       const res = await api.get<Record<string, unknown>[]>("/leaves/balances/all");
-      setData(Array.isArray(res) ? res.map((r) => withId<LeaveBalance>(r)) : []);
+      setData(Array.isArray(res) ? res.map(normalizeLeaveBalance) : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load balances");
       setData([]);

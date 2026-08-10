@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
 import { Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
@@ -15,6 +15,8 @@ import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions"
 import { useTickets, type Ticket } from "../../services/useEngagement";
 import { useTicketSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
+import { useDepartments } from "../../services/useSettingsData";
+import { useHrAttachmentUpload } from "../../services/useHrAttachmentUpload";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { formatDate } from "../../lib/utils";
 
@@ -130,8 +132,12 @@ export default function Tickets() {
   const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [closeTarget, setCloseTarget] = useState<Ticket | null>(null);
-  const [form, setForm] = useState({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "" });
+  const [form, setForm] = useState({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "", hrDepartmentUid: "" });
+  const { data: departments } = useDepartments();
   const [saving, setSaving] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const uploadAttachment = useHrAttachmentUpload();
   const [msg, setMsg] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
@@ -197,17 +203,20 @@ export default function Tickets() {
     setSaving(true);
     setMsg(null);
     try {
+      const fileUrl = attachment ? await uploadAttachment(attachment, "TICKET") : null;
       await tickets.create({
         employeeUid,
         title: form.title,
         category: form.category,
         priority: form.priority,
         description: form.description,
-        department: form.category.toUpperCase(),
+        hrDepartmentUid: form.hrDepartmentUid || null,
+        fileUrl,
         status: "Open",
         responses: [],
       });
-      setForm({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "" });
+      setForm({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "", hrDepartmentUid: "" });
+      setAttachment(null);
       setAddOpen(false);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to raise ticket.");
@@ -464,6 +473,10 @@ export default function Tickets() {
                       }}
                     >
                       <div>
+                        <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created By</p>
+                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdByName || empName(t.employeeUid)}</p>
+                      </div>
+                      <div>
                         <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created</p>
                         <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{formatDate(t.createdAtTs) || "N/A"}</p>
                       </div>
@@ -592,7 +605,21 @@ export default function Tickets() {
                 options={["Low", "Medium", "High"].map((p) => ({ value: p, label: p }))}
               />
             </div>
-            <Button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" variant="outline" icon={<Paperclip size={16} />}>Attachment (Optional)</Button>
+            <Select
+              id="hr-tickets-department"
+              testId="hr-tickets-department"
+              label="Department"
+              value={form.hrDepartmentUid}
+              onChange={(e) => setForm({ ...form, hrDepartmentUid: e.target.value })}
+              options={departments
+                .filter((department) => String(department.status || "Enabled").toLowerCase() !== "disabled")
+                .map((department) => ({ value: department.id, label: department.name || department.code || department.id }))}
+              placeholder="Select department"
+            />
+            <input ref={attachmentInputRef} data-testid="hr-tickets-attachment-file" type="file" hidden onChange={(event) => setAttachment(event.target.files?.[0] ?? null)} />
+            <Button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" variant="outline" icon={<Paperclip size={16} />} onClick={() => attachmentInputRef.current?.click()}>
+              {attachment ? attachment.name : "Attachment (Optional)"}
+            </Button>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <Textarea

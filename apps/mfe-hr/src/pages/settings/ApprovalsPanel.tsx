@@ -13,10 +13,10 @@ const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.1e
 const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 20 };
 const REQUEST_TYPES: { value: ApprovalRequestType; label: string; wired: boolean }[] = [
   { value: "LEAVE", label: "Leave", wired: true },
-  { value: "EXPENSE", label: "Expense (coming soon)", wired: false },
-  { value: "EXIT", label: "Separation (coming soon)", wired: false },
-  { value: "ON_DUTY", label: "On-duty (coming soon)", wired: false },
-  { value: "COMP_OFF", label: "Comp-off (coming soon)", wired: false },
+  { value: "EXPENSE", label: "Expense", wired: true },
+  { value: "EXIT", label: "Separation", wired: true },
+  { value: "ON_DUTY", label: "On-duty", wired: true },
+  { value: "COMP_OFF", label: "Comp-off", wired: true },
 ];
 
 const EMPTY_STEP: ApprovalChainStep = { stepOrder: 1, resolverType: "REPORTING_MANAGER", resolverValue: null };
@@ -33,6 +33,7 @@ export default function ApprovalsPanel() {
   const [steps, setSteps] = useState<ApprovalChainStep[]>([{ ...EMPTY_STEP }]);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ApprovalChain | null>(null);
 
   const empName = (uid?: string | null) => employees.find((e) => e.id === uid)?.name || uid || "—";
 
@@ -120,7 +121,7 @@ export default function ApprovalsPanel() {
                 <tr key={c.id}>
                   <td style={{ padding: "13px 16px", fontSize: 13, fontWeight: 800, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" }}>{c.name}</td>
                   <td style={{ padding: "13px 16px", fontSize: 12, borderTop: "1px solid var(--border-color)" }}>
-                    <span style={{ ...lbl, border: "1px solid var(--border-color)", borderRadius: 8, padding: "3px 8px" }}>{c.requestType}</span>
+                    <span style={{ ...lbl, border: "1px solid var(--border-color)", borderRadius: 8, padding: "3px 8px" }}>{c.requestType === "EXIT" ? "Separation" : c.requestType}</span>
                   </td>
                   <td style={{ padding: "13px 16px", fontSize: 12.5, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" }}>{stepSummary(c)}</td>
                   <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-color)" }}>
@@ -128,7 +129,7 @@ export default function ApprovalsPanel() {
                   </td>
                   <td style={{ padding: "13px 16px", textAlign: "right", borderTop: "1px solid var(--border-color)" }}>
                     <Button id={`hr-settings-approvals-edit-${c.id}`} data-testid={`hr-settings-approvals-edit-${c.id}`} variant="ghost" size="icon" onClick={() => openEdit(c)} title="Edit"><Pencil size={15} /></Button>
-                    <Button id={`hr-settings-approvals-delete-${c.id}`} data-testid={`hr-settings-approvals-delete-${c.id}`} variant="ghost" size="icon" onClick={() => { if (confirm("Delete this chain? In-flight requests keep their existing steps.")) chains.remove(c.id); }} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
+                    <Button id={`hr-settings-approvals-delete-${c.id}`} data-testid={`hr-settings-approvals-delete-${c.id}`} variant="ghost" size="icon" onClick={() => setDeleteTarget(c)} title="Delete" style={{ color: "#e11d48" }}><Trash2 size={15} /></Button>
                   </td>
                 </tr>
               ))}
@@ -202,6 +203,17 @@ export default function ApprovalsPanel() {
             </DialogFooter>
         </Dialog>
       )}
+      <Dialog open={deleteTarget != null} onClose={() => setDeleteTarget(null)} title="Delete Approval Chain" testId="hr-settings-approvals-delete-dialog">
+        <p style={{ margin: 0, color: "var(--light-text)", fontSize: 13 }}>Are you sure you want to delete this Approval Chain?</p>
+        <DialogFooter>
+          <Button data-testid="hr-settings-approvals-delete-cancel" variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button data-testid="hr-settings-approvals-delete-confirm" variant="danger" onClick={async () => {
+            if (!deleteTarget) return;
+            await chains.remove(deleteTarget.id);
+            setDeleteTarget(null);
+          }}>Delete</Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

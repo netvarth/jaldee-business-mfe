@@ -1,16 +1,24 @@
 import { useMemo, useState } from "react";
-import { LayoutGrid, Sliders, Table } from "lucide-react";
-import { Dialog, DialogFooter, Button, Input, Select, Badge } from "@jaldee/design-system";
+import { LayoutGrid, Plus, Sliders, Table, Trash2 } from "lucide-react";
+import { Badge, Button, Dialog, DialogFooter, Input, Select } from "@jaldee/design-system";
 import {
-  usePolicyRules, CATALOG, domainDef, actionsForCondition,
-  type PolicyDomain, type PolicyRule, type ScopeType, type ConditionDef, type ActionDef, type Operator,
+  CATALOG,
+  actionsForCondition,
+  domainDef,
+  usePolicyRules,
+  type ActionDef,
+  type ConditionDef,
+  type Operator,
+  type PolicyDomain,
+  type PolicyOutcome,
+  type PolicyRule,
+  type ScopeType,
 } from "../../services/usePolicyRules";
-import { useDepartments, useDesignations } from "../../services/useSettingsData";
 import { useBranches } from "../../services/useBranches";
 import { useEmployees } from "../../services/useEmployees";
+import { useDepartments, useDesignations } from "../../services/useSettingsData";
 import { PanelHeader, SettingsEmptyState } from "./SettingsComponents";
 
-/** Fixed employment-type options (enum names the backend matches on). */
 const EMPLOYMENT_TYPE_OPTIONS = [
   { value: "FullTime", label: "Full-time" },
   { value: "Consultant", label: "Consultant" },
@@ -27,103 +35,159 @@ const SCOPES: { value: ScopeType; label: string }[] = [
   { value: "EMPLOYEE", label: "Specific employee" },
 ];
 
-function emptyRule(domain: PolicyDomain): PolicyRule {
-  const d = domainDef(domain);
-  const firstCond = d.conditions[0];
-  const firstAction = actionsForCondition(domain, firstCond.type)[0] ?? d.actions[0];
-  let defaultVal = "";
-  if (firstCond.valueType === "select" && firstCond.options?.length) {
-    defaultVal = firstCond.options[0].value;
-  } else if (firstCond.valueType === "boolean") {
-    defaultVal = "true";
-  } else if (firstCond.valueType === "number") {
-    defaultVal = "10";
-  }
+function defaultConditionValue(condition?: ConditionDef) {
+  if (condition?.valueType === "select") return condition.options?.[0]?.value ?? "";
+  if (condition?.valueType === "number") return "10";
+  return "";
+}
+
+function emptyOutcome(condition: ConditionDef | undefined, action: ActionDef): PolicyOutcome {
   return {
-    id: "", domain, name: "", scopeType: "ALL",
-    conditionType: firstCond.type, operator: firstCond.operators?.[0] ?? ">", conditionValue: defaultVal,
-    actionType: firstAction.type, actionParams: {}, priority: 100, active: true,
+    operator: condition?.valueType === "none" ? null : condition?.operators?.[0] ?? ">",
+    conditionValue: condition?.valueType === "none" ? null : defaultConditionValue(condition),
+    conditionValueTo: null,
+    actionType: action.type,
+    actionParams: {},
   };
 }
 
-function condSummary(r: PolicyRule): string {
-  const c = domainDef(r.domain).conditions.find((x) => x.type === r.conditionType);
-  if (!c) return r.conditionType;
-  if (c.valueType === "none") return c.label;
-  if (c.valueType === "boolean") return `${c.label} = ${r.conditionValue || "yes"}`;
-  return `${c.label} ${r.operator ?? ""} ${r.conditionValue ?? ""}${c.unit ? " " + c.unit : ""}`.trim();
+function emptyRule(domain: PolicyDomain): PolicyRule {
+  const definition = domainDef(domain);
+  const condition = definition.conditions[0];
+  const action = actionsForCondition(domain, condition.type)[0] ?? definition.actions[0];
+  return {
+    id: "",
+    domain,
+    name: "",
+    scopeType: "ALL",
+    scopeValues: [],
+    conditionType: condition.type,
+    outcomes: [emptyOutcome(condition, action)],
+    priority: 100,
+    active: true,
+  };
 }
-function actSummary(r: PolicyRule): string {
-  const a = domainDef(r.domain).actions.find((x) => x.type === r.actionType);
-  if (!a) return r.actionType;
-  const parts = (a.params ?? []).map((p) => `${p.label}: ${r.actionParams?.[p.key] ?? "—"}`);
-  return parts.length ? `${a.label} (${parts.join(", ")})` : a.label;
+
+function conditionSummary(rule: PolicyRule) {
+  const condition = domainDef(rule.domain).conditions.find((item) => item.type === rule.conditionType);
+  if (!condition) return rule.conditionType;
+  if (condition.valueType === "none") return condition.label;
+  const values = rule.outcomes.map((outcome) => {
+    const comparison = outcome.operator === "BETWEEN"
+      ? `${outcome.conditionValue ?? ""}–${outcome.conditionValueTo ?? ""}`
+      : `${outcome.operator ?? ""} ${outcome.conditionValue ?? ""}`;
+    return `${comparison}${condition.unit ? ` ${condition.unit}` : ""}`.trim();
+  });
+  return `${condition.label}: ${values.join("; ")}`;
+}
+
+function actionSummary(rule: PolicyRule) {
+  return rule.outcomes.map((outcome) => {
+    const action = domainDef(rule.domain).actions.find((item) => item.type === outcome.actionType);
+    return action?.label ?? outcome.actionType;
+  }).join("; ");
+}
+
+type Interval = { start: number; end: number; startInclusive: boolean; endInclusive: boolean };
+
+function intervalFor(outcome: PolicyOutcome): Interval | null {
+  const value = Number(outcome.conditionValue);
+  if (!Number.isFinite(value) || outcome.operator === "!=" || outcome.operator === "in") return null;
+  if (outcome.operator === "BETWEEN") {
+    const valueTo = Number(outcome.conditionValueTo);
+    return Number.isFinite(valueTo) ? { start: value, end: valueTo, startInclusive: true, endInclusive: true } : null;
+  }
+  if (outcome.operator === ">") return { start: value, end: Infinity, startInclusive: false, endInclusive: false };
+  if (outcome.operator === ">=") return { start: value, end: Infinity, startInclusive: true, endInclusive: false };
+  if (outcome.operator === "<") return { start: -Infinity, end: value, startInclusive: false, endInclusive: false };
+  if (outcome.operator === "<=") return { start: -Infinity, end: value, startInclusive: false, endInclusive: true };
+  return { start: value, end: value, startInclusive: true, endInclusive: true };
+}
+
+function intervalsOverlap(first: Interval, second: Interval) {
+  if (first.end < second.start || second.end < first.start) return false;
+  if (first.end === second.start) return first.endInclusive && second.startInclusive;
+  if (second.end === first.start) return second.endInclusive && first.startInclusive;
+  return true;
+}
+
+function validateOutcomes(condition: ConditionDef | undefined, outcomes: PolicyOutcome[]): string | null {
+  if (outcomes.length === 0) return "Add at least one outcome.";
+  for (let index = 0; index < outcomes.length; index += 1) {
+    const outcome = outcomes[index];
+    if (!outcome.actionType) return `Outcome ${index + 1} requires an action.`;
+    if (condition?.valueType !== "none" && !String(outcome.conditionValue ?? "").trim()) {
+      return `Outcome ${index + 1} requires a condition value.`;
+    }
+    if (outcome.operator === "BETWEEN") {
+      if (!String(outcome.conditionValueTo ?? "").trim()) return `Outcome ${index + 1} requires an end value.`;
+      if (Number(outcome.conditionValue) >= Number(outcome.conditionValueTo)) {
+        return `Outcome ${index + 1} must have an end value greater than its start value.`;
+      }
+    }
+  }
+  if (condition?.valueType === "number") {
+    for (let first = 0; first < outcomes.length; first += 1) {
+      const firstInterval = intervalFor(outcomes[first]);
+      if (!firstInterval) continue;
+      for (let second = first + 1; second < outcomes.length; second += 1) {
+        const secondInterval = intervalFor(outcomes[second]);
+        if (secondInterval && intervalsOverlap(firstInterval, secondInterval)) {
+          return `Outcomes ${first + 1} and ${second + 1} overlap. Use mutually exclusive thresholds.`;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 export default function PolicyRules() {
   const [domain, setDomain] = useState<PolicyDomain>("ATTENDANCE");
-  const { data, loading, error, save, setActive, remove } = usePolicyRules(domain);
   const [editing, setEditing] = useState<PolicyRule | null>(null);
-
-  // Lookups so the table can show readable scope names instead of raw UIDs.
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const { data, loading, error, save, setActive, remove } = usePolicyRules(domain);
   const departments = useDepartments();
   const designations = useDesignations();
   const branches = useBranches();
   const employees = useEmployees();
-  const scopeLabel = (r: PolicyRule): string => {
-    if (r.scopeType === "ALL") return "Everyone";
-    const v = Array.isArray(r.scopeValue) ? (r.scopeValue[0] ?? "") : (r.scopeValue || "");
-    if (!v) return `${r.scopeType}: —`;
-    const find = (list: { uid?: string; name?: string }[]) => list.find((x) => x.uid === v)?.name;
-    let name: string | undefined;
-    if (r.scopeType === "DEPARTMENT") name = find(departments.data);
-    else if (r.scopeType === "DESIGNATION") name = find(designations.data);
-    else if (r.scopeType === "BRANCH") name = find(branches.data);
-    else if (r.scopeType === "EMPLOYEE") name = employees.data.find((e) => e.uid === v)?.name;
-    else if (r.scopeType === "EMPLOYMENT_TYPE") name = EMPLOYMENT_TYPE_OPTIONS.find((o) => o.value === v)?.label;
-    return `${r.scopeType === "EMPLOYMENT_TYPE" ? "Type" : r.scopeType.charAt(0) + r.scopeType.slice(1).toLowerCase()}: ${name ?? v}`;
-  };
-
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const rules = useMemo(() => [...data].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)), [data]);
+
+  const scopeLabel = (rule: PolicyRule) => {
+    if (rule.scopeType === "ALL") return "Everyone";
+    const value = rule.scopeValues?.[0] ?? "";
+    if (!value) return `${rule.scopeType}: —`;
+    const find = (items: { uid?: string; name?: string }[]) => items.find((item) => item.uid === value)?.name;
+    const label = rule.scopeType === "DEPARTMENT" ? find(departments.data)
+      : rule.scopeType === "DESIGNATION" ? find(designations.data)
+        : rule.scopeType === "BRANCH" ? find(branches.data)
+          : rule.scopeType === "EMPLOYEE" ? employees.data.find((item) => item.uid === value)?.name
+            : EMPLOYMENT_TYPE_OPTIONS.find((item) => item.value === value)?.label;
+    return label ?? value;
+  };
 
   return (
     <div id="hr-settings-policy-rules-panel" data-testid="hr-settings-policy-rules-panel" className="p-3 sm:p-4 lg:p-5">
-      <PanelHeader
-        title="Policy Rules"
-        subtitle="One place to define condition → action rules across HR."
-        icon={<Sliders size={20} />}
-      />
-
-      {/* domain tabs */}
-      <div className="flex gap-6 border-b border-gray-200 mt-4 mb-6 overflow-x-auto whitespace-nowrap scrollbar-none">
-        {CATALOG.map((d) => (
-          <button
-            key={d.key}
-            id={`hr-settings-policy-rules-tab-${d.key.toLowerCase()}`}
-            data-testid={`hr-settings-policy-rules-tab-${d.key.toLowerCase()}`}
-            onClick={() => setDomain(d.key)}
-            className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors shrink-0 ${
-              domain === d.key
-                ? "border-teal-700 text-teal-700"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
-          >
-            {d.label}
+      <PanelHeader title="Policy Rules" subtitle="Define mutually exclusive outcomes for each HR condition." icon={<Sliders size={20} />} />
+      <div className="mt-4 mb-6 flex gap-6 overflow-x-auto whitespace-nowrap border-b border-gray-200">
+        {CATALOG.map((item) => (
+          <button key={item.key} type="button" data-testid={`hr-settings-policy-rules-tab-${item.key.toLowerCase()}`} onClick={() => setDomain(item.key)}
+            className={`shrink-0 border-b-2 pb-2.5 text-sm font-semibold ${domain === item.key ? "border-teal-700 text-teal-700" : "border-transparent text-gray-500"}`}>
+            {item.label}
           </button>
         ))}
       </div>
-
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
-          <div className="text-sm text-gray-500">{rules.length} rule{rules.length === 1 ? "" : "s"} for {domainDef(domain).label}</div>
-          <div className="flex items-center justify-end gap-3 shrink-0 ml-auto">
-            <Button id="hr-settings-policy-rules-add" data-testid="hr-settings-policy-rules-add" variant="primary" onClick={() => setEditing(emptyRule(domain))}>+ New Rule</Button>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6">
+          <span className="text-sm text-gray-500">{rules.length} rule{rules.length === 1 ? "" : "s"}</span>
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
+            <Button data-testid="hr-settings-policy-rules-add" onClick={() => setEditing(emptyRule(domain))} icon={<Plus size={16} />}>New Rule</Button>
             <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
               <button
                 type="button"
+                data-testid="hr-settings-policy-rules-view-table"
+                data-active={viewMode === "table" ? "true" : "false"}
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
+                className={`rounded-md p-1.5 transition-colors ${viewMode === "table" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
                 title="Table View"
                 aria-label="Table View"
               >
@@ -131,8 +195,10 @@ export default function PolicyRules() {
               </button>
               <button
                 type="button"
+                data-testid="hr-settings-policy-rules-view-card"
+                data-active={viewMode === "card" ? "true" : "false"}
                 onClick={() => setViewMode("card")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
+                className={`rounded-md p-1.5 transition-colors ${viewMode === "card" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
                 title="Card View"
                 aria-label="Card View"
               >
@@ -141,234 +207,128 @@ export default function PolicyRules() {
             </div>
           </div>
         </div>
-
-        {error ? (
-          <div className="p-6 text-sm text-red-600">{error}</div>
-        ) : loading ? (
-          <div className="p-6 text-sm text-gray-500">Loading…</div>
-        ) : rules.length === 0 ? (
-          <SettingsEmptyState title="No policy rules" description="Add a rule to start applying HR conditions and actions." compact />
-        ) : viewMode === "table" ? (
-          <div className="overflow-x-auto overflow-y-auto max-h-[600px] w-full">
-            <table id="hr-settings-policy-rules-table" data-testid="hr-settings-policy-rules-table" className="w-full text-sm min-w-[640px]">
-              <thead className="sticky top-0 z-10 bg-gray-50">
-                <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                  <th className="text-left px-6 py-3 font-semibold">Rule</th>
-                  <th className="text-left px-4 py-3 font-semibold">When</th>
-                  <th className="text-left px-4 py-3 font-semibold">Then</th>
-                  <th className="text-left px-4 py-3 font-semibold">Scope</th>
-                  <th className="text-left px-4 py-3 font-semibold">Priority</th>
-                  <th className="text-left px-4 py-3 font-semibold">Active</th>
-                  <th className="px-4 py-3 font-semibold"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rules.map((r) => (
-                  <tr key={r.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
-                    <td className="px-6 py-3 font-medium text-gray-900">{r.name || "—"}</td>
-                    <td className="px-4 py-3 text-gray-700">{condSummary(r)}</td>
-                    <td className="px-4 py-3"><Badge variant="info">{actSummary(r)}</Badge></td>
-                    <td className="px-4 py-3 text-gray-600">{scopeLabel(r)}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.priority ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <input type="checkbox" checked={r.active} onChange={(e) => r.uid && setActive(r.uid, e.target.checked)} />
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Button id={`hr-settings-policy-rules-edit-${r.uid}`} data-testid={`hr-settings-policy-rules-edit-${r.uid}`} variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
-                      <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
-            {rules.map((r) => (
-              <div key={r.uid} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <h4 className="font-semibold text-gray-900 text-sm truncate">{r.name || "Untitled Rule"}</h4>
-                    <Badge variant="info">{actSummary(r)}</Badge>
-                  </div>
-                  <p className="text-xs text-gray-600 mb-1"><b>When:</b> {condSummary(r)}</p>
-                  <p className="text-xs text-gray-500 mb-1"><b>Scope:</b> {scopeLabel(r)}</p>
-                  <p className="text-xs text-gray-400">Priority: {r.priority ?? "—"}</p>
+        {error ? <div role="alert" className="p-6 text-sm text-red-600">{error}</div>
+          : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
+            : rules.length === 0 ? <SettingsEmptyState title="No policy rules" description="Add a rule to define its outcomes." compact />
+              : viewMode === "table" ? (
+                <div className="max-h-[600px] overflow-auto">
+                  <table data-testid="hr-settings-policy-rules-table" className="w-full min-w-[760px] text-sm">
+                    <thead className="sticky top-0 bg-gray-50"><tr className="border-b text-left text-xs uppercase text-gray-400">
+                      <th className="px-6 py-3">Rule</th><th className="px-4 py-3">Condition</th><th className="px-4 py-3">Outcomes</th><th className="px-4 py-3">Scope</th><th className="px-4 py-3">Active</th><th />
+                    </tr></thead>
+                    <tbody>{rules.map((rule) => <tr key={rule.uid} className="border-b border-gray-100">
+                      <td className="px-6 py-3 font-medium">{rule.name}</td><td className="px-4 py-3">{conditionSummary(rule)}</td>
+                      <td className="px-4 py-3"><Badge variant="info">{rule.outcomes.length}: {actionSummary(rule)}</Badge></td><td className="px-4 py-3">{scopeLabel(rule)}</td>
+                      <td className="px-4 py-3"><input data-testid={`hr-settings-policy-rules-active-${rule.uid}`} type="checkbox" checked={rule.active} onChange={(event) => rule.uid && void setActive(rule.uid, event.target.checked)} /></td>
+                      <td className="px-4 py-3 text-right"><Button data-testid={`hr-settings-policy-rules-edit-${rule.uid}`} size="sm" variant="outline" onClick={() => setEditing(rule)}>Edit</Button>{" "}<Button data-testid={`hr-settings-policy-rules-delete-${rule.uid}`} size="sm" variant="outline" onClick={() => rule.uid && void remove(rule.uid)}>Delete</Button></td>
+                    </tr>)}</tbody>
+                  </table>
                 </div>
-                <div className="flex items-center justify-between border-t border-gray-100 pt-3 mt-1">
-                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={r.active} onChange={(e) => r.uid && setActive(r.uid, e.target.checked)} className="rounded text-teal-600" />
-                    Active
-                  </label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>
-                    <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ) : (
+                <div className="grid max-h-[600px] grid-cols-1 gap-4 overflow-y-auto p-4 sm:grid-cols-2 lg:grid-cols-3">{rules.map((rule) => (
+                  <article key={rule.uid} data-testid={`hr-settings-policy-rule-card-${rule.uid}`} className="rounded-xl border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-900">{rule.name}</h3><p className="mt-2 text-xs text-gray-600">{conditionSummary(rule)}</p><p className="mt-1 text-xs text-gray-500">{actionSummary(rule)}</p>
+                    <div className="mt-4 flex justify-end"><Button size="sm" variant="outline" onClick={() => setEditing(rule)}>Edit</Button></div>
+                  </article>
+                ))}</div>
+              )}
       </div>
-
-      {editing && (
-        <RuleModal key={editing.uid ?? "new"} initial={editing} onClose={() => setEditing(null)} onSave={save} />
-      )}
+      {editing && <RuleModal key={editing.uid ?? "new"} initial={editing} onClose={() => setEditing(null)} onSave={save} />}
     </div>
   );
 }
 
-function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose: () => void; onSave: (r: PolicyRule) => Promise<void> }) {
-  const [r, setR] = useState<PolicyRule>(initial);
+function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose: () => void; onSave: (rule: PolicyRule) => Promise<void> }) {
+  const [rule, setRule] = useState(() => {
+    if (initial.outcomes.length > 0) return initial;
+    const definition = domainDef(initial.domain);
+    const condition = definition.conditions.find((item) => item.type === initial.conditionType);
+    const action = actionsForCondition(initial.domain, initial.conditionType)[0] ?? definition.actions[0];
+    return { ...initial, outcomes: [emptyOutcome(condition, action)] };
+  });
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const d = domainDef(r.domain);
-
-  const cond: ConditionDef | undefined = d.conditions.find((c) => c.type === r.conditionType);
-  // Only actions in the same evaluation phase as the chosen condition (ATTENDANCE).
-  const validActions: ActionDef[] = actionsForCondition(r.domain, r.conditionType);
-  const act: ActionDef | undefined = validActions.find((a) => a.type === r.actionType);
-
-  const set = <K extends keyof PolicyRule>(k: K, v: PolicyRule[K]) => setR((p) => ({ ...p, [k]: v }));
-  const setParam = (k: string, v: unknown) => setR((p) => ({ ...p, actionParams: { ...(p.actionParams ?? {}), [k]: v } }));
-
-  // Real option sources for scoped rules — store the UID (backend matches on uid or name).
+  const [error, setError] = useState<string | null>(null);
+  const definition = domainDef(rule.domain);
+  const condition = definition.conditions.find((item) => item.type === rule.conditionType);
+  const validActions = actionsForCondition(rule.domain, rule.conditionType);
   const departments = useDepartments();
   const designations = useDesignations();
   const branches = useBranches();
   const employees = useEmployees();
 
-  const scopeOptions: { value: string; label: string }[] | null = (() => {
-    switch (r.scopeType) {
-      case "DEPARTMENT": return departments.data.map((d) => ({ value: d.uid ?? "", label: d.name ?? d.uid ?? "" }));
-      case "DESIGNATION": return designations.data.map((d) => ({ value: d.uid ?? "", label: d.name ?? d.uid ?? "" }));
-      case "BRANCH": return branches.data.map((b) => ({ value: b.uid ?? "", label: b.name ?? b.uid ?? "" }));
-      case "EMPLOYMENT_TYPE": return EMPLOYMENT_TYPE_OPTIONS;
-      case "EMPLOYEE": return employees.data.map((e) => ({ value: e.uid ?? "", label: `${e.name ?? "—"}${e.employeeId ? " (" + e.employeeId + ")" : ""}` }));
-      default: return null; // ALL — no value
-    }
-  })();
+  const scopeOptions = rule.scopeType === "DEPARTMENT" ? departments.data.map((item) => ({ value: item.uid ?? "", label: item.name ?? "" }))
+    : rule.scopeType === "DESIGNATION" ? designations.data.map((item) => ({ value: item.uid ?? "", label: item.name ?? "" }))
+      : rule.scopeType === "BRANCH" ? branches.data.map((item) => ({ value: item.uid ?? "", label: item.name ?? "" }))
+        : rule.scopeType === "EMPLOYEE" ? employees.data.map((item) => ({ value: item.uid ?? "", label: item.name ?? "" }))
+          : rule.scopeType === "EMPLOYMENT_TYPE" ? EMPLOYMENT_TYPE_OPTIONS : null;
 
-  // Changing the scope target clears the previously-picked value.
-  const onScopeTypeChange = (v: ScopeType) => setR((p) => ({
-    ...p,
-    scopeType: v,
-    scopeValue: p.domain === "PAYROLL" ? [] : "",
+  const setField = <Key extends keyof PolicyRule>(key: Key, value: PolicyRule[Key]) => setRule((current) => ({ ...current, [key]: value }));
+  const updateOutcome = (index: number, update: Partial<PolicyOutcome>) => setRule((current) => ({
+    ...current,
+    outcomes: current.outcomes.map((outcome, outcomeIndex) => outcomeIndex === index ? { ...outcome, ...update } : outcome),
   }));
 
-  // Changing the condition may change the allowed phase — reset operator, value,
-  // and (if now cross-phase) the action, so an impossible rule can't be built.
-  const onConditionChange = (type: string) => setR((p) => {
-    const c = d.conditions.find((x) => x.type === type);
-    const nextActions = actionsForCondition(p.domain, type);
-    const actionStillValid = nextActions.some((a) => a.type === p.actionType);
-    let defaultVal = "";
-    if (c?.valueType === "select" && c.options?.length) {
-      defaultVal = c.options[0].value;
-    } else if (c?.valueType === "boolean") {
-      defaultVal = "true";
-    } else if (c?.valueType === "number") {
-      defaultVal = "10";
-    }
-    return {
-      ...p,
-      conditionType: type,
-      operator: c?.operators?.[0] ?? p.operator ?? ">",
-      conditionValue: defaultVal,
-      actionType: actionStillValid ? p.actionType : (nextActions[0]?.type ?? p.actionType),
-      actionParams: actionStillValid ? p.actionParams : {},
-    };
-  });
+  const changeCondition = (conditionType: string) => {
+    const nextCondition = definition.conditions.find((item) => item.type === conditionType);
+    const nextAction = actionsForCondition(rule.domain, conditionType)[0] ?? definition.actions[0];
+    setRule((current) => ({ ...current, conditionType, outcomes: [emptyOutcome(nextCondition, nextAction)] }));
+  };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!r.name.trim()) { setErr("Give the rule a name."); return; }
-    if (cond && cond.valueType !== "none" && !String(r.conditionValue ?? "").trim()) {
-      setErr(`Condition '${cond.label}' requires a value.`);
-      return;
-    }
-    setBusy(true); setErr(null);
-    try { await onSave(r); onClose(); }
-    catch (e) { setErr(e instanceof Error ? e.message : "Failed to save."); }
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rule.name.trim()) return setError("Give the rule a name.");
+    const outcomeError = validateOutcomes(condition, rule.outcomes);
+    if (outcomeError) return setError(outcomeError);
+    if (rule.scopeType !== "ALL" && !rule.scopeValues?.length) return setError("Select who this rule applies to.");
+    setBusy(true); setError(null);
+    try { await onSave(rule); onClose(); }
+    catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Failed to save the rule."); }
     finally { setBusy(false); }
   };
 
   return (
     <Dialog open onClose={onClose} title={initial.uid ? "Edit rule" : "New rule"} size="lg" testId="hr-settings-policy-rules-modal">
-      <form onSubmit={submit} className="space-y-4">
-        {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
-
-        <Input label="Rule name" required value={r.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Late over 10 min → LOP" />
-
-        {/* WHEN */}
+      <form onSubmit={submit} className="space-y-4" data-testid="hr-settings-policy-rules-form">
+        {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        <Input id="hr-settings-policy-rules-name" data-testid="hr-settings-policy-rules-name" label="Rule name" required value={rule.name} onChange={(event) => setField("name", event.target.value)} />
         <div className="rounded-lg border border-gray-200 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-violet-700 mb-3">When</div>
-          <div className="grid grid-cols-3 gap-3">
-            <Select id="hr-settings-policy-rules-condition" testId="hr-settings-policy-rules-condition" label="Condition" options={d.conditions.map((c) => ({ value: c.type, label: c.label }))}
-              value={r.conditionType} onChange={(e) => onConditionChange(e.target.value)} />
-            {cond && cond.valueType !== "none" && cond.valueType !== "boolean" && (
-              <Select id="hr-settings-policy-rules-operator" testId="hr-settings-policy-rules-operator" label="Operator" options={(cond.operators ?? [">"]).map((o) => ({ value: o, label: o }))}
-                value={r.operator ?? ">"} onChange={(e) => set("operator", e.target.value as Operator)} />
-            )}
-            {cond && cond.valueType === "number" && (
-              <Input label={`Value${cond.unit ? " (" + cond.unit + ")" : ""}`} type="number" value={r.conditionValue ?? ""} onChange={(e) => set("conditionValue", e.target.value)} />
-            )}
-            {cond && cond.valueType === "text" && (
-              <Input label="Value" value={r.conditionValue ?? ""} onChange={(e) => set("conditionValue", e.target.value)} />
-            )}
-            {cond && cond.valueType === "select" && (
-              <Select id="hr-settings-policy-rules-value" testId="hr-settings-policy-rules-value" label="Value" options={cond.options ?? []} value={r.conditionValue ?? ""} onChange={(e) => set("conditionValue", e.target.value)} />
-            )}
-            {cond && cond.valueType === "boolean" && (
-              <Select label="Value" options={[{ value: "true", label: "Yes" }, { value: "false", label: "No" }]} value={r.conditionValue ?? "true"} onChange={(e) => set("conditionValue", e.target.value)} />
-            )}
-          </div>
+          <Select id="hr-settings-policy-rules-condition" testId="hr-settings-policy-rules-condition" label="Condition" value={rule.conditionType} options={definition.conditions.map((item) => ({ value: item.type, label: item.label }))} onChange={(event) => changeCondition(event.target.value)} />
         </div>
 
-        {/* THEN */}
-        <div className="rounded-lg border border-gray-200 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-violet-700 mb-3">
-            Then{cond?.phase ? <span className="ml-2 font-normal normal-case text-gray-400">Â· {cond.phase === "PUNCH" ? "punch-time" : "reconciliation"} actions only</span> : null}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-gray-900">Outcomes</h3>
+            <Button data-testid="hr-settings-policy-rules-add-outcome" type="button" size="sm" variant="outline" icon={<Plus size={15} />} onClick={() => setRule((current) => ({ ...current, outcomes: [...current.outcomes, emptyOutcome(condition, validActions[0])] }))}>Add outcome</Button>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Select id="hr-settings-policy-rules-action" testId="hr-settings-policy-rules-action" label="Action" options={validActions.map((a) => ({ value: a.type, label: a.label }))}
-              value={r.actionType} onChange={(e) => set("actionType", e.target.value)} />
-            {(act?.params ?? []).map((p) => (
-              p.valueType === "select" ? (
-                <Select key={p.key} label={p.label} options={p.options ?? []} value={String(r.actionParams?.[p.key] ?? "")} onChange={(e) => setParam(p.key, e.target.value)} />
-              ) : (
-                <Input key={p.key} label={`${p.label}${p.unit ? " (" + p.unit + ")" : ""}`} type={p.valueType === "number" ? "number" : "text"}
-                  value={String(r.actionParams?.[p.key] ?? "")} onChange={(e) => setParam(p.key, e.target.value)} />
-              )
-            ))}
-          </div>
+          {rule.outcomes.map((outcome, index) => {
+            const action = validActions.find((item) => item.type === outcome.actionType);
+            return <section key={index} data-testid={`hr-settings-policy-rules-outcome-${index}`} className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+              <div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-violet-700">Outcome {index + 1}</span>
+                <Button data-testid={`hr-settings-policy-rules-remove-outcome-${index}`} type="button" variant="outline" size="sm" iconOnly icon={<Trash2 size={15} />} aria-label={`Remove outcome ${index + 1}`} disabled={rule.outcomes.length === 1} onClick={() => setRule((current) => ({ ...current, outcomes: current.outcomes.filter((_, itemIndex) => itemIndex !== index) }))} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {condition?.valueType !== "none" && <Select id={`hr-settings-policy-rules-operator-${index}`} testId={`hr-settings-policy-rules-operator-${index}`} label="Operator" value={outcome.operator ?? ""} options={(condition?.operators ?? []).map((operator) => ({ value: operator, label: operator }))} onChange={(event) => updateOutcome(index, { operator: event.target.value as Operator, conditionValueTo: event.target.value === "BETWEEN" ? outcome.conditionValueTo : null })} />}
+                {condition?.valueType === "number" && <Input id={`hr-settings-policy-rules-value-${index}`} data-testid={`hr-settings-policy-rules-value-${index}`} label={outcome.operator === "BETWEEN" ? "Start" : `Value${condition.unit ? ` (${condition.unit})` : ""}`} type="number" value={outcome.conditionValue ?? ""} onChange={(event) => updateOutcome(index, { conditionValue: event.target.value })} />}
+                {condition?.valueType === "number" && outcome.operator === "BETWEEN" && <Input id={`hr-settings-policy-rules-value-to-${index}`} data-testid={`hr-settings-policy-rules-value-to-${index}`} label={`End${condition.unit ? ` (${condition.unit})` : ""}`} type="number" value={outcome.conditionValueTo ?? ""} onChange={(event) => updateOutcome(index, { conditionValueTo: event.target.value })} />}
+                {condition?.valueType === "text" && <Input id={`hr-settings-policy-rules-value-${index}`} data-testid={`hr-settings-policy-rules-value-${index}`} label="Value" value={outcome.conditionValue ?? ""} onChange={(event) => updateOutcome(index, { conditionValue: event.target.value })} />}
+                {condition?.valueType === "select" && <Select id={`hr-settings-policy-rules-value-${index}`} testId={`hr-settings-policy-rules-value-${index}`} label="Value" value={outcome.conditionValue ?? ""} options={condition.options ?? []} onChange={(event) => updateOutcome(index, { conditionValue: event.target.value })} />}
+                <Select id={`hr-settings-policy-rules-action-${index}`} testId={`hr-settings-policy-rules-action-${index}`} label="Action" value={outcome.actionType} options={validActions.map((item) => ({ value: item.type, label: item.label }))} onChange={(event) => updateOutcome(index, { actionType: event.target.value, actionParams: {} })} />
+                {(action?.params ?? []).map((param) => param.valueType === "select"
+                  ? <Select key={param.key} id={`hr-settings-policy-rules-param-${index}-${param.key}`} testId={`hr-settings-policy-rules-param-${index}-${param.key}`} label={param.label} value={String(outcome.actionParams[param.key] ?? "")} options={param.options ?? []} onChange={(event) => updateOutcome(index, { actionParams: { ...outcome.actionParams, [param.key]: event.target.value } })} />
+                  : <Input key={param.key} id={`hr-settings-policy-rules-param-${index}-${param.key}`} data-testid={`hr-settings-policy-rules-param-${index}-${param.key}`} label={`${param.label}${param.unit ? ` (${param.unit})` : ""}`} type={param.valueType === "number" ? "number" : "text"} value={String(outcome.actionParams[param.key] ?? "")} onChange={(event) => updateOutcome(index, { actionParams: { ...outcome.actionParams, [param.key]: param.valueType === "number" ? Number(event.target.value) : event.target.value } })} />)}
+              </div>
+            </section>;
+          })}
         </div>
 
-        {/* SCOPE + META */}
-        <div className="grid grid-cols-3 gap-3">
-          <Select label="Applies to" options={SCOPES} value={r.scopeType} onChange={(e) => onScopeTypeChange(e.target.value as ScopeType)} />
-          {scopeOptions && (
-            <Select
-              label={r.scopeType === "EMPLOYMENT_TYPE" ? "Employment type" : r.scopeType === "EMPLOYEE" ? "Employee" : r.scopeType === "BRANCH" ? "Branch" : r.scopeType === "DESIGNATION" ? "Designation" : "Department"}
-              options={[{ value: "", label: "Select…" }, ...scopeOptions]}
-              value={Array.isArray(r.scopeValue) ? (r.scopeValue[0] ?? "") : (r.scopeValue ?? "")}
-              onChange={(e) => set("scopeValue", r.domain === "PAYROLL" ? (e.target.value ? [e.target.value] : []) : e.target.value)}
-            />
-          )}
-          <Input label="Priority" type="number" value={String(r.priority ?? 100)} onChange={(e) => set("priority", Number(e.target.value))} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Select id="hr-settings-policy-rules-scope" testId="hr-settings-policy-rules-scope" label="Applies to" value={rule.scopeType} options={SCOPES} onChange={(event) => setRule((current) => ({ ...current, scopeType: event.target.value as ScopeType, scopeValues: [] }))} />
+          {scopeOptions && <Select id="hr-settings-policy-rules-scope-value" testId="hr-settings-policy-rules-scope-value" label="Scope value" placeholder="Select…" value={rule.scopeValues?.[0] ?? ""} options={scopeOptions} onChange={(event) => setField("scopeValues", event.target.value ? [event.target.value] : [])} />}
+          <Input id="hr-settings-policy-rules-priority" data-testid="hr-settings-policy-rules-priority" label="Priority" type="number" value={String(rule.priority ?? 100)} onChange={(event) => setField("priority", Number(event.target.value))} />
+          <Input id="hr-settings-policy-rules-effective-from" data-testid="hr-settings-policy-rules-effective-from" label="Effective from" type="date" value={rule.effectiveFrom ?? ""} onChange={(event) => setField("effectiveFrom", event.target.value)} />
+          <Input id="hr-settings-policy-rules-effective-to" data-testid="hr-settings-policy-rules-effective-to" label="Effective to" type="date" value={rule.effectiveTo ?? ""} onChange={(event) => setField("effectiveTo", event.target.value)} />
+          <label className="mt-6 flex items-center gap-2 text-sm text-gray-600"><input data-testid="hr-settings-policy-rules-active" type="checkbox" checked={rule.active} onChange={(event) => setField("active", event.target.checked)} />Active</label>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Input label="Effective from" type="date" value={r.effectiveFrom ?? ""} onChange={(e) => set("effectiveFrom", e.target.value)} />
-          <Input label="Effective to" type="date" value={r.effectiveTo ?? ""} onChange={(e) => set("effectiveTo", e.target.value)} />
-          <label className="flex items-center gap-2 text-sm text-gray-600 mt-6">
-            <input type="checkbox" checked={r.active} onChange={(e) => set("active", e.target.checked)} /> Active
-          </label>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button id="hr-settings-policy-rules-save" data-testid="hr-settings-policy-rules-save" variant="primary" type="submit" loading={busy}>Save rule</Button>
-        </DialogFooter>
+        <DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button><Button data-testid="hr-settings-policy-rules-save" type="submit" loading={busy}>Save rule</Button></DialogFooter>
       </form>
     </Dialog>
   );

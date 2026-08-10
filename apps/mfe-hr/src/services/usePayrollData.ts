@@ -88,6 +88,7 @@ export interface StructureComponentMapping {
   isMandatory?: boolean;
   allowEmployeeOverride?: boolean;
   isEsiEligible?: boolean;
+  isPfEligible?: boolean;
   displayOrder?: number;
   status?: string;
   customFields?: Record<string, unknown>;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, LayoutGrid, Table } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, LayoutGrid, Table } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge, TimePicker } from "@jaldee/design-system";
 import { useShifts, useShiftRotations, type Shift, type ShiftRotation } from "../../services/useSettingsData";
 import { useEmployees } from "../../services/useEmployees";
@@ -25,6 +25,7 @@ const to12HourTime = (value?: string) => {
 const displayTime = (value?: string) => to12HourTime(value) || "—";
 
 type Tab = "shifts" | "rotations";
+const today = () => new Date().toISOString().slice(0, 10);
 
 export default function ShiftsManager() {
   const [tab, setTab] = useState<Tab>("shifts");
@@ -37,7 +38,7 @@ export default function ShiftsManager() {
       />
       <div className="flex gap-1.5 border-b border-gray-200 mb-5 overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5">
         {(["shifts", "rotations"] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} data-testid={`hr-settings-shifts-tab-${t}`} data-active={tab === t ? "true" : "false"} onClick={() => setTab(t)}
             className={`px-3.5 py-2 text-sm font-medium rounded-t-lg transition-colors shrink-0 ${tab === t ? "bg-teal-700 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
             {t === "shifts" ? "Shifts" : "Rotations"}
           </button>
@@ -229,7 +230,7 @@ function RotationsTab() {
     <div id="hr-settings-rotations-panel" data-testid="hr-settings-rotations-panel" className="rounded-xl border border-gray-200 bg-white">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
         <div className="text-sm text-gray-500">{data.length} rotation{data.length === 1 ? "" : "s"}</div>
-        <Button id="hr-settings-rotations-add" data-testid="hr-settings-rotations-add" variant="primary" onClick={() => setEditing({ active: true, rotationPeriodDays: 7, shiftUids: [] })}>+ Add Rotation</Button>
+        <Button id="hr-settings-rotations-add" data-testid="hr-settings-rotations-add" variant="primary" onClick={() => setEditing({ active: true, rotationPeriodDays: 7, startDate: today(), shiftUids: [] })}>+ Add Rotation</Button>
       </div>
       {error ? <div className="p-6 text-sm text-red-600">{error}</div>
         : loading ? <div className="p-6 text-sm text-gray-500">Loading…</div>
@@ -245,17 +246,17 @@ function RotationsTab() {
             </thead>
             <tbody>
               {data.map((r) => (
-                <tr key={r.uid} className="border-b border-gray-50">
+                <tr key={r.uid} data-testid={`hr-settings-rotations-row-${r.uid}`} className="border-b border-gray-50">
                   <td className="px-6 py-3 font-medium text-gray-900">{r.name || "—"}</td>
                   <td className="px-4 py-3">{(r.shiftUids ?? []).length ? (r.shiftUids ?? []).map((u, i) => <Badge key={i} variant="info">{shiftName(u)}</Badge>) : "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{r.rotationPeriodDays ? `${r.rotationPeriodDays} days` : "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{r.startDate || "—"}</td>
                   <td className="px-4 py-3">{r.active ? <Badge variant="success">Active</Badge> : <Badge>Off</Badge>}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <Button variant="outline" size="sm" onClick={() => setRoster(r)}>Roster</Button>{" "}
-                    <Button variant="outline" size="sm" onClick={() => setAssigning(r)}>Assign</Button>{" "}
+                    <Button data-testid={`hr-settings-rotations-roster-${r.uid}`} variant="outline" size="sm" onClick={() => setRoster(r)}>Roster</Button>{" "}
+                    <Button data-testid={`hr-settings-rotations-assign-${r.uid}`} variant="outline" size="sm" onClick={() => setAssigning(r)}>Assign</Button>{" "}
                     <Button id={`hr-settings-rotations-edit-${r.uid}`} data-testid={`hr-settings-rotations-edit-${r.uid}`} variant="outline" size="sm" onClick={() => setEditing(r)}>Edit</Button>{" "}
-                    <Button variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
+                    <Button data-testid={`hr-settings-rotations-delete-${r.uid}`} variant="outline" size="sm" onClick={() => r.uid && remove(r.uid)}>Delete</Button>
                   </td>
                 </tr>
               ))}
@@ -282,14 +283,31 @@ function RotationModal({ initial, shifts, onClose, onSave }:
   const [err, setErr] = useState<string | null>(null);
   const seq = r.shiftUids ?? [];
   const set = <K extends keyof ShiftRotation>(k: K, v: ShiftRotation[K]) => setR((p) => ({ ...p, [k]: v }));
-  const addShift = (uid: string) => { if (uid) set("shiftUids", [...seq, uid]); };
+  const addShift = (uid: string) => {
+    if (!uid) return;
+    if (seq.includes(uid)) {
+      setErr("That shift is already in the rotation sequence.");
+      return;
+    }
+    setErr(null);
+    set("shiftUids", [...seq, uid]);
+  };
   const removeAt = (i: number) => set("shiftUids", seq.filter((_, idx) => idx !== i));
+  const move = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= seq.length) return;
+    const next = [...seq];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    set("shiftUids", next);
+  };
   const name = (uid: string) => shifts.find((s) => s.uid === uid)?.name || uid.slice(0, 6);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!r.name?.trim()) { setErr("Give the rotation a name."); return; }
     if (seq.length === 0) { setErr("Add at least one shift to the sequence."); return; }
+    if (!Number.isInteger(r.rotationPeriodDays) || Number(r.rotationPeriodDays) < 1) { setErr("Period must be a whole number of at least 1 day."); return; }
+    if (!r.startDate) { setErr("Choose the date from which the rotation starts counting."); return; }
     setBusy(true); setErr(null);
     try { await onSave(r); onClose(); }
     catch (e) { setErr(e instanceof Error ? e.message : "Failed to save."); }
@@ -303,12 +321,14 @@ function RotationModal({ initial, shifts, onClose, onSave }:
         <Input id="hr-settings-rotations-name" data-testid="hr-settings-rotations-name" label="Rotation name" required value={r.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Security 3-shift rotation" />
         <div>
           <div className="text-sm text-gray-600 mb-1.5">Shift sequence (cycles in this order)</div>
-          <div className="flex flex-wrap items-center gap-2 mb-2 min-h-[2rem]">
+          <div data-testid="hr-settings-rotations-sequence" className="flex flex-wrap items-center gap-2 mb-2 min-h-[2rem]">
             {seq.length === 0 ? <span className="text-sm text-gray-400">No shifts added yet</span>
               : seq.map((u, i) => (
-                <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 text-xs border border-teal-200">
+                <span key={u} data-testid={`hr-settings-rotations-sequence-${u}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 text-xs border border-teal-200">
                   {i + 1}. {name(u)}
-                  <button type="button" onClick={() => removeAt(i)} className="ml-1 text-teal-500 hover:text-teal-800">Ã—</button>
+                  <button type="button" data-testid={`hr-settings-rotations-sequence-up-${u}`} aria-label={`Move ${name(u)} earlier`} disabled={i === 0} onClick={() => move(i, -1)} className="ml-1 disabled:opacity-30"><ChevronUp size={13} /></button>
+                  <button type="button" data-testid={`hr-settings-rotations-sequence-down-${u}`} aria-label={`Move ${name(u)} later`} disabled={i === seq.length - 1} onClick={() => move(i, 1)} className="disabled:opacity-30"><ChevronDown size={13} /></button>
+                  <button type="button" data-testid={`hr-settings-rotations-sequence-remove-${u}`} aria-label={`Remove ${name(u)}`} onClick={() => removeAt(i)} className="text-teal-500 hover:text-teal-800">×</button>
                 </span>
               ))}
           </div>
@@ -316,12 +336,13 @@ function RotationModal({ initial, shifts, onClose, onSave }:
             value="" onChange={(e) => addShift(e.target.value)} />
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Input id="hr-settings-rotations-period" data-testid="hr-settings-rotations-period" label="Period (days)" type="number" value={String(r.rotationPeriodDays ?? "")} onChange={(e) => set("rotationPeriodDays", Number(e.target.value))} />
-          <Input id="hr-settings-rotations-startdate" data-testid="hr-settings-rotations-startdate" label="Start date" type="date" value={r.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
+          <Input id="hr-settings-rotations-period" data-testid="hr-settings-rotations-period" label="Days on each shift" type="number" min="1" step="1" required value={String(r.rotationPeriodDays ?? "")} onChange={(e) => set("rotationPeriodDays", Number(e.target.value))} />
+          <Input id="hr-settings-rotations-startdate" data-testid="hr-settings-rotations-startdate" label="Cycle start date" type="date" required value={r.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
           <label className="flex items-center gap-2 text-sm text-gray-600 mt-6">
-            <input type="checkbox" checked={!!r.active} onChange={(e) => set("active", e.target.checked)} /> Active
+            <input data-testid="hr-settings-rotations-active" type="checkbox" checked={!!r.active} onChange={(e) => set("active", e.target.checked)} /> Active
           </label>
         </div>
+        <p className="text-xs text-gray-500">Each employee gets exactly one shift per day. The sequence repeats in this order, switching after the number of days above.</p>
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
           <Button id="hr-settings-rotations-save" data-testid="hr-settings-rotations-save" variant="primary" type="submit" loading={busy}>Save rotation</Button>
@@ -340,12 +361,16 @@ function AssignModal({ title, entityUid, kind, onClose }:
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoadingAssignments(true);
+    setErr(null);
     (kind === "shift" ? ops.getShiftAssigned(entityUid) : ops.getRotationAssigned(entityUid))
       .then((ids) => setSelected(new Set(ids)))
-      .catch(() => { /* none assigned yet */ });
+      .catch((error) => setErr(error instanceof Error ? error.message : "Failed to load current assignments."))
+      .finally(() => setLoadingAssignments(false));
   }, [entityUid, kind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = useMemo(() => {
@@ -368,16 +393,19 @@ function AssignModal({ title, entityUid, kind, onClose }:
   };
 
   return (
-    <Dialog open onClose={onClose} title={title} size="lg">
+    <Dialog testId={`hr-settings-${kind}-assignment-modal`} open onClose={onClose} title={title} size="lg">
       <div className="space-y-3">
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
-        <Input placeholder="Search by name or employee ID…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input id={`hr-settings-${kind}-assignment-search`} data-testid={`hr-settings-${kind}-assignment-search`} placeholder="Search by name or employee ID…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Saving replaces the complete assignment list. {kind === "rotation" ? "Employees follow exactly one shift from this rotation on each date." : "Use this as the employee's single default shift; use a rotation for alternating shifts."}
+        </div>
         <div className="text-xs text-gray-500">{selected.size} selected</div>
         <div className="max-h-80 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-50">
-          {employees.loading ? <div className="p-4 text-sm text-gray-500">Loading employees…</div>
+          {employees.loading || loadingAssignments ? <div className="p-4 text-sm text-gray-500">Loading employees and assignments…</div>
             : list.length === 0 ? <SettingsEmptyState title="No employees found" description="No employees match the current search." compact />
             : list.map((e) => (
-              <label key={e.uid} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer">
+              <label key={e.uid} data-testid={`hr-settings-${kind}-assignment-employee-${e.uid}`} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" checked={e.uid ? selected.has(e.uid) : false} onChange={() => e.uid && toggle(e.uid)} />
                 <span className="font-medium text-gray-800">{e.name || "—"}</span>
                 {e.employeeId ? <span className="text-gray-400">{e.employeeId}</span> : null}
@@ -386,7 +414,7 @@ function AssignModal({ title, entityUid, kind, onClose }:
         </div>
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" type="button" onClick={save} loading={busy}>Save assignment</Button>
+          <Button data-testid={`hr-settings-${kind}-assignment-save`} variant="primary" type="button" onClick={save} loading={busy} disabled={loadingAssignments}>Replace assignment list</Button>
         </DialogFooter>
       </div>
     </Dialog>
@@ -417,15 +445,15 @@ function RosterModal({ rotationName, shiftName, onClose }:
   const rows = Object.keys(roster);
 
   return (
-    <Dialog open onClose={onClose} title={`Roster — ${rotationName}`} size="xl">
+    <Dialog testId="hr-settings-rotations-roster-modal" open onClose={onClose} title={`Roster — ${rotationName}`} size="xl">
       <div className="space-y-3">
-        <Input label="Month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        <Input id="hr-settings-rotations-roster-month" data-testid="hr-settings-rotations-roster-month" label="Month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
         {err && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{err}</div>}
         {loading ? <div className="p-4 text-sm text-gray-500">Generating roster…</div>
           : rows.length === 0 ? <SettingsEmptyState title="No roster entries" description="Assign employees to this rotation or select another month." compact />
           : (
             <div className="overflow-auto max-h-96 border border-gray-200 rounded-lg">
-              <table className="text-xs">
+              <table data-testid="hr-settings-rotations-roster-table" className="text-xs">
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="sticky left-0 bg-gray-50 text-left px-3 py-2 font-medium text-gray-600">Employee</th>

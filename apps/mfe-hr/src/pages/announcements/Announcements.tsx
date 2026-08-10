@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical } from "lucide-react";
 import { EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection, Drawer } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
@@ -16,6 +16,7 @@ import { useAnnouncementSearchSchema } from "../../services/useAnnouncementSearc
 import { useTelemetry } from "../../services/useTelemetry";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { formatDate } from "../../lib/utils";
+import { useHrAttachmentUpload } from "../../services/useHrAttachmentUpload";
 
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
@@ -54,6 +55,9 @@ export default function Announcements() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const uploadAttachment = useHrAttachmentUpload();
   const [msg, setMsg] = useState<string | null>(null);
   const { data: employees } = useEmployees({ enabled: !isEmployeeView && Boolean(tracking) });
   const { schema: announcementSearchSchema, loading: schemaLoading } = useAnnouncementSearchSchema();
@@ -151,6 +155,7 @@ export default function Announcements() {
             return d;
           })();
 
+      const attachmentUrls = await Promise.all(attachments.map((file) => uploadAttachment(file, "ANNOUNCEMENT")));
       await ann.create({
         title: form.title,
         description: form.description,
@@ -159,7 +164,8 @@ export default function Announcements() {
         startDate: toLocalISOString(start),
         endDate: toLocalISOString(end),
         isPinned: form.isPinned,
-        acknowledgedBy: []
+        acknowledgedBy: [],
+        attachments: attachmentUrls,
       });
       trackEvent("hr.announcement.created", {
         type: form.type,
@@ -167,6 +173,7 @@ export default function Announcements() {
         hasEndDate: !!form.endDate,
       });
       setForm({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
+      setAttachments([]);
       setAddOpen(false);
     } catch (e) {
       captureError(e instanceof Error ? e : new Error("Announcement create failed"));
@@ -412,9 +419,18 @@ export default function Announcements() {
                 type="button"
                 variant="outline"
                 icon={<Paperclip size={16} />}
+                onClick={() => attachmentInputRef.current?.click()}
               >
-                Add Attachment
+                {attachments.length ? `${attachments.length} attachment${attachments.length === 1 ? "" : "s"} selected` : "Add Attachment"}
               </Button>
+              <input
+                ref={attachmentInputRef}
+                data-testid="hr-announcements-attachment-file"
+                type="file"
+                multiple
+                hidden
+                onChange={(event) => setAttachments(Array.from(event.target.files ?? []))}
+              />
               <Checkbox
                 id="hr-announcements-pin-top"
                 data-testid="hr-announcements-pin-top"

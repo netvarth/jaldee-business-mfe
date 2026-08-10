@@ -11,7 +11,7 @@ import { useHrApi } from "./useHrApi";
 export type PolicyDomain = "ATTENDANCE" | "LEAVE" | "PAYROLL" | "LIFECYCLE" | "APPROVALS" | "ALERTS";
 export type ScopeType = "ALL" | "DEPARTMENT" | "DESIGNATION" | "BRANCH" | "EMPLOYMENT_TYPE" | "EMPLOYEE";
 export type ValueType = "number" | "text" | "select" | "boolean" | "none";
-export type Operator = ">" | ">=" | "<" | "<=" | "=" | "!=" | "in";
+export type Operator = ">" | ">=" | "<" | "<=" | "=" | "!=" | "in" | "BETWEEN";
 
 /**
  * ATTENDANCE rules are evaluated in two moments. A condition and an action must
@@ -28,7 +28,7 @@ export interface ActionParamDef { key: string; label: string; valueType: ValueTy
 export interface ActionDef { type: string; label: string; params?: ActionParamDef[]; phase?: Phase; }
 export interface DomainDef { key: PolicyDomain; label: string; conditions: ConditionDef[]; actions: ActionDef[]; }
 
-const NUM_OPS: Operator[] = [">", ">=", "<", "<=", "=", "!="];
+const NUM_OPS: Operator[] = [">", ">=", "<", "<=", "=", "!=", "BETWEEN"];
 
 /**
  * CLOSED catalog — mirrors the backend PolicyRuleCatalog.java exactly. Every
@@ -77,7 +77,7 @@ export const CATALOG: DomainDef[] = [
       { type: "MIN_SERVICE", label: "Service (days)", valueType: "number", unit: "days", operators: NUM_OPS },
       { type: "NOTICE_DAYS", label: "Notice given (days)", valueType: "number", unit: "days", operators: NUM_OPS },
       { type: "GENDER", label: "Gender", valueType: "select", operators: ["=", "!="], options: [{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }] },
-      { type: "HALF_DAY", label: "Is half-day", valueType: "boolean" },
+      { type: "HALF_DAY", label: "Is half-day", valueType: "none" },
       { type: "SPANS_HOLIDAY", label: "Spans a holiday", valueType: "none" },
     ],
     actions: [
@@ -158,21 +158,68 @@ export interface PolicyRule {
   name: string;
   description?: string;
   scopeType: ScopeType;
-  scopeValue?: string | string[] | null;
+  scopeValues?: string[];
   conditionType: string;
-  operator?: Operator | null;
-  conditionValue?: string | null;
-  actionType: string;
-  actionParams?: Record<string, unknown>;
+  outcomes: PolicyOutcome[];
   priority?: number;
   active: boolean;
   effectiveFrom?: string | null;
   effectiveTo?: string | null;
 }
 
+export interface PolicyOutcome {
+  operator?: Operator | null;
+  conditionValue?: string | null;
+  conditionValueTo?: string | null;
+  actionType: string;
+  actionParams: Record<string, unknown>;
+}
+
 function withId(r: Record<string, unknown>): PolicyRule {
   const uid = (r.uid ?? r.id) as string | undefined;
-  return { ...(r as object), id: String(uid ?? ""), uid } as PolicyRule;
+  const outcomes = Array.isArray(r.outcomes)
+    ? r.outcomes.map((value) => {
+        const outcome = value && typeof value === "object" ? value as Record<string, unknown> : {};
+        return {
+          operator: (outcome.operator ?? null) as Operator | null,
+          conditionValue: outcome.conditionValue == null ? null : String(outcome.conditionValue),
+          conditionValueTo: outcome.conditionValueTo == null ? null : String(outcome.conditionValueTo),
+          actionType: String(outcome.actionType ?? ""),
+          actionParams: outcome.actionParams && typeof outcome.actionParams === "object"
+            ? outcome.actionParams as Record<string, unknown>
+            : {},
+        } satisfies PolicyOutcome;
+      })
+    : [];
+  return {
+    ...(r as object),
+    id: String(uid ?? ""),
+    uid,
+    scopeValues: Array.isArray(r.scopeValues) ? r.scopeValues.map(String) : [],
+    outcomes,
+  } as PolicyRule;
+}
+
+function toPolicyRulePayload(rule: PolicyRule): Record<string, unknown> {
+  return {
+    name: rule.name,
+    description: rule.description,
+    domain: rule.domain,
+    conditionType: rule.conditionType,
+    scopeType: rule.scopeType,
+    scopeValues: rule.scopeType === "ALL" ? [] : (rule.scopeValues ?? []).filter(Boolean),
+    outcomes: rule.outcomes.map((outcome) => ({
+      ...(outcome.operator ? { operator: outcome.operator } : {}),
+      ...(outcome.conditionValue != null && outcome.conditionValue !== "" ? { conditionValue: outcome.conditionValue } : {}),
+      ...(outcome.conditionValueTo != null && outcome.conditionValueTo !== "" ? { conditionValueTo: outcome.conditionValueTo } : {}),
+      actionType: outcome.actionType,
+      actionParams: outcome.actionParams ?? {},
+    })),
+    priority: rule.priority,
+    active: rule.active,
+    effectiveFrom: rule.effectiveFrom || null,
+    effectiveTo: rule.effectiveTo || null,
+  };
 }
 
 /** CRUD over /policy-rules (optionally filtered by domain). */
@@ -198,22 +245,9 @@ export function usePolicyRules(domain?: PolicyDomain) {
   useEffect(() => { void load(); }, [load]);
 
   const save = useCallback(async (rule: PolicyRule) => {
-    const payload: PolicyRule =
-      rule.domain === "PAYROLL"
-        ? {
-            ...rule,
-            scopeValue:
-              rule.scopeType === "ALL"
-                ? []
-                : Array.isArray(rule.scopeValue)
-                  ? rule.scopeValue.filter(Boolean)
-                  : rule.scopeValue
-                    ? [rule.scopeValue]
-                    : [],
-          }
-        : rule;
-    if (rule.uid) await api.put(`/policy-rules/${rule.uid}`, payload as unknown as Record<string, unknown>);
-    else await api.post("/policy-rules", payload as unknown as Record<string, unknown>);
+    const payload = toPolicyRulePayload(rule);
+    if (rule.uid) await api.put(`/policy-rules/${rule.uid}`, payload);
+    else await api.post("/policy-rules", payload);
     await load();
   }, [api, load]);
 

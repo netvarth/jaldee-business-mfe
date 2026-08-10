@@ -73,6 +73,9 @@ export interface MyAttendance {
   clockInType?: string; status?: string; workedHours?: number; wfhStatus?: string;
   totalBreakMinutes?: number; breaks?: AttendanceBreak[];
   overtimeMinutes?: number; overtimeStatus?: string; approvedOvertimeMinutes?: number;
+  shiftUid?: string; shiftName?: string; effectiveShiftUid?: string; effectiveShiftName?: string;
+  shiftStartTime?: string; shiftEndTime?: string; shiftResolutionSource?: string;
+  noShiftAssigned?: boolean; validationFlags?: string[]; attendanceFlags?: string[];
 }
 
 export interface MyLeave {

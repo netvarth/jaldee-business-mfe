@@ -18,6 +18,7 @@ async function run() {
   let currentRunEmployeeUid = "";
   let recruitmentPublicCandidateName = "";
   let recruitmentDirectCandidateName = "";
+  let recruitmentDirectCandidateUid = "";
   const futureDate = (daysAhead) => {
     const date = new Date();
     date.setDate(date.getDate() + daysAhead);
@@ -746,6 +747,25 @@ async function run() {
   shiftToEdit.name = updatedShiftName;
   console.log(`   [Verified] Shift updated: "${updatedShiftName}"`);
 
+  console.log("\n>>> 5.5 SETTINGS - SHIFT ROTATIONS...");
+  await slowClick('[data-testid="hr-settings-shifts-tab-rotations"]', "Rotations Tab");
+  await slowClick('[data-testid="hr-settings-rotations-add"]', "Add Rotation");
+  const rotationModal = page.locator('[data-testid="hr-settings-rotations-modal"]');
+  await rotationModal.waitFor({ state: "visible", timeout: 10000 });
+  const rotationName = `IT Weekly Rotation ${suffix}`;
+  await slowType('[data-testid="hr-settings-rotations-name"]', rotationName, "Rotation Name");
+  const rotationShiftSelect = rotationModal.locator('[data-testid="hr-settings-rotations-add-shift"]');
+  const rotationShiftValues = await rotationShiftSelect.locator("option").evaluateAll((options) => options.map((option) => option.value).filter(Boolean));
+  if (rotationShiftValues.length < 2) throw new Error("At least two shifts are required for the rotation test.");
+  await rotationShiftSelect.selectOption(rotationShiftValues[0]);
+  await rotationShiftSelect.selectOption(rotationShiftValues[1]);
+  await rotationModal.locator(`[data-testid="hr-settings-rotations-sequence-up-${rotationShiftValues[1]}"]`).click();
+  await slowType('[data-testid="hr-settings-rotations-period"]', "7", "Rotation Period");
+  await slowDate('[data-testid="hr-settings-rotations-startdate"]', futureDate(0), "Rotation Start Date");
+  await rotationModal.locator('[data-testid="hr-settings-rotations-save"]').click();
+  await rotationModal.waitFor({ state: "hidden", timeout: 20000 });
+  await page.getByText(rotationName, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+
   console.log("\n>>> 6. SETTINGS - CREATE 5 IT LEAVE TYPES...");
   await openSettingsSection("leavetypes", '[data-testid="hr-settings-leave-policy-create"]');
   const saveLeavePolicy = async () => {
@@ -923,12 +943,12 @@ async function run() {
     await slowClick('[data-testid="hr-settings-policy-rules-add"]', `Add Rule (${item.domain})`);
     const ruleModal = page.locator('[data-testid="hr-settings-policy-rules-modal"], [role="dialog"]').first();
     await ruleModal.waitFor({ state: "visible", timeout: 10000 });
-    await slowType('[data-testid="hr-settings-policy-rules-modal"] input', item.name, "Rule Name");
+    await slowType('[data-testid="hr-settings-policy-rules-name"]', item.name, "Rule Name");
     if (item.domain === "attendance") {
       await ruleModal.locator('[data-testid="hr-settings-policy-rules-condition"]').selectOption("WORK_MODE");
-      await ruleModal.locator('[data-testid="hr-settings-policy-rules-operator"]').selectOption("!=");
-      await ruleModal.locator('[data-testid="hr-settings-policy-rules-value"]').selectOption("Office");
-      await ruleModal.locator('[data-testid="hr-settings-policy-rules-action"]').selectOption("BLOCK_PUNCH");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-operator-0"]').selectOption("!=");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-value-0"]').selectOption("Office");
+      await ruleModal.locator('[data-testid="hr-settings-policy-rules-action-0"]').selectOption("BLOCK_PUNCH");
       console.log("   [Rule] Office punches are allowed; only non-Office work modes are blocked");
     }
     const saveRuleBtn = ruleModal.locator('[data-testid="hr-settings-policy-rules-save"]').first();
@@ -1267,8 +1287,26 @@ async function run() {
     await slowType('[data-testid="hr-candidate-experience"]', String(3 + i), `Candidate Experience ${i + 1}`);
     await slowSelect('[data-testid="hr-candidate-source"]', "JOB_PORTAL", `Candidate Source ${i + 1}`);
     await slowType('[data-testid="hr-candidate-skills"]', "React, TypeScript, Cloud, APIs", `Candidate Skills ${i + 1}`);
+    let candidateResponse = null;
+    const captureCandidateResponse = (response) => {
+      const path = new URL(response.url()).pathname;
+      if (response.request().method() === "POST" && path.includes("/recruitment/candidates") && !path.endsWith("/search")) candidateResponse = response;
+    };
+    page.on("response", captureCandidateResponse);
     await slowClick('[data-testid="hr-candidate-submit"]', `Save Candidate ${i + 1}`);
     await confirmDialogSubmission('[data-testid="hr-candidate-modal-form"]', candidateName, `Candidate ${i + 1}`);
+    page.off("response", captureCandidateResponse);
+    if (!candidateResponse) throw new Error(`Candidate ${i + 1} form closed without a matching create API response.`);
+    if (!candidateResponse.ok()) throw new Error(`Candidate creation failed (${candidateResponse.status()}): ${await candidateResponse.text()}`);
+    if (i === 0) {
+      const createdCandidate = await candidateResponse.json().catch(() => ({}));
+      recruitmentDirectCandidateUid = typeof createdCandidate === "string"
+        ? createdCandidate
+        : String(createdCandidate.uid ?? createdCandidate.id ?? createdCandidate.data?.uid ?? createdCandidate.data?.id ?? "");
+      if (!recruitmentDirectCandidateUid) {
+        recruitmentDirectCandidateUid = (candidateResponse.headers()["location"] || "").split("/").filter(Boolean).pop() || "";
+      }
+    }
   }
 
   }
@@ -1366,6 +1404,20 @@ async function run() {
   }
   console.log(`   [Verified] Attendance punch ${punchResponse ? `API returned ${punchResponse.status()}` : punchResult}`);
   console.log("   [Verified] Attendance location uses 10.5116834, 76.2164267");
+  await slowClick('[data-testid="hr-attendance-subtab-logs"]', "Attendance Logs");
+  const effectiveShift = page.locator([
+    '[data-testid^="hr-attendance-effective-shift-"]',
+    '[data-testid^="hr-attendance-card-effective-shift-"]',
+  ].join(", ")).first();
+  const emptyLogs = page.locator('[data-testid="hr-attendance-logs-empty"]');
+  await effectiveShift.or(emptyLogs).first().waitFor({ state: "visible", timeout: 20000 });
+  if (await effectiveShift.isVisible()) {
+    const effectiveShiftText = (await effectiveShift.textContent() || "").trim();
+    if (!effectiveShiftText || effectiveShiftText === "—" || effectiveShiftText === "-") throw new Error("Attendance API did not resolve an effective shift or no-shift flag.");
+    console.log(`   [Verified] Attendance effective shift: "${effectiveShiftText}"`);
+  } else {
+    console.log("   [Verified] Attendance logs loaded with no records for the current filters");
+  }
   for (const subtab of ["logs", "pending", "overtime", "field", "compoff", "onduty", "kiosk"]) {
     await slowClick(`[data-testid="hr-attendance-subtab-${subtab}"]`, `Attendance ${subtab}`);
     if (subtab === "field") {
@@ -1447,11 +1499,10 @@ async function run() {
   }
 
   await visitHr("/hr/recruitment/candidates", "VIEW CANDIDATES");
-  const directCandidateRow = page.locator("tr").filter({ hasText: recruitmentDirectCandidateName }).first();
-  await directCandidateRow.waitFor({ state: "visible", timeout: 20000 });
-  const directCandidateView = directCandidateRow.locator('[data-testid^="hr-recruitment-candidate-view-"]');
-  if (await directCandidateView.isVisible().catch(() => false)) {
-    await directCandidateView.click();
+  if (!recruitmentDirectCandidateUid) throw new Error(`Candidate creation succeeded but no UID was returned for "${recruitmentDirectCandidateName}"`);
+  await page.goto(`${AUTOMATION_BASE_URL}/hr/recruitment/candidates/${recruitmentDirectCandidateUid}`, { waitUntil: "domcontentloaded" });
+  await page.locator('[data-testid="hr-recruitment-candidate-resume-file"]').waitFor({ state: "attached", timeout: 30000 });
+  {
     const careersUploadRequestPromise = page.waitForRequest((request) => request.method() === "POST" && request.url().includes("/drive/initiate-upload"), { timeout: 30000 });
     const resumeSaveResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && /\/recruitment\/candidates\/[^/?]+\/resume/.test(response.url()), { timeout: 60000 });
     const candidateResumeFile = page.locator('[data-testid="hr-recruitment-candidate-resume-file"]');
@@ -1860,7 +1911,8 @@ async function run() {
       await slowType('[data-testid="hr-separation-reason"]', `${outcome} separation automation ${suffix}-${sequence}`, `Separation Reason ${sequence}`);
       await slowClick('[data-testid="hr-separation-raise-submit"]', `Submit Separation Request ${sequence}`);
       await page.locator('[data-testid="hr-separation-raise-modal"]').waitFor({ state: "hidden", timeout: 20000 });
-      const pendingRow = page.locator('[data-testid^="hr-separation-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: "Pending" }).first();
+      await page.locator('[data-testid="hr-separation-view-table"]').click();
+      const pendingRow = page.locator('[data-testid^="hr-separation-table-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: "Pending" }).first();
       await pendingRow.waitFor({ state: "visible", timeout: 20000 });
       await pendingRow.locator('[data-testid^="hr-separation-open-"]').click();
       await page.locator('[data-testid="hr-separation-detail-modal"]').waitFor({ state: "visible", timeout: 10000 });
@@ -1877,7 +1929,7 @@ async function run() {
       await page.waitForTimeout(3000);
       await page.locator('[data-testid="hr-separation-detail-close"]').click();
       await page.locator('[data-testid="hr-separation-detail-modal"]').waitFor({ state: "hidden", timeout: 10000 });
-      await page.locator('[data-testid^="hr-separation-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: outcome }).first().waitFor({ state: "visible", timeout: 20000 });
+      await page.locator('[data-testid^="hr-separation-table-row-"]').filter({ hasText: `Rahul Sharma ${suffix}` }).filter({ hasText: outcome }).first().waitFor({ state: "visible", timeout: 20000 });
       console.log(`   [Verified] Separation request ${outcome}`);
     };
     await actOnExitRequest("Rejected", 1);

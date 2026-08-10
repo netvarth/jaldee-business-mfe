@@ -49,6 +49,18 @@ function bodyOf(raw: unknown): Record<string, unknown> {
   return (value && typeof value === "object" && !Array.isArray(value) ? value : {}) as Record<string, unknown>;
 }
 
+function listOf(raw: unknown): Record<string, unknown>[] {
+  let value = raw;
+  for (let index = 0; index < 3; index += 1) {
+    if (Array.isArray(value)) return value as Record<string, unknown>[];
+    if (!value || typeof value !== "object") return [];
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.content)) return record.content as Record<string, unknown>[];
+    value = record.data;
+  }
+  return Array.isArray(value) ? value as Record<string, unknown>[] : [];
+}
+
 async function openWithApi(page: Page, path: string, apiPart: string): Promise<Response> {
   const responsePromise = page.waitForResponse(
     (response) => response.request().method() === "GET" && response.url().includes(apiPart) && response.ok(),
@@ -139,6 +151,70 @@ test.describe("HR value and API verification", () => {
     if (rules.faceRecognitionRequired != null) {
       await expect.soft(page.getByTestId("hr-settings-attendance-facerecognitionrequired")).toBeChecked({ checked: Boolean(rules.faceRecognitionRequired) });
     }
+  });
+
+  test("POL-RULE-001 policy outcomes and table/card views match the API", async ({ page }) => {
+    const response = await openWithApi(page, "/hr/settings/policyrules", "/policy-rules?domain=ATTENDANCE");
+    const rules = listOf(await response.json());
+    await expect(page.getByTestId("hr-settings-policy-rules-panel")).toBeVisible();
+    await expect(page.getByTestId("hr-settings-policy-rules-view-table")).toHaveAttribute("data-active", "true");
+
+    if (rules.length > 0) {
+      const first = rules[0];
+      await expect(page.getByTestId("hr-settings-policy-rules-table")).toContainText(String(first.name ?? ""));
+      const outcomes = Array.isArray(first.outcomes) ? first.outcomes : [];
+      await expect(page.getByTestId("hr-settings-policy-rules-table")).toContainText(`${outcomes.length}:`);
+    }
+
+    await page.getByTestId("hr-settings-policy-rules-view-card").click();
+    await expect(page.getByTestId("hr-settings-policy-rules-view-card")).toHaveAttribute("data-active", "true");
+    await page.getByTestId("hr-settings-policy-rules-add").click();
+    await expect(page.getByTestId("hr-settings-policy-rules-form")).toBeVisible();
+    await expect(page.getByTestId("hr-settings-policy-rules-outcome-0")).toBeVisible();
+    await page.getByTestId("hr-settings-policy-rules-add-outcome").click();
+    await expect(page.getByTestId("hr-settings-policy-rules-outcome-1")).toBeVisible();
+  });
+
+  test("SHIFT-ROT-001 rotation sequence, defaults and API values are rendered", async ({ page }) => {
+    const responsePromise = page.waitForResponse(
+      (response) => response.request().method() === "GET" && /\/shift-rotations(?:\?|$)/.test(response.url()) && response.ok(),
+      { timeout: 30_000 },
+    );
+    await page.goto("/hr/settings/shifts", { waitUntil: "domcontentloaded" });
+    const rotations = listOf(await (await responsePromise).json());
+    await page.getByTestId("hr-settings-shifts-tab-rotations").click();
+    await expect(page.getByTestId("hr-settings-rotations-panel")).toBeVisible();
+
+    if (rotations.length > 0) {
+      const first = rotations[0];
+      const uid = String(first.uid ?? first.id ?? "");
+      const row = page.getByTestId(`hr-settings-rotations-row-${uid}`);
+      await expect(row).toContainText(String(first.name ?? ""));
+      if (first.rotationPeriodDays != null) await expect(row).toContainText(`${first.rotationPeriodDays} days`);
+      if (first.startDate) await expect(row).toContainText(String(first.startDate));
+    }
+
+    await page.getByTestId("hr-settings-rotations-add").click();
+    await expect(page.getByTestId("hr-settings-rotations-active")).toBeChecked();
+    await expect(page.getByTestId("hr-settings-rotations-period")).toHaveValue("7");
+    await expect(page.getByTestId("hr-settings-rotations-startdate")).not.toHaveValue("");
+  });
+
+  test("ATT-SHIFT-001 attendance displays the backend-resolved effective shift", async ({ page }) => {
+    const responsePromise = page.waitForResponse(
+      (response) => response.request().method() === "POST" && response.url().includes("/attendance/search") && response.ok(),
+      { timeout: 30_000 },
+    );
+    await page.goto("/hr/attendance/logs", { waitUntil: "domcontentloaded" });
+    const records = listOf(await (await responsePromise).json());
+    const record = records.find((item) => item.effectiveShiftName || item.shiftName || item.noShiftAssigned || item.shiftResolutionSource === "NONE");
+    test.skip(!record, "The HR service has not returned effective-shift metadata for any attendance record yet.");
+
+    const uid = String(record!.uid ?? record!.id ?? "");
+    const expected = record!.noShiftAssigned || String(record!.shiftResolutionSource ?? "").toUpperCase() === "NONE"
+      ? "No shift assigned"
+      : String(record!.effectiveShiftName ?? record!.shiftName ?? "");
+    await expect(page.getByTestId(`hr-attendance-effective-shift-${uid}`)).toContainText(expected);
   });
 
   test("AUD-FLT-001 Payroll context sends auditLogContext and never featureModule", async ({ page }) => {

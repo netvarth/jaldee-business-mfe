@@ -15,28 +15,80 @@ interface MFELoaderProps {
 }
 
 const STYLESHEET_LOAD_TIMEOUT_MS = 5000;
+const remoteStylesheetHrefs = new Map<string, Set<string>>();
 
-function waitForPendingStylesheets() {
-  const pendingStylesheets = Array.from(
-    document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
-  ).filter((stylesheet) => !stylesheet.sheet);
+function getStylesheets() {
+  return Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'));
+}
 
-  return Promise.allSettled(
+function restoreRemoteStylesheets(mfeName: string) {
+  const knownHrefs = remoteStylesheetHrefs.get(mfeName);
+  if (!knownHrefs) return;
+
+  const currentStylesheets = new Map(
+    getStylesheets().map((stylesheet) => [stylesheet.href, stylesheet]),
+  );
+  knownHrefs.forEach((href) => {
+    const existingStylesheet = currentStylesheets.get(href);
+    if (existingStylesheet) {
+      // Lazy shell routes may append CSS after an MFE was first loaded. Moving
+      // the remote link to the end restores the remote's cascade priority.
+      document.head.appendChild(existingStylesheet);
+      return;
+    }
+
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = href;
+    stylesheet.dataset.mfeStylesheet = mfeName;
+    document.head.appendChild(stylesheet);
+  });
+}
+
+function rememberRemoteStylesheets(mfeName: string, previousHrefs: Set<string>) {
+  const stylesheets = getStylesheets();
+  const discoveredHrefs = stylesheets
+    .filter((stylesheet) => !previousHrefs.has(stylesheet.href) || !stylesheet.sheet)
+    .map((stylesheet) => stylesheet.href);
+
+  if (discoveredHrefs.length === 0) return;
+
+  const knownHrefs = remoteStylesheetHrefs.get(mfeName) ?? new Set<string>();
+  discoveredHrefs.forEach((href) => knownHrefs.add(href));
+  remoteStylesheetHrefs.set(mfeName, knownHrefs);
+}
+
+function waitForPendingStylesheets(mfeName: string) {
+  const pendingStylesheets = getStylesheets().filter((stylesheet) => !stylesheet.sheet);
+
+  return Promise.all(
     pendingStylesheets.map(
       (stylesheet) =>
-        new Promise<void>((resolve) => {
+        new Promise<void>((resolve, reject) => {
           let timeoutId = 0;
 
-          const finish = () => {
+          const cleanup = () => {
             window.clearTimeout(timeoutId);
-            stylesheet.removeEventListener("load", finish);
-            stylesheet.removeEventListener("error", finish);
+            stylesheet.removeEventListener("load", handleLoad);
+            stylesheet.removeEventListener("error", handleError);
+          };
+          const handleLoad = () => {
+            cleanup();
             resolve();
           };
+          const handleError = () => {
+            cleanup();
+            stylesheet.remove();
+            reject(new Error(`[MFELoader] Failed to load stylesheet for ${mfeName}: ${stylesheet.href}`));
+          };
 
-          stylesheet.addEventListener("load", finish, { once: true });
-          stylesheet.addEventListener("error", finish, { once: true });
-          timeoutId = window.setTimeout(finish, STYLESHEET_LOAD_TIMEOUT_MS);
+          stylesheet.addEventListener("load", handleLoad, { once: true });
+          stylesheet.addEventListener("error", handleError, { once: true });
+          timeoutId = window.setTimeout(() => {
+            cleanup();
+            stylesheet.remove();
+            reject(new Error(`[MFELoader] Timed out loading stylesheet for ${mfeName}: ${stylesheet.href}`));
+          }, STYLESHEET_LOAD_TIMEOUT_MS);
         }),
     ),
   );
@@ -58,11 +110,17 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
 
     let cancelled = false;
     let revealFrame: number | null = null;
+    const mfeName = propsRef.current.mfeName;
+    restoreRemoteStylesheets(mfeName);
+    const previousStylesheetHrefs = new Set(getStylesheets().map((stylesheet) => stylesheet.href));
     setLoadError(null);
     setIsLoading(true);
 
     remote()
       .then(async (loadedModule) => {
+        // Capture assets even when React StrictMode has already cleaned up this
+        // particular effect run; the next run reuses the same cached remote.
+        rememberRemoteStylesheets(mfeName, previousStylesheetHrefs);
         if (cancelled || !containerRef.current) {
           return;
         }
@@ -76,7 +134,10 @@ export function MFELoader({ remote, props }: MFELoaderProps) {
           );
         }
 
-        await waitForPendingStylesheets();
+        // Federation appends remote CSS while resolving the exposed module. Keep
+        // ownership of those links so a later shell route cannot leave a cached
+        // remote mounted without its stylesheet.
+        await waitForPendingStylesheets(mfeName);
         if (cancelled || !containerRef.current) {
           return;
         }

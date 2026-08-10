@@ -244,6 +244,7 @@ export default function Expenses() {
 
   // submit modal
   const [addOpen, setAddOpen] = useState(false);
+  const [editingClaim, setEditingClaim] = useState<ExpenseClaim | null>(null);
   const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [form, setForm] = useState({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
   const [saving, setSaving] = useState(false);
@@ -263,9 +264,11 @@ export default function Expenses() {
         notes: form.notes || null, date: form.date, status: "Pending",
       };
       if (form.category === "Travel") { payload.kms = form.kms ? Number(form.kms) : null; payload.modeOfTransport = form.modeOfTransport || null; }
-      await expenses.create(payload);
+      if (editingClaim) await expenses.update(editingClaim.id, { ...payload, status: editingClaim.status });
+      else await expenses.create(payload);
       setForm({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
       setAddOpen(false);
+      setEditingClaim(null);
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
         title: "Expense claim submitted",
@@ -588,14 +591,14 @@ export default function Expenses() {
       {/* SUBMIT MODAL */}
       <Dialog
         open={addOpen}
-        onClose={() => setAddOpen(false)}
+        onClose={() => { setAddOpen(false); setEditingClaim(null); }}
         testId="hr-expenses-submit-modal"
         hideHeader
         contentClassName="max-w-[760px] h-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] p-0 overflow-hidden flex flex-col"
         bodyClassName="flex min-h-0 flex-none sm:flex-1 flex-col overflow-hidden"
       >
         <div className="max-[640px]:!px-4 max-[640px]:!py-4" style={{ background: "rgba(17,94,89,0.05)", padding: "24px 30px", borderBottom: "1px solid rgba(17,94,89,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div><h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>Submit Expense Claim</h3><p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Log a reimbursement or mileage voucher.</p></div>
+          <div><h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.6px", color: TEAL, margin: 0 }}>{editingClaim ? "Edit Expense Claim" : "Submit Expense Claim"}</h3><p style={{ fontSize: 13, fontWeight: 600, color: TEAL, opacity: 0.8, margin: "4px 0 0" }}>Log a reimbursement or mileage voucher.</p></div>
           <button id="hr-expenses-submit-close" data-testid="hr-expenses-submit-close" onClick={() => setAddOpen(false)} aria-label="Close submit expense claim" style={iconBtn}><X size={20} /></button>
         </div>
         <div className="max-[640px]:!grid-cols-1 max-[640px]:!p-4" style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, overflowY: "auto", maxHeight: "calc(100dvh - 180px)", flex: 1 }}>
@@ -657,7 +660,7 @@ export default function Expenses() {
         {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
         <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
           <Button id="hr-expenses-submit-cancel" data-testid="hr-expenses-submit-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} variant="primary" className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined} onClick={submit} loading={saving}>Submit Claim Proposal</Button>
+          <Button id="hr-expenses-submit-save" data-testid="hr-expenses-submit-save" data-state={saving ? "saving" : "idle"} variant="primary" className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined} onClick={submit} loading={saving}>{editingClaim ? "Save Changes" : "Submit Claim Proposal"}</Button>
         </div>
       </Dialog>
 
@@ -693,6 +696,15 @@ export default function Expenses() {
                 <p style={{ fontSize: 15, fontWeight: 600, color: "var(--dark-text)", fontStyle: "italic", margin: "8px 0 0" }}>“{selected.notes || "No description provided."}”</p>
               </div>
               <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}><User size={11} style={{ display: "inline", verticalAlign: "-1px" }} /> Claimant</span><span style={{ fontSize: 14, fontWeight: 800, display: "block", marginTop: 4 }}>{empName(selected.employeeUid)} — {empDept(selected.employeeUid)}</span></div>
+
+              {(selected.status === "Pending" || selected.status === "Rejected") && (
+                <Button data-testid={`hr-expenses-edit-${selected.id}`} variant="outline" onClick={() => {
+                  setEditingClaim(selected);
+                  setForm({ employeeUid: selected.employeeUid || "", amount: String(selected.amount ?? ""), category: selected.category || "Food", kms: selected.kms != null ? String(selected.kms) : "", modeOfTransport: selected.modeOfTransport || "", notes: selected.notes || "", date: selected.date || new Date().toISOString().slice(0, 10) });
+                  setSelected(null);
+                  setAddOpen(true);
+                }}>Edit Claim</Button>
+              )}
 
               {!isEmployeeView && selected.status === "Pending" && (
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, paddingTop: 4 }}>
