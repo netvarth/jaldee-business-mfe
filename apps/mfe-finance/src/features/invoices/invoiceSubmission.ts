@@ -72,3 +72,93 @@ export function buildInvoiceSubmissionPayload(input: any) {
     })),
   };
 }
+
+function normalizeIsoDate(value: string | null | undefined) {
+  if (!value) return null;
+  return new Date(value).toISOString();
+}
+
+function normalizeText(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function buildComparableDetailList(input: any) {
+  return input.items.map((item: any) => ({
+    uid: item.detailUid || null,
+    itemUid: item.itemUid || null,
+    itemName: item.name,
+    itemType: item.itemType,
+    itemNature: "SINGLE_ITEM",
+    quantity: Number(item.qty),
+    price: Number(item.price),
+    netTotal: Number(item.price * item.qty),
+    netTotalAfterDiscount: Number(item.afterDiscount ?? item.price * item.qty),
+    netRate: Number(item.price),
+    discountAmount: Number(item.discountAmount ?? 0),
+    sourceService: "FINANCE_SERVICE",
+    feature: "FINANCE",
+    subFeature: "FINANCE",
+    featureModule: "FINANCE_INVOICE",
+    locationUid: input.locationId || null,
+    processedDate: normalizeIsoDate(item.date),
+  }));
+}
+
+function areDetailListsEqual(left: any[], right: any[]) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function buildInvoiceUpdatePayload(input: any) {
+  const selectedLocation = input.locationOptions.find(
+    (option: any) => option.value === input.locationId,
+  );
+  const original = input.originalInvoice ?? {};
+  const mandatoryPayload = {
+    invoiceDate: normalizeIsoDate(input.invoiceDate),
+    dueDate: normalizeIsoDate(input.dueDate),
+    description: normalizeText(input.notesForCustomer),
+    billedToAddress: normalizeText(input.billedToAddress),
+    notesForCustomer: normalizeText(input.notesForCustomer),
+    notesForProvider: normalizeText(input.notesForProvider),
+    termsConditions: normalizeText(input.termsConditions),
+    partyType: "B2C",
+    supplyType: "INTRA_STATE",
+  };
+
+  const payload: Record<string, unknown> = { ...mandatoryPayload };
+
+  const changedFields: Array<[string, unknown, unknown]> = [
+    ["categoryId", Number(input.categoryId) || null, original.categoryId ?? null],
+    ["statusId", Number(input.statusId) || null, original.statusId ?? null],
+    ["invoiceId", input.invoiceNum.trim() || null, original.invoiceId ?? null],
+    ["invoiceNum", input.invoiceNum.trim() || null, original.invoiceNum ?? null],
+    ["invoiceLabel", input.invoiceLabel.trim() || null, original.invoiceLabel ?? null],
+    ["referenceNo", input.referenceNo.trim() || null, original.referenceNo ?? null],
+    ["consumerUid", input.consumerUid || null, original.consumerUid ?? null],
+    ["consumerName", input.consumerName.trim() || null, original.consumerName ?? null],
+    ["consumerPhone", input.consumerPhone.trim() || null, original.consumerPhone ?? null],
+    ["consumerType", input.selectedConsumerOption?.consumerType || "NONE", original.consumerType ?? "NONE"],
+    ["locationUid", input.locationId || null, original.locationUid ?? null],
+    ["locationId", input.locationId || null, original.locationId ?? null],
+    [
+      "locationName",
+      selectedLocation?.label || input.currentLocation?.name || input.currentLocation?.place || null,
+      original.locationName ?? null,
+    ],
+  ];
+
+  changedFields.forEach(([field, nextValue, previousValue]) => {
+    if (JSON.stringify(nextValue) !== JSON.stringify(previousValue)) {
+      payload[field] = nextValue;
+    }
+  });
+
+  const nextDetailList = buildComparableDetailList(input);
+  const previousDetailList = Array.isArray(original.detailList) ? original.detailList : [];
+  if (!areDetailListsEqual(nextDetailList, previousDetailList)) {
+    payload.detailList = nextDetailList;
+  }
+
+  return payload;
+}

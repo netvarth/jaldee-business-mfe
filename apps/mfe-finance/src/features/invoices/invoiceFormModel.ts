@@ -25,6 +25,7 @@ export interface InvoiceItem {
   couponName?: string;
   couponCode?: string;
   couponDiscountValue?: number;
+  rawCoupon?: any;
 }
 
 export interface FinanceCatalogOption extends ComboboxOption {
@@ -284,5 +285,6 @@ export function mapInvoiceItem(item: any, index: number): InvoiceItem {
       item.couponValue ??
       0,
     ),
+    rawCoupon: appliedCoupon,
   };
 }

@@ -64,6 +64,8 @@ export default function FinanceInvoiceForm() {
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
     handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit, handleRemoveItemCoupon,
+    invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
+    handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
   } = useFinanceInvoiceFormController();
 
   if (loading) {
@@ -409,9 +411,98 @@ export default function FinanceInvoiceForm() {
               </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Your Notes" value={notesForProvider} onChange={(event) => setNotesForProvider(event.target.value)} placeholder="Private Note" />
-              <Input label="Patient Notes" value={notesForCustomer} onChange={(event) => setNotesForCustomer(event.target.value)} placeholder="Shared with patient" />
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-4">
+                <Input
+                  label="Your Notes"
+                  value={notesForProvider}
+                  onChange={(event) => setNotesForProvider(event.target.value)}
+                  placeholder="Private Note"
+                />
+                <Input
+                  label="Patient Notes"
+                  value={notesForCustomer}
+                  onChange={(event) => setNotesForCustomer(event.target.value)}
+                  placeholder="Shared with patient"
+                />
+              </div>
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-5 space-y-4 text-sm text-slate-600 shadow-sm self-start">
+                <div className="grid grid-cols-[1fr_auto_28px] items-center gap-y-3.5">
+                  
+                  {/* Total Amount Row */}
+                  <span className="font-semibold text-slate-700">Total Amount</span>
+                  <span className="font-bold text-slate-900 text-right">{formatCurrency(invoiceTotalAmount)}</span>
+                  <div className="w-7" />
+
+                  {/* Invoice Level Discount Row */}
+                  {invoiceDiscount && (
+                    <>
+                      <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-1 rounded border border-rose-100 w-fit">
+                        Discount: {invoiceDiscount.name}
+                      </span>
+                      <span className="font-bold text-rose-600 text-right">
+                        (-) {formatCurrency(invoiceTotalDiscount)}
+                      </span>
+                      <button
+                        type="button"
+                        className="flex items-center justify-center h-7 w-7 rounded-lg text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition"
+                        onClick={() => void handleRemoveInvoiceDiscount()}
+                        aria-label="Remove invoice discount"
+                      >
+                        <Icon name="x" className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Invoice Level Coupon Row */}
+                  {invoiceCoupon && (
+                    <>
+                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 w-fit">
+                        Coupon: {invoiceCoupon.code}
+                      </span>
+                      <span className="font-bold text-emerald-600 text-right">
+                        (-) {formatCurrency(invoiceTotalCoupon)}
+                      </span>
+                      <button
+                        type="button"
+                        className="flex items-center justify-center h-7 w-7 rounded-lg text-emerald-400 hover:bg-emerald-100 hover:text-emerald-600 transition"
+                        onClick={() => void handleRemoveInvoiceCoupon()}
+                        aria-label="Remove invoice coupon"
+                      >
+                        <Icon name="x" className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Total Tax Row */}
+                  {invoiceTotalTax > 0 && (
+                    <>
+                      <span className="font-semibold text-slate-700">Total Tax</span>
+                      <span className="font-bold text-slate-900 text-right">{formatCurrency(invoiceTotalTax)}</span>
+                      <div className="w-7" />
+                    </>
+                  )}
+
+                  {/* Divider */}
+                  <div className="col-span-3 border-b border-slate-200/60 my-1" />
+
+                  {/* Net Total Row */}
+                  <span className="font-bold text-slate-800">Net Total</span>
+                  <span className="font-bold text-slate-950 text-right">{formatCurrency(invoiceNetTotal)}</span>
+                  <div className="w-7" />
+
+                  {/* Amount Due Card */}
+                  <div className="col-span-3 rounded-lg bg-indigo-50/50 border border-indigo-100 p-3.5 mt-2">
+                    <div className="grid grid-cols-[1fr_auto_28px] items-center">
+                      <span className="text-base font-bold text-indigo-900">Amount Due</span>
+                      <span className="text-lg font-extrabold text-indigo-700 text-right">{formatCurrency(invoiceAmountDue)}</span>
+                      <div className="w-7" />
+                    </div>
+                  </div>
+
+                </div>
+              </div>
             </div>
 
             <Input

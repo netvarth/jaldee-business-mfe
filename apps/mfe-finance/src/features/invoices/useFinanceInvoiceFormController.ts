@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { getReadableApiError } from "@jaldee/api-client";
 import { financeApi } from "../../lib/financeApi";
 
 import {
@@ -18,7 +19,7 @@ import {
 } from "./invoiceFormModel";
 import { createInvoiceTemplatePayload } from "./invoiceTemplatePayload";
 import { mapInvoiceDetail } from "./invoiceDetailMapper";
-import { buildInvoiceSubmissionPayload, validateInvoiceSubmission } from "./invoiceSubmission";
+import { buildInvoiceSubmissionPayload, buildInvoiceUpdatePayload, validateInvoiceSubmission } from "./invoiceSubmission";
 import { loadInvoiceFormOptions } from "./invoiceFormLoader";
 import { fetchCouponOptions, fetchDiscountOptions, fetchInvoiceTemplates } from "./invoiceAdjustmentLoader";
 import { fetchInvoiceTemplate, mapTemplateItems } from "./invoiceTemplateDetail";
@@ -28,6 +29,9 @@ import { createInvoiceCategory, fetchNextInvoiceNumber } from "./invoiceReferenc
 import { saveInvoiceItem } from "./invoiceItemBuilder";
 import { useInvoiceAdjustmentDetails } from "./useInvoiceAdjustmentDetails";
 
+function toFinanceErrorMessage(error: unknown, fallbackMessage: string) {
+  return getReadableApiError(error, fallbackMessage).message;
+}
 
 export function useFinanceInvoiceFormController() {
   const mfeProps = useMFEProps();
@@ -58,6 +62,14 @@ export function useFinanceInvoiceFormController() {
   const [notesForCustomer, setNotesForCustomer] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [amount, setAmount] = useState("0");
+  const [invoiceDiscount, setInvoiceDiscount] = useState<DiscountDetail | null>(null);
+  const [invoiceCoupon, setInvoiceCoupon] = useState<CouponDetail | null>(null);
+  const [invoiceTotalAmount, setInvoiceTotalAmount] = useState<number>(0);
+  const [invoiceNetTotal, setInvoiceNetTotal] = useState<number>(0);
+  const [invoiceAmountDue, setInvoiceAmountDue] = useState<number>(0);
+  const [invoiceTotalDiscount, setInvoiceTotalDiscount] = useState<number>(0);
+  const [invoiceTotalCoupon, setInvoiceTotalCoupon] = useState<number>(0);
+  const [invoiceTotalTax, setInvoiceTotalTax] = useState<number>(0);
 
   const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -111,17 +123,42 @@ export function useFinanceInvoiceFormController() {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
+  const [originalInvoice, setOriginalInvoice] = useState<Record<string, unknown> | null>(null);
 
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  function clearFormError() {
+    setFormError("");
+  }
+
+  function reportFormError(message: string, title = "Invoice") {
+    setFormError(message);
+    mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+      intent: "error",
+      title,
+      message,
+    });
+  }
+
   const preselectedConsumerUid = String(searchParams.get("consumerUid") || "");
 
   useEffect(() => {
-    const total = items.reduce((sum, item) => sum + (item.totalAmount ?? item.price * item.qty), 0);
-    setAmount(String(total));
-  }, [items]);
+    const totalQtyPrice = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const totalTax = items.reduce((sum, item) => sum + (item.taxAmount ?? 0), 0);
+    const itemDiscounts = items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
+    const totalItemsAmount = items.reduce((sum, item) => sum + (item.totalAmount ?? (item.price * item.qty)), 0);
+
+    if (!isEditing || !id) {
+      setInvoiceTotalAmount(totalQtyPrice);
+      setInvoiceNetTotal(totalItemsAmount);
+      setInvoiceAmountDue(totalItemsAmount);
+      setInvoiceTotalDiscount(itemDiscounts);
+      setInvoiceTotalTax(totalTax);
+    }
+    setAmount(String(totalItemsAmount));
+  }, [items, isEditing, id]);
 
   const selectedCatalogOption = useMemo(
     () => financeCatalogOptions.find((option) => option.value === newItemCatalogValue),
@@ -290,20 +327,20 @@ export function useFinanceInvoiceFormController() {
     setSelectedDiscountId(value);
     setSelectedDiscountDetail(null);
     setDiscountAmountInput("");
-    setFormError("");
+    clearFormError();
   }
 
   function handleInvoiceDiscountChange(value: string) {
     setSelectedInvoiceDiscountId(value);
     setSelectedInvoiceDiscountDetail(null);
     setInvoiceDiscountAmountInput("");
-    setFormError("");
+    clearFormError();
   }
 
   function handleCouponChange(value: string) {
     setSelectedCouponId(value);
     setSelectedCouponDetail(null);
-    setFormError("");
+    clearFormError();
   }
 
   async function openDiscountDialog(item: InvoiceItem) {
@@ -314,26 +351,26 @@ export function useFinanceInvoiceFormController() {
     setDiscountAmountInput("");
     setDiscountPrivateNote("");
     setDiscountDisplayNote("");
-    setFormError("");
+    clearFormError();
     await loadDiscountOptions();
   }
 
   async function openInvoiceDiscountDialog() {
     if (!isEditing || !id) {
-      setFormError("Save the invoice first, then apply invoice-level discount.");
+      reportFormError("Save the invoice first, then apply invoice-level discount.");
       return;
     }
     setShowInvoiceDiscountDialog(true);
     setSelectedInvoiceDiscountId("");
     setSelectedInvoiceDiscountDetail(null);
     setInvoiceDiscountAmountInput("");
-    setFormError("");
+    clearFormError();
     await loadDiscountOptions();
   }
 
   async function openCouponDialog(item?: InvoiceItem) {
     if (!isEditing || !id) {
-      setFormError(item ? "Save the invoice first, then apply item-level coupon." : "Save the invoice first, then apply invoice-level coupon.");
+      reportFormError(item ? "Save the invoice first, then apply item-level coupon." : "Save the invoice first, then apply invoice-level coupon.");
       return;
     }
     setOpenItemActionId(null);
@@ -341,25 +378,25 @@ export function useFinanceInvoiceFormController() {
     setShowInvoiceCouponDialog(true);
     setSelectedCouponId("");
     setSelectedCouponDetail(null);
-    setFormError("");
+    clearFormError();
     await loadCouponOptions();
   }
 
   async function openTemplateChooser() {
     setShowTemplateChooser(true);
     setTemplateSearch("");
-    setFormError("");
+    clearFormError();
     await loadInvoiceTemplates();
   }
 
   function openSaveTemplateDialog() {
     if (items.length === 0) {
-      setFormError("Add at least one item before saving as template.");
+      reportFormError("Add at least one item before saving as template.");
       return;
     }
     setTemplateNameInput(invoiceLabel.trim() || "Invoice Template");
     setShowSaveTemplateDialog(true);
-    setFormError("");
+    clearFormError();
   }
 
   function resetInvoiceDiscountDialog() {
@@ -392,7 +429,7 @@ export function useFinanceInvoiceFormController() {
 
   useInvoiceAdjustmentDetails({
     selectedDiscountId, discountDialogItem, discountOptions, setDiscountLoading,
-    setSelectedDiscountDetail, setDiscountAmountInput, setFormError,
+    setSelectedDiscountDetail, setDiscountAmountInput, setFormError: reportFormError,
     selectedInvoiceDiscountId, showInvoiceDiscountDialog, setInvoiceDiscountLoading,
     setSelectedInvoiceDiscountDetail, setInvoiceDiscountAmountInput,
     couponOptions, selectedCouponId, showInvoiceCouponDialog, setCouponLoading,
@@ -436,6 +473,125 @@ export function useFinanceInvoiceFormController() {
     setNotesForCustomer(detail.notesForCustomer);
     setTermsConditions(detail.termsConditions);
     setItems(detail.items);
+
+    const netTotal = Number(
+      invoiceData.netTotal ??
+      invoiceData.netTotalAfterDiscount ??
+      invoiceData.defaultCurrencyAmount ??
+      invoiceData.amountDue ??
+      0
+    );
+    const totalDiscount = Number(
+      invoiceData.totalDiscount ??
+      invoiceData.discountTotal ??
+      invoiceData.netDiscountTotal ??
+      0
+    );
+    const totalTax = Number(
+      invoiceData.totalTax ??
+      invoiceData.taxTotal ??
+      (Number(invoiceData.cgst ?? 0) + Number(invoiceData.sgst ?? 0) + Number(invoiceData.igst ?? 0) + Number(invoiceData.cess ?? 0)) ??
+      0
+    );
+    const totalCoupon = Number(
+      invoiceData.totalCoupon ??
+      invoiceData.couponTotal ??
+      invoiceData.sharedCouponTotal ??
+      0
+    );
+    const totalAmount = Number(
+      invoiceData.totalAmount ??
+      invoiceData.defaultCurrencyAmount ??
+      (netTotal + totalDiscount)
+    );
+    const amountDue = Number(
+      invoiceData.amountDue ??
+      invoiceData.netRate ??
+      invoiceData.netRateBeforeRounding ??
+      netTotal
+    );
+
+    setInvoiceTotalAmount(totalAmount);
+    setInvoiceNetTotal(netTotal);
+    setInvoiceAmountDue(amountDue);
+    setInvoiceTotalDiscount(totalDiscount);
+    setInvoiceTotalCoupon(totalCoupon);
+    setInvoiceTotalTax(totalTax);
+    setOriginalInvoice({
+      categoryId: Number(invoiceData.categoryId ?? 0) || null,
+      statusId: Number(invoiceData.statusId ?? 0) || null,
+      invoiceId: String(invoiceData.invoiceId ?? invoiceData.invoiceNum ?? "").trim() || null,
+      invoiceNum: String(invoiceData.invoiceNum ?? invoiceData.invoiceId ?? "").trim() || null,
+      invoiceLabel: String(invoiceData.invoiceLabel ?? "").trim() || null,
+      referenceNo: String(invoiceData.referenceNo ?? "").trim() || null,
+      consumerUid: String(invoiceData.consumerUid ?? invoiceData.consumerId ?? "").trim() || null,
+      consumerName: String(invoiceData.consumerName ?? invoiceData.customerName ?? "").trim() || null,
+      consumerPhone: String(invoiceData.consumerPhone ?? "").trim() || null,
+      consumerType: String(invoiceData.consumerType ?? "NONE"),
+      locationUid: String(invoiceData.locationUid ?? invoiceData.locationId ?? "").trim() || null,
+      locationId: String(invoiceData.locationId ?? invoiceData.locationUid ?? "").trim() || null,
+      locationName: String(invoiceData.locationName ?? invoiceData.locationDisplayName ?? invoiceData.locationLabel ?? "").trim() || null,
+      detailList: detail.items.map((item) => ({
+        uid: item.detailUid || null,
+        itemUid: item.itemUid || null,
+        itemName: item.name,
+        itemType: item.itemType,
+        itemNature: "SINGLE_ITEM",
+        quantity: Number(item.qty),
+        price: Number(item.price),
+        netTotal: Number(item.price * item.qty),
+        netTotalAfterDiscount: Number(item.afterDiscount ?? item.price * item.qty),
+        netRate: Number(item.price),
+        discountAmount: Number(item.discountAmount ?? 0),
+        sourceService: "FINANCE_SERVICE",
+        feature: "FINANCE",
+        subFeature: "FINANCE",
+        featureModule: "FINANCE_INVOICE",
+        locationUid: detail.locationId || null,
+        processedDate: item.date ? new Date(item.date).toISOString() : null,
+      })),
+    });
+
+    const appliedDiscount =
+      invoiceData.discount ??
+      invoiceData.appliedDiscount ??
+      invoiceData.discountDetail ??
+      invoiceData.discountDto ??
+      invoiceData.discounts?.[0] ??
+      invoiceData.discountList?.[0];
+    if (appliedDiscount) {
+      setInvoiceDiscount({
+        ...appliedDiscount,
+        uid: appliedDiscount.uid || appliedDiscount.id || "",
+        name: appliedDiscount.name || "Discount",
+        discountValue: Number(appliedDiscount.discountValue ?? appliedDiscount.discountedAmount ?? 0),
+        calculationType: appliedDiscount.calculationType || "FIXED_PCT",
+        discountType: appliedDiscount.discountType || "PREDEFINED",
+      });
+    } else {
+      setInvoiceDiscount(null);
+    }
+
+    const appliedCoupon =
+      invoiceData.coupon ??
+      invoiceData.appliedCoupon ??
+      invoiceData.couponDetail ??
+      invoiceData.couponDto ??
+      invoiceData.coupons?.[0] ??
+      invoiceData.couponList?.[0];
+    if (appliedCoupon) {
+      setInvoiceCoupon({
+        ...appliedCoupon,
+        uid: appliedCoupon.uid || appliedCoupon.id || "",
+        code: appliedCoupon.code || appliedCoupon.couponCode || "",
+        name: appliedCoupon.name || appliedCoupon.couponName || "Coupon",
+        discountValue: Number(appliedCoupon.discountValue ?? appliedCoupon.discountedAmount ?? appliedCoupon.amount ?? 0),
+        calculationType: appliedCoupon.calculationType || "FIXED_PCT",
+        discountType: "PREDEFINED",
+      });
+    } else {
+      setInvoiceCoupon(null);
+    }
   }
 
   useEffect(() => {
@@ -559,7 +715,7 @@ export function useFinanceInvoiceFormController() {
       setShowCategoryDialog(false);
     } catch (error) {
       console.error("[mfe-finance] Failed to create category", error);
-      setFormError(error instanceof Error ? error.message : "Could not create category.");
+      reportFormError(error instanceof Error ? error.message : "Could not create category.");
     } finally {
       setCreatingCategory(false);
     }
@@ -583,11 +739,11 @@ export function useFinanceInvoiceFormController() {
     );
 
     if (activeDiscount?.discountType?.toUpperCase() === "ONDEMAND" && !discountAmountInput.trim()) {
-      setFormError("Discount amount is required for on-demand discount.");
+      reportFormError("Discount amount is required for on-demand discount.");
       return;
     }
 
-    setFormError("");
+    clearFormError();
     setDiscountSubmitting(true);
     try {
       const tenantUid = resolveTenantUid(mfeProps.account);
@@ -599,10 +755,14 @@ export function useFinanceInvoiceFormController() {
         uid: activeDiscount?.uid || selectedDiscountId,
       }));
       resetDiscountDialog();
-      navigateToInvoiceList();
+      if (id) {
+        await loadInvoiceDetail(id);
+      } else {
+        navigateToInvoiceList();
+      }
     } catch (error) {
       console.error("[mfe-finance] Failed to apply item-level discount", error);
-      setFormError(error instanceof Error ? error.message : "Could not apply item-level discount.");
+      reportFormError(toFinanceErrorMessage(error, "Could not apply item-level discount."));
       setDiscountSubmitting(false);
     }
   }
@@ -612,7 +772,7 @@ export function useFinanceInvoiceFormController() {
       return;
     }
 
-    setFormError("");
+    clearFormError();
     try {
       const tenantUid = resolveTenantUid(mfeProps.account);
       const discountValueNum = Number(item.discountValue ?? 0);
@@ -630,7 +790,7 @@ export function useFinanceInvoiceFormController() {
       await loadInvoiceDetail(id);
     } catch (error) {
       console.error("[mfe-finance] Failed to remove item-level discount", error);
-      setFormError(error instanceof Error ? error.message : "Could not remove item-level discount.");
+      reportFormError(toFinanceErrorMessage(error, "Could not remove item-level discount."));
     }
   }
 
@@ -655,12 +815,12 @@ export function useFinanceInvoiceFormController() {
     );
 
     if (activeDiscount?.discountType?.toUpperCase() === "ONDEMAND" && !invoiceDiscountAmountInput.trim()) {
-      setFormError("Discount amount is required for on-demand discount.");
+      reportFormError("Discount amount is required for on-demand discount.");
       return;
     }
 
     setInvoiceDiscountSubmitting(true);
-    setFormError("");
+    clearFormError();
     try {
       const tenantUid = resolveTenantUid(mfeProps.account);
       const discountValueNum = invoiceDiscountAmountInput.trim() ? Number(invoiceDiscountAmountInput) : activeDiscount?.discountValue ?? 0;
@@ -671,10 +831,14 @@ export function useFinanceInvoiceFormController() {
         uid: activeDiscount?.uid || selectedInvoiceDiscountId,
       }));
       resetInvoiceDiscountDialog();
-      navigateToInvoiceList();
+      if (id) {
+        await loadInvoiceDetail(id);
+      } else {
+        navigateToInvoiceList();
+      }
     } catch (error) {
       console.error("[mfe-finance] Failed to apply invoice-level discount", error);
-      setFormError(error instanceof Error ? error.message : "Could not apply invoice-level discount.");
+      reportFormError(toFinanceErrorMessage(error, "Could not apply invoice-level discount."));
       setInvoiceDiscountSubmitting(false);
     }
   }
@@ -685,7 +849,7 @@ export function useFinanceInvoiceFormController() {
     }
 
     setCouponSubmitting(true);
-    setFormError("");
+    clearFormError();
     try {
       const activeCoupon =
         selectedCouponDetail ??
@@ -695,7 +859,7 @@ export function useFinanceInvoiceFormController() {
       const couponName = activeCoupon?.name || selectedCouponOption?.label || "";
 
       if (!couponUid || !couponCode) {
-        setFormError("Selected coupon is incomplete. Reload coupon details and try again.");
+        reportFormError("Selected coupon is incomplete. Reload coupon details and try again.");
         setCouponSubmitting(false);
         return;
       }
@@ -715,10 +879,14 @@ export function useFinanceInvoiceFormController() {
         await financeApi.invoices.applyCoupon(id, payload);
       }
       resetCouponDialog();
-      navigateToInvoiceList();
+      if (id) {
+        await loadInvoiceDetail(id);
+      } else {
+        navigateToInvoiceList();
+      }
     } catch (error) {
       console.error("[mfe-finance] Failed to apply coupon", error);
-      setFormError(error instanceof Error ? error.message : "Could not apply coupon.");
+      reportFormError(toFinanceErrorMessage(error, "Could not apply coupon."));
       setCouponSubmitting(false);
     }
   }
@@ -728,31 +896,74 @@ export function useFinanceInvoiceFormController() {
       return;
     }
 
-    setFormError("");
+    clearFormError();
     try {
       const tenantUid = resolveTenantUid(mfeProps.account);
       await financeApi.invoices.removeCouponFromDetail(item.detailUid, buildCouponMutationPayload({
+        ...item.rawCoupon,
         tenantUid: tenantUid || undefined,
         name: item.couponName || "",
         code: item.couponCode || "",
         status: "INACTIVE",
+        couponStatus: "INACTIVE",
         uid: item.couponId,
       }));
       await loadInvoiceDetail(id);
     } catch (error) {
       console.error("[mfe-finance] Failed to remove item-level coupon", error);
-      setFormError(error instanceof Error ? error.message : "Could not remove item-level coupon.");
+      reportFormError(toFinanceErrorMessage(error, "Could not remove item-level coupon."));
+    }
+  }
+
+  async function handleRemoveInvoiceDiscount() {
+    if (!id) {
+      return;
+    }
+    clearFormError();
+    try {
+      const tenantUid = resolveTenantUid(mfeProps.account);
+      await financeApi.invoices.removeDiscount(id, buildDiscountMutationPayload({
+        ...invoiceDiscount,
+        tenantUid: tenantUid || undefined,
+        status: "INACTIVE",
+        uid: invoiceDiscount?.uid || "",
+      }));
+      await loadInvoiceDetail(id);
+    } catch (error) {
+      console.error("[mfe-finance] Failed to remove invoice-level discount", error);
+      reportFormError(toFinanceErrorMessage(error, "Could not remove invoice-level discount."));
+    }
+  }
+
+  async function handleRemoveInvoiceCoupon() {
+    if (!id) {
+      return;
+    }
+    clearFormError();
+    try {
+      const tenantUid = resolveTenantUid(mfeProps.account);
+      await financeApi.invoices.removeCoupon(id, buildCouponMutationPayload({
+        ...invoiceCoupon,
+        tenantUid: tenantUid || undefined,
+        status: "INACTIVE",
+        couponStatus: "INACTIVE",
+        uid: invoiceCoupon?.uid || "",
+      }));
+      await loadInvoiceDetail(id);
+    } catch (error) {
+      console.error("[mfe-finance] Failed to remove invoice-level coupon", error);
+      reportFormError(toFinanceErrorMessage(error, "Could not remove invoice-level coupon."));
     }
   }
 
   async function handleConfirmSaveTemplate() {
     if (!templateNameInput.trim()) {
-      setFormError("Template name is required.");
+      reportFormError("Template name is required.");
       return;
     }
 
     setTemplateSaving(true);
-    setFormError("");
+    clearFormError();
     try {
       await financeApi.invoices.createTemplate(buildInvoiceTemplatePayload(templateNameInput));
       setShowSaveTemplateDialog(false);
@@ -760,7 +971,7 @@ export function useFinanceInvoiceFormController() {
       await loadInvoiceTemplates();
     } catch (error) {
       console.error("[mfe-finance] Failed to save invoice template", error);
-      setFormError(error instanceof Error ? error.message : "Could not save invoice template.");
+      reportFormError(toFinanceErrorMessage(error, "Could not save invoice template."));
     } finally {
       setTemplateSaving(false);
     }
@@ -784,7 +995,7 @@ export function useFinanceInvoiceFormController() {
       setShowTemplateChooser(false);
     } catch (error) {
       console.error("[mfe-finance] Failed to use invoice template", error);
-      setFormError(error instanceof Error ? error.message : "Could not load invoice template.");
+      reportFormError(toFinanceErrorMessage(error, "Could not load invoice template."));
     }
   }
 
@@ -794,13 +1005,13 @@ export function useFinanceInvoiceFormController() {
       setShowTemplatePreviewDialog(true);
     } catch (error) {
       console.error("[mfe-finance] Failed to preview invoice template", error);
-      setFormError(error instanceof Error ? error.message : "Could not preview invoice template.");
+      reportFormError(toFinanceErrorMessage(error, "Could not preview invoice template."));
     }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormError("");
+    clearFormError();
 
     const validationError = validateInvoiceSubmission({
       consumerName,
@@ -809,7 +1020,7 @@ export function useFinanceInvoiceFormController() {
       itemCount: items.length,
     });
     if (validationError) {
-      setFormError(validationError);
+      reportFormError(validationError);
       return;
     }
 
@@ -824,7 +1035,27 @@ export function useFinanceInvoiceFormController() {
       });
 
       if (isEditing && id) {
-        await financeApi.invoices.updateGeneral(id, payload);
+        const updatePayload = buildInvoiceUpdatePayload({
+          ...payload,
+          invoiceDate,
+          dueDate,
+          invoiceLabel,
+          referenceNo,
+          selectedConsumerOption,
+          consumerUid,
+          consumerName,
+          consumerPhone,
+          billedToAddress,
+          notesForProvider,
+          notesForCustomer,
+          termsConditions,
+          locationId,
+          locationOptions,
+          currentLocation: mfeProps.location,
+          items,
+          originalInvoice,
+        });
+        await financeApi.invoices.updateGeneral(id, updatePayload);
         mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
           intent: "success",
           title: "Update Invoice",
@@ -842,13 +1073,8 @@ export function useFinanceInvoiceFormController() {
       navigateToInvoiceList();
     } catch (error) {
       console.error("[mfe-finance] Failed to save invoice", error);
-      const msg = error instanceof Error ? error.message : "Could not save invoice.";
-      setFormError(msg);
-      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
-        intent: "error",
-        title: isEditing ? "Update Invoice" : "Create Invoice",
-        message: msg,
-      });
+      const msg = toFinanceErrorMessage(error, "Could not save invoice.");
+      reportFormError(msg, isEditing ? "Update Invoice" : "Create Invoice");
     } finally {
       setSubmitting(false);
     }
@@ -878,5 +1104,7 @@ export function useFinanceInvoiceFormController() {
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
     handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit, handleRemoveItemCoupon,
+    invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
+    handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
   };
 }
