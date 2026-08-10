@@ -1,10 +1,10 @@
 {
-  "startedAt": "2026-08-06T07:37:48.748Z",
-  "completedAt": "2026-08-06T07:40:56.467Z",
-  "durationMs": 187719,
+  "startedAt": "2026-08-06T10:17:59.572Z",
+  "completedAt": "2026-08-06T10:20:53.434Z",
+  "durationMs": 173862,
   "summary": {
-    "passed": 30,
-    "failed": 1,
+    "passed": 15,
+    "failed": 3,
     "skipped": 0
   },
   "results": [
@@ -12,187 +12,109 @@
       "status": "passed",
       "section": "SIGNUP ONBOARDING - COMPLETE ALL 4 STEPS",
       "message": "[Verified] HR is the only onboarding solution selected",
-      "timestamp": "2026-08-06T07:37:57.591Z"
+      "timestamp": "2026-08-06T10:18:08.124Z"
     },
     {
       "status": "passed",
       "section": "3. SETTINGS - ADD 5 IT DEPARTMENTS",
-      "message": "[Verified] Department updated: \"Software Engineering 868750 Updated\"",
-      "timestamp": "2026-08-06T07:38:10.235Z"
+      "message": "[Verified] Department updated: \"Software Engineering 479576 Updated\"",
+      "timestamp": "2026-08-06T10:18:22.410Z"
     },
     {
       "status": "passed",
       "section": "4. SETTINGS - ADD 5 IT ROLES / DESIGNATIONS",
-      "message": "[Verified] Role updated: \"Senior Full Stack Engineer 868750 Updated\"",
-      "timestamp": "2026-08-06T07:38:17.478Z"
+      "message": "[Verified] Role updated: \"Senior Full Stack Engineer 479576 Updated\"",
+      "timestamp": "2026-08-06T10:18:29.662Z"
     },
     {
       "status": "passed",
       "section": "5. SETTINGS - ADD 5 IT SHIFTS",
-      "message": "[Verified] Shift updated: \"Day Development Shift 868750 Updated\"",
-      "timestamp": "2026-08-06T07:38:21.827Z"
+      "message": "[Verified] Shift updated: \"Day Development Shift 479576 Updated\"",
+      "timestamp": "2026-08-06T10:18:33.814Z"
     },
     {
       "status": "passed",
       "section": "7. SETTINGS - ADD 5 IT HOLIDAYS",
-      "message": "[Verified] Holiday updated: \"Republic Day 868750 Updated\"",
-      "timestamp": "2026-08-06T07:38:27.624Z"
+      "message": "[Verified] Holiday updated: \"Republic Day 479576 Updated\"",
+      "timestamp": "2026-08-06T10:18:39.515Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
-      "message": "[Verified] Policy Rule processed for tab \"attendance\": \"Attendance Punch Rule 868750\"",
-      "timestamp": "2026-08-06T07:38:33.074Z"
+      "message": "[Verified] Policy Rule processed for tab \"attendance\": \"Attendance Punch Rule 479576\"",
+      "timestamp": "2026-08-06T10:18:44.607Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
-      "message": "[Verified] Policy Rule processed for tab \"leave\": \"Leave Policy Rule 868750\"",
-      "timestamp": "2026-08-06T07:38:33.817Z"
+      "message": "[Verified] Policy Rule processed for tab \"leave\": \"Leave Policy Rule 479576\"",
+      "timestamp": "2026-08-06T10:18:45.241Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
-      "message": "[Verified] Policy Rule processed for tab \"payroll\": \"Payroll Guard Rule 868750\"",
-      "timestamp": "2026-08-06T07:38:34.604Z"
+      "message": "[Verified] Policy Rule processed for tab \"payroll\": \"Payroll Guard Rule 479576\"",
+      "timestamp": "2026-08-06T10:18:45.929Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
-      "message": "[Verified] Policy Rule processed for tab \"lifecycle\": \"Lifecycle Confirmation Rule 868750\"",
-      "timestamp": "2026-08-06T07:38:35.382Z"
+      "message": "[Verified] Policy Rule processed for tab \"lifecycle\": \"Lifecycle Confirmation Rule 479576\"",
+      "timestamp": "2026-08-06T10:18:46.622Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
-      "message": "[Verified] Policy Rule processed for tab \"approvals\": \"Approvals Routing Rule 868750\"",
-      "timestamp": "2026-08-06T07:38:36.103Z"
+      "message": "[Verified] Policy Rule processed for tab \"approvals\": \"Approvals Routing Rule 479576\"",
+      "timestamp": "2026-08-06T10:18:47.366Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - POLICY RULES (TESTING ALL 6 DOMAIN TABS)",
-      "message": "[Verified] Policy Rule processed for tab \"alerts\": \"Tenure Alert Rule 868750\"",
-      "timestamp": "2026-08-06T07:38:36.745Z"
+      "message": "[Verified] Policy Rule processed for tab \"alerts\": \"Tenure Alert Rule 479576\"",
+      "timestamp": "2026-08-06T10:18:48.026Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - APPROVAL CHAINS",
-      "message": "[Verified] Approval Chain processed: \"Two-Level Leave Chain 868750\"",
-      "timestamp": "2026-08-06T07:38:37.385Z"
+      "message": "[Verified] Approval Chain processed: \"Two-Level Leave Chain 479576\"",
+      "timestamp": "2026-08-06T10:18:48.775Z"
     },
     {
       "status": "passed",
       "section": "8. EMPLOYEE MASTER - CREATE 1 IT ENGINEER EMPLOYEE",
-      "message": "[Verified] Employee created: \"Rahul Sharma 868750\" (019fd602-8c3c-7b6e-9b0b-eb8077aceb24)",
-      "timestamp": "2026-08-06T07:38:39.972Z"
+      "message": "[Verified] Employee created: \"Rahul Sharma 479576\" (019fd695-34e0-7754-b91a-1309295ecdcb)",
+      "timestamp": "2026-08-06T10:18:51.393Z"
     },
     {
       "status": "passed",
       "section": "SETTINGS - ASSIGN LEAVE BALANCE TO CURRENT-RUN EMPLOYEE",
-      "message": "[Verified] Leave balance assigned to current-run employee: \"Rahul Sharma 868750\"",
-      "timestamp": "2026-08-06T07:38:42.283Z"
+      "message": "[Verified] Leave balance assigned to current-run employee: \"Rahul Sharma 479576\"",
+      "timestamp": "2026-08-06T10:18:53.623Z"
     },
     {
       "status": "passed",
       "section": "ATTENDANCE ACTIONS",
       "message": "[Verified] Attendance location uses 10.5116834, 76.2164267",
-      "timestamp": "2026-08-06T07:38:57.923Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MASTER ACTIONS",
-      "message": "[Verified] Employee detail automation IDs available: overview, attendance, leaves, payroll, documents",
-      "timestamp": "2026-08-06T07:39:20.951Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MASTER ACTIONS",
-      "message": "[Verified] Employee document request added: \"Experience Certificate 868750\"",
-      "timestamp": "2026-08-06T07:39:24.509Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MASTER ACTIONS",
-      "message": "[Verified] Employee document changed to Submitted with an uploaded file",
-      "timestamp": "2026-08-06T07:39:27.078Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MASTER ACTIONS",
-      "message": "[Verified] Employee document download opened",
-      "timestamp": "2026-08-06T07:39:27.702Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MASTER ACTIONS",
-      "message": "[Verified] Employee document delete accepted; audit-history rows may remain visible",
-      "timestamp": "2026-08-06T07:39:28.536Z"
-    },
-    {
-      "status": "passed",
-      "section": "ORGANIZATION /headcount",
-      "message": "[Verified] Headcount allocation created",
-      "timestamp": "2026-08-06T07:39:38.243Z"
-    },
-    {
-      "status": "passed",
-      "section": "GLOBAL SETTINGS - ADD THRISSUR1 LOCATION",
-      "message": "[Verified] Thrissur1 location created with 10.5116834, 76.2164267",
-      "timestamp": "2026-08-06T07:39:41.184Z"
-    },
-    {
-      "status": "passed",
-      "section": "FINAL 1. RECRUITMENT - CREATE 5 IT REQUISITIONS",
-      "message": "[Verified] Requisition 1 saved and visible: \"Principal Cloud Architect 868750\"",
-      "timestamp": "2026-08-06T07:39:48.621Z"
-    },
-    {
-      "status": "passed",
-      "section": "15. RECRUITMENT - CREATE 5 IT CANDIDATES",
-      "message": "[Verified] Candidate 1 saved and visible: \"Sneha Kulkarni 868750\"",
-      "timestamp": "2026-08-06T07:39:55.478Z"
-    },
-    {
-      "status": "passed",
-      "section": "INTERVIEWS",
-      "message": "[Verified] Interview scheduled and updated",
-      "timestamp": "2026-08-06T07:40:00.053Z"
-    },
-    {
-      "status": "passed",
-      "section": "OFFERS",
-      "message": "[Verified] Offer created, viewed, accepted, and converted",
-      "timestamp": "2026-08-06T07:40:02.743Z"
-    },
-    {
-      "status": "passed",
-      "section": "CAREERS ADMIN",
-      "message": "[Verified] Careers role 019fd603-9bd4-7564-807a-6e314b802b9a unpublished (200 OK)",
-      "timestamp": "2026-08-06T07:40:03.131Z"
-    },
-    {
-      "status": "passed",
-      "section": "SEPARATION - REJECT, CANCEL AND APPROVE",
-      "message": "[Verified] Separation request Approved",
-      "timestamp": "2026-08-06T07:40:06.709Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MANAGE LOGIN",
-      "message": "[Verified] Employee login managed",
-      "timestamp": "2026-08-06T07:40:08.821Z"
-    },
-    {
-      "status": "passed",
-      "section": "EMPLOYEE MASTER - EDIT CURRENT-RUN EMPLOYEE PROFILE",
-      "message": "[Verified] Employee profile edited: \"Rahul Sharma 868750\"",
-      "timestamp": "2026-08-06T07:40:10.132Z"
+      "timestamp": "2026-08-06T10:19:09.143Z"
     },
     {
       "status": "failed",
-      "section": "EMPLOYEE LOGIN - OPEN FRESH PAGE AND VERIFY SELF-SERVICE",
-      "message": "locator.waitFor: Target page, context or browser has been closed\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"hr-ess-page\"]') to be visible\u001b[22m\n",
-      "timestamp": "2026-08-06T07:40:56.467Z"
+      "section": "PAYROLL COMPONENTS",
+      "message": "[Skip Error] Payroll component modal did not close after save (backend error); force-closing",
+      "timestamp": "2026-08-06T10:19:26.537Z"
+    },
+    {
+      "status": "failed",
+      "section": "PAYROLL COMPONENTS",
+      "message": "[Skip Error] Payroll component modal did not close after save (backend error); force-closing",
+      "timestamp": "2026-08-06T10:20:08.842Z"
+    },
+    {
+      "status": "failed",
+      "section": "PAYROLL COMPONENTS",
+      "message": "locator.click: Target page, context or browser has been closed\nCall log:\n\u001b[2m  - waiting for locator('#hr-payroll-component-new, [data-testid=\"hr-payroll-component-new\"], button:has-text(\"Add Component\"), button:has-text(\"New Component\")').first()\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn btn-primary\" id=\"hr-payroll-component-new\" data-testid=\"hr-payroll-component-new\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <vite-error-overlay></vite-error-overlay> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <vite-error-overlay></vite-error-overlay> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    26 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <vite-error-overlay></vite-error-overlay> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+      "timestamp": "2026-08-06T10:20:53.434Z"
     }
   ]
 }

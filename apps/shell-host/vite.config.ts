@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    base: "/",
+    base: "/shell/",
     plugins: [
       react(),
       federation({
