@@ -100,6 +100,36 @@ export function usePaymentsInSearchSchema(enabled = true) {
   return { schema, loading, error, refresh: load };
 }
 
+export function useInvoiceSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.invoices.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load invoice search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
 export function usePaymentsOutSearchSchema(enabled = true) {
   const [schema, setSchema] = useState<SearchSchema | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -189,3 +219,157 @@ export function useCustomersSearchSchema(enabled = true) {
 
   return { schema, loading, error, refresh: load };
 }
+
+export function useVendorsSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.vendors.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load vendor search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
+export function useDiscountsSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.discounts.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load discount search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
+export function useCouponsSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.coupons.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load coupon search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
+export function useItemsSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.items.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load item search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
+export function useAuditLogsSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.activity.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load audit logs search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
+
+
+
