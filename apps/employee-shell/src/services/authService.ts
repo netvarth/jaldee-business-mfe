@@ -2,18 +2,10 @@ import { apiClient, initApiClient, setApiClientAuthHandlers, setApiClientContext
 import type { LoginRequest, SessionResponse, AppUser, AppWorkspace } from "../types";
 
 const audience = "employee";
-const authMode: "session" | "token" = "token";
-const testTenantUid = "532eae3c-67b9-43a0-98d1-26c0873c737e";
+const authMode = "token" as const;
 const storageKey = `jaldee-${audience}-session`;
 const refreshStorageKey = `jaldee-${audience}-refresh-session`;
-const credentialsKey = `jaldee-${audience}-credentials`;
-const mUniqueIdKey = "mUniqueId";
-const sessionEncryptionKeyB64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xNDA2MjM=";
-const sessionEncryptionIvB64 = "RW5jRGVjSmFsZGVlMDYyMw==";
-const tokenEncryptionKeyB64 = "amFsZGVlRW5jcnlwdGlvbkRlY3J5cHRpb24xMTA1MjY=";
-const tokenEncryptionIvB64 = "H/x9FjXoH0ZfXHMK";
-const gcmIvLengthBytes = 12;
-const gcmTagLengthBits = 128;
+const accountSlugKey = `jaldee-${audience}-account-slug`;
 
 const TOKEN_AUTH_ENDPOINTS = {
   passwordLogin: "/auth-service/v1/api/auth/login/password",
@@ -56,10 +48,6 @@ function getAccessTokenStorage() {
   return window.sessionStorage;
 }
 
-function getStoredMUniqueId(): string {
-  return getStorage()?.getItem(mUniqueIdKey) ?? "";
-}
-
 function readStoredSession(): StoredSession | null {
   const accessStorage = getAccessTokenStorage();
   const persistentStorage = getStorage();
@@ -95,33 +83,16 @@ function clearStoredSession() {
   getStorage()?.removeItem(refreshStorageKey);
 }
 
-function readStoredCredentials(): LoginRequest | null {
-  const raw = getStorage()?.getItem(credentialsKey);
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as LoginRequest;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredCredentials(payload: LoginRequest) {
-  if (authMode === "session") {
-    getStorage()?.setItem(credentialsKey, JSON.stringify({
-      loginId: payload.loginId,
-      password: payload.password,
-      mUniqueId: payload.mUniqueId ?? getStoredMUniqueId(),
-    }));
-  }
-}
-
-function clearStoredCredentials() {
-  getStorage()?.removeItem(credentialsKey);
+function getStoredAccountSlug() {
+  return getStorage()?.getItem(accountSlugKey) ?? "";
 }
 
 function getConfiguredAuthServiceBaseUrl() {
   return import.meta.env.VITE_AUTH_SERVICE_BASE_URL?.trim().replace(/\/$/, "") || "";
+}
+
+function getConfiguredBaseServiceBaseUrl() {
+  return import.meta.env.VITE_BASE_SERVICE_BASE_URL?.trim().replace(/\/$/, "") || "";
 }
 
 function getServiceGatewayPrefix() {
@@ -142,144 +113,14 @@ function buildAuthServiceUrl(path: string) {
     : combinedPath;
 }
 
-function decodeBase64Utf8(value: string): Uint8Array {
-  const decoded = atob(value);
-  return Uint8Array.from(decoded, (char) => char.charCodeAt(0));
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
-
-function decodeBase64Bytes(value: string): Uint8Array {
-  const trimmed = value.trim();
-  const normalized = trimmed.startsWith("\"") && trimmed.endsWith("\"") ? JSON.parse(trimmed) as string : trimmed;
-  const decoded = atob(normalized);
-  return Uint8Array.from(decoded, (char) => char.charCodeAt(0));
-}
-
-function concatBytes(first: Uint8Array, second: Uint8Array): Uint8Array {
-  const result = new Uint8Array(first.length + second.length);
-  result.set(first, 0);
-  result.set(second, first.length);
-  return result;
-}
-
-function xorIv(nonce: Uint8Array, ivKey: Uint8Array): Uint8Array {
-  const iv = new Uint8Array(gcmIvLengthBytes);
-  for (let i = 0; i < gcmIvLengthBytes; i += 1) {
-    iv[i] = nonce[i] ^ ivKey[i];
-  }
-  return iv;
-}
-
-async function importAesGcmTokenKey(): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    decodeBase64Utf8(import.meta.env.VITE_AES_SECRET_KEY_BASE64 || tokenEncryptionKeyB64),
-    { name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"],
-  );
-}
-
-function getTokenIvKeyBytes(): Uint8Array {
-  return decodeBase64Utf8(import.meta.env.VITE_AES_IV_KEY_BASE64 || tokenEncryptionIvB64);
-}
-
-async function encryptUsingAES256(payload: LoginRequest): Promise<string> {
-  const encodedPayload = new TextEncoder().encode(JSON.stringify({
-    loginId: payload.loginId,
-    password: payload.password,
-    mUniqueId: (payload.mUniqueId ?? getStoredMUniqueId()) || undefined,
-    multiFactorAuthenticationLogin: payload.multiFactorAuthenticationLogin,
-    otp: payload.otp,
-  }));
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    decodeBase64Utf8(sessionEncryptionKeyB64),
-    { name: "AES-CBC" },
-    false,
-    ["encrypt"],
-  );
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-CBC", iv: decodeBase64Utf8(sessionEncryptionIvB64) },
-    cryptoKey,
-    encodedPayload,
-  );
-  return encodeBase64(new Uint8Array(encrypted));
-}
-
-async function decryptUsingAES256(encryptedText: string): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    decodeBase64Utf8(sessionEncryptionKeyB64),
-    { name: "AES-CBC" },
-    false,
-    ["decrypt"],
-  );
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-CBC", iv: decodeBase64Utf8(sessionEncryptionIvB64) },
-    cryptoKey,
-    decodeBase64Bytes(encryptedText),
-  );
-  return new TextDecoder().decode(decrypted);
-}
-
-async function encryptTokenLogin(payload: LoginRequest): Promise<string> {
-  const aesKey = await importAesGcmTokenKey();
-  const ivKey = getTokenIvKeyBytes();
-  const nonce = crypto.getRandomValues(new Uint8Array(gcmIvLengthBytes));
-  const iv = xorIv(nonce, ivKey);
-  const plainText = JSON.stringify({
-    userType: "TENANT_USER",
-    identifierType: "LOGIN_ID",
-    identifier: payload.loginId,
-    password: payload.password,
-  });
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv,
-      tagLength: gcmTagLengthBits,
-    },
-    aesKey,
-    new TextEncoder().encode(plainText),
-  );
-  return encodeBase64(concatBytes(nonce, new Uint8Array(encryptedBuffer)));
-}
-
-function buildTokenLoginRequest(payload: LoginRequest) {
+function buildTokenLoginRequest(payload: LoginRequest, tenantUid: string) {
   return {
-    tenantUid: testTenantUid,
+    tenantUid,
     userType: "TENANT_EMPLOYEE",
     identifierType: "EMPLOYEE_ID",
     identifier: payload.loginId,
     password: payload.password,
   };
-}
-
-async function decryptTokenLoginResponse(encryptedText: string): Promise<string> {
-  const aesKey = await importAesGcmTokenKey();
-  const ivKey = getTokenIvKeyBytes();
-  const payload = decodeBase64Bytes(encryptedText);
-  const nonce = payload.slice(0, gcmIvLengthBytes);
-  const encryptedBytes = payload.slice(gcmIvLengthBytes);
-  const iv = xorIv(nonce, ivKey);
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv,
-      tagLength: gcmTagLengthBits,
-    },
-    aesKey,
-    encryptedBytes,
-  );
-  return new TextDecoder().decode(decryptedBuffer);
 }
 
 function normalizeUser(raw: Record<string, unknown>): AppUser {
@@ -345,29 +186,17 @@ async function establishTokenSession(tokens: TokenLoginResponse): Promise<Sessio
 }
 
 async function login(payload: LoginRequest): Promise<SessionResponse> {
-  writeStoredCredentials(payload);
-  if (authMode === "token") {
-    const response = await apiClient.post<TokenLoginResponse>(
-      buildAuthServiceUrl(authPath("login")),
-      buildTokenLoginRequest(payload),
-      {
+  const tenantUid = await resolveTenantUid(payload.accountSlug);
+  const response = await apiClient.post<TokenLoginResponse>(
+    buildAuthServiceUrl(authPath("login")),
+    buildTokenLoginRequest(payload, tenantUid),
+    {
       _skipAuthRefresh: true,
-      } as unknown,
-    );
-    return establishTokenSession(response.data);
-  }
-
-  const encryptedInput = await encryptUsingAES256(payload);
-  const response = await apiClient.post<string>("/provider/login/encrypt", encryptedInput, {
-    headers: {
-      "Content-Type": "text/plain",
-    },
-    transformRequest: [(data) => data],
-    transformResponse: [(data) => data],
-    _skipAuthRefresh: true,
-    _skipCsrf: true,
-  } as unknown);
-  return normalizeSession(JSON.parse(await decryptUsingAES256(response.data)));
+    } as unknown,
+  );
+  const session = await establishTokenSession(response.data);
+  getStorage()?.setItem(accountSlugKey, payload.accountSlug.trim());
+  return session;
 }
 
 async function checkSession(): Promise<SessionResponse> {
@@ -375,7 +204,7 @@ async function checkSession(): Promise<SessionResponse> {
   if (!stored?.token && stored?.refreshToken) {
     return refreshSession();
   }
-  if (authMode === "token" && stored?.token) {
+  if (stored?.token) {
     setApiClientContext({ authMode: "token", authToken: stored.token });
   }
 
@@ -384,33 +213,24 @@ async function checkSession(): Promise<SessionResponse> {
 }
 
 async function refreshSession(): Promise<SessionResponse> {
-  if (authMode === "token") {
-    const stored = readStoredSession();
-    if (!stored?.refreshToken) {
-      throw new Error("No refresh token available.");
-    }
+  const stored = readStoredSession();
+  if (!stored?.refreshToken) {
+    throw new Error("No refresh token available.");
+  }
 
-    const response = await apiClient.post<{ accessToken?: string; refreshToken?: string }>(
-      buildAuthServiceUrl(authPath("refresh")),
-      { refreshToken: stored.refreshToken },
-      { _skipAuthRefresh: true } as unknown,
-    );
+  const response = await apiClient.post<{ accessToken?: string; refreshToken?: string }>(
+    buildAuthServiceUrl(authPath("refresh")),
+    { refreshToken: stored.refreshToken },
+    { _skipAuthRefresh: true } as unknown,
+  );
 
-    const nextSession = {
-      token: response.data.accessToken || stored.token,
-      refreshToken: response.data.refreshToken || stored.refreshToken,
-    };
-    writeStoredSession(nextSession);
-    setApiClientContext({ authMode: "token", authToken: nextSession.token ?? "" });
+  const nextSession = {
+    token: response.data.accessToken || stored.token,
+    refreshToken: response.data.refreshToken || stored.refreshToken,
+  };
+  writeStoredSession(nextSession);
+  setApiClientContext({ authMode: "token", authToken: nextSession.token ?? "" });
   return checkSession();
-  }
-
-  const credentials = readStoredCredentials();
-  if (!credentials) {
-    throw new Error("No stored credentials available.");
-  }
-
-  return login(credentials);
 }
 
 async function logout(): Promise<void> {
@@ -425,7 +245,6 @@ async function logout(): Promise<void> {
     // Ignore logout transport failures and clear client session anyway.
   } finally {
     clearStoredSession();
-    clearStoredCredentials();
   }
 }
 
@@ -438,7 +257,6 @@ export function configureApiClient(onSessionExpired: () => void) {
     refreshSession,
     onSessionExpired: () => {
       clearStoredSession();
-      clearStoredCredentials();
       onSessionExpired();
     },
   });
@@ -453,6 +271,45 @@ export function hasStoredAuthSession() {
   return Boolean(stored?.token || stored?.refreshToken);
 }
 
+function buildBaseServiceUrl(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const configuredBase = getConfiguredBaseServiceBaseUrl() || getServiceGatewayPrefix();
+  if (!configuredBase) {
+    return typeof window !== "undefined" ? `${window.location.origin}${normalizedPath}` : normalizedPath;
+  }
+  const combinedPath = `${configuredBase}${normalizedPath}`;
+  return typeof window !== "undefined" && configuredBase.startsWith("/")
+    ? new URL(combinedPath, window.location.origin).toString()
+    : combinedPath;
+}
+
+const tenantUidBySlug = new Map<string, Promise<string>>();
+
+async function resolveTenantUid(accountSlug: string): Promise<string> {
+  const slug = accountSlug.trim();
+  if (!slug) throw new Error("An employee account is required.");
+  const cached = tenantUidBySlug.get(slug);
+  if (cached) return cached;
+
+  const request = apiClient.get<unknown>(
+    buildBaseServiceUrl(`/base-service/v1/api/tenant/public/custom-id/${encodeURIComponent(slug)}`),
+    { _skipAuthRefresh: true } as unknown,
+  ).then((response) => {
+    const candidate = typeof response.data === "object" && response.data !== null
+      ? response.data as Record<string, unknown>
+      : {};
+    const tenantUid = String(candidate.uid ?? "").trim();
+    if (!tenantUid) throw new Error("The employee account could not be resolved.");
+    return tenantUid;
+  }).catch((error) => {
+    tenantUidBySlug.delete(slug);
+    throw error;
+  });
+
+  tenantUidBySlug.set(slug, request);
+  return request;
+}
+
 export const employeeAuthService = {
   authMode,
   login,
@@ -461,4 +318,5 @@ export const employeeAuthService = {
   logout,
   configureApiClient,
   hasStoredAuthSession,
+  getStoredAccountSlug,
 };

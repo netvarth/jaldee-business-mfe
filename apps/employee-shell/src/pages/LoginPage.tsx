@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { employeeAuthService } from "../services/authService";
 
 export default function LoginPage() {
+  const accountFromUrl = new URLSearchParams(window.location.search).get("account")?.trim() || "";
+  const [accountSlug, setAccountSlug] = useState(() =>
+    accountFromUrl || employeeAuthService.getStoredAccountSlug()
+  );
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -17,6 +22,7 @@ export default function LoginPage() {
 
   async function attemptLogin() {
     const response = await login({
+      accountSlug: accountSlug.trim(),
       loginId: loginId.trim(),
       password,
       multiFactorAuthenticationLogin: requiresMfa,
@@ -31,7 +37,7 @@ export default function LoginPage() {
       return;
     }
 
-    navigate((location.state as { from?: string } | null)?.from || "/hr", { replace: true });
+    navigate((location.state as { from?: string } | null)?.from || "/me", { replace: true });
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -116,6 +122,21 @@ export default function LoginPage() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             {!requiresMfa ? (
               <>
+                {!accountFromUrl && (
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Company ID</span>
+                    <input
+                      id="ess-company-id"
+                      data-testid="ess-company-id"
+                      value={accountSlug}
+                      onChange={(event) => setAccountSlug(event.target.value)}
+                      required
+                      autoComplete="organization"
+                      className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#2f6b55] focus:ring-2 focus:ring-[#dce86c]/40"
+                      placeholder="Enter company ID"
+                    />
+                  </label>
+                )}
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Login ID</span>
                   <input

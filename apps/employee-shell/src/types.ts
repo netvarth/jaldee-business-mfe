@@ -25,6 +25,7 @@ export interface SessionResponse {
 }
 
 export interface LoginRequest {
+  accountSlug: string;
   loginId: string;
   password: string;
   mUniqueId?: string;

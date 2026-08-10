@@ -28,7 +28,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/me" replace /> : <LoginPage />} />
       <Route path="/" element={<Navigate to={isAuthenticated ? "/me" : "/login"} replace />} />
       <Route path="/attendance/*" element={<Navigate to="/me/attendance" replace />} />
       <Route path="/leave/*" element={<Navigate to="/me/leave" replace />} />
@@ -41,16 +41,7 @@ function AppRoutes() {
       <Route path="/reports/*" element={<Navigate to="/" replace />} />
       <Route path="/settings/*" element={<Navigate to="/" replace />} />
       <Route path="/hr" element={<Navigate to="/me" replace />} />
-      <Route path="/hr/attendance/*" element={<Navigate to="/me/attendance" replace />} />
-      <Route path="/hr/leave/*" element={<Navigate to="/me/leave" replace />} />
-      <Route path="/hr/announcements/*" element={<Navigate to="/me" replace />} />
-      <Route path="/hr/payroll/*" element={<Navigate to="/me/payslips" replace />} />
-      <Route path="/hr/expenses/*" element={<Navigate to="/me" replace />} />
-      <Route path="/hr/tickets/*" element={<Navigate to="/me" replace />} />
-      <Route path="/hr/employees/*" element={<Navigate to="/" replace />} />
-      <Route path="/hr/recruitment/*" element={<Navigate to="/" replace />} />
-      <Route path="/hr/reports/*" element={<Navigate to="/" replace />} />
-      <Route path="/hr/settings/*" element={<Navigate to="/" replace />} />
+      <Route path="/hr/*" element={<Navigate to="/me" replace />} />
       <Route
         path="/*"
         element={(
@@ -61,7 +52,7 @@ function AppRoutes() {
           </ProtectedRoute>
         )}
       />
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/me" : "/login"} replace />} />
     </Routes>
   );
 }
