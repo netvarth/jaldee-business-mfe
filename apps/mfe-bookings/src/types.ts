@@ -106,7 +106,7 @@ export interface ScheduleServiceCustomization {
   serviceUid: string;
   serviceName?: string;
   addUsers: ScheduleServiceUserCustomization[];
-  removeUsers: Array<Pick<ScheduleServiceUserCustomization, "userUid">>;
+  removeUsers?: Array<Pick<ScheduleServiceUserCustomization, "userUid">>;
 }
 
 export interface CalendarCustomizationRequest {
@@ -124,6 +124,7 @@ export interface ScheduleCustomizationRequest {
   addServices: ScheduleServiceCustomization[];
   removeServices: Array<{
     serviceUid: string;
+    removeUsers?: Array<Pick<ScheduleServiceUserCustomization, "userUid">>;
   }>;
   addBookingChannels: string[];
   removeBookingChannels: string[];
@@ -140,7 +141,7 @@ export interface TimeWindowServiceCustomization {
   serviceUid: string;
   serviceName?: string;
   addUsers: TimeWindowServiceUserCustomization[];
-  removeUsers: Array<Pick<TimeWindowServiceUserCustomization, "userUid">>;
+  removeUsers?: Array<Pick<TimeWindowServiceUserCustomization, "userUid">>;
 }
 
 export interface TimeWindowCustomizationRequest {
@@ -148,6 +149,7 @@ export interface TimeWindowCustomizationRequest {
   addServices: TimeWindowServiceCustomization[];
   removeServices: Array<{
     serviceUid: string;
+    removeUsers?: Array<Pick<TimeWindowServiceUserCustomization, "userUid">>;
   }>;
   addBookingChannels: string[];
   removeBookingChannels: string[];

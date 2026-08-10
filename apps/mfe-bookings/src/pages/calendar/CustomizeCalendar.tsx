@@ -392,7 +392,7 @@ export default function CustomizeCalendar() {
     const labelDiff = diffList(tags, initialTags);
     const serviceDiff = diffList(selectedServiceIds, initialServiceIds);
 
-    const addServices = serviceDiff.add.map((serviceUid) => ({
+    const addServices: ScheduleCustomizationRequest["addServices"] = serviceDiff.add.map((serviceUid) => ({
       serviceUid,
       serviceName: serviceMap.get(serviceUid) ?? serviceUid,
       addUsers: (serviceAssignments[serviceUid] ?? []).map((item) => ({
@@ -402,7 +402,7 @@ export default function CustomizeCalendar() {
       removeUsers: [],
     }));
 
-    const removeServices = serviceDiff.remove.map((serviceUid) => ({ serviceUid }));
+    const removeServices: ScheduleCustomizationRequest["removeServices"] = serviceDiff.remove.map((serviceUid) => ({ serviceUid }));
 
     for (const serviceUid of selectedServiceIds.filter((id) => initialServiceIds.includes(id))) {
       const currentUsers = serviceAssignments[serviceUid] ?? [];
@@ -422,11 +422,17 @@ export default function CustomizeCalendar() {
         .filter((item) => !currentMap.has(item.userUid))
         .map((item) => ({ userUid: item.userUid }));
 
-      if (addedUsers.length || removedUsers.length) {
+      if (addedUsers.length > 0) {
         addServices.push({
           serviceUid,
           serviceName: serviceMap.get(serviceUid) ?? serviceUid,
           addUsers: addedUsers,
+        });
+      }
+
+      if (removedUsers.length > 0) {
+        removeServices.push({
+          serviceUid,
           removeUsers: removedUsers,
         });
       }

@@ -3,8 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader, Input, Select, Button, Badge } from "@jaldee/design-system";
 import { useQrLinks, type QrLink } from "../../services/useQrLinks";
 import { useCalendars } from "../../services/useCalendars";
+import { useServices } from "../../services/useServices";
+import { useUsers } from "../../services/useUsers";
 import { useToast } from "../../contexts/ToastContext";
 import type { Schedule, TimeWindow } from "../../types";
+import DualListUsersModal from "../calendar/components/DualListUsersModal";
 
 const QR_TYPE_OPTIONS = [
   { value: "CALENDAR", label: "Calendar" },
@@ -17,7 +20,9 @@ export default function CreateQrLinkPage() {
   const navigate = useNavigate();
   const isEditing = !!uid;
   const { getById, create, update } = useQrLinks();
-  const { calendars, searchSchedules } = useCalendars();
+  const { calendars, searchSchedules, getCalendar, getSchedule, getTimeWindowDetails } = useCalendars();
+  const { services: allServices } = useServices();
+  const { users: allUsers } = useUsers();
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(isEditing);
@@ -37,6 +42,9 @@ export default function CreateQrLinkPage() {
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
+  
+  const [customServices, setCustomServices] = useState<any[]>([]);
+  const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isEditing && uid) {
@@ -95,36 +103,129 @@ export default function CreateQrLinkPage() {
   }, [schedules, form.scheduleUid]);
 
   useEffect(() => {
-    if (!form.calendarUid && calendarOptions.length > 0) {
-      setForm(prev => ({ ...prev, calendarUid: calendarOptions[0].value }));
+    if (calendarOptions.length > 0) {
+      if (!form.calendarUid || !calendarOptions.some(opt => opt.value === form.calendarUid)) {
+        setForm(prev => ({ ...prev, calendarUid: calendarOptions[0].value }));
+      }
+    } else if (form.calendarUid) {
+      setForm(prev => ({ ...prev, calendarUid: "" }));
     }
   }, [form.calendarUid, calendarOptions]);
 
   useEffect(() => {
-    if (!form.scheduleUid && scheduleOptions.length > 0) {
-      setForm(prev => ({ ...prev, scheduleUid: scheduleOptions[0].value }));
+    if (scheduleOptions.length > 0) {
+      if (!form.scheduleUid || !scheduleOptions.some(opt => opt.value === form.scheduleUid)) {
+        setForm(prev => ({ ...prev, scheduleUid: scheduleOptions[0].value }));
+      }
+    } else if (form.scheduleUid) {
+      setForm(prev => ({ ...prev, scheduleUid: "" }));
     }
   }, [form.scheduleUid, scheduleOptions]);
 
   useEffect(() => {
-    if (!form.timeWindowUid && timeWindowOptions.length > 0) {
-      setForm(prev => ({ ...prev, timeWindowUid: timeWindowOptions[0].value }));
+    if (timeWindowOptions.length > 0) {
+      if (!form.timeWindowUid || !timeWindowOptions.some(opt => opt.value === form.timeWindowUid)) {
+        setForm(prev => ({ ...prev, timeWindowUid: timeWindowOptions[0].value }));
+      }
+    } else if (form.timeWindowUid) {
+      setForm(prev => ({ ...prev, timeWindowUid: "" }));
     }
   }, [form.timeWindowUid, timeWindowOptions]);
 
   // Extract services and users to populate the mapping table
-  const mappedServices = useMemo(() => {
-    let servicesToMap: any[] = [];
-    if (form.type === "TIMEWINDOW" && form.timeWindowUid) {
-      const activeSchedule = schedules.find(s => s.uid === form.scheduleUid);
-      const activeTw = activeSchedule?.timeWindows?.find((tw: TimeWindow) => tw.uid === form.timeWindowUid);
-      servicesToMap = activeTw?.services || [];
-    } else if (form.type === "SCHEDULE" && form.scheduleUid) {
-      const activeSchedule = schedules.find(s => s.uid === form.scheduleUid);
-      servicesToMap = activeSchedule?.services || [];
+  const [mappedServices, setMappedServices] = useState<any[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadMappedServices() {
+      try {
+        let calendarData: any = null;
+        let scheduleData: any = null;
+        let twData: any = null;
+
+        if (form.calendarUid) calendarData = await getCalendar(form.calendarUid).catch(() => null);
+        if (form.calendarUid && form.scheduleUid) scheduleData = await getSchedule(form.calendarUid, form.scheduleUid).catch(() => null);
+        if (form.timeWindowUid) twData = await getTimeWindowDetails(form.timeWindowUid).catch(() => null);
+
+        let rawServices: any[] = [];
+        if (form.type === "TIMEWINDOW") {
+          rawServices = twData?.services && twData.services.length > 0 
+            ? twData.services 
+            : (scheduleData?.services && scheduleData.services.length > 0 
+                ? scheduleData.services 
+                : calendarData?.services || []);
+        } else if (form.type === "SCHEDULE") {
+          rawServices = scheduleData?.services && scheduleData.services.length > 0 
+            ? scheduleData.services 
+            : calendarData?.services || [];
+        } else if (form.type === "CALENDAR") {
+          rawServices = calendarData?.services || [];
+        }
+
+        if (!active) return;
+
+        const calendarUserIds = Array.isArray(calendarData?.users) 
+           ? calendarData.users.map((u: any) => typeof u === 'string' ? u : (u.userUid || u.uid || u.id)).filter(Boolean)
+           : [];
+
+        const servicesToMap = rawServices.map((svc: any) => {
+          let serviceUid = "";
+          let serviceName = "";
+          if (typeof svc === "string") {
+            serviceUid = svc;
+            serviceName = allServices.find((s) => (s.uid ?? s.id) === svc)?.name || svc;
+          } else {
+            serviceUid = svc.serviceUid || svc.uid || svc.id;
+            serviceName = svc.serviceName || svc.name || allServices.find((s) => (s.uid ?? s.id) === serviceUid)?.name || serviceUid;
+          }
+
+          let usersArray: any[] = [];
+          if (typeof svc === "string" || !svc.users || svc.users.length === 0) {
+            // Inherit from calendarUsers if no specific users array is provided
+            usersArray = calendarUserIds.map((uId: string) => {
+              const matchedUser = allUsers.find(au => au.userUid === uId);
+              return {
+                 userUid: uId,
+                 userName: matchedUser?.userDisplayName || matchedUser?.displayName || matchedUser?.firstName || uId
+              };
+            });
+          } else {
+            usersArray = svc.users.map((u: any) => {
+              const uId = typeof u === "string" ? u : (u.userUid || u.uid || u.id);
+              const matchedUser = allUsers.find(au => au.userUid === uId);
+              const uName = typeof u === "string" ? null : (u.userName || u.name || u.displayName);
+              return { 
+                 userUid: uId, 
+                 userName: uName || matchedUser?.userDisplayName || matchedUser?.displayName || matchedUser?.firstName || uId
+              };
+            });
+          }
+
+          return { serviceUid, serviceName, users: usersArray };
+        });
+        
+        setMappedServices(servicesToMap);
+      } catch (e) {
+        console.error("Failed to load services for mapping", e);
+      }
     }
-    return servicesToMap;
-  }, [form.type, form.scheduleUid, form.timeWindowUid, schedules]);
+
+    loadMappedServices();
+    
+    return () => { active = false; };
+  }, [form.type, form.scheduleUid, form.timeWindowUid, form.calendarUid, getCalendar, getSchedule, getTimeWindowDetails, allServices, allUsers]);
+
+  useEffect(() => {
+    // Only reset customServices when mappedServices updates and we aren't initially loading an edit.
+    // If it's an edit, we might want to preserve the loaded state, but for simplicity we will just 
+    // keep them in sync until the user makes a change if needed, or we just load it directly.
+    setCustomServices(JSON.parse(JSON.stringify(mappedServices)));
+  }, [mappedServices]);
+
+  const handleDeleteService = (serviceUid: string) => {
+    setCustomServices(prev => prev.filter(s => s.serviceUid !== serviceUid));
+  };
 
   const activeCalendarName = calendars.find(c => c.uid === form.calendarUid)?.name;
 
@@ -145,6 +246,7 @@ export default function CreateQrLinkPage() {
         startDate: form.startDate || undefined,
         expiryDate: form.expiryDate || undefined,
         status: "Enabled",
+        service: customServices,
       };
       
       if (isEditing && uid) {
@@ -196,10 +298,10 @@ export default function CreateQrLinkPage() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-full">
-              <Input label="QR Link Name *" placeholder="e.g. Dr. Smith's Morning Shift Link" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <Input label="QR Link Name" placeholder="e.g. Dr. Smith's Morning Shift Link" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
 
-            <Input type="date" label="Start Date *" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required />
+            <Input type="date" label="Start Date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required />
             <Input type="date" label="Expiry Date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
             
             <Select label="Type" value={form.type} options={QR_TYPE_OPTIONS} onChange={(e) => setForm({ ...form, type: e.target.value, scheduleUid: "", timeWindowUid: "" })} />
@@ -214,7 +316,7 @@ export default function CreateQrLinkPage() {
             )}
           </div>
 
-          {(form.type === "SCHEDULE" || form.type === "TIMEWINDOW") && mappedServices.length > 0 && (
+          {customServices.length > 0 && (
             <div className="rounded-lg border border-slate-200 overflow-hidden mt-4">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold">
@@ -225,7 +327,7 @@ export default function CreateQrLinkPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {mappedServices.map((svc: any) => (
+                  {customServices.map((svc: any) => (
                     <tr key={svc.serviceUid}>
                       <td className="px-4 py-4 text-indigo-700 font-medium align-top">
                         {svc.serviceName || svc.serviceUid}
@@ -235,17 +337,45 @@ export default function CreateQrLinkPage() {
                           ? svc.users.map((u: any) => u.userName || u.userUid).join(", ")
                           : "Any"}
                       </td>
-                      <td className="px-4 py-4 text-right align-top">
-                        <button className="text-xs text-indigo-600 font-medium hover:underline mr-3">Edit</button>
-                        <button className="text-slate-400 hover:text-red-500">
-                           <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                      <td className="px-4 py-4 text-right align-top whitespace-nowrap">
+                        <button type="button" onClick={() => setUsersModalServiceId(svc.serviceUid)} className="text-xs text-indigo-600 font-medium hover:underline mr-3">Edit</button>
+                        {customServices.length > 1 && (
+                          <button type="button" onClick={() => handleDeleteService(svc.serviceUid)} className="text-slate-400 hover:text-red-500">
+                             <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+
+          {usersModalServiceId && (
+            <DualListUsersModal 
+              isOpen={true}
+              onClose={() => setUsersModalServiceId(null)}
+              serviceName={customServices.find(s => s.serviceUid === usersModalServiceId)?.serviceName || ''}
+              allUsers={
+                mappedServices.find(s => s.serviceUid === usersModalServiceId)?.users?.map((u: any) => ({ id: u.userUid, name: u.userName })) || []
+              }
+              initialSelectedUsers={
+                customServices.find(s => s.serviceUid === usersModalServiceId)?.users?.map((u: any) => ({ id: u.userUid, name: u.userName })) || []
+              }
+              onSave={(users) => {
+                setCustomServices(prev => prev.map(s => {
+                  if (s.serviceUid === usersModalServiceId) {
+                    return {
+                      ...s,
+                      users: users.map((u: any) => ({ userUid: u.id, userName: u.name }))
+                    };
+                  }
+                  return s;
+                }));
+                setUsersModalServiceId(null);
+              }}
+            />
           )}
 
           <div className="flex gap-4 pt-4 mt-2">

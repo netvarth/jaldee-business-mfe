@@ -79,7 +79,7 @@ function normalizeServiceSources(values: unknown[] | undefined): ServiceCustomiz
           .filter((item): item is NonNullable<typeof item> => Boolean(item)),
       };
     })
-    .filter((item): item is ServiceCustomizationSource => Boolean(item));
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
 function resolveUserName(
@@ -164,6 +164,64 @@ const avatarColors = [
   "bg-green-100 text-green-700",
   "bg-orange-100 text-orange-700",
 ];
+
+function format12Hour(time: string) {
+  if (!time) return "";
+  const parts = time.split(":");
+  if (parts.length < 2) return time;
+  let hour = parseInt(parts[0], 10);
+  const m = parts[1];
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour.toString().padStart(2, "0")}:${m} ${ampm}`;
+}
+
+const DAY_MAP: Record<number, string> = {
+  1: "M",
+  2: "T",
+  3: "W",
+  4: "T",
+  5: "F",
+  6: "S",
+  7: "S",
+};
+
+function formatTimeWindowDisplay(tw: { weekDays?: number[]; startTime: string; endTime: string }) {
+  if (!tw) return "Time Window";
+  const days = tw.weekDays
+    ?.slice()
+    .sort((a, b) => a - b)
+    .map(d => DAY_MAP[d] || "")
+    .filter(Boolean)
+    .join(",");
+  const timeString = `${format12Hour(tw.startTime)} - ${format12Hour(tw.endTime)}`;
+  return days ? `${days} (${timeString})` : timeString;
+}
+
+function DetailsHeader({
+  title,
+  onBack,
+  actions,
+}: {
+  title: string;
+  onBack: () => void;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <header className="sticky top-0 z-30 flex items-center bg-white px-4 md:px-8 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border-b border-slate-200">
+        <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 border-0 bg-transparent p-0 text-[17px] font-bold text-slate-900 transition-colors hover:text-[#5B2D8E]"
+            aria-label="Go back"
+        >
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+            {title}
+        </button>
+        {actions && <div className="ml-3">{actions}</div>}
+    </header>
+  );
+}
 
 export default function CustomizeTimeWindow() {
   const { calendarUid, scheduleUid, timeWindowUid } = useParams<{
@@ -349,7 +407,7 @@ export default function CustomizeTimeWindow() {
     const labelDiff = diffList(tags, initialTags);
     const serviceDiff = diffList(selectedServiceIds, initialServiceIds);
 
-    const addServices = serviceDiff.add.map((serviceUid) => ({
+    const addServices: TimeWindowCustomizationRequest["addServices"] = serviceDiff.add.map((serviceUid) => ({
       serviceUid,
       serviceName: serviceMap.get(serviceUid)?.name ?? serviceUid,
       addUsers: (serviceAssignments[serviceUid] ?? []).map((item) => ({
@@ -362,7 +420,7 @@ export default function CustomizeTimeWindow() {
       removeUsers: [],
     }));
 
-    const removeServices = serviceDiff.remove.map((serviceUid) => ({ serviceUid }));
+    const removeServices: TimeWindowCustomizationRequest["removeServices"] = serviceDiff.remove.map((serviceUid) => ({ serviceUid }));
 
     for (const serviceUid of selectedServiceIds.filter((id) => initialServiceIds.includes(id))) {
       const currentUsers = serviceAssignments[serviceUid] ?? [];
@@ -400,11 +458,17 @@ export default function CustomizeTimeWindow() {
           slotCapacity: item.capacity ?? 1,
         }));
 
-      if (addedUsers.length || removedUsers.length || changedUsers.length) {
+      if (addedUsers.length > 0 || changedUsers.length > 0) {
         addServices.push({
           serviceUid,
           serviceName: serviceMap.get(serviceUid)?.name ?? serviceUid,
           addUsers: [...addedUsers, ...changedUsers],
+        });
+      }
+
+      if (removedUsers.length > 0) {
+        removeServices.push({
+          serviceUid,
           removeUsers: removedUsers,
         });
       }
@@ -436,59 +500,52 @@ export default function CustomizeTimeWindow() {
   };
 
   return (
-    <main className="h-full overflow-y-auto bg-[#f6f7fb]">
-      <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
-        <PageHeader
-          title="Customize Time Window"
-          subtitle="Configure booking channels, labels, services, and provider pricing/capacity for this time window."
-          back={{ label: "Back to calendar", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
-          onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
-          actions={calendar?.name ? <Badge variant="primary">{calendar.name}</Badge> : undefined}
-        />
+    <main className="flex flex-col h-full overflow-y-auto bg-[#f6f7fb]">
+      <DetailsHeader
+        title="Customize"
+        onBack={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
+        actions={calendar?.name ? <Badge variant="primary" className="!text-[11px] !px-2 !py-0.5">{calendar.name}</Badge> : undefined}
+      />
+      <div className="mx-auto w-full max-w-7xl p-4 md:p-6 flex-1">
 
-        <section className="mt-8 rounded-xl border border-[#E8EAF3] bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)] md:p-8">
+        <div className="rounded-xl border border-[#E8EAF3] bg-white shadow-[0_12px_32px_rgba(15,23,42,0.06)] p-6 md:p-8 pb-10">
           {!calendarUid || !scheduleUid || !timeWindowUid ? (
             <Alert variant="danger">Open this screen from a time window to save settings.</Alert>
           ) : loading ? (
             <div className="text-sm text-slate-500">Loading time window...</div>
           ) : (
             <>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 md:text-[30px]">
-                    {timeWindow ? `${timeWindow.startTime} - ${timeWindow.endTime}` : "Customize Time Window"}
-                  </h1>
-                  <p className="mt-2 text-[15px] text-slate-500">
-                    Applicable only to this selected time window, unless you choose to apply globally.
-                  </p>
-                </div>
-                {timeWindow?.status ? <Badge variant="success">{timeWindow.status}</Badge> : null}
+              <div className="mb-6">
+                <h1 className="text-[17px] font-bold text-slate-900">
+                  {timeWindow ? formatTimeWindowDisplay(timeWindow) : "Customize Your Timewindow"}
+                </h1>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Applicable to selected schedule and timewindow in this calendar
+                </p>
               </div>
 
-              <div className="mt-7 flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-8">
                 <div>
-                  <div className="mb-1.5 text-sm font-medium text-slate-500">Schedule</div>
-                  <div className="inline-flex h-9 items-center rounded-full border border-[#7c3aed] bg-[#f5f3ff] px-4 text-sm font-semibold text-[#7c3aed]">
+                  <div className="mb-1 text-xs font-medium text-slate-500">Schedule</div>
+                  <div className="inline-flex items-center rounded-full border border-purple-200 bg-white px-3 py-0.5 text-[11px] font-medium text-purple-700">
                     {schedule?.name || "Schedule"}
                   </div>
                 </div>
                 <div>
-                  <div className="mb-1.5 text-sm font-medium text-slate-500">Time Window</div>
-                  <div className="inline-flex h-9 items-center rounded-full border border-[#7c3aed] bg-[#f5f3ff] px-4 text-sm font-semibold text-[#7c3aed]">
-                    {timeWindow
-                      ? `${timeWindow.startTime} - ${timeWindow.endTime}`
-                      : "Time Window"}
+                  <div className="mb-1 text-xs font-medium text-slate-500">Time Window</div>
+                  <div className="inline-flex items-center rounded-full border border-purple-200 bg-white px-3 py-0.5 text-[11px] font-medium text-purple-700">
+                    {timeWindow ? formatTimeWindowDisplay(timeWindow) : "Time Window"}
                   </div>
                 </div>
               </div>
 
-              <section className="mt-10">
-                <h2 className="text-[22px] font-semibold text-slate-900">Booking Channel Setup</h2>
-                <p className="mt-2 text-sm text-slate-500">
+              <section className="mt-10 border-b border-slate-50 pb-6">
+                <h2 className="text-[15px] font-bold text-[#1f2937]">Booking Channel Setup</h2>
+                <p className="mt-1 text-xs text-slate-400">
                   Configure which channels customers can use to book appointments for this time window.
                 </p>
 
-                <div className="mt-5 space-y-5">
+                <div className="mt-5 space-y-4">
                   {channels.filter((channel) => {
                     const scheduleChannels = unique(normalizeList(schedule?.bookingChannels as unknown[]));
                     const calendarChannels = unique(normalizeList(calendar?.bookingChannels as unknown[]));
@@ -500,7 +557,7 @@ export default function CustomizeTimeWindow() {
                     return (
                       <label
                         key={channel.value}
-                        className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8EAF3] bg-white p-4 transition hover:border-[#d8ccff] hover:bg-[#faf7ff]"
+                        className="flex cursor-pointer items-start gap-2 py-1"
                       >
                         <Checkbox
                           id={`tw-channel-${channel.value.toLowerCase()}`}
@@ -513,9 +570,9 @@ export default function CustomizeTimeWindow() {
                             )
                           }
                           label={
-                            <div className="flex flex-col">
-                              <span className="text-base font-semibold text-slate-900">{channel.title}</span>
-                              <span className="mt-1 text-sm text-slate-500">{channel.description}</span>
+                            <div className="flex flex-col mt-[-2px]">
+                              <span className="text-[13px] font-bold text-slate-900 leading-tight">{channel.title}</span>
+                              <span className="text-[11px] text-slate-400 leading-tight mt-0.5">{channel.description}</span>
                             </div>
                           }
                           controlClassName="items-start"
@@ -526,9 +583,9 @@ export default function CustomizeTimeWindow() {
                 </div>
               </section>
 
-              <section className="mt-10">
-                <h2 className="text-[22px] font-semibold text-slate-900">Label</h2>
-                <p className="mt-2 text-sm text-slate-500">
+              <section className="mt-8 border-b border-slate-50 pb-6">
+                <h2 className="text-[15px] font-bold text-[#1f2937]">Label</h2>
+                <p className="mt-1 text-xs text-slate-400">
                   Label helps you tag a booking to a specified group. Examples: VIP, Family, etc.
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -536,24 +593,25 @@ export default function CustomizeTimeWindow() {
                     const labelObj = availableLabels.find(l => l.id === tagId || l.name === tagId);
                     const displayName = labelObj ? labelObj.name : tagId;
                     return (
-                    <span
-                      key={tagId}
-                      data-testid={`bookings-customize-tag-${token(tagId)}`}
-                      className="inline-flex h-[34px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
-                    >
-                      {displayName}
-                      <button
-                        id={`bookings-customize-tag-${token(tagId)}-remove`}
-                        data-testid={`bookings-customize-tag-${token(tagId)}-remove`}
-                        type="button"
-                        aria-label={`Remove ${displayName}`}
-                        onClick={() => setTags((current) => current.filter((value) => value !== tagId))}
-                        className="text-slate-400 transition hover:text-slate-700"
+                      <span
+                        key={tagId}
+                        data-testid={`bookings-customize-tag-${tagId.replace(/\s+/g, '-')}`}
+                        className="inline-flex h-[34px] items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700"
                       >
-                        ×
-                      </button>
-                    </span>
-                  )})}
+                        {displayName}
+                        <button
+                          id={`bookings-customize-tag-${tagId.replace(/\s+/g, '-')}-remove`}
+                          data-testid={`bookings-customize-tag-${tagId.replace(/\s+/g, '-')}-remove`}
+                          type="button"
+                          aria-label={`Remove ${displayName}`}
+                          onClick={() => setTags((current) => current.filter((value) => value !== tagId))}
+                          className="text-slate-400 transition hover:text-slate-700"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
                   <div className="flex items-center gap-3 ml-2">
                     <Button type="button" variant="link" size="inline" onClick={() => setIsLabelModalOpen(true)}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
@@ -563,70 +621,61 @@ export default function CustomizeTimeWindow() {
                 </div>
               </section>
 
-              <section className="mt-10">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <section className="mt-10 rounded-lg border border-slate-200 bg-white overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
                   <div>
-                    <h2 className="text-[22px] font-semibold text-slate-900">Service User Assignment</h2>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Customize providers, slot price, and capacity for each service in this time window.
+                    <h2 className="text-[15px] font-bold text-[#1f2937]">Service User Assignment</h2>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Customize which doctors are assigned to each service
                     </p>
                   </div>
                   <Button
                     type="button"
-                    className="h-10 rounded-lg bg-slate-800 px-5 text-white hover:bg-slate-900"
+                    className="h-8 rounded-md bg-[#333] px-3 py-1.5 text-xs font-medium text-white hover:bg-black border-0"
                     onClick={() => setIsServicesModalOpen(true)}
                   >
-                    + Add Services
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1 inline"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg> Add Services
                   </Button>
                 </div>
 
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 p-5">
                   {displayServices.length ? (
                     displayServices.map((service) => (
                       <div key={service.id} className="border-b border-[#E8EAF3] pb-6 last:border-0 last:pb-0">
                         <div className="mb-4 flex items-center justify-between">
-                          <h4 className="text-lg font-semibold text-slate-900">{service.name}</h4>
-                          <div className="flex items-center gap-4">
-                            <button
-                              type="button"
-                              className="text-sm font-semibold text-[#7c3aed] hover:underline"
-                              onClick={() => setUsersModalServiceId(service.id)}
-                            >
-                              Edit Users
-                            </button>
-                            <button
-                              type="button"
-                              className="text-sm font-semibold text-rose-500 hover:underline"
-                              onClick={() => setSelectedServiceIds((current) => current.filter((id) => id !== service.id))}
-                            >
-                              Remove
-                            </button>
-                          </div>
+                          <h4 className="text-[15px] font-bold text-[#1f2937]">{service.name}</h4>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-indigo-600 hover:underline"
+                            onClick={() => setUsersModalServiceId(service.id)}
+                          >
+                            Edit
+                          </button>
                         </div>
-                        <div className="mb-3 text-sm text-slate-500">Assigned Users</div>
+                        <div className="mb-3 text-[13px] text-slate-500">Assigned Users</div>
                         <div className="flex flex-wrap gap-4">
                           {service.users.length ? (
                             service.users.map((user, index) => (
                               <div
                                 key={`${service.id}-${user.userUid}`}
-                                className="flex min-w-[280px] items-center gap-3 rounded-xl border border-[#E3E5EE] bg-[#f7f8fc] p-3 pr-4"
+                                className="flex min-w-[220px] items-center gap-3 rounded-lg border border-slate-200 bg-[#f7f8fc] p-2 pr-3"
                               >
                                 <div
-                                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${avatarColors[index % avatarColors.length]}`}
+                                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${avatarColors[index % avatarColors.length]}`}
                                 >
                                   {getInitials(user.userName)}
                                 </div>
                                 <div className="flex-1">
-                                  <div className="text-sm font-semibold leading-tight text-slate-900">
+                                  <div className="text-[13px] font-semibold leading-tight text-slate-900">
                                     {resolveUserName(user.userUid, user.userName, userMap)}
                                   </div>
-                                  <div className="mt-1 text-xs font-medium text-slate-500">
-                                    Price: ₹{user.price ?? 0} &nbsp; Capacity: {user.capacity ?? 1}
+                                  <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+                                    Price: ₹{user.price ?? 0} &nbsp; Capacity:{user.capacity ?? 1}
                                   </div>
                                 </div>
                                 <button
                                   type="button"
-                                  className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-[#f5f3ff] hover:text-[#7c3aed]"
+                                  className="text-slate-400 transition-colors hover:text-indigo-600 ml-2"
                                   onClick={() =>
                                     setEditingUser({
                                       serviceId: service.id,
@@ -637,12 +686,12 @@ export default function CustomizeTimeWindow() {
                                     })
                                   }
                                 >
-                                  Edit
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                 </button>
                               </div>
                             ))
                           ) : (
-                            <div className="py-2 text-sm italic text-slate-400">No users assigned to this service.</div>
+                            <div className="py-2 text-xs italic text-slate-400">No users assigned to this service.</div>
                           )}
                         </div>
                       </div>
@@ -681,12 +730,12 @@ export default function CustomizeTimeWindow() {
                 )}
               </section>
 
-              <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Button
                   type="button"
                   onClick={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
                   variant="secondary"
-                  className="h-11 rounded-lg px-6 sm:w-auto"
+                  className="h-10 rounded px-6 sm:w-auto"
                 >
                   Cancel
                 </Button>
@@ -695,14 +744,14 @@ export default function CustomizeTimeWindow() {
                   disabled={loading}
                   loading={saving}
                   onClick={handleSave}
-                  className="h-11 rounded-lg !bg-[#7c3aed] px-6 !text-white hover:!bg-[#6d28d9] hover:!text-white sm:min-w-[120px]"
+                  className="h-10 rounded !bg-[#4318FF] px-6 !text-white hover:!bg-[#3510cf] hover:!text-white sm:min-w-[120px] border-0"
                 >
                   Update
                 </Button>
               </div>
             </>
           )}
-        </section>
+        </div>
       </div>
 
       <DualListServicesModal
@@ -787,7 +836,6 @@ export default function CustomizeTimeWindow() {
         onClose={() => setEditingUser(null)}
         title="Customize Price and Slot Capacity"
         description="Customize the price and slot capacity for this provider within the selected time window."
-        className="max-w-[460px]"
       >
         <div className="space-y-6 p-6 pt-0">
           {editingUser ? (

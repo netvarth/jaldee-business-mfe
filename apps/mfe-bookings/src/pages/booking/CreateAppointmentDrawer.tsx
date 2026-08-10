@@ -1018,64 +1018,51 @@ export default function CreateAppointmentDrawer({
                 ) : (
                   slots.map((s, index) => {
                     const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
-                    const active = selectedSlots.some(selected => selected.startTime === s.startTime);
+                    const active = selectedSlots.some(selected => fmtSlot(selected.startTime) === fmtSlot(s.startTime));
                     return (
                       <button
                         key={s.startTime}
                         type="button"
                         disabled={!available}
-                        onClick={() => {
+                        onClick={async () => {
                           if (schedulingMode === "block") {
-                            const isSelected = selectedSlots.some(selected => selected.startTime === s.startTime);
+                            const isSelected = selectedSlots.some(selected => fmtSlot(selected.startTime) === fmtSlot(s.startTime));
                             if (isSelected) {
-                              setSelectedSlots(selectedSlots.filter(selected => selected.startTime !== s.startTime));
+                              setSelectedSlots(selectedSlots.filter(selected => fmtSlot(selected.startTime) !== fmtSlot(s.startTime)));
                             } else {
                               setSelectedSlots([...selectedSlots, s].sort((a, b) => a.startTime.localeCompare(b.startTime)));
                             }
                             return;
                           }
 
-                          let slotInterval = 0;
-                          if (slots[index + 1]) {
-                            slotInterval = parseTimeStr(slots[index + 1].startTime) - parseTimeStr(slots[index].startTime);
-                          } else if (slots[index - 1]) {
-                            slotInterval = parseTimeStr(slots[index].startTime) - parseTimeStr(slots[index - 1].startTime);
-                          } else if (slots.length > 1) {
-                            slotInterval = parseTimeStr(slots[1].startTime) - parseTimeStr(slots[0].startTime);
-                          }
+                          if (!calendarUid || !serviceUid || !selectedDate) return;
                           
-                          if (slotInterval <= 0) {
-                            slotInterval = getSlotDuration(s) || 15;
-                          }
-
-                          const serviceDuration = selectedService?.duration || slotInterval;
-                          const requiredSlots = Math.ceil(serviceDuration / slotInterval);
-                          
-                          let continuous = true;
-                          const selection: Slot[] = [];
-                          
-                          for (let i = 0; i < requiredSlots; i++) {
-                            const currentSlot = slots[index + i];
-                            if (!currentSlot) { continuous = false; break; }
-                            const isAvail = currentSlot.isAvailable !== false && (currentSlot.availableCount ?? 1) > 0;
-                            if (!isAvail) { continuous = false; break; }
-                            
-                            if (i > 0) {
-                              const diff = parseTimeStr(currentSlot.startTime) - parseTimeStr(selection[i-1].startTime);
-                              if (diff !== slotInterval) {
-                                continuous = false; break;
-                              }
+                          try {
+                            const params = new URLSearchParams({
+                              calendarUid,
+                              serviceUid,
+                              date: iso(selectedDate),
+                              beginningSlot: s.startTime
+                            });
+                            if (doctorUid) {
+                              params.append("tenantUserUid", doctorUid);
                             }
-                            selection.push(currentSlot);
-                          }
-                          
-                          if (!continuous) {
-                            showToast("Insufficient continuous slots available for the service duration.", "error");
+                            
+                            const url = `/bookings/availability/validate-slot?${params.toString()}`;
+                            const res = await api.get(url) as any;
+                            
+                            if (res.isAvailable === false) {
+                              showToast(res.message || "Slot is not available.", "error");
+                              setSelectedSlots([]);
+                            } else if (res.slots && res.slots.length > 0) {
+                              setSelectedSlots(res.slots);
+                            } else {
+                              setSelectedSlots([s]);
+                            }
+                          } catch (e: any) {
+                            showToast(e.message || "Failed to validate slot.", "error");
                             setSelectedSlots([]);
-                            return;
                           }
-                          
-                          setSelectedSlots(selection);
                         }}
                         className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all shadow-sm ${active ? 'border-[#31028C] bg-[#31028C] text-white shadow-md' : available ? 'border-slate-200 bg-white text-slate-700 hover:border-[#31028C] hover:text-[#31028C]' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed shadow-none'}`}
                       >
