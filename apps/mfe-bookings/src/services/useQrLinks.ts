@@ -5,6 +5,22 @@ import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { buildCustomerSearchBody } from "./customerSearch";
 
 /** Mirrors backend QrLinkEntity (qr_link_tbl). */
+export interface QrLinkServiceEntry {
+  serviceUid: string;
+  userUids?: string[] | null;
+}
+
+export interface QrLinkServiceDetailsEntry {
+  service: {
+    uid: string;
+    name: string;
+    duration?: number;
+    price?: number;
+    status?: string;
+  };
+  users: Array<{ uid: string }>;
+}
+
 export interface QrLink {
   uid?: string;
   name: string;
@@ -13,9 +29,11 @@ export interface QrLink {
   calendarUid?: string;
   calendarName?: string;
   schedule?: string[];
+  schedules?: Array<{ uid?: string; name?: string; [key: string]: any }>;
   timeWindow?: string[];
-  user?: unknown[];
-  service?: unknown[];
+  timeWindows?: Array<{ uid?: string; name?: string; [key: string]: any }>;
+  service?: QrLinkServiceEntry[];
+  services?: QrLinkServiceDetailsEntry[];
   startDate?: string; // ISO yyyy-mm-dd
   expiryDate?: string; // ISO yyyy-mm-dd
   qrLink?: string;
@@ -96,9 +114,18 @@ export function useQrLinks(options?: {
     [api, search],
   );
 
+  const updateSelection = useCallback(
+    async (id: string, selection: { service: QrLinkServiceEntry[] }) => {
+      const saved = await api.patch<QrLink>(`/qr-links/${id}/selection`, selection);
+      await search();
+      return saved;
+    },
+    [api, search],
+  );
+
   const getById = useCallback(
     async (id: string) => {
-      return api.get<QrLink>(`/qr-links/${id}`);
+      return api.get<QrLink>(`/qr-links/details/${id}`);
     },
     [api],
   );
@@ -111,5 +138,5 @@ export function useQrLinks(options?: {
     [api, search],
   );
 
-  return { qrLinks, loading, error, search, create, update, remove, getById };
+  return { qrLinks, loading, error, search, create, update, updateSelection, remove, getById };
 }

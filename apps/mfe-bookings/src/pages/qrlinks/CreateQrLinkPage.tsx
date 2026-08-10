@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader, Input, Select, Button, Badge } from "@jaldee/design-system";
 import { useQrLinks, type QrLink } from "../../services/useQrLinks";
@@ -45,6 +45,7 @@ export default function CreateQrLinkPage() {
   
   const [customServices, setCustomServices] = useState<any[]>([]);
   const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
+  const hasInitializedEdit = useRef(false);
 
   useEffect(() => {
     if (isEditing && uid) {
@@ -53,12 +54,27 @@ export default function CreateQrLinkPage() {
           name: q.name ?? "",
           type: q.type ?? "CALENDAR",
           calendarUid: q.calendarUid ?? "",
-          scheduleUid: q.schedule?.[0] ?? "",
-          timeWindowUid: q.timeWindow?.[0] ?? "",
+          scheduleUid: q.schedules?.[0]?.uid ?? q.schedule?.[0] ?? "",
+          timeWindowUid: q.timeWindows?.[0]?.uid ?? q.timeWindow?.[0] ?? "",
           startDate: q.startDate ?? "",
           expiryDate: q.expiryDate ?? "",
           description: q.description ?? "",
         });
+        if (q.services) {
+           const mapped = q.services.map(s => ({
+             serviceUid: s.service?.uid,
+             serviceName: s.service?.name,
+             users: s.users?.map(u => {
+               const matchedUser = allUsers.find(au => au.userUid === u.uid);
+               return {
+                 userUid: u.uid,
+                 userName: matchedUser?.userDisplayName || matchedUser?.displayName || matchedUser?.firstName || u.uid
+               };
+             }) || []
+           }));
+           setCustomServices(mapped);
+           hasInitializedEdit.current = true;
+        }
       }).catch((e) => {
         setError(e instanceof Error ? e.message : "Failed to load QR Link");
       }).finally(() => {
@@ -107,30 +123,24 @@ export default function CreateQrLinkPage() {
       if (!form.calendarUid || !calendarOptions.some(opt => opt.value === form.calendarUid)) {
         setForm(prev => ({ ...prev, calendarUid: calendarOptions[0].value }));
       }
-    } else if (form.calendarUid) {
-      setForm(prev => ({ ...prev, calendarUid: "" }));
     }
   }, [form.calendarUid, calendarOptions]);
 
   useEffect(() => {
-    if (scheduleOptions.length > 0) {
+    if (scheduleOptions.length > 0 && !loadingSchedules) {
       if (!form.scheduleUid || !scheduleOptions.some(opt => opt.value === form.scheduleUid)) {
         setForm(prev => ({ ...prev, scheduleUid: scheduleOptions[0].value }));
       }
-    } else if (form.scheduleUid) {
-      setForm(prev => ({ ...prev, scheduleUid: "" }));
     }
-  }, [form.scheduleUid, scheduleOptions]);
+  }, [form.scheduleUid, scheduleOptions, loadingSchedules]);
 
   useEffect(() => {
-    if (timeWindowOptions.length > 0) {
+    if (timeWindowOptions.length > 0 && !loadingSchedules) {
       if (!form.timeWindowUid || !timeWindowOptions.some(opt => opt.value === form.timeWindowUid)) {
         setForm(prev => ({ ...prev, timeWindowUid: timeWindowOptions[0].value }));
       }
-    } else if (form.timeWindowUid) {
-      setForm(prev => ({ ...prev, timeWindowUid: "" }));
     }
-  }, [form.timeWindowUid, timeWindowOptions]);
+  }, [form.timeWindowUid, timeWindowOptions, loadingSchedules]);
 
   // Extract services and users to populate the mapping table
   const [mappedServices, setMappedServices] = useState<any[]>([]);
@@ -217,11 +227,12 @@ export default function CreateQrLinkPage() {
   }, [form.type, form.scheduleUid, form.timeWindowUid, form.calendarUid, getCalendar, getSchedule, getTimeWindowDetails, allServices, allUsers]);
 
   useEffect(() => {
-    // Only reset customServices when mappedServices updates and we aren't initially loading an edit.
-    // If it's an edit, we might want to preserve the loaded state, but for simplicity we will just 
-    // keep them in sync until the user makes a change if needed, or we just load it directly.
+    if (isEditing && hasInitializedEdit.current) {
+      hasInitializedEdit.current = false;
+      return;
+    }
     setCustomServices(JSON.parse(JSON.stringify(mappedServices)));
-  }, [mappedServices]);
+  }, [mappedServices, isEditing]);
 
   const handleDeleteService = (serviceUid: string) => {
     setCustomServices(prev => prev.filter(s => s.serviceUid !== serviceUid));
@@ -246,7 +257,10 @@ export default function CreateQrLinkPage() {
         startDate: form.startDate || undefined,
         expiryDate: form.expiryDate || undefined,
         status: "Enabled",
-        service: customServices,
+        service: customServices.map(s => ({
+          serviceUid: s.serviceUid,
+          userUids: s.users?.length ? s.users.map((u: any) => u.userUid) : null
+        })),
       };
       
       if (isEditing && uid) {

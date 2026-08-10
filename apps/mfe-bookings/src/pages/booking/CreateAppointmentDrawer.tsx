@@ -132,7 +132,7 @@ export default function CreateAppointmentDrawer({
   const { services } = useServices();
   const { providers } = useProviders();
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
-  const { createBooking, submitting } = useCreateBooking();
+  const { createBooking, validateBooking, submitting } = useCreateBooking();
   const { createSeries, submitting: seriesSubmitting } = useCreateSeriesBooking();
   const { blockSlot, submitting: blockSubmitting } = useBlockSlot();
   const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, searchCustomers, clearResults } = useCustomerSearch();
@@ -526,13 +526,21 @@ export default function CreateAppointmentDrawer({
       }
 
       try {
-        const result = await createBooking({
+        const payload = {
           calendarUid, serviceUid, providerUid: selectedProviderUid, scheduleUid,
           date: dateStr, startTime: combinedStartTime, endTime: combinedEndTime,
-          patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel: "WALK_IN", notes,
+          patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel: "Walk-in" as const, notes,
           customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
           attachments: driveAttachments.length > 0 ? driveAttachments : undefined,
-        });
+        };
+
+        const validation = await validateBooking(payload);
+        if (!validation.valid) {
+          showToast(`Validation failed: ${validation.errors?.join(", ")}`, "error");
+          return;
+        }
+
+        const result = await createBooking(payload);
 
         const createdUid = result.uid || `bk-${Date.now()}`;
 

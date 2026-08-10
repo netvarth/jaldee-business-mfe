@@ -11,6 +11,7 @@ import {
   UserSearch,
   Users,
   Wrench,
+  FileText,
 } from "lucide-react";
 import type { ProductKey } from "../store/shellStore";
 
@@ -182,6 +183,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "bookings-holidays", label: "Holidays & Leave", icon: sidebarIcon(Calendar), path: "/bookings/holidays" },
     { id: "bookings-qr-links", label: "QR Links", icon: sidebarIcon(CreditCard), path: "/bookings/qr-links" },
     { id: "bookings-customer-labels", label: "Customer Labels", icon: sidebarIcon(UserSearch), path: "/bookings/customer-labels" },
+    { id: "bookings-audit-log", label: "Audit Log", icon: sidebarIcon(FileText), path: "/bookings/audit-log" },
     { id: "bookings-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/bookings/settings" },
   ],
   golderp: [

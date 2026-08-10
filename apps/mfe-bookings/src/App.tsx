@@ -34,6 +34,7 @@ const QrLinksPage = lazy(() => import("./pages/qrlinks/QrLinksPage"));
 const QrLinkDetailsPage = lazy(() => import("./pages/qrlinks/QrLinkDetailsPage"));
 const CustomerLabelsPage = lazy(() => import("./pages/labels/CustomerLabelsPage"));
 const CreateQrLinkPage = lazy(() => import("./pages/qrlinks/CreateQrLinkPage"));
+const AuditLogsPage = lazy(() => import("./pages/audit/AuditLogsPage"));
 
 function CalendarPage() {
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
@@ -169,6 +170,7 @@ export default function App() {
             <Route path="/qrlinks/:uid/edit" element={<CreateQrLinkPage />} />
             <Route path="/qrlinks/:uid" element={<QrLinkDetailsPage />} />
             <Route path="/customer-labels" element={<CustomerLabelsPage />} />
+            <Route path="/audit-log" element={<AuditLogsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No booking screen for this route." />} />
           </Routes>

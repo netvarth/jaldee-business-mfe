@@ -75,5 +75,26 @@ export function useCreateBooking() {
     }
   };
 
-  return { createBooking, submitting };
+  const validateBooking = async (input: CreateBookingInput): Promise<{ valid: boolean; errors?: string[] }> => {
+    try {
+      const payload = {
+        calendarUid: input.calendarUid,
+        serviceUid: input.serviceUid,
+        userUid: input.providerUid,
+        bookingDate: input.date,
+        startTime: input.startTime
+      };
+      
+      const response = await api.post<any>("/bookings/validate", payload) as any;
+      
+      if (response && response.valid === false) {
+         return { valid: false, errors: response.errors || ["Validation failed"] };
+      }
+      return { valid: true };
+    } catch (e: any) {
+      return { valid: false, errors: [e.message || "Validation failed"] };
+    }
+  };
+
+  return { createBooking, validateBooking, submitting };
 }
