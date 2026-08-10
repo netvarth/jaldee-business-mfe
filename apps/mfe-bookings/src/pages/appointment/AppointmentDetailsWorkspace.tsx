@@ -250,46 +250,52 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     </span>
                 </div>
                 <div className="space-y-5 px-6 py-4">
-                {/* Patient Information */}
+                {/* Customer Information */}
                 <div className="rounded-[20px] border border-[#dfe6f4] bg-[#fbfcff] p-4">
-                    <h4 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Patient Information</h4>
+                    <h4 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Customer Information</h4>
                     <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                         <div className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             </div>
                             <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Patient Name</p>
+                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Customer Name</p>
                                 <p className="font-bold text-[13px] text-slate-900">{details.customerName || '—'}</p>
                             </div>
                         </div>
+                        {((details as any).customerPhone || (details as any).phoneNumber || (details as any).customerDetails?.primaryNumber) && (
                         <div className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                             </div>
                             <div>
                                 <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Phone Number</p>
-                                <p className="font-bold text-[13px] text-slate-900">{details.customerPhone || '+1 (555) 123-4567'}</p>
+                                <p className="font-bold text-[13px] text-slate-900">{(details as any).customerPhone || (details as any).phoneNumber || (details as any).customerDetails?.primaryNumber}</p>
                             </div>
                         </div>
+                        )}
+                        {((details as any).customerEmail || (details as any).email || (details as any).customerDetails?.email) && (
                         <div className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                             </div>
                             <div>
                                 <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Email</p>
-                                <p className="font-bold text-[13px] text-slate-900 truncate max-w-[140px]">{details.customerEmail || 'rohannair01@email.com'}</p>
+                                <p className="font-bold text-[13px] text-slate-900 truncate max-w-[140px]" title={(details as any).customerEmail || (details as any).email || (details as any).customerDetails?.email}>{(details as any).customerEmail || (details as any).email || (details as any).customerDetails?.email}</p>
                             </div>
                         </div>
+                        )}
+                        {details.customerReferenceNumber && (
                         <div className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
                             </div>
                             <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Patient ID</p>
-                                <p className="font-bold text-[13px] text-slate-900">{details.customerReferenceNumber || 'PT-9853'}</p>
+                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Customer ID</p>
+                                <p className="font-bold text-[13px] text-slate-900">{details.customerReferenceNumber}</p>
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
 
@@ -350,17 +356,25 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     </div>
                 </div>
 
-                {/* Notes Section */}
-                {((details.consumerNotes && details.consumerNotes.length > 0) || (details.userNotes && details.userNotes.length > 0)) && (
-                    <div className="rounded-[18px] border border-[#dfe6f4] bg-[#fbfcff] p-4">
-                        <h4 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Notes</h4>
-                        <div className="space-y-3 text-[13px] leading-7 text-[#42526d]">
-                            {[...(details.consumerNotes ?? []), ...(details.userNotes ?? [])].map((note, idx) => (
-                                <p key={idx}>{note}</p>
-                            ))}
+                {/* Notes & Attachments Card */}
+                <div className="mx-6 mb-4 rounded-[18px] border border-[#dfe6f4] bg-[#fbfcff] p-4">
+                    {/* Notes Section */}
+                    {((details.consumerNotes && details.consumerNotes.length > 0) || (details.userNotes && details.userNotes.length > 0)) && (
+                        <div className="mb-6">
+                            <h4 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Notes</h4>
+                            <div className="space-y-3 text-[13px] leading-7 text-[#42526d]">
+                                {[...(details.consumerNotes ?? []), ...(details.userNotes ?? [])].map((note, idx) => (
+                                    <p key={idx}>{note}</p>
+                                ))}
+                            </div>
                         </div>
+                    )}
+
+                    {/* Attachments Section */}
+                    <div>
+                        <AttachmentsPanel bookingUid={bookingId} />
                     </div>
-                )}
+                </div>
                 
                 {reschedOpen && (
                   <div className="px-6 mb-4">
@@ -401,7 +415,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                       )}
 
                       <div className="flex justify-end gap-2 mt-2">
-                        <Button variant="ghost" size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-back`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-back`} onClick={() => setReschedOpen(false)}>Back</Button>
+                        <Button variant="ghost" size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-back`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-back`} onClick={() => setReschedOpen(false)}>Cancel</Button>
                         <Button size="sm" id={`bookings-appointment-details-${bookingId}-reschedule-confirm`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-confirm`} onClick={submitReschedule} disabled={!newDate || !newStart} style={{ backgroundColor: '#6C32FF', color: 'white' }}>Confirm</Button>
                       </div>
                     </div>
@@ -429,10 +443,6 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   </div>
                 )}
 
-                {/* Attachments Section */}
-                <div className="px-6 pb-4">
-                    <AttachmentsPanel bookingUid={bookingId} />
-                </div>
                 </div>
             </div>
         )}
@@ -450,6 +460,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     Start Consultation
                   </Button>
                 )}
+                {!reschedOpen && !cancelOpen && !cancelSeries && !rescheduleSeries && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {actionsToShow.filter((action) => action !== "START").map((action) => {
                     const meta = ACTION_META[action];
@@ -473,16 +484,11 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                                 {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
                                 <span>{meta?.label || action}</span>
                             </div>
-                            {(action === "CREATE_INVOICE" || action === "VIEW_INVOICE") && (
-                                <div className="flex flex-col items-center mt-1 text-[10px] font-semibold w-full leading-[1.2]">
-                                    <span className="text-slate-600">Due: ₹{finance?.amountDue ?? details.amountDue ?? (details as any).price ?? 0}</span>
-                                    <span className="text-emerald-600">Paid: ₹{finance?.amountPaid ?? details.amountPaid ?? 0}</span>
-                                </div>
-                            )}
                         </Button>
                     );
                 })}
                 </div>
+                )}
                 {details.status === "BLOCKED" && !details.allowedActions.includes("UNBLOCK") && (
                     <Button variant="secondary" size="sm" className="mt-3 font-bold text-[12px] flex items-center gap-2 rounded-lg px-3 shadow-sm text-cyan-700 hover:bg-cyan-50" onClick={doUnblock} disabled={unblocking}>
                         Unblock slot

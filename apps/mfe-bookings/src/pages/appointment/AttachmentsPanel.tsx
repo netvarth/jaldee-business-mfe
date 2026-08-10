@@ -47,7 +47,7 @@ export default function AttachmentsPanel({ bookingUid }: { bookingUid: string })
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Attachments</h4>
+        <h4 className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Attachments</h4>
         <Button variant="ghost" size="sm" onClick={() => { setOpen((o) => !o); setUploadError(null); }}>
           {open ? "Close" : "Add"}
         </Button>
