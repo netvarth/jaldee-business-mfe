@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { Button, SectionCard } from "@jaldee/design-system";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button, Drawer, SectionCard } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps } from "@jaldee/auth-context";
 import { financeApi } from "../../lib/financeApi";
-import { DataTableCard, FeedCard, FinanceFeatureLayout, PageShell, SummaryList } from "../../components/FinancePageLayout";
+import { DataTableCard, FeedCard, FinanceFeatureLayout, FinanceFilterButton, PageShell, SummaryList } from "../../components/FinancePageLayout";
 import { formatCurrency } from "../../lib/financeData";
 import { useFinanceLiveData } from "../../lib/financeLive";
+import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, useAuditLogsSearchSchema } from "../../lib/financeSearch";
 
 export function ActivityLogPage() {
   const mfeProps = useMFEProps();
@@ -18,68 +21,86 @@ export function ActivityLogPage() {
   }>>([]);
   const [activityCount, setActivityCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const { schema } = useAuditLogsSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+
+  const loadActivityLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 100);
+      const listResponse = await financeApi.activity.list<any>(searchBody);
+
+      const payload =
+        Array.isArray(listResponse.data)
+          ? listResponse.data
+          : Array.isArray(listResponse.data?.content)
+            ? listResponse.data.content
+            : Array.isArray(listResponse.data?.data)
+              ? listResponse.data.data
+              : Array.isArray(listResponse.data?.logs)
+                ? listResponse.data.logs
+                : [];
+
+      setActivityLogs(
+        payload.map((item: any, index: number) => ({
+          id: String(item?.uid || item?.id || item?.logId || `activity-${index}`),
+          action: String(item?.message || item?.action || item?.event || item?.activity || item?.description || "-"),
+          actor: String(item?.actorUserName || item?.actor || item?.userName || item?.createdByName || "System"),
+          target: String(item?.target || item?.referenceId || item?.entityName || item?.module || "-"),
+          timestamp: String(item?.createdAt || item?.timestamp || item?.createdDate || item?.updatedDate || "-"),
+        }))
+      );
+
+      setActivityCount(
+        Number(
+          listResponse.data?.totalElements ??
+          listResponse.data?.total ??
+          payload.length
+        ) || payload.length
+      );
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load activity logs", error);
+      setActivityLogs([]);
+      setActivityCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [advancedFilters, schema]);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadActivityLogs() {
-      setLoading(true);
-      try {
-        const filter = { page: 0, size: 100 };
-
-        const listResponse = await financeApi.activity.list<any>(filter);
-
-        if (!active) {
-          return;
-        }
-
-        const payload =
-          Array.isArray(listResponse.data)
-            ? listResponse.data
-            : Array.isArray(listResponse.data?.content)
-              ? listResponse.data.content
-              : Array.isArray(listResponse.data?.data)
-                ? listResponse.data.data
-                : Array.isArray(listResponse.data?.logs)
-                  ? listResponse.data.logs
-                  : [];
-
-        setActivityLogs(
-          payload.map((item: any, index: number) => ({
-            id: String(item?.uid || item?.id || item?.logId || `activity-${index}`),
-            action: String(item?.message || item?.action || item?.event || item?.activity || item?.description || "-"),
-            actor: String(item?.actorUserName || item?.actor || item?.userName || item?.createdByName || "System"),
-            target: String(item?.target || item?.referenceId || item?.entityName || item?.module || "-"),
-            timestamp: String(item?.createdAt || item?.timestamp || item?.createdDate || item?.updatedDate || "-"),
-          }))
-        );
-
-        setActivityCount(
-          Number(
-            listResponse.data?.totalElements ??
-            listResponse.data?.total ??
-            payload.length
-          ) || payload.length
-        );
-      } catch (error) {
-        console.error("[mfe-finance] Failed to load activity logs", error);
-        if (active) {
-          setActivityLogs([]);
-          setActivityCount(0);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
     void loadActivityLogs();
-
-    return () => {
-      active = false;
-    };
-  }, [mfeProps.location?.id]);
+  }, [loadActivityLogs]);
 
   const columns = useMemo<ColumnDef<(typeof activityLogs)[number]>[]>(
     () => [
@@ -95,34 +116,70 @@ export function ActivityLogPage() {
     <FinanceFeatureLayout
       title="Activity Log"
       subtitle="Audit visibility for the finance workspace."
-      // stats={[
-      //   { label: "Events", value: String(activityCount || activityLogs.length), accent: "indigo" },
-      //   { label: "Human Actions", value: String(activityLogs.filter((item) => item.actor !== "Finance Bot" && item.actor !== "System").length), accent: "emerald" },
-      //   { label: "Automation", value: String(activityLogs.filter((item) => item.actor === "Finance Bot" || item.actor === "System").length), accent: "amber" },
-      //   { label: "Tracked Targets", value: String(new Set(activityLogs.map((item) => item.target)).size), accent: "rose" },
-      // ]}
       main={
-        <DataTableCard
-          title="Audit Trail"
-          subtitle="Recent finance activity across invoices, vendors, and ledger."
-          data={activityLogs}
-          columns={columns}
-          getRowId={(row) => row.id}
-          emptyTitle="No finance activity"
-          emptyDescription={loading ? "Loading activity entries..." : "Activity entries will appear here."}
-        />
+        <>
+          <DataTableCard
+            title="Audit Trail"
+            subtitle="Recent finance activity across invoices, vendors, and ledger."
+            actions={
+              <div className="flex items-center gap-2">
+                <FinanceFilterButton
+                  testId="finance-activity-log-filter"
+                  label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                  active={appliedFilterCount > 0}
+                  onClick={openFilters}
+                />
+              </div>
+            }
+            data={activityLogs}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            emptyTitle="No finance activity"
+            emptyDescription="Activity entries will appear here."
+          />
+          <Drawer
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            title="Filters"
+            size="sm"
+            contentClassName="flex flex-col p-0 overflow-hidden"
+          >
+            <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-activity-log-filter-drawer">
+              <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                <SchemaFilterBuilder
+                  schema={schema}
+                  value={draftFilters}
+                  onChange={setDraftFilters}
+                  appliedCount={appliedFilterCount}
+                  onClearAll={clearFilters}
+                  emptyStateMessage="No activity log filters are available from the schema."
+                />
+              </div>
+              <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="finance-activity-log-filter-reset"
+                  onClick={resetFilters}
+                >
+                  Reset All
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-1"
+                  data-testid="finance-activity-log-filter-apply"
+                  onClick={applyFilters}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          </Drawer>
+        </>
       }
-      // aside={
-      //   <FeedCard title="Recent Events">
-      //     <SummaryList
-      //       rows={financeActivityLogs.map((item) => ({
-      //         label: item.action,
-      //         value: item.timestamp,
-      //         note: `${item.actor} -> ${item.target}`,
-      //       }))}
-      //     />
-      //   </FeedCard>
-      // }
     />
   );
 }

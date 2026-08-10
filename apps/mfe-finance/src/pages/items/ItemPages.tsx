@@ -1,9 +1,10 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Badge,
   Button,
   DataTable,
+  Drawer,
   EmptyState,
   Icon,
   Input,
@@ -17,31 +18,69 @@ import {
 import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
-import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
+import { DataTableCard, FinanceFeatureLayout, FinanceFilterButton, PageShell } from "../../components/FinancePageLayout";
 import { formatCurrency } from "../../lib/financeData";
+import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, useItemsSearchSchema } from "../../lib/financeSearch";
 
 function ItemsPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  async function loadItems() {
+  const { schema } = useItemsSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+
+  const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await financeApi.items.list<any>();
+      const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 1000);
+      const res = await financeApi.items.list<any>(searchBody);
       const nextItems = Array.isArray(res.data?.content) ? res.data.content : Array.isArray(res.data) ? res.data : [];
       setItems(nextItems);
     } catch (error) {
       console.error("Failed to fetch items", error);
+      setItems([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [advancedFilters, schema]);
 
   useEffect(() => {
-    loadItems();
-  }, []);
+    void loadItems();
+  }, [loadItems]);
 
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
@@ -130,7 +169,7 @@ function ItemsPage() {
         ),
       },
     ],
-    [navigate]
+    [navigate, loadItems]
   );
 
   return (
@@ -138,16 +177,69 @@ function ItemsPage() {
       title="Finance Items"
       subtitle="Manage items and procedures for invoicing."
       main={
-        <DataTableCard
-          title={`Items (${items.length})`}
-          subtitle="Recent and active items"
-          actions={<Button onClick={() => navigate("create")}>New Item</Button>}
-          data={items}
-          columns={columns}
-          getRowId={(row) => String(row.uid)}
-          emptyTitle="No Items"
-          emptyDescription={loading ? "Loading..." : "Items will appear here."}
-        />
+        <>
+          <DataTableCard
+            title={`Items (${items.length})`}
+            subtitle="Recent and active items"
+            actions={
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate("create")}>New Item</Button>
+                <FinanceFilterButton
+                  testId="finance-items-filter"
+                  label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                  active={appliedFilterCount > 0}
+                  onClick={openFilters}
+                />
+              </div>
+            }
+            data={items}
+            columns={columns}
+            loading={loading}
+            getRowId={(row) => String(row.uid)}
+            emptyTitle="No Items"
+            emptyDescription="Items will appear here."
+          />
+          <Drawer
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            title="Filters"
+            size="sm"
+            contentClassName="flex flex-col p-0 overflow-hidden"
+          >
+            <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-items-filter-drawer">
+              <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                <SchemaFilterBuilder
+                  schema={schema}
+                  value={draftFilters}
+                  onChange={setDraftFilters}
+                  appliedCount={appliedFilterCount}
+                  onClearAll={clearFilters}
+                  emptyStateMessage="No item filters are available from the schema."
+                />
+              </div>
+              <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="finance-items-filter-reset"
+                  onClick={resetFilters}
+                >
+                  Reset All
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-1"
+                  data-testid="finance-items-filter-apply"
+                  onClick={applyFilters}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          </Drawer>
+        </>
       }
     />
   );

@@ -63,7 +63,7 @@ export default function FinanceInvoiceForm() {
     openNewItemBuilder, openItemEditor, handleSaveItem, resetDiscountDialog, loadDiscountOptions, loadCouponOptions, loadInvoiceTemplates, handleDiscountChange,
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
-    handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
+    handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit, handleRemoveItemCoupon,
   } = useFinanceInvoiceFormController();
 
   if (loading) {
@@ -79,333 +79,373 @@ export default function FinanceInvoiceForm() {
         onNavigate={navigateToInvoiceList}
       >
         <SectionCard className="border-slate-200 shadow-sm">
-        <form className="grid gap-6" data-testid="finance-invoice-form" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Combobox
-                label="Finance Consumer"
-                placeholder="Choose finance consumer"
-                searchPlaceholder="Search finance consumer"
-                emptyMessage="No finance consumers found"
-                options={consumerOptions}
-                value={consumerUid}
-                onValueChange={(value) => {
-                  setConsumerUid(value);
-                  const option = consumerOptions.find((entry) => entry.value === value);
-                  if (!option) {
-                    return;
-                  }
-                  setConsumerName(option.label);
-                  setConsumerPhone(option.phone || "");
-                  setBilledToAddress(option.address || "");
-                }}
-                hint={selectedConsumerOption?.description ?? "Select a finance consumer to auto-fill customer details."}
-              />
-            </div>
-            <Input label="Customer Name *" value={consumerName} onChange={(event) => setConsumerName(event.target.value)} required />
-            <Input label="Customer Phone" value={consumerPhone} onChange={(event) => setConsumerPhone(event.target.value)} />
-          </div>
-
-          <button type="button" className="w-fit text-sm font-semibold text-indigo-700">
-            + Billing Address
-          </button>
-
-          <Textarea
-            label="Billing Address"
-            value={billedToAddress}
-            onChange={(event) => setBilledToAddress(event.target.value)}
-            placeholder="Add customer billing address"
-          />
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">Invoice Category</label>
-              <div className="flex items-center">
-                <Select
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                  className="rounded-r-none border-r-0"
-                  containerClassName="flex-1"
-                  options={[{ value: "", label: "Select category" }, ...categoryOptions]}
+          <form className="grid gap-6" data-testid="finance-invoice-form" onSubmit={handleSubmit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Combobox
+                  label="Finance Consumer"
+                  placeholder="Choose finance consumer"
+                  searchPlaceholder="Search finance consumer"
+                  emptyMessage="No finance consumers found"
+                  options={consumerOptions}
+                  value={consumerUid}
+                  onValueChange={(value) => {
+                    setConsumerUid(value);
+                    const option = consumerOptions.find((entry) => entry.value === value);
+                    if (!option) {
+                      return;
+                    }
+                    setConsumerName(option.label);
+                    setConsumerPhone(option.phone || "");
+                    setBilledToAddress(option.address || "");
+                  }}
+                  hint={selectedConsumerOption?.description ?? "Select a finance consumer to auto-fill customer details."}
                 />
-                <Button
-                  type="button"
-                  className="h-[38px] rounded-l-none px-3"
-                  onClick={() => setShowCategoryDialog(true)}
-                >
-                  +
-                </Button>
               </div>
+              <Input label="Customer Name *" value={consumerName} onChange={(event) => setConsumerName(event.target.value)} required />
+              <Input label="Customer Phone" value={consumerPhone} onChange={(event) => setConsumerPhone(event.target.value)} />
             </div>
 
-            <Select
-              label="Location"
-              value={locationId}
-              onChange={(event) => {
-                setLocationId(event.target.value);
-                if (!isEditing) {
-                  setInvoiceNum("");
-                }
-              }}
-              options={[{ value: "", label: "Select location" }, ...locationOptions]}
+            <button type="button" className="w-fit text-sm font-semibold text-indigo-700">
+              + Billing Address
+            </button>
+
+            <Textarea
+              label="Billing Address"
+              value={billedToAddress}
+              onChange={(event) => setBilledToAddress(event.target.value)}
+              placeholder="Add customer billing address"
             />
 
-            <Input label="Invoice#" value={invoiceNum} onChange={(event) => setInvoiceNum(event.target.value)} />
-            <Input label="Referral Number" value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Referral Number" />
-
-            <Input label="Invoice Date *" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} required />
-            <Input label="Due Date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-          </div>
-
-          <Input
-            label="Subject"
-            value={invoiceLabel}
-            onChange={(event) => setInvoiceLabel(event.target.value)}
-            placeholder="Let your customer know what this invoice is for"
-          />
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Invoice Actions</div>
-                <div className="text-xs text-slate-500">Manage invoice-level item, discount, and coupon actions.</div>
-              </div>
-              <Popover
-                portal
-                placement="bottom"
-                align="end"
-                trigger={
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Invoice Category</label>
+                <div className="flex items-center">
+                  <Select
+                    value={categoryId}
+                    onChange={(event) => setCategoryId(event.target.value)}
+                    className="rounded-r-none border-r-0"
+                    containerClassName="flex-1"
+                    options={[{ value: "", label: "Select category" }, ...categoryOptions]}
+                  />
                   <Button
                     type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="h-11 w-11 rounded-xl bg-cyan-100 p-0 text-cyan-900 hover:bg-cyan-200"
-                    icon={<Icon name="moreVertical" className="h-4 w-4 rotate-90" />}
-                    aria-label="Invoice actions"
-                  />
-                }
-              >
-                <div className="grid min-w-[220px] p-1">
-                  <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={openNewItemBuilder}>
-                    Add Procedure/Item
-                  </Button>
-                  <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => void openInvoiceDiscountDialog()}>
-                    Apply Discount
-                  </Button>
-                  <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => void openCouponDialog()}>
-                    Apply Coupon
+                    className="h-[38px] rounded-l-none px-3"
+                    onClick={() => setShowCategoryDialog(true)}
+                  >
+                    +
                   </Button>
                 </div>
-              </Popover>
+              </div>
+
+              <Select
+                label="Location"
+                value={locationId}
+                onChange={(event) => {
+                  setLocationId(event.target.value);
+                  if (!isEditing) {
+                    setInvoiceNum("");
+                  }
+                }}
+                options={[{ value: "", label: "Select location" }, ...locationOptions]}
+              />
+
+              <Input label="Invoice#" value={invoiceNum} onChange={(event) => setInvoiceNum(event.target.value)} />
+              <Input label="Referral Number" value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Referral Number" />
+
+              <Input label="Invoice Date *" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} required />
+              <Input label="Due Date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
             </div>
 
-            <div className="mb-5 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-600">
-                    <th className="px-4 py-3">Procedure/Item</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3 text-right">Price</th>
-                    <th className="px-4 py-3 text-center">Qty</th>
-                    <th className="px-4 py-3 text-right">Discount</th>
-                    <th className="px-4 py-3 text-right">After Discount</th>
-                    <th className="px-4 py-3 text-right">Tax</th>
-                    <th className="px-4 py-3 text-right">Total</th>
-                    <th className="px-4 py-3 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                  {items.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                        No items added yet.
-                      </td>
+            <Input
+              label="Subject"
+              value={invoiceLabel}
+              onChange={(event) => setInvoiceLabel(event.target.value)}
+              placeholder="Let your customer know what this invoice is for"
+            />
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Invoice Actions</div>
+                  <div className="text-xs text-slate-500">Manage invoice-level item, discount, and coupon actions.</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-xl bg-cyan-100 text-cyan-900 hover:bg-cyan-200 font-semibold"
+                  onClick={openNewItemBuilder}
+                >
+                  + Add Procedure/Item
+                </Button> */}
+                  {isEditing && (
+                    <Popover
+                      portal
+                      placement="bottom"
+                      align="end"
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-11 w-11 rounded-xl bg-cyan-100 p-0 text-cyan-900 hover:bg-cyan-200"
+                          icon={<Icon name="moreVertical" className="h-4 w-4 rotate-90" />}
+                          aria-label="Invoice actions"
+                        />
+                      }
+                    >
+                      <div className="grid min-w-[220px] p-1">
+                        <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => void openInvoiceDiscountDialog()}>
+                          Apply Discount
+                        </Button>
+                        <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => void openCouponDialog()}>
+                          Apply Coupon
+                        </Button>
+                      </div>
+                    </Popover>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-5 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-600">
+                      <th className="px-4 py-3">Procedure/Item</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3 text-right">Price</th>
+                      <th className="px-4 py-3 text-center">Qty</th>
+                      <th className="px-4 py-3 text-right">Discount</th>
+                      <th className="px-4 py-3 text-right">After Discount</th>
+                      <th className="px-4 py-3 text-right">Tax</th>
+                      <th className="px-4 py-3 text-right">Total</th>
+                      <th className="px-4 py-3 text-center">Action</th>
                     </tr>
-                  ) : (
-                    items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-3 font-semibold text-slate-900">
-                          {item.name}
-                          {item.discountApplicable === false && (
-                            <span className="ml-2 inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
-                              Discount Disabled
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">{formatDisplayDate(item.date)}</td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(item.price)}</td>
-                        <td className="px-4 py-3 text-center">{item.qty}</td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(item.discountAmount ?? 0)}</td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(item.afterDiscount ?? item.price * item.qty)}</td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(item.taxAmount ?? 0)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(item.totalAmount ?? item.price * item.qty)}</td>
-                        <td className="px-4 py-3 text-center">
-                          <Popover
-                            portal
-                            placement="bottom"
-                            align="end"
-                            open={openItemActionId === item.id}
-                            onOpenChange={(open) => setOpenItemActionId(open ? item.id : null)}
-                            trigger={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                icon={<Icon name="moreVertical" className="h-4 w-4" />}
-                                aria-label={`Actions for ${item.name}`}
-                              />
-                            }
-                          >
-                            <div className="grid min-w-[180px] p-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="justify-start font-normal"
-                                onClick={() => {
-                                  setOpenItemActionId(null);
-                                  openItemEditor(item);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              {isEditing && !item.discountId ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="justify-start font-normal"
-                                  disabled={!item.detailUid || item.discountApplicable === false}
-                                  onClick={() => void openDiscountDialog(item)}
-                                >
-                                  Apply Discount
-                                </Button>
-                              ) : null}
-                              {isEditing && !!item.discountId ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="justify-start font-normal"
-                                  disabled={!item.detailUid || !item.discountId}
-                                  onClick={() => {
-                                    setOpenItemActionId(null);
-                                    void handleRemoveItemDiscount(item);
-                                  }}
-                                >
-                                  Remove Discount
-                                </Button>
-                              ) : null}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="justify-start font-normal text-rose-600"
-                                onClick={() => {
-                                  setOpenItemActionId(null);
-                                  setItems((current) => current.filter((entry) => entry.id !== item.id));
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </Popover>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                          No items added yet.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      items.map((item) => (
+                        <tr key={item.id}>
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            {item.name}
+                            {item.discountApplicable === false && (
+                              <span className="ml-2 inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
+                                Discount Disabled
+                              </span>
+                            )}
+                            {item.couponCode && (
+                              <span className="ml-2 inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                                Coupon: {item.couponCode}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">{formatDisplayDate(item.date)}</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(item.price)}</td>
+                          <td className="px-4 py-3 text-center">{item.qty}</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(item.discountAmount ?? 0)}</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(item.afterDiscount ?? item.price * item.qty)}</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(item.taxAmount ?? 0)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatCurrency(item.totalAmount ?? item.price * item.qty)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <Popover
+                              portal
+                              placement="bottom"
+                              align="end"
+                              open={openItemActionId === item.id}
+                              onOpenChange={(open) => setOpenItemActionId(open ? item.id : null)}
+                              trigger={
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                                  aria-label={`Actions for ${item.name}`}
+                                />
+                              }
+                            >
+                              <div className="grid min-w-[180px] p-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal"
+                                  onClick={() => {
+                                    setOpenItemActionId(null);
+                                    openItemEditor(item);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                {isEditing && !item.discountId ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start font-normal"
+                                    disabled={!item.detailUid || item.discountApplicable === false}
+                                    onClick={() => void openDiscountDialog(item)}
+                                  >
+                                    Apply Discount
+                                  </Button>
+                                ) : null}
+                                {isEditing && !!item.discountId ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start font-normal"
+                                    disabled={!item.detailUid || !item.discountId}
+                                    onClick={() => {
+                                      setOpenItemActionId(null);
+                                      void handleRemoveItemDiscount(item);
+                                    }}
+                                  >
+                                    Remove Discount
+                                  </Button>
+                                ) : null}
+                                {isEditing && !item.couponId ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start font-normal"
+                                    disabled={!item.detailUid}
+                                    onClick={() => void openCouponDialog(item)}
+                                  >
+                                    Apply Coupon
+                                  </Button>
+                                ) : null}
+                                {isEditing && !!item.couponId ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start font-normal"
+                                    disabled={!item.detailUid || !item.couponId}
+                                    onClick={() => {
+                                      setOpenItemActionId(null);
+                                      void handleRemoveItemCoupon(item);
+                                    }}
+                                  >
+                                    Remove Coupon
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal text-rose-600"
+                                  onClick={() => {
+                                    setOpenItemActionId(null);
+                                    setItems((current) => current.filter((entry) => entry.id !== item.id));
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </Popover>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {showItemBuilder ? (
+                <div className="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-slate-100 p-4 xl:grid-cols-[minmax(0,2.2fr)_120px_minmax(140px,1.4fr)_minmax(180px,1.6fr)_auto] xl:items-start">
+                  <div className="min-w-0">
+                    <Combobox
+                      label="Procedure/Item *"
+                      placeholder="Choose Procedure/Item"
+                      searchPlaceholder="Search finance items"
+                      emptyMessage="No matching finance item found"
+                      options={financeCatalogOptions}
+                      value={newItemCatalogValue}
+                      onValueChange={(value) => {
+                        setNewItemCatalogValue(value);
+                        const option = financeCatalogOptions.find((entry) => entry.value === value);
+                        if (!option) return;
+                        setNewItemName(option.label);
+                        setNewItemPrice(option.price ?? 0);
+                      }}
+                      hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
+                      id="invoice-item-picker"
+                    />
+                  </div>
+
+                  <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
+                  <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
+                  <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
+
+                  <div className="flex gap-2 xl:self-start xl:pt-[29px]">
+                    <Button type="button" onClick={handleSaveItem}>
+                      {editingItemId ? "Change" : "Add"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        resetItemBuilder();
+                        setShowItemBuilder(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="outline"
+                className="border-indigo-600 text-indigo-700 hover:bg-indigo-50"
+                onClick={openNewItemBuilder}
+              >
+                Add Procedure/Item
+              </Button>
             </div>
 
-            {showItemBuilder ? (
-              <div className="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-slate-100 p-4 xl:grid-cols-[minmax(0,2.2fr)_120px_minmax(140px,1.4fr)_minmax(180px,1.6fr)_auto] xl:items-start">
-                <div className="min-w-0">
-                  <Combobox
-                    label="Procedure/Item *"
-                    placeholder="Choose Procedure/Item"
-                    searchPlaceholder="Search finance items"
-                    emptyMessage="No matching finance item found"
-                    options={financeCatalogOptions}
-                    value={newItemCatalogValue}
-                    onValueChange={(value) => {
-                      setNewItemCatalogValue(value);
-                      const option = financeCatalogOptions.find((entry) => entry.value === value);
-                      if (!option) return;
-                      setNewItemName(option.label);
-                      setNewItemPrice(option.price ?? 0);
-                    }}
-                    hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
-                    id="invoice-item-picker"
-                  />
-                </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input label="Your Notes" value={notesForProvider} onChange={(event) => setNotesForProvider(event.target.value)} placeholder="Private Note" />
+              <Input label="Patient Notes" value={notesForCustomer} onChange={(event) => setNotesForCustomer(event.target.value)} placeholder="Shared with patient" />
+            </div>
 
-                <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
-                <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
-                <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
+            <Input
+              label="Terms & Conditions"
+              value={termsConditions}
+              onChange={(event) => setTermsConditions(event.target.value)}
+              placeholder="Terms and condition"
+            />
 
-                <div className="flex gap-2 xl:self-start xl:pt-[29px]">
-                  <Button type="button" onClick={handleSaveItem}>
-                    {editingItemId ? "Change" : "Add"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      resetItemBuilder();
-                      setShowItemBuilder(false);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+            {formError ? (
+              <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                {formError}
               </div>
             ) : null}
 
-            <Button
-              type="button"
-              variant="outline"
-              className="border-indigo-600 text-indigo-700 hover:bg-indigo-50"
-              onClick={openNewItemBuilder}
-            >
-              Add Procedure/Item
-            </Button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Your Notes" value={notesForProvider} onChange={(event) => setNotesForProvider(event.target.value)} placeholder="Private Note" />
-            <Input label="Patient Notes" value={notesForCustomer} onChange={(event) => setNotesForCustomer(event.target.value)} placeholder="Shared with patient" />
-          </div>
-
-          <Input
-            label="Terms & Conditions"
-            value={termsConditions}
-            onChange={(event) => setTermsConditions(event.target.value)}
-            placeholder="Terms and condition"
-          />
-
-          {formError ? (
-            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              {formError}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={navigateToInvoiceList}>
+                  Cancel
+                </Button>
+                <Button type="submit" data-testid="finance-invoice-submit" disabled={submitting}>
+                  {submitting ? "Saving..." : isEditing ? "Update Invoice" : "Save"}
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" data-testid="finance-invoice-template-choose" onClick={() => void openTemplateChooser()}>
+                  Choose Template
+                </Button>
+                <Button type="button" variant="outline" data-testid="finance-invoice-template-save" onClick={openSaveTemplateDialog} disabled={items.length === 0}>
+                  Save As Template
+                </Button>
+              </div>
             </div>
-          ) : null}
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={navigateToInvoiceList}>
-                Cancel
-              </Button>
-              <Button type="submit" data-testid="finance-invoice-submit" disabled={submitting}>
-                {submitting ? "Saving..." : isEditing ? "Update Invoice" : "Save"}
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" data-testid="finance-invoice-template-choose" onClick={() => void openTemplateChooser()}>
-                Choose Template
-              </Button>
-              <Button type="button" variant="outline" data-testid="finance-invoice-template-save" onClick={openSaveTemplateDialog} disabled={items.length === 0}>
-                Save As Template
-              </Button>
-            </div>
-          </div>
-        </form>
+          </form>
         </SectionCard>
       </PageShell>
 

@@ -2,12 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
+  Drawer,
   Icon,
   Popover,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { FinanceFeatureLayout, FinanceFilterButton, ServerDataTableCard } from "../../components/FinancePageLayout";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, useVendorsSearchSchema } from "../../lib/financeSearch";
 
 export default function VendorsPage() {
   const navigate = useNavigate();
@@ -23,6 +31,42 @@ export default function VendorsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
 
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const { schema } = useVendorsSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setPage(1);
+    setFiltersOpen(false);
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -30,14 +74,7 @@ export default function VendorsPage() {
       setLoading(true);
       try {
         const response = await financeApi.vendors.search<any>({
-          page: page - 1,
-          size: pageSize,
-          sort: [
-            {
-              field: "createdAt",
-              direction: "DESC",
-            },
-          ],
+          ...buildFinanceSearchBody(advancedFilters, schema, page - 1, pageSize),
           view: "SUMMARY",
         });
 
@@ -87,7 +124,7 @@ export default function VendorsPage() {
     return () => {
       active = false;
     };
-  }, [page, pageSize]);
+  }, [page, pageSize, advancedFilters, schema]);
 
   const columns = useMemo<ColumnDef<(typeof vendors)[number]>[]>(
     () => [
@@ -144,15 +181,21 @@ export default function VendorsPage() {
   );
 
   return (
-    <FinanceFeatureLayout
-      title={`Vendors (${totalRecords})`}
+    <>
+      <FinanceFeatureLayout
+        title={`Vendors (${totalRecords})`}
       subtitle="Vendor directory for finance operations."
       main={
         <ServerDataTableCard
             actions={
               <div className="flex items-center gap-2">
                 <Button onClick={() => navigate("create")}>Create Vendor</Button>
-                <FinanceFilterButton testId="finance-vendors-filter" />
+                <FinanceFilterButton
+                  testId="finance-vendors-filter"
+                  label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                  active={appliedFilterCount > 0}
+                  onClick={openFilters}
+                />
               </div>
             }
             data={vendors}
@@ -170,5 +213,46 @@ export default function VendorsPage() {
           />
       }
     />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-vendors-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={schema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No vendor filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="finance-vendors-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="finance-vendors-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
+    </>
   );
 }

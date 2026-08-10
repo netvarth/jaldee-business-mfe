@@ -1,26 +1,59 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge, Button, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import { Badge, Button, Drawer, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { financeApi } from "../../lib/financeApi";
-import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
+import { DataTableCard, FinanceFeatureLayout, FinanceFilterButton, PageShell } from "../../components/FinancePageLayout";
+import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, useDiscountsSearchSchema } from "../../lib/financeSearch";
 type DiscountCalculationType="FIXED_AMOUNT"|"FIXED_PCT";type DiscountType="PREDEFINED"|"ONDEMAND";type DiscountStatus="ACTIVE"|"INACTIVE"|"RETIRED";
 
 export function DiscountsPage() {
   const navigate = useNavigate();
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  async function loadDiscounts() {
+  const { schema } = useDiscountsSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+
+  const loadDiscounts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await financeApi.discounts.list<any>({
-        page: 0,
-        size: 100,
-        sort: [{ field: "createdAt", direction: "DESC" }],
-      });
+      const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 200);
+      const res = await financeApi.discounts.list<any>(searchBody);
       const payload = Array.isArray(res.data?.content)
         ? res.data.content
         : Array.isArray(res.data?.data?.content)
@@ -35,11 +68,11 @@ export function DiscountsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [advancedFilters, schema]);
 
   useEffect(() => {
     loadDiscounts();
-  }, []);
+  }, [loadDiscounts]);
 
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
@@ -116,7 +149,7 @@ export function DiscountsPage() {
         ),
       },
     ],
-    [navigate]
+    [navigate, loadDiscounts]
   );
 
   return (
@@ -124,16 +157,69 @@ export function DiscountsPage() {
       title="Discounts"
       subtitle="Manage finance discounts used in invoices and item-level discount application."
       main={
-        <DataTableCard
-          title="Discount List"
-          subtitle="Available finance discounts."
-          actions={<Button onClick={() => navigate("create")}>Create Discount</Button>}
-          data={discounts}
-          columns={columns}
-          getRowId={(row) => String(row.uid)}
-          emptyTitle="No discounts"
-          emptyDescription={loading ? "Loading..." : "Discounts will appear here."}
-        />
+        <>
+          <DataTableCard
+            title="Discount List"
+            subtitle="Available finance discounts."
+            actions={
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate("create")}>Create Discount</Button>
+                <FinanceFilterButton
+                  testId="finance-discounts-filter"
+                  label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                  active={appliedFilterCount > 0}
+                  onClick={openFilters}
+                />
+              </div>
+            }
+            data={discounts}
+            columns={columns}
+            loading={loading}
+            getRowId={(row) => String(row.uid)}
+            emptyTitle="No discounts"
+            emptyDescription="Discounts will appear here."
+          />
+          <Drawer
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            title="Filters"
+            size="sm"
+            contentClassName="flex flex-col p-0 overflow-hidden"
+          >
+            <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-discounts-filter-drawer">
+              <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                <SchemaFilterBuilder
+                  schema={schema}
+                  value={draftFilters}
+                  onChange={setDraftFilters}
+                  appliedCount={appliedFilterCount}
+                  onClearAll={clearFilters}
+                  emptyStateMessage="No discount filters are available from the schema."
+                />
+              </div>
+              <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="finance-discounts-filter-reset"
+                  onClick={resetFilters}
+                >
+                  Reset All
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-1"
+                  data-testid="finance-discounts-filter-apply"
+                  onClick={applyFilters}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          </Drawer>
+        </>
       }
     />
   );

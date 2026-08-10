@@ -21,6 +21,10 @@ export interface InvoiceItem {
   taxAmount?: number;
   totalAmount?: number;
   discountApplicable?: boolean;
+  couponId?: string;
+  couponName?: string;
+  couponCode?: string;
+  couponDiscountValue?: number;
 }
 
 export interface FinanceCatalogOption extends ComboboxOption {
@@ -219,6 +223,13 @@ export function mapInvoiceItem(item: any, index: number): InvoiceItem {
     item.discountDto ??
     item.discounts?.[0] ??
     item.discountList?.[0];
+  const appliedCoupon =
+    item.coupon ??
+    item.appliedCoupon ??
+    item.couponDetail ??
+    item.couponDto ??
+    item.coupons?.[0] ??
+    item.couponList?.[0];
   const qty = Number(item.quantity || 1);
   const price = Number(item.price || 0);
   const discountAmount = Number(
@@ -263,5 +274,15 @@ export function mapInvoiceItem(item: any, index: number): InvoiceItem {
     taxAmount,
     totalAmount: Number(item.total || afterDiscount + taxAmount),
     discountApplicable: item.discountApplicable !== undefined ? Boolean(item.discountApplicable) : undefined,
+    couponId: readString(appliedCoupon?.id, appliedCoupon?.uid, item.couponId, item.couponUid) || undefined,
+    couponName: readString(appliedCoupon?.name, item.couponName) || undefined,
+    couponCode: readString(appliedCoupon?.code, appliedCoupon?.couponCode, item.couponCode) || undefined,
+    couponDiscountValue: Number(
+      appliedCoupon?.discountValue ??
+      appliedCoupon?.discountedAmount ??
+      item.couponDiscountValue ??
+      item.couponValue ??
+      0,
+    ),
   };
 }

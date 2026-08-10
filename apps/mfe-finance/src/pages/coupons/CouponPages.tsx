@@ -1,22 +1,59 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge, Button, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import { Badge, Button, Drawer, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
-import { DataTableCard, FinanceFeatureLayout, PageShell } from "../../components/FinancePageLayout";
+import { DataTableCard, FinanceFeatureLayout, FinanceFilterButton, PageShell } from "../../components/FinancePageLayout";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, useCouponsSearchSchema } from "../../lib/financeSearch";
 type CouponStatus="ACTIVE"|"INACTIVE"|"RETIRED";
 
 export function CouponsPage() {
   const navigate = useNavigate();
   const [coupons, setCoupons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  async function loadCoupons() {
+  const { schema } = useCouponsSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+
+  const loadCoupons = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await financeApi.coupons.list<any>({ from: 0, count: 100 });
+      const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 200);
+      const res = await financeApi.coupons.list<any>(searchBody);
       const payload = res.data?.content || res.data?.data?.content || res.data?.data || res.data || [];
       const records = Array.isArray(payload) ? payload : [];
       setCoupons(records.map((item: any, index: number) => ({
@@ -40,11 +77,11 @@ export function CouponsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [advancedFilters, schema]);
 
   useEffect(() => {
     void loadCoupons();
-  }, []);
+  }, [loadCoupons]);
 
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
@@ -156,25 +193,78 @@ export function CouponsPage() {
         ),
       },
     ],
-    [navigate]
+    [navigate, loadCoupons]
   );
 
   return (
     <FinanceFeatureLayout
       title="Coupons"
       subtitle="Manage finance coupons used in invoice and billing flows."
-      main={(
-        <DataTableCard
-          title="Coupon List"
-          subtitle="Available finance coupons."
-          actions={<Button onClick={() => navigate("create")}>Create Coupon</Button>}
-          data={coupons}
-          columns={columns}
-          getRowId={(row) => String(row.uid)}
-          emptyTitle="No coupons"
-          emptyDescription={loading ? "Loading..." : "Coupons will appear here."}
-        />
-      )}
+      main={
+        <>
+          <DataTableCard
+            title="Coupon List"
+            subtitle="Available finance coupons."
+            actions={
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate("create")}>Create Coupon</Button>
+                <FinanceFilterButton
+                  testId="finance-coupons-filter"
+                  label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                  active={appliedFilterCount > 0}
+                  onClick={openFilters}
+                />
+              </div>
+            }
+            data={coupons}
+            columns={columns}
+            loading={loading}
+            getRowId={(row) => String(row.uid)}
+            emptyTitle="No coupons"
+            emptyDescription="Coupons will appear here."
+          />
+          <Drawer
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            title="Filters"
+            size="sm"
+            contentClassName="flex flex-col p-0 overflow-hidden"
+          >
+            <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-coupons-filter-drawer">
+              <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                <SchemaFilterBuilder
+                  schema={schema}
+                  value={draftFilters}
+                  onChange={setDraftFilters}
+                  appliedCount={appliedFilterCount}
+                  onClearAll={clearFilters}
+                  emptyStateMessage="No coupon filters are available from the schema."
+                />
+              </div>
+              <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="finance-coupons-filter-reset"
+                  onClick={resetFilters}
+                >
+                  Reset All
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-1"
+                  data-testid="finance-coupons-filter-apply"
+                  onClick={applyFilters}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          </Drawer>
+        </>
+      }
     />
   );
 }

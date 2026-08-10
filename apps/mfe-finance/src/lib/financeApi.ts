@@ -466,6 +466,12 @@ export const financeApi = {
     removeDiscountFromDetail<T = unknown>(uid: string, data: unknown) {
       return put<T>(`${TENANT_INVOICE_ENDPOINT}/detail/${uid}/discount/remove`, data);
     },
+    applyCouponInDetail<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/detail/${uid}/coupon/apply`, data);
+    },
+    removeCouponFromDetail<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_INVOICE_ENDPOINT}/detail/${uid}/coupon/remove`, data);
+    },
     sharePaymentLink<T = unknown>(invoiceId: string, data: unknown) {
       return put<T>(`${TENANT_INVOICE_ENDPOINT}/${invoiceId}/share/payment/link`, data);
     },
@@ -526,9 +532,15 @@ export const financeApi = {
       return put<T>(`${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/${payId}`, data);
     },
     list<T = unknown>(filter: ApiFilter = {}) {
+      if (filter.filters) {
+        return post<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT, toTenantSearchBody(filter));
+      }
       return post<T>(TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     listOut<T = unknown>(filter: ApiFilter = {}) {
+      if (filter.filters) {
+        return post<T>(TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT, toTenantSearchBody(filter));
+      }
       return post<T>(TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     detailIn<T = unknown>(uid: string) {
@@ -612,10 +624,16 @@ export const financeApi = {
   },
   activity: {
     list<T = unknown>(filter: ApiFilter = {}) {
+      if (filter.filters) {
+        return post<T>(TENANT_AUDIT_LOG_SEARCH_ENDPOINT, toTenantSearchBody(filter));
+      }
       return post<T>(TENANT_AUDIT_LOG_SEARCH_ENDPOINT, toMsQuery(filter));
     },
     count<T = number>(filter: ApiFilter = {}) {
       return get<T>(`${TENANT_AUDIT_LOG_ENDPOINT}/count`, toMsQuery(filter));
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_AUDIT_LOG_SEARCH_ENDPOINT}/schema`);
     },
   },
   locations: {

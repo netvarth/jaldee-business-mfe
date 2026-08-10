@@ -1,23 +1,68 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMFEProps } from "@jaldee/auth-context";
 import {
   Button,
+  Drawer,
   Icon,
   Popover,
   Select,
 } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
+import {
+  SchemaFilterBuilder,
+  buildDefaultSearchClauses,
+  compactSearchClauses,
+} from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { financeApi } from "../../lib/financeApi";
 import { formatCurrency } from "../../lib/financeData";
+import { buildFinanceSearchBody, buildLocationCondition, useInvoiceSearchSchema } from "../../lib/financeSearch";
+import { normalizeReceivableSearchSchema } from "../../lib/receivableSearchFields";
 import { FinanceFeatureLayout, FinanceFilterButton, ServerDataTableCard } from "../../components/FinancePageLayout";
 
 export default function InvoicesPage() {
+  const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { schema: invoiceSchema } = useInvoiceSearchSchema();
+  const filterSchema = useMemo(() => normalizeReceivableSearchSchema(invoiceSchema), [invoiceSchema]);
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, filterSchema).length,
+    [advancedFilters, filterSchema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(filterSchema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(filterSchema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setPage(1);
+    setFiltersOpen(false);
+  };
 
   function getInvoiceTypeMeta(type: string) {
     const normalized = String(type || "").toUpperCase();
@@ -79,48 +124,65 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     let active = true;
+
     async function loadInvoices() {
       setLoading(true);
       try {
-        const res = await financeApi.invoices.listGeneral<any>({ from: (page - 1) * pageSize, count: pageSize });
-        if (active) {
-          const payload = res.data?.content || res.data || [];
-          const normalized = (Array.isArray(payload) ? payload : []).map((item: any, index: number) => ({
-            id: String(item.uid || item.invoiceNum || item.invoiceId || `invoice-${index}`),
-            detailUid: String(item.uid || item.invoiceUid || item.invoiceEncId || item.id || item.invoiceId || ""),
-            invoiceNum: String(item.invoiceNum || item.invoiceId || item.uid || `invoice-${index}`),
-            customer: String(item.consumerName || item.customerName || item.invoiceFor || item.userName || ""),
-            customerCode:
-              item.consumerUid &&
-              String(item.consumerUid) !== "00000000-0000-0000-0000-000000000000"
-                ? String(item.consumerUid)
-                : "",
-            assignedFor: String(item.assignedUserName || item.createdByName || item.userName || item.consumerPhone || "-"),
-            category: String(item.categoryName || item.invoiceCategoryName || "Finance"),
-            product: String(item.product || item.productName || item.featureModule || "FINANCE"),
-            invoiceType: String(item.internalInvoiceType || item.invoiceType || item.type || "INDIVIDUAL_INVOICE"),
-            amount: Number(item.netRate || item.netTotal || item.totalAmount || item.amountDue || 0),
-            amountDue: Number(item.amountDue || item.netRate || item.netTotal || item.totalAmount || 0),
-            date: item.invoiceDate || item.createdDate || item.createdAt
-              ? new Date(item.invoiceDate || item.createdDate || item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              : "-",
-            location: String(item.locationName || item.location || item.locationPlace || item.locationUid || "-"),
-            invoiceStatus: String(item.invoiceStatus || item.billStatus || item.status || "New"),
-            invoicePaymentStatus: String(item.invoicePaymentStatus || item.paymentStatus || "NotPaid"),
-            status: String(item.invoiceStatus || item.billStatus || item.status || item.invoicePaymentStatus || "New"),
-          }));
-          setInvoices(normalized);
-          setTotalRecords(res.data?.totalElements ?? res.data?.length ?? 0);
+        const fixedConditions = buildLocationCondition(filterSchema, mfeProps.location?.id);
+        const res = await financeApi.invoices.listGeneral<any>(
+          buildFinanceSearchBody(advancedFilters, filterSchema, page - 1, pageSize, fixedConditions)
+        );
+
+        if (!active) {
+          return;
         }
+
+        const payload = res.data?.content || res.data || [];
+        const normalized = (Array.isArray(payload) ? payload : []).map((item: any, index: number) => ({
+          id: String(item.uid || item.invoiceNum || item.invoiceId || `invoice-${index}`),
+          detailUid: String(item.uid || item.invoiceUid || item.invoiceEncId || item.id || item.invoiceId || ""),
+          invoiceNum: String(item.invoiceNum || item.invoiceId || item.uid || `invoice-${index}`),
+          customer: String(item.consumerName || item.customerName || item.invoiceFor || item.userName || ""),
+          customerCode:
+            item.consumerUid &&
+            String(item.consumerUid) !== "00000000-0000-0000-0000-000000000000"
+              ? String(item.consumerUid)
+              : "",
+          assignedFor: String(item.assignedUserName || item.createdByName || item.userName || item.consumerPhone || "-"),
+          category: String(item.categoryName || item.invoiceCategoryName || "Finance"),
+          product: String(item.product || item.productName || item.featureModule || "FINANCE"),
+          invoiceType: String(item.internalInvoiceType || item.invoiceType || item.type || "INDIVIDUAL_INVOICE"),
+          amount: Number(item.netRate || item.netTotal || item.totalAmount || item.amountDue || 0),
+          amountDue: Number(item.amountDue || item.netRate || item.netTotal || item.totalAmount || 0),
+          date: item.invoiceDate || item.createdDate || item.createdAt
+            ? new Date(item.invoiceDate || item.createdDate || item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "-",
+          location: String(item.locationName || item.location || item.locationPlace || item.locationUid || "-"),
+          invoiceStatus: String(item.invoiceStatus || item.billStatus || item.status || "New"),
+          invoicePaymentStatus: String(item.invoicePaymentStatus || item.paymentStatus || "NotPaid"),
+          status: String(item.invoiceStatus || item.billStatus || item.status || item.invoicePaymentStatus || "New"),
+        }));
+        setInvoices(normalized);
+        setTotalRecords(res.data?.totalElements ?? res.data?.length ?? 0);
       } catch (err) {
         console.error("Failed to fetch invoices", err);
+        if (active) {
+          setInvoices([]);
+          setTotalRecords(0);
+        }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
-    loadInvoices();
-    return () => { active = false; };
-  }, [page, pageSize]);
+
+    void loadInvoices();
+
+    return () => {
+      active = false;
+    };
+  }, [advancedFilters, filterSchema, mfeProps.location?.id, page, pageSize]);
 
   const unifiedInvoiceColumns = useMemo<ColumnDef<(typeof invoices)[number]>[]>(
     () => [
@@ -135,8 +197,8 @@ export default function InvoicesPage() {
       },
       { key: "assignedFor", header: "Assigned For", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
       { key: "location", header: "Location", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
-      { key: "amount", header: "Amount (INR)", align: "right", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amount).replace("â‚¹", "").trim() },
-      { key: "amountDue", header: "Amount Due (INR)", align: "right", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amountDue).replace("â‚¹", "").trim() },
+      { key: "amount", header: "Amount (INR)", align: "right", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amount).replace("Ã¢â€šÂ¹", "").trim() },
+      { key: "amountDue", header: "Amount Due (INR)", align: "right", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4", render: (row) => formatCurrency(row.amountDue).replace("Ã¢â€šÂ¹", "").trim() },
       { key: "category", header: "Category", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
       { key: "product", header: "Product", headerClassName: "text-sm font-semibold text-slate-900", className: "py-4" },
       {
@@ -210,42 +272,91 @@ export default function InvoicesPage() {
   );
 
   return (
-    <FinanceFeatureLayout
-      title="Invoice"
-      subtitle=" "
-      actions={
-        <div className="flex items-center gap-3">
-          <div className="w-48">
-            <Select
-              value="Finance"
-              onChange={() => undefined}
-              options={[{ value: "Finance", label: "Finance" }]}
+    <>
+      <FinanceFeatureLayout
+        title="Invoice"
+        subtitle=" "
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="w-48">
+              <Select
+                value="Finance"
+                onChange={() => undefined}
+                options={[{ value: "Finance", label: "Finance" }]}
+              />
+            </div>
+            <Button onClick={() => navigate("newInvoice")}>Create Invoice</Button>
+          </div>
+        }
+        main={
+          <ServerDataTableCard
+            actions={
+              <FinanceFilterButton
+                testId="finance-invoices-filter"
+                label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+                active={appliedFilterCount > 0}
+                onClick={openFilters}
+              />
+            }
+            title={`Invoice (${totalRecords})`}
+            data={invoices}
+            columns={unifiedInvoiceColumns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            page={page}
+            pageSize={pageSize}
+            total={totalRecords}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(1);
+              setPageSize(size);
+            }}
+            testId="finance-invoice-table"
+            emptyTitle="No Invoice"
+            emptyDescription={loading ? "Loading invoices..." : "No invoices found."}
+          />
+        }
+      />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-invoices-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={filterSchema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No invoice filters are available from the schema."
             />
           </div>
-          <Button onClick={() => navigate("newInvoice")}>Create Invoice</Button>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="finance-invoices-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="finance-invoices-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
         </div>
-      }
-      main={
-        <ServerDataTableCard
-          actions={
-            <FinanceFilterButton testId="finance-invoices-filter" />
-          }
-          title={`Invoice (${totalRecords})`}
-          data={invoices}
-          columns={unifiedInvoiceColumns}
-          getRowId={(row) => row.id}
-          loading={loading}
-          page={page}
-          pageSize={pageSize}
-          total={totalRecords}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
-          testId="finance-invoice-table"
-          emptyTitle="No Invoice"
-          emptyDescription={loading ? "Loading invoices..." : "No invoices found."}
-        />
-      }
-    />
+      </Drawer>
+    </>
   );
-
 }

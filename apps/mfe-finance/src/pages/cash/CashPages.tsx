@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
-import { Button, DataTable, EmptyState, Icon, Input, SectionCard, Select, StatCard, Textarea } from "@jaldee/design-system";
+import { Button, DataTable, Drawer, EmptyState, Icon, Input, SectionCard, Select, StatCard, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { formatCurrency } from "../../lib/financeData";
-import { DataTableCard, FeedCard, FinanceFeatureLayout, PageShell, SummaryList } from "../../components/FinancePageLayout";
+import { DataTableCard, FeedCard, FinanceFeatureLayout, FinanceFilterButton, PageShell, SummaryList } from "../../components/FinancePageLayout";
 import { useFinanceLiveData } from "../../lib/financeLive";
+import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import { buildFinanceSearchBody, buildLocationCondition, usePaymentsInSearchSchema, usePaymentsOutSearchSchema } from "../../lib/financeSearch";
 
 export function TotalListPage() {
   const {
@@ -68,14 +71,46 @@ export function CashInHandPage() {
   }>>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  async function loadCashInHand() {
+  const { schema } = usePaymentsInSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+
+  const loadCashInHand = useCallback(async () => {
     setLoading(true);
     try {
-      const filter = mfeProps.location?.id
-        ? { from: 0, count: 100, "locationId-eq": String(mfeProps.location.id) }
-        : { from: 0, count: 100 };
-      const response = await financeApi.cash.list<any>(filter);
+      const fixedConditions = buildLocationCondition(schema, mfeProps.location?.id);
+      const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 200, fixedConditions);
+      const response = await financeApi.cash.list<any>(searchBody);
       const payload = Array.isArray(response.data?.content)
         ? response.data.content
         : Array.isArray(response.data?.data?.content)
@@ -104,11 +139,11 @@ export function CashInHandPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [advancedFilters, schema, mfeProps.location?.id]);
 
   useEffect(() => {
     void loadCashInHand();
-  }, [mfeProps.location?.id]);
+  }, [loadCashInHand]);
 
   const handleRefreshCash = async () => {
     setRefreshing(true);
@@ -151,6 +186,12 @@ export function CashInHandPage() {
           <Button variant="outline" onClick={handleRefreshCash} disabled={refreshing}>
             {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
+          <FinanceFilterButton
+            testId="finance-cash-reserve-filter"
+            label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+            active={appliedFilterCount > 0}
+            onClick={openFilters}
+          />
           <Button onClick={() => navigate("reserve/new", { relative: "path" })}>+ Cash Reserve</Button>
         </div>
       }
@@ -161,9 +202,50 @@ export function CashInHandPage() {
         data={financeCashInHand}
         columns={columns}
         getRowId={(row) => row.id}
+        loading={loading}
         emptyTitle="No cash reserve records"
-        emptyDescription={loading ? "Loading cash reserve entries..." : "Cash reserve entries will appear here."}
+        emptyDescription="Cash reserve entries will appear here."
       />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-cash-reserve-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={schema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No cash reserve filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="finance-cash-reserve-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="finance-cash-reserve-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </PageShell>
   );
 }
@@ -299,16 +381,48 @@ export function CashRegisterPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [cashInHandAmount, setCashInHandAmount] = useState(0);
   const [cashUpdatedOn, setCashUpdatedOn] = useState("-");
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  async function loadCashRegisters() {
+  const { schema } = usePaymentsOutSearchSchema();
+
+  const appliedFilterCount = useMemo(
+    () => compactSearchClauses(advancedFilters, schema).length,
+    [advancedFilters, schema]
+  );
+
+  const openFilters = () => {
+    setDraftFilters(
+      advancedFilters.length ? advancedFilters : buildDefaultSearchClauses(schema)
+    );
+    setFiltersOpen(true);
+  };
+
+  const clearFilters = () => {
+    const reset = buildDefaultSearchClauses(schema);
+    setDraftFilters(reset);
+    setAdvancedFilters(reset);
+  };
+
+  const resetFilters = () => {
+    clearFilters();
+    setFiltersOpen(false);
+  };
+
+  const applyFilters = () => {
+    setAdvancedFilters(draftFilters);
+    setFiltersOpen(false);
+  };
+
+  const loadCashRegisters = useCallback(async () => {
     setLoading(true);
     try {
-      const locationFilter = mfeProps.location?.id
-        ? { from: 0, count: 100, "locationId-eq": String(mfeProps.location.id) }
-        : { from: 0, count: 100 };
+      const fixedConditions = buildLocationCondition(schema, mfeProps.location?.id);
+      const searchBody = buildFinanceSearchBody(advancedFilters, schema, 0, 200, fixedConditions);
       const [cashInResponse, cashOutResponse] = await Promise.allSettled([
-        financeApi.cash.list<any>(locationFilter),
-        financeApi.cash.listOut<any>(locationFilter),
+        financeApi.cash.list<any>(searchBody),
+        financeApi.cash.listOut<any>(searchBody),
       ]);
 
       const readList = (payload: any) =>
@@ -350,9 +464,9 @@ export function CashRegisterPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [advancedFilters, schema, mfeProps.location?.id]);
 
-  async function loadCashBalance() {
+  const loadCashBalance = useCallback(async () => {
     if (!mfeProps.location?.id) {
       setCashInHandAmount(0);
       setCashUpdatedOn("-");
@@ -385,17 +499,17 @@ export function CashRegisterPage() {
       setCashInHandAmount(0);
       setCashUpdatedOn("-");
     }
-  }
+  }, [mfeProps.location?.id]);
 
-  async function loadCashRegisterData() {
+  const loadCashRegisterData = useCallback(async () => {
     await Promise.allSettled([loadCashRegisters(), loadCashBalance()]);
-  }
+  }, [loadCashRegisters, loadCashBalance]);
 
   useEffect(() => {
     void loadCashRegisterData();
-  }, [mfeProps.location?.id]);
+  }, [loadCashRegisterData]);
 
-  async function handleRefreshCash() {
+  const handleRefreshCash = async () => {
     if (!mfeProps.location?.id) {
       return;
     }
@@ -409,7 +523,7 @@ export function CashRegisterPage() {
     } finally {
       setRefreshing(false);
     }
-  }
+  };
 
   const columns = useMemo<ColumnDef<(typeof cashRegisters)[number]>[]>(
     () => [
@@ -428,6 +542,12 @@ export function CashRegisterPage() {
         subtitle="Register balances and last update snapshots."
         actions={
           <div className="flex items-center gap-2">
+            <FinanceFilterButton
+              testId="finance-cash-register-filter"
+              label={appliedFilterCount > 0 ? `Filter (${appliedFilterCount})` : "Filter"}
+              active={appliedFilterCount > 0}
+              onClick={openFilters}
+            />
             <Button onClick={() => navigate("reserve/new", { relative: "path" })}>+ Cash Reserve</Button>
           </div>
         }
@@ -459,12 +579,53 @@ export function CashRegisterPage() {
               data={cashRegisters}
               columns={columns}
               getRowId={(row) => row.id}
+              loading={loading}
               emptyTitle="No cash register data"
-              emptyDescription={loading ? "Loading cash register entries..." : "Cash register entries will appear here."}
+              emptyDescription="Cash register entries will appear here."
             />
           </>
         }
       />
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col overflow-hidden" data-testid="finance-cash-register-filter-drawer">
+          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+            <SchemaFilterBuilder
+              schema={schema}
+              value={draftFilters}
+              onChange={setDraftFilters}
+              appliedCount={appliedFilterCount}
+              onClearAll={clearFilters}
+              emptyStateMessage="No cash register filters are available from the schema."
+            />
+          </div>
+          <div className="flex shrink-0 gap-3 border-t border-gray-200 p-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              data-testid="finance-cash-register-filter-reset"
+              onClick={resetFilters}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              data-testid="finance-cash-register-filter-apply"
+              onClick={applyFilters}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </>
   );
 }
