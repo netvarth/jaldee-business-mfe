@@ -6,9 +6,10 @@ import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
 import MasterInvoiceDialogs from "./MasterInvoiceDialogs";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { generateInvoicePdfFile, shareInvoicePdfAttachment, triggerInvoicePdfPrint, uploadInvoicePdfAttachment } from "./invoicePdf";
 
 function MasterInvoiceViewPage() {
-  const { eventBus } = useMFEProps();
+  const { eventBus, account, user } = useMFEProps();
   const { uid = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,6 +55,10 @@ function MasterInvoiceViewPage() {
   const [unlinkSubmitting, setUnlinkSubmitting] = useState(false);
   const [unlinkError, setUnlinkError] = useState("");
   const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
+  const [sharePdfDialogOpen, setSharePdfDialogOpen] = useState(false);
+  const [sharePdfSubmitting, setSharePdfSubmitting] = useState(false);
+  const [sharePdfError, setSharePdfError] = useState("");
+  const [invoicePdfBusy, setInvoicePdfBusy] = useState(false);
 
   function normalizePaymentEntries(payload: any) {
     const rawEntries = Array.isArray(payload)
@@ -118,6 +123,14 @@ function MasterInvoiceViewPage() {
     }
 
     const detailList = Array.isArray(res.data.detailList) ? res.data.detailList : [];
+    const appliedDiscounts = Array.isArray(res.data.discounts) ? res.data.discounts : [];
+    const appliedCoupons = Array.isArray(res.data.coupons) ? res.data.coupons : [];
+    const discountFallbackTotal = appliedDiscounts.reduce((sum: number, item: any) => (
+      sum + Number(item?.discountedAmount ?? item?.discountValue ?? item?.amount ?? 0)
+    ), 0);
+    const couponFallbackTotal = appliedCoupons.reduce((sum: number, item: any) => (
+      sum + Number(item?.discountedAmount ?? item?.discountValue ?? item?.amount ?? 0)
+    ), 0);
     const linkedRaw = Array.isArray(res.data.linkedInvoices) ? res.data.linkedInvoices : [];
 
     // If the linked invoices only contain uid (references), we populate their full details
@@ -174,6 +187,7 @@ function MasterInvoiceViewPage() {
         : "-",
       createdBy: String(res.data.createdByName || res.data.createdBy || res.data.providerName || "-"),
       product: String(res.data.product || res.data.productName || "BOOKING"),
+      accountId: String(res.data.accountId || res.data.providerAccountId || res.data.accountUid || ""),
       consumerPhone: String(res.data.consumerPhone || ""),
       consumerEmail: String(res.data.consumerEmail || ""),
       paymentLink: String(res.data.paymentLink || ""),
@@ -184,8 +198,10 @@ function MasterInvoiceViewPage() {
       netTotal: Number(res.data.netTotal || res.data.totalAmount || 0),
       totalAmount: Number(res.data.totalAmount || res.data.netTotal || 0),
       amountDue: Number(res.data.amountDue || res.data.netTotal || 0),
+      amountPaid: Number(res.data.amountPaid || 0),
       totalTax: Number(res.data.totalTax || 0),
-      totalDiscount: Number(res.data.totalDiscount || 0),
+      totalDiscount: Number(res.data.totalDiscount || res.data.discountTotal || discountFallbackTotal || 0),
+      totalCoupon: Number(res.data.totalCoupon || res.data.couponTotal || res.data.sharedCouponTotal || couponFallbackTotal || 0),
       linkedInvoices: mappedLinked,
       detailList: detailList.map((item: any, index: number) => {
         const qty = Number(item.quantity || 1);
@@ -389,78 +405,76 @@ function MasterInvoiceViewPage() {
     }
   }
 
-  function handlePrintInvoice() {
-    const invoiceContent = document.getElementById("finance-invoice-print");
-    if (!invoiceContent) {
-      window.print();
+  function closeSharePdfDialog() {
+    if (sharePdfSubmitting) {
+      return;
+    }
+    setSharePdfDialogOpen(false);
+    setSharePdfError("");
+  }
+
+  async function handlePrintInvoice() {
+    if (invoicePdfBusy) {
+      return;
+    }
+    setInvoicePdfBusy(true);
+    try {
+      const invoiceContent = document.getElementById("finance-invoice-print");
+      const pdfFile = await generateInvoicePdfFile(invoiceContent, { invoiceNumber: `invoice-${invoice?.invoiceNum || "invoice"}` });
+      if (!pdfFile) {
+        throw new Error("Could not generate invoice PDF.");
+      }
+      triggerInvoicePdfPrint(pdfFile);
+    } catch (error) {
+      console.error("Failed to print invoice PDF", error);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Print Invoice",
+        message: error instanceof Error ? error.message : "Could not print invoice PDF.",
+      });
+    } finally {
+      setInvoicePdfBusy(false);
+    }
+  }
+
+  async function submitSharePdf() {
+    if (!invoice?.uid || sharePdfSubmitting || invoicePdfBusy) {
       return;
     }
 
-    const printWindow = window.open("", "_blank", "width=1024,height=768");
-    if (!printWindow) {
-      window.print();
-      return;
+    setSharePdfError("");
+    setSharePdfSubmitting(true);
+    setInvoicePdfBusy(true);
+    try {
+      const invoiceContent = document.getElementById("finance-invoice-print");
+      const pdfFile = await generateInvoicePdfFile(invoiceContent, { invoiceNumber: `invoice-${invoice?.invoiceNum || "invoice"}` });
+      if (!pdfFile) {
+        throw new Error("Could not generate invoice PDF.");
+      }
+      const attachment = await uploadInvoicePdfAttachment({
+        tenantUid: String(account?.tenantUid || account?.id || invoice.accountId || invoice.uid),
+        userId: String(user?.id || ""),
+        userName: String(user?.name || "").trim() || undefined,
+      }, pdfFile);
+      await shareInvoicePdfAttachment(invoice.uid, attachment, {
+        email: shareEmail,
+        mobile: shareMobile,
+        smsCountryCode: "91",
+        whatsappCountryCode: "91",
+      });
+      setSharePdfDialogOpen(false);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Share Invoice PDF",
+        message: "Invoice PDF shared successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to share invoice PDF", error);
+      setSharePdfError(error instanceof Error ? error.message : "Could not share invoice PDF.");
+    } finally {
+      setSharePdfSubmitting(false);
+      setInvoicePdfBusy(false);
     }
-
-    const invoiceTitle = `Invoice-${invoice.invoiceNum}`;
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="utf-8" />
-          <title>${invoiceTitle}</title>
-          <style>
-            body {
-              margin: 0;
-              padding: 24px;
-              background: #ffffff;
-              color: #0f172a;
-              font-family: Arial, sans-serif;
-            }
-            * {
-              box-sizing: border-box;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              padding: 12px 16px;
-              border-bottom: 1px solid #e2e8f0;
-              text-align: left;
-              vertical-align: top;
-            }
-            th.text-right, td.text-right {
-              text-align: right;
-            }
-            .rounded-xl, .rounded-lg {
-              border-radius: 0;
-            }
-            .shadow-sm, .shadow, .drop-shadow, .border-slate-200 {
-              box-shadow: none !important;
-            }
-            .bg-slate-50, .bg-slate-100, .bg-slate-100\\/70 {
-              background: #ffffff !important;
-            }
-            button {
-              display: none !important;
-            }
-            @media print {
-              body {
-                padding: 0;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          ${invoiceContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
   }
 
   async function submitPaymentAction() {
@@ -638,7 +652,7 @@ function MasterInvoiceViewPage() {
   const normalizedInvoiceStatus = String(invoice.status || "").toLowerCase();
   const isInvoiceSettled = normalizedInvoiceStatus.includes("settled") || normalizedInvoiceStatus.includes("paid");
   const isInvoiceCancelled = normalizedInvoiceStatus.includes("cancel");
-  const amountPaid = Math.max(Number(invoice.netTotal || invoice.totalAmount || 0) - Number(invoice.amountDue || 0), 0);
+  const amountPaid = Math.max(Number(invoice.amountPaid || 0), 0);
   const canShowGetPayment =
     !isInvoiceSettled &&
     !isInvoiceCancelled &&
@@ -663,15 +677,15 @@ function MasterInvoiceViewPage() {
       back={{ label: "Back to Invoices", href: backHref }}
       actions={
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>
-          <Button variant="outline" onClick={handlePrintInvoice}>Print</Button>
+          <Button variant="outline" onClick={() => setSharePdfDialogOpen(true)} disabled={sharePdfSubmitting || invoicePdfBusy}>Share PDF</Button>
+          <Button variant="outline" onClick={() => void handlePrintInvoice()} disabled={invoicePdfBusy}>{invoicePdfBusy ? "Generating PDF..." : "Print"}</Button>
           <Button variant="outline" onClick={() => navigate(`/invoice/edit/${invoice.uid}`)}>Edit</Button>
         </div>
       }
     >
       <div id="finance-invoice-print" className="space-y-6">
         {/* Customer Profile & Info Card */}
-        <div className="border border-slate-100 bg-white rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm">
+        <div className="border border-slate-100 bg-white rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white flex-shrink-0">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -700,7 +714,7 @@ function MasterInvoiceViewPage() {
         </div>
 
         {/* Linked Invoices Section */}
-        <div className="border border-slate-100 bg-white rounded-2xl p-6 shadow-sm">
+        <div className="border border-slate-100 bg-white rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2 text-slate-900 font-bold text-base">
               <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -718,7 +732,7 @@ function MasterInvoiceViewPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-400 font-bold">
                   <th className="px-4 py-3">Date</th>
@@ -787,7 +801,7 @@ function MasterInvoiceViewPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-sm min-w-[800px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-700 font-bold bg-slate-50/50">
                   <th className="px-4 py-3.5">Description</th>
@@ -1101,6 +1115,11 @@ function MasterInvoiceViewPage() {
         paymentHistoryLoading={paymentHistoryLoading}
         paymentEntries={paymentEntries}
         openEditPaymentDialog={openEditPaymentDialog}
+        sharePdfDialogOpen={sharePdfDialogOpen}
+        closeSharePdfDialog={closeSharePdfDialog}
+        sharePdfError={sharePdfError}
+        sharePdfSubmitting={sharePdfSubmitting}
+        submitSharePdf={submitSharePdf}
         editingPayment={editingPayment}
         closeEditPaymentDialog={closeEditPaymentDialog}
         editPaymentAmount={editPaymentAmount}

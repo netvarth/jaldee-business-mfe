@@ -45,7 +45,6 @@ export async function fetchInvoiceTemplates(): Promise<InvoiceTemplateSummary[]>
   const response = await financeApi.invoices.templateList<any>({
     page: 0,
     size: 100,
-    view: "SUMMARY",
   });
   return readArrayPayload(response?.data).map((item: any, index: number) => ({
     uid: String(item.uid ?? item.templateUid ?? `template-${index}`),

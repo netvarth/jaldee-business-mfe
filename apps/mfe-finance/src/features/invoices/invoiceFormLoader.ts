@@ -38,10 +38,23 @@ export async function loadInvoiceFormOptions(
   const statuses = readArrayPayload(data(statusesResult));
   const financeItems = readArrayPayload(data(itemsResult));
 
-  const categoryOptions = categories.map((item: any) => ({
-    value: String(item.categoryId ?? item.uid ?? item.id),
-    label: String(item.name ?? item.categoryName ?? "Category"),
-  }));
+  const categoryOptions = categories
+    .map((item: any) => {
+      const numericCategoryId = Number(item.categoryId ?? item.id ?? 0);
+      const fallbackValue = String(item.uid ?? item.encId ?? item.id ?? item.categoryId ?? "");
+      return {
+        value:
+          Number.isFinite(numericCategoryId) && numericCategoryId > 0
+            ? String(numericCategoryId)
+            : fallbackValue,
+        label: String(item.name ?? item.categoryName ?? "Category"),
+        categoryId:
+          Number.isFinite(numericCategoryId) && numericCategoryId > 0
+            ? numericCategoryId
+            : undefined,
+      };
+    })
+    .filter((item) => item.value && item.label.trim());
   const statusOptions = statuses.map((item: any) => ({
     value: String(item.id ?? item.uid ?? item.statusId),
     label: String(item.name ?? item.statusName ?? "Status"),

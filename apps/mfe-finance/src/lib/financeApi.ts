@@ -24,6 +24,9 @@ function post<T>(url: string, data?: unknown): ApiResponse<T> {
 function put<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
   return getActiveApi().put<T>(url, data, params ? { params } : undefined);
 }
+function patch<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
+  return getActiveApi().patch<T>(url, data, params ? { params } : undefined);
+}
 function del<T>(url: string, params?: ApiFilter): ApiResponse<T> {
   return getActiveApi().delete<T>(url, params ? { params } : undefined);
 }
@@ -687,6 +690,12 @@ export const financeApi = {
     },
     uploadToSignedUrl<T = unknown>(url: string, file: unknown) {
       return put<T>(url, file);
+    },
+    initiateDriveUpload<T = unknown>(data: unknown) {
+      return post<T>("/platform-service/v1/api/drive/initiate-upload", data);
+    },
+    markDriveUploadComplete<T = unknown>(fileUid: string) {
+      return patch<T>(`/platform-service/v1/api/drive/${fileUid}/status`, null, { status: "COMPLETE" });
     },
   },
   services: {

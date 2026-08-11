@@ -532,8 +532,8 @@ function MasterInvoicePage() {
       }
     >
       <SectionCard className="border-slate-200 bg-white shadow-sm p-0 overflow-hidden">
-        <div className="flex flex-col gap-6 p-6">
-          <div id="finance-invoice-print" className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:gap-6 p-3 sm:p-6">
+          <div id="finance-invoice-print" className="rounded-2xl border border-slate-100 bg-white p-3 sm:p-6 shadow-sm">
             {/* Header Info */}
             <div className="grid gap-6 border-b border-slate-100 pb-6 md:grid-cols-2">
               <div className="space-y-1">
@@ -554,7 +554,7 @@ function MasterInvoicePage() {
 
             {/* Items Table */}
             <div className="mt-8 overflow-x-auto rounded-xl border border-slate-100">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full border-collapse text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80 text-left text-slate-600">
                     <th className="px-4 py-3.5 font-bold whitespace-nowrap">Procedure/Item</th>

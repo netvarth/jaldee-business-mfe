@@ -2,9 +2,46 @@ import { Button, DatePicker, Dialog, DialogFooter, Input, Select, Textarea } fro
 import { formatCurrency } from "../../lib/financeData";
 
 export default function MasterInvoiceDialogs(props: any) {
-  const { paymentDialogOpen, closePaymentDialog, paymentAction, shareEmail, setShareEmail, shareMobile, setShareMobile, paymentAmount, setPaymentAmount, paymentMode, setPaymentMode, paymentDate, setPaymentDate, paymentTransactionId, setPaymentTransactionId, paymentNote, setPaymentNote, paymentError, paymentSubmitting, submitPaymentAction, paymentHistoryOpen, setPaymentHistoryOpen, paymentHistoryError, paymentHistoryLoading, paymentEntries, openEditPaymentDialog, editingPayment, closeEditPaymentDialog, editPaymentAmount, setEditPaymentAmount, editPaymentMode, setEditPaymentMode, editPaymentDate, setEditPaymentDate, editPaymentTransactionId, setEditPaymentTransactionId, editPaymentNote, setEditPaymentNote, editPaymentError, editPaymentSubmitting, submitEditedPayment } = props;
+  const { paymentDialogOpen, closePaymentDialog, paymentAction, shareEmail, setShareEmail, shareMobile, setShareMobile, paymentAmount, setPaymentAmount, paymentMode, setPaymentMode, paymentDate, setPaymentDate, paymentTransactionId, setPaymentTransactionId, paymentNote, setPaymentNote, paymentError, paymentSubmitting, submitPaymentAction, paymentHistoryOpen, setPaymentHistoryOpen, paymentHistoryError, paymentHistoryLoading, paymentEntries, openEditPaymentDialog, editingPayment, closeEditPaymentDialog, editPaymentAmount, setEditPaymentAmount, editPaymentMode, setEditPaymentMode, editPaymentDate, setEditPaymentDate, editPaymentTransactionId, setEditPaymentTransactionId, editPaymentNote, setEditPaymentNote, editPaymentError, editPaymentSubmitting, submitEditedPayment, sharePdfDialogOpen, closeSharePdfDialog, sharePdfError, sharePdfSubmitting, submitSharePdf } = props;
   return (
     <>
+      <Dialog
+        open={Boolean(sharePdfDialogOpen)}
+        onClose={closeSharePdfDialog}
+        title="Share Invoice PDF"
+        size="md"
+      >
+        <div className="space-y-4 pt-2">
+          <Input
+            label="Email"
+            value={shareEmail}
+            onChange={(event) => setShareEmail(event.target.value)}
+            placeholder="Customer email"
+          />
+          <Input
+            label="Mobile"
+            value={shareMobile}
+            onChange={(event) => setShareMobile(event.target.value)}
+            placeholder="Customer mobile number"
+          />
+
+          {sharePdfError ? (
+            <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {sharePdfError}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeSharePdfDialog} disabled={sharePdfSubmitting}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void submitSharePdf()} disabled={sharePdfSubmitting}>
+              {sharePdfSubmitting ? "Sharing..." : "Share PDF"}
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
       <Dialog
         open={paymentDialogOpen}
         onClose={closePaymentDialog}

@@ -58,15 +58,20 @@ export default function FinanceInvoiceForm() {
     setSelectedCouponId, selectedCouponDetail, setSelectedCouponDetail, couponLoading, setCouponLoading, couponOptionsLoading, setCouponOptionsLoading, couponSubmitting,
     setCouponSubmitting, showTemplateChooser, setShowTemplateChooser, showSaveTemplateDialog, setShowSaveTemplateDialog, showTemplatePreviewDialog, setShowTemplatePreviewDialog, templateSearch,
     setTemplateSearch, templateNameInput, setTemplateNameInput, templateLoading, setTemplateLoading, templateSaving, setTemplateSaving, previewTemplate,
-    setPreviewTemplate, formError, setFormError, submitting, setSubmitting, loading, setLoading, preselectedConsumerUid,
+    setPreviewTemplate, formError, setFormError, formSuccess, submitting, setSubmitting, loading, setLoading, preselectedConsumerUid,
     selectedCatalogOption, selectedConsumerOption, selectedDiscountOption, selectedInvoiceDiscountOption, selectedCouponOption, filteredInvoiceTemplates, nextInvoiceRequest, resetItemBuilder,
-    openNewItemBuilder, openItemEditor, handleSaveItem, resetDiscountDialog, loadDiscountOptions, loadCouponOptions, loadInvoiceTemplates, handleDiscountChange,
+    openNewItemBuilder, openItemEditor, handleSaveItem, handleDeleteItem, resetDiscountDialog, loadDiscountOptions, loadCouponOptions, loadInvoiceTemplates, handleDiscountChange,
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
-    handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit, handleRemoveItemCoupon,
+    handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
     invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
     handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
   } = useFinanceInvoiceFormController();
+  const previewTemplateDetails = Array.isArray(previewTemplate?.detailList)
+    ? previewTemplate.detailList
+    : Array.isArray(previewTemplate?.details)
+      ? previewTemplate.details
+      : [];
 
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Loading invoice form...</div>;
@@ -155,9 +160,17 @@ export default function FinanceInvoiceForm() {
               <Input label="Invoice#" value={invoiceNum} onChange={(event) => setInvoiceNum(event.target.value)} />
               <Input label="Referral Number" value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Referral Number" />
 
-              <Input label="Invoice Date *" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} required />
+              <Input label="Invoice Date" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} required />
               <Input label="Due Date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
             </div>
+
+            {invoiceTemplates.length > 0 ? (
+              <div className="flex justify-start">
+                <Button type="button" variant="outline" data-testid="finance-invoice-template-choose" onClick={() => void openTemplateChooser()}>
+                  Choose Invoice Template
+                </Button>
+              </div>
+            ) : null}
 
             <Input
               label="Subject"
@@ -211,8 +224,135 @@ export default function FinanceInvoiceForm() {
                 </div>
               </div>
 
-              <div className="mb-5 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="w-full border-collapse text-left">
+              <div className="mb-5 rounded-xl border border-slate-200 bg-white md:hidden">
+                {items.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-slate-400">
+                    No items added yet.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {items.map((item) => (
+                      <div key={item.id} className="space-y-3 px-4 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-900">{item.name}</div>
+                            <div className="mt-1 text-xs text-slate-500">{formatDisplayDate(item.date)}</div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {item.discountApplicable === false && (
+                                <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/10">
+                                  Discount Disabled
+                                </span>
+                              )}
+                              {item.couponCode && (
+                                <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/10">
+                                  Coupon: {item.couponCode}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Popover
+                            portal
+                            placement="bottom"
+                            align="end"
+                            open={openItemActionId === item.id}
+                            onOpenChange={(open) => setOpenItemActionId(open ? item.id : null)}
+                            trigger={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 shrink-0 p-0"
+                                icon={<Icon name="moreVertical" className="h-4 w-4" />}
+                                aria-label={`Actions for ${item.name}`}
+                              />
+                            }
+                          >
+                            <div className="grid min-w-[180px] p-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  setOpenItemActionId(null);
+                                  openItemEditor(item);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              {isEditing && !item.discountId ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal"
+                                  disabled={!item.detailUid || item.discountApplicable === false}
+                                  onClick={() => void openDiscountDialog(item)}
+                                >
+                                  Apply Discount
+                                </Button>
+                              ) : null}
+                              {isEditing && !!item.discountId ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal"
+                                  disabled={!item.detailUid || !item.discountId}
+                                  onClick={() => {
+                                    setOpenItemActionId(null);
+                                    void handleRemoveItemDiscount(item);
+                                  }}
+                                >
+                                  Remove Discount
+                                </Button>
+                              ) : null}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal text-rose-600"
+                                onClick={() => {
+                                  setOpenItemActionId(null);
+                                  handleDeleteItem(item.id);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </Popover>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                          <div>
+                            <div className="text-xs text-slate-500">Price</div>
+                            <div className="font-medium text-slate-900">{formatCurrency(item.price)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Qty</div>
+                            <div className="font-medium text-slate-900">{item.qty}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Discount</div>
+                            <div className="font-medium text-slate-900">{formatCurrency(item.discountAmount ?? 0)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">After Discount</div>
+                            <div className="font-medium text-slate-900">{formatCurrency(item.afterDiscount ?? item.price * item.qty)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Tax</div>
+                            <div className="font-medium text-slate-900">{formatCurrency(item.taxAmount ?? 0)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Total</div>
+                            <div className="font-semibold text-slate-900">{formatCurrency(item.totalAmount ?? item.price * item.qty)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mb-5 hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+                <table className="w-full min-w-[850px] border-collapse text-left">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-600">
                       <th className="px-4 py-3">Procedure/Item</th>
@@ -311,38 +451,13 @@ export default function FinanceInvoiceForm() {
                                     Remove Discount
                                   </Button>
                                 ) : null}
-                                {isEditing && !item.couponId ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="justify-start font-normal"
-                                    disabled={!item.detailUid}
-                                    onClick={() => void openCouponDialog(item)}
-                                  >
-                                    Apply Coupon
-                                  </Button>
-                                ) : null}
-                                {isEditing && !!item.couponId ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="justify-start font-normal"
-                                    disabled={!item.detailUid || !item.couponId}
-                                    onClick={() => {
-                                      setOpenItemActionId(null);
-                                      void handleRemoveItemCoupon(item);
-                                    }}
-                                  >
-                                    Remove Coupon
-                                  </Button>
-                                ) : null}
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="justify-start font-normal text-rose-600"
                                   onClick={() => {
                                     setOpenItemActionId(null);
-                                    setItems((current) => current.filter((entry) => entry.id !== item.id));
+                                    handleDeleteItem(item.id);
                                   }}
                                 >
                                   Delete
@@ -435,6 +550,11 @@ export default function FinanceInvoiceForm() {
                   <span className="font-bold text-slate-900 text-right">{formatCurrency(invoiceTotalAmount)}</span>
                   <div className="w-7" />
 
+                  {/* Net Total Row */}
+                  <span className="font-bold text-slate-800">Net Total</span>
+                  <span className="font-bold text-slate-950 text-right">{formatCurrency(invoiceNetTotal)}</span>
+                  <div className="w-7" />
+
                   {/* Invoice Level Discount Row */}
                   {invoiceDiscount && (
                     <>
@@ -487,11 +607,6 @@ export default function FinanceInvoiceForm() {
                   {/* Divider */}
                   <div className="col-span-3 border-b border-slate-200/60 my-1" />
 
-                  {/* Net Total Row */}
-                  <span className="font-bold text-slate-800">Net Total</span>
-                  <span className="font-bold text-slate-950 text-right">{formatCurrency(invoiceNetTotal)}</span>
-                  <div className="w-7" />
-
                   {/* Amount Due Card */}
                   <div className="col-span-3 rounded-lg bg-indigo-50/50 border border-indigo-100 p-3.5 mt-2">
                     <div className="grid grid-cols-[1fr_auto_28px] items-center">
@@ -512,6 +627,12 @@ export default function FinanceInvoiceForm() {
               placeholder="Terms and condition"
             />
 
+            {formSuccess ? (
+              <div className="rounded-[var(--radius-control)] bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                {formSuccess}
+              </div>
+            ) : null}
+
             {formError ? (
               <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                 {formError}
@@ -528,9 +649,6 @@ export default function FinanceInvoiceForm() {
                 </Button>
               </div>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" data-testid="finance-invoice-template-choose" onClick={() => void openTemplateChooser()}>
-                  Choose Template
-                </Button>
                 <Button type="button" variant="outline" data-testid="finance-invoice-template-save" onClick={openSaveTemplateDialog} disabled={items.length === 0}>
                   Save As Template
                 </Button>
@@ -800,8 +918,8 @@ export default function FinanceInvoiceForm() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {Array.isArray(previewTemplate?.detailList) && previewTemplate.detailList.length > 0 ? (
-                  previewTemplate.detailList.map((detail: any, index: number) => (
+                {previewTemplateDetails.length > 0 ? (
+                  previewTemplateDetails.map((detail: any, index: number) => (
                     <tr key={detail.uid ?? `preview-detail-${index}`}>
                       <td className="px-4 py-3">{String(detail.itemName ?? detail.name ?? "-")}</td>
                       <td className="px-4 py-3 text-center">{Number(detail.quantity ?? 0)}</td>

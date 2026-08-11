@@ -24,6 +24,18 @@ import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } 
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { buildFinanceSearchBody, useItemsSearchSchema } from "../../lib/financeSearch";
 
+function readTaxPercentage(item: any) {
+  return Number(
+    item?.percentage ??
+      item?.taxPercentage ??
+      item?.taxPercent ??
+      item?.gstPercentage ??
+      item?.gstPercent ??
+      item?.value ??
+      0
+  ) || 0;
+}
+
 function ItemsPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
@@ -122,47 +134,78 @@ function ItemsPage() {
                     const nextStatus = row.status === "Enabled" ? "Disabled" : "Enabled";
                     try {
                       await financeApi.items.changeStatus(row.uid, nextStatus);
-                      loadItems();
+                      await loadItems();
+                      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+                        intent: "success",
+                        title: "Update Item",
+                        message: `Item ${nextStatus === "Enabled" ? "enabled" : "disabled"} successfully.`,
+                      });
                     } catch (err) {
                       console.error(err);
-                      alert("Failed to update status");
+                      mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+                        intent: "error",
+                        title: "Update Item",
+                        message: "Failed to update status.",
+                      });
                     }
                   }}
                 >
                   {row.status === "Enabled" ? "Disable" : "Enable"}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal"
-                  onClick={async () => {
-                    try {
-                      await financeApi.items.updateCouponApplicable(row.uid, !row.couponApplicable);
-                      loadItems();
-                    } catch (err) {
-                      console.error(err);
-                      alert("Failed to update coupon setting");
-                    }
-                  }}
-                >
-                  Coupon Applicable: {row.couponApplicable ? "On" : "Off"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start font-normal"
-                  onClick={async () => {
-                    try {
-                      await financeApi.items.updateDiscountApplicable(row.uid, !row.discountApplicable);
-                      loadItems();
-                    } catch (err) {
-                      console.error(err);
-                      alert("Failed to update discount setting");
-                    }
-                  }}
-                >
-                  Discount Applicable: {row.discountApplicable ? "On" : "Off"}
-                </Button>
+                {row.status === "Enabled" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start font-normal"
+                    onClick={async () => {
+                      try {
+                        await financeApi.items.updateCouponApplicable(row.uid, !row.couponApplicable);
+                        await loadItems();
+                        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+                          intent: "success",
+                          title: "Update Item",
+                          message: `Coupon applicability ${!row.couponApplicable ? "enabled" : "disabled"} successfully.`,
+                        });
+                      } catch (err) {
+                        console.error(err);
+                        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+                          intent: "error",
+                          title: "Update Item",
+                          message: "Failed to update coupon setting.",
+                        });
+                      }
+                    }}
+                  >
+                    Coupon Applicable: {row.couponApplicable ? "On" : "Off"}
+                  </Button>
+                ) : null}
+                {row.status === "Enabled" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start font-normal"
+                    onClick={async () => {
+                      try {
+                        await financeApi.items.updateDiscountApplicable(row.uid, !row.discountApplicable);
+                        await loadItems();
+                        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+                          intent: "success",
+                          title: "Update Item",
+                          message: `Discount applicability ${!row.discountApplicable ? "enabled" : "disabled"} successfully.`,
+                        });
+                      } catch (err) {
+                        console.error(err);
+                        mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
+                          intent: "error",
+                          title: "Update Item",
+                          message: "Failed to update discount setting.",
+                        });
+                      }
+                    }}
+                  >
+                    Discount Applicable: {row.discountApplicable ? "On" : "Off"}
+                  </Button>
+                ) : null}
               </div>
             </Popover>
           </div>
@@ -252,16 +295,54 @@ function ItemsCreatePage() {
   const [displayName, setDisplayName] = useState("");
   const [itemCode, setItemCode] = useState("");
   const [amountVal, setAmountVal] = useState("");
-  const [taxPreference, setTaxPreference] = useState("NON_TAXABLE");
+  const [taxPreference, setTaxPreference] = useState("");
+  const [selectedTaxUid, setSelectedTaxUid] = useState("");
   const [status, setStatus] = useState("Enabled");
   const [itemDesc, setItemDesc] = useState("");
   const [rateEditable, setRateEditable] = useState(true);
   const [taxInclude, setTaxInclude] = useState(true);
   const [discountApplicable, setDiscountApplicable] = useState(true);
   const [couponApplicable, setCouponApplicable] = useState(true);
+  const [taxOptions, setTaxOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTaxes() {
+      try {
+        const response = await financeApi.taxes.byFilter<any>({ taxType: "GST" });
+        const records = Array.isArray(response.data?.content)
+          ? response.data.content
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+        if (!active) {
+          return;
+        }
+        setTaxOptions(
+          records
+            .map((item: any, index: number) => ({
+              value: String(item.uid ?? item.id ?? `tax-${index}`),
+              label: `GST ${readTaxPercentage(item)}%`,
+            }))
+            .filter((item: { value: string; label: string }) => item.value && item.label.trim())
+        );
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load taxes", error);
+        if (active) {
+          setTaxOptions([]);
+        }
+      }
+    }
+
+    void loadTaxes();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -269,6 +350,10 @@ function ItemsCreatePage() {
 
     if (!itemName.trim()) {
       setFormError("Item Name is required.");
+      return;
+    }
+    if (selectedTaxUid && taxPreference !== "TAXABLE") {
+      setFormError("Tax Preference mandatory.");
       return;
     }
 
@@ -280,7 +365,7 @@ function ItemsCreatePage() {
         code: itemCode.trim() || undefined,
         description: itemDesc.trim() || undefined,
         status,
-        taxPreference,
+        taxPreference: taxPreference || "NON_TAXABLE",
         amount: Number(amountVal) || 0,
         rateEditable,
         taxInclude,
@@ -290,7 +375,7 @@ function ItemsCreatePage() {
         discountApplicable,
         couponApplicable,
         displayOrder: 0,
-        taxList: [],
+        taxList: selectedTaxUid ? [selectedTaxUid] : [],
       });
       mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
@@ -315,7 +400,7 @@ function ItemsCreatePage() {
   return (
     <PageShell
       title="Create Item"
-      subtitle="Add a new finance item/procedure to the catalog."
+      subtitle="Add a new finance item/procedure."
       back={{ label: "Back to Items", href: "/items" }}
     >
       <SectionCard className="border-slate-200 shadow-sm p-6">
@@ -337,10 +422,18 @@ function ItemsCreatePage() {
             <Input label="Amount (₹) *" type="number" min="0" step="0.01" value={amountVal} onChange={(e) => setAmountVal(e.target.value)} required />
             
             <Select
+              label="Tax"
+              value={selectedTaxUid}
+              onChange={(e) => setSelectedTaxUid(e.target.value)}
+              options={[{ value: "", label: "Select tax" }, ...taxOptions]}
+            />
+
+            <Select
               label="Tax Preference"
               value={taxPreference}
               onChange={(e) => setTaxPreference(e.target.value)}
               options={[
+                { value: "", label: "Select tax preference" },
                 { value: "TAXABLE", label: "Taxable" },
                 { value: "NON_TAXABLE", label: "Non-Taxable" },
               ]}
@@ -489,7 +582,7 @@ function ItemsEditPage() {
         title: "Update Item",
         message: "Item updated successfully.",
       });
-      navigate("/finance/items");
+      navigate("/items", { replace: true });
     } catch (error) {
       console.error("[mfe-finance] Failed to update item", error);
       const msg = error instanceof Error ? error.message : "Could not update item.";

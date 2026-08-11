@@ -7,13 +7,20 @@ export async function fetchInvoiceTemplate(templateUid: string) {
 }
 
 export function mapTemplateItems(template: any): InvoiceItem[] {
-  const detailList = Array.isArray(template.detailList) ? template.detailList : [];
+  const detailList = Array.isArray(template.detailList)
+    ? template.detailList
+    : Array.isArray(template.details)
+      ? template.details
+      : [];
+
   return detailList.map((detail: any, index: number) => ({
     id: `template-item-${Date.now()}-${index}`,
-    itemUid: detail.itemUid ? String(detail.itemUid) : undefined,
+    itemUid: detail.itemUid ? String(detail.itemUid) : detail.itemId ? String(detail.itemId) : undefined,
     itemType:
       detail.itemType === "FINANCE_ITEM"
         ? "FINANCE_ITEM"
+        : detail.itemType === "SERVICE_ITEM"
+          ? "FINANCE_ITEM"
         : detail.itemType === "SERVICE"
           ? "SERVICE"
           : "ADHOC_ITEM",
