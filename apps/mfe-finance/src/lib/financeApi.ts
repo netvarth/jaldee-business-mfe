@@ -497,10 +497,18 @@ export const financeApi = {
       return put<T>(`${TENANT_INVOICE_ENDPOINT}/nextInvoiceNum`, data);
     },
     templateList<T = unknown>(filter: ApiFilter = {}) {
-      return post<T>(`${TENANT_INVOICE_TEMPLATE_ENDPOINT}/search`, toTenantSearchBody(filter));
+      const searchBody = toTenantSearchBody(filter);
+      const { filters: _filters, ...restBody } = searchBody as Record<string, unknown>;
+      return post<T>(`${TENANT_INVOICE_TEMPLATE_ENDPOINT}/search`, {
+        ...restBody,
+        ...(filter.locationUid ? { locationUid: String(filter.locationUid) } : {}),
+        allowToUseOtherUsers: true,
+      });
     },
     templateById<T = unknown>(uid: string) {
-      return invoiceTemplates.detail<T>(uid);
+      return get<T>(`${TENANT_INVOICE_TEMPLATE_ENDPOINT}/${uid}`, {
+        allowToUseOtherUsers: true,
+      });
     },
     createTemplate<T = unknown>(data: unknown) {
       return invoiceTemplates.create<T>(data);

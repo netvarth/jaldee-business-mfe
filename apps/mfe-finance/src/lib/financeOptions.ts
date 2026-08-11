@@ -1,5 +1,4 @@
 export const vendorPaymentModeOptions = [
-  { value: "", label: "Select payment mode" },
   { value: "Cash", label: "Cash" },
   { value: "DC", label: "Debit Card" },
   { value: "CC", label: "Credit Card" },

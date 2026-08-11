@@ -388,13 +388,14 @@ export default function PayableCreatePage() {
               label="Location *"
               value={locationUid}
               onChange={(event) => setLocationUid(event.target.value)}
-              options={[{ value: "", label: "Location" }, ...locationOptions]}
+              placeholder="Select location"
+              options={locationOptions}
             />
             <div />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Payout Category *</label>
               <div className="flex items-center">
-                <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" options={[{ value: "", label: "Payout Category" }, ...categoryOptions]} />
+                <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" placeholder="Select payout category" options={categoryOptions} />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>+</Button>
               </div>
             </div>
@@ -417,14 +418,14 @@ export default function PayableCreatePage() {
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Vendor</label>
               <div className="flex items-center">
-                <Select value={vendorUid} onChange={(event) => setVendorUid(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" options={[{ value: "", label: "Please choose Vendor" }, ...vendorOptions]} />
+                <Select value={vendorUid} onChange={(event) => setVendorUid(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" placeholder="Choose vendor" options={vendorOptions} />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>+</Button>
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Status</label>
               <div className="flex items-center">
-                <Select value={statusId} onChange={(event) => setStatusId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" options={[{ value: "", label: "New" }, ...statusOptions]} />
+                <Select value={statusId} onChange={(event) => setStatusId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" placeholder="Select status" options={statusOptions} />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>+</Button>
               </div>
             </div>

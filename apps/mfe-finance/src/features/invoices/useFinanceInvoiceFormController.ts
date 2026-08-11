@@ -116,9 +116,19 @@ export function useFinanceInvoiceFormController() {
   const [couponSubmitting, setCouponSubmitting] = useState(false);
   const [showTemplateChooser, setShowTemplateChooser] = useState(false);
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [showEditTemplateDialog, setShowEditTemplateDialog] = useState(false);
   const [showTemplatePreviewDialog, setShowTemplatePreviewDialog] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
   const [templateNameInput, setTemplateNameInput] = useState("");
+  const [editingTemplateUid, setEditingTemplateUid] = useState("");
+  const [templateEditSubject, setTemplateEditSubject] = useState("");
+  const [templateEditNotesForProvider, setTemplateEditNotesForProvider] = useState("");
+  const [templateEditNotesForCustomer, setTemplateEditNotesForCustomer] = useState("");
+  const [templateEditTermsConditions, setTemplateEditTermsConditions] = useState("");
+  const [templateEditItems, setTemplateEditItems] = useState<InvoiceItem[]>([]);
+  const [deletingTemplateUid, setDeletingTemplateUid] = useState("");
+  const [deletingTemplateName, setDeletingTemplateName] = useState("");
+  const [deleteTemplateSubmitting, setDeleteTemplateSubmitting] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
@@ -341,7 +351,7 @@ export function useFinanceInvoiceFormController() {
   async function loadInvoiceTemplates() {
     setTemplateLoading(true);
     try {
-      setInvoiceTemplates(await fetchInvoiceTemplates());
+      setInvoiceTemplates(await fetchInvoiceTemplates(locationId || defaultLocationId));
     } catch (error) {
       console.error("[mfe-finance] Failed to load invoice templates", error);
       setInvoiceTemplates([]);
@@ -416,13 +426,95 @@ export function useFinanceInvoiceFormController() {
   }
 
   function openSaveTemplateDialog() {
-    if (items.length === 0) {
-      reportFormError("Add at least one item before saving as template.");
-      return;
-    }
+    setEditingTemplateUid("");
     setTemplateNameInput(invoiceLabel.trim() || "Invoice Template");
     setShowSaveTemplateDialog(true);
     clearFormError();
+  }
+
+  async function openEditTemplateDialog(templateUid: string) {
+    clearFormError();
+    try {
+      const template = await fetchInvoiceTemplate(templateUid);
+      setEditingTemplateUid(templateUid);
+      setTemplateNameInput(String(template.templateName ?? "").trim());
+      setTemplateEditSubject(String(template.invoiceLabel ?? ""));
+      setTemplateEditNotesForProvider(String(template.notesForProvider ?? ""));
+      setTemplateEditNotesForCustomer(String(template.notesForCustomer ?? template.description ?? ""));
+      setTemplateEditTermsConditions(String(template.termsConditions ?? template.termsAndConditions ?? ""));
+      setTemplateEditItems(mapTemplateItems(template));
+      setShowTemplateChooser(false);
+      setShowTemplatePreviewDialog(false);
+      setShowSaveTemplateDialog(false);
+      setShowEditTemplateDialog(true);
+    } catch (error) {
+      console.error("[mfe-finance] Failed to load template for editing", error);
+      reportFormError(toFinanceErrorMessage(error, "Could not load invoice template."));
+    }
+  }
+
+  function closeEditTemplateDialog() {
+    setShowEditTemplateDialog(false);
+    setEditingTemplateUid("");
+    setTemplateNameInput("");
+    setTemplateEditSubject("");
+    setTemplateEditNotesForProvider("");
+    setTemplateEditNotesForCustomer("");
+    setTemplateEditTermsConditions("");
+    setTemplateEditItems([]);
+  }
+
+  function addTemplateEditItem() {
+    setTemplateEditItems((current) => [
+      ...current,
+      {
+        id: `template-edit-item-${Date.now()}`,
+        itemType: "ADHOC_ITEM",
+        name: "",
+        qty: 1,
+        price: 0,
+        date: todayIsoDate(),
+        afterDiscount: 0,
+        totalAmount: 0,
+      },
+    ]);
+  }
+
+  function updateTemplateEditItem(itemId: string, field: "name" | "qty" | "price", value: string | number) {
+    setTemplateEditItems((current) => current.map((item) => {
+      if (item.id !== itemId) {
+        return item;
+      }
+      const nextItem = {
+        ...item,
+        [field]:
+          field === "name"
+            ? String(value)
+            : Math.max(Number(value) || 0, field === "qty" ? 1 : 0),
+      };
+      const totalAmount = Number(nextItem.price) * Number(nextItem.qty);
+      return {
+        ...nextItem,
+        afterDiscount: totalAmount,
+        totalAmount,
+      };
+    }));
+  }
+
+  function removeTemplateEditItem(itemId: string) {
+    setTemplateEditItems((current) => current.filter((item) => item.id !== itemId));
+  }
+
+  function openDeleteTemplateDialog(templateUid: string, templateName: string) {
+    setDeletingTemplateUid(templateUid);
+    setDeletingTemplateName(templateName);
+    clearFormError();
+  }
+
+  function resetDeleteTemplateDialog() {
+    setDeletingTemplateUid("");
+    setDeletingTemplateName("");
+    setDeleteTemplateSubmitting(false);
   }
 
   function resetInvoiceDiscountDialog() {
@@ -978,10 +1070,20 @@ export function useFinanceInvoiceFormController() {
     setTemplateSaving(true);
     clearFormError();
     try {
-      await financeApi.invoices.createTemplate(buildInvoiceTemplatePayload(templateNameInput));
+      const payload = buildInvoiceTemplatePayload(templateNameInput);
+      if (editingTemplateUid) {
+        await financeApi.invoices.updateTemplate(editingTemplateUid, payload);
+      } else {
+        await financeApi.invoices.createTemplate(payload);
+      }
       setShowSaveTemplateDialog(false);
+      setEditingTemplateUid("");
       setTemplateNameInput("");
       await loadInvoiceTemplates();
+      reportFormSuccess(
+        editingTemplateUid ? "Invoice template updated successfully." : "Invoice template saved successfully.",
+        "Invoice Template"
+      );
     } catch (error) {
       console.error("[mfe-finance] Failed to save invoice template", error);
       reportFormError(toFinanceErrorMessage(error, "Could not save invoice template."));
@@ -1012,13 +1114,75 @@ export function useFinanceInvoiceFormController() {
     }
   }
 
+  async function handleUpdateTemplate() {
+    const selectedCategoryOption = categoryOptions.find((option: any) => option.value === categoryId);
+    const normalizedCategoryId = Number(selectedCategoryOption?.categoryId ?? categoryId);
+
+    if (!editingTemplateUid) {
+      return;
+    }
+    if (!templateNameInput.trim()) {
+      reportFormError("Template name is required.");
+      return;
+    }
+    if (!Number.isFinite(normalizedCategoryId) || normalizedCategoryId <= 0) {
+      reportFormError("Invoice category is required to update a template.");
+      return;
+    }
+
+    setTemplateSaving(true);
+    clearFormError();
+    try {
+      await financeApi.invoices.updateTemplate(editingTemplateUid, createInvoiceTemplatePayload(templateNameInput, {
+        locationId,
+        categoryOptions,
+        categoryId,
+        invoiceLabel: templateEditSubject,
+        notesForProvider: templateEditNotesForProvider,
+        notesForCustomer: templateEditNotesForCustomer,
+        termsConditions: templateEditTermsConditions,
+        items: templateEditItems.filter((item) => item.name.trim()),
+        includeDetailList: true,
+      }));
+      closeEditTemplateDialog();
+      await loadInvoiceTemplates();
+      reportFormSuccess("Invoice template updated successfully.", "Invoice Template");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to update invoice template", error);
+      reportFormError(toFinanceErrorMessage(error, "Could not update invoice template."));
+    } finally {
+      setTemplateSaving(false);
+    }
+  }
+
   async function handlePreviewTemplate(templateUid: string) {
     try {
+      setShowTemplateChooser(false);
       setPreviewTemplate(await fetchInvoiceTemplate(templateUid));
       setShowTemplatePreviewDialog(true);
     } catch (error) {
       console.error("[mfe-finance] Failed to preview invoice template", error);
       reportFormError(toFinanceErrorMessage(error, "Could not preview invoice template."));
+    }
+  }
+
+  async function handleDeleteTemplate() {
+    if (!deletingTemplateUid) {
+      return;
+    }
+
+    setDeleteTemplateSubmitting(true);
+    clearFormError();
+    try {
+      await financeApi.invoices.deleteTemplate(deletingTemplateUid);
+      resetDeleteTemplateDialog();
+      setShowTemplatePreviewDialog(false);
+      await loadInvoiceTemplates();
+      reportFormSuccess("Invoice template deleted successfully.", "Invoice Template");
+    } catch (error) {
+      console.error("[mfe-finance] Failed to delete invoice template", error);
+      reportFormError(toFinanceErrorMessage(error, "Could not delete invoice template."));
+      setDeleteTemplateSubmitting(false);
     }
   }
 
@@ -1109,14 +1273,14 @@ export function useFinanceInvoiceFormController() {
     setDiscountOptionsLoading, showInvoiceDiscountDialog, setShowInvoiceDiscountDialog, showInvoiceCouponDialog, setShowInvoiceCouponDialog, selectedInvoiceDiscountId, setSelectedInvoiceDiscountId, selectedInvoiceDiscountDetail,
     setSelectedInvoiceDiscountDetail, invoiceDiscountAmountInput, setInvoiceDiscountAmountInput, invoiceDiscountSubmitting, setInvoiceDiscountSubmitting, invoiceDiscountLoading, setInvoiceDiscountLoading, selectedCouponId,
     setSelectedCouponId, selectedCouponDetail, setSelectedCouponDetail, couponLoading, setCouponLoading, couponOptionsLoading, setCouponOptionsLoading, couponSubmitting,
-    setCouponSubmitting, showTemplateChooser, setShowTemplateChooser, showSaveTemplateDialog, setShowSaveTemplateDialog, showTemplatePreviewDialog, setShowTemplatePreviewDialog, templateSearch,
-    setTemplateSearch, templateNameInput, setTemplateNameInput, templateLoading, setTemplateLoading, templateSaving, setTemplateSaving, previewTemplate,
+    setCouponSubmitting, showTemplateChooser, setShowTemplateChooser, showSaveTemplateDialog, setShowSaveTemplateDialog, showEditTemplateDialog, setShowEditTemplateDialog, showTemplatePreviewDialog, setShowTemplatePreviewDialog, templateSearch,
+    setTemplateSearch, templateNameInput, setTemplateNameInput, editingTemplateUid, templateEditSubject, setTemplateEditSubject, templateEditNotesForProvider, setTemplateEditNotesForProvider, templateEditNotesForCustomer, setTemplateEditNotesForCustomer, templateEditTermsConditions, setTemplateEditTermsConditions, templateEditItems, deletingTemplateUid, deletingTemplateName, deleteTemplateSubmitting, templateLoading, setTemplateLoading, templateSaving, setTemplateSaving, previewTemplate,
     setPreviewTemplate, formError, setFormError, formSuccess, submitting, setSubmitting, loading, setLoading, preselectedConsumerUid,
     selectedCatalogOption, selectedConsumerOption, selectedDiscountOption, selectedInvoiceDiscountOption, selectedCouponOption, filteredInvoiceTemplates, nextInvoiceRequest, resetItemBuilder,
     openNewItemBuilder, openItemEditor, handleSaveItem, handleDeleteItem, resetDiscountDialog, loadDiscountOptions, loadCouponOptions, loadInvoiceTemplates, handleDiscountChange,
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
-    handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
+    handleConfirmSaveTemplate, openEditTemplateDialog, closeEditTemplateDialog, addTemplateEditItem, updateTemplateEditItem, removeTemplateEditItem, handleUpdateTemplate, openDeleteTemplateDialog, resetDeleteTemplateDialog, handleDeleteTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
     invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
     handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
   };

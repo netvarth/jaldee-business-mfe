@@ -199,7 +199,7 @@ function MasterInvoiceViewPage() {
       totalAmount: Number(res.data.totalAmount || res.data.netTotal || 0),
       amountDue: Number(res.data.amountDue || res.data.netTotal || 0),
       amountPaid: Number(res.data.amountPaid || 0),
-      totalTax: Number(res.data.totalTax || 0),
+      totalTax: Number(res.data.totalTax ?? res.data.taxTotal ?? 0),
       totalDiscount: Number(res.data.totalDiscount || res.data.discountTotal || discountFallbackTotal || 0),
       totalCoupon: Number(res.data.totalCoupon || res.data.couponTotal || res.data.sharedCouponTotal || couponFallbackTotal || 0),
       linkedInvoices: mappedLinked,
@@ -208,7 +208,7 @@ function MasterInvoiceViewPage() {
         const rate = Number(item.price || item.netRate || 0);
         const totalRate = Number(item.netTotal || rate * qty);
         const afterDiscount = Number(item.netTotalAfterDiscount || totalRate);
-        const tax = Number(item.taxAmount || item.totalTax || 0);
+        const tax = Number(item.taxAmount ?? item.taxTotal ?? item.totalTax ?? 0);
         const total = Number(item.total || afterDiscount + tax);
         const appliedDiscount =
           item.discount ??

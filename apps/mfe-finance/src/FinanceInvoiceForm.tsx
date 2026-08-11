@@ -56,14 +56,14 @@ export default function FinanceInvoiceForm() {
     setDiscountOptionsLoading, showInvoiceDiscountDialog, setShowInvoiceDiscountDialog, showInvoiceCouponDialog, setShowInvoiceCouponDialog, selectedInvoiceDiscountId, setSelectedInvoiceDiscountId, selectedInvoiceDiscountDetail,
     setSelectedInvoiceDiscountDetail, invoiceDiscountAmountInput, setInvoiceDiscountAmountInput, invoiceDiscountSubmitting, setInvoiceDiscountSubmitting, invoiceDiscountLoading, setInvoiceDiscountLoading, selectedCouponId,
     setSelectedCouponId, selectedCouponDetail, setSelectedCouponDetail, couponLoading, setCouponLoading, couponOptionsLoading, setCouponOptionsLoading, couponSubmitting,
-    setCouponSubmitting, showTemplateChooser, setShowTemplateChooser, showSaveTemplateDialog, setShowSaveTemplateDialog, showTemplatePreviewDialog, setShowTemplatePreviewDialog, templateSearch,
-    setTemplateSearch, templateNameInput, setTemplateNameInput, templateLoading, setTemplateLoading, templateSaving, setTemplateSaving, previewTemplate,
+    setCouponSubmitting, showTemplateChooser, setShowTemplateChooser, showSaveTemplateDialog, setShowSaveTemplateDialog, showEditTemplateDialog, setShowEditTemplateDialog, showTemplatePreviewDialog, setShowTemplatePreviewDialog, templateSearch,
+    setTemplateSearch, templateNameInput, setTemplateNameInput, editingTemplateUid, templateEditSubject, setTemplateEditSubject, templateEditNotesForProvider, setTemplateEditNotesForProvider, templateEditNotesForCustomer, setTemplateEditNotesForCustomer, templateEditTermsConditions, setTemplateEditTermsConditions, templateEditItems, deletingTemplateUid, deletingTemplateName, deleteTemplateSubmitting, templateLoading, setTemplateLoading, templateSaving, setTemplateSaving, previewTemplate,
     setPreviewTemplate, formError, setFormError, formSuccess, submitting, setSubmitting, loading, setLoading, preselectedConsumerUid,
     selectedCatalogOption, selectedConsumerOption, selectedDiscountOption, selectedInvoiceDiscountOption, selectedCouponOption, filteredInvoiceTemplates, nextInvoiceRequest, resetItemBuilder,
     openNewItemBuilder, openItemEditor, handleSaveItem, handleDeleteItem, resetDiscountDialog, loadDiscountOptions, loadCouponOptions, loadInvoiceTemplates, handleDiscountChange,
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
-    handleConfirmSaveTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
+    handleConfirmSaveTemplate, openEditTemplateDialog, closeEditTemplateDialog, addTemplateEditItem, updateTemplateEditItem, removeTemplateEditItem, handleUpdateTemplate, openDeleteTemplateDialog, resetDeleteTemplateDialog, handleDeleteTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
     invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
     handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
   } = useFinanceInvoiceFormController();
@@ -935,8 +935,197 @@ export default function FinanceInvoiceForm() {
             </table>
           </div>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void openEditTemplateDialog(String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? ""))}
+              disabled={!String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? "")}
+            >
+              Edit Template
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-rose-200 text-rose-600 hover:bg-rose-50"
+              onClick={() =>
+                openDeleteTemplateDialog(
+                  String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? ""),
+                  String(previewTemplate?.templateName ?? "Template")
+                )
+              }
+              disabled={!String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? "")}
+            >
+              Delete Template
+            </Button>
             <Button type="button" variant="outline" onClick={() => setShowTemplatePreviewDialog(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      {/* Edit Invoice Template Dialog */}
+      <Dialog open={showEditTemplateDialog} onClose={closeEditTemplateDialog} title="Edit Invoice Template" size="lg">
+        <div className="flex flex-col max-h-[82vh] pt-2">
+          {/* Scrollable Body Container */}
+          <div className="overflow-y-auto pr-1.5 pb-2 space-y-5 flex-1 max-h-[64vh]">
+            
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6 space-y-5">
+              <Input
+                label="Template Name"
+                value={templateNameInput}
+                onChange={(event) => setTemplateNameInput(event.target.value)}
+                placeholder="Enter template name"
+              />
+              <Input
+                label="Subject"
+                value={templateEditSubject}
+                onChange={(event) => setTemplateEditSubject(event.target.value)}
+                placeholder="Let your patient know what this invoice is for"
+              />
+
+              {/* Template Items Block */}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Template Items</div>
+                    <div className="text-xs text-slate-500">Add services or adhoc items that should be loaded from this template.</div>
+                  </div>
+                  <div className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                    {templateEditItems.length} {templateEditItems.length === 1 ? "item" : "items"}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_120px_56px] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  <div>Item Details</div>
+                  <div>Quantity</div>
+                  <div>Rate</div>
+                  <div>Amount</div>
+                  <div />
+                </div>
+
+                <div className="grid gap-0 bg-white">
+                  {templateEditItems.length === 0 ? (
+                    <div className="px-4 py-12 text-center">
+                      <div className="text-sm font-medium text-slate-600">No template items found.</div>
+                      <div className="mt-1 text-xs text-slate-400">Add a procedure or item to make this template reusable.</div>
+                    </div>
+                  ) : (
+                    templateEditItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_120px_56px] gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 hover:bg-slate-50/60"
+                      >
+                        <Input
+                          value={item.name}
+                          onChange={(event) => updateTemplateEditItem(item.id, "name", event.target.value)}
+                          placeholder="Procedure/Item"
+                        />
+                        <Input
+                          type="number"
+                          min="1"
+                          value={String(item.qty)}
+                          onChange={(event) => updateTemplateEditItem(item.id, "qty", event.target.value)}
+                        />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={String(item.price)}
+                          onChange={(event) => updateTemplateEditItem(item.id, "price", event.target.value)}
+                        />
+                        <div className="flex items-center px-3 text-sm font-semibold text-slate-900">
+                          {formatCurrency(Number(item.qty) * Number(item.price))}
+                        </div>
+                        <div className="flex items-center justify-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-slate-100 rounded-lg text-slate-500 flex items-center justify-center"
+                            onClick={() => removeTemplateEditItem(item.id)}
+                            aria-label={`Remove ${item.name || "template item"}`}
+                          >
+                            <Icon name="moreHorizontal" className="h-4.5 w-4.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="border-t border-slate-200 bg-slate-50/80 px-4 py-3">
+                  <Button
+                    type="button"
+                    onClick={addTemplateEditItem}
+                    icon={<Icon name="plus" className="h-4 w-4" />}
+                  >
+                    Add Procedure/Item
+                  </Button>
+                </div>
+              </div>
+
+              {/* Template Notes Block */}
+              <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="text-sm font-semibold text-slate-900">Template Notes</div>
+                <Input
+                  label="Your Notes"
+                  value={templateEditNotesForProvider}
+                  onChange={(event) => setTemplateEditNotesForProvider(event.target.value)}
+                  placeholder="Private Note"
+                />
+                <Input
+                  label="Notes For Customer"
+                  value={templateEditNotesForCustomer}
+                  onChange={(event) => setTemplateEditNotesForCustomer(event.target.value)}
+                  placeholder="Shared with patient"
+                />
+                <Input
+                  label="Terms & Conditions"
+                  value={templateEditTermsConditions}
+                  onChange={(event) => setTemplateEditTermsConditions(event.target.value)}
+                  placeholder="Terms and condition"
+                />
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Sticky footer */}
+          <DialogFooter className="border-t border-slate-200 pt-4 flex-shrink-0">
+            <Button type="button" variant="outline" className="rounded-xl px-4" onClick={closeEditTemplateDialog}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-indigo-600 px-5 text-white hover:bg-indigo-700"
+              onClick={() => void handleUpdateTemplate()}
+              disabled={templateSaving || !templateNameInput.trim()}
+            >
+              {templateSaving ? "Updating..." : "Update Template"}
+            </Button>
+          </DialogFooter>
+
+        </div>
+      </Dialog>
+
+      {/* Delete Invoice Template Dialog */}
+      <Dialog open={Boolean(deletingTemplateUid)} onClose={resetDeleteTemplateDialog} title="Delete Invoice Template" size="sm">
+        <div className="grid gap-5 pt-2">
+          <div className="text-sm text-slate-600">
+            Delete template <span className="font-semibold text-slate-900">{deletingTemplateName || "this template"}</span>?
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={resetDeleteTemplateDialog}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleDeleteTemplate()}
+              disabled={deleteTemplateSubmitting}
+            >
+              {deleteTemplateSubmitting ? "Deleting..." : "Delete Template"}
             </Button>
           </DialogFooter>
         </div>

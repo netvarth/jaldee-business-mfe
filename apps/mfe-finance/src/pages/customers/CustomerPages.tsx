@@ -776,7 +776,6 @@ export function CustomerCreatePage() {
   const [title, setTitle] = useState("Mr");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [consumerType, setConsumerType] = useState("NONE");
   const [status, setStatus] = useState("INACTIVE");
   const [countryCode, setCountryCode] = useState("+91");
   const [phoneNo, setPhoneNo] = useState("");
@@ -810,7 +809,7 @@ export function CustomerCreatePage() {
       const statusEnum = status === "ACTIVE" ? "Enabled" : "Disabled";
 
       await financeApi.customers.create({
-        consumerType,
+        consumerType: "TENANT_CONSUMER",
         title: title.trim() || undefined,
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
@@ -877,13 +876,6 @@ export function CustomerCreatePage() {
               ]}
               fullWidth
             />
-            <Select
-              label="Consumer Type"
-              value={consumerType}
-              onChange={(event) => setConsumerType(event.target.value)}
-              options={[{ value: "NONE", label: "None" }]}
-              fullWidth
-            />
             <Input label="First Name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="John" fullWidth />
             <Input label="Last Name" value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Doe" fullWidth />
             <Select
@@ -946,7 +938,6 @@ export function CustomerEditPage() {
   const [title, setTitle] = useState("Mr");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [consumerType, setConsumerType] = useState("NONE");
   const [status, setStatus] = useState("INACTIVE");
   const [countryCode, setCountryCode] = useState("+91");
   const [phoneNo, setPhoneNo] = useState("");
@@ -971,7 +962,6 @@ export function CustomerEditPage() {
         setTitle(data.title || data.consumerSnapshot?.title || "Mr");
         setFirstName(data.firstName || data.consumerSnapshot?.firstName || "");
         setLastName(data.lastName || data.consumerSnapshot?.lastName || "");
-        setConsumerType(data.consumerType || "NONE");
         setStatus(data.status || "INACTIVE");
         setGender(data.consumerSnapshot?.gender || "MALE");
         setEmail(data.email || data.consumerSnapshot?.email || "");
@@ -1039,7 +1029,7 @@ export function CustomerEditPage() {
 
       const payload = {
         ...originalCustomer,
-        consumerType,
+        consumerType: "TENANT_CONSUMER",
         title: title.trim() || undefined,
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
@@ -1110,13 +1100,6 @@ export function CustomerEditPage() {
                   { value: "Mrs", label: "Mrs" },
                   { value: "Dr", label: "Dr" },
                 ]}
-                fullWidth
-              />
-              <Select
-                label="Consumer Type"
-                value={consumerType}
-                onChange={(event) => setConsumerType(event.target.value)}
-                options={[{ value: "NONE", label: "None" }]}
                 fullWidth
               />
               <Input label="First Name" value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="John" fullWidth />

@@ -775,7 +775,8 @@ export function CashReserveCreatePage() {
               label="Location *"
               value={locationUid}
               onChange={(event) => setLocationUid(event.target.value)}
-              options={[{ value: "", label: "Select Location" }, ...locationOptions]}
+              placeholder="Select location"
+              options={locationOptions}
             />
             <Input
               label="Reference No."

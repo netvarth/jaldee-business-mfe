@@ -456,7 +456,8 @@ export default function VendorFormPage() {
                   onChange={(event) => setVendorCategoryId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Select vendor category" }, ...vendorCategoryOptions]}
+                  placeholder="Select vendor category"
+                  options={vendorCategoryOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
                   +
@@ -471,7 +472,8 @@ export default function VendorFormPage() {
                   onChange={(event) => setVendorStatusId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Select vendor status" }, ...vendorStatusOptions]}
+                  placeholder="Select vendor status"
+                  options={vendorStatusOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
                   +
@@ -482,7 +484,8 @@ export default function VendorFormPage() {
               label="Location *"
               value={locationUid}
               onChange={(event) => setLocationUid(event.target.value)}
-              options={[{ value: "", label: "Location" }, ...locationOptions]}
+              placeholder="Select location"
+              options={locationOptions}
             />
             <Input label="Contact Name" value={contactName} onChange={(event) => setContactName(event.target.value)} />
             <Input label="Phone Number" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} />
@@ -500,7 +503,8 @@ export default function VendorFormPage() {
               label="Preferred Payment Mode"
               value={preferredPaymentMode}
               onChange={(event) => setPreferredPaymentMode(event.target.value)}
-              options={[{ value: "", label: "Choose Payment Mode" }, ...vendorPaymentModeOptions]}
+              placeholder="Choose payment mode"
+              options={vendorPaymentModeOptions}
             />
             <Input label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} />
             <Input label="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} />

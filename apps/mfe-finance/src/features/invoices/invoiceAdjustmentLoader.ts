@@ -41,11 +41,13 @@ export async function fetchCouponOptions() {
   return mapCouponOptions(coupons);
 }
 
-export async function fetchInvoiceTemplates(): Promise<InvoiceTemplateSummary[]> {
+export async function fetchInvoiceTemplates(locationId?: string): Promise<InvoiceTemplateSummary[]> {
   const response = await financeApi.invoices.templateList<any>({
     page: 0,
     size: 100,
+    ...(locationId ? { locationUid: locationId } : {}),
   });
+
   return readArrayPayload(response?.data).map((item: any, index: number) => ({
     uid: String(item.uid ?? item.templateUid ?? `template-${index}`),
     templateName: String(item.templateName ?? item.name ?? item.uid ?? `Template ${index + 1}`),

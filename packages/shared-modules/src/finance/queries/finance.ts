@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSharedModulesContext } from "../../context";
+import { BASE_SERVICE_ENDPOINTS } from "../../serviceUrls";
+import { compactSearchClauses, normalizeSearchSchema } from "../../filters";
 import { useApiScope } from "../../useApiScope";
 import {
   assembleFinanceDataset,
@@ -18,8 +20,43 @@ import {
   normalizeFinanceVendors,
 } from "../services/finance";
 import type { FinanceExpenseBreakdownRow, FinanceInvoiceCreatePayload } from "../types";
+import type { SearchFilterClause, SearchSchema } from "../../filters";
 
 export type FinanceExpenseBreakdownFilter = "TODAY" | "PREVIOUS_WEEK" | "CURRENT_MONTH" | "PREVIOUS_MONTH" | "DATE_RANGE";
+
+interface FinanceSearchRequestBody {
+  view?: string;
+  filters: {
+    logic: "AND";
+    conditions: Array<{ field: string; operator: string; values: string[] }>;
+  } | null;
+  sort: Array<{ field: string; direction: string }>;
+  page: number;
+  size: number;
+}
+
+function buildSearchBody(
+  filterClauses: SearchFilterClause[] = [],
+  schema: SearchSchema | null | undefined = null,
+  page = 0,
+  size = 10,
+) : FinanceSearchRequestBody {
+  const conditions = compactSearchClauses(filterClauses, schema).map((clause) => ({
+    field: clause.field,
+    operator: clause.operator,
+    values: clause.values.filter((value) => value.trim().length > 0),
+  }));
+
+  return {
+    ...(schema?.defaultView ? { view: schema.defaultView } : {}),
+    filters: conditions.length ? { logic: "AND", conditions } : null,
+    sort: schema?.defaultSort?.field
+      ? [{ field: schema.defaultSort.field, direction: schema.defaultSort.direction ?? "DESC" }]
+      : [],
+    page,
+    size,
+  };
+}
 
 function mapExpenseBreakdownFrequency(filter: FinanceExpenseBreakdownFilter): string {
   switch (filter) {
@@ -449,6 +486,42 @@ export function useFinanceActivityLogs(filters: Record<string, any>) {
       const response = await api.get<unknown>("provider/jp/finance/log", { params: filters });
       return normalizeFinanceActivityLogs((response as { data: unknown }).data);
     },
+  });
+}
+
+export function useFinanceActivityLogSearchSchema() {
+  const api = useApiScope();
+  const auditLogSearchEndpoint = `${BASE_SERVICE_ENDPOINTS.auditLogs.search}/search`;
+
+  return useQuery<SearchSchema | null>({
+    queryKey: ["finance-activity-logs-search-schema"],
+    queryFn: async () => {
+      const response = await api.get<unknown>(`${auditLogSearchEndpoint}/schema`);
+      return normalizeSearchSchema((response as { data: unknown }).data);
+    },
+  });
+}
+
+export function useFinanceActivityLogsSearch(
+  filterClauses: SearchFilterClause[],
+  schema: SearchSchema | null | undefined,
+  page: number,
+  pageSize: number,
+) {
+  const api = useApiScope();
+  const auditLogSearchEndpoint = `${BASE_SERVICE_ENDPOINTS.auditLogs.search}/search`;
+
+  return useQuery({
+    queryKey: ["finance-activity-logs-search", filterClauses, schema, page, pageSize],
+    queryFn: async () => {
+      const response = await api.post<unknown>(auditLogSearchEndpoint, buildSearchBody(filterClauses, schema, page, pageSize));
+      const payload = (response as { data: unknown }).data;
+      return {
+        rows: normalizeFinanceActivityLogs(payload),
+        total: Number((payload as Record<string, unknown> | null)?.["totalElements"] ?? (payload as Record<string, unknown> | null)?.["total"] ?? 0) || 0,
+      };
+    },
+    enabled: Boolean(schema),
   });
 }
 

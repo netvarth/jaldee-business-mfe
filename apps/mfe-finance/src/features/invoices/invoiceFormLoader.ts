@@ -42,12 +42,14 @@ export async function loadInvoiceFormOptions(
     .map((item: any) => {
       const numericCategoryId = Number(item.categoryId ?? item.id ?? 0);
       const fallbackValue = String(item.uid ?? item.encId ?? item.id ?? item.categoryId ?? "");
+      const categoryUid = String(item.uid ?? item.encId ?? "").trim();
       return {
         value:
           Number.isFinite(numericCategoryId) && numericCategoryId > 0
             ? String(numericCategoryId)
             : fallbackValue,
         label: String(item.name ?? item.categoryName ?? "Category"),
+        uid: categoryUid || undefined,
         categoryId:
           Number.isFinite(numericCategoryId) && numericCategoryId > 0
             ? numericCategoryId
@@ -58,6 +60,7 @@ export async function loadInvoiceFormOptions(
   const statusOptions = statuses.map((item: any) => ({
     value: String(item.id ?? item.uid ?? item.statusId),
     label: String(item.name ?? item.statusName ?? "Status"),
+    uid: String(item.uid ?? item.id ?? item.statusId ?? "").trim() || undefined,
   }));
   const locationOptions = defaultLocationId
     ? [{ value: defaultLocationId, label: defaultLocationName || "Selected Location" }]

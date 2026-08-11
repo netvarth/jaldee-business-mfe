@@ -242,7 +242,7 @@ export function mapInvoiceItem(item: any, index: number): InvoiceItem {
     0,
   );
   const afterDiscount = Number(item.netTotalAfterDiscount || item.afterDiscount || price * qty - discountAmount);
-  const taxAmount = Number(item.taxAmount || item.totalTax || 0);
+  const taxAmount = Number(item.taxAmount ?? item.taxTotal ?? item.totalTax ?? 0);
   return {
     id: String(item.uid || item.itemUid || `loaded-item-${index}`),
     detailUid: item.uid ? String(item.uid) : undefined,
@@ -273,7 +273,7 @@ export function mapInvoiceItem(item: any, index: number): InvoiceItem {
     discountAmount,
     afterDiscount,
     taxAmount,
-    totalAmount: Number(item.total || afterDiscount + taxAmount),
+    totalAmount: Number(item.total ?? item.netTotal ?? afterDiscount + taxAmount),
     discountApplicable: item.discountApplicable !== undefined ? Boolean(item.discountApplicable) : undefined,
     couponId: readString(appliedCoupon?.id, appliedCoupon?.uid, item.couponId, item.couponUid) || undefined,
     couponName: readString(appliedCoupon?.name, item.couponName) || undefined,

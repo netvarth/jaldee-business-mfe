@@ -419,7 +419,8 @@ export default function ReceivableEditPage() {
               label="Location *"
               value={locationUid}
               onChange={(event) => setLocationUid(event.target.value)}
-              options={[{ value: "", label: "Location" }, ...locationOptions]}
+              placeholder="Select location"
+              options={locationOptions}
             />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Category *</label>
@@ -429,7 +430,8 @@ export default function ReceivableEditPage() {
                   onChange={(event) => setCategoryId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Category" }, ...categoryOptions]}
+                  placeholder="Select category"
+                  options={categoryOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
                   +
@@ -447,7 +449,8 @@ export default function ReceivableEditPage() {
                   onChange={(event) => setVendorUid(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Please choose Vendor" }, ...vendorOptions]}
+                  placeholder="Choose vendor"
+                  options={vendorOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
                   +
@@ -462,7 +465,8 @@ export default function ReceivableEditPage() {
                   onChange={(event) => setStatusId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "New" }, ...statusOptions]}
+                  placeholder="Select status"
+                  options={statusOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
                   +

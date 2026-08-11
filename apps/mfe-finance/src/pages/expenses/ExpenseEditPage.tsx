@@ -404,7 +404,8 @@ export default function ExpenseEditPage() {
                   onChange={(event) => setCategoryId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Category" }, ...categoryOptions]}
+                  placeholder="Select category"
+                  options={categoryOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
                   +
@@ -415,7 +416,8 @@ export default function ExpenseEditPage() {
               label="Location *"
               value={locationUid}
               onChange={(event) => setLocationUid(event.target.value)}
-              options={[{ value: "", label: "Location" }, ...locationOptions]}
+              placeholder="Select location"
+              options={locationOptions}
             />
             <Input label="Expense for" value={title} onChange={(event) => setTitle(event.target.value)} required />
             <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Reference Number" />
@@ -428,7 +430,8 @@ export default function ExpenseEditPage() {
                   onChange={(event) => setVendorUid(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "Please choose Vendor" }, ...vendorOptions]}
+                  placeholder="Choose vendor"
+                  options={vendorOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
                   +
@@ -445,7 +448,8 @@ export default function ExpenseEditPage() {
                   onChange={(event) => setStatusId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  options={[{ value: "", label: "New" }, ...statusOptions]}
+                  placeholder="Select status"
+                  options={statusOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
                   +

@@ -425,15 +425,16 @@ function ItemsCreatePage() {
               label="Tax"
               value={selectedTaxUid}
               onChange={(e) => setSelectedTaxUid(e.target.value)}
-              options={[{ value: "", label: "Select tax" }, ...taxOptions]}
+              placeholder="Select tax"
+              options={taxOptions}
             />
 
             <Select
               label="Tax Preference"
               value={taxPreference}
               onChange={(e) => setTaxPreference(e.target.value)}
+              placeholder="Select tax preference"
               options={[
-                { value: "", label: "Select tax preference" },
                 { value: "TAXABLE", label: "Taxable" },
                 { value: "NON_TAXABLE", label: "Non-Taxable" },
               ]}
