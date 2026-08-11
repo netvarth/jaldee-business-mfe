@@ -856,50 +856,93 @@ export default function FinanceInvoiceForm() {
         </div>
       </Dialog>
 
-      <Dialog open={showTemplateChooser} onClose={() => setShowTemplateChooser(false)} title={`Invoice Templates (${invoiceTemplates.length})`} size="xl">
+      <Dialog open={showTemplateChooser} onClose={() => setShowTemplateChooser(false)} title={`Invoice Templates (${invoiceTemplates.length})`} size="md">
         <div className="grid gap-5 pt-2">
-          <Input
-            label="Search Template"
-            value={templateSearch}
-            onChange={(event) => setTemplateSearch(event.target.value)}
-            placeholder="Search Template"
-          />
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
-                  <th className="px-4 py-3">Template Name</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {templateLoading ? (
-                  <tr>
-                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">Loading templates...</td>
-                  </tr>
-                ) : filteredInvoiceTemplates.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">No templates found.</td>
-                  </tr>
-                ) : (
-                  filteredInvoiceTemplates.map((template) => (
-                    <tr key={template.uid}>
-                      <td className="px-4 py-4 font-medium text-slate-900">{template.templateName}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex gap-2">
-                          <Button type="button" onClick={() => void handleUseTemplate(template.uid)}>
-                            Use Template
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => void handlePreviewTemplate(template.uid)}>
-                            View
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="flex items-end gap-0">
+            <div className="flex-1">
+              <Input
+                label="Search Template"
+                value={templateSearch}
+                onChange={(event) => setTemplateSearch(event.target.value)}
+                placeholder="Search Template"
+              />
+            </div>
+            <Button
+              type="button"
+              className="mb-px h-[38px] rounded-l-none px-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+              aria-label="Search template"
+            >
+              <Icon name="search" className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="rounded-xl border border-slate-200 bg-white max-h-[360px] overflow-y-auto divide-y divide-slate-100 shadow-sm">
+            {templateLoading ? (
+              <div className="p-8 text-center text-slate-500">Loading templates...</div>
+            ) : filteredInvoiceTemplates.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">No templates found.</div>
+            ) : (
+              filteredInvoiceTemplates.map((template) => (
+                <div key={template.uid} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/50 transition">
+                  <span className="font-semibold text-slate-800 text-sm truncate pr-2" title={template.templateName}>
+                    {template.templateName}
+                  </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleUseTemplate(template.uid)}
+                    >
+                      Use Template
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handlePreviewTemplate(template.uid)}
+                    >
+                      View
+                    </Button>
+                    <Popover
+                      placement="bottom"
+                      align="end"
+                      trigger={(
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0"
+                          aria-label={`Actions for ${template.templateName}`}
+                        >
+                          <Icon name="moreVertical" className="h-4 w-4" />
+                        </Button>
+                      )}
+                    >
+                      <div className="grid min-w-[160px] p-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start font-normal"
+                          onClick={() => void openEditTemplateDialog(template.uid)}
+                        >
+                          Edit Template
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start font-normal text-rose-600"
+                          onClick={() => openDeleteTemplateDialog(template.uid, template.templateName)}
+                        >
+                          Delete Template
+                        </Button>
+                      </div>
+                    </Popover>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </Dialog>
