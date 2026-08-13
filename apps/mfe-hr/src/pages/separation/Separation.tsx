@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from "react";
-import { LogOut, Plus, X, AlertCircle, Loader2, ShieldCheck, Scissors, MessageSquare, Rows3, LayoutGrid } from "lucide-react";
+import { LogOut, Plus, X, AlertCircle, Loader2, ShieldCheck, Scissors, MessageSquare, Table as Rows3, LayoutGrid } from "lucide-react";
 import { Button, Combobox, DataTable, Dialog, DialogFooter, EmptyState, Input, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useExits, type ExitRequest, type ClearanceStatus } from "../../services/useExits";
@@ -138,7 +138,7 @@ export default function Separation() {
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
         <PageHeader title="Separation" subtitle="Resignations, terminations, notice & clearance" />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginLeft: "auto" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+          <div data-view-toggle="table-card" data-view-mode={viewMode} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
             <button type="button" id="hr-separation-view-table" data-testid="hr-separation-view-table" aria-label="Table view" title="Table view" onClick={() => setViewMode("table")} style={{ display: "inline-flex", flex: "0 0 32px", width: 32, height: 32, padding: 0, alignItems: "center", justifyContent: "center", borderRadius: 6, border: "none", cursor: "pointer", background: viewMode === "table" ? TEAL : "transparent", color: viewMode === "table" ? "white" : "var(--light-text)", transition: "background-color 0.15s, color 0.15s" }}><Rows3 size={16} strokeWidth={2} /></button>
             <button type="button" id="hr-separation-view-cards" data-testid="hr-separation-view-cards" aria-label="Card view" title="Card view" onClick={() => setViewMode("cards")} style={{ display: "inline-flex", flex: "0 0 32px", width: 32, height: 32, padding: 0, alignItems: "center", justifyContent: "center", borderRadius: 6, border: "none", cursor: "pointer", background: viewMode === "cards" ? TEAL : "transparent", color: viewMode === "cards" ? "white" : "var(--light-text)", transition: "background-color 0.15s, color 0.15s" }}><LayoutGrid size={16} strokeWidth={2} /></button>
           </div>

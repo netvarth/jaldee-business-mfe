@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Clock, LayoutGrid, Table } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, LayoutGrid, Table as Rows3 } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge, TimePicker } from "@jaldee/design-system";
 import { useShifts, useShiftRotations, type Shift, type ShiftRotation } from "../../services/useSettingsData";
 import { useEmployees } from "../../services/useEmployees";
@@ -66,21 +66,25 @@ function ShiftsTab() {
           <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
             <button
               type="button"
+              data-testid="hr-settings-shifts-view-table"
+              data-active={viewMode === "table"}
               onClick={() => setViewMode("table")}
               className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
               title="Table View"
               aria-label="Table View"
             >
-              <Table size={16} />
+              <Rows3 size={14} />
             </button>
             <button
               type="button"
+              data-testid="hr-settings-shifts-view-card"
+              data-active={viewMode === "card"}
               onClick={() => setViewMode("card")}
               className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-white text-teal-700 shadow-xs" : "text-gray-500 hover:text-gray-700"}`}
               title="Card View"
               aria-label="Card View"
             >
-              <LayoutGrid size={16} />
+              <LayoutGrid size={14} />
             </button>
           </div>
         </div>

@@ -6,10 +6,20 @@ import { useSiteGeneratorState } from "./useSiteGeneratorState";
 
 export function DeveloperSettingsSection({
   tenantUid = "tenant-user",
+  userId,
+  userName,
+  ownerName,
 }: {
   tenantUid?: string;
+  userId?: string;
+  userName?: string;
+  ownerName?: string;
 }) {
-  const state = useSiteGeneratorState(tenantUid);
+  const state = useSiteGeneratorState(tenantUid, {
+    userId: userId ?? tenantUid,
+    userName: userName ?? ownerName ?? "Tenant User",
+    ownerName: ownerName ?? userName ?? "Tenant",
+  });
 
   if (state.activePath === "home") {
     return (

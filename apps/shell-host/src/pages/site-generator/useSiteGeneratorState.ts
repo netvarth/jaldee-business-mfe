@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { eventBus } from "../../eventBus/eventBus";
 import { SHELL_TOAST_EVENT } from "@jaldee/auth-context";
+import { apiClient } from "@jaldee/api-client";
 import {
   CustomPageItem,
   SectionConfig,
@@ -14,7 +15,13 @@ import { HeaderExtrasState, DEFAULT_HEADER_EXTRAS } from "./HeaderExtrasModal";
 import { generatePreviewHTML } from "./previewUtils";
 import type { FooterSocialData } from "./FooterSocialModal";
 
-export function useSiteGeneratorState(tenantUid: string) {
+interface SiteGeneratorUploadIdentity {
+  userId: string;
+  userName: string;
+  ownerName: string;
+}
+
+export function useSiteGeneratorState(tenantUid: string, uploadIdentity: SiteGeneratorUploadIdentity) {
   const [activePath, setActivePath] = useState<string>("home");
   const [config, setConfig] = useState<SiteConfig>(RARE_CONCEPT_SAMPLE);
   const [openSectionIdx, setOpenSectionIdx] = useState<number | null>(0);
@@ -202,12 +209,65 @@ export function useSiteGeneratorState(tenantUid: string) {
     }
   };
 
-  const handleSaveConfiguration = () => {
-    eventBus.emit(SHELL_TOAST_EVENT, {
-      intent: "success",
-      title: "Configuration Saved",
-      message: `site_config.json uploaded to S3 bucket fragment JALDEE/S3/${tenantUid}/`,
-    });
+  const handleSaveConfiguration = async () => {
+    const fileName = "site_template.gz";
+    const filePath = `${tenantUid}/${fileName}`;
+
+    try {
+      const jsonBlob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const compressedStream = jsonBlob.stream().pipeThrough(new CompressionStream("gzip"));
+      const compressedBlob = await new Response(compressedStream).blob();
+      const file = new Blob([compressedBlob], { type: "application/gzip" });
+
+      const response = await apiClient.post<{ uploadUrl: string }>(
+        "/platform-service/v1/api/drive/initiate-custom-upload",
+        {
+          action: "ADD",
+          filePath,
+          fileName,
+          fileType: file.type,
+          fileSize: file.size,
+          caption: "Developer settings configuration",
+          featureServiceName: "BASE_CRM",
+          featureModuleName: "BASE_CRM_CORE",
+          owner: tenantUid,
+          ownerName: uploadIdentity.ownerName,
+          ownerType: "TenantUser",
+          sharedType: "secureShare",
+          tenantUid,
+          uploadedBy: uploadIdentity.userId,
+          uploadedByName: uploadIdentity.userName,
+        },
+        { _skipLocationParam: true },
+      );
+
+      const uploadUrl = response.data.uploadUrl;
+      if (!uploadUrl) throw new Error("Upload URL was not returned by the server");
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      if (!uploadResponse.ok) {
+        throw new Error(`S3 upload failed with HTTP ${uploadResponse.status}`);
+      }
+
+      const s3BaseUrl = import.meta.env.VITE_CUSTOM_UPLOAD_S3_BASE_URL?.trim().replace(/\/$/, "");
+      const uploadedUrl = s3BaseUrl ? `${s3BaseUrl}/${filePath}` : filePath;
+      eventBus.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Configuration Saved",
+        message: `${fileName} uploaded successfully to ${uploadedUrl}`,
+      });
+    } catch (err) {
+      console.error("Failed to upload developer settings configuration:", err);
+      eventBus.emit(SHELL_TOAST_EVENT, {
+        intent: "error",
+        title: "Configuration Save Failed",
+        message: err instanceof Error ? err.message : "Unable to upload the configuration.",
+      });
+    }
   };
 
   const handleAddSection = () => {

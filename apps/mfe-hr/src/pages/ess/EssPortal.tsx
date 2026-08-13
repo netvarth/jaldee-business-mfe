@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, Table as Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
 import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, Input, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";

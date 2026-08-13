@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Eye, MoreVertical, LayoutGrid, Rows3, Filter, CheckCircle2 } from "lucide-react";
+import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Eye, MoreVertical, LayoutGrid, Table as Rows3, Filter, CheckCircle2 } from "lucide-react";
 import { Badge, Button, Combobox, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
@@ -245,7 +245,7 @@ export default function Assets() {
     {
       key: "name",
       header: "Asset",
-      width: "24%",
+      width: "22%",
       render: (asset) => (
         <div className="min-w-0">
           <div className="truncate font-semibold text-[var(--color-text-primary)]">{asset.name || "-"}</div>
@@ -258,7 +258,7 @@ export default function Assets() {
     {
       key: "tagNumber",
       header: "Tag / Serial",
-      width: "18%",
+      width: "15%",
       render: (asset) => (
         <div className="min-w-0">
           <div className="truncate font-medium text-[var(--color-text-primary)]">{asset.tagNumber || "-"}</div>
@@ -269,13 +269,13 @@ export default function Assets() {
     {
       key: "status",
       header: "Status",
-      width: "12%",
+      width: "11%",
       render: (asset) => <Badge variant={getStatusBadgeVariant(asset.status)}>{asset.status || "-"}</Badge>,
     },
     {
       key: "holder",
       header: "Holder",
-      width: "18%",
+      width: "16%",
       render: (asset) => (
         asset.holderEmployeeName ? (
           <div className="min-w-0">
@@ -290,7 +290,8 @@ export default function Assets() {
     {
       key: "ownerDepartment",
       header: "Dept / Accounts Ref",
-      width: "18%",
+      width: "20%",
+      className: "overflow-hidden",
       render: (asset) => (
         <div className="min-w-0">
           <div className="truncate font-medium text-[var(--color-text-primary)]">{asset.ownerDepartment || "-"}</div>
@@ -301,8 +302,9 @@ export default function Assets() {
     {
       key: "actions",
       header: "Actions",
-      width: "10%",
+      width: "16%",
       align: "right",
+      className: "whitespace-nowrap",
       render: (asset) => (
         <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
           {asset.status === "Available" && (
@@ -367,7 +369,7 @@ export default function Assets() {
               />
             </div>
             */}
-            <div className="flex w-full items-center gap-2 lg:w-auto lg:justify-end">
+            <div className="flex w-full items-center gap-2">
               <div className="min-w-0 flex-1 md:hidden">
                 <Select
                   id="hr-assets-status-filter"
@@ -404,23 +406,23 @@ export default function Assets() {
                   </button>
                 ))}
               </div>
-              <Button
-                type="button"
-                id="hr-assets-filter-indicator"
-                data-testid="hr-assets-filter-indicator"
-                variant={appliedFilterCount > 0 ? "primary" : "outline"}
-                className={cn(
-                  "shrink-0",
-                  appliedFilterCount === 0 &&
-                    "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]"
-                )}
-                icon={<FilterIcon />}
-                aria-label="Open asset filters"
-                onClick={openFilters}
-              >
-                Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-              </Button>
-              <div className="shrink-0">
+              <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  id="hr-assets-filter-indicator"
+                  data-testid="hr-assets-filter-indicator"
+                  variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                  className={cn(
+                    "shrink-0",
+                    appliedFilterCount === 0 &&
+                      "!border-[var(--color-primary)] !text-[var(--color-primary)] hover:!bg-[var(--color-primary-subtle)]"
+                  )}
+                  icon={<FilterIcon />}
+                  aria-label="Open asset filters"
+                  onClick={openFilters}
+                >
+                  Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+                </Button>
                 <AssetsViewToggle value={viewMode} onChange={setViewMode} />
               </div>
             </div>
@@ -999,10 +1001,11 @@ function AssetsViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+    <div data-view-toggle="table-card" className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       <button
         type="button"
         data-testid="hr-assets-view-table"
+        data-active={value === "table"}
         onClick={() => onChange("table")}
         className={cn(
           "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
@@ -1018,6 +1021,7 @@ function AssetsViewToggle({
       <button
         type="button"
         data-testid="hr-assets-view-cards"
+        data-active={value === "cards"}
         onClick={() => onChange("cards")}
         className={cn(
           "inline-flex h-8 w-8 items-center justify-center rounded-md border-0",

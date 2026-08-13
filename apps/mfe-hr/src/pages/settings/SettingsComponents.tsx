@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table, ImageIcon, Upload } from "lucide-react";
-import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, EmptyState, type ColumnDef } from "@jaldee/design-system";
+import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table, ImageIcon } from "lucide-react";
+import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, EmptyState, FileUpload, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -300,7 +300,6 @@ function LogoFileInput({ value, onChange, automationKey, label }: {
   automationKey: string;
   label: string;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const selectedFile = value instanceof File ? value : null;
   const currentUrl = typeof value === "string" ? value : "";
   const previewUrl = useMemo(
@@ -314,36 +313,30 @@ function LogoFileInput({ value, onChange, automationKey, label }: {
     };
   }, [previewUrl, selectedFile]);
 
-  function selectFile(file?: File) {
+  function selectFile(files: File[]) {
+    const file = files[0];
     if (!file) return;
-    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) return;
-    if (file.size > 2 * 1024 * 1024) return;
     onChange(file);
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-wrap items-center gap-5 rounded-xl border border-[var(--border-color)] bg-slate-50/50 p-5">
-      <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-[var(--border-color)] bg-white">
+    <div className="grid w-full min-w-0 gap-4 rounded-xl border border-[var(--border-color)] bg-slate-50/50 p-5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start">
+      <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-white">
         {previewUrl
           ? <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-contain" />
           : <ImageIcon size={24} className="text-[var(--light-text)]" />}
       </div>
-      <div className="flex min-w-[160px] flex-1 flex-col items-start text-left">
-        <Button type="button" variant="secondary" className="whitespace-nowrap" icon={<Upload size={15} />} onClick={() => inputRef.current?.click()}>
-          {previewUrl ? "Change logo" : "Upload logo"}
-        </Button>
-        <p className="mt-3 text-xs leading-5 text-[var(--light-text)]">PNG, JPG or WebP<br />Maximum file size: 2 MB</p>
-        {selectedFile ? <p className="mt-1 max-w-full truncate text-xs font-medium text-[var(--dark-text)]">{selectedFile.name}</p> : null}
-        {selectedFile ? <p className="mt-0.5 text-xs text-[var(--light-text)]">Uploads when changes are saved</p> : null}
-        <input
-          ref={inputRef}
+      <div className="min-w-0">
+        <FileUpload
           id={automationKey}
-          data-testid={automationKey}
-          type="file"
+          testId={automationKey}
           accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(event) => selectFile(event.target.files?.[0])}
+          multiple={false}
+          maxSize={2 * 1024 * 1024}
+          onUpload={selectFile}
         />
+        <p className="mt-2 text-xs leading-5 text-[var(--light-text)]">PNG, JPG or WebP. Maximum file size: 2 MB.</p>
+        {selectedFile ? <p className="mt-1 text-xs text-[var(--light-text)]">Uploads when changes are saved.</p> : null}
       </div>
     </div>
   );
@@ -594,6 +587,8 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
           <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--surface-bg)] p-1">
             <button
               type="button"
+              data-testid={`${automationScope}-view-table`}
+              data-active={viewMode === "table"}
               onClick={() => setViewMode("table")}
               className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
               title="Table View"
@@ -603,6 +598,8 @@ function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, hook, aut
             </button>
             <button
               type="button"
+              data-testid={`${automationScope}-view-card`}
+              data-active={viewMode === "card"}
               onClick={() => setViewMode("card")}
               className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
               title="Card View"

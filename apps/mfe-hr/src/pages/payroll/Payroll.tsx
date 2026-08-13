@@ -3,7 +3,7 @@ import {
   ArrowLeft,
   CircleCheck,
   LayoutGrid,
-  Rows3,
+  Table as Rows3,
   Download,
   FileText,
   Layers3,
@@ -1185,12 +1185,12 @@ export default function Payroll() {
         subtitle="Configurable components, salary structures, employee overrides, and payroll runs."
         actions={
           <>
-            <button id="hr-payroll-run-month" data-testid="hr-payroll-run-month" className="btn btn-secondary" onClick={processRun} disabled={busy} style={buttonStyle}>
+            <Button id="hr-payroll-run-month" data-testid="hr-payroll-run-month" variant="outline" onClick={processRun} disabled={busy}>
               {busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Run Month
-            </button>
-            <button id="hr-payroll-export" data-testid="hr-payroll-export" className="btn btn-primary" onClick={exportPayslips} disabled={exporting} style={{ ...buttonStyle, background: "var(--primary-color)", border: "none", color: "white" }}>
+            </Button>
+            <Button id="hr-payroll-export" data-testid="hr-payroll-export" variant="primary" onClick={exportPayslips} disabled={exporting}>
               {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} {exporting ? "Exporting…" : "Export"}
-            </button>
+            </Button>
           </>
         }
       />
@@ -1215,8 +1215,8 @@ export default function Payroll() {
           title="Payroll Component Master"
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <Button id="hr-payroll-component-new" data-testid="hr-payroll-component-new" variant="primary" icon={<Plus size={16} />} onClick={() => openComponent()}>New Component</Button>
               <ViewToggle value={componentsView} onChange={setComponentsView} scope="hr-payroll-components-view" />
-              <button id="hr-payroll-component-new" data-testid="hr-payroll-component-new" className="btn btn-primary" onClick={() => openComponent()} style={primaryButton}><Plus size={16} /> New Component</button>
             </div>
           }
         >
@@ -1359,8 +1359,8 @@ export default function Payroll() {
             title="Payroll Structures"
             action={
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <ViewToggle value={structuresView} onChange={setStructuresView} scope="hr-payroll-structures-view" />
                 <Button id="hr-payroll-structure-new" data-testid="hr-payroll-structure-new" variant="primary" size="md" icon={<Plus size={16} />} onClick={() => openStructure()}>New Structure</Button>
+                <ViewToggle value={structuresView} onChange={setStructuresView} scope="hr-payroll-structures-view" />
               </div>
             }
           >
@@ -1428,7 +1428,7 @@ export default function Payroll() {
                 />
                 <DatePicker label="Effective From" value={assignmentForm.effectiveFrom} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
                 <DatePicker label="Effective To" value={assignmentForm.effectiveTo} onChange={(e) => setAssignmentForm((f) => ({ ...f, effectiveTo: e.target.value }))} />
-                <button id="hr-payroll-employee-assign" data-testid="hr-payroll-employee-assign" className="btn btn-primary" onClick={assignStructure} disabled={busy || !activeEmployeeUid} style={primaryButton}>Assign Structure</button>
+                <Button id="hr-payroll-employee-assign" data-testid="hr-payroll-employee-assign" variant="primary" onClick={assignStructure} disabled={busy || !activeEmployeeUid}>Assign Structure</Button>
               </div>
             </Panel>
 
@@ -1489,7 +1489,7 @@ export default function Payroll() {
                     })}
                   </Table>
                   <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                    <button id="hr-payroll-employee-overrides-save" data-testid="hr-payroll-employee-overrides-save" className="btn btn-primary" onClick={saveOverrides} disabled={busy || Object.keys(overrideDrafts).length === 0} style={primaryButton}>Save Overrides</button>
+                    <Button id="hr-payroll-employee-overrides-save" data-testid="hr-payroll-employee-overrides-save" variant="primary" onClick={saveOverrides} disabled={busy || Object.keys(overrideDrafts).length === 0}>Save Overrides</Button>
                   </div>
                 </>
               )}
@@ -1528,9 +1528,9 @@ export default function Payroll() {
           <Panel title="Payroll Run Dashboard">
             <div style={{ display: "grid", gap: 14 }}>
               <MonthPicker label="Run Month" value={runMonth} onChange={(e) => setRunMonth(e.target.value)} />
-              <button id="hr-payroll-process" data-testid="hr-payroll-process" className="btn btn-primary" onClick={processRun} disabled={busy} style={primaryButton}>
+              <Button id="hr-payroll-process" data-testid="hr-payroll-process" variant="primary" onClick={processRun} disabled={busy}>
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Process Payroll
-              </button>
+              </Button>
             </div>
             <div style={{ marginTop: 18 }}>
               <Table headers={["Month", "Status", "Employees"]} compact empty={runs.data.length === 0 ? "No payroll runs yet." : null}>
@@ -1640,10 +1640,11 @@ function ViewToggle({
   scope: string;
 }) {
   return (
-    <div style={viewToggleWrap}>
+    <div data-view-toggle="table-card" style={viewToggleWrap}>
       <button
         id={`${scope}-table`}
         data-testid={`${scope}-table`}
+        data-active={value === "table"}
         type="button"
         onClick={() => onChange("table")}
         style={viewToggleButton(value === "table")}
@@ -1655,6 +1656,7 @@ function ViewToggle({
       <button
         id={`${scope}-cards`}
         data-testid={`${scope}-cards`}
+        data-active={value === "cards"}
         type="button"
         onClick={() => onChange("cards")}
         style={viewToggleButton(value === "cards")}
@@ -2001,8 +2003,8 @@ function DialogActions({
 }) {
   return (
     <div style={dialogActions}>
-      <button className="btn btn-secondary" onClick={onClose} style={buttonStyle}>Cancel</button>
-      <button data-testid={saveTestId} className="btn btn-primary" onClick={onSave} disabled={busy} style={primaryButton}>{busy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</button>
+      <Button variant="outline" onClick={onClose}>Cancel</Button>
+      <Button data-testid={saveTestId} variant="primary" onClick={onSave} disabled={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : "Save"}</Button>
     </div>
   );
 }

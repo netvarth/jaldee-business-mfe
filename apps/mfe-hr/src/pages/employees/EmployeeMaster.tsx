@@ -10,7 +10,7 @@ import {
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { Download, Filter, LayoutGrid, MapPin, Plus, Rows3, Search, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
+import { Download, Filter, LayoutGrid, MapPin, Plus, Table as Rows3, Search, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
 import { useEmployees } from "../../services/useEmployees";
 import { useEmployeeSearchSchema } from "../../services/useEmployeeSearchSchema";
 import { useHrApi } from "../../services/useHrApi";
@@ -333,7 +333,6 @@ export default function EmployeeMaster() {
         subtitle="Manage employee profiles, departments, roles, and workforce status."
         actions={
           <div className="employee-master-header-actions">
-            <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
             <Button
               id="hr-employees-import-button"
               data-testid="hr-employees-import-button"
@@ -361,6 +360,7 @@ export default function EmployeeMaster() {
             >
               New Employee
             </Button>
+            <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         }
       />
@@ -707,36 +707,26 @@ function EmployeeViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+    <div data-view-toggle="table-card" className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       <button
         type="button"
         data-testid="hr-employees-view-table"
+        data-active={value === "table"}
         onClick={() => onChange("table")}
-        className={cn(
-          "employee-master-view-toggle-button inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
-          value === "table"
-            ? "bg-[var(--color-primary)] text-white"
-            : "bg-transparent text-[var(--color-text-secondary)]"
-        )}
+        className="inline-flex items-center justify-center border-0"
         aria-label="Table view"
         title="Table view"
-        style={{ color: value === "table" ? "#fff" : "var(--color-text-secondary)" }}
       >
         <Rows3 size={16} />
       </button>
       <button
         type="button"
         data-testid="hr-employees-view-cards"
+        data-active={value === "cards"}
         onClick={() => onChange("cards")}
-        className={cn(
-          "employee-master-view-toggle-button inline-flex h-8 w-8 items-center justify-center rounded-md border-0",
-          value === "cards"
-            ? "bg-[var(--color-primary)] text-white"
-            : "bg-transparent text-[var(--color-text-secondary)]"
-        )}
+        className="inline-flex items-center justify-center border-0"
         aria-label="Card view"
         title="Card view"
-        style={{ color: value === "cards" ? "#fff" : "var(--color-text-secondary)" }}
       >
         <LayoutGrid size={16} />
       </button>

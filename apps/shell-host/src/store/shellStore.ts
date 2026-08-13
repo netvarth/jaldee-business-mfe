@@ -55,8 +55,28 @@ type PersistedShellStore = Partial<
     | "availableLocations"
     | "activeProduct"
     | "userPreferences"
+    | "brandingOverrides"
   >
 >;
+
+type AccountBranding = Pick<AccountContext, "theme" | "whiteLabel">;
+
+const ACCOUNT_BRANDING_STORAGE_KEY = "jaldee-account-branding";
+
+function readStoredBranding(): Record<string, AccountBranding> {
+  if (typeof window === "undefined") return {};
+  try {
+    const value = window.localStorage.getItem(ACCOUNT_BRANDING_STORAGE_KEY);
+    return value ? JSON.parse(value) as Record<string, AccountBranding> : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredBranding(value: Record<string, AccountBranding>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACCOUNT_BRANDING_STORAGE_KEY, JSON.stringify(value));
+}
 
 interface ShellStore {
   // Auth
@@ -77,6 +97,7 @@ interface ShellStore {
   sidebarCollapsed: boolean;
   sidebarVisible:    boolean;
   userPreferences:   UserPreferences;
+  brandingOverrides: Record<string, AccountBranding>;
 
   // Actions
   setAuth:          (user: UserContext, account: AccountContext, token: string) => void;
@@ -109,18 +130,52 @@ export const useShellStore = create<ShellStore>()(
       sidebarCollapsed:   false,
       sidebarVisible:     true,
       userPreferences:    { theme: "light", fontSize: "md" },
+      brandingOverrides:  readStoredBranding(),
 
       setAuth: (user, account, token) =>
-        set({
-          user,
-          account: normalizeAccountContext(account),
-          accessToken: token,
-          isAuthenticated: true,
+        set((state) => {
+          const normalizedAccount = normalizeAccountContext(account);
+          const isRestoringSameAccount = state.account?.id === normalizedAccount.id;
+          const savedBranding =
+            state.brandingOverrides[normalizedAccount.id] ??
+            readStoredBranding()[normalizedAccount.id];
+
+          return {
+            user,
+            account: savedBranding
+              ? {
+                  ...normalizedAccount,
+                  theme: savedBranding.theme,
+                  whiteLabel: savedBranding.whiteLabel,
+                }
+              : isRestoringSameAccount
+              ? {
+                  ...normalizedAccount,
+                  theme: state.account?.theme ?? normalizedAccount.theme,
+                  whiteLabel: state.account?.whiteLabel ?? normalizedAccount.whiteLabel,
+                }
+              : normalizedAccount,
+            accessToken: token,
+            isAuthenticated: true,
+          };
         }),
 
       setAccount: (account) =>
-        set({
-          account: normalizeAccountContext(account),
+        set((state) => {
+          const normalizedAccount = normalizeAccountContext(account);
+          const brandingOverrides = {
+            ...readStoredBranding(),
+            ...state.brandingOverrides,
+            [normalizedAccount.id]: {
+              theme: normalizedAccount.theme,
+              whiteLabel: normalizedAccount.whiteLabel,
+            },
+          };
+          writeStoredBranding(brandingOverrides);
+          return {
+            account: normalizedAccount,
+            brandingOverrides,
+          };
         }),
 
       setOnboardingStatus: (status) =>
@@ -197,6 +252,7 @@ export const useShellStore = create<ShellStore>()(
         activeProduct: state.activeProduct,
         onboardingStatus: state.onboardingStatus,
         userPreferences: state.userPreferences,
+        brandingOverrides: state.brandingOverrides,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as PersistedShellStore;
@@ -226,7 +282,18 @@ export const useShellStore = create<ShellStore>()(
       },
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
-        // Apply rehydrated preferences immediately
+        const storedBranding = readStoredBranding();
+        const accountBranding = state?.account?.id
+          ? storedBranding[state.account.id]
+          : undefined;
+        // Restore persisted visual settings before session bootstrap completes.
+        if (accountBranding ?? state?.account?.theme) {
+          themeService.applyAccountTheme(accountBranding?.theme ?? state!.account!.theme);
+          const whiteLabel = accountBranding?.whiteLabel ?? state?.account?.whiteLabel;
+          if (whiteLabel) {
+            themeService.applyWhiteLabel(whiteLabel);
+          }
+        }
         if (state?.userPreferences) {
           themeService.applyUserPreferences(state.userPreferences);
         }

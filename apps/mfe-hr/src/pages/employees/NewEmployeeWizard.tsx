@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserCircle2, Briefcase, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
-import { Combobox, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
+import { Button, Combobox, Select, DatePicker, PhoneInput } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import type { PhoneInputValue } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
@@ -378,17 +378,17 @@ export default function NewEmployeeWizard() {
             
             <div className="modal-footer" style={{ padding: "12px 20px", justifyContent: step === 1 ? "flex-end" : "space-between", borderTop: "none", backgroundColor: "var(--app-bg)" }}>
               {step === 1 ? (
-                <button id="hr-new-employee-next" data-testid="hr-new-employee-next" type="submit" className="btn btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Button id="hr-new-employee-next" data-testid="hr-new-employee-next" type="submit" variant="primary">
                   Next Step <ChevronRight size={16} />
-                </button>
+                </Button>
               ) : (
                 <>
-                  <button id="hr-new-employee-back" data-testid="hr-new-employee-back" type="button" className="btn btn-secondary" onClick={(e) => { e.preventDefault(); console.log("[NewEmployeeWizard] Back button clicked, setting step to 1"); setStep(1); }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Button id="hr-new-employee-back" data-testid="hr-new-employee-back" type="button" variant="outline" onClick={(e) => { e.preventDefault(); console.log("[NewEmployeeWizard] Back button clicked, setting step to 1"); setStep(1); }}>
                     <ChevronLeft size={16} /> Back
-                  </button>
-                  <button id="hr-new-employee-complete" data-testid="hr-new-employee-complete" type="submit" className="btn btn-primary" disabled={saving} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  </Button>
+                  <Button id="hr-new-employee-complete" data-testid="hr-new-employee-complete" type="submit" variant="primary" disabled={saving}>
                     {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : <>Complete Setup <CheckCircle2 size={16} /></>}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

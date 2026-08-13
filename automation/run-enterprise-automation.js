@@ -3,6 +3,7 @@ const { chromium } = require("@playwright/test");
 const ENTERPRISE_PASSWORD = process.env.ENTERPRISE_PASSWORD || "dhyanDarsh@1";
 const AUTOMATION_BASE_URL = process.env.AUTOMATION_BASE_URL || "http://localhost:3000";
 const EMPLOYEE_PORTAL_BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http://localhost:3011";
+const ESS_COMPANY_ID = process.env.ESS_COMPANY_ID || "jaldee";
 const ENTERPRISE_LOGIN_ID = process.env.ENTERPRISE_LOGIN_ID || "dhwanikrishna1";
 const ENTERPRISE_PHONE = process.env.ENTERPRISE_PHONE || "5555000015";
 const ENTERPRISE_DATA_SUFFIX = process.env.ENTERPRISE_DATA_SUFFIX || "DGS";
@@ -2298,20 +2299,18 @@ async function run() {
         }
       });
       await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/ess/login`, { waitUntil: "domcontentloaded" });
-      const logoutBtn = employeePage.locator('[data-testid="auth-login-logout-existing-session"]');
-      if (await logoutBtn.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {
-        await logoutBtn.click();
-      }
-      await employeePage.locator('[data-testid="auth-login-id"]').waitFor({ state: "visible", timeout: 20000 });
-      await employeePage.locator('[data-testid="auth-login-id"]').fill(managedEmployeeLoginId);
+      await employeePage.locator('[data-testid="ess-company-id"]').waitFor({ state: "visible", timeout: 20000 });
+      await employeePage.locator('[data-testid="ess-company-id"]').fill(ESS_COMPANY_ID);
+      await employeePage.locator('[data-testid="ess-login-id"]').fill(managedEmployeeLoginId);
       await employeePage.waitForTimeout(pauseDelay);
-      await employeePage.locator('[data-testid="auth-login-password"]').fill("Employee@2026");
+      await employeePage.locator('[data-testid="ess-login-password"]').fill("Employee@2026");
       await employeePage.waitForTimeout(pauseDelay);
-      await employeePage.locator('[data-testid="auth-login-submit"]').click();
+      await employeePage.locator('[data-testid="ess-login-submit"]').click();
+      await employeePage.waitForURL((url) => url.pathname.includes("/ess/me"), { timeout: 30000 });
       await employeePage.locator('[data-testid="hr-ess-page"]').waitFor({ state: "visible", timeout: 30000 });
       for (const section of ["profile", "attendance", "leave", "documents", "staffspace", "payslips", "expenses", "helpdesk"]) {
         await employeePage.locator(`[data-testid="hr-ess-nav-${section}"]`).click();
-        await employeePage.waitForURL(new RegExp(`/hr/me/${section}`), { timeout: 15000 });
+        await employeePage.waitForURL(new RegExp(`/ess/me/${section}`), { timeout: 15000 });
         console.log(`   [Employee View] ${section}`);
         await employeePage.waitForTimeout(viewDelay);
       }

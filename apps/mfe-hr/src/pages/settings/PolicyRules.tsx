@@ -287,7 +287,14 @@ function RuleModal({ initial, onClose, onSave }: { initial: PolicyRule; onClose:
   };
 
   return (
-    <Dialog open onClose={onClose} title={initial.uid ? "Edit rule" : "New rule"} size="lg" testId="hr-settings-policy-rules-modal">
+    <Dialog
+      open
+      onClose={onClose}
+      title={initial.uid ? "Edit rule" : "New rule"}
+      size="lg"
+      testId="hr-settings-policy-rules-modal"
+      contentClassName="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+    >
       <form onSubmit={submit} className="space-y-4" data-testid="hr-settings-policy-rules-form">
         {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         <Input id="hr-settings-policy-rules-name" data-testid="hr-settings-policy-rules-name" label="Rule name" required value={rule.name} onChange={(event) => setField("name", event.target.value)} />

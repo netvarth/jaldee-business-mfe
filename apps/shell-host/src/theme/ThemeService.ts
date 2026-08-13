@@ -62,7 +62,11 @@ class ThemeService {
   // Called at login — Layer 2
   applyAccountTheme(theme: AccountTheme) {
     this.currentAccountTheme = theme;
-    this.injectPrimaryTokens(theme.primaryColor);
+    if (this.currentProductKey) {
+      this.applyProductAccent(this.currentProductKey);
+    } else {
+      this.injectPrimaryTokens(theme.primaryColor);
+    }
     this.accountLogoUrl = theme.logoUrl;
     this.accountFaviconUrl = theme.faviconUrl ?? null;
     if (theme.faviconUrl) {
@@ -103,7 +107,9 @@ class ThemeService {
 
     const fontSizeMap = { sm: "13px", md: "14px", lg: "15px" };
     const size = fontSizeMap[prefs?.fontSize] || "14px";
-    document.documentElement.style.fontSize = size;
+    // Tailwind and the design system assume a 16px rem root. Changing the
+    // root shrinks or enlarges every layout dimension, not only body text.
+    document.documentElement.style.fontSize = "16px";
     document.documentElement.style.setProperty("--text-base", size);
   }
 

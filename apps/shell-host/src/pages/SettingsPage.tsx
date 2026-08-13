@@ -648,6 +648,11 @@ export default function SettingsPage() {
   const [contactLastName, setContactLastName] = useState("");
   const [howDoYouHear, setHowDoYouHear] = useState("");
   const [coverPicture, setCoverPicture] = useState("");
+  const consumerShellBaseUrl = (
+    import.meta.env.VITE_CONSUMER_URL?.trim() ||
+    (typeof window !== "undefined" ? window.location.origin : "")
+  ).replace(/\/+$/, "");
+  const publicBusinessUrl = `${consumerShellBaseUrl}/${encodeURIComponent(customId || businessUserName || "business")}`;
 
   // Theme & Branding
   const [brandColor, setBrandColor] = useState(account?.theme?.primaryColor ?? "#5B21D1");
@@ -1756,7 +1761,7 @@ export default function SettingsPage() {
                     justifyContent: "center"
                   }}>
                     <QRCodeSVG
-                      value={`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`}
+                      value={publicBusinessUrl}
                       size={110}
                       level="M"
                     />
@@ -1765,13 +1770,13 @@ export default function SettingsPage() {
                   {/* URL and Share Icon Row */}
                   <div style={{ flex: 1, minWidth: "280px" }}>
                     <div style={{ fontSize: "15px", fontWeight: 500, color: "#334155", marginBottom: "16px", wordBreak: "break-all" }}>
-                      {`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`}
+                      {publicBusinessUrl}
                     </div>
 
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "18px" }}>
                       {/* Facebook */}
                       <a
-                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicBusinessUrl)}`}
                         target="_blank"
                         rel="noreferrer"
                         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
@@ -1784,7 +1789,7 @@ export default function SettingsPage() {
 
                       {/* WhatsApp */}
                       <a
-                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(publicBusinessUrl)}`}
                         target="_blank"
                         rel="noreferrer"
                         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
@@ -1797,7 +1802,7 @@ export default function SettingsPage() {
 
                       {/* Email */}
                       <a
-                        href={`mailto:?subject=${encodeURIComponent(companyName)}&body=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        href={`mailto:?subject=${encodeURIComponent(companyName)}&body=${encodeURIComponent(publicBusinessUrl)}`}
                         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
                       >
                         <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#ff8c00", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "18px", boxShadow: "0 4px 10px rgba(255,140,0,0.3)" }}>
@@ -1808,7 +1813,7 @@ export default function SettingsPage() {
 
                       {/* Telegram */}
                       <a
-                        href={`https://t.me/share/url?url=${encodeURIComponent(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`)}`}
+                        href={`https://t.me/share/url?url=${encodeURIComponent(publicBusinessUrl)}`}
                         target="_blank"
                         rel="noreferrer"
                         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", textDecoration: "none" }}
@@ -1823,7 +1828,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          void navigator.clipboard.writeText(`https://scale.jaldee.com/${customId || businessUserName || "dhyandarshBakers"}`);
+                          void navigator.clipboard.writeText(publicBusinessUrl);
                           eventBus.emit(SHELL_TOAST_EVENT, { intent: "success", title: "Link copied", message: "Business link copied to clipboard." });
                         }}
                         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", cursor: "pointer" }}
@@ -2384,7 +2389,12 @@ export default function SettingsPage() {
             </SectionCard>
           </div>
         ) : activeItem.key === "developer" ? (
-          <DeveloperSettingsSection tenantUid={account?.tenantUid ?? account?.id} />
+          <DeveloperSettingsSection
+            tenantUid={account?.tenantUid ?? account?.id}
+            userId={user?.id}
+            userName={user?.name}
+            ownerName={account?.name}
+          />
         ) : (
           <SectionCard className="settings-card">
             <CardHeading icon={activeItem.icon} title={activeItem.label} subtitle="This settings section is routed and ready for implementation." />

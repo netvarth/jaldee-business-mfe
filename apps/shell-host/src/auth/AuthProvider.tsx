@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLocation,
     setHasHydrated,
     isAuthenticated,
+    authResolved,
     accessToken,
     hasHydrated,
     activeLocation,
@@ -58,10 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         themeService.clearWhiteLabel();
       }
-    } else {
+    } else if (hasHydrated && authResolved) {
       themeService.reset();
     }
-  }, [account, isAuthenticated]);
+  }, [account, authResolved, hasHydrated, isAuthenticated]);
 
   useEffect(() => {
     if (userPreferences) {

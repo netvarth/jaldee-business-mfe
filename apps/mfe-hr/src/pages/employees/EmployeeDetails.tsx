@@ -4,7 +4,7 @@ const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"))
 import {
   ArrowLeft, Mail, Phone, Building2, ShieldCheck, CreditCard, Briefcase, UserCircle2,
   FileText, ScanFace, Loader2, AlertCircle, Save, X, Pencil, History, BarChart3, Clock,
-  Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Rows3, Filter,
+  Download, Trash2, Plus, ChevronDown, MoreVertical, LayoutGrid, Table as Rows3, Filter,
   KeyRound, CalendarDays, Wallet, Home, MoreHorizontal,
 } from "lucide-react";
 import { Button, Combobox, Select, DatePicker, PhoneInput, Popover, Dialog, DialogFooter, Drawer, DataTablePagination, Input, FileUpload } from "@jaldee/design-system";
@@ -141,9 +141,10 @@ function StatusPill({ s }: { s?: string }) {
 
 function CollectionViewToggle({ value, onChange }: { value: CollectionView; onChange: (value: CollectionView) => void }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, gap: 2, padding: 2, height: 40, boxSizing: "border-box", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
+    <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, gap: 2, padding: 2, height: 40, boxSizing: "border-box", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
       <button
         type="button"
+        data-active={value === "table"}
         onClick={() => onChange("table")}
         aria-label="Table view"
         style={{ width: 32, height: 32, borderRadius: 6, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "table" ? "var(--color-primary)" : "transparent", color: value === "table" ? "#fff" : "var(--color-text-secondary)" }}
@@ -152,6 +153,7 @@ function CollectionViewToggle({ value, onChange }: { value: CollectionView; onCh
       </button>
       <button
         type="button"
+        data-active={value === "cards"}
         onClick={() => onChange("cards")}
         aria-label="Card view"
         style={{ width: 32, height: 32, borderRadius: 6, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", background: value === "cards" ? "var(--color-primary)" : "transparent", color: value === "cards" ? "#fff" : "var(--color-text-secondary)" }}

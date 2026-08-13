@@ -21,7 +21,7 @@ import {
   LayoutGrid,
   MoreVertical,
   MoreHorizontal,
-  Rows3,
+  Table as Rows3,
   ChevronRight,
   ChevronDown,
   Home,
@@ -128,10 +128,11 @@ function ViewToggle({
   scope: string;
 }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 3, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)" }}>
+    <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 3, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)" }}>
       <button
         id={`${scope}-table`}
         data-testid={`${scope}-table`}
+        data-active={value === "table"}
         type="button"
         onClick={() => onChange("table")}
         style={viewToggleButton(value === "table")}
@@ -143,6 +144,7 @@ function ViewToggle({
       <button
         id={`${scope}-cards`}
         data-testid={`${scope}-cards`}
+        data-active={value === "cards"}
         type="button"
         onClick={() => onChange("cards")}
         style={viewToggleButton(value === "cards")}

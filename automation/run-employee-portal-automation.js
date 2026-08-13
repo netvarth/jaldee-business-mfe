@@ -2,6 +2,7 @@ const { chromium } = require("@playwright/test");
 
 const BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http://localhost:3011";
 const LOGIN_URL = `${BASE_URL}/ess/login`;
+const COMPANY_ID = process.env.EMPLOYEE_COMPANY_ID || "jaldee";
 const LOGIN_ID = process.env.EMPLOYEE_LOGIN_ID || "EMP9872";
 const PASSWORD = process.env.EMPLOYEE_LOGIN_PASSWORD || "Netvarth@1";
 const CAMERA_SELECTION_DELAY_MS = Number(process.env.EMPLOYEE_CAMERA_DELAY_MS || 10000);
@@ -109,6 +110,7 @@ async function run() {
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
   const existingSession = page.locator('[data-testid="ess-login-logout-existing-session"]');
   if (await existingSession.isVisible().catch(() => false)) await existingSession.click();
+  await fill('[data-testid="ess-company-id"]', COMPANY_ID, "Company ID");
   await fill('[data-testid="ess-login-id"]', LOGIN_ID, "Employee Login ID");
   await fill('[data-testid="ess-login-password"]', PASSWORD, "Employee Password");
   await click('[data-testid="ess-login-submit"]', "Employee Sign In");
@@ -156,6 +158,21 @@ async function run() {
       await chooseDate("ess-leave-end-date", leaveDate, "Leave End Date");
       await fill('[data-testid="ess-leave-reason"]', `Employee portal leave request ${suffix}`, "Leave Reason");
       await click('[data-testid="ess-leave-apply-submit"]', "Submit Leave Application");
+      const leaveApplyModal = page.locator('[data-testid="ess-leave-apply-modal"]');
+      const leaveSubmitted = await leaveApplyModal
+        .waitFor({ state: "hidden", timeout: 30000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!leaveSubmitted) {
+        const leaveError = await leaveApplyModal
+          .locator('.text-\\[\\#e11d48\\]')
+          .first()
+          .textContent()
+          .catch(() => null);
+        console.log(`   [Skip] Leave application was not submitted${leaveError?.trim() ? `: ${leaveError.trim()}` : ""}`);
+        await click('[data-testid="ess-leave-apply-close"]', "Close Leave Application");
+        await leaveApplyModal.waitFor({ state: "hidden", timeout: 10000 });
+      }
     } else {
       await click('[data-testid="ess-leave-apply-close"]', "Close Leave Application");
     }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Rows3, LayoutGrid, Filter, ToggleLeft, ToggleRight } from "lucide-react";
+import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Table as Rows3, LayoutGrid, Filter, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button, Combobox, Input, Select, Checkbox, Textarea, DataTable, DataTablePagination, Drawer, SectionCard, type ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
@@ -400,10 +400,11 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
       ) : null}
       */}
       {viewMode && onViewModeChange && viewScope ? (
-        <div className="ml-auto shrink-0" style={viewToggleWrap}>
+        <div data-view-toggle="table-card" className="ml-auto shrink-0" style={viewToggleWrap}>
           <button
             id={`${viewScope}-table`}
             data-testid={`${viewScope}-table`}
+            data-active={viewMode === "table"}
             type="button"
             onClick={() => onViewModeChange("table")}
             style={viewToggleButton(viewMode === "table")}
@@ -415,6 +416,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
           <button
             id={`${viewScope}-cards`}
             data-testid={`${viewScope}-cards`}
+            data-active={viewMode === "cards"}
             type="button"
             onClick={() => onViewModeChange("cards")}
             style={viewToggleButton(viewMode === "cards")}

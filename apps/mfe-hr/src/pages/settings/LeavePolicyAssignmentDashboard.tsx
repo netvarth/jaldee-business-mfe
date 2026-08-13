@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Pencil, Loader2, AlertCircle, Save, X, Filter, Plane, Users2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Loader2, AlertCircle, Save, X, Filter, Plane, Users2, ToggleLeft, ToggleRight, Table as Rows3, LayoutGrid } from "lucide-react";
 import { Dialog, Select, Input, Checkbox, Textarea, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
@@ -39,6 +39,15 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployeeUids, setSelectedEmployeeUids] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
+  const [policyView, setPolicyView] = useState<"table" | "cards">(() => {
+    if (typeof window === "undefined") return "table";
+    return window.localStorage.getItem("hr-settings-leave-policy-view") === "cards" ? "cards" : "table";
+  });
+
+  const changePolicyView = (nextView: "table" | "cards") => {
+    setPolicyView(nextView);
+    window.localStorage.setItem("hr-settings-leave-policy-view", nextView);
+  };
 
   const activeEmployees = useMemo(
     () => employees.data.filter((employee) => !employee.status || String(employee.status).toLowerCase() === "active"),
@@ -226,12 +235,18 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
             <h3 style={{ fontSize: 16, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>Leave Type Configuration</h3>
             <p style={{ ...lbl, marginTop: 4 }}>Policy builder for quotas, accrual and calendar styling</p>
           </div>
-          <Button id="hr-settings-leave-policy-create" data-testid="hr-settings-leave-policy-create" variant="primary" icon={<Plus size={16} />} onClick={openCreatePolicy}>Create New Leave Type</Button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            <Button id="hr-settings-leave-policy-create" data-testid="hr-settings-leave-policy-create" variant="primary" icon={<Plus size={16} />} onClick={openCreatePolicy}>Create New Leave Type</Button>
+            <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+              <button type="button" id="hr-settings-leave-policy-view-table" data-testid="hr-settings-leave-policy-view-table" data-active={policyView === "table"} aria-label="Table view" title="Table view" onClick={() => changePolicyView("table")} style={viewButton(policyView === "table")}><Rows3 size={14} /></button>
+              <button type="button" id="hr-settings-leave-policy-view-cards" data-testid="hr-settings-leave-policy-view-cards" data-active={policyView === "cards"} aria-label="Card view" title="Card view" onClick={() => changePolicyView("cards")} style={viewButton(policyView === "cards")}><LayoutGrid size={14} /></button>
+            </div>
+          </div>
         </div>
         {leaveTypes.error && <div style={{ padding: "16px 24px" }}><ErrorBar text={leaveTypes.error} /></div>}
         {leaveTypes.loading ? (
           <div style={{ padding: 20 }}><SkeletonTable rows={4} columns={7} /></div>
-        ) : (
+        ) : policyView === "table" ? (
           <div className="overflow-x-auto w-full">
             <table id="hr-settings-leave-policy-table" data-testid="hr-settings-leave-policy-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr><th style={th}>Leave Type</th><th style={th}>Category</th><th style={th}>Quota</th><th style={th}>Accrual</th><th style={th}>Rules</th><th style={th}>Color</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
@@ -263,6 +278,38 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : leaveTypes.data.length === 0 ? (
+          <SettingsEmptyState title="No leave types" description="Add a leave type before assigning balance periods." compact />
+        ) : (
+          <div data-testid="hr-settings-leave-policy-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14, padding: 18 }}>
+            {leaveTypes.data.map((policy) => {
+              const enabled = String(policy.status || "Enabled").toLowerCase() !== "disabled";
+              const action = enabled ? "disable" : "enable";
+              return (
+                <article key={policy.id} data-testid={`hr-settings-leave-policy-card-${policy.id}`} style={{ border: "1px solid var(--border-color)", borderRadius: 14, background: "var(--surface-bg)", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <strong style={{ fontSize: 14, color: "var(--dark-text)" }}>{policy.name as string}</strong>
+                      <div style={{ marginTop: 4, fontSize: 12, color: "var(--light-text)" }}>{leaveCategoryLabel(policy.category)}</div>
+                    </div>
+                    <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 6, border: "1px solid var(--border-color)", background: (policy.colorHex as string) || "#cbd5e1" }} title={(policy.colorHex as string) || "No color"} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div><div style={lbl}>Quota</div><div style={{ marginTop: 4, fontSize: 13 }}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</div></div>
+                    <div><div style={lbl}>Accrual</div><div style={{ marginTop: 4, fontSize: 13 }}>{(policy.accrualType as string) || "—"}</div></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
+                    <span style={miniPill(policy.carryForward ? "#2563eb" : "#64748b")}>{policy.carryForward ? `Carry ${policy.carryForwardMax || 0}d` : "No Carry"}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border-color)", paddingTop: 12 }}>
+                    <button id={`hr-settings-leave-policy-card-edit-${policy.id}`} data-testid={`hr-settings-leave-policy-card-edit-${policy.id}`} onClick={() => openEditPolicy(policy)} title="Edit" aria-label="Edit leave type" style={iconAction}><Pencil size={15} /></button>
+                    <button id={`hr-settings-leave-policy-card-${action}-${policy.id}`} data-testid={`hr-settings-leave-policy-card-${action}-${policy.id}`} onClick={() => setStatusPolicy(policy)} title={enabled ? "Disable leave type" : "Enable leave type"} aria-label={enabled ? "Disable leave type" : "Enable leave type"} style={{ ...iconAction, width: 38, color: enabled ? "#059669" : "#64748b", background: enabled ? "rgba(5,150,105,0.07)" : "rgba(100,116,139,0.07)" }}>{enabled ? <ToggleRight size={22} strokeWidth={2.2} /> : <ToggleLeft size={22} strokeWidth={2.2} />}</button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>}
@@ -454,6 +501,7 @@ const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius:
 const ghostBtn: CSSProperties = { height: 42, padding: "0 20px", borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--dark-text)", fontWeight: 700, fontSize: 13, cursor: "pointer" };
 const primaryBtn: CSSProperties = { height: 42, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 };
 const iconAction: CSSProperties = { height: 32, width: 32, borderRadius: 9, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "var(--light-text)", cursor: "pointer", marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center" };
+const viewButton = (active: boolean): CSSProperties => ({ width: 32, height: 32, padding: 0, border: 0, borderRadius: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: active ? TEAL : "transparent", color: active ? "white" : "var(--light-text)", transition: "background-color 0.15s, color 0.15s" });
 const wizardStep: CSSProperties = { display: "flex", gap: 14, padding: 16, borderRadius: 16, border: "1px solid var(--border-color)", background: "rgba(100,116,139,0.03)" };
 const stepBadge: CSSProperties = { height: 28, width: 28, borderRadius: 10, background: "rgba(17,94,89,0.1)", color: TEAL, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 };
 const miniPill = (color: string): CSSProperties => ({ display: "inline-flex", alignItems: "center", padding: "3px 8px", borderRadius: 999, background: `${color}12`, color, border: `1px solid ${color}24`, fontSize: 9, fontWeight: 900, letterSpacing: "0.06em", textTransform: "uppercase" });

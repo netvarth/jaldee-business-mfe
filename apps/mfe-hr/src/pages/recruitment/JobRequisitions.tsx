@@ -79,9 +79,10 @@ export default function JobRequisitions() {
       <div data-testid="hr-recruitment-requisitions-page" data-loading={loading ? "true" : "false"}>
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-            <div className="flex w-full items-center justify-between gap-3 flex-wrap md:w-auto md:order-2 md:flex-row md:items-center">
+            <div className="ml-auto flex w-full items-center justify-end gap-2 flex-wrap md:order-2 md:flex-row md:items-center">
               <Button
                 variant="primary"
+                className="!h-9 !px-4 !text-sm"
                 data-testid="hr-recruitment-new-requisition"
                 onClick={() => {
                   track("create_opened");
@@ -90,7 +91,7 @@ export default function JobRequisitions() {
               >
                 + New Requisition
               </Button>
-              <div className="ml-auto shrink-0">
+              <div className="shrink-0">
                 <RecruitmentViewToggle
                   value={viewMode}
                   onChange={setViewMode}

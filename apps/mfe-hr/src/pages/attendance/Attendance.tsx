@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
-import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Rows3, ScanFace, Timer, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Table as Rows3, ScanFace, Timer, XCircle } from "lucide-react";
 import { Combobox, Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import type { ColumnDef } from "@jaldee/design-system";
@@ -148,11 +148,12 @@ function AttendanceViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", height: 40, gap: 2, padding: 2, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+    <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", height: 40, gap: 2, padding: 2, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
       <button
         type="button"
         id="hr-attendance-view-table"
         data-testid="hr-attendance-view-table"
+        data-active={value === "table"}
         onClick={() => onChange("table")}
         style={{
           display: "inline-flex",
@@ -176,6 +177,7 @@ function AttendanceViewToggle({
         type="button"
         id="hr-attendance-view-cards"
         data-testid="hr-attendance-view-cards"
+        data-active={value === "cards"}
         onClick={() => onChange("cards")}
         style={{
           display: "inline-flex",

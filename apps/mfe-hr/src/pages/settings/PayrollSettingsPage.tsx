@@ -252,6 +252,7 @@ function SalaryStructuresManager() {
                 type="button"
                 id="hr-settings-payroll-view-table"
                 data-testid="hr-settings-payroll-view-table"
+                data-active={viewMode === "table"}
                 onClick={() => setViewMode("table")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
                 title="Table View"
@@ -263,6 +264,7 @@ function SalaryStructuresManager() {
                 type="button"
                 id="hr-settings-payroll-view-card"
                 data-testid="hr-settings-payroll-view-card"
+                data-active={viewMode === "card"}
                 onClick={() => setViewMode("card")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "card" ? "bg-[rgba(17,94,89,0.12)] text-[#115e59]" : "text-slate-500 hover:text-slate-700"}`}
                 title="Card View"

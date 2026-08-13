@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Rows3, LayoutGrid, Filter } from "lucide-react";
+import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Table as Rows3, LayoutGrid, Filter } from "lucide-react";
 import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, SkeletonTable, DataTablePagination, Drawer } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
@@ -88,11 +88,12 @@ function ExpensesViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+    <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
       <button
         type="button"
         id="hr-expenses-view-table"
         data-testid="hr-expenses-view-table"
+        data-active={value === "table"}
         onClick={() => onChange("table")}
         style={{
           display: "inline-flex",
@@ -116,6 +117,7 @@ function ExpensesViewToggle({
         type="button"
         id="hr-expenses-view-cards"
         data-testid="hr-expenses-view-cards"
+        data-active={value === "cards"}
         onClick={() => onChange("cards")}
         style={{
           display: "inline-flex",

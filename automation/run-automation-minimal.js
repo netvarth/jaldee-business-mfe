@@ -5,6 +5,7 @@ const path = require("node:path");
 const SIGNUP_PASSWORD = process.env.AUTOMATION_SIGNUP_PASSWORD || "DemoHR@2026";
 const AUTOMATION_BASE_URL = process.env.AUTOMATION_BASE_URL || "http://localhost:3000";
 const EMPLOYEE_PORTAL_BASE_URL = process.env.EMPLOYEE_PORTAL_BASE_URL || "http://localhost:3011";
+const ESS_COMPANY_ID = process.env.ESS_COMPANY_ID?.trim() || "";
 const reportStartedAt = new Date();
 const reportResults = [];
 let currentReportSection = "Automation startup";
@@ -124,6 +125,7 @@ async function run() {
   let section17Started = false;
   const suffix = `${Date.now()}`.slice(-6);
   let managedEmployeeLoginId = "";
+  let currentTenantCustomId = "";
   let currentRunEmployeeUid = "";
   let recruitmentPublicCandidateName = "";
   let recruitmentDirectCandidateName = "";
@@ -177,12 +179,23 @@ async function run() {
   const page = await context.newPage();
   scalePageDelays(page);
   page.on("dialog", (dialog) => dialog.accept().catch(() => {}));
-  page.on("response", (res) => {
+  page.on("response", async (res) => {
     const url = res.url();
     if (url.includes("/v1/api/") || url.includes("/hr/") || url.includes("/platform-service/")) {
       const method = res.request().method();
       if (method !== "GET" || !res.ok()) {
         console.log(`   [REST API] ${method} ${url.split("?")[0].replace("http://localhost:3000", "")} -> ${res.status()} ${res.statusText()}`);
+      }
+    }
+    if (!currentTenantCustomId && res.ok() && res.request().method() === "GET" && url.includes("/base-service/v1/api/tenant/")) {
+      const tenantPayload = await res.json().catch(() => null);
+      const tenant = tenantPayload && typeof tenantPayload === "object"
+        ? (tenantPayload.data && typeof tenantPayload.data === "object" ? tenantPayload.data : tenantPayload)
+        : null;
+      const customId = tenant && typeof tenant.customId === "string" ? tenant.customId.trim() : "";
+      if (customId) {
+        currentTenantCustomId = customId;
+        console.log(`   [Tenant] ESS Company ID resolved from customId: "${currentTenantCustomId}"`);
       }
     }
   });
@@ -1307,18 +1320,32 @@ async function run() {
     const leaveStartDate = futureDate(30 + i * 3);
     const requestedEndDate = isTwoDayLeave ? futureDate(31 + i * 3) : leaveStartDate;
     await closeAnyOpenModal();
-    await slowClick('[data-testid="hr-leave-apply-button"], button:has-text("Apply For Leave")', `Apply Leave ${i + 1}`);
-    await slowSelectOptionByLabel('[data-testid="hr-leave-employee"]', currentRunEmployeeName, `Employee ${i + 1}`);
-    const leaveType = page.locator('[data-testid="hr-leave-type"]');
+    const applyButtonSelector = '[data-testid="hr-leave-apply-button"], button:has-text("Apply for Leave")';
+    const applyModal = page.locator('[data-testid="hr-leave-apply-modal"]');
+    const openApplyDialog = async () => {
+      const clicked = await slowClick(applyButtonSelector, `Apply Leave ${i + 1}`);
+      if (!clicked) return false;
+      return applyModal.isVisible({ timeout: 5000 }).catch(() => false);
+    };
+    if (!await openApplyDialog()) {
+      await closeAnyOpenModal();
+      if (!await openApplyDialog()) throw new Error(`Apply Leave dialog ${i + 1} did not open`);
+    }
+    const employeeSelector = '[data-testid="hr-leave-apply-modal"] [data-testid="hr-leave-employee"]';
+    if (!await slowSelectOptionByLabel(employeeSelector, currentRunEmployeeName, `Employee ${i + 1}`)) {
+      throw new Error(`Employee ${currentRunEmployeeName} is not available in Apply Leave dialog ${i + 1}`);
+    }
+    const leaveType = applyModal.locator('[data-testid="hr-leave-type"]');
     await leaveType.waitFor({ state: "visible", timeout: 15000 });
     await page.waitForFunction(() => {
-      const select = document.querySelector('[data-testid="hr-leave-type"]');
+      const modal = document.querySelector('[data-testid="hr-leave-apply-modal"]');
+      const select = modal?.querySelector('[data-testid="hr-leave-type"]');
       return select instanceof HTMLSelectElement && !select.disabled && select.options.length > 1;
     }, null, { timeout: 30000 }).catch(async () => {
       const message = await page.getByText("No active leave types are assigned to this employee.", { exact: false }).textContent().catch(() => "");
       throw new Error(message || `Assigned leave types did not load for ${currentRunEmployeeName}`);
     });
-    const leaveTypeSelected = await slowSelectFirstOption('[data-testid="hr-leave-type"]', `Leave Type ${i + 1}`);
+    const leaveTypeSelected = await slowSelectFirstOption('[data-testid="hr-leave-apply-modal"] [data-testid="hr-leave-type"]', `Leave Type ${i + 1}`);
     if (!leaveTypeSelected) throw new Error(`No leave type is available for leave application ${i + 1}`);
     await slowDate('[data-testid="hr-leave-start-date"]', leaveStartDate, `Start Date ${i + 1}`);
     await slowDate('[data-testid="hr-leave-end-date"]', requestedEndDate, `End Date ${i + 1}`);
@@ -2114,29 +2141,33 @@ async function run() {
         console.log(`   [EMPLOYEE REST API] ${response.request().method()} ${response.url()} -> ${response.status()} ${response.statusText()}`);
       }
     });
-    await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
-    const logoutBtn = employeePage.locator('[data-testid="auth-login-logout-existing-session"]');
-    if (await logoutBtn.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {
-      await logoutBtn.click();
+    await employeePage.goto(`${EMPLOYEE_PORTAL_BASE_URL}/ess/login`, { waitUntil: "domcontentloaded" });
+    const companyIdInput = employeePage.locator('[data-testid="ess-company-id"]');
+    await companyIdInput.waitFor({ state: "visible", timeout: 20000 });
+    const employeeCompanyId = ESS_COMPANY_ID || currentTenantCustomId;
+    if (!employeeCompanyId) {
+      throw new Error("Tenant customId was not available for ESS Company ID");
     }
-    const loginIdInput = employeePage.locator('[data-testid="auth-login-id"]');
-    if (!await loginIdInput.waitFor({ state: "visible", timeout: 20000 }).then(() => true).catch(() => false)) {
-      await employeePage.goto(`${AUTOMATION_BASE_URL}/login`, { waitUntil: "domcontentloaded" });
-      await loginIdInput.waitFor({ state: "visible", timeout: 20000 });
-    }
+    await companyIdInput.fill(employeeCompanyId);
+    const loginIdInput = employeePage.locator('[data-testid="ess-login-id"]');
     await loginIdInput.fill(managedEmployeeLoginId);
     await employeePage.waitForTimeout(pauseDelay);
-    await employeePage.locator('[data-testid="auth-login-password"]').fill("Employee@2026");
+    await employeePage.locator('[data-testid="ess-login-password"]').fill("Employee@2026");
     await employeePage.waitForTimeout(pauseDelay);
-    await employeePage.locator('[data-testid="auth-login-submit"]').click();
-    await employeePage.waitForURL((url) => url.pathname.includes("/hr"), { timeout: 30000 }).catch(() => {});
-    if (!employeePage.url().includes("/hr/me")) {
-      await employeePage.goto(`${AUTOMATION_BASE_URL}/hr/me`, { waitUntil: "domcontentloaded" });
+    await employeePage.locator('[data-testid="ess-login-submit"]').click();
+    const loginError = employeePage.locator('form .text-rose-700').first();
+    const employeeLoginResult = await Promise.race([
+      employeePage.waitForURL((url) => url.pathname.includes("/ess/me"), { timeout: 30000, waitUntil: "domcontentloaded" }).then(() => "authenticated"),
+      loginError.waitFor({ state: "visible", timeout: 30000 }).then(() => "error"),
+    ]).catch(() => "timeout");
+    if (employeeLoginResult !== "authenticated") {
+      const errorMessage = await loginError.textContent().catch(() => "");
+      throw new Error(errorMessage?.trim() || `Employee login did not complete for company ID ${employeeCompanyId}`);
     }
     await employeePage.locator('[data-testid="hr-ess-page"]').waitFor({ state: "visible", timeout: 30000 });
     for (const section of ["profile", "attendance", "leave", "documents", "staffspace", "payslips", "expenses", "helpdesk"]) {
       await employeePage.locator(`[data-testid="hr-ess-nav-${section}"]`).click();
-      await employeePage.waitForURL(new RegExp(`/hr/me/${section}`), { timeout: 15000 });
+      await employeePage.waitForURL(new RegExp(`/ess/me/${section}`), { timeout: 15000 });
       console.log(`   [Employee View] ${section}`);
       await employeePage.waitForTimeout(viewDelay);
     }
@@ -2161,8 +2192,7 @@ async function run() {
   await runSeparationActions();
   await runManageLoginAction();
   await runEditEmployeeProfile();
-  console.log("\n>>> EMPLOYEE SELF-SERVICE LOGIN...");
-  console.log("   [Skip] Employee portal login verification skipped for the minimal demo");
+  await runEmployeePortalActions();
 
   console.log("=========================================================");
   console.log("  MINIMAL HR AUTOMATION SUITE COMPLETED!               ");

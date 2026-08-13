@@ -599,27 +599,7 @@ a:hover {
 }
 
 .employee-master-header-actions button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 40px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 600;
     white-space: nowrap;
-}
-
-.employee-master-header-actions .employee-master-view-toggle-button {
-    width: 32px;
-    min-height: 32px;
-    padding: 0;
-}
-
-.employee-master-header-actions .employee-master-view-toggle-button svg {
-    display: block;
-    color: currentColor;
-    flex: 0 0 auto;
 }
 
 .employee-master-header-actions .btn-primary {
@@ -1275,6 +1255,93 @@ a:hover {
     overflow-y: auto;
     min-width: 0;
     background: var(--app-bg);
+}
+
+/* Canonical table/card switch — mirrors the Holiday section control. */
+:is(.hr-page-shell, #hr-settings-page) :is(div, span):has(> button[data-testid*="view-table"], > button[data-testid*="table-view"]) {
+    display: inline-flex !important;
+    width: auto !important;
+    height: 34px !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    gap: 2px !important;
+    padding: 2px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    background: var(--color-surface) !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page) :is(div, span):has(> button[data-testid*="view-table"], > button[data-testid*="table-view"]) > button:is([data-testid*="view-table"], [data-testid*="table-view"], [data-testid*="view-card"], [data-testid*="card-view"]) {
+    display: inline-flex !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page) :is(div, span):has(> button[data-testid*="view-table"], > button[data-testid*="table-view"]) > button > svg {
+    width: 16px !important;
+    height: 16px !important;
+    stroke-width: 2 !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page) button:is([data-testid*="view-table"], [data-testid*="table-view"], [data-testid*="view-card"], [data-testid*="card-view"])[data-active="true"] {
+    background: var(--color-product-hr-subtle) !important;
+    color: var(--color-product-hr) !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page) button:is([data-testid*="view-table"], [data-testid*="table-view"], [data-testid*="view-card"], [data-testid*="card-view"])[data-active="false"] {
+    background: transparent !important;
+    color: var(--color-text-secondary) !important;
+}
+
+[data-view-toggle="table-card"] {
+    display: inline-flex !important;
+    width: auto !important;
+    height: 36px !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    gap: 2px !important;
+    padding: 2px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    background: var(--color-surface) !important;
+}
+
+[data-view-toggle="table-card"] > button {
+    display: inline-flex !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--color-text-secondary) !important;
+}
+
+[data-view-toggle="table-card"] > button[data-active="true"] {
+    background: var(--color-product-hr-subtle) !important;
+    color: var(--color-product-hr) !important;
+}
+
+[data-view-toggle="table-card"][data-view-mode="table"] > button:first-child,
+[data-view-toggle="table-card"][data-view-mode="cards"] > button:last-child {
+    background: var(--color-product-hr-subtle) !important;
+    color: var(--color-product-hr) !important;
+}
+
+[data-view-toggle="table-card"] > button > svg {
+    width: 16px !important;
+    height: 16px !important;
 }
 
 .org-page-header {

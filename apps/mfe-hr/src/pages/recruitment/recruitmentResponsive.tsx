@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutGrid, Rows3 } from "lucide-react";
+import { LayoutGrid, Table as Rows3 } from "lucide-react";
 import { cn } from "@jaldee/design-system";
 
 export type RecruitmentViewMode = "table" | "cards";
@@ -36,10 +36,11 @@ export function RecruitmentViewToggle({
   cardsTestId: string;
 }) {
   return (
-    <div className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+    <div data-view-toggle="table-card" className="inline-flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       <button
         type="button"
         data-testid={tableTestId}
+        data-active={value === "table"}
         onClick={() => onChange("table")}
         className={cn(
           "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border-0",
@@ -55,6 +56,7 @@ export function RecruitmentViewToggle({
       <button
         type="button"
         data-testid={cardsTestId}
+        data-active={value === "cards"}
         onClick={() => onChange("cards")}
         className={cn(
           "inline-flex h-8 w-8 items-center justify-center rounded-[7px] border-0",
