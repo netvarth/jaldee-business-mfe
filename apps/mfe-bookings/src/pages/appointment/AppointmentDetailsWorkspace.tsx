@@ -146,6 +146,17 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     }
   }, [reschedOpen, newDate, details, fetchSlots, clearSlots]);
 
+  useEffect(() => {
+    if (reschedOpen) {
+      setTimeout(() => {
+        const displayInput = document.querySelector(`[data-testid="bookings-appointment-details-${bookingId}-reschedule-date-display"]`) as HTMLInputElement | null;
+        if (displayInput) {
+          displayInput.focus();
+        }
+      }, 50);
+    }
+  }, [reschedOpen, bookingId]);
+
   const handleAction = (action: AllowedAction) => {
     if (action === "CANCEL") { setCancelOpen((v) => !v); return; }
     if (action === "RESCHEDULE") { setReschedOpen((v) => !v); return; }
@@ -381,7 +392,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     <div data-testid={`bookings-appointment-details-${bookingId}-reschedule-panel`} data-state="open" className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
                       <label className="block text-xs font-bold text-slate-700">Reschedule to</label>
                       <div className="flex gap-2 mb-2">
-                        <Input id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => { setNewDate(e.target.value); setNewStart(""); setNewEnd(""); }} containerClassName="flex-1" />
+                        <Input autoFocus id={`bookings-appointment-details-${bookingId}-reschedule-date`} data-testid={`bookings-appointment-details-${bookingId}-reschedule-date`} type="date" value={newDate} onChange={(e) => { setNewDate(e.target.value); setNewStart(""); setNewEnd(""); }} containerClassName="flex-1" />
                       </div>
                       
                       {newDate && (

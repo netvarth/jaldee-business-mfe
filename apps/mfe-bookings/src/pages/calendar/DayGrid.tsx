@@ -95,7 +95,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                 );
 
                                 return (
-                                    <div key={id} className={`doctor-card ${status === 'leave' ? 'on-leave' : ''}`} style={{ borderColor: color }}>
+                                    <div key={id} className={`doctor-card ${status === 'leave' ? 'on-leave' : status === 'inactive' ? 'inactive' : ''}`} style={{ borderColor: color }}>
                                         <div className="doctor-card-top w-full">
                                             <div className="flex items-center gap-3 w-full">
                                                 <div className="doctor-avatar w-10 h-10 rounded-xl" style={{ backgroundColor: color }}>
@@ -108,8 +108,10 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                             </div>
                                         </div>
                                         <div className="doctor-card-meta absolute top-3 right-3">
-                                            {status === 'leave' ? (
-                                                <span className="doctor-badge bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full text-xs font-bold">On Leave</span>
+                                            {status === 'leave' || status === 'inactive' ? (
+                                                <span className={`doctor-badge border px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-600 border-red-200`}>
+                                                    {status === 'inactive' ? 'Inactive' : 'On Leave'}
+                                                </span>
                                             ) : null}
                                         </div>
                                     </div>
@@ -147,7 +149,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                             return (
                                                 <div 
                                                     key={`${id}-${hour}`} 
-                                                    className={`calendar-cell ${status === 'leave' ? 'on-leave' : ''}`}
+                                                    className={`calendar-cell ${status === 'leave' ? 'on-leave' : status === 'inactive' ? 'inactive' : ''}`}
                                                     onClick={() => openDrawer(
                                                         <CreateAppointmentDrawer 
                                                           initialDate={date} 

@@ -547,7 +547,8 @@ function scheduleStatusLabel(enabled: boolean) {
 }
 
 function formatDateRange(startDate: string, endDate?: string | null) {
-  return `${startDate} to ${endDate || startDate}`;
+  if (!endDate) return `Active from ${startDate}`;
+  return `${startDate} to ${endDate}`;
 }
 
 function initials(value: string) {

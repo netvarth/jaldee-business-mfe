@@ -102,8 +102,10 @@ export default function DayViewGrid({
                     </>
                   )}
                 </div>
-                {viewBy === 'doctors' && col.status === 'leave' && (
-                  <span className="badge-column-status badge-on-leave">On Leave</span>
+                {viewBy === 'doctors' && (col.status === 'leave' || col.status === 'inactive') && (
+                  <span className={`badge-column-status ${col.status === 'inactive' ? 'badge-inactive' : 'badge-on-leave'}`}>
+                    {col.status === 'inactive' ? 'Inactive' : 'On Leave'}
+                  </span>
                 )}
                 {colBookings.length > 0 && (
                   <span className="badge bg-teal-600 text-white px-2 py-0.5 text-[11px] ml-auto rounded-full">

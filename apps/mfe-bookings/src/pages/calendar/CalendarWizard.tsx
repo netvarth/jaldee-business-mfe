@@ -368,7 +368,7 @@ export default function CalendarWizard() {
                     calendarUid: draftUid,
                     calendarName: name,
                     startDate: schedule.startDate,
-                    endDate: schedule.endDate || schedule.startDate,
+                    endDate: schedule.endDate || undefined,
                     slotCapacity: Math.max(
                         ...schedule.timeWindows.map((timeWindow: any) => Number(timeWindow.capacity) || 0),
                         0,

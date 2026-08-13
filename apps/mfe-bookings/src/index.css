@@ -490,6 +490,12 @@
     border: 1px solid var(--danger-border);
 }
 
+.badge-inactive {
+    background-color: var(--danger-bg);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-border);
+}
+
 .column-cells-area {
     display: flex;
     flex-direction: column;
@@ -1863,6 +1869,12 @@ a:hover {
 }
 
 .badge-on-leave {
+    background-color: var(--danger-bg);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-border);
+}
+
+.badge-inactive {
     background-color: var(--danger-bg);
     color: var(--danger-color);
     border: 1px solid var(--danger-border);

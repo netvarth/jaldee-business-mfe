@@ -155,12 +155,14 @@ export function useUsers(
               size: 1000,
             })
           )
-          .then((data) => [
-            ...createdUsers,
-            ...unwrapList<UserDto>(data)
+          .then((data) => {
+            const apiUsers = unwrapList<UserDto>(data)
               .map(toUser)
-              .filter((user) => Boolean(user.userUid)),
-          ])
+              .filter((user) => Boolean(user.userUid));
+            const seen = new Set(apiUsers.map((u) => u.userUid));
+            const localNewUsers = createdUsers.filter((u) => !seen.has(u.userUid));
+            return [...localNewUsers, ...apiUsers];
+          })
           .finally(() => {
             inflightRequests.delete(cacheKey);
           });

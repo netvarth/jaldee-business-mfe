@@ -150,6 +150,7 @@ export default function CustomersPage() {
                   data-testid={`bookings-customer-edit-${customer.id}`}
                   className="w-full px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
                   onClick={() => {
+                    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
                     openModal(
                       <CreatePatientModal initialCustomer={customer} onCreated={updateLocal} />
                     );
@@ -161,7 +162,10 @@ export default function CustomersPage() {
                   type="button"
                   data-testid={`bookings-customer-status-${customer.id}`}
                   className="w-full px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
-                  onClick={() => toggleLocalStatus(customer.id)}
+                  onClick={() => {
+                    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+                    toggleLocalStatus(customer.id);
+                  }}
                 >
                   {isActiveCustomer(customer) ? "Mark Inactive" : "Mark Active"}
                 </button>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PageHeader, Input, Select, Button, Badge } from "@jaldee/design-system";
+import { PageHeader, Input, Select, Button, Badge, Checkbox } from "@jaldee/design-system";
 import { useQrLinks, type QrLink } from "../../services/useQrLinks";
 import { useCalendars } from "../../services/useCalendars";
 import { useServices } from "../../services/useServices";
@@ -330,37 +330,61 @@ export default function CreateQrLinkPage() {
             )}
           </div>
 
-          {customServices.length > 0 && (
+          {mappedServices.length > 0 && (
             <div className="rounded-lg border border-slate-200 overflow-hidden mt-4">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold">
                   <tr>
+                    <th className="px-4 py-3 w-12 text-center">
+                      <Checkbox 
+                        checked={customServices.length > 0 && customServices.length === mappedServices.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCustomServices(JSON.parse(JSON.stringify(mappedServices)));
+                          } else {
+                            setCustomServices([]);
+                          }
+                        }}
+                      />
+                    </th>
                     <th className="px-4 py-3">Services</th>
                     <th className="px-4 py-3">Users</th>
                     <th className="px-4 py-3 w-16"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {customServices.map((svc: any) => (
-                    <tr key={svc.serviceUid}>
-                      <td className="px-4 py-4 text-indigo-700 font-medium align-top">
-                        {svc.serviceName || svc.serviceUid}
-                      </td>
-                      <td className="px-4 py-4 text-slate-600 align-top">
-                        {svc.users && svc.users.length > 0 
-                          ? svc.users.map((u: any) => u.userName || u.userUid).join(", ")
-                          : "Any"}
-                      </td>
-                      <td className="px-4 py-4 text-right align-top whitespace-nowrap">
-                        <button type="button" onClick={() => setUsersModalServiceId(svc.serviceUid)} className="text-xs text-indigo-600 font-medium hover:underline mr-3">Edit</button>
-                        {customServices.length > 1 && (
-                          <button type="button" onClick={() => handleDeleteService(svc.serviceUid)} className="text-slate-400 hover:text-red-500">
-                             <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {mappedServices.map((baseSvc: any) => {
+                    const isSelected = customServices.some(s => s.serviceUid === baseSvc.serviceUid);
+                    const svc = customServices.find(s => s.serviceUid === baseSvc.serviceUid) || baseSvc;
+
+                    return (
+                      <tr key={baseSvc.serviceUid} className={!isSelected ? "opacity-60 bg-slate-50" : ""}>
+                        <td className="px-4 py-4 w-12 text-center align-top">
+                          <Checkbox 
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setCustomServices([...customServices, baseSvc]);
+                              } else {
+                                setCustomServices(customServices.filter(s => s.serviceUid !== baseSvc.serviceUid));
+                              }
+                            }}
+                          />
+                        </td>
+                        <td className={`px-4 py-4 font-medium align-top ${isSelected ? "text-indigo-700" : "text-slate-500"}`}>
+                          {svc.serviceName || svc.serviceUid}
+                        </td>
+                        <td className="px-4 py-4 text-slate-600 align-top">
+                          {svc.users && svc.users.length > 0 
+                            ? svc.users.map((u: any) => u.userName || u.userUid).join(", ")
+                            : "Any"}
+                        </td>
+                        <td className="px-4 py-4 text-right align-top whitespace-nowrap">
+                          <button type="button" disabled={!isSelected} onClick={() => setUsersModalServiceId(svc.serviceUid)} className={`text-xs font-medium mr-3 ${isSelected ? 'text-indigo-600 hover:underline' : 'text-slate-400 cursor-not-allowed'}`}>Edit</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

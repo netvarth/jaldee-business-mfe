@@ -357,7 +357,6 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 <Button
                   type="button"
                   variant={appliedAdvancedFilterCount > 0 ? "primary" : "outline"}
-                  size="sm"
                   className={`filter-applied-btn flex items-center gap-2 rounded-md px-4 py-2 font-semibold ${
                     appliedAdvancedFilterCount > 0
                       ? ""
@@ -381,7 +380,6 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                   id="bookings-create-appointment"
                   data-testid="bookings-create-appointment"
                   onClick={() => setCreateMenuOpen(!createMenuOpen)}
-                  size="sm"
                   className="border-0 px-4 font-bold"
                   style={{
                     backgroundColor: "#311090",
@@ -788,6 +786,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                           </div>
                           <span className="truncate">{user.name}</span>
                           {user.status === "leave" ? <span className="sidebar-leave-pill">LEAVE</span> : null}
+                          {user.status === "inactive" ? <span className="sidebar-inactive-pill">INACTIVE</span> : null}
                         </label>
                       </div>
                     );

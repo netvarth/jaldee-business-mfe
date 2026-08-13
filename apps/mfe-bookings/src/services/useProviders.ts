@@ -25,7 +25,7 @@ function toCalendarUser(
     code: initials(name),
     color: AVATAR_COLORS[index % AVATAR_COLORS.length],
     role: user.title || "",
-    status: user.status === "Inactive" ? "leave" : "online",
+    status: user.status === "Inactive" ? "inactive" : "online",
   };
 }
 

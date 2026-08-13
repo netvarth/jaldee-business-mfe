@@ -24,6 +24,7 @@ interface CustomerFormDialogProps {
   onClose: () => void;
   customerLabel: string;
   editingCustomer?: Customer | null;
+  onSuccess?: (customer: any) => void;
 }
 
 type CustomerFormField =
@@ -43,6 +44,7 @@ export function CustomerFormDialog({
   onClose,
   customerLabel,
   editingCustomer,
+  onSuccess,
 }: CustomerFormDialogProps) {
   const [values, setValues] = useState<CustomerFormValues>(EMPTY_VALUES);
   const [formError, setFormError] = useState<string | null>(null);
@@ -89,15 +91,17 @@ export function CustomerFormDialog({
     }
 
     try {
+      let result;
       if (isEditing) {
-        await updateMutation.mutateAsync(values);
+        result = await updateMutation.mutateAsync(values);
       } else {
-        await createMutation.mutateAsync(values);
+        result = await createMutation.mutateAsync(values);
       }
 
       emitCustomerSuccessToast(eventBus, isEditing ? `${customerLabel} updated successfully.` : `${customerLabel} created successfully.`);
       setFormError(null);
       setFieldErrors({});
+      onSuccess?.(result);
       onClose();
     } catch (error) {
       const readable = getReadableCustomerApiError(

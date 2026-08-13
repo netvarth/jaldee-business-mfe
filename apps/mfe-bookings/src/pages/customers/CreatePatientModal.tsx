@@ -50,16 +50,16 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
         phoneNumber: phone,
         email,
       });
-      showToast("Patient record updated", "success");
+      showToast("Customer record updated", "success");
       closeModal();
     } else {
       try {
         const newCustomer = await createCustomer(input);
         onCreated(newCustomer);
-        showToast("Patient record created", "success");
+        showToast("Customer record created", "success");
         closeModal();
       } catch (error) {
-        showToast(error instanceof Error ? error.message : "Failed to create patient record", "error");
+        showToast(error instanceof Error ? error.message : "Failed to create customer record", "error");
         setHasSubmitted(false);
       }
     }
@@ -68,12 +68,12 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
   return (
     <form data-testid="bookings-create-customer-form" onSubmit={handleSubmit} className="p-6">
       <header className="mb-6">
-        <h2 className="text-lg font-bold text-slate-900">{isEditMode ? "Edit Patient Record" : "Create Patient Record"}</h2>
+        <h2 className="text-lg font-bold text-slate-900">{isEditMode ? "Edit Customer Record" : "Create Customer Record"}</h2>
         <p className="mt-1 text-sm text-slate-500">
-          {isEditMode ? "Update patient details in the customer list." : "Save a new patient to the base CRM."}
+          {isEditMode ? "Update customer details in the customer list." : "Save a new Customer to the base CRM."}
         </p>
       </header>
-      <FormSection title="Patient details">
+      <FormSection title="Customer details">
         <Input id="pat-first-name" data-testid="bookings-create-customer-first-name" label="First name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         <Input id="pat-last-name" data-testid="bookings-create-customer-last-name" label="Last name" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
         <Input id="pat-phone" data-testid="bookings-create-customer-phone" label="Phone number" required value={phone} onChange={(e) => setPhone(e.target.value)} />

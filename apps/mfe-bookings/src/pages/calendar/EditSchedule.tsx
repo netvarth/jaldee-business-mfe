@@ -268,7 +268,7 @@ export default function EditSchedule() {
         calendarUid: calendar.uid,
         calendarName: calendar.name,
         startDate,
-        endDate: endDate || startDate,
+        endDate: endDate || undefined,
         slotCapacity: 0,
         qrLinkRequired: initialSchedule?.qrLinkRequired ?? true,
         timeWindows: timeWindows.map((timeWindow) => formatTimeWindowPayload(calendar, scheduleUid, scheduleName.trim(), timeWindow)),

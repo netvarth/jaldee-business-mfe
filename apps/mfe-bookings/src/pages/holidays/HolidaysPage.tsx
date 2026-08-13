@@ -222,6 +222,7 @@ export default function HolidaysPage() {
           <EmptyState
             title={loading ? "Loading holidays…" : error ? "Could not load holidays" : "No holidays yet"}
             description={loading ? "Fetching your blocked dates." : error ? error : "Add a business holiday or provider leave to block those dates from booking."}
+            action={!loading && !error ? <Button onClick={openCreate}>Add Holiday</Button> : undefined}
           />
         }
         data-testid="bookings-holidays"

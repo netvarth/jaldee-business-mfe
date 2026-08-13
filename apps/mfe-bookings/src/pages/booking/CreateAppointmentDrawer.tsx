@@ -24,6 +24,10 @@ import { addCreatedBooking } from "../../data/sessionStore";
 import { uploadAttachmentsToDrive } from "../../services/useAttachments";
 import { useMFEProps } from "@jaldee/auth-context";
 import type { BookingChannel, Calendar, CustomerSearchResult, Slot } from "../../types";
+import type { SearchFilterClause } from "@jaldee/shared-modules";
+import CreatePatientModal from "../customers/CreatePatientModal";
+
+const ACTIVE_CALENDARS_FILTER: SearchFilterClause[] = [{ field: "status", operator: "EQ", values: ["ACTIVE"] }];
 
 const WEEK = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -126,9 +130,9 @@ export default function CreateAppointmentDrawer({
   initialCalendarUid,
   isFromCell,
 }: CreateAppointmentDrawerProps = {}) {
-  const { closeDrawer } = useModal();
+  const { closeDrawer, openModal, closeModal } = useModal();
   const { showToast } = useToast();
-  const { calendars, searchSchedules, getCalendar, getUserCalendarsAvailability } = useCalendars();
+  const { calendars, searchSchedules, getCalendar, getUserCalendarsAvailability } = useCalendars(ACTIVE_CALENDARS_FILTER);
   const { services } = useServices();
   const { providers } = useProviders();
   const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
@@ -150,6 +154,25 @@ export default function CreateAppointmentDrawer({
   const [customerQuery, setCustomerQuery] = useState("");
   const [selectedCustomerUid, setSelectedCustomerUid] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(null);
+
+  const handleCustomerCreated = (result: any) => {
+    closeModal();
+    if (result && (result.id || result.uid)) {
+      applySelectedCustomer({
+        uid: result.id || result.uid,
+        firstName: result.firstName || result.consumer?.firstName,
+        lastName: result.lastName || result.consumer?.lastName,
+        phone: result.phoneNumber || result.phoneNo || result.phoneE164 || result.consumer?.phoneNo,
+        email: result.email || result.consumer?.email,
+        gender: result.gender || result.consumer?.gender,
+        dateOfBirth: result.dob || result.consumer?.dob,
+      });
+    } else {
+      clearResults();
+      setCustomerQuery("");
+    }
+  };
+
   
   const [calendarUid, setCalendarUid] = useState(initialCalendarUid || "");
   const [serviceUid, setServiceUid] = useState("");
@@ -431,7 +454,7 @@ export default function CreateAppointmentDrawer({
   const handleNextStep = () => {
     if (schedulingMode === "book") {
       if (!selectedCustomer && !patientName.trim()) {
-        showToast("Please select a patient", "error");
+        showToast("Please select a customer", "error");
         return;
       }
       if (!calendarUid || !serviceUid) {
@@ -455,7 +478,7 @@ export default function CreateAppointmentDrawer({
     }
 
     if (schedulingMode === "book") {
-      if (!resolvedPatientName) { showToast("Patient name is required", "error"); return; }
+      if (!resolvedPatientName) { showToast("Customer name is required", "error"); return; }
       if (!calendarUid || !serviceUid || !scheduleUid || !selectedDate || selectedSlots.length === 0) {
         showToast("Please complete calendar, service, date and slot", "error");
         return;
@@ -476,7 +499,7 @@ export default function CreateAppointmentDrawer({
             serviceUid,
             scheduleUid,
             providerUid: selectedProviderUid,
-            channel: "WALK_IN",
+            channel: "Walk-in",
             startTime: combinedStartTime,
             endTime: combinedEndTime,
             startDate: dateStr,
@@ -710,7 +733,13 @@ export default function CreateAppointmentDrawer({
                       <h3 className="text-sm font-bold text-[#31028C] uppercase tracking-wider">1. Select Customer</h3>
                     </div>
                     {!selectedCustomer && (
-                      <Button variant="secondary" size="sm" type="button" className="text-xs h-7 px-3 py-1">
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        type="button" 
+                        className="text-xs h-7 px-3 py-1"
+                        onClick={() => openModal(<CreatePatientModal onCreated={handleCustomerCreated} />)}
+                      >
                         + New Customer
                       </Button>
                     )}
@@ -743,7 +772,7 @@ export default function CreateAppointmentDrawer({
                       </div>
                       <Button variant="secondary" size="sm" onClick={() => applySelectedCustomer(null)} className="h-8 text-xs font-medium bg-white">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        Change Patient
+                        Change Customer
                       </Button>
                     </div>
                   ) : (
@@ -778,8 +807,14 @@ export default function CreateAppointmentDrawer({
                               </div>
                             ))
                           ) : (
-                            <div className="p-4 text-center text-sm text-slate-500">No patients found.</div>
+                            <div className="p-4 text-center text-sm text-slate-500 flex flex-col items-center gap-2">
+                              No customers found.
+                              <Button type="button" variant="secondary" size="sm" onClick={() => openModal(<CreatePatientModal onCreated={handleCustomerCreated} />)}>
+                                Create New Customer
+                              </Button>
+                            </div>
                           )}
+
                         </div>
                       )}
                     </div>
@@ -792,7 +827,7 @@ export default function CreateAppointmentDrawer({
                   <div>
                     <h3 className="text-sm font-bold text-[#31028C] uppercase tracking-wider">2. Calendar & Services</h3>
                   </div>
-                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).map((c) => ({ value: c.uid || "", label: c.name }))} />
+                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).filter(c => c.status === "ACTIVE").map((c) => ({ value: c.uid || "", label: c.name }))} />
                   <Select id="bk-service" label="Consultation Service" required placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
                   {!(isFromCell && initialProviderUid) && (
                     <Select id="bk-doctor" label="Assigned User (Optional)" placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
@@ -810,7 +845,7 @@ export default function CreateAppointmentDrawer({
                     value={blockReason} 
                     onChange={(e) => setBlockReason(e.target.value)} 
                   />
-                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).map((c) => ({ value: c.uid || "", label: c.name }))} />
+                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).filter(c => c.status === "ACTIVE").map((c) => ({ value: c.uid || "", label: c.name }))} />
                   <Select id="bk-service" label="Consultation Service (Optional)" placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
                   {!(isFromCell && initialProviderUid) && (
                     <Select id="bk-doctor" label="Assigned User (Optional)" placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />

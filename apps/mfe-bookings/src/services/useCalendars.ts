@@ -72,7 +72,7 @@ export interface CreateSchedulePayload {
   calendarUid: string;
   calendarName: string;
   startDate: string;
-  endDate: string;
+  endDate?: string;
   slotCapacity: number;
   qrLinkRequired: boolean;
   timeWindows: CreateTimeWindowPayload[];

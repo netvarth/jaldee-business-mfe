@@ -306,7 +306,7 @@ export default function ServicesPage() {
           mode: "client",
           onChange: setPage,
         }}
-        emptyState={<EmptyState title="No services found" description="Try changing the search." />}
+        emptyState={<EmptyState title="No services found" description="Create your first service to start taking bookings." action={<Button onClick={() => navigate("/services/create")}>Create Service</Button>} />}
         tableClassName="min-w-[800px]"
         data-testid="bookings-services"
       />

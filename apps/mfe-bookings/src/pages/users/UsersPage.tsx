@@ -131,6 +131,7 @@ export default function UsersPage() {
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   onClick={(event) => {
                     event.stopPropagation();
+                    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
                     openModal(<UserProfileModal user={user} mode="view" onSaved={refresh} />);
                   }}
                 >
@@ -140,6 +141,7 @@ export default function UsersPage() {
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   onClick={(event) => {
                     event.stopPropagation();
+                    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
                     openModal(<UserProfileModal user={user} mode="edit" onSaved={refresh} />);
                   }}
                 >
@@ -170,8 +172,8 @@ export default function UsersPage() {
       className="flex h-full flex-col gap-4 overflow-y-auto bg-slate-50 p-4 md:p-6"
     >
       <PageHeader
-        title="Users"
-        subtitle="Manage booking users, access, and availability."
+        title="Staff"
+        subtitle="Manage staff access and availability."
         actions={
           <Button
             id="bookings-users-create"
