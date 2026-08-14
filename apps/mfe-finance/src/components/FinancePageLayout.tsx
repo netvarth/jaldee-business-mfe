@@ -240,12 +240,12 @@ export function QuickActions({
           key={action.label}
           type="button"
           onClick={() => navigate(toFinanceRoute(action.path))}
-          className="min-h-[92px] w-[110px] rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--color-primary-muted)] hover:shadow-md"
+          className="flex min-h-[92px] w-[110px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-3 text-center shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[var(--color-primary-muted)] hover:shadow-md"
         >
           <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${action.tone}`}>
             <Icon name={action.icon} className="h-4 w-4" />
           </div>
-          <div className="mt-3 text-xs font-semibold leading-4 text-slate-900">{action.label}</div>
+          <div className="mt-3 w-full text-center text-xs font-semibold leading-4 text-slate-900">{action.label}</div>
         </button>
       ))}
     </div>

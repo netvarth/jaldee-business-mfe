@@ -22,6 +22,7 @@ export default function ShellLayout({ children }: Props) {
   const setActiveProduct = useShellStore((s) => s.setActiveProduct);
   const [collapseSubmenuAfterSelection, setCollapseSubmenuAfterSelection] = useState(false);
   const shellContentRef = useRef<HTMLDivElement>(null);
+  const previousPathRef = useRef(location.pathname);
   const isSmallScreen = useIsSmallScreen();
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const navigationOpen = isSmallScreen ? sidebarVisible : true;
@@ -57,13 +58,16 @@ export default function ShellLayout({ children }: Props) {
   }, [location.pathname, location.search]);
 
   useLayoutEffect(() => {
-    if (!location.pathname.startsWith("/finance")) return;
+    const previousPath = previousPathRef.current;
+    previousPathRef.current = location.pathname;
+    const leftBookings = previousPath.startsWith("/bookings") && !location.pathname.startsWith("/bookings");
+    if (!leftBookings) return;
     const shellContent = shellContentRef.current;
     if (!shellContent) return;
 
     // The Booking calendar temporarily owns these inline styles for its
-    // full-height grid. Clear any leaked values before Finance is painted so
-    // the shell's normal vertical scrolling is restored.
+    // full-height grid. Clear any leaked values before another MFE is painted
+    // so the shell's normal layout and vertical scrolling are restored.
     shellContent.style.removeProperty("overflow-y");
     shellContent.style.removeProperty("overflow-x");
     shellContent.style.removeProperty("display");

@@ -543,7 +543,7 @@
 /* Jaldee Booking Prototype Stylesheet */
 
 /* Design Tokens & Variables */
-:root {
+#bookings-app-root {
     --primary-color: #5B2D8E;
     --primary-hover: #45206D;
     --primary-light: #F4EFFF;
@@ -582,33 +582,38 @@
 }
 
 /* Global Reset & Base */
-* {
+:where(#bookings-app-root, #bookings-app-root *) {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-body {
+#bookings-app-root {
     font-family: var(--font-body);
     color: var(--dark-text);
     background-color: var(--app-bg);
     overflow: hidden;
-    height: 100vh;
-    width: 100vw;
+    height: 100%;
+    width: 100%;
     -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+:where(#bookings-app-root) h1,
+:where(#bookings-app-root) h2,
+:where(#bookings-app-root) h3,
+:where(#bookings-app-root) h4,
+:where(#bookings-app-root) h5,
+:where(#bookings-app-root) h6 {
     font-family: var(--font-heading);
     font-weight: 600;
 }
 
-a {
+:where(#bookings-app-root) a {
     color: var(--primary-color);
     text-decoration: none;
     transition: color 0.2s ease;
 }
-a:hover {
+:where(#bookings-app-root) a:hover {
     color: var(--primary-hover);
 }
 
