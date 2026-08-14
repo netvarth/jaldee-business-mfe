@@ -7,7 +7,7 @@ import { useHrApi } from "../services/useHrApi";
 export interface Announcement {
   id: string; uid?: string; title?: string; description?: string; type?: string;
   startDate?: string; endDate?: string; isPinned?: boolean; acknowledgedBy?: string[];
-  status?: string; isAcknowledged?: boolean;
+  status?: string; isAcknowledged?: boolean; attachments?: TicketAttachment[];
 }
 export interface TicketResponse { message?: string; respondedBy?: string; respondedAt?: string; }
 export interface TicketAttachment {
