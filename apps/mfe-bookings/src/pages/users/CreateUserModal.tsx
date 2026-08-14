@@ -74,10 +74,10 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
   return (
     <form data-testid="bookings-create-user-form" onSubmit={handleSubmit} className="p-6">
       <header className="mb-6">
-        <h2 className="text-lg font-bold text-slate-900">Create User</h2>
-        <p className="mt-1 text-sm text-slate-500">Add a professional or staff user.</p>
+        <h2 className="text-lg font-bold text-slate-900">Add Staff</h2>
+        <p className="mt-1 text-sm text-slate-500">Add a professional or staff member.</p>
       </header>
-      <FormSection title="User details">
+      <FormSection title="Staff details">
         <Input id="usr-first-name" data-testid="bookings-create-user-first-name" label="First name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         <Input id="usr-last-name" data-testid="bookings-create-user-last-name" label="Last name" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
         <Select id="usr-title" testId="bookings-create-user-title" label="Title / prefix" value={title} onChange={(e) => setTitle(e.target.value)} options={["Dr.", "Mr.", "Ms.", "Mrs."].map((value) => ({ value, label: value }))} />
@@ -85,7 +85,7 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
       </FormSection>
       <div className="my-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <Switch label="Allow login" checked={connectToCrm} onChange={setConnectToCrm} />
-        <p className="mt-2 text-xs text-slate-500">Enable login access for this booking user. Leave off for a booking-only provider.</p>
+        <p className="mt-2 text-xs text-slate-500">Enable login access for this staff member. Leave off for a booking-only provider.</p>
       </div>
       <FormSection title="Contact details">
         <Input id="usr-email" data-testid="bookings-create-user-email" type="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -101,7 +101,7 @@ export default function CreateUserModal({ onCreated }: { onCreated: (user: Booki
         <Button variant="secondary" onClick={closeModal} disabled={hasSubmitted}>
           Cancel
         </Button>
-        <Button type="submit" disabled={hasSubmitted} loading={submitting}>Create User</Button>
+        <Button type="submit" disabled={hasSubmitted} loading={submitting}>Add Staff</Button>
       </DialogFooter>
     </form>
   );

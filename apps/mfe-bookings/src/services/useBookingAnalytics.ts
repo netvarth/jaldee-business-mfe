@@ -21,6 +21,8 @@ export interface BookingDto {
   amount?: number;
   totalAmount?: number;
   price?: number;
+  amountPaid?: number;
+  amountDue?: number;
 }
 
 export interface Analytics {
@@ -78,7 +80,10 @@ function compute(bks: BookingDto[], live: boolean, loading: boolean): Analytics 
     if (ch.includes("WALK")) walkin++;
     else online++;
     if (k !== "cancelled") {
-      revenue += Number(b.totalAmount ?? b.amount ?? b.price ?? 0);
+      const val = (b.amountPaid !== undefined || b.amountDue !== undefined)
+          ? ((b.amountPaid || 0) + (b.amountDue || 0))
+          : Number(b.totalAmount ?? b.amount ?? b.price ?? 0);
+      revenue += Number(val || 0);
     }
   });
   const total = bks.length;

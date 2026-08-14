@@ -31,7 +31,7 @@ export default function InvoiceModal({ isOpen, onClose, details, finance, paymen
   const patientPhone = details.customerPhone || "";
   const patientId = details.customerUid ? `PT-${details.customerUid.substring(0, 4).toUpperCase()}` : "";
   
-  const providerName = details.providerName || "No provider assigned";
+  const providerName = details.userName || details.providerName || "No provider assigned";
   const date = new Date(details.bookingDate || Date.now()).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
 
   const serviceName = details.serviceName || "Consultation";

@@ -342,7 +342,7 @@ export default function CalendarDetails() {
                               <span className="detail-sch-menu-icon"><CalendarIcon size={18} /></span>
                               <span>Generate QR Code</span>
                             </button>
-                            <button type="button" className="detail-sch-menu-item">
+                            <button type="button" className="detail-sch-menu-item" onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/edit`, { state: { calendar, schedule } })}>
                               <span className="detail-sch-menu-icon"><Plus size={18} /></span>
                               <span>New Time Window</span>
                             </button>

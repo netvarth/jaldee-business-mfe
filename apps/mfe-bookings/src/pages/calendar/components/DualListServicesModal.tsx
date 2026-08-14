@@ -15,6 +15,7 @@ interface DualListServicesModalProps {
   onClose: () => void;
   allServices: Service[];
   initialSelectedServices: Service[];
+  initialSelectedServices: Service[];
   onSave: (selected: Service[]) => void;
 }
 
@@ -101,11 +102,8 @@ export default function DualListServicesModal({
                     <span>Available (<span id="avail-services-count">{availableServices.length}</span>)</span>
                     <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set())}>Clear</Button>
                 </div>
-                <div className="panel-search flex gap-2">
-                    <Input type="search" placeholder="Search Services..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} className="flex-1" />
-                    <Button variant="outline" size="sm" onClick={() => window.open("/services/create", "_blank")} title="Create new service in a new tab" className="shrink-0 text-indigo-600 hover:text-indigo-700">
-                        + New
-                    </Button>
+                <div className="panel-search">
+                    <Input type="search" placeholder="Search Services..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} />
                 </div>
                 <div className="panel-list">
                     {desktopFilteredAvailable.map(service => (

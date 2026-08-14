@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, FormSection, Input, PageHeader } from "@jaldee/design-system";
+import { Alert, Badge, Button, FormSection, Input } from "@jaldee/design-system";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useCalendars } from "../../services/useCalendars";
 import { useUsers } from "../../services/useUsers";
@@ -50,6 +50,29 @@ function sanitizeHex(value: string) {
 
 function isHexColor(value: string) {
   return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+function DetailsHeader({
+  title,
+  onBack,
+}: {
+  title: string;
+  subtitle?: string;
+  onBack: () => void;
+}) {
+  return (
+    <header className="sticky top-0 z-30 flex items-center bg-white px-4 md:px-8 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border-b border-slate-200">
+        <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-bold text-slate-900 transition-colors hover:text-[#5B2D8E]"
+            aria-label="Go back"
+        >
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+            {title}
+        </button>
+    </header>
+  );
 }
 
 export default function CalendarSettings() {
@@ -127,16 +150,10 @@ export default function CalendarSettings() {
 
   return (
     <main className="h-full flex flex-col bg-slate-50 calendar-details-page" data-testid="bookings-calendar-settings-page">
-      <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
-        <PageHeader
-          title="Calendar Settings"
-          subtitle="Manage color and users assigned to this calendar and its services."
-          back={{ label: "Back to calendar details", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
-          onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
-          actions={calendar ? <Badge variant="success">{calendar.name}</Badge> : undefined}
-          className="mb-4"
-        />
-      </header>
+      <DetailsHeader
+        title="Calendar Settings"
+        onBack={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
+      />
 
       <div className="calendar-details-layout" style={{ overflowY: "auto" }}>
         <div className="max-w-5xl">

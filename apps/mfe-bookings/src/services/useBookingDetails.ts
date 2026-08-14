@@ -143,10 +143,40 @@ export function useBookingDetails() {
   );
 
   const refreshTimeline = useCallback(
-    async (uid: string) => {
+    async (uid: string, currentDetails?: BookingDetails) => {
       try {
         const response = await api.get<unknown>(`/bookings/${uid}/timeline`);
-        setTimeline(unwrapList<TimelineEvent>(response));
+        let list = unwrapList<TimelineEvent>(response);
+        
+        // Workaround for empty timeline: parse userNotes
+        if (list.length === 0 && currentDetails?.userNotes) {
+          const parsedEvents: TimelineEvent[] = currentDetails.userNotes
+            .filter(note => note.startsWith("["))
+            .map(note => {
+              const match = note.match(/^\[(.*?)\]/);
+              const eventType = match ? match[1] : "UPDATE";
+              
+              const timeMatch = note.match(/time=([\w-:\.+]+)/);
+              const occurredAt = timeMatch ? timeMatch[1] : undefined;
+              
+              const byMatch = note.match(/by=([\w]+)/);
+              const actor = byMatch ? byMatch[1] : undefined;
+
+              return {
+                eventType,
+                eventLabel: eventType.replace(/_/g, " "),
+                occurredAt,
+                actor,
+                remarks: note
+              };
+            });
+            
+          if (parsedEvents.length > 0) {
+            list = parsedEvents;
+          }
+        }
+        
+        setTimeline(list);
       } catch {
         /* timeline optional */
       }
@@ -161,7 +191,7 @@ export function useBookingDetails() {
       try {
         const d = await api.get<BookingDetails>(`/bookings/${id}/details`);
         setDetails(d);
-        await Promise.all([refreshTimeline(id), refreshFinance(id)]);
+        await Promise.all([refreshTimeline(id, d), refreshFinance(id)]);
       } catch (e) {
         // No sample fallback — clear details and surface the error so the UI
         // shows an error state instead of a fabricated booking.
@@ -187,7 +217,7 @@ export function useBookingDetails() {
         // Backend-only — no offline simulation of status transitions.
         const updated = await api.post<BookingDetails>(req.path, req.body);
         setDetails(updated);
-        await refreshTimeline(details.uid);
+        await refreshTimeline(details.uid, updated);
       } finally {
         setActing(null);
       }
@@ -238,7 +268,7 @@ export function useBookingDetails() {
       setPaying(true);
       try {
         await api.post(path, body);
-        await Promise.all([refreshFinance(details.uid), refreshTimeline(details.uid)]);
+        await Promise.all([refreshFinance(details.uid), refreshTimeline(details.uid, details)]);
       } finally {
         setPaying(false);
       }

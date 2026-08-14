@@ -212,7 +212,9 @@ export default function CustomizeCalendar() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
-  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(
+    (location.state as any)?.restoreServicesModal ?? false
+  );
   const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
 
   const serviceMap = useMemo(() => new Map(services.map((service) => [service.uid ?? service.id, service.name])), [services]);
@@ -767,6 +769,16 @@ export default function CustomizeCalendar() {
         onClose={() => setIsServicesModalOpen(false)}
         allServices={availableServices}
         initialSelectedServices={selectedServiceObjects as Service[]}
+        onNavigateToCreate={() => {
+          navigate('/services/create', {
+              state: {
+                  returnTo: window.location.pathname,
+                  restoreServicesModal: true,
+                  calendar: calendar,
+                  schedule: selectedSchedule
+              }
+          });
+        }}
         onSave={(selected) => {
           setSelectedServiceIds(unique(selected.map((service) => service.uid ?? service.id)));
           setIsServicesModalOpen(false);

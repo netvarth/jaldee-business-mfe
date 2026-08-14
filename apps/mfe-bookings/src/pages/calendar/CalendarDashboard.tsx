@@ -21,6 +21,7 @@ import ListGrid from "./ListGrid";
 import CreateAppointmentDrawer from "../booking/CreateAppointmentDrawer";
 import BlockSlotModal from "../booking/BlockSlotModal";
 import DayGrid from "./DayGrid";
+import { RotateCw } from "../../components/icons";
 import { useDashboardFilters } from "../../services/useDashboardFilters";
 import SaveDashboardFilterModal from "./SaveDashboardFilterModal";
 import "./calendar-grid.css";
@@ -78,8 +79,8 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
-  const [providersOpen, setProvidersOpen] = useState(true);
-  const [servicesOpen, setServicesOpen] = useState(true);
+  const [providersOpen, setProvidersOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
   const [calendarsOpen, setCalendarsOpen] = useState(true);
   
   const { filters: savedFilters, saveFilter: createSavedFilter, deleteFilter: removeSavedFilter } = useDashboardFilters();
@@ -632,22 +633,6 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
           data-state={isSidebarCollapsed ? "collapsed" : "open"}
         >
           <div className="sidebar-scrollable-content">
-            <div className="px-3 pt-2 pb-1 flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[11px] font-semibold text-purple-600 hover:bg-purple-50 hover:text-purple-700 h-auto py-1 px-2 rounded"
-                onClick={() => {
-                  setSelectedCalendarIds(new Set());
-                  setSelectedUserIds(new Set());
-                  setSelectedServiceIds(new Set());
-                }}
-                title="Reset Filters"
-              >
-                Reset All
-              </Button>
-            </div>
-
             <div className="md:hidden flex flex-col gap-2 p-2 border-b border-slate-200">
               <div className="view-pill-group w-full flex">
                 <Button
@@ -690,6 +675,22 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 />
               </div>
             </div>
+
+            <div className="px-3 pt-1 pb-0 flex justify-end">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-600 hover:bg-purple-50 hover:text-purple-700 py-0.5 px-1.5 rounded transition-colors"
+                onClick={() => {
+                  setSelectedCalendarIds(new Set());
+                  setSelectedUserIds(new Set());
+                  setSelectedServiceIds(new Set());
+                }}
+                title="Reset Filters"
+              >
+                <RotateCw size={12} />
+                Reset All
+              </button>
+            </div>
             <div
               className={`sidebar-group ${!calendarsOpen ? "collapsed" : ""}`}
               data-testid="bookings-calendars-group"
@@ -704,7 +705,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 </div>
               </div>
               <div className="sidebar-group-body">
-                <div className={`sidebar-option-list ${calendars.length > 5 ? "scrollable" : ""}`}>
+                <div className="sidebar-option-list">
                   {calendars.map((calendar) => {
                     const id = getCalendarKey(calendar);
                     return (
@@ -757,7 +758,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                   </svg>
                   <input type="text" placeholder="Search User" className="sidebar-search-input" />
                 </div>
-                <div className={`sidebar-option-list sidebar-user-list ${liveProviders.length > 5 ? "scrollable" : ""}`}>
+                <div className="sidebar-option-list sidebar-user-list">
                   {liveProviders.map((user) => {
                     const id = getProviderKey(user);
                     const avatarColors = resolveSidebarAvatarColors(user.color);
@@ -809,7 +810,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                 </div>
               </div>
               <div className="sidebar-group-body">
-                <div className={`sidebar-option-list ${services.length > 5 ? "scrollable" : ""}`}>
+                <div className="sidebar-option-list">
                   {services.map((service) => {
                     const id = getServiceKey(service);
                     return (

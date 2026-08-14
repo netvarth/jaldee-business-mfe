@@ -62,6 +62,7 @@ export function useCreateBooking() {
             phoneNumber: toPhoneNumber(input.phone),
             email: input.email ?? "",
           },
+      ...(input.status && { status: input.status }),
       ...(input.recurringRule && { recurringRule: input.recurringRule }),
       ...(input.attachments && input.attachments.length > 0 && { attachments: input.attachments }),
     };

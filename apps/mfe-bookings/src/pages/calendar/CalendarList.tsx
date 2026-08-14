@@ -184,18 +184,29 @@ export default function CalendarList() {
             {(calendar.bookingChannels ?? []).length ? (
               calendar.bookingChannels?.map((channel) => {
                 let Icon = null;
+                let channelLabel = channel;
                 const normalized = channel.toLowerCase();
-                if (normalized === "online") Icon = Monitor;
-                else if (normalized === "walk-in" || normalized === "walk_in") Icon = MapPin;
-                else if (normalized === "phone-in" || normalized === "phone_in") Icon = Phone;
+                if (normalized === "online") {
+                  Icon = Monitor;
+                  channelLabel = "Online";
+                } else if (normalized === "walk-in" || normalized === "walk_in") {
+                  Icon = MapPin;
+                  channelLabel = "Walk-in";
+                } else if (normalized === "phone-in" || normalized === "phone_in") {
+                  Icon = Phone;
+                  channelLabel = "Phone-in";
+                } else if (normalized === "ivr") {
+                  Icon = Phone;
+                  channelLabel = "IVR";
+                }
 
                 return (
                   <span
                     key={channel}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                    className="flex items-center gap-1 text-[12px] font-medium text-slate-700"
                   >
                     {Icon && <Icon size={12} className="text-slate-500" />}
-                    {channel}
+                    {channelLabel}
                   </span>
                 );
               })

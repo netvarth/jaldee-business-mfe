@@ -3,6 +3,7 @@ import { cn }                  from "../../utils";
 
 export interface FileUploadProps {
   label?:    string;
+  text?:     string;
   accept?:   string;
   multiple?: boolean;
   maxSize?:  number;
@@ -14,7 +15,7 @@ export interface FileUploadProps {
 }
 
 export function FileUpload({
-  label, accept, multiple, maxSize, onUpload, error, className, testId, id
+  label, text, accept, multiple, maxSize, onUpload, error, className, testId, id
 }: FileUploadProps) {
   const inputRef   = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -41,7 +42,7 @@ export function FileUpload({
 
       <div
         className={cn(
-          "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer",
+          "border-2 border-dashed rounded-lg p-4 py-4 text-center cursor-pointer",
           "transition-colors duration-150",
           dragging
             ? "border-indigo-400 bg-indigo-50"
@@ -58,7 +59,7 @@ export function FileUpload({
       >
         <div className="text-2xl text-gray-400 mb-2">📎</div>
         <p className="m-0 text-sm font-medium text-indigo-600">
-          Click to upload or drag and drop
+          {text || "Click to upload or drag and drop"}
         </p>
         {maxSize && (
           <p className="text-xs text-gray-400 mt-1 m-0">

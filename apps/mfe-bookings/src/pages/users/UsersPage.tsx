@@ -180,7 +180,7 @@ export default function UsersPage() {
             data-testid="bookings-users-create"
             onClick={() => openModal(<CreateUserModal onCreated={() => refresh()} />)}
           >
-            Create User
+            Add Staff
           </Button>
         }
       />
@@ -190,7 +190,7 @@ export default function UsersPage() {
           id="bookings-users-search"
           data-testid="bookings-users-search"
           type="search"
-          placeholder="Search users"
+          placeholder="Search staff"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -245,10 +245,10 @@ export default function UsersPage() {
             <EmptyState
               title={
                 loading
-                  ? "Loading users..."
+                  ? "Loading staff..."
                   : error
-                    ? "Could not load users"
-                    : "No users found"
+                    ? "Could not load staff"
+                    : "No staff found"
               }
               description={
                 error
@@ -293,7 +293,7 @@ export default function UsersPage() {
                   setAdvancedFilters(resetClauses);
                   setPage(1);
                 }}
-                emptyStateMessage="No user filters are available."
+                emptyStateMessage="No staff filters are available."
               />
             ) : null}
           </div>

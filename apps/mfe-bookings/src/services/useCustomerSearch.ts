@@ -89,7 +89,17 @@ export function useCustomerSearch() {
               lastVisitDate: pickFirstString(record.lastVisitDate),
             });
           })
-          .filter((customer) => customer.uid);
+          .filter((customer) => {
+            if (!customer.uid) return false;
+            if (!query) return true;
+            const q = query.toLowerCase();
+            const fullMatch = `${customer.firstName || ""} ${customer.lastName || ""}`.toLowerCase();
+            return (
+              fullMatch.includes(q) ||
+              (customer.phone && customer.phone.includes(q)) ||
+              (customer.email && customer.email.toLowerCase().includes(q))
+            );
+          });
         setResults(list);
         return list;
       } catch (error) {

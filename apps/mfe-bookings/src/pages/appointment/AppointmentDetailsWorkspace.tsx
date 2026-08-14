@@ -46,6 +46,7 @@ const ACTION_META: Record<AllowedAction, { label: string; icon: typeof Play; ton
   CANCEL:          { label: "Cancel",         icon: Ban,         tone: "red" },
   NO_SHOW:         { label: "No Show",        icon: X,           tone: "slate" },
   RESCHEDULE:      { label: "Reschedule",     icon: RotateCw,    tone: "blue" },
+  REBOOK:          { label: "Rebook",         icon: RotateCw,    tone: "blue" },
   CREATE_INVOICE:  { label: "Create Invoice", icon: CreditCard,  tone: "purple" },
   EDIT:            { label: "Edit",           icon: FileText,    tone: "slate" },
   VIEW_SUMMARY:    { label: "Summary",        icon: FileText,    tone: "slate" },
@@ -97,7 +98,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     finance, payments, paying, createInvoice, recordPayment, viewInvoice,
   } = useBookingDetails();
   const { preference } = useBookingPreferences();
-  const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
+  const { slots, isHoliday, holidayMessage, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { unblockSlot, submitting: unblocking } = useBlockSlot();
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("");
@@ -223,17 +224,28 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
 
   const getDerivedActions = (status: string, allowed: AllowedAction[], isInvoiceCreated: boolean = false): AllowedAction[] => {
     const invoiceAction = isInvoiceCreated ? "VIEW_INVOICE" : "CREATE_INVOICE";
-    switch (status) {
-      case "REQUESTED": return ["CONFIRM", "RESCHEDULE", "CANCEL"];
-      case "CONFIRMED": return ["CHECK_IN", "RESCHEDULE", invoiceAction, "CANCEL"];
-      case "CHECKED_IN": return ["START", "CANCEL"];
-      case "IN_PROGRESS": return ["COMPLETE", "CANCEL"];
-      default: return allowed.map(a => a === "CREATE_INVOICE" ? invoiceAction : a);
-    }
+    return allowed
+      .filter(a => a !== "NO_SHOW" && a !== "EDIT")
+      .map(a => a === "CREATE_INVOICE" ? invoiceAction : a);
   };
 
   const st = details ? STATUS_STYLE[details.status] : null;
   const actionsToShow = details ? getDerivedActions(details.status, details.allowedActions, details.isInvoiceCreated) : [];
+
+  if (invoiceModalOpen && details) {
+    return (
+      <div className="relative z-40 mx-4 flex w-full max-w-[700px] flex-col items-center justify-center">
+        <InvoiceModal
+          isOpen={invoiceModalOpen}
+          onClose={() => setInvoiceModalOpen(false)}
+          details={details}
+          finance={finance}
+          payments={payments}
+          onPay={recordPayment}
+        />
+      </div>
+    );
+  }
 
   return (
     <div data-testid={`bookings-appointment-details-${bookingId}`} data-state={loading || !details ? "loading" : details.status} className="relative z-40 mx-4 flex max-h-[88vh] w-full max-w-[700px] flex-col overflow-hidden rounded-[28px] border border-[#dfe6f4] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)]" onClick={(e) => e.stopPropagation()}>
@@ -274,25 +286,25 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                                 <p className="font-bold text-[13px] text-slate-900">{details.customerName || '—'}</p>
                             </div>
                         </div>
-                        {((details as any).customerPhone || (details as any).phoneNumber || (details as any).customerDetails?.primaryNumber) && (
+                        {((details as any).customerDetails?.primaryNumber || (details as any).consumer?.phoneNumber) && (
                         <div className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                             </div>
                             <div>
                                 <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Phone Number</p>
-                                <p className="font-bold text-[13px] text-slate-900">{(details as any).customerPhone || (details as any).phoneNumber || (details as any).customerDetails?.primaryNumber}</p>
+                                <p className="font-bold text-[13px] text-slate-900">{(details as any).customerDetails?.primaryNumber || (details as any).consumer?.phoneNumber}</p>
                             </div>
                         </div>
                         )}
-                        {((details as any).customerEmail || (details as any).email || (details as any).customerDetails?.email) && (
+                        {((details as any).customerDetails?.email || (details as any).consumer?.email) && (
                         <div className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                             </div>
                             <div>
                                 <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Email</p>
-                                <p className="font-bold text-[13px] text-slate-900 truncate max-w-[140px]" title={(details as any).customerEmail || (details as any).email || (details as any).customerDetails?.email}>{(details as any).customerEmail || (details as any).email || (details as any).customerDetails?.email}</p>
+                                <p className="font-bold text-[13px] text-slate-900 truncate max-w-[140px]" title={(details as any).customerDetails?.email || (details as any).consumer?.email}>{(details as any).customerDetails?.email || (details as any).consumer?.email}</p>
                             </div>
                         </div>
                         )}
@@ -402,12 +414,23 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                             {slotsLoading ? (
                               <div className="text-xs font-medium text-[#6C32FF] col-span-4 p-4 text-center bg-[#f5f3ff] rounded-lg border border-[#eaddff]">Loading slots…</div>
                             ) : slots.length === 0 ? (
-                              <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this date.</div>
+                              isHoliday ? (
+                                <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">Closed — {holidayMessage || "Holiday"}</div>
+                              ) : (
+                                <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this date.</div>
+                              )
                             ) : (
                               slots.map((s) => {
                                 const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
                                 const active = newStart === s.startTime;
-                                const fmtSlot = (t: string) => t.split(":").slice(0, 2).join(":");
+                                const fmtSlot = (t: string) => {
+                                  const [hStr, mStr] = t.split(":");
+                                  let h = parseInt(hStr, 10);
+                                  const ampm = h >= 12 ? 'PM' : 'AM';
+                                  h = h % 12;
+                                  if (h === 0) h = 12;
+                                  return `${h}:${mStr} ${ampm}`;
+                                };
                                 return (
                                   <button
                                     key={s.startTime}
@@ -477,6 +500,14 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     const meta = ACTION_META[action];
                     const Icon = meta?.icon || Play;
                     const isBusy = acting === action;
+                    let disabled = !!acting;
+                    
+                    if (action === "COMPLETE" && details.startTime) {
+                        const now = new Date();
+                        const start = new Date(details.startTime);
+                        if (start > now) disabled = true;
+                    }
+                    
                     return (
                         <Button
                             key={action}
@@ -489,7 +520,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                                 : "border-[#d8e0ee] bg-white text-[#334155] hover:bg-slate-50",
                             )}
                             onClick={() => handleAction(action)}
-                            disabled={!!acting}
+                            disabled={disabled}
                         >
                             <div className="flex items-center gap-1.5">
                                 {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
@@ -513,15 +544,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
             </div>
         )}
 
-        {/* Invoice Modal */}
-        <InvoiceModal
-          isOpen={invoiceModalOpen}
-          onClose={() => setInvoiceModalOpen(false)}
-          details={details}
-          finance={finance}
-          payments={payments}
-          onPay={recordPayment}
-        />
+
     </div>
   );
 }

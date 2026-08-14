@@ -45,6 +45,12 @@ export interface Calendar {
         uid?: string;
         id?: string;
         name?: string;
+        customerDetails?: {
+          firstName?: string;
+          lastName?: string;
+          phoneNumber?: string;
+          email?: string;
+        };
         users?: Array<
           | string
           | {
@@ -279,7 +285,7 @@ export type BookingStatus =
 
 export type AllowedAction =
   | "CONFIRM" | "CHECK_IN" | "MOVE_TO_WAITING" | "START" | "COMPLETE"
-  | "CANCEL" | "NO_SHOW" | "RESCHEDULE" | "EDIT" | "CREATE_INVOICE"
+  | "CANCEL" | "NO_SHOW" | "RESCHEDULE" | "REBOOK" | "EDIT" | "CREATE_INVOICE"
   | "VIEW_SUMMARY" | "VIEW_INVOICE" | "CREATE_FOLLOWUP" | "UNBLOCK";
 
 export interface BookingDetails {
@@ -346,6 +352,7 @@ export interface CreateBookingInput {
   phone: string;
   email?: string;
   channel: BookingChannel;
+  status?: string;
   notes?: string;
   customerDetails?: BookingCustomerDetails;
   attachments?: any[];

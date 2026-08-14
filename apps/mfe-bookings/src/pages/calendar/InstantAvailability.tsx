@@ -77,7 +77,20 @@ export default function InstantAvailability() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {slots.map((slot, index) => (
                   <article key={`${slot.startTime}-${slot.providerUid ?? index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-bold text-slate-900">{slot.startTime} to {slot.endTime}</p>
+                    <p className="text-sm font-bold text-slate-900">
+                      {(() => {
+                        const fmtSlot = (t: string) => {
+                          if (!t) return "";
+                          const [hStr, mStr] = t.split(":");
+                          let h = parseInt(hStr, 10);
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          h = h % 12;
+                          if (h === 0) h = 12;
+                          return `${h}:${mStr} ${ampm}`;
+                        };
+                        return `${fmtSlot(slot.startTime)} to ${fmtSlot(slot.endTime)}`;
+                      })()}
+                    </p>
                     <p className="mt-1 text-sm text-slate-600">{slot.providerName ?? "Any provider"}</p>
                     <p className="mt-1 text-xs text-slate-500">{slot.serviceName ?? "Selected service"}</p>
                     <p className="mt-3 text-xs font-semibold text-emerald-700">

@@ -11,6 +11,23 @@ interface ListGridProps {
 }
 
 export default function ListGrid({ bookings, calendars, services, users, onBookingSelect }: ListGridProps) {
+    // Helper to parse time string (e.g. "02:00 PM" or "14:00") to minutes for correct chronological sorting
+    const timeToMinutes = (timeStr: string) => {
+        if (!timeStr) return 0;
+        if (timeStr.includes(' ')) {
+            const [timePart, modifier] = timeStr.split(' ');
+            const [rawHour, rawMinute] = timePart.split(':').map(Number);
+            if (Number.isNaN(rawHour) || Number.isNaN(rawMinute)) return 0;
+            let hour = rawHour;
+            if (modifier === 'PM' && hour < 12) hour += 12;
+            if (modifier === 'AM' && hour === 12) hour = 0;
+            return hour * 60 + rawMinute;
+        }
+        const [hour, minute] = timeStr.split(':').map(Number);
+        if (Number.isNaN(hour) || Number.isNaN(minute)) return 0;
+        return hour * 60 + minute;
+    };
+
     // Sort all bookings by date and time
     const sortedBookings = [...bookings].sort((a: any, b: any) => {
         const dateA = a.bookingDate || a.date || '';
@@ -19,7 +36,7 @@ export default function ListGrid({ bookings, calendars, services, users, onBooki
 
         const timeA = a.time || a.startTime || '';
         const timeB = b.time || b.startTime || '';
-        return timeA.localeCompare(timeB);
+        return timeToMinutes(timeA) - timeToMinutes(timeB);
     });
 
     // Group by date

@@ -22,6 +22,8 @@ function parseSlots(body: unknown): Slot[] {
 export function useSlots() {
   const api = useBookingApi();
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [holidayMessage, setHolidayMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +31,8 @@ export function useSlots() {
     async ({ scheduleUid, serviceUid, calendarUid, date, startDate, endDate, providerUid }: SlotQuery) => {
       if (!serviceUid || (!date && !startDate)) {
         setSlots([]);
+        setIsHoliday(false);
+        setHolidayMessage(null);
         return;
       }
       setLoading(true);
@@ -49,9 +53,15 @@ export function useSlots() {
         // Real availability only — no generated sample slots. An empty result
         // correctly means "no slots", never fabricated openings.
         setSlots(parseSlots(body));
+        
+        const b = body as { isHoliday?: boolean; message?: string; data?: { isHoliday?: boolean; message?: string } };
+        setIsHoliday(b?.data?.isHoliday ?? b?.isHoliday ?? false);
+        setHolidayMessage(b?.data?.message ?? b?.message ?? null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load availability.");
         setSlots([]);
+        setIsHoliday(false);
+        setHolidayMessage(null);
       } finally {
         setLoading(false);
       }
@@ -59,7 +69,11 @@ export function useSlots() {
     [api]
   );
 
-  const clearSlots = useCallback(() => setSlots([]), []);
+  const clearSlots = useCallback(() => {
+    setSlots([]);
+    setIsHoliday(false);
+    setHolidayMessage(null);
+  }, []);
 
-  return { slots, loading, error, fetchSlots, clearSlots };
+  return { slots, isHoliday, holidayMessage, loading, error, fetchSlots, clearSlots };
 }

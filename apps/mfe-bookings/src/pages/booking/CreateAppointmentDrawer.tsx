@@ -37,7 +37,13 @@ function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function fmtSlot(t: string): string {
-  return t.split(":").slice(0, 2).join(":");
+  if (!t) return "";
+  const [hStr, mStr] = t.split(":");
+  let h = parseInt(hStr, 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${mStr} ${ampm}`;
 }
 
 function parseTimeStr(timeStr: string) {
@@ -135,7 +141,7 @@ export default function CreateAppointmentDrawer({
   const { calendars, searchSchedules, getCalendar, getUserCalendarsAvailability } = useCalendars(ACTIVE_CALENDARS_FILTER);
   const { services } = useServices();
   const { providers } = useProviders();
-  const { slots, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
+  const { slots, isHoliday, holidayMessage, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { createBooking, validateBooking, submitting } = useCreateBooking();
   const { createSeries, submitting: seriesSubmitting } = useCreateSeriesBooking();
   const { blockSlot, submitting: blockSubmitting } = useBlockSlot();
@@ -179,6 +185,9 @@ export default function CreateAppointmentDrawer({
   const [doctorUid, setDoctorUid] = useState(initialProviderUid || "");
   const [scheduleUid, setScheduleUid] = useState("");
   
+  const [bookingChannel, setBookingChannel] = useState<BookingChannel>("Walk-in");
+  const bookingStatus = "Checked-in";
+  
   // Step 1: Slot Block State
   const [blockReason, setBlockReason] = useState("");
   const [blockDurationType, setBlockDurationType] = useState<"single" | "full">("single");
@@ -188,7 +197,7 @@ export default function CreateAppointmentDrawer({
 
   // Step 2 State
   const [month, setMonth] = useState(() => initialDate ? new Date(initialDate.getFullYear(), initialDate.getMonth(), 1) : new Date(2026, 4, 1));
-  const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || new Date());
   const [selectedSlots, setSelectedSlots] = useState<Slot[]>(initialTime ? [{ startTime: initialTime, endTime: "23:59", availableCount: 1, isAvailable: true }] : []);
   const [notes, setNotes] = useState("");
   const [scheduleOptions, setScheduleOptions] = useState<{ value: string; label: string }[]>([]);
@@ -224,6 +233,13 @@ export default function CreateAppointmentDrawer({
       }
     }
   }, [initialProviderUid, isFromCell, initialDate, initialTime, getUserCalendarsAvailability, calendarUid]);
+
+  useEffect(() => {
+    const list = availableCalendars ?? calendars;
+    if (!calendarUid && list.length > 0) {
+      setCalendarUid(list[0].uid ?? "");
+    }
+  }, [calendarUid, availableCalendars, calendars]);
 
   const dateStr = selectedDate ? iso(selectedDate) : "";
   const resolvedPatientName = patientName.trim() || (selectedCustomer ? buildCustomerLabel(selectedCustomer) : "");
@@ -426,10 +442,12 @@ export default function CreateAppointmentDrawer({
 
   useEffect(() => {
     if (serviceUid && !serviceOptions.some((service) => service.value === serviceUid)) {
-      setServiceUid("");
+      setServiceUid(serviceOptions[0]?.value ?? "");
       setDoctorUid("");
       setSelectedSlots([]);
       clearSlots();
+    } else if (!serviceUid && serviceOptions.length > 0) {
+      setServiceUid(serviceOptions[0].value);
     }
   }, [clearSlots, serviceOptions, serviceUid]);
 
@@ -438,11 +456,28 @@ export default function CreateAppointmentDrawer({
       return;
     }
     if (doctorUid && !providerOptions.some((provider) => provider.value === doctorUid)) {
-      setDoctorUid("");
+      setDoctorUid(providerOptions[0]?.value ?? "");
       setSelectedSlots([]);
       clearSlots();
+    } else if (!doctorUid && providerOptions.length > 0) {
+      setDoctorUid(providerOptions[0].value);
     }
   }, [clearSlots, providerOptions, doctorUid, isFromCell, initialProviderUid]);
+
+  useEffect(() => {
+    if (slots.length > 0) {
+      if (selectedSlots.length === 0) {
+        const firstAvailable = slots.find((s) => s.isAvailable);
+        if (firstAvailable) setSelectedSlots([firstAvailable]);
+      } else if (selectedSlots.length === 1 && selectedSlots[0].endTime === "23:59" && initialTime) {
+        const realSlot = slots.find(s => s.startTime.startsWith(initialTime.substring(0, 2)) && s.isAvailable);
+        const firstAvailable = slots.find(s => s.isAvailable);
+        if (realSlot) setSelectedSlots([realSlot]);
+        else if (firstAvailable) setSelectedSlots([firstAvailable]);
+        else setSelectedSlots([]);
+      }
+    }
+  }, [slots, selectedSlots.length, initialTime]);
 
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
   const startOffset = (firstDay.getDay() + 6) % 7; 
@@ -499,7 +534,8 @@ export default function CreateAppointmentDrawer({
             serviceUid,
             scheduleUid,
             providerUid: selectedProviderUid,
-            channel: "Walk-in",
+            channel: bookingChannel,
+            status: bookingStatus,
             startTime: combinedStartTime,
             endTime: combinedEndTime,
             startDate: dateStr,
@@ -552,7 +588,7 @@ export default function CreateAppointmentDrawer({
         const payload = {
           calendarUid, serviceUid, providerUid: selectedProviderUid, scheduleUid,
           date: dateStr, startTime: combinedStartTime, endTime: combinedEndTime,
-          patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel: "Walk-in" as const, notes,
+          patientName: resolvedPatientName, phone: resolvedPhone, email: resolvedEmail, channel: bookingChannel, status: bookingStatus, notes,
           customerDetails: selectedCustomer ? mapCustomerDetails(selectedCustomer) : undefined,
           attachments: driveAttachments.length > 0 ? driveAttachments : undefined,
         };
@@ -670,8 +706,7 @@ export default function CreateAppointmentDrawer({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           </div>
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Configure Booking Flow</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Complete the 2-step process to finalize scheduling</p>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Create Booking</h2>
           </div>
         </div>
         <button type="button" onClick={closeDrawer} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -809,9 +844,6 @@ export default function CreateAppointmentDrawer({
                           ) : (
                             <div className="p-4 text-center text-sm text-slate-500 flex flex-col items-center gap-2">
                               No customers found.
-                              <Button type="button" variant="secondary" size="sm" onClick={() => openModal(<CreatePatientModal onCreated={handleCustomerCreated} />)}>
-                                Create New Customer
-                              </Button>
                             </div>
                           )}
 
@@ -827,7 +859,8 @@ export default function CreateAppointmentDrawer({
                   <div>
                     <h3 className="text-sm font-bold text-[#31028C] uppercase tracking-wider">2. Calendar & Services</h3>
                   </div>
-                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).filter(c => c.status === "ACTIVE").map((c) => ({ value: c.uid || "", label: c.name }))} />
+                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).filter(c => availableCalendars ? true : c.status === "ACTIVE").map((c) => ({ value: c.uid || "", label: c.name }))} />
+
                   <Select id="bk-service" label="Consultation Service" required placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
                   {!(isFromCell && initialProviderUid) && (
                     <Select id="bk-doctor" label="Assigned User (Optional)" placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
@@ -845,7 +878,7 @@ export default function CreateAppointmentDrawer({
                     value={blockReason} 
                     onChange={(e) => setBlockReason(e.target.value)} 
                   />
-                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).filter(c => c.status === "ACTIVE").map((c) => ({ value: c.uid || "", label: c.name }))} />
+                  <Select id="bk-calendar" label="Calendar Category" required placeholder="Select calendar" value={calendarUid} onChange={(e) => setCalendarUid(e.target.value)} options={(availableCalendars ?? calendars).filter(c => availableCalendars ? true : c.status === "ACTIVE").map((c) => ({ value: c.uid || "", label: c.name }))} />
                   <Select id="bk-service" label="Consultation Service (Optional)" placeholder={calendarUid ? "-- Choose Service --" : "Select calendar first"} value={serviceUid} onChange={(e) => setServiceUid(e.target.value)} options={serviceOptions} />
                   {!(isFromCell && initialProviderUid) && (
                     <Select id="bk-doctor" label="Assigned User (Optional)" placeholder="Select professional" value={doctorUid} onChange={(e) => setDoctorUid(e.target.value)} options={providerOptions} />
@@ -1057,7 +1090,11 @@ export default function CreateAppointmentDrawer({
                 ) : slotsLoading ? (
                   <div className="text-xs font-medium text-[#31028C] col-span-4 p-4 text-center bg-[#f5f3ff] rounded-lg border border-[#eaddff]">Loading slots…</div>
                 ) : slots.length === 0 ? (
-                  <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this selection.</div>
+                  isHoliday ? (
+                    <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">Closed — {holidayMessage || "Holiday"}</div>
+                  ) : (
+                    <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this selection.</div>
+                  )
                 ) : (
                   slots.map((s, index) => {
                     const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
@@ -1125,7 +1162,7 @@ export default function CreateAppointmentDrawer({
                   id="bk-notes" 
                   label="" 
                   placeholder="Add booking notes..."
-                  rows={3} 
+                  rows={2} 
                   value={notes} 
                   onChange={(e) => setNotes(e.target.value)} 
                 />
@@ -1138,6 +1175,7 @@ export default function CreateAppointmentDrawer({
                 <h3 className="text-sm font-bold text-[#31028C] uppercase tracking-wider mb-4">4. Reference Documents</h3>
                 <FileUpload
                   multiple
+                  text="Click to upload files"
                   onUpload={(files) => setPendingFiles(files)}
                 />
               </div>

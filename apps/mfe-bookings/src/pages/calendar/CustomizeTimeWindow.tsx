@@ -245,6 +245,7 @@ export default function CustomizeTimeWindow() {
   const [timeWindow, setTimeWindow] = useState<TimeWindow | null>(initialTimeWindow);
   const [loading, setLoading] = useState(Boolean(calendarUid && scheduleUid && timeWindowUid));
   const [saving, setSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
   const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<{
@@ -487,6 +488,22 @@ export default function CustomizeTimeWindow() {
 
   const handleSave = async () => {
     if (!timeWindowUid) return;
+
+    for (const serviceId of selectedServiceIds) {
+      const users = serviceAssignments[serviceId] ?? [];
+      for (const u of users) {
+        if (u.price !== undefined && u.price < 0) {
+          setValidationError("Price cannot be negative.");
+          return;
+        }
+        if ((u.capacity ?? 1) < 1) {
+          setValidationError("Capacity must be at least 1.");
+          return;
+        }
+      }
+    }
+
+    setValidationError(null);
     setSaving(true);
     try {
       await customizeTimeWindow(timeWindowUid, buildPayload());
@@ -670,7 +687,7 @@ export default function CustomizeTimeWindow() {
                                     {resolveUserName(user.userUid, user.userName, userMap)}
                                   </div>
                                   <div className="mt-0.5 text-[11px] font-medium text-slate-500">
-                                    Price: ₹{user.price ?? 0} &nbsp; Capacity:{user.capacity ?? 1}
+                                    Price: {user.price != null ? `₹${user.price}` : "Inherited"}
                                   </div>
                                 </div>
                                 <button
@@ -681,7 +698,7 @@ export default function CustomizeTimeWindow() {
                                       serviceId: service.id,
                                       userUid: user.userUid,
                                       userName: resolveUserName(user.userUid, user.userName, userMap),
-                                      price: String(user.price ?? 0),
+                                      price: user.price != null ? String(user.price) : "",
                                       capacity: String(user.capacity ?? 1),
                                     })
                                   }
@@ -729,8 +746,12 @@ export default function CustomizeTimeWindow() {
                   </div>
                 )}
               </section>
-
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {validationError && (
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-800 border border-red-200">
+                    {validationError}
+                  </div>
+                )}
                 <Button
                   type="button"
                   onClick={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
@@ -834,8 +855,8 @@ export default function CustomizeTimeWindow() {
       <Dialog
         open={editingUser !== null}
         onClose={() => setEditingUser(null)}
-        title="Customize Price and Slot Capacity"
-        description="Customize the price and slot capacity for this provider within the selected time window."
+        title="Customize Price"
+        description="Customize the price for this provider within the selected time window."
       >
         <div className="space-y-6 p-6 pt-0">
           {editingUser ? (
@@ -848,7 +869,17 @@ export default function CustomizeTimeWindow() {
                 <label className="mb-2 block text-xs font-bold text-slate-600">Price</label>
                 <Input
                   type="number"
+                  min={0}
                   value={editingUser.price}
+                  onKeyDown={(e) => {
+                    if (['-', 'e', 'E', '+'].includes(e.key)) e.preventDefault();
+                  }}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (val < 0) {
+                      setEditingUser(current => current ? { ...current, price: "0" } : null);
+                    }
+                  }}
                   onChange={(event) =>
                     setEditingUser((current) =>
                       current ? { ...current, price: event.target.value } : null,
@@ -857,18 +888,7 @@ export default function CustomizeTimeWindow() {
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-xs font-bold text-slate-600">Slot Capacity</label>
-                <Input
-                  type="number"
-                  value={editingUser.capacity}
-                  onChange={(event) =>
-                    setEditingUser((current) =>
-                      current ? { ...current, capacity: event.target.value } : null,
-                    )
-                  }
-                />
-              </div>
+
             </>
           ) : null}
         </div>
@@ -887,7 +907,7 @@ export default function CustomizeTimeWindow() {
                     item.userUid === editingUser.userUid
                       ? {
                           ...item,
-                          price: Number(editingUser.price || 0),
+                          price: editingUser.price === "" ? undefined : Number(editingUser.price),
                           capacity: Number(editingUser.capacity || 1),
                         }
                       : item,

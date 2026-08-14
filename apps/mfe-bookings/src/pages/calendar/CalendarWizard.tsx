@@ -142,9 +142,10 @@ function WizardStepper({ step }: { step: number }) {
 
 export default function CalendarWizard() {
     const navigate = useNavigate();
-    const locationState = useLocation().state as { calendar?: any, returnTo?: string } | null;
+    const locationState = useLocation().state as { calendar?: any, returnTo?: string, wizardState?: any, restoreServicesModal?: boolean } | null;
     const returnTo = locationState?.returnTo || '/calendars';
     const initialCalendar = locationState?.calendar;
+    const ws = locationState?.wizardState;
     const initialBookingChannels = normalizeStringList(
         initialCalendar?.bookingChannels,
         ['channel', 'value', 'label', 'title', 'uid', 'id'],
@@ -152,18 +153,18 @@ export default function CalendarWizard() {
     const initialLabels = normalizeStringList(initialCalendar?.tags ?? initialCalendar?.label);
 
     const { createCalendar, updateCalendar, createSchedule, getLocations } = useCalendars();
-    const { services } = useServices();
+    const { services, refresh: refreshServices } = useServices();
     const { users, loading: usersLoading, error: usersError } = useUsers();
     
-    const [step, setStep] = useState(1);
-    const [draftUid, setDraftUid] = useState<string | null>(initialCalendar?.uid || null);
+    const [step, setStep] = useState(ws?.step ?? 1);
+    const [draftUid, setDraftUid] = useState<string | null>(ws?.draftUid ?? initialCalendar?.uid ?? null);
     
     // Step 1 State
-    const [name, setName] = useState(initialCalendar?.name || '');
-    const [description, setDescription] = useState(initialCalendar?.description || '');
-    const [location, setLocation] = useState(initialCalendar?.locationName || '');
+    const [name, setName] = useState(ws?.name ?? initialCalendar?.name ?? '');
+    const [description, setDescription] = useState(ws?.description ?? initialCalendar?.description ?? '');
+    const [location, setLocation] = useState(ws?.location ?? initialCalendar?.locationName ?? '');
     const [locations, setLocations] = useState<AccountLocation[]>([]);
-    const [channels, setChannels] = useState({
+    const [channels, setChannels] = useState(ws?.channels ?? {
         online: initialBookingChannels.includes('ONLINE') || initialBookingChannels.length === 0,
         walkin: initialBookingChannels.includes('WALK_IN'),
         phonein: initialBookingChannels.includes('PHONE_IN'),
@@ -171,19 +172,19 @@ export default function CalendarWizard() {
     });
     
     // Step 2 State
-    const [selectedServices, setSelectedServices] = useState<Service[]>([]);
-    const [defaultServiceId, setDefaultServiceId] = useState<string>('');
-    const [serviceUsers, setServiceUsers] = useState<Record<string, User[]>>({});
+    const [selectedServices, setSelectedServices] = useState<Service[]>(ws?.selectedServices ?? []);
+    const [defaultServiceId, setDefaultServiceId] = useState<string>(ws?.defaultServiceId ?? '');
+    const [serviceUsers, setServiceUsers] = useState<Record<string, User[]>>(ws?.serviceUsers ?? {});
     
     // Modals State
-    const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
+    const [isServicesModalOpen, setIsServicesModalOpen] = useState(locationState?.restoreServicesModal ?? false);
     const [usersModalServiceId, setUsersModalServiceId] = useState<string | null>(null);
     const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
-    const [labels, setLabels] = useState<string[]>(initialLabels);
+    const [labels, setLabels] = useState<string[]>(ws?.labels ?? initialLabels);
     const { labels: availableLabels } = useCustomerLabels();
 
     // Step 3 State
-    const [schedules, setSchedules] = useState<any[]>([
+    const [schedules, setSchedules] = useState<any[]>(ws?.schedules ?? [
         {
             id: 'sch-1',
             name: 'Default Schedule',
@@ -257,7 +258,19 @@ export default function CalendarWizard() {
     const handleNext = () => setStep(s => Math.min(3, s + 1));
     const handlePrev = () => setStep(s => Math.max(1, s - 1));
 
-    const handleNextStep1 = async () => {
+    const [validationError, setValidationError] = useState<string | null>(null);
+
+    const handleNextStep1 = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        setValidationError(null);
+        if (!name || !name.trim()) {
+            setValidationError("Name is required.");
+            return;
+        }
+        if (!location) {
+            setValidationError("Location is required.");
+            return;
+        }
         setSubmitting(true);
         const locationOption = locationOptions.find((option) => option.value === location);
         const bookingChannels = toBookingChannels(channels);
@@ -403,6 +416,11 @@ export default function CalendarWizard() {
         if (schedules.length === 0) return "Add a schedule before publishing.";
         if (!schedules.some((schedule) => Array.isArray(schedule.timeWindows) && schedule.timeWindows.length > 0)) {
             return "Add at least one time window before publishing.";
+        }
+        for (const sch of schedules) {
+            for (const tw of sch.timeWindows) {
+                if (Number(tw.capacity) < 1) return "Time window capacity must be at least 1.";
+            }
         }
         return "";
     }, [schedules, selectedServices.length]);
@@ -581,8 +599,13 @@ export default function CalendarWizard() {
                                 </div>
                             </div>
 
+                            {validationError && (
+                                <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-800 border border-red-200">
+                                    {validationError}
+                                </div>
+                            )}
                             <div className="wizard-footer-actions">
-                                <Button variant="secondary" className="btn-wizard-discard" onClick={() => navigate(returnTo)}>Discard</Button>
+                                <Button type="button" variant="secondary" className="btn-wizard-discard" onClick={() => navigate(returnTo)}>Discard</Button>
                                 <Button type="submit" loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                             </div>
                         </form>
@@ -807,6 +830,15 @@ export default function CalendarWizard() {
                                                                         label="Duration (m)"
                                                                         value={tw.duration} 
                                                                         min="5"
+                                                                        onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                                                                        onBlur={(e) => {
+                                                                            const val = Number(e.target.value);
+                                                                            if (val < 5 || isNaN(val)) {
+                                                                                const newSch = [...schedules];
+                                                                                newSch[sIdx].timeWindows[twIdx].duration = 5;
+                                                                                setSchedules(newSch);
+                                                                            }
+                                                                        }}
                                                                         onChange={(e) => {
                                                                             const newSch = [...schedules];
                                                                             newSch[sIdx].timeWindows[twIdx].duration = parseInt(e.target.value);
@@ -820,6 +852,15 @@ export default function CalendarWizard() {
                                                                         label="Capacity"
                                                                         value={tw.capacity} 
                                                                         min="1"
+                                                                        onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                                                                        onBlur={(e) => {
+                                                                            const val = Number(e.target.value);
+                                                                            if (val < 1 || isNaN(val)) {
+                                                                                const newSch = [...schedules];
+                                                                                newSch[sIdx].timeWindows[twIdx].capacity = 1;
+                                                                                setSchedules(newSch);
+                                                                            }
+                                                                        }}
                                                                         onChange={(e) => {
                                                                             const newSch = [...schedules];
                                                                             newSch[sIdx].timeWindows[twIdx].capacity = parseInt(e.target.value);
@@ -860,7 +901,8 @@ export default function CalendarWizard() {
                             </div>
 
                             <div className="mt-6 flex w-full gap-4 md:mt-8 md:justify-end">
-                                <Button variant="secondary" className="flex-1 md:flex-none" onClick={handlePrev}>Discard</Button>
+                                <Button type="button" variant="secondary" className="flex-1 md:flex-none" onClick={() => navigate(returnTo)}>Discard</Button>
+                                <Button type="button" variant="outline" className="flex-1 md:flex-none border-slate-300" onClick={handlePrev}>Back</Button>
                                 <Button variant="primary" className="flex-1 bg-[#4C1D95] hover:bg-[#3B0764] md:flex-none" onClick={handlePublish} loading={submitting} disabled={Boolean(publishBlockedReason)}>
                                     {submitting ? 'Creating...' : 'Create'}
                                 </Button>

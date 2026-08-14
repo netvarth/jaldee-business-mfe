@@ -9,7 +9,7 @@ import { useServiceDetails, toServiceFormPrefill, type ServiceDetailsRecord } fr
 import DualListUsersModal from "../calendar/components/DualListUsersModal";
 
 type ValidationErrors = Partial<Record<
-  "name" | "teleServiceMode" | "teleServicePlatform" | "meetingLink" | "phoneNumber" | "requestType",
+  "name" | "teleServiceMode" | "teleServicePlatform" | "meetingLink" | "phoneNumber" | "requestType" | "price",
   string
 >>;
 
@@ -33,7 +33,12 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export default function CreateServicePage() {
+export interface CreateServicePageProps {
+  onComplete?: () => void;
+  onCancel?: () => void;
+}
+
+export default function CreateServicePage({ onComplete, onCancel }: CreateServicePageProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams<{ id: string }>();
@@ -87,7 +92,16 @@ export default function CreateServicePage() {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [hydrating, setHydrating] = useState(isEditMode);
 
-  const goBack = () => navigate("/services");
+  const returnTo = (location.state as any)?.returnTo;
+
+  const goBack = () => {
+    if (onCancel) return onCancel();
+    if (returnTo) {
+      navigate(returnTo, { state: location.state });
+      return;
+    }
+    navigate("/services");
+  };
   const isTeleservice = serviceType === "Teleservice";
   const isRequest = apptType === "Request";
   const isVideoMode = teleServiceMode === "Video Mode";
@@ -211,6 +225,18 @@ export default function CreateServicePage() {
       nextErrors.requestType = "Request type is required";
     }
 
+    if (hasPricing) {
+      if (price < 0) {
+        nextErrors.price = "Base price cannot be negative";
+      }
+      for (const override of Object.values(practitionerOverrides)) {
+        if (override.enabled && override.price < 0) {
+          nextErrors.price = "Provider specific price cannot be negative";
+          break;
+        }
+      }
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -243,7 +269,11 @@ export default function CreateServicePage() {
         ),
       }, serviceId);
       showToast(isEditMode ? "Service updated" : "Service created", "success");
-      goBack();
+      if (onComplete) {
+        onComplete();
+      } else {
+        goBack();
+      }
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Failed to save service.", "error");
     }
@@ -256,7 +286,7 @@ export default function CreateServicePage() {
   if (isEditMode && serviceError) {
     return (
       <div className="p-6">
-        <ErrorState title="Failed to load service" description={serviceError} action={<Button onClick={() => navigate("/services")}>Back to Services</Button>} />
+        <ErrorState title="Failed to load service" description={serviceError} action={<Button onClick={goBack}>Back to Services</Button>} />
       </div>
     );
   }
@@ -267,8 +297,8 @@ export default function CreateServicePage() {
         <PageHeader
           title={isEditMode ? "Edit Service" : "Create Service"}
           subtitle="Create and Manage your services"
-          back={{ label: "Back to services", href: "/services" }}
-          onNavigate={(href) => navigate(href)}
+          back={onCancel ? undefined : { label: "Back to services", href: "/services" }}
+          onNavigate={(href) => onCancel ? onCancel() : navigate(href)}
           variant="navigation"
           className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
         />
@@ -529,8 +559,34 @@ export default function CreateServicePage() {
                   <span className="text-xs text-slate-400 font-medium whitespace-nowrap">mins</span>
                 </div>
               </div>
-              <Input id="bookings-create-service-resources" data-testid="bookings-create-service-resources" type="number" min={1} label="Number of Resources" value={numResources} onChange={(e) => setNumResources(Number(e.target.value))} />
-              <Input id="bookings-create-service-max-bookings" data-testid="bookings-create-service-max-bookings" type="number" min={1} label="Max Aligned Daily Bookings" value={maxBookings} onChange={(e) => setMaxBookings(Number(e.target.value))} />
+              <Input 
+                id="bookings-create-service-resources" 
+                data-testid="bookings-create-service-resources" 
+                type="number" 
+                min={1} 
+                label="Number of Resources" 
+                value={numResources} 
+                onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                onBlur={(e) => {
+                  const val = Number(e.target.value);
+                  if (val < 1 || isNaN(val)) setNumResources(1);
+                }}
+                onChange={(e) => setNumResources(Number(e.target.value))} 
+              />
+              <Input 
+                id="bookings-create-service-max-bookings" 
+                data-testid="bookings-create-service-max-bookings" 
+                type="number" 
+                min={1} 
+                label="Max Aligned Daily Bookings" 
+                value={maxBookings} 
+                onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                onBlur={(e) => {
+                  const val = Number(e.target.value);
+                  if (val < 1 || isNaN(val)) setMaxBookings(1);
+                }}
+                onChange={(e) => setMaxBookings(Number(e.target.value))} 
+              />
               
               <div>
                 <label className="ds-form-label mb-1.5 block">Minimum Booking Lead Notice</label>
@@ -582,19 +638,25 @@ export default function CreateServicePage() {
             
             {hasPricing && (
               <div className="space-y-6">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Service Price *</label>
-                  <div className="relative max-w-sm">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium">₹</span>
-                    <input
-                      type="number"
-                      min={0}
-                      required
-                      value={price}
-                      onChange={(e) => setPrice(Number(e.target.value))}
-                      className="block w-full rounded-md border border-slate-200 pl-8 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
+                <div className="flex-1 md:flex-none md:w-48">
+                  <Input 
+                    id="bookings-create-service-price" 
+                    data-testid="bookings-create-service-price" 
+                    type="number" 
+                    min={0} 
+                    label="Price *" 
+                    value={price} 
+                    onKeyDown={(e) => { if (['-', 'e', 'E', '+'].includes(e.key)) e.preventDefault(); }}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value);
+                      if (val < 0 || isNaN(val)) setPrice(0);
+                    }}
+                    onChange={(e) => {
+                      setPrice(Number(e.target.value));
+                      if (errors.price) setErrors(curr => ({ ...curr, price: undefined }));
+                    }}
+                    error={errors.price}
+                  />
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -800,6 +862,13 @@ export default function CreateServicePage() {
                                       type="number"
                                       min={0}
                                       value={override.price}
+                                      onKeyDown={(e) => { if (['-', 'e', 'E', '+'].includes(e.key)) e.preventDefault(); }}
+                                      onBlur={(e) => {
+                                        const val = Number(e.target.value);
+                                        if (val < 0 || isNaN(val)) {
+                                          setPractitionerOverrides({ ...practitionerOverrides, [uid]: { ...override, price: 0 } });
+                                        }
+                                      }}
                                       onChange={(e) => setPractitionerOverrides({ ...practitionerOverrides, [uid]: { ...override, price: Number(e.target.value) } })}
                                       placeholder="Price"
                                       className="block w-full rounded-md border border-slate-200 pl-8 pr-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

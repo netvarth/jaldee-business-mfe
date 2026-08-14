@@ -6,7 +6,6 @@ import {
   ConfirmDialog,
   EmptyState,
   Input,
-  PageHeader,
   Select,
   TimePicker,
 } from "@jaldee/design-system";
@@ -39,6 +38,7 @@ interface EditableTimeWindow {
   startTime: string;
   endTime: string;
   slotDuration: number;
+  slotCapacity: number;
   qrLinkRequired: boolean;
 }
 
@@ -59,6 +59,7 @@ function toEditableTimeWindow(timeWindow: TimeWindow, index: number): EditableTi
     startTime: normalizeTimeValue(timeWindow.startTime),
     endTime: normalizeTimeValue(timeWindow.endTime),
     slotDuration: Number(timeWindow.slotDuration) || 30,
+    slotCapacity: Number(timeWindow.slotCapacity) || 1,
     qrLinkRequired: Boolean(timeWindow.qrLinkRequired),
   };
 }
@@ -71,6 +72,7 @@ function createNewTimeWindow(): EditableTimeWindow {
     startTime: "09:00",
     endTime: "17:00",
     slotDuration: 30,
+    slotCapacity: 1,
     qrLinkRequired: true,
   };
 }
@@ -106,11 +108,34 @@ function formatTimeWindowPayload(
     startTime: timeWindow.startTime,
     endTime: timeWindow.endTime,
     slotDuration: Number(timeWindow.slotDuration) || 0,
-    slotCapacity: 0,
+    slotCapacity: Number(timeWindow.slotCapacity) || 1,
     channel: "WALK_IN",
     label: [],
     qrLinkRequired: timeWindow.qrLinkRequired,
   };
+}
+
+function DetailsHeader({
+  title,
+  onBack,
+}: {
+  title: string;
+  subtitle?: string;
+  onBack: () => void;
+}) {
+  return (
+    <header className="sticky top-0 z-30 flex items-center bg-white px-4 md:px-8 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] border-b border-slate-200">
+        <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-bold text-slate-900 transition-colors hover:text-[#5B2D8E]"
+            aria-label="Go back"
+        >
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+            {title}
+        </button>
+    </header>
+  );
 }
 
 export default function EditSchedule() {
@@ -269,7 +294,7 @@ export default function EditSchedule() {
         calendarName: calendar.name,
         startDate,
         endDate: endDate || undefined,
-        slotCapacity: 0,
+        slotCapacity: 1,
         qrLinkRequired: initialSchedule?.qrLinkRequired ?? true,
         timeWindows: timeWindows.map((timeWindow) => formatTimeWindowPayload(calendar, scheduleUid, scheduleName.trim(), timeWindow)),
       };
@@ -289,15 +314,10 @@ export default function EditSchedule() {
 
   return (
     <main data-testid="bookings-edit-schedule-page" className="h-full flex flex-col bg-slate-50 calendar-details-page">
-      <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-4 md:px-6">
-        <PageHeader
-          title="Edit Schedule"
-          subtitle="Configure schedule details and time windows."
-          back={{ label: "Back to calendar details", href: calendarUid ? `/calendars/${calendarUid}/details` : "/calendars" }}
-          onNavigate={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
-          className="mb-4"
-        />
-      </header>
+      <DetailsHeader
+        title="Edit Schedule"
+        onBack={() => navigate(calendarUid ? `/calendars/${calendarUid}/details` : "/calendars")}
+      />
 
       <div className="calendar-details-layout" style={{ overflowY: "auto" }}>
         <div className="max-w-5xl">
@@ -424,6 +444,18 @@ export default function EditSchedule() {
                             value={String(timeWindow.slotDuration)}
                             onChange={(event) => updateTimeWindowField(timeWindow.tempId, { slotDuration: Number(event.target.value) })}
                             options={DURATION_OPTIONS}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <Input
+                            id={`edit-schedule-capacity-${timeWindow.tempId}`}
+                            type="number"
+                            min="1"
+                            label="Slot Capacity"
+                            className="wiz-tw-input"
+                            required
+                            value={String(timeWindow.slotCapacity)}
+                            onChange={(event) => updateTimeWindowField(timeWindow.tempId, { slotCapacity: Number(event.target.value) })}
                           />
                         </div>
                       </div>

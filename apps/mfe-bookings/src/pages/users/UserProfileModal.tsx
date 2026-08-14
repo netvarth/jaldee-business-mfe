@@ -226,10 +226,10 @@ export default function UserProfileModal({
   return (
     <form onSubmit={handleSubmit} className="p-6">
       <header className="mb-6">
-        <h2 className="text-lg font-bold text-slate-900">{readOnly ? "View User" : "Edit User"}</h2>
+        <h2 className="text-lg font-bold text-slate-900">{readOnly ? "View Staff" : "Edit Staff"}</h2>
         <p className="mt-1 text-sm text-slate-500">Booking staff profile and contact details.</p>
       </header>
-      <FormSection title="User details">
+      <FormSection title="Staff details">
         <Input id="usr-edit-first-name" label="First name" required disabled={readOnly || loadingDetail} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         <Input id="usr-edit-last-name" label="Last name" required disabled={readOnly || loadingDetail} value={lastName} onChange={(e) => setLastName(e.target.value)} />
         <Select id="usr-edit-title" label="Title / prefix" disabled={readOnly || loadingDetail} value={title} onChange={(e) => setTitle(e.target.value)} options={["Dr.", "Mr.", "Ms.", "Mrs."].map((value) => ({ value, label: value }))} />

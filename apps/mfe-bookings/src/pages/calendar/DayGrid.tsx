@@ -54,11 +54,16 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
     const redLineTop = minutesFromStart;
 
     useEffect(() => {
-        if (scrollRef.current && isToday) {
-            // Scroll to current time, offset by a bit to show context above
-            scrollRef.current.scrollTop = Math.max(0, redLineTop - 120);
-        }
-    }, [isToday, redLineTop]);
+        const doScroll = () => {
+            if (scrollRef.current) {
+                // Scroll to current time, offset by a bit to show context above
+                scrollRef.current.scrollTop = Math.max(0, redLineTop - 120);
+            }
+        };
+        doScroll();
+        const timeoutId = setTimeout(doScroll, 100);
+        return () => clearTimeout(timeoutId);
+    }, [redLineTop]);
 
     if (columnsList.length === 0) {
         return (

@@ -55,10 +55,15 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
     const redLineTop = Math.floor((minutesFromStart / 60) * 100);
 
     useEffect(() => {
-        if (scrollRef.current) {
-            // Scroll to current time, offset by a bit to show context above
-            scrollRef.current.scrollTop = Math.max(0, redLineTop - 120);
-        }
+        const doScroll = () => {
+            if (scrollRef.current) {
+                // Scroll to current time, offset by a bit to show context above
+                scrollRef.current.scrollTop = Math.max(0, redLineTop - 120);
+            }
+        };
+        doScroll();
+        const timeoutId = setTimeout(doScroll, 100);
+        return () => clearTimeout(timeoutId);
     }, [redLineTop]);
 
     return (

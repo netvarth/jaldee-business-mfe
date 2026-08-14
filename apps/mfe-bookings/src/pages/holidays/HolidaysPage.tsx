@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Button, Checkbox, DataTable, EmptyState, Input, PageHeader, Select, Textarea,
   TimePicker, type ColumnDef,
@@ -21,12 +21,14 @@ interface FormState {
   endDate: string;
   fullDay: boolean;
   startTime: string;
+  startTime: string;
   endTime: string;
+  status: string;
 }
 
 const EMPTY_FORM: FormState = {
   title: "", description: "", scope: "GLOBAL", userUid: "",
-  startDate: "", endDate: "", fullDay: true, startTime: "09:00", endTime: "17:00",
+  startDate: "", endDate: "", fullDay: true, startTime: "09:00", endTime: "17:00", status: "Enabled"
 };
 
 function fmtDate(d?: string): string {
@@ -36,26 +38,29 @@ function fmtDate(d?: string): string {
 }
 
 export default function HolidaysPage() {
-  const { holidays, loading, error, create, update, remove } = useHolidays();
+  const { holidays, loading, error, create, update, remove, search } = useHolidays();
   const { providers } = useProviders();
   const { preference } = useBookingPreferences();
   const { showToast } = useToast();
 
   const [searchVal, setSearchVal] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Enabled");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<Holiday | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      search({ q: searchVal, status: filterStatus === "All" ? undefined : filterStatus });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchVal, filterStatus, search]);
 
   const providerName = useMemo(
     () => providers.find((p) => (p.uid ?? p.id) === form.userUid)?.name ?? "",
     [providers, form.userUid],
   );
-
-  const filtered = holidays.filter((h) => {
-    if (!searchVal) return true;
-    const s = searchVal.toLowerCase();
-    return (h.title?.toLowerCase().includes(s)) || (h.userName?.toLowerCase().includes(s));
-  });
 
   const openCreate = () => { setForm(EMPTY_FORM); setFormOpen(true); };
   const openEdit = (h: Holiday) => {
@@ -70,6 +75,7 @@ export default function HolidaysPage() {
       fullDay: !h.startTime,
       startTime: h.startTime ? formatIsoTime(h.startTime, preference?.timezone, "09:00") : "09:00",
       endTime: h.endTime ? formatIsoTime(h.endTime, preference?.timezone, "17:00") : "17:00",
+      status: h.status || "Enabled",
     });
     setFormOpen(true);
   };
@@ -80,6 +86,7 @@ export default function HolidaysPage() {
     if (form.scope === "USER" && !form.userUid) { showToast("Select a provider for this leave", "error"); return; }
     const endDate = form.endDate || form.startDate;
     if (endDate < form.startDate) { showToast("End date cannot be before start date", "error"); return; }
+    if (!form.fullDay && form.startTime >= form.endTime) { showToast("End time must be after start time", "error"); return; }
 
     const payload: Holiday = {
       ...(form.uid ? { uid: form.uid } : {}),
@@ -91,13 +98,18 @@ export default function HolidaysPage() {
       endDate,
       startTime: form.fullDay ? null : buildOffsetDateTime(form.startDate, form.startTime, preference?.timezone),
       endTime: form.fullDay ? null : buildOffsetDateTime(form.startDate, form.endTime, preference?.timezone),
+      status: form.status,
     };
 
     setSaving(true);
     try {
       if (form.uid) {
-        await update(form.uid, payload);
-        showToast("Holiday updated", "success");
+        const res = await update(form.uid, payload);
+        if (res && res.userUid !== payload.userUid) {
+          showToast("Saved, but scope changes were ignored by the server.", "info");
+        } else {
+          showToast("Holiday updated", "success");
+        }
       } else {
         await create(payload);
         showToast("Holiday added", "success");
@@ -111,13 +123,15 @@ export default function HolidaysPage() {
     }
   };
 
-  const onDelete = async (h: Holiday) => {
-    if (!h.uid) return;
+  const confirmDelete = async () => {
+    if (!deleteConfirm?.uid) return;
     try {
-      await remove(h.uid);
+      await remove(deleteConfirm.uid);
       showToast("Holiday removed", "success");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Could not delete the holiday", "error");
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -150,11 +164,19 @@ export default function HolidaysPage() {
         : <span className="text-slate-500">Full day</span>,
     },
     {
+      key: "status", header: "Status", sortable: true,
+      render: (h) => (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${h.status === "Enabled" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+          {h.status === "Enabled" ? "Active" : "Disabled"}
+        </span>
+      ),
+    },
+    {
       key: "actions", header: "Actions", align: "right", width: 160,
       render: (h) => (
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(h); }}>Edit</Button>
-          <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); onDelete(h); }}>Delete</Button>
+          <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(h); }}>Delete</Button>
         </div>
       ),
     },
@@ -192,14 +214,25 @@ export default function HolidaysPage() {
             )}
             <Input type="date" label="Start date" required value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
             <Input type="date" label="End date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} hint="Leave blank for a single day" />
+            <Select
+              label="Status"
+              value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+              options={[{ value: "Enabled", label: "Active" }, { value: "Disabled", label: "Disabled" }]}
+            />
           </div>
           <Textarea label="Description" rows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
           <div className="flex flex-wrap items-center gap-4">
             <Checkbox label="Full day" checked={form.fullDay} onChange={(e) => setForm((f) => ({ ...f, fullDay: e.target.checked }))} />
             {!form.fullDay && (
-              <div className="flex items-end gap-2">
-                <div><label className="mb-1 block text-xs font-medium text-slate-600">From</label><TimePicker value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} fullWidth={false} /></div>
-                <div><label className="mb-1 block text-xs font-medium text-slate-600">To</label><TimePicker value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} fullWidth={false} /></div>
+              <div className="col-span-full">
+                <div className="flex items-end gap-2">
+                  <div><label className="mb-1 block text-xs font-medium text-slate-600">From</label><TimePicker value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} fullWidth={false} /></div>
+                  <div><label className="mb-1 block text-xs font-medium text-slate-600">To</label><TimePicker value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} fullWidth={false} /></div>
+                </div>
+                {form.startDate && form.endDate && form.startDate !== form.endDate && (
+                  <p className="text-xs text-slate-500 mt-2">This time block applies to each day in the range.</p>
+                )}
               </div>
             )}
           </div>
@@ -210,23 +243,49 @@ export default function HolidaysPage() {
         </div>
       )}
 
-      <div className="w-full md:w-64">
-        <Input type="text" value={searchVal} onChange={(e) => setSearchVal(e.target.value)} placeholder="Search holidays..." />
-      </div>
+      {!formOpen && (
+        <>
+          <div className="flex flex-col md:flex-row w-full md:w-auto gap-4">
+            <div className="w-full md:w-64">
+              <Input type="text" value={searchVal} onChange={(e) => setSearchVal(e.target.value)} placeholder="Search holidays..." />
+            </div>
+            <div className="w-full md:w-48">
+              <Select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                options={[{value: "Enabled", label: "Active"}, {value: "Disabled", label: "Cancelled"}, {value: "All", label: "All"}]}
+              />
+            </div>
+          </div>
 
-      <DataTable
-        data={filtered}
-        columns={columns}
-        getRowId={(h) => h.uid ?? `${h.title}-${h.startDate}`}
-        emptyState={
-          <EmptyState
-            title={loading ? "Loading holidays…" : error ? "Could not load holidays" : "No holidays yet"}
-            description={loading ? "Fetching your blocked dates." : error ? error : "Add a business holiday or provider leave to block those dates from booking."}
-            action={!loading && !error ? <Button onClick={openCreate}>Add Holiday</Button> : undefined}
+          <DataTable
+            data={holidays}
+            columns={columns}
+            getRowId={(h) => h.uid ?? `${h.title}-${h.startDate}`}
+            emptyState={
+              <EmptyState
+                title={loading ? "Loading holidays…" : error ? "Could not load holidays" : "No holidays yet"}
+                description={loading ? "Fetching your blocked dates." : error ? error : "Add a business holiday or provider leave to block those dates from booking."}
+                action={!loading && !error ? <Button onClick={openCreate}>Add Holiday</Button> : undefined}
+              />
+            }
+            data-testid="bookings-holidays"
           />
-        }
-        data-testid="bookings-holidays"
-      />
+        </>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6 text-center">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Remove Holiday?</h3>
+            <p className="text-sm text-slate-500 mb-6">Are you sure you want to remove "{deleteConfirm.title}"? Bookings already made are not affected.</p>
+            <div className="flex gap-3 justify-center">
+              <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+              <Button onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white border-0">Remove</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
