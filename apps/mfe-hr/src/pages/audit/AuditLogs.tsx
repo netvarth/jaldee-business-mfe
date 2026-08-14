@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Filter, Search, ShieldCheck } from "lucide-react";
-import { Button, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import { Button, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
 import type { SearchFilterClause } from "@jaldee/shared-modules";
@@ -72,10 +72,39 @@ export default function AuditLogs() {
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [selected, setSelected] = useState<AuditRecord | null>(null);
   const { schema, loading: schemaLoading, error: schemaError } = useHrSearchSchema("/audit-logs");
-  const auditSchema = useMemo(() => schema ? {
-    ...schema,
-    fields: schema.fields.filter((field) => field.key !== "featureModule"),
-  } : null, [schema]);
+  const auditSchema = useMemo(() => {
+    if (!schema) return null;
+    return {
+      ...schema,
+      fields: schema.fields.filter((field) => {
+        const key = (field.key || "").toLowerCase();
+        const label = (field.label || "").toLowerCase();
+
+        // Remove Context, Feature, and Source Service
+        if (
+          key.includes("feature") || label.includes("feature") ||
+          key.includes("context") || label.includes("context") ||
+          key.includes("source") || label.includes("source")
+        ) {
+          return false;
+        }
+
+        // Remove ID/UID filters
+        const isIdFilter =
+          key.endsWith("id") ||
+          key.endsWith("uid") ||
+          key.includes("correlation") ||
+          label.includes(" id") ||
+          label.includes(" uid") ||
+          label.endsWith("id") ||
+          label.endsWith("uid") ||
+          label.includes("correlation") ||
+          label.includes("entity uid") ||
+          label.includes("actor user id");
+        return !isIdFilter;
+      }),
+    };
+  }, [schema]);
   const appliedCount = useMemo(() => compactSearchClauses(filters, auditSchema).length, [filters, auditSchema]);
 
   useEffect(() => {
@@ -176,8 +205,27 @@ export default function AuditLogs() {
 
       <SectionCard className="p-0 overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-center">
-          <div className="flex flex-1 flex-wrap gap-2">
-            {CONTEXT_OPTIONS.map((option) => <Button key={option.value} data-testid={`hr-audit-logs-context-${option.value.toLowerCase()}`} size="sm" variant={context === option.value ? "primary" : "outline"} onClick={() => { setContext(option.value); setPage(1); }}>{option.label}</Button>)}
+          <div className="hidden flex-1 flex-wrap gap-2 xl:flex">
+            {CONTEXT_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                data-testid={`hr-audit-logs-context-${option.value.toLowerCase()}`}
+                size="sm"
+                variant={context === option.value ? "primary" : "outline"}
+                onClick={() => { setContext(option.value); setPage(1); }}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          <div className="w-full flex-1 xl:hidden">
+            <Select
+              id="hr-audit-logs-context-select"
+              testId="hr-audit-logs-context-select"
+              value={context}
+              onChange={(event) => { setContext(event.target.value); setPage(1); }}
+              options={CONTEXT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
           </div>
           <Input data-testid="hr-audit-logs-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search current page..." icon={<Search size={16} />} containerClassName="w-full md:max-w-xs" />
           <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(auditSchema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>

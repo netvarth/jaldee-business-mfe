@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, CSSProperties } from "react";
+import type { ChangeEvent, CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "../Button/Button";
 import { Select } from "../Select/Select";
@@ -32,6 +32,8 @@ export interface DatePickerPopoverProps {
   align?: "start" | "end";
   className?: string;
   overlayClassName?: string;
+  footer?: ReactNode;
+  compact?: boolean;
 }
 
 const buildDays = (target: Date): Array<Date | null> => {
@@ -68,6 +70,8 @@ export function DatePickerPopover({
   align = "end",
   className,
   overlayClassName,
+  footer,
+  compact = false,
 }: DatePickerPopoverProps) {
   const [viewDate, setViewDate] = useState<Date>(selectedDate || new Date());
   const [coords, setCoords] = useState<{ top?: number; left?: number; width?: number }>({});
@@ -102,7 +106,7 @@ export function DatePickerPopover({
   };
 
   const { innerWidth, innerHeight } = typeof window !== "undefined" ? window : { innerWidth: 1024, innerHeight: 768 };
-  const estimatedHeight = 350;
+  const estimatedHeight = compact ? 330 : footer ? 430 : 350;
 
   useEffect(() => {
     const updatePosition = () => {
@@ -152,7 +156,8 @@ export function DatePickerPopover({
     >
       <div
         className={cn(
-          "box-border flex h-auto max-h-[360px] flex-col gap-2.5 rounded-[16px] border border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] bg-white p-3.5 shadow-[0_12px_30px_rgba(15,23,42,0.12)]",
+          "box-border flex h-auto max-h-[min(440px,calc(100vh-16px))] flex-col rounded-xl border border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.1)]",
+          compact ? "gap-2 p-2.5" : "gap-2.5 p-3.5",
           className
         )}
         style={popoverStyle}
@@ -160,8 +165,8 @@ export function DatePickerPopover({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="m-0 text-[0.7rem] text-[#8a8aa8]">{title}</p>
-            <strong className="m-0 block overflow-hidden text-ellipsis whitespace-nowrap text-[1.1rem] font-bold leading-none text-[#252b56]">
+            {!compact ? <p className="m-0 text-[0.7rem] text-[#8a8aa8]">{title}</p> : null}
+            <strong className={cn("m-0 block overflow-hidden text-ellipsis whitespace-nowrap font-bold leading-none text-[#252b56]", compact ? "text-sm" : "text-[1.1rem]")}>
               {monthLabel}
             </strong>
           </div>
@@ -192,42 +197,44 @@ export function DatePickerPopover({
           </div>
         </div>
 
-        <div className="flex justify-between gap-2">
-          <div className="flex flex-1 flex-col gap-0.5">
-            <label htmlFor="date-picker-popover-month" className="text-[0.65rem] uppercase tracking-[0.04em] text-[var(--color-text-secondary)]">
-              Month
-            </label>
-            <Select
-              id="date-picker-popover-month"
-              value={String(viewDate.getMonth())}
-              onChange={handleMonthChange}
-              options={MONTH_LABELS.map((label, index) => ({ value: String(index), label }))}
-              className="!min-h-0 !h-8 !py-0 !pl-2 rounded-[8px] border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-text-primary)]"
-            />
-          </div>
+        {!compact ? (
+          <div className="flex justify-between gap-2">
+            <div className="flex flex-1 flex-col gap-0.5">
+              <label htmlFor="date-picker-popover-month" className="text-[0.65rem] uppercase tracking-[0.04em] text-[var(--color-text-secondary)]">
+                Month
+              </label>
+              <Select
+                id="date-picker-popover-month"
+                value={String(viewDate.getMonth())}
+                onChange={handleMonthChange}
+                options={MONTH_LABELS.map((label, index) => ({ value: String(index), label }))}
+                className="!min-h-0 !h-8 !py-0 !pl-2 rounded-[8px] border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-text-primary)]"
+              />
+            </div>
 
-          <div className="flex flex-1 flex-col gap-0.5">
-            <label htmlFor="date-picker-popover-year" className="text-[0.65rem] uppercase tracking-[0.04em] text-[var(--color-text-secondary)]">
-              Year
-            </label>
-            <Select
-              id="date-picker-popover-year"
-              value={String(viewDate.getFullYear())}
-              onChange={handleYearChange}
-              options={yearOptions.map((year) => ({ value: String(year), label: String(year) }))}
-              className="!min-h-0 !h-8 !py-0 !pl-2 rounded-[8px] border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-text-primary)]"
-            />
+            <div className="flex flex-1 flex-col gap-0.5">
+              <label htmlFor="date-picker-popover-year" className="text-[0.65rem] uppercase tracking-[0.04em] text-[var(--color-text-secondary)]">
+                Year
+              </label>
+              <Select
+                id="date-picker-popover-year"
+                value={String(viewDate.getFullYear())}
+                onChange={handleYearChange}
+                options={yearOptions.map((year) => ({ value: String(year), label: String(year) }))}
+                className="!min-h-0 !h-8 !py-0 !pl-2 rounded-[8px] border-[var(--color-primary-muted)] bg-[var(--color-primary-subtle)] text-[var(--color-text-primary)]"
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] uppercase tracking-[0.05em] text-[#a3a5c6]">
+        <div className={cn("grid grid-cols-7 text-center uppercase tracking-[0.05em] text-[#a3a5c6]", compact ? "gap-0.5 text-[0.6rem]" : "gap-1 text-[0.65rem]")}>
           {WEEKDAYS.map((day) => (
             <span key={day}>{day}</span>
           ))}
         </div>
 
         <div className="flex flex-1 flex-col">
-          <div className="grid flex-1 grid-cols-7 gap-y-1 gap-x-1 overflow-hidden">
+          <div className={cn("grid flex-1 grid-cols-7 overflow-hidden", compact ? "gap-0.5" : "gap-x-1 gap-y-1")}>
             {days.map((day, index) => {
               const isToday = isSameDay(day, today);
               const isSelected = isSameDay(day, selectedDate);
@@ -240,7 +247,8 @@ export function DatePickerPopover({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-[8px] border-0 bg-transparent p-0 text-[0.82rem] font-medium text-[#1b2040]",
+                    "flex items-center justify-center border-0 bg-transparent p-0 font-medium text-[#1b2040]",
+                    compact ? "h-7 w-7 rounded-md text-xs" : "h-8 w-8 rounded-[8px] text-[0.82rem]",
                     "transition-colors duration-200 hover:bg-[#f4f1ff]",
                     isSelected && "bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)] text-white shadow-[0_8px_16px_rgba(108,50,255,0.24)] hover:bg-[linear-gradient(180deg,#7C3AED_0%,#5B21D1_100%)]",
                     isToday && "border border-[rgba(108,50,255,0.24)] bg-[#faf7ff]",
@@ -255,6 +263,7 @@ export function DatePickerPopover({
             })}
           </div>
         </div>
+        {footer ? <div className={cn("border-t border-[var(--color-border)]", compact ? "pt-2" : "pt-2.5")}>{footer}</div> : null}
       </div>
     </div>
   );

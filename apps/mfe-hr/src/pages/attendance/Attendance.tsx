@@ -8,7 +8,7 @@ import {
   buildDefaultSearchClauses,
   compactSearchClauses,
 } from "@jaldee/shared-modules";
-import type { SearchFilterClause } from "@jaldee/shared-modules";
+import type { SearchFilterClause, SearchSchema, SearchSchemaField } from "@jaldee/shared-modules";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 import { useMFEProps } from "@jaldee/auth-context";
@@ -23,6 +23,38 @@ import { formatDate } from "../../lib/utils";
 import { CLOCK_TYPE_OPTIONS, ClockType } from "../../types";
 
 type SubTab = "logs" | "pending" | "overtime" | "field" | "compoff" | "onduty" | "kiosk";
+
+const ATTENDANCE_FILTER_FIELDS: Array<{ label: string; names: string[] }> = [
+  { label: "Clock In", names: ["clockIn", "clockInTime", "checkIn"] },
+  { label: "Location", names: ["location", "locationUid", "locationName", "branch", "branchUid"] },
+  { label: "Clock Out", names: ["clockOut", "clockOutTime", "checkOut"] },
+  { label: "WFH Status", names: ["wfhStatus", "workFromHomeStatus", "isWfh"] },
+  { label: "Clock In Type", names: ["clockInType", "punchInType", "workMode"] },
+  { label: "Is Early Departure", names: ["isEarlyDeparture", "earlyDeparture"] },
+];
+
+function normalizeAttendanceFilterName(value?: string): string {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function attendanceFilterSchema(schema: SearchSchema | null): SearchSchema | null {
+  if (!schema) return null;
+
+  const remaining = [...schema.fields];
+  const fields = ATTENDANCE_FILTER_FIELDS.flatMap(({ label, names }) => {
+    const allowedNames = new Set(names.map(normalizeAttendanceFilterName));
+    const index = remaining.findIndex((field) =>
+      [field.key, field.name, field.label, ...(field.aliases || [])]
+        .some((candidate) => allowedNames.has(normalizeAttendanceFilterName(candidate))),
+    );
+    if (index < 0) return [];
+
+    const [field] = remaining.splice(index, 1);
+    return [{ ...field, label } satisfies SearchSchemaField];
+  });
+
+  return { ...schema, fields };
+}
 
 const ATTENDANCE_ROUTES: Array<{ key: SubTab; route: string; label: string }> = [
   { key: "logs", route: "logs", label: "Logs History" },
@@ -236,8 +268,12 @@ export default function Attendance() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [attPage, setAttPage] = useState(0);
   const [attPageSize, setAttPageSize] = useState(20);
-  const { schema: attendanceSchema, loading: schemaLoading } = useAttendanceSearchSchema();
-  const attendance = useAttendance(advancedFilters, attendanceSchema, {
+  const { schema: fullAttendanceSchema, loading: schemaLoading } = useAttendanceSearchSchema();
+  const attendanceSchema = useMemo(
+    () => attendanceFilterSchema(fullAttendanceSchema),
+    [fullAttendanceSchema],
+  );
+  const attendance = useAttendance(advancedFilters, fullAttendanceSchema, {
     enabled: !schemaLoading,
     page: attPage,
     pageSize: attPageSize,
@@ -246,7 +282,7 @@ export default function Attendance() {
     () => actor ? [{ field: "employeeUid", operator: "EQ", values: [actor] }] : [],
     [actor]
   );
-  const selectedEmployeeAttendance = useAttendance(selectedEmployeeFilters, attendanceSchema, {
+  const selectedEmployeeAttendance = useAttendance(selectedEmployeeFilters, fullAttendanceSchema, {
     enabled: !schemaLoading && !!actor,
     page: 0,
     pageSize: 100,

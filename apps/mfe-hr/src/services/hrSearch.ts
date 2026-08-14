@@ -34,11 +34,13 @@ export function buildHrSearchBody(
     values: clause.values.filter((value) => value.trim().length > 0),
   }));
 
+  const sortField = schema?.defaultSort?.field;
+
   return {
     ...(schema?.defaultView ? { view: schema.defaultView } : {}),
     filters: conditions.length ? { logic: "AND", conditions } : null,
-    sort: schema?.defaultSort?.field
-      ? [{ field: schema.defaultSort.field, direction: schema.defaultSort.direction ?? "DESC" }]
+    sort: sortField
+      ? [{ field: sortField, direction: schema?.defaultSort?.direction ?? "DESC" }]
       : [],
     page,
     size,

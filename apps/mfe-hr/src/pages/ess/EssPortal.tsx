@@ -919,16 +919,10 @@ export default function EssPortal() {
                       <SectionCard key={item.id} className="border-slate-200 shadow-sm">
                         <div className="text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{item.leaveTypeName ?? "Leave"}</div>
                         <div className="mt-1 text-[19px] font-bold md:text-[21px] lg:text-2xl">{item.available ?? 0}</div>
-                                {item.status ?? "Inactive"}
-                              </span>
-                            </div>
-                            <div className="mt-1 text-[19px] font-bold text-slate-500 md:text-[21px] lg:text-2xl">{item.available ?? 0}</div>
-                            <div className="text-xs text-slate-500">available of {item.total ?? 0}</div>
-                          </SectionCard>
-                        ))}
-                      </div>
-                    </details>
-                  )}
+                        <div className="text-xs text-slate-500">available of {item.total ?? 0}</div>
+                      </SectionCard>
+                    ))}
+                  </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">

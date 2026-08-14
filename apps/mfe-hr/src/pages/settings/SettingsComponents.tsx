@@ -300,8 +300,18 @@ function LogoFileInput({ value, onChange, automationKey, label }: {
   automationKey: string;
   label: string;
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   const selectedFile = value instanceof File ? value : null;
-  const currentUrl = typeof value === "string" ? value : "";
+  const currentUrl = useMemo(() => {
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object") {
+      const v = value as Record<string, unknown>;
+      if (typeof v.filePath === "string" && v.filePath) return v.filePath;
+      if (typeof v.url === "string" && v.url) return v.url;
+    }
+    return "";
+  }, [value]);
+
   const previewUrl = useMemo(
     () => selectedFile ? URL.createObjectURL(selectedFile) : currentUrl,
     [currentUrl, selectedFile],
@@ -320,25 +330,50 @@ function LogoFileInput({ value, onChange, automationKey, label }: {
   }
 
   return (
-    <div className="grid w-full min-w-0 gap-4 rounded-xl border border-[var(--border-color)] bg-white p-5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start">
-      <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-white">
-        {previewUrl
-          ? <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-contain" />
-          : <ImageIcon size={24} className="text-[var(--light-text)]" />}
+    <>
+      <div className="grid w-full min-w-0 gap-4 rounded-xl border border-[var(--border-color)] bg-white p-5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start">
+        <div
+          id={`${automationKey}-preview-trigger`}
+          data-testid={`${automationKey}-preview-trigger`}
+          className={`flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-white ${previewUrl ? "cursor-pointer transition-transform hover:scale-105 hover:shadow-md" : ""}`}
+          onClick={() => { if (previewUrl) setPreviewOpen(true); }}
+          title={previewUrl ? "Click to expand logo preview" : undefined}
+        >
+          {previewUrl
+            ? <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-contain" />
+            : <ImageIcon size={24} className="text-[var(--light-text)]" />}
+        </div>
+        <div className="min-w-0">
+          <FileUpload
+            id={automationKey}
+            testId={automationKey}
+            accept="image/png,image/jpeg,image/webp"
+            multiple={false}
+            maxSize={2 * 1024 * 1024}
+            onUpload={selectFile}
+          />
+          <p className="mt-2 text-xs leading-5 text-[var(--light-text)]">PNG, JPG or WebP. Maximum file size: 2 MB.</p>
+          {selectedFile ? <p className="mt-1 text-xs text-[var(--light-text)]">Uploads when changes are saved.</p> : null}
+          {previewUrl ? <button type="button" className="mt-1 text-xs font-semibold text-[var(--primary-color)] hover:underline" onClick={() => setPreviewOpen(true)}>View full preview</button> : null}
+        </div>
       </div>
-      <div className="min-w-0">
-        <FileUpload
-          id={automationKey}
-          testId={automationKey}
-          accept="image/png,image/jpeg,image/webp"
-          multiple={false}
-          maxSize={2 * 1024 * 1024}
-          onUpload={selectFile}
-        />
-        <p className="mt-2 text-xs leading-5 text-[var(--light-text)]">PNG, JPG or WebP. Maximum file size: 2 MB.</p>
-        {selectedFile ? <p className="mt-1 text-xs text-[var(--light-text)]">Uploads when changes are saved.</p> : null}
-      </div>
-    </div>
+
+      <Dialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        testId={`${automationKey}-modal`}
+        title={`${label} Preview`}
+        size="md"
+      >
+        {previewUrl ? (
+          <div className="flex flex-col items-center justify-center p-4">
+            <div className="max-h-[60vh] max-w-full overflow-hidden rounded-xl border border-[var(--border-color)] bg-slate-50 p-4">
+              <img src={previewUrl} alt={`${label} full preview`} className="max-h-[50vh] max-w-full object-contain" />
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
+    </>
   );
 }
 
@@ -355,6 +390,11 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
   useEffect(() => {
     if (!data) return;
     const next = { ...data };
+    if (!next.logoUrl && data.attachment && typeof data.attachment === "object") {
+      const att = data.attachment as Record<string, unknown>;
+      const logoPath = (att.filePath || att.url) as string | undefined;
+      if (logoPath) next.logoUrl = logoPath;
+    }
     fields.forEach((fieldItem) => {
       if (next[fieldItem.key] === undefined && fieldItem.sourceKey && data[fieldItem.sourceKey] !== undefined) {
         next[fieldItem.key] = data[fieldItem.sourceKey];

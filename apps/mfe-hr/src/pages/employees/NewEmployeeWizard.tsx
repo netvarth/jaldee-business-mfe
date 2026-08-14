@@ -39,6 +39,12 @@ export default function NewEmployeeWizard() {
   const [employment, setEmployment] = useState({
     designation: "", department: "", employmentType: "FullTime",
     baseSalary: "", reportingManagerUid: "",
+    doj: new Date().toISOString().slice(0, 10),
+    status: "Active",
+    hra: "", allowance: "",
+  });
+  const [bankDetails, setBankDetails] = useState({
+    bankName: "", accountNumber: "", ifscCode: "",
   });
 
   const set = <T extends object>(setter: React.Dispatch<React.SetStateAction<T>>) =>
@@ -46,6 +52,7 @@ export default function NewEmployeeWizard() {
       setter((prev) => ({ ...prev, [key]: e.target.value }));
   const sp = set(setPersonal);
   const se = set(setEmployment);
+  const sb = set(setBankDetails);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -96,7 +103,8 @@ export default function NewEmployeeWizard() {
         contactNumber: contactNumber.e164Number || `${contactNumber.countryCode}${contactNumber.number}`,
         gender: personal.gender || null,
         dob: personal.dob || null,
-        doj: new Date().toISOString().slice(0, 10),
+        doj: employment.doj || new Date().toISOString().slice(0, 10),
+        status: employment.status || "Active",
         hrDepartmentUid: deptObj?.id || null,
         designationUid: desigObj?.id || null,
         employmentType: employment.employmentType,
@@ -109,7 +117,23 @@ export default function NewEmployeeWizard() {
         aadhaarRef: personal.aadhaarRef || null,
       };
       if (employment.reportingManagerUid) payload.reportingManagerUid = employment.reportingManagerUid;
-      if (employment.baseSalary) payload.salaryStructure = { basic: Number(employment.baseSalary) };
+      const basicNum = employment.baseSalary ? Number(employment.baseSalary) : undefined;
+      const hraNum = employment.hra ? Number(employment.hra) : undefined;
+      const allowanceNum = employment.allowance ? Number(employment.allowance) : undefined;
+      if (basicNum != null || hraNum != null || allowanceNum != null) {
+        payload.salaryStructure = {
+          ...(basicNum != null && { basic: basicNum }),
+          ...(hraNum != null && { hra: hraNum }),
+          ...(allowanceNum != null && { allowance: allowanceNum }),
+        };
+      }
+      if (bankDetails.bankName || bankDetails.accountNumber || bankDetails.ifscCode) {
+        payload.bankDetails = {
+          bankName: bankDetails.bankName || null,
+          accountNumber: bankDetails.accountNumber || null,
+          ifscCode: bankDetails.ifscCode || null,
+        };
+      }
       // Derive the employee's hierarchy level from the selected role/designation band.
       const desigLevel = designations.find((d) => d.name === employment.designation)?.level;
       if (desigLevel != null) payload.hierarchyLevel = desigLevel;
@@ -326,12 +350,32 @@ export default function NewEmployeeWizard() {
                           ]}
                         />
                       </div>
-                      <div className="form-group employee-base-salary-field">
-                        <label>Base Salary (Monthly Basic)</label>
-                        <input type="number" placeholder="₹" value={employment.baseSalary} onChange={se("baseSalary")} />
+                      <div className="form-group">
+                        <DatePicker
+                          id="hr-new-employee-doj"
+                          label="Date of Joining"
+                          value={employment.doj}
+                          onChange={se("doj")}
+                        />
                       </div>
                     </div>
                     <div className="form-row">
+                      <div className="form-group">
+                        <Select
+                          id="hr-new-employee-status"
+                          testId="hr-new-employee-status"
+                          label="Status"
+                          value={employment.status}
+                          onChange={se("status")}
+                          options={[
+                            { value: "Active", label: "Active" },
+                            { value: "Onboarding", label: "Onboarding" },
+                            { value: "Notice Period", label: "Notice Period" },
+                            { value: "Inactive", label: "Inactive" },
+                            { value: "Left", label: "Left" },
+                          ]}
+                        />
+                      </div>
                       <div className="form-group">
                         <Select
                           id="hr-new-employee-manager"
@@ -345,7 +389,76 @@ export default function NewEmployeeWizard() {
                           ]}
                         />
                       </div>
-                      <div className="form-group"></div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 32, marginBottom: 24, borderTop: "1px solid var(--border-color)", paddingTop: 24 }}>
+                      <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 0 }}>Bank & Salary Details</h4>
+                      <div className="employee-personal-pair">
+                        <div className="form-group">
+                          <label>Bank Name</label>
+                          <input
+                            id="hr-new-employee-bank-name"
+                            data-testid="hr-new-employee-bank-name"
+                            type="text"
+                            placeholder="e.g. HDFC Bank"
+                            value={bankDetails.bankName}
+                            onChange={sb("bankName")}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Account Number</label>
+                          <input
+                            id="hr-new-employee-account-number"
+                            data-testid="hr-new-employee-account-number"
+                            type="text"
+                            placeholder="e.g. 50100012345678"
+                            value={bankDetails.accountNumber}
+                            onChange={sb("accountNumber")}
+                          />
+                        </div>
+                      </div>
+                      <div className="employee-personal-pair">
+                        <div className="form-group">
+                          <label>IFSC Code</label>
+                          <input
+                            id="hr-new-employee-ifsc-code"
+                            data-testid="hr-new-employee-ifsc-code"
+                            type="text"
+                            placeholder="e.g. HDFC0001234"
+                            style={{ textTransform: "uppercase" }}
+                            value={bankDetails.ifscCode}
+                            onChange={(e) => setBankDetails((b) => ({ ...b, ifscCode: e.target.value.toUpperCase() }))}
+                          />
+                        </div>
+                        <div className="form-group employee-base-salary-field">
+                          <label>Base Salary (Monthly Basic)</label>
+                          <input id="hr-new-employee-base-salary" data-testid="hr-new-employee-base-salary" type="number" placeholder="₹" value={employment.baseSalary} onChange={se("baseSalary")} />
+                        </div>
+                      </div>
+                      <div className="employee-personal-pair">
+                        <div className="form-group">
+                          <label>HRA</label>
+                          <input
+                            id="hr-new-employee-hra"
+                            data-testid="hr-new-employee-hra"
+                            type="number"
+                            placeholder="₹"
+                            value={employment.hra}
+                            onChange={se("hra")}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Allowance</label>
+                          <input
+                            id="hr-new-employee-allowance"
+                            data-testid="hr-new-employee-allowance"
+                            type="number"
+                            placeholder="₹"
+                            value={employment.allowance}
+                            onChange={se("allowance")}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
@@ -368,8 +481,8 @@ export default function NewEmployeeWizard() {
                       <Briefcase size={20} />
                     </div>
                     <p className="employee-edit-context__eyebrow">Profile guidance</p>
-                    <h3>Employment Info</h3>
-                    <p>Assign the department, designation, and reporting manager to establish the employee's role in the organization hierarchy.</p>
+                    <h3>Employment & Bank Info</h3>
+                    <p>Assign department, designation, reporting manager, and bank details for payroll processing.</p>
                     <span>Changes are applied when you save the employee profile.</span>
                   </>
                 )}

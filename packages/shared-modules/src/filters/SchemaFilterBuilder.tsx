@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, PhoneInput, Select, Switch } from "@jaldee/design-system";
+import { DatePicker, DateTimePicker, Input, PhoneInput, Select, Switch } from "@jaldee/design-system";
 import type { SelectOption } from "@jaldee/design-system";
 import type {
   SearchFilterClause,
@@ -361,21 +361,21 @@ function FilterValueInputs({
   if (operator.arity === "EXACTLY_TWO" || operator.maxValues === 2) {
     return (
       <div className="grid gap-3 md:grid-cols-2">
-        <Input
-          aria-label={`${field.label} from`}
-          type={resolveInputType(field)}
+        <SchemaValueInput
+          field={field}
+          ariaLabel={`${field.label} from`}
           value={clause.values[0] ?? ""}
-          onChange={(event) => onChange([event.target.value, clause.values[1] ?? ""])}
+          onChange={(value) => onChange([value, clause.values[1] ?? ""])}
           placeholder="From"
-          data-testid={`schema-filter-from-${index}`}
+          testId={`schema-filter-from-${index}`}
         />
-        <Input
-          aria-label={`${field.label} to`}
-          type={resolveInputType(field)}
+        <SchemaValueInput
+          field={field}
+          ariaLabel={`${field.label} to`}
           value={clause.values[1] ?? ""}
-          onChange={(event) => onChange([clause.values[0] ?? "", event.target.value])}
+          onChange={(value) => onChange([clause.values[0] ?? "", value])}
           placeholder="To"
-          data-testid={`schema-filter-to-${index}`}
+          testId={`schema-filter-to-${index}`}
         />
       </div>
     );
@@ -407,16 +407,33 @@ function FilterValueInputs({
     );
   }
 
-  return (
-    <Input
-      aria-label={`${field.label} value`}
-      type={resolveInputType(field)}
-      value={clause.values[0] ?? ""}
-      onChange={(event) => onChange([event.target.value])}
-      placeholder={`Enter ${field.label.toLowerCase()}`}
-      data-testid={`schema-filter-value-${index}`}
-    />
-  );
+  return <SchemaValueInput
+    field={field}
+    ariaLabel={`${field.label} value`}
+    value={clause.values[0] ?? ""}
+    onChange={(value) => onChange([value])}
+    placeholder={`Enter ${field.label.toLowerCase()}`}
+    testId={`schema-filter-value-${index}`}
+  />;
+}
+
+function SchemaValueInput({ field, ariaLabel, value, onChange, placeholder, testId }: {
+  field: SearchSchemaField;
+  ariaLabel: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  testId: string;
+}) {
+  if (field.type === "DATE") {
+    return <DatePicker aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} data-testid={testId} />;
+  }
+
+  if (field.type === "DATETIME") {
+    return <DateTimePicker ariaLabel={ariaLabel} value={value} onChange={onChange} data-testid={testId} />;
+  }
+
+  return <Input aria-label={ariaLabel} type={resolveInputType(field)} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} data-testid={testId} />;
 }
 
 function EmptyFilterState({ message }: { message?: string }) {

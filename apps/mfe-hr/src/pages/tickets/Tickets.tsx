@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X, Download } from "lucide-react";
-import { Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
+import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X, Download, LayoutGrid, Table as Rows3 } from "lucide-react";
+import { Badge, Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination, DataTable, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -102,7 +102,24 @@ export default function Tickets() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [ticketsPage, setTicketsPage] = useState(1);
   const [ticketsPageSize, setTicketsPageSize] = useState(20);
-  const { schema: ticketSchema, loading: schemaLoading } = useTicketSearchSchema(!isEmployeeView);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const { schema: rawTicketSchema, loading: schemaLoading } = useTicketSearchSchema(!isEmployeeView);
+  const ticketSchema = useMemo(() => {
+    if (!rawTicketSchema) return null;
+    const ORDER = ["department", "title", "priority", "status", "uid", "subject", "category"];
+    const fieldMap = new Map(
+      rawTicketSchema.fields.map((f) => [
+        (f.name || f.key || f.label || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        f,
+      ])
+    );
+    const orderedFields = ORDER.map((key) => fieldMap.get(key)).filter((f): f is NonNullable<typeof f> => Boolean(f));
+    return {
+      ...rawTicketSchema,
+      fields: orderedFields.length > 0 ? orderedFields : rawTicketSchema.fields,
+    };
+  }, [rawTicketSchema]);
+
   const tickets = useTickets(advancedFilters, ticketSchema, {
     enabled: isEmployeeView || !schemaLoading,
     page: ticketsPage - 1,
@@ -110,6 +127,100 @@ export default function Tickets() {
     scope: isEmployeeView ? "ess" : "admin",
   });
   const { data: myProfile } = useMyProfile({ enabled: isEmployeeView });
+
+  const columns = useMemo<ColumnDef<Ticket>[]>(() => [
+    {
+      key: "department",
+      header: "Department",
+      width: "14%",
+      render: (t) => (
+        <span className="font-semibold text-xs text-[var(--color-text-primary)] truncate">
+          {t.department || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "title",
+      header: "Title",
+      width: "22%",
+      render: (t) => (
+        <div className="min-w-0 font-bold text-sm text-[var(--color-text-primary)] truncate">
+          {t.title || "-"}
+        </div>
+      ),
+    },
+    {
+      key: "priority",
+      header: "Priority",
+      width: "12%",
+      render: (t) => (
+        <Badge variant={t.priority === "High" ? "danger" : t.priority === "Low" ? "neutral" : "warning"}>
+          {t.priority || "Medium"}
+        </Badge>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      width: "12%",
+      render: (t) => (
+        <Badge variant={t.status === "Resolved" ? "success" : t.status === "In Progress" ? "info" : "primary"}>
+          {t.status || "Open"}
+        </Badge>
+      ),
+    },
+    {
+      key: "uid",
+      header: "Uid",
+      width: "12%",
+      render: (t) => (
+        <span className="font-mono text-xs font-semibold text-[var(--color-text-secondary)] truncate">
+          {(t.uid || t.id || "-").slice(-8).toUpperCase()}
+        </span>
+      ),
+    },
+    {
+      key: "subject",
+      header: "Subject",
+      width: "16%",
+      render: (t) => (
+        <span className="text-xs text-[var(--color-text-secondary)] truncate">
+          {t.subject || t.title || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      width: "12%",
+      render: (t) => (
+        <Badge variant="outline">
+          {t.category || "General"}
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Action",
+      width: "10%",
+      align: "right",
+      render: (t) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setMsg(null);
+              setReplyText("");
+              setSelected(t);
+            }}
+          >
+            View
+          </Button>
+        </div>
+      ),
+    },
+  ], []);
 
   useEffect(() => {
     if (tickets.error) {
@@ -354,8 +465,50 @@ export default function Tickets() {
               Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
             </Button>
           ) : null}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 shrink-0">
+            <button
+              type="button"
+              aria-label="Table view"
+              onClick={() => setViewMode("table")}
+              className={`rounded-lg p-2 transition-colors ${viewMode === "table" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              <Rows3 size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Card view"
+              onClick={() => setViewMode("cards")}
+              className={`rounded-lg p-2 transition-colors ${viewMode === "cards" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
         </div>
 
+        {viewMode === "table" ? (
+          <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] shadow-sm overflow-hidden" data-testid="hr-tickets-table-container">
+            <DataTable
+              data-testid="hr-tickets-table"
+              data={items}
+              columns={columns}
+              getRowId={(t) => t.id}
+              loading={tickets.loading}
+              className="rounded-none border-0 bg-transparent shadow-none"
+              tableClassName="min-w-[920px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+              emptyState={
+                <EmptyState
+                  icon={<MessageSquare size={36} strokeWidth={1.5} />}
+                  title={search.trim() ? "No matching tickets" : "No helpdesk tickets yet"}
+                  description={
+                    search.trim()
+                      ? "Try a different ticket ID, subject, or keyword."
+                      : "Raise your first HR or administration request and track its progress here."
+                  }
+                />
+              }
+            />
+          </div>
+        ) : (
         <div style={{ display: "grid", gap: 14 }}>
           {tickets.loading ? (
             <div className="space-y-4">
@@ -529,6 +682,8 @@ export default function Tickets() {
               );
             })
           )}
+        </div>
+        )}
           <DataTablePagination
             testId="hr-tickets-pagination"
             page={ticketsPage}
@@ -541,7 +696,6 @@ export default function Tickets() {
             }}
           />
         </div>
-      </div>
 
       <Dialog
         open={addOpen}

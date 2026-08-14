@@ -7,7 +7,7 @@ import { buildBaseServiceUrl } from "../../../../packages/shared-modules/src/ser
 
 /** W9 / R9.1 — asset registry + allocation lifecycle client. */
 
-export type AssetStatus = "Available" | "Allocated" | "UnderRepair" | "Lost" | "Retired";
+export type AssetStatus = "Available" | "Allocated" | "UnderRepair" | "Lost" | "Retired" | "Disposed";
 
 export interface AssetAttachment {
   fileUid?: string;

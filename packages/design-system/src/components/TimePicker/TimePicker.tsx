@@ -149,7 +149,7 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
             id={inputId}
             data-testid={testId}
             type="time"
-            value={time24}
+            value={value ? time24 : ""}
             onChange={onChange}
             className={cn(
               "w-full h-9 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-800",

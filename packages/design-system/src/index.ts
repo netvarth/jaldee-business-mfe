@@ -71,6 +71,9 @@ export type { DateRangePickerProps, DateRangeValue } from "./components/DateRang
 export { TimePicker }                     from "./components/TimePicker/TimePicker";
 export type { TimePickerProps }           from "./components/TimePicker/TimePicker";
 
+export { DateTimePicker }                 from "./components/DateTimePicker/DateTimePicker";
+export type { DateTimePickerProps }       from "./components/DateTimePicker/DateTimePicker";
+
 export { Checkbox }                       from "./components/Checkbox/Checkbox";
 export type { CheckboxProps }             from "./components/Checkbox/Checkbox";
 

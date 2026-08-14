@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Table as Rows3, LayoutGrid, Filter } from "lucide-react";
-import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, SkeletonTable, DataTablePagination, Drawer } from "@jaldee/design-system";
+import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, DataTable, EmptyState, SkeletonTable, DataTablePagination, Drawer, FileUpload, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -70,6 +70,7 @@ function statStyle(s?: string): CSSProperties {
   switch (s) {
     case "Approved": return { background: "rgba(16,185,129,0.06)", color: SUCCESS, border: "1px solid rgba(16,185,129,0.15)" };
     case "Reimbursed": return { background: "rgba(59,130,246,0.06)", color: INFO, border: "1px solid rgba(59,130,246,0.15)" };
+    case "Paid": return { background: "rgba(124,58,237,0.06)", color: "#7c3aed", border: "1px solid rgba(124,58,237,0.15)" };
     case "Rejected": return { background: "rgba(244,63,94,0.06)", color: DANGER, border: "1px solid rgba(244,63,94,0.15)" };
     default: return { background: "rgba(245,158,11,0.06)", color: WARNING, border: "1px solid rgba(245,158,11,0.15)" };
   }
@@ -161,8 +162,27 @@ export default function Expenses() {
   const navigate = useNavigate();
   const isEmployeeView = location.pathname.includes("/me/");
   const tab = tabFromPath(location.pathname);
+  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
+  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
+  const { schema: rawExpenseSchema, loading: schemaLoading } = useExpenseSearchSchema(true, isEmployeeView);
+  const expenseSchema = useMemo(() => {
+    if (!rawExpenseSchema) return null;
+    return {
+      ...rawExpenseSchema,
+      fields: rawExpenseSchema.fields.filter((f) => {
+        const label = (f.label || "").trim().toLowerCase();
+        const name = (f.name || f.key || "").trim().toLowerCase();
+        if (name.includes("transport") || name.includes("kms") || name.includes("mode")) return false;
+        if (label === "employee" || name === "employee" || name === "employeeuid") return false;
+        return true;
+      }),
+      defaultSort: rawExpenseSchema.defaultSort?.field === "createdAt"
+        ? { ...rawExpenseSchema.defaultSort, field: "date" }
+        : rawExpenseSchema.defaultSort,
+    };
+  }, [rawExpenseSchema]);
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
-  const expenses = useExpenses();
+  const expenses = useExpenses(advancedFilters, expenseSchema, { scope: isEmployeeView ? "ess" : "admin" });
   const { data: myProfile } = useMyProfile({ enabled: isEmployeeView });
 
   useEffect(() => {
@@ -179,22 +199,17 @@ export default function Expenses() {
   const empName = (uid?: string) => uid ? empMap.get(uid)?.name ?? uid : "—";
   const empDept = (uid?: string) => uid ? empMap.get(uid)?.department ?? "N/A" : "—";
   const empCode = (uid?: string) => uid ? empMap.get(uid)?.employeeId ?? "—" : "—";
-  const scopedExpenses = useMemo(() => (
-    isEmployeeView && myProfile?.id ? expenses.data.filter((e) => e.employeeUid === myProfile.id) : expenses.data
-  ), [expenses.data, isEmployeeView, myProfile?.id]);
+  const scopedExpenses = expenses.data;
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
-  const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const { schema: expenseSchema, loading: schemaLoading } = useExpenseSearchSchema(!isEmployeeView);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
   const sumPending = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
-  const sumSettled = useMemo(() => scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
+  const sumSettled = useMemo(() => scopedExpenses.filter((e) => ["Approved", "Reimbursed", "Paid"].includes(e.status || "")).reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
   const pendingCount = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").length, [scopedExpenses]);
 
   const appliedFilterCount = useMemo(
@@ -244,17 +259,94 @@ export default function Expenses() {
     return rows.slice(start, start + pageSize);
   }, [page, pageSize, rows]);
 
+  const columns = useMemo<ColumnDef<ExpenseClaim>[]>(() => [
+    {
+      key: "amount",
+      header: "Amount",
+      width: "15%",
+      render: (e) => (
+        <span className="font-extrabold text-sm text-[var(--primary-color)]">
+          {formatCurrency(e.amount)}
+        </span>
+      ),
+    },
+    {
+      key: "employeeName",
+      header: "Employee Name",
+      width: "25%",
+      render: (e) => (
+        <div className="min-w-0 font-bold text-sm text-[var(--dark-text)] truncate">
+          {empName(e.employeeUid)}
+        </div>
+      ),
+    },
+    {
+      key: "approvalDate",
+      header: "Approval Date",
+      width: "18%",
+      render: (e) => (
+        <span className="text-xs font-semibold text-[var(--light-text)]">
+          {fmtDate((e as any).approvedAt || (["Approved", "Reimbursed", "Paid"].includes(e.status || "") ? e.date : undefined)) || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "submissionDate",
+      header: "Submission Date",
+      width: "18%",
+      render: (e) => (
+        <span className="text-xs font-bold text-[var(--dark-text)]">
+          {fmtDate(e.submittedAt || e.date)}
+        </span>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      width: "12%",
+      render: (e) => (
+        <span style={tag(catStyle(e.category))}>{e.category || "—"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      width: "12%",
+      render: (e) => (
+        <span style={tag(statStyle(e.status))}>{e.status || "—"}</span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Action",
+      width: "14%",
+      align: "right",
+      render: (e) => (
+        <button
+          id={`hr-expenses-view-${e.id}`}
+          data-testid={`hr-expenses-view-${e.id}`}
+          onClick={() => { setMsg(null); setSelected(e); }}
+          style={secondaryActionButton}
+        >
+          <Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}
+        </button>
+      ),
+    },
+  ], [empCode, empDept, empName, isEmployeeView, tab]);
+
   // submit modal
   const [addOpen, setAddOpen] = useState(false);
   const [editingClaim, setEditingClaim] = useState<ExpenseClaim | null>(null);
   const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [form, setForm] = useState({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // detail modal
   const [selected, setSelected] = useState<ExpenseClaim | null>(null);
   const [acting, setActing] = useState(false);
+  const [actingKind, setActingKind] = useState<"approve" | "reject" | "reimburse" | "pay" | null>(null);
 
   const submit = async () => {
     const employeeUid = isEmployeeView ? myProfile?.id || "" : form.employeeUid;
@@ -267,8 +359,9 @@ export default function Expenses() {
       };
       if (form.category === "Travel") { payload.kms = form.kms ? Number(form.kms) : null; payload.modeOfTransport = form.modeOfTransport || null; }
       if (editingClaim) await expenses.update(editingClaim.id, { ...payload, status: editingClaim.status });
-      else await expenses.create(payload);
+      else await expenses.create(payload, isEmployeeView ? receiptFile : null);
       setForm({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
+      setReceiptFile(null);
       setAddOpen(false);
       setEditingClaim(null);
       eventBus?.emit(SHELL_TOAST_EVENT, {
@@ -288,25 +381,37 @@ export default function Expenses() {
     finally { setSaving(false); }
   };
 
-  const act = async (kind: "approve" | "reject" | "reimburse") => {
+  const act = async (kind: "approve" | "reject" | "reimburse" | "pay") => {
     if (!selected) return;
     setActing(true);
+    setActingKind(kind);
     try {
       if (kind === "approve") await expenses.approve(selected.id);
-      else await expenses.update(selected.id, { status: kind === "reject" ? "Rejected" : "Reimbursed" });
-      setSelected(null);
+      else if (kind === "reimburse") await expenses.reimburse(selected.id);
+      else if (kind === "pay") await expenses.pay(selected.id);
+      else await expenses.update(selected.id, { status: "Rejected" });
+      const nextStatus = kind === "approve"
+        ? "Approved"
+        : kind === "reject"
+          ? "Rejected"
+          : kind === "reimburse"
+            ? "Reimbursed"
+            : "Paid";
+      setSelected((current) => current ? { ...current, status: nextStatus } : current);
       const success = kind === "approve"
         ? { title: "Expense claim approved", message: "The expense claim was approved successfully." }
         : kind === "reject"
           ? { title: "Expense claim declined", message: "The expense claim was declined successfully." }
-          : { title: "Expense reimbursed", message: "The expense claim was marked as reimbursed." };
+          : kind === "reimburse"
+            ? { title: "Expense reimbursed", message: "The expense claim was marked as reimbursed." }
+            : { title: "Expense paid", message: "The expense claim was marked as paid." };
       eventBus?.emit(SHELL_TOAST_EVENT, { intent: "success", ...success });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Action failed.";
       setMsg(message);
       eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Expense action failed", message });
     }
-    finally { setActing(false); }
+    finally { setActing(false); setActingKind(null); }
   };
 
   return (
@@ -338,7 +443,7 @@ export default function Expenses() {
       {/* STAT CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
         <StatCard tag="Pending" label="Pending Clearance" value={formatCurrency(sumPending)} sub={`${pendingCount} requests waiting review`} tone={WARNING} icon={<Clock size={24} />} />
-        <StatCard tag="Settled" label="Approved & Paid" value={formatCurrency(sumSettled)} sub={`From ${scopedExpenses.filter((e) => e.status === "Approved" || e.status === "Reimbursed").length} approved profiles`} tone={SUCCESS} icon={<CheckCircle2 size={24} />} />
+        <StatCard tag="Settled" label="Approved & Paid" value={formatCurrency(sumSettled)} sub={`From ${scopedExpenses.filter((e) => ["Approved", "Reimbursed", "Paid"].includes(e.status || "")).length} approved profiles`} tone={SUCCESS} icon={<CheckCircle2 size={24} />} />
         <StatCard tag="Total Registers" label="Total Ledger Count" value={`${scopedExpenses.length} Claims`} sub="Expense claims logged" tone={TEAL} icon={<Receipt size={24} />} accent />
       </div>
 
@@ -359,8 +464,9 @@ export default function Expenses() {
         </div>
 
         {/* ROW 2: INLINE FILTERS */}
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--border-color)]">
-          <div className="min-w-[150px] sm:min-w-[180px]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] pt-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <div className="min-w-[150px] sm:min-w-[180px]">
             <Select
               id="hr-expenses-filter-category"
               testId="hr-expenses-filter-category"
@@ -375,9 +481,9 @@ export default function Expenses() {
                 { value: "Other", label: "Other" },
               ]}
             />
-          </div>
-          {!isEmployeeView && tab === "ledger" && (
-            <div className="min-w-[150px] sm:min-w-[180px]">
+            </div>
+            {!isEmployeeView && tab === "ledger" && (
+              <div className="min-w-[150px] sm:min-w-[180px]">
               <Select
                 id="hr-expenses-filter-status"
                 testId="hr-expenses-filter-status"
@@ -389,11 +495,13 @@ export default function Expenses() {
                   { value: "Pending", label: "Pending" },
                   { value: "Approved", label: "Approved" },
                   { value: "Reimbursed", label: "Reimbursed" },
+                  { value: "Paid", label: "Paid" },
                   { value: "Rejected", label: "Rejected" },
                 ]}
               />
-            </div>
-          )}
+              </div>
+            )}
+          </div>
           <Button
             type="button"
             id="hr-expenses-filter-button"
@@ -402,21 +510,11 @@ export default function Expenses() {
             icon={<Filter size={16} />}
             aria-label="Open expense claim filters"
             onClick={openFilters}
+            className="ml-auto shrink-0"
           >
             <span className="hidden sm:inline">Filter</span>
             {appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
           </Button>
-          {(categoryFilter !== "all" || statusFilter !== "all" || appliedFilterCount > 0) && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-2 sm:px-3"
-              onClick={clearFilters}
-            >
-              Reset Filters
-            </Button>
-          )}
         </div>
       </div>
 
@@ -429,37 +527,22 @@ export default function Expenses() {
         </div>
       ) : viewMode === "table" ? (
         <div data-testid="hr-expenses-table-panel" style={{ ...card }}>
-          <div style={{ overflowX: "auto" }}>
-          <table id="hr-expenses-table" data-testid="hr-expenses-table" style={{ width: "100%", minWidth: isEmployeeView ? 860 : 980, borderCollapse: "collapse" }}>
-            <thead><tr>
-              {!isEmployeeView && tab === "approvals" && <th style={th}>Claimant Staff</th>}
-              <th style={th}>Submit Date</th><th style={th}>Voucher Category</th><th style={th}>Claim Amount</th><th style={th}>Travel Summary</th><th style={th}>Status</th><th style={{ ...th, textAlign: "right" }}>Action</th>
-            </tr></thead>
-            <tbody>
-              {pagedRows.length === 0 ? (
-                <tr><td colSpan={isEmployeeView ? 6 : 7} style={{ ...tdc, textAlign: "center", ...lbl, padding: "48px 16px" }}>{tab === "approvals" && !isEmployeeView ? "Excellent! No claims awaiting verification." : "No expense claim logs found."}</td></tr>
-              ) : pagedRows.map((e) => (
-                <tr key={e.id} id={`hr-expenses-row-${e.id}`} data-testid={`hr-expenses-row-${e.id}`}>
-                  {!isEmployeeView && tab === "approvals" && <td style={tdc}><div style={{ fontWeight: 800, fontSize: 14 }}>{empName(e.employeeUid)}</div><div style={{ ...lbl, fontSize: 10 }}>ID: {empCode(e.employeeUid)} · {empDept(e.employeeUid)}</div></td>}
-                  <td style={{ ...tdc, fontWeight: 700, fontSize: "var(--text-xs)", color: TEXT_SECONDARY }}>{fmtDate(e.date)}</td>
-                  <td style={tdc}><span style={tag(catStyle(e.category))}>{e.category || "—"}</span></td>
-                  <td style={{ ...tdc, fontWeight: 900, fontSize: "var(--text-sm)" }}>{formatCurrency(e.amount)}</td>
-                  <td style={{ ...tdc, maxWidth: 200 }}>
-                    {e.category === "Travel" && e.kms ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)", fontWeight: 700, color: TEXT_PRIMARY }}><Car size={13} color={INFO} /> {e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</div>
-                    ) : (
-                      <span style={{ fontSize: 13.5, fontStyle: "italic", color: "var(--light-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>“{e.notes || "—"}”</span>
-                    )}
-                  </td>
-                  <td style={tdc}><span style={tag(statStyle(e.status))}>{e.status || "—"}</span></td>
-                  <td style={{ ...tdc, textAlign: "right" }}>
-                    <button id={`hr-expenses-view-${e.id}`} data-testid={`hr-expenses-view-${e.id}`} onClick={() => { setMsg(null); setSelected(e); }} style={secondaryActionButton}><Eye size={14} /> {!isEmployeeView && tab === "approvals" ? "Inspect & Verify" : "View Profile"}</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+          <DataTable
+            data-testid="hr-expenses-table"
+            data={pagedRows}
+            columns={columns}
+            getRowId={(e) => e.id}
+            loading={expenses.loading}
+            className="rounded-none border-0 bg-transparent shadow-none"
+            tableClassName="min-w-[920px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+            emptyState={
+              <EmptyState
+                icon={<Receipt size={36} strokeWidth={1.5} />}
+                title={tab === "approvals" && !isEmployeeView ? "No claims awaiting verification" : "No expense claim logs found"}
+                description="Expense claims matching your filters will appear here."
+              />
+            }
+          />
           <DataTablePagination
             testId="hr-expenses-pagination"
             page={page}
@@ -498,9 +581,6 @@ export default function Expenses() {
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 800, fontSize: "var(--text-sm)", color: TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={empName(e.employeeUid)}>
                             {empName(e.employeeUid)}
-                          </div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_SECONDARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {empCode(e.employeeUid)} · {empDept(e.employeeUid)}
                           </div>
                         </div>
                       </>
@@ -542,16 +622,9 @@ export default function Expenses() {
                   ) : null}
 
                   <div style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY, background: SURFACE_SUBTLE, borderRadius: 8, padding: "9px 12px", border: `1px solid ${BORDER_SUBTLE}`, minHeight: 46, display: "flex", alignItems: "center" }}>
-                    {e.category === "Travel" && e.kms ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: INFO, fontWeight: 700 }}>
-                        <Car size={14} />
-                        <span>{e.kms} KMs {e.modeOfTransport ? `via ${e.modeOfTransport}` : ""}</span>
-                      </div>
-                    ) : (
-                      <span style={{ color: e.notes ? TEXT_PRIMARY : "var(--light-text)", fontStyle: e.notes ? "normal" : "italic", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {e.notes ? `“${e.notes}”` : "No description provided."}
-                      </span>
-                    )}
+                    <span style={{ color: e.notes ? TEXT_PRIMARY : "var(--light-text)", fontStyle: e.notes ? "normal" : "italic", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {e.notes ? `“${e.notes}”` : "No description provided."}
+                    </span>
                   </div>
                 </div>
 
@@ -658,6 +731,19 @@ export default function Expenses() {
               rows={4}
             />
           </div>
+          {isEmployeeView ? (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FileUpload
+                id="hr-expenses-receipt"
+                testId="hr-expenses-receipt"
+                label="Receipt (Optional)"
+                accept="image/*,application/pdf"
+                multiple={false}
+                maxSize={10 * 1024 * 1024}
+                onUpload={(files) => setReceiptFile(files[0] ?? null)}
+              />
+            </div>
+          ) : null}
         </div>
         {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
         <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
@@ -687,12 +773,7 @@ export default function Expenses() {
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Submit Date</span><span style={{ fontSize: 14, fontWeight: 800, display: "block", marginTop: 4 }}>{fmtDate(selected.date)}</span></div>
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}>Status</span><span style={{ display: "block", marginTop: 6 }}><span style={tag(statStyle(selected.status))}>{selected.status}</span></span></div>
               </div>
-              {selected.category === "Travel" && selected.kms != null && (
-                <div style={{ background: "#ecfeff", border: "1px solid #cffafe", borderRadius: 16, padding: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#0e7490", marginBottom: 8 }}><Car size={15} /> Travel / Mileage Profile</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: "var(--dark-text)" }}>{selected.kms} KMs {selected.modeOfTransport ? `· ${selected.modeOfTransport}` : ""}</div>
-                </div>
-              )}
+
               <div style={{ background: "rgba(100,116,139,0.04)", border: "1px solid var(--border-color)", borderRadius: 16, padding: 14 }}>
                 <span style={{ ...lbl, fontSize: 10 }}>Notes / Description</span>
                 <p style={{ fontSize: 15, fontWeight: 600, color: "var(--dark-text)", fontStyle: "italic", margin: "8px 0 0" }}>“{selected.notes || "No description provided."}”</p>
@@ -700,23 +781,25 @@ export default function Expenses() {
               <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}><User size={11} style={{ display: "inline", verticalAlign: "-1px" }} /> Claimant</span><span style={{ fontSize: 14, fontWeight: 800, display: "block", marginTop: 4 }}>{empName(selected.employeeUid)} — {empDept(selected.employeeUid)}</span></div>
 
               {(selected.status === "Pending" || selected.status === "Rejected") && (
-                <Button data-testid={`hr-expenses-edit-${selected.id}`} variant="outline" onClick={() => {
-                  setEditingClaim(selected);
-                  setForm({ employeeUid: selected.employeeUid || "", amount: String(selected.amount ?? ""), category: selected.category || "Food", kms: selected.kms != null ? String(selected.kms) : "", modeOfTransport: selected.modeOfTransport || "", notes: selected.notes || "", date: selected.date || new Date().toISOString().slice(0, 10) });
-                  setSelected(null);
-                  setAddOpen(true);
-                }}>Edit Claim</Button>
-              )}
-
-              {!isEmployeeView && selected.status === "Pending" && (
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, paddingTop: 4 }}>
-                  <button id={`hr-expenses-reject-${selected.id}`} data-testid={`hr-expenses-reject-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reject")} disabled={acting} style={{ height: 40, padding: "0 18px", borderRadius: 12, border: "none", background: DANGER, color: TEXT_INVERSE, fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>Decline</button>
-                  <button id={`hr-expenses-approve-${selected.id}`} data-testid={`hr-expenses-approve-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("approve")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: TEXT_INVERSE, fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Approve Claim</button>
+                <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
+                  <Button className="!w-auto" data-testid={`hr-expenses-edit-${selected.id}`} variant="outline" onClick={() => {
+                    setEditingClaim(selected);
+                    setForm({ employeeUid: selected.employeeUid || "", amount: String(selected.amount ?? ""), category: selected.category || "Food", kms: selected.kms != null ? String(selected.kms) : "", modeOfTransport: selected.modeOfTransport || "", notes: selected.notes || "", date: selected.date || new Date().toISOString().slice(0, 10) });
+                    setSelected(null);
+                    setAddOpen(true);
+                  }}>Edit Claim</Button>
+                  {!isEmployeeView && selected.status === "Pending" ? (
+                    <>
+                      <Button id={`hr-expenses-reject-${selected.id}`} data-testid={`hr-expenses-reject-${selected.id}`} data-state={actingKind === "reject" ? "acting" : "idle"} variant="danger" onClick={() => act("reject")} disabled={acting} loading={actingKind === "reject"}>Decline</Button>
+                      <Button id={`hr-expenses-approve-${selected.id}`} data-testid={`hr-expenses-approve-${selected.id}`} data-state={actingKind === "approve" ? "acting" : "idle"} variant="primary" onClick={() => act("approve")} disabled={acting} loading={actingKind === "approve"}>Approve Claim</Button>
+                    </>
+                  ) : null}
                 </div>
               )}
-              {!isEmployeeView && selected.status === "Approved" && (
-                <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
-                  <button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={acting ? "acting" : "idle"} onClick={() => act("reimburse")} disabled={acting} style={{ height: 40, padding: "0 22px", borderRadius: 12, border: "none", background: TEAL, color: TEXT_INVERSE, fontWeight: 900, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{acting && <Loader2 size={14} className="animate-spin" />} Mark Reimbursed</button>
+              {!isEmployeeView && selected.status?.toLowerCase() === "approved" && (
+                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
+                  <Button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={actingKind === "reimburse" ? "acting" : "idle"} variant="outline" onClick={() => act("reimburse")} disabled={acting} loading={actingKind === "reimburse"}>Mark as Reimbursed</Button>
+                  <Button id={`hr-expenses-pay-${selected.id}`} data-testid={`hr-expenses-pay-${selected.id}`} data-state={actingKind === "pay" ? "acting" : "idle"} variant="primary" onClick={() => act("pay")} disabled={acting} loading={actingKind === "pay"}>Mark as Paid</Button>
                 </div>
               )}
               {msg && <div style={errorBar}>{msg}</div>}

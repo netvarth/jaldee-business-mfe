@@ -7,7 +7,7 @@ import {
   buildDefaultSearchClauses,
   compactSearchClauses,
 } from "@jaldee/shared-modules";
-import type { SearchFilterClause } from "@jaldee/shared-modules";
+import type { SearchFilterClause, SearchSchema, SearchSchemaField } from "@jaldee/shared-modules";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { Download, Filter, LayoutGrid, MapPin, Plus, Table as Rows3, Search, ToggleLeft, ToggleRight, Upload, UploadCloud } from "lucide-react";
@@ -19,6 +19,48 @@ import type { Employee } from "../../types";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
 
 type ViewMode = "table" | "cards";
+
+const EMPLOYEE_MASTER_FILTERS: Array<{
+  label: string;
+  names: string[];
+}> = [
+  { label: "Role", names: ["role", "roleName", "systemRole"] },
+  { label: "Department", names: ["department", "hrDepartment", "departmentName"] },
+  { label: "Name", names: ["name", "employeeName", "fullName"] },
+  { label: "Designation", names: ["designation", "designationName"] },
+  { label: "Employee Code", names: ["employeeCode", "employeeId", "code"] },
+  { label: "Email", names: ["email", "emailAddress"] },
+  { label: "Contact Number", names: ["contactNumber", "phoneNumber", "mobileNumber", "phone"] },
+  { label: "DOJ", names: ["doj", "dateOfJoining", "joiningDate"] },
+  { label: "DOB", names: ["dob", "dateOfBirth", "birthDate"] },
+];
+
+function normalizeFilterName(value?: string): string {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function employeeMasterFilterSchema(schema: SearchSchema | null): SearchSchema | null {
+  if (!schema) return null;
+
+  const remaining = [...schema.fields];
+  const fields = EMPLOYEE_MASTER_FILTERS.flatMap(({ label, names }) => {
+    const allowedNames = new Set(names.map(normalizeFilterName));
+    const index = remaining.findIndex((field) => {
+      const candidates = [field.key, field.name, field.label, ...(field.aliases || [])];
+      return candidates.some((candidate) => allowedNames.has(normalizeFilterName(candidate)));
+    });
+    if (index < 0) return [];
+
+    const [field] = remaining.splice(index, 1);
+    return [{
+      ...field,
+      label,
+      ...(label === "Contact Number" ? { inputType: "phone" } : {}),
+    } satisfies SearchSchemaField];
+  });
+
+  return { ...schema, fields };
+}
 
 function initials(name?: string): string {
   if (!name) return "?";
@@ -53,7 +95,11 @@ export default function EmployeeMaster() {
     ],
     [sortDir, sortKey],
   );
-  const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
+  const { schema: fullEmployeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
+  const employeeSearchSchema = useMemo(
+    () => employeeMasterFilterSchema(fullEmployeeSearchSchema),
+    [fullEmployeeSearchSchema],
+  );
   const employeeFilters = useMemo<SearchFilterClause[]>(() => [
     ...advancedFilters,
     ...(debouncedSearchTerm

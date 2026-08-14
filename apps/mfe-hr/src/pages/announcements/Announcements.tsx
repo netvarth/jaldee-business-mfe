@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical, Download } from "lucide-react";
-import { EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection, Drawer } from "@jaldee/design-system";
+import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical, Download, LayoutGrid, Table as Rows3 } from "lucide-react";
+import { Badge, Button, DataTable, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Popover, PopoverSection, Drawer, type ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -62,7 +62,22 @@ export default function Announcements() {
   const uploadAttachment = useHrAttachmentUpload();
   const [msg, setMsg] = useState<string | null>(null);
   const { data: employees } = useEmployees({ enabled: !isEmployeeView && Boolean(tracking) });
-  const { schema: announcementSearchSchema, loading: schemaLoading } = useAnnouncementSearchSchema();
+  const { schema: rawAnnouncementSearchSchema, loading: schemaLoading } = useAnnouncementSearchSchema();
+  const announcementSearchSchema = useMemo(() => {
+    if (!rawAnnouncementSearchSchema) return null;
+    const ORDER = ["type", "startdate", "title", "status"];
+    const fieldMap = new Map(
+      rawAnnouncementSearchSchema.fields.map((f) => [
+        (f.name || f.key || f.label || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        f,
+      ])
+    );
+    const orderedFields = ORDER.map((key) => fieldMap.get(key)).filter((f): f is NonNullable<typeof f> => Boolean(f));
+    return {
+      ...rawAnnouncementSearchSchema,
+      fields: orderedFields.length > 0 ? orderedFields : rawAnnouncementSearchSchema.fields,
+    };
+  }, [rawAnnouncementSearchSchema]);
 
   const ann = useAnnouncements(
     advancedFilters,
@@ -108,14 +123,90 @@ export default function Announcements() {
     }
   }, [ann.error, eventBus]);
 
-  const empMap = useMemo(() => new Map(employees.map((e) => [e.id, e] as const)), [employees]);
-
   const items = useMemo(() => {
     const q = search.toLowerCase();
     return ann.data
       .filter((a) => !q || (a.title || "").toLowerCase().includes(q) || (a.description || "").toLowerCase().includes(q) || (a.type || "").toLowerCase().includes(q))
       .slice().sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
   }, [ann.data, search]);
+
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
+  const columns = useMemo<ColumnDef<Announcement>[]>(() => [
+    {
+      key: "type",
+      header: "Type",
+      width: "14%",
+      render: (a) => (
+        <span style={{ borderRadius: 999, padding: "4px 14px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: typeColor(a.type), display: "inline-block" }}>
+          {a.type || "General"}
+        </span>
+      ),
+    },
+    {
+      key: "startDate",
+      header: "Start Date",
+      width: "16%",
+      render: (a) => (
+        <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+          {formatDate(a.startDate) || "Recently"}
+        </span>
+      ),
+    },
+    {
+      key: "title",
+      header: "Title",
+      width: "42%",
+      render: (a) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 font-bold text-sm text-[var(--color-text-primary)]">
+            {a.isPinned && <Pin size={14} color={TEAL} fill={TEAL} className="shrink-0" />}
+            <span className="truncate">{a.title}</span>
+          </div>
+          {a.description && <div className="mt-0.5 text-xs text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      width: "14%",
+      render: (a) => (
+        <span style={{ borderRadius: 999, padding: "4px 14px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: a.status === "Disabled" ? "#374151" : "#065f46", background: a.status === "Disabled" ? "#f3f4f6" : "#d1fae5", display: "inline-block" }}>
+          {a.status || "Enabled"}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      width: "14%",
+      align: "right",
+      render: (a) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {a.attachments?.length ? (
+            <Button variant="outline" size="sm" icon={<Paperclip size={14} />} onClick={() => setAttachmentView(a)}>
+              {a.attachments.length}
+            </Button>
+          ) : null}
+          {!isEmployeeLogin ? (
+            <Button variant="outline" size="sm" onClick={() => handleToggleStatus(a.id, a.status || "Enabled")}>
+              {a.status === "Disabled" ? "Enable" : "Disable"}
+            </Button>
+          ) : (
+            <Button
+              variant={a.isAcknowledged ? "ghost" : "primary"}
+              size="sm"
+              disabled={a.isAcknowledged}
+              onClick={() => handleAcknowledge(a.id)}
+            >
+              {a.isAcknowledged ? "Acknowledged" : "Acknowledge"}
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ], [isEmployeeLogin]);
 
   const toLocalISOString = (date: Date): string => {
     const tzOffset = -date.getTimezoneOffset();
@@ -261,11 +352,47 @@ export default function Announcements() {
           >
             Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
           </Button>
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+            <button
+              type="button"
+              aria-label="Table view"
+              onClick={() => setViewMode("table")}
+              className={`rounded-lg p-2 transition-colors ${viewMode === "table" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              <Rows3 size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Card view"
+              onClick={() => setViewMode("cards")}
+              className={`rounded-lg p-2 transition-colors ${viewMode === "cards" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              <LayoutGrid size={16} />
+            </button>
+          </div>
         </div>
 
-
-
-        {/* FEED */}
+        {/* FEED / TABLE */}
+        {viewMode === "table" ? (
+          <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] shadow-sm overflow-hidden" data-testid="hr-announcements-table-container">
+            <DataTable
+              data-testid="hr-announcements-table"
+              data={items}
+              columns={columns}
+              getRowId={(a) => a.id}
+              loading={ann.loading}
+              className="rounded-none border-0 bg-transparent shadow-none"
+              tableClassName="min-w-[800px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[60px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+              emptyState={
+                <EmptyState
+                  icon={<Megaphone size={36} strokeWidth={1.5} />}
+                  title="No announcements yet"
+                  description="Official updates, policy releases, and company news will appear here."
+                />
+              }
+            />
+          </div>
+        ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 24 }}>
           {ann.loading ? (
             <>
@@ -289,11 +416,10 @@ export default function Announcements() {
                 <div style={{ width: 8, background: color, flexShrink: 0 }} />
                 <div style={{ flex: 1, padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative" }}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10, paddingRight: 32 }}>
+                    <div style={{ display: "flex", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10, paddingRight: 32 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
                         {a.isPinned && <div style={{ background: "rgba(17,94,89,0.1)", padding: 8, borderRadius: 12, display: "flex" }}><Pin size={16} color={TEAL} fill={TEAL} /></div>}
                         <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: color }}>{a.type || "General"}</span>
-                        <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: a.status === "Disabled" ? "#374151" : "#065f46", background: a.status === "Disabled" ? "#f3f4f6" : "#d1fae5" }}>{a.status || "Enabled"}</span>
                         <span style={{ ...lbl, display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={12} /> {formatDate(a.startDate) || "Recently"}</span>
                       </div>
                     </div>
@@ -325,7 +451,10 @@ export default function Announcements() {
                         </Popover>
                       </div>
                     ) : null}
-                    <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 16px" }}>{a.title}</h2>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+                      <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>{a.title}</h2>
+                      <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: a.status === "Disabled" ? "#374151" : "#065f46", background: a.status === "Disabled" ? "#f3f4f6" : "#d1fae5", flexShrink: 0 }}>{a.status || "Enabled"}</span>
+                    </div>
                     <p style={{ fontSize: 15, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
                     {a.attachments?.length ? (
                       <Button
@@ -377,6 +506,7 @@ export default function Announcements() {
             );
           })}
         </div>
+        )}
       </div>
 
       <Dialog

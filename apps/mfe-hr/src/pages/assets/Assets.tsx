@@ -244,43 +244,52 @@ export default function Assets() {
   const columns = useMemo<ColumnDef<Asset>[]>(() => [
     {
       key: "name",
-      header: "Asset",
-      width: "22%",
+      header: "Name",
+      width: "16%",
       render: (asset) => (
-        <div className="min-w-0">
-          <div className="truncate font-semibold text-[var(--color-text-primary)]">{asset.name || "-"}</div>
-          <div className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">
-            {asset.assetType || "Other"}{asset.assetValue != null ? ` | Rs${asset.assetValue}` : ""}
-          </div>
-        </div>
+        <div className="min-w-0 font-semibold text-[var(--color-text-primary)] truncate">{asset.name || "-"}</div>
+      ),
+    },
+    {
+      key: "serialNumber",
+      header: "Serial Number",
+      width: "14%",
+      render: (asset) => (
+        <div className="min-w-0 text-sm font-medium text-[var(--color-text-primary)] truncate">{asset.serialNumber || "-"}</div>
+      ),
+    },
+    {
+      key: "assetType",
+      header: "Assets Type",
+      width: "12%",
+      render: (asset) => (
+        <div className="min-w-0 text-sm text-[var(--color-text-primary)] truncate">{asset.assetType || "Other"}</div>
+      ),
+    },
+    {
+      key: "ownerDepartment",
+      header: "Department",
+      width: "14%",
+      render: (asset) => (
+        <div className="min-w-0 text-sm font-medium text-[var(--color-text-primary)] truncate">{asset.ownerDepartment || "-"}</div>
       ),
     },
     {
       key: "tagNumber",
-      header: "Tag / Serial",
-      width: "15%",
+      header: "Tag Number",
+      width: "12%",
       render: (asset) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium text-[var(--color-text-primary)]">{asset.tagNumber || "-"}</div>
-          <div className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">{asset.serialNumber || "-"}</div>
-        </div>
+        <div className="min-w-0 text-sm font-medium text-[var(--color-text-primary)] truncate">{asset.tagNumber || "-"}</div>
       ),
     },
     {
-      key: "status",
-      header: "Status",
-      width: "11%",
-      render: (asset) => <Badge variant={getStatusBadgeVariant(asset.status)}>{asset.status || "-"}</Badge>,
-    },
-    {
       key: "holder",
-      header: "Holder",
-      width: "16%",
+      header: "Holder Name",
+      width: "14%",
       render: (asset) => (
         asset.holderEmployeeName ? (
           <div className="min-w-0">
             <div className="truncate font-medium text-[var(--color-text-primary)]">{asset.holderEmployeeName}</div>
-            <div className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">Since {asset.issuedOn || "-"}</div>
           </div>
         ) : (
           <span className="text-sm text-[var(--color-text-secondary)]">-</span>
@@ -288,16 +297,10 @@ export default function Assets() {
       ),
     },
     {
-      key: "ownerDepartment",
-      header: "Dept / Accounts Ref",
-      width: "20%",
-      className: "overflow-hidden",
-      render: (asset) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium text-[var(--color-text-primary)]">{asset.ownerDepartment || "-"}</div>
-          <div className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">{asset.accountsRef || "-"}</div>
-        </div>
-      ),
+      key: "status",
+      header: "Status",
+      width: "10%",
+      render: (asset) => <Badge variant={getStatusBadgeVariant(asset.status)}>{asset.status || "-"}</Badge>,
     },
     {
       key: "actions",
@@ -482,11 +485,11 @@ export default function Assets() {
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3">
-                  <CardDetail label="Tag Number" value={asset.tagNumber} />
                   <CardDetail label="Serial Number" value={asset.serialNumber} />
-                  <CardDetail label="Holder" value={asset.holderEmployeeName} subValue={asset.holderEmployeeName ? `Since ${asset.issuedOn || "-"}` : undefined} />
+                  <CardDetail label="Assets Type" value={asset.assetType || "Other"} />
                   <CardDetail label="Department" value={asset.ownerDepartment} />
-                  <CardDetail label="Accounts Ref" value={asset.accountsRef} />
+                  <CardDetail label="Tag Number" value={asset.tagNumber} />
+                  <CardDetail label="Holder Name" value={asset.holderEmployeeName} />
                 </div>
                 {asset.status === "Available" ? (
                   <div className="mt-5 border-t border-[color:color-mix(in_srgb,var(--color-border)_65%,white)] pt-4">
