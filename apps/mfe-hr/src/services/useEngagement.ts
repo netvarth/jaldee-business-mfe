@@ -7,7 +7,7 @@ import { useHrApi } from "../services/useHrApi";
 export interface Announcement {
   id: string; uid?: string; title?: string; description?: string; type?: string;
   startDate?: string; endDate?: string; isPinned?: boolean; acknowledgedBy?: string[];
-  status?: string; isAcknowledged?: boolean; attachments?: TicketAttachment[];
+  status?: string; isAcknowledged?: boolean; attachments?: (TicketAttachment | string)[];
 }
 export interface TicketResponse { message?: string; respondedBy?: string; respondedAt?: string; }
 export interface TicketAttachment {
@@ -18,7 +18,7 @@ export interface Ticket {
   id: string; uid?: string; employeeUid?: string; title?: string; category?: string;
   description?: string; department?: string; hrDepartmentUid?: string; status?: string; createdAtTs?: string;
   createdBy?: string; createdByName?: string; fileUrl?: string;
-  attachments?: TicketAttachment[];
+  attachments?: (TicketAttachment | string)[];
   responses?: TicketResponse[];
 }
 

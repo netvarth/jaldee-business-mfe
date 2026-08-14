@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import type { ProductKey } from "@jaldee/auth-context";
 import IconRail from "./IconRail";
@@ -21,6 +21,7 @@ export default function ShellLayout({ children }: Props) {
   const activeProduct = useShellStore((s) => s.activeProduct);
   const setActiveProduct = useShellStore((s) => s.setActiveProduct);
   const [collapseSubmenuAfterSelection, setCollapseSubmenuAfterSelection] = useState(false);
+  const shellContentRef = useRef<HTMLDivElement>(null);
   const isSmallScreen = useIsSmallScreen();
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const navigationOpen = isSmallScreen ? sidebarVisible : true;
@@ -54,6 +55,20 @@ export default function ShellLayout({ children }: Props) {
   useEffect(() => {
     telemetryService.trackPageView(location.pathname + location.search);
   }, [location.pathname, location.search]);
+
+  useLayoutEffect(() => {
+    if (!location.pathname.startsWith("/finance")) return;
+    const shellContent = shellContentRef.current;
+    if (!shellContent) return;
+
+    // The Booking calendar temporarily owns these inline styles for its
+    // full-height grid. Clear any leaked values before Finance is painted so
+    // the shell's normal vertical scrolling is restored.
+    shellContent.style.removeProperty("overflow-y");
+    shellContent.style.removeProperty("overflow-x");
+    shellContent.style.removeProperty("display");
+    shellContent.scrollTop = 0;
+  }, [location.pathname]);
 
   function handleMenuToggle() {
     setCollapseSubmenuAfterSelection(false);
@@ -113,7 +128,7 @@ export default function ShellLayout({ children }: Props) {
           onMenuToggle={handleMenuToggle}
         />
         <div className="shell-body">
-          <div data-testid="shell-content" className="shell-content">
+          <div ref={shellContentRef} data-testid="shell-content" className="shell-content">
             {children}
           </div>
         </div>

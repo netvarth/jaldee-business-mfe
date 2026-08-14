@@ -736,7 +736,8 @@ export default function Tickets() {
                     {(liveSelected.attachments?.length
                       ? liveSelected.attachments
                       : [{ fileName: "Ticket attachment", filePath: liveSelected.fileUrl }]
-                    ).map((ticketAttachment, index) => {
+                    ).map((item, index) => {
+                      const ticketAttachment = typeof item === "string" ? { filePath: item } : item;
                       const href = ticketAttachment.filePath || ticketAttachment.shortUrl || ticketAttachment.url;
                       const fileName = ticketAttachment.fileName || `Attachment ${index + 1}`;
                       const content = (
@@ -755,6 +756,7 @@ export default function Tickets() {
                           style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12, color: TEAL, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
                         >
                           {content}
+                          <span style={{ marginLeft: "auto", flexShrink: 0 }}>View</span>
                         </a>
                       ) : (
                         <div key={ticketAttachment.fileUid || `${fileName}-${index}`} data-testid={`hr-ticket-attachment-${liveSelected.id}-${index}`} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12, color: "var(--light-text)", fontSize: 13, fontWeight: 700 }}>

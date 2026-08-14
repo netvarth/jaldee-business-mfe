@@ -48,6 +48,7 @@ export default function Announcements() {
   const { trackEvent, captureError } = useTelemetry();
   const isEmployeeLogin = isEmployeeView;
   const [tracking, setTracking] = useState<Announcement | null>(null);
+  const [attachmentView, setAttachmentView] = useState<Announcement | null>(null);
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -325,6 +326,19 @@ export default function Announcements() {
                     ) : null}
                     <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: "0 0 16px" }}>{a.title}</h2>
                     <p style={{ fontSize: 15, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
+                    {a.attachments?.length ? (
+                      <Button
+                        type="button"
+                        id={`hr-announcement-attachments-${a.id}`}
+                        data-testid={`hr-announcement-attachments-${a.id}`}
+                        variant="outline"
+                        size="sm"
+                        icon={<Paperclip size={15} />}
+                        onClick={() => setAttachmentView(a)}
+                      >
+                        View Attachments ({a.attachments.length})
+                      </Button>
+                    ) : null}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 24, paddingTop: 28, borderTop: "1px solid var(--border-color)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -363,6 +377,37 @@ export default function Announcements() {
           })}
         </div>
       </div>
+
+      <Dialog
+        open={!!attachmentView}
+        onClose={() => setAttachmentView(null)}
+        testId="hr-announcements-attachments-modal"
+        title="Announcement Attachments"
+        description={attachmentView?.title}
+        contentClassName="max-w-[560px]"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {attachmentView?.attachments?.map((item, index) => {
+            const attachmentItem = typeof item === "string" ? { filePath: item } : item;
+            const href = attachmentItem.filePath || attachmentItem.shortUrl || attachmentItem.url;
+            const fileName = attachmentItem.fileName || `Attachment ${index + 1}`;
+            return (
+              <div key={attachmentItem.fileUid || `${fileName}-${index}`} data-testid={`hr-announcement-attachment-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid var(--border-color)", borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <Paperclip size={16} style={{ flexShrink: 0, color: TEAL }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fileName}</div>
+                    <div style={{ fontSize: 12, color: "var(--light-text)" }}>{attachmentItem.fileType || "Attachment"}</div>
+                  </div>
+                </div>
+                <Button type="button" variant="outline" size="sm" disabled={!href} onClick={() => href && window.open(href, "_blank", "noopener,noreferrer")}>
+                  View
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </Dialog>
 
 
       {/* CREATE MODAL */}
