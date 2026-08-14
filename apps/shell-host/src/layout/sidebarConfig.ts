@@ -175,7 +175,7 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
   ],
   bookings: [
     { id: "bookings-dashboard", label: "Dashboard", icon: sidebarIcon(Grid2X2), path: "/bookings/dashboard" },
-    { id: "bookings-calendar", label: "Calendar", icon: sidebarIcon(Calendar), path: "/bookings" },
+    { id: "bookings-calendar", label: "Bookings", icon: sidebarIcon(Calendar), path: "/bookings" },
     { id: "bookings-calendars", label: "Calendars", icon: sidebarIcon(Calendar), path: "/bookings/calendars" },
     { id: "bookings-services", label: "Services", icon: sidebarIcon(Wrench), path: "/bookings/services" },
     { id: "bookings-customers", label: "Customers", icon: sidebarIcon(Users), path: "/bookings/customers" },
