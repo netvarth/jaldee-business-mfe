@@ -144,7 +144,9 @@ function validateOutcomes(condition: ConditionDef | undefined, outcomes: PolicyO
 export default function PolicyRules() {
   const [domain, setDomain] = useState<PolicyDomain>("ATTENDANCE");
   const [editing, setEditing] = useState<PolicyRule | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [viewMode, setViewMode] = useState<"table" | "card">(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? "card" : "table"
+  );
   const { data, loading, error, save, setActive, remove } = usePolicyRules(domain);
   const departments = useDepartments();
   const designations = useDesignations();

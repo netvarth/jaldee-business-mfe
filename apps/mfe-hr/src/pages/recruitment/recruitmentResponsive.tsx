@@ -96,7 +96,7 @@ export function RecruitmentMobileCard({
             <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
               {row.label}
             </span>
-            <div className={`${compact ? "text-left" : "text-right"} text-sm font-medium text-[var(--color-text-primary)]`}>
+            <div className={`${compact ? "text-left" : "text-right"} min-w-0 text-sm font-medium text-[var(--color-text-primary)]`}>
               {row.value}
             </div>
           </div>

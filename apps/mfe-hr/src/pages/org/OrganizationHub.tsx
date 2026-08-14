@@ -1051,9 +1051,11 @@ export default function OrgStructure() {
                 <p style={{ ...lbl, marginTop: 2 }}>Office locations from the base organization setup</p>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", minHeight: 44 }}>
-              {!isMobile ? <ViewToggle value={areaManagersView} onChange={setAreaManagersView} scope="hr-org-branches-view" /> : null}
-            </div>
+            {!isMobile ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", minHeight: 44 }}>
+                <ViewToggle value={areaManagersView} onChange={setAreaManagersView} scope="hr-org-branches-view" />
+              </div>
+            ) : null}
           </div>
           {branchesAdmin.readOnlyNote ? (
             <div style={{ marginBottom: 14, padding: "11px 14px", borderRadius: 12, background: "rgba(17,94,89,0.06)", border: "1px solid rgba(17,94,89,0.14)", color: TEAL, fontSize: 12.5 }}>
@@ -1062,7 +1064,7 @@ export default function OrgStructure() {
           ) : null}
           {branchesAdmin.error && <ErrBar text={branchesAdmin.error} />}
           {areaMgrs.error && <ErrBar text={areaMgrs.error} />}
-          <SectionCard className="overflow-hidden border-slate-200 shadow-sm" padding={false}>
+          <SectionCard className={isMobile && areaManagersView === "cards" ? "overflow-visible border-0 bg-transparent shadow-none" : "overflow-hidden border-slate-200 shadow-sm"} padding={false}>
             {branchesAdmin.loading || areaMgrs.loading ? (
               <div style={{ padding: 40, textAlign: "center" }}><Loader2 size={18} className="animate-spin" style={{ display: "inline" }} /></div>
             ) : areaManagersView === "table" ? (
@@ -1184,7 +1186,7 @@ export default function OrgStructure() {
                 </table>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 p-4 max-[767px]:p-0 xl:grid-cols-2">
                 {branches.length === 0 ? (
                   <div style={{ gridColumn: "1 / -1" }}>
                     <OrgEmptyState

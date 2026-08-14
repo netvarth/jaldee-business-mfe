@@ -45,7 +45,12 @@ export default function EmployeeMaster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const employeeSort = useMemo(
-    () => sortKey ? [{ field: sortKey === "department" ? "hrDepartment" : sortKey, direction: sortDir.toUpperCase() }] : undefined,
+    () => [
+      { field: "status", direction: "ASC" },
+      ...(sortKey && sortKey !== "status"
+        ? [{ field: sortKey === "department" ? "hrDepartment" : sortKey, direction: sortDir.toUpperCase() }]
+        : []),
+    ],
     [sortDir, sortKey],
   );
   const { schema: employeeSearchSchema, loading: schemaLoading } = useEmployeeSearchSchema();
@@ -360,12 +365,11 @@ export default function EmployeeMaster() {
             >
               New Employee
             </Button>
-            <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         }
       />
       <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
-      <div className="flex flex-col gap-3 border-b border-[var(--color-border)] p-4 sm:flex-row sm:items-center">
+      <div className="employee-master-list-toolbar flex gap-2 border-b border-[var(--color-border)] p-4 sm:items-center">
         <Input
           id="hr-employees-search"
           data-testid="hr-employees-search"
@@ -373,19 +377,22 @@ export default function EmployeeMaster() {
           onChange={(event) => setSearchTerm(event.target.value)}
           placeholder="Search employees by name"
           icon={<Search size={16} />}
-          containerClassName="w-full sm:max-w-md"
+          containerClassName="min-w-0 flex-1 sm:max-w-md"
         />
-        <Button
-          id="hr-employees-filter-button"
-          data-testid="hr-employees-filter-button"
-          type="button"
-          variant={appliedFilterCount ? "primary" : "outline"}
-          icon={<Filter size={16} />}
-          onClick={openFilters}
-          disabled={schemaLoading}
-        >
-          Filters{appliedFilterCount ? ` (${appliedFilterCount})` : ""}
-        </Button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Button
+            id="hr-employees-filter-button"
+            data-testid="hr-employees-filter-button"
+            type="button"
+            variant={appliedFilterCount ? "primary" : "outline"}
+            icon={<Filter size={16} />}
+            onClick={openFilters}
+            disabled={schemaLoading}
+          >
+            <span className="employee-master-filter-label">Filters</span>{appliedFilterCount ? ` (${appliedFilterCount})` : ""}
+          </Button>
+          <EmployeeViewToggle value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
       <div data-testid="hr-employees-table-container">
         {viewMode === "table" ? (

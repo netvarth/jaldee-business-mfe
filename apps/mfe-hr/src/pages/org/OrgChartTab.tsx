@@ -90,7 +90,7 @@ function NodeRow({ node, depth, q, expanded, toggle, onOpen }: {
   const isMatch = q ? matches(e, q) : false;
 
   return (
-    <div>
+    <div className={directs > 0 ? "org-chart-node-group" : undefined}>
       <div className="org-chart-node-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginLeft: depth * 26, borderRadius: 14, border: `1px solid ${isMatch ? "rgba(17,94,89,0.4)" : "var(--border-color)"}`, background: isMatch ? "rgba(17,94,89,0.05)" : "var(--surface-bg)", marginBottom: 8 }}>
         <button
           onClick={() => directs && toggle(e.id)}
@@ -116,17 +116,24 @@ function NodeRow({ node, depth, q, expanded, toggle, onOpen }: {
           </div>
         </button>
         {directs > 0 && (
+          <>
+          <span className="org-chart-node-break" aria-hidden="true" />
           <span className="org-chart-node-badge" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 800, color: TEAL, background: "rgba(17,94,89,0.06)", border: "1px solid rgba(17,94,89,0.15)", borderRadius: 999, padding: "3px 10px", flexShrink: 0 }}>
             <Users2 size={11} /> {directs} direct · {countDescendants(node)} total
           </span>
+          </>
         )}
         {e.hierarchyLevel != null && (
           <span className="org-chart-node-level" style={{ ...lbl, flexShrink: 0, border: "1px solid var(--border-color)", borderRadius: 8, padding: "3px 8px" }}>L{e.hierarchyLevel}</span>
         )}
       </div>
-      {isOpen && node.children.map((c) => (
-        <NodeRow key={c.emp.id} node={c} depth={depth + 1} q={q} expanded={expanded} toggle={toggle} onOpen={onOpen} />
-      ))}
+      {isOpen && (
+        <div className="org-chart-node-children">
+          {node.children.map((c) => (
+            <NodeRow key={c.emp.id} node={c} depth={depth + 1} q={q} expanded={expanded} toggle={toggle} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -173,7 +180,7 @@ export default function OrgChartTab() {
         </div>
       </div>
 
-      <div style={{ ...card, padding: 20 }}>
+      <div className="org-chart-tree" style={{ ...card, padding: 20 }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "60px 0", color: "var(--light-text)" }}>
             <Loader2 size={18} className="animate-spin" /> <span style={lbl}>Loading employees…</span>

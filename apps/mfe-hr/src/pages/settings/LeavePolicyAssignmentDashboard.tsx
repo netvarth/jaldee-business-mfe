@@ -41,7 +41,10 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
   const [assigning, setAssigning] = useState(false);
   const [policyView, setPolicyView] = useState<"table" | "cards">(() => {
     if (typeof window === "undefined") return "table";
-    return window.localStorage.getItem("hr-settings-leave-policy-view") === "cards" ? "cards" : "table";
+    if (window.matchMedia("(max-width: 767px)").matches) return "cards";
+    const savedView = window.localStorage.getItem("hr-settings-leave-policy-view");
+    if (savedView === "cards" || savedView === "table") return savedView;
+    return "table";
   });
 
   const changePolicyView = (nextView: "table" | "cards") => {
@@ -235,7 +238,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
             <h3 style={{ fontSize: 16, fontWeight: 900, color: "var(--dark-text)", margin: 0 }}>Leave Type Configuration</h3>
             <p style={{ ...lbl, marginTop: 4 }}>Policy builder for quotas, accrual and calendar styling</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+          <div className="leave-policy-header-actions" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
             <Button id="hr-settings-leave-policy-create" data-testid="hr-settings-leave-policy-create" variant="primary" icon={<Plus size={16} />} onClick={openCreatePolicy}>Create New Leave Type</Button>
             <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
               <button type="button" id="hr-settings-leave-policy-view-table" data-testid="hr-settings-leave-policy-view-table" data-active={policyView === "table"} aria-label="Table view" title="Table view" onClick={() => changePolicyView("table")} style={viewButton(policyView === "table")}><Rows3 size={14} /></button>

@@ -315,6 +315,8 @@ export default function Payroll() {
   const [componentsView, setComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
   const [structuresView, setStructuresView] = useState<ViewMode>(() => getPreferredViewMode());
   const [builderComponentsView, setBuilderComponentsView] = useState<ViewMode>(() => getPreferredViewMode());
+  const [employeesView, setEmployeesView] = useState<ViewMode>(() => getPreferredViewMode());
+  const [payslipsView, setPayslipsView] = useState<ViewMode>(() => getPreferredViewMode());
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [employeeDepartmentFilter, setEmployeeDepartmentFilter] = useState("all");
   const [employeeStatusFilter, setEmployeeStatusFilter] = useState("all");
@@ -412,6 +414,8 @@ export default function Payroll() {
       setComponentsView(next);
       setStructuresView(next);
       setBuilderComponentsView(next);
+      setEmployeesView(next);
+      setPayslipsView(next);
     };
     syncViewModes();
     media.addEventListener("change", syncViewModes);
@@ -1496,28 +1500,46 @@ export default function Payroll() {
             </Panel>
           </div>
         ) : (
-          <Panel title={`Employee Payroll List (${filteredEmployees.length})`}>
+          <Panel
+            title={`Employee Payroll List (${filteredEmployees.length})`}
+            action={<ViewToggle value={employeesView} onChange={setEmployeesView} scope="hr-payroll-employees-view" />}
+          >
             <div style={{ display: "grid", gap: 16 }}>
               <DataTableToolbar
                 query={employeeQuery}
                 onQueryChange={setEmployeeQuery}
                 searchPlaceholder="Search employee, email, ID, department"
               />
-              <DataTable
-                data-testid="hr-payroll-employees-table"
-                data={filteredEmployees}
-                columns={employeeColumns}
-                getRowId={(employee) => employee.id}
-                loading={employeesLoading}
-                className="rounded-none border-0 shadow-none"
-                tableClassName="min-w-[860px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
-                emptyState={
-                  <EmptyState
-                    title="No employees found"
-                    description="Adjust the search or filters, or add employees for payroll assignment."
-                  />
-                }
-              />
+              {employeesView === "table" ? (
+                <DataTable
+                  data-testid="hr-payroll-employees-table"
+                  data={filteredEmployees}
+                  columns={employeeColumns}
+                  getRowId={(employee) => employee.id}
+                  loading={employeesLoading}
+                  className="rounded-none border-0 shadow-none"
+                  tableClassName="min-w-[860px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:min-h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+                  emptyState={<EmptyState title="No employees found" description="Adjust the search or filters, or add employees for payroll assignment." />}
+                />
+              ) : (
+                <CardCollection
+                  emptyTitle="No employees found"
+                  emptyDescription="Adjust the search or filters, or add employees for payroll assignment."
+                  items={filteredEmployees.map((employee) => (
+                    <InfoCard
+                      key={employee.id}
+                      title={employee.name || "-"}
+                      subtitle={employee.employeeId || employee.email || "-"}
+                      rows={[
+                        { label: "Department", value: employee.department || "-" },
+                        { label: "Designation", value: employee.designation || "-" },
+                        { label: "Structure", value: employeeHasAssignedStructure(employee) ? "Assigned" : "Not assigned" },
+                      ]}
+                      actions={<Button variant={employeeHasAssignedStructure(employee) ? "outline" : "primary"} size="sm" onClick={() => openEmployeeAssignment(employee.id)}>{employeeHasAssignedStructure(employee) ? "Edit Structure" : "Assign Structure"}</Button>}
+                    />
+                  ))}
+                />
+              )}
             </div>
           </Panel>
         )
@@ -1545,9 +1567,9 @@ export default function Payroll() {
             </div>
           </Panel>
 
-          <Panel title="Generated Payslips">
+          <Panel title="Generated Payslips" action={<ViewToggle value={payslipsView} onChange={setPayslipsView} scope="hr-payroll-payslips-view" />}>
             {payslips.loading ? <SkeletonTable rows={5} columns={6} /> : (
-              <Table
+              payslipsView === "table" ? <Table
                 headers={["Employee", "Month", "Gross", "Deductions", "Net", "Status", "Action"]}
                 empty={payslips.data.length === 0 ? "No generated payslips found." : null}
               >
@@ -1575,7 +1597,26 @@ export default function Payroll() {
                     </td>
                   </tr>
                 ))}
-              </Table>
+              </Table> : (
+                <CardCollection
+                  emptyTitle="No generated payslips found"
+                  emptyDescription="Process payroll to generate employee payslips."
+                  items={payslips.data.map((payslip) => (
+                    <InfoCard
+                      key={payslip.id}
+                      title={payslip.employeeName || employeeName(payslip.employeeUid)}
+                      subtitle={payslip.monthStr || payslip.month || "-"}
+                      rows={[
+                        { label: "Gross", value: money(payslip.grossPay) },
+                        { label: "Deductions", value: money(payslip.totalDeductions) },
+                        { label: "Net Pay", value: money(payslip.netPay) },
+                        { label: "Status", value: payslip.status || "-" },
+                      ]}
+                      actions={<Button variant="outline" size="sm" onClick={() => { setViewSlip(payslip); navigate(`/payroll/payslips/${payslip.uid || payslip.id}`); }}>View</Button>}
+                    />
+                  ))}
+                />
+              )
             )}
           </Panel>
         </div>

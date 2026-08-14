@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X } from "lucide-react";
+import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X, Download } from "lucide-react";
 import { Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
@@ -131,6 +131,7 @@ export default function Tickets() {
   const [addOpen, setAddOpen] = useState(false);
   const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [selected, setSelected] = useState<Ticket | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ href: string; fileName: string } | null>(null);
   const [closeTarget, setCloseTarget] = useState<Ticket | null>(null);
   const [form, setForm] = useState({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "", hrDepartmentUid: "" });
   const { data: departments } = useDepartments();
@@ -740,6 +741,8 @@ export default function Tickets() {
                       const ticketAttachment = typeof item === "string" ? { filePath: item } : item;
                       const href = ticketAttachment.filePath || ticketAttachment.shortUrl || ticketAttachment.url;
                       const fileName = ticketAttachment.fileName || `Attachment ${index + 1}`;
+                      const fileType = String("fileType" in ticketAttachment ? ticketAttachment.fileType || "" : "").toLowerCase();
+                      const isImage = fileType.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fileName);
                       const content = (
                         <>
                           <Paperclip size={16} style={{ flexShrink: 0 }} />
@@ -753,10 +756,16 @@ export default function Tickets() {
                           href={href}
                           target="_blank"
                           rel="noreferrer"
-                          style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12, color: TEAL, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                          onClick={isImage ? (event) => { event.preventDefault(); setAttachmentPreview({ href, fileName }); } : undefined}
+                          style={{ display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid var(--border-color)", borderRadius: 12, color: TEAL, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
                         >
-                          {content}
-                          <span style={{ marginLeft: "auto", flexShrink: 0 }}>View</span>
+                          {isImage ? (
+                            <img src={href} alt={fileName} loading="lazy" style={{ display: "block", width: "100%", maxHeight: 220, objectFit: "contain", background: "rgba(100,116,139,0.04)", borderBottom: "1px solid var(--border-color)" }} />
+                          ) : null}
+                          <span style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "10px 12px" }}>
+                            {content}
+                            <span style={{ marginLeft: "auto", flexShrink: 0 }}>{isImage ? "Preview" : "View"}</span>
+                          </span>
                         </a>
                       ) : (
                         <div key={ticketAttachment.fileUid || `${fileName}-${index}`} data-testid={`hr-ticket-attachment-${liveSelected.id}-${index}`} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12, color: "var(--light-text)", fontSize: 13, fontWeight: 700 }}>
@@ -800,6 +809,27 @@ export default function Tickets() {
             {msg && <div style={{ margin: "0 24px 16px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
           </>
         )}
+      </Dialog>
+
+      <Dialog
+        open={!!attachmentPreview}
+        onClose={() => setAttachmentPreview(null)}
+        title={attachmentPreview?.fileName || "Attachment preview"}
+        testId="hr-ticket-attachment-preview"
+        contentClassName="max-w-4xl p-0 overflow-hidden"
+      >
+        {attachmentPreview ? (
+          <div className="flex max-h-[78vh] flex-col">
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[rgba(15,23,42,0.04)] p-4">
+              <img src={attachmentPreview.href} alt={attachmentPreview.fileName} className="max-h-[62vh] max-w-full object-contain" />
+            </div>
+            <div className="flex items-center justify-end border-t border-[var(--border-color)] bg-[var(--surface-bg)] p-4">
+              <a href={attachmentPreview.href} download={attachmentPreview.fileName} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--primary-color)] px-4 text-sm font-bold text-white no-underline">
+                <Download size={16} /> Download
+              </a>
+            </div>
+          </div>
+        ) : null}
       </Dialog>
     </section>
   );

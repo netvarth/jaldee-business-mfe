@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { Button, Combobox, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -278,31 +278,19 @@ export default function Leave() {
   }), [employees, search]);
 
   const pendingCards = pendingLeaves.map((l) => (
-    <RecruitmentMobileCard
-      key={l.id}
-      title={empName(l.employeeUid)}
-      compact
-      rows={[
-        { label: "Department", value: empDept(l.employeeUid) },
-        { label: "Leave Type", value: l.leaveTypeName || l.type },
-        { label: "Period", value: `${formatLeaveDate(l.startDate)} to ${formatLeaveDate(l.endDate)}` },
-        { label: "Days", value: `${calcDays(l.startDate, l.endDate, l.isHalfDay)}d` },
-        { label: "Reason", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
-      ]}
-      footer={
-        <Button
-          id={`hr-leave-pending-inspect-${l.id}`}
-          data-testid={`hr-leave-pending-inspect-${l.id}`}
-          variant="outline"
-          size="sm"
-          icon={<Eye size={14} />}
-          onClick={() => { setSelected(l); setRemarks(""); }}
-          className="!h-8 !rounded-xl !border-[rgba(17,94,89,0.18)] !bg-[rgba(17,94,89,0.05)] !px-3 !text-xs !font-bold !leading-none !text-[var(--color-primary)]"
-        >
-          Review
-        </Button>
-      }
-    />
+    <article key={l.id} className="grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+      <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{empName(l.employeeUid)}</div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+        <div className="min-w-0"><div style={lbl}>Department</div><div className="mt-1 truncate text-sm font-medium">{empDept(l.employeeUid)}</div></div>
+        <div className="min-w-0"><div style={lbl}>Days</div><div className="mt-1 text-sm font-semibold">{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</div></div>
+        <div className="min-w-0"><div style={lbl}>Leave Type</div><div className="mt-1 text-sm font-medium leading-5">{l.leaveTypeName || l.type}</div></div>
+        <div className="min-w-0"><div style={lbl}>Period</div><div className="mt-1 text-xs font-medium leading-5">{formatLeaveDate(l.startDate)} to {formatLeaveDate(l.endDate)}</div></div>
+      </div>
+      <div className="flex min-w-0 items-center gap-3 border-t border-[var(--border-color)] pt-3">
+        <div className="min-w-0 flex-1 whitespace-normal break-words text-xs italic leading-5 text-[var(--light-text)]">{l.reason || "No reason provided"}</div>
+        <Button id={`hr-leave-pending-inspect-${l.id}`} data-testid={`hr-leave-pending-inspect-${l.id}`} variant="outline" size="sm" icon={<Eye size={14} />} onClick={() => { setSelected(l); setRemarks(""); }} className="!h-8 shrink-0 !rounded-xl !border-[rgba(17,94,89,0.18)] !bg-[rgba(17,94,89,0.05)] !px-3 !text-xs !font-bold !leading-none !text-[var(--color-primary)]">Review</Button>
+      </div>
+    </article>
   ));
 
   return (
@@ -322,9 +310,9 @@ export default function Leave() {
       />
 
       {/* PILL TABS */}
-      <div className="flex w-full flex-wrap gap-2 md:inline-flex" style={{ background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 12, marginBottom: 28 }}>
+      <div className="grid w-full grid-cols-3 gap-1 md:inline-flex md:w-auto" style={{ background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 12, marginBottom: 28 }}>
         {LEAVE_ROUTES.map((t) => (
-          <button className="w-full md:w-auto" id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => navigate(`/leave/${t.route}`)} style={{ padding: "8px 20px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
+          <button className="min-w-0 px-2 py-2 md:px-5" id={`hr-leave-tab-${t.key}`} data-testid={`hr-leave-tab-${t.key}`} data-active={tab === t.key ? "true" : "false"} key={t.key} onClick={() => navigate(`/leave/${t.route}`)} style={{ minHeight: 42, borderRadius: 10, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 800, lineHeight: 1.2, letterSpacing: "0.04em", textAlign: "center", textTransform: "uppercase", whiteSpace: "normal", background: tab === t.key ? "white" : "transparent", color: tab === t.key ? "var(--dark-text)" : "var(--light-text)", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{t.label}</button>
         ))}
       </div>
 
@@ -391,8 +379,8 @@ export default function Leave() {
           </div>
 
           {/* pending approvals */}
-          <div style={{ ...card }}>
-            <div className="flex flex-wrap items-center justify-between gap-4" style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
+          <div style={viewMode === "cards" ? { background: "transparent" } : { ...card }}>
+            <div className="flex flex-wrap items-center justify-between gap-4" style={{ padding: viewMode === "cards" ? "8px 0 14px" : "20px 24px", borderBottom: viewMode === "cards" ? "none" : "1px solid var(--border-color)" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Pending Absence Requests</div>
                 <div style={{ ...lbl, marginTop: 2 }}>Staff submissions requiring immediate clearance</div>
@@ -423,7 +411,7 @@ export default function Leave() {
               </tbody>
             </table>
             ) : (
-              <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {pendingCards.length > 0 ? pendingCards : <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>Excellent! No pending absence application logs found.</div>}
               </div>
             )}
@@ -447,12 +435,18 @@ export default function Leave() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL }}>Overall Leave Left status for each employee</div>
               <div style={{ ...lbl, marginTop: 2 }}>Remaining balances computed from approved ledger history</div>
             </div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-              <div style={{ position: "relative", width: 300, maxWidth: "100%" }}>
-                <Search size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--light-text)" }} />
-                <input id="hr-leave-balance-search" data-testid="hr-leave-balance-search" placeholder="Search employee or department…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...field, height: 40, borderRadius: 999, paddingLeft: 38, fontWeight: 600, fontSize: 12.5 }} />
-              </div>
-              <div className="flex justify-end">
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
+              <Input
+                id="hr-leave-balance-search"
+                data-testid="hr-leave-balance-search"
+                placeholder="Search employee or department..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                icon={<Search size={16} />}
+                containerClassName="min-w-0 flex-1 sm:w-[300px] sm:flex-none"
+                className="h-10 rounded-full text-xs font-semibold"
+              />
+              <div className="flex shrink-0 justify-end">
                 <RecruitmentViewToggle value={viewMode} onChange={setViewMode} tableTestId="hr-leave-balances-table-view" cardsTestId="hr-leave-balances-card-view" />
               </div>
             </div>
@@ -558,8 +552,8 @@ export default function Leave() {
                         <div style={{ ...lbl, fontSize: 8 }}>{employeeBalances.length > 0 ? `of ${activeTotalQuota}` : "Not assigned"}</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {balanceTypes.map((q) => {
+                    {employeeBalances.length > 0 ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {balanceTypes.filter((q) => balFor(emp.id, q.type, q.uid).length > 0).map((q) => {
                         const balancesList = balFor(emp.id, q.type, q.uid);
                         const activeList = balancesList.filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE");
                         const avl = activeList.reduce((s, b) => s + (b.available ?? 0), 0);
@@ -590,7 +584,7 @@ export default function Leave() {
                           </div>
                         );
                       })}
-                    </div>
+                    </div> : null}
                   </div>
                 );
                 return (
@@ -641,13 +635,13 @@ export default function Leave() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--dark-text)" }}>Global Leave Register History</div>
               <div style={{ ...lbl, marginTop: 2 }}>Master record ledger of all submissions</div>
             </div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
               <Select
                 id="hr-leave-status-filter"
                 testId="hr-leave-status-filter"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                containerClassName="w-full sm:w-[170px]"
+                containerClassName="min-w-0 flex-1 sm:w-[170px] sm:flex-none"
                 fullWidth={false}
                 options={[
                   { value: "all", label: "All Status" },
@@ -656,7 +650,7 @@ export default function Leave() {
                   { value: "rejected", label: "Rejected" },
                 ]}
               />
-              <div className="flex justify-end">
+              <div className="flex shrink-0 justify-end">
                 <RecruitmentViewToggle value={viewMode} onChange={setViewMode} tableTestId="hr-leave-ledger-table-view" cardsTestId="hr-leave-ledger-card-view" />
               </div>
             </div>
@@ -689,30 +683,36 @@ export default function Leave() {
               {ledgerRows.length === 0 ? (
                 <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>No records in the ledger.</div>
               ) : ledgerRows.map((l) => (
-                <RecruitmentMobileCard
-                  key={l.id}
-                  title={empName(l.employeeUid)}
-                  compact
-                  rows={[
-                    { label: "Employee ID", value: empCode(l.employeeUid) },
-                    { label: "Category", value: l.leaveTypeName || l.type },
-                    { label: "Duration", value: `${formatLeaveDate(l.startDate)} to ${formatLeaveDate(l.endDate)}` },
-                    { label: "Days", value: `${calcDays(l.startDate, l.endDate, l.isHalfDay)}d` },
-                    { label: "Statement", value: <span style={{ color: "var(--light-text)", fontStyle: "italic" }}>{l.reason}</span> },
-                    { label: "Status", value: <span style={pill(l.status)}>{l.status}</span> },
-                  ]}
-                  footer={
-                    <button
-                      id={`hr-leave-ledger-inspect-${l.id}`}
-                      data-testid={`hr-leave-ledger-inspect-${l.id}`}
-                      onClick={() => { setSelected(l); setRemarks(""); }}
-                      title="Inspect"
-                      style={{ height: 32, padding: "0 14px", borderRadius: 12, background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.12)", color: TEAL, fontWeight: 800, fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
-                    >
-                      <Eye size={14} /> Inspect
+                <div key={l.id} className="grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{empName(l.employeeUid)}</div>
+                    <span className="shrink-0" style={pill(l.status)}>{l.status}</span>
+                  </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2">
+                    <div className="min-w-0">
+                      <div style={lbl}>Employee ID</div>
+                      <div className="mt-1 truncate text-sm font-semibold text-[var(--dark-text)]">{empCode(l.employeeUid)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div style={lbl}>Days</div>
+                      <div className="mt-1 text-sm font-semibold text-[var(--dark-text)]">{calcDays(l.startDate, l.endDate, l.isHalfDay)}d</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div style={lbl}>Category</div>
+                      <div className="mt-1 overflow-hidden text-sm font-medium leading-5 text-[var(--dark-text)]" style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}>{l.leaveTypeName || l.type}</div>
+                    </div>
+                    <div className="text-right">
+                      <div style={lbl}>Duration</div>
+                      <div className="mt-1 whitespace-nowrap text-xs font-medium text-[var(--dark-text)]">{formatLeaveDate(l.startDate)} – {formatLeaveDate(l.endDate)}</div>
+                    </div>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-3 border-t border-[var(--border-color)] pt-3">
+                    <div className="min-w-0 flex-1 whitespace-normal break-words text-xs italic leading-5 text-[var(--light-text)]">{l.reason || "No statement"}</div>
+                    <button id={`hr-leave-ledger-inspect-${l.id}`} data-testid={`hr-leave-ledger-inspect-${l.id}`} onClick={() => { setSelected(l); setRemarks(""); }} title="View" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(17,94,89,0.12)] bg-[rgba(17,94,89,0.05)] px-3 text-[9px] font-extrabold uppercase tracking-[0.06em] text-[var(--primary-color)]">
+                      <Eye size={13} /> View
                     </button>
-                  }
-                />
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -860,41 +860,31 @@ export default function Leave() {
                 <div style={infoBox}><span style={{ ...lbl, fontSize: 8 }}>Department</span><span style={{ fontSize: 13, fontWeight: 800, color: "var(--dark-text)", display: "block", marginTop: 4 }}>{empDept(selected.employeeUid)}</span></div>
               </div>
               <div style={{ background: "rgba(59,130,246,0.04)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: 20, padding: 18 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 10, borderBottom: "1px solid rgba(59,130,246,0.1)", marginBottom: 12 }}><Calendar size={16} color="#2563eb" /><span style={{ ...lbl, color: "#1e40af" }}>Duration Range Profile</span></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 10, borderBottom: "1px solid rgba(59,130,246,0.1)", marginBottom: 12 }}><Calendar size={16} color="#2563eb" /><span style={{ ...lbl, color: "#1e40af" }}>Leave Period</span></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div><span style={{ ...lbl, fontSize: 8, color: "#2563eb" }}>Period</span><div style={{ fontSize: 13, fontWeight: 800, color: TEAL, marginTop: 2 }}>{formatLeaveDate(selected.startDate)} to {formatLeaveDate(selected.endDate)}</div></div>
                   <div><span style={{ ...lbl, fontSize: 8, color: "#2563eb" }}>Requested</span><div><span style={{ background: TEAL, color: "white", fontWeight: 900, fontSize: 12, padding: "3px 12px", borderRadius: 999, display: "inline-block", marginTop: 2 }}>{calcDays(selected.startDate, selected.endDate, selected.isHalfDay)} Days</span></div></div>
                 </div>
               </div>
-              <div>
+              {balanceTypes.some((q) => balFor(selected.employeeUid || "", q.type, q.uid).length > 0) ? <div>
                 <span style={{ ...lbl, marginBottom: 8, display: "block" }}>Applicant Remaining Balance</span>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-                  {balanceTypes.map((q) => {
+                  {balanceTypes.filter((q) => balFor(selected.employeeUid || "", q.type, q.uid).length > 0).map((q) => {
                     const isReq = q.type.toLowerCase() === (selected.leaveTypeName || selected.type || "").toLowerCase();
                     const balancesList = balFor(selected.employeeUid || "", q.type, q.uid);
-                    const hasBalance = balancesList.length > 0;
                     const activeList = balancesList.filter((b) => (b.status || "ACTIVE").toUpperCase() === "ACTIVE");
                     const avl = activeList.reduce((s, b) => s + (b.available ?? 0), 0);
                     const status = activeList.length > 0 ? "ACTIVE" : (balancesList[0]?.status || "EXPIRED").toUpperCase();
                     return (
                       <div key={q.type} style={{ padding: 10, borderRadius: 12, textAlign: "center", opacity: status === "ACTIVE" ? 1 : 0.55, background: isReq ? "rgba(17,94,89,0.08)" : "rgba(100,116,139,0.04)", border: isReq ? "1px solid rgba(17,94,89,0.3)" : "1px solid var(--border-color)" }}>
                         <span style={{ ...lbl, fontSize: 7.5, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.type}</span>
-                        {hasBalance ? (
-                          <>
-                            <span style={{ fontSize: 13, fontWeight: 900, color: isReq ? TEAL : "var(--dark-text)", display: "block", marginTop: 2 }}>{avl} avl</span>
-                            <span style={{ ...balanceStatusPill(status), display: "inline-block", marginTop: 5, padding: "1px 5px", borderRadius: 6, fontSize: 7.5, fontWeight: 800 }}>{status}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span style={{ fontSize: 13, fontWeight: 900, color: "var(--light-text)", display: "block", marginTop: 2 }}>N/A</span>
-                            <span style={{ ...lbl, fontSize: 7.5, display: "block", marginTop: 5, textTransform: "none", letterSpacing: 0 }}>Not assigned</span>
-                          </>
-                        )}
+                        <span style={{ fontSize: 13, fontWeight: 900, color: isReq ? TEAL : "var(--dark-text)", display: "block", marginTop: 2 }}>{avl} avl</span>
+                        <span style={{ ...balanceStatusPill(status), display: "inline-block", marginTop: 5, padding: "1px 5px", borderRadius: 6, fontSize: 7.5, fontWeight: 800 }}>{status}</span>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              </div> : null}
               <div style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 16, padding: 14 }}>
                 <span style={{ ...lbl, fontSize: 8, color: "#b45309" }}>Leave Reason Statement</span>
                 <p style={{ fontSize: 14, fontWeight: 700, color: "var(--dark-text)", fontStyle: "italic", margin: "8px 0 0", padding: 12, background: "rgba(255,255,255,0.7)", borderRadius: 12 }}>“{selected.reason}”</p>

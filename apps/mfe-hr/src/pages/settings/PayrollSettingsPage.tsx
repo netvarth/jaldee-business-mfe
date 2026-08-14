@@ -136,7 +136,9 @@ function SalaryStructuresManager() {
   const [baseComponentCode, setBaseComponentCode] = useState("");
   const [savingMapping, setSavingMapping] = useState(false);
 
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [viewMode, setViewMode] = useState<"table" | "card">(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? "card" : "table"
+  );
 
   const openCreateStructure = () => {
     setEditingStructure(null);

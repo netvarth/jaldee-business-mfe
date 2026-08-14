@@ -130,7 +130,7 @@ function resolveCurrentPosition() {
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          reject(new Error("Location permission is required to clock in."));
+          reject(new Error("Location permission is required to punch in or out."));
           return;
         }
         reject(new Error("Unable to fetch the current location."));
@@ -332,7 +332,17 @@ export default function Attendance() {
     setBusy(true); setMsg(null);
     try {
       if (clockedIn && open) {
-        await selectedEmployeeAttendance.punchOut(open.id, selectedLocationUid || activeLocation?.id);
+        const currentPosition = await resolveCurrentPosition();
+        const locationUid = selectedLocationUid || activeLocation?.id || "";
+        const selectedBranch = branches.data.find((branch) => branch.id === locationUid);
+        await selectedEmployeeAttendance.punchOut(open.id, {
+          locationUid,
+          punchOutLocation: {
+            latitude: currentPosition.latitude,
+            longitude: currentPosition.longitude,
+            address: selectedBranch?.address || "",
+          },
+        });
         await attendance.reload();
         setMsg("Clocked out.");
       } else {

@@ -53,7 +53,9 @@ export default function ShiftsManager() {
 
 function ShiftsTab() {
   const { data, loading, error, create, update, remove } = useShifts();
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [viewMode, setViewMode] = useState<"table" | "card">(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? "card" : "table"
+  );
   const [editing, setEditing] = useState<Partial<Shift> | null>(null);
   const [assigning, setAssigning] = useState<Shift | null>(null);
 

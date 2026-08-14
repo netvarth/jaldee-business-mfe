@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical } from "lucide-react";
+import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical, Download } from "lucide-react";
 import { EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Button, Popover, PopoverSection, Drawer } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
@@ -49,6 +49,7 @@ export default function Announcements() {
   const isEmployeeLogin = isEmployeeView;
   const [tracking, setTracking] = useState<Announcement | null>(null);
   const [attachmentView, setAttachmentView] = useState<Announcement | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ href: string; fileName: string } | null>(null);
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
   const [draftFilters, setDraftFilters] = useState<SearchFilterClause[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -391,22 +392,55 @@ export default function Announcements() {
             const attachmentItem = typeof item === "string" ? { filePath: item } : item;
             const href = attachmentItem.filePath || attachmentItem.shortUrl || attachmentItem.url;
             const fileName = attachmentItem.fileName || `Attachment ${index + 1}`;
+            const fileType = String("fileType" in attachmentItem ? attachmentItem.fileType || "" : "").toLowerCase();
+            const isImage = fileType.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fileName);
             return (
               <div key={attachmentItem.fileUid || `${fileName}-${index}`} data-testid={`hr-announcement-attachment-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid var(--border-color)", borderRadius: 10, padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                  <Paperclip size={16} style={{ flexShrink: 0, color: TEAL }} />
+                  {isImage && href ? (
+                    <button type="button" onClick={() => setAttachmentPreview({ href, fileName })} aria-label={`Preview ${fileName}`} style={{ width: 44, height: 44, padding: 0, overflow: "hidden", flexShrink: 0, border: "1px solid var(--border-color)", borderRadius: 9, background: "rgba(100,116,139,0.04)", cursor: "pointer" }}>
+                      <img src={href} alt="" loading="lazy" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+                    </button>
+                  ) : (
+                    <span style={{ width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderRadius: 9, background: "rgba(17,94,89,0.06)", color: TEAL }}><Paperclip size={17} /></span>
+                  )}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dark-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fileName}</div>
                     <div style={{ fontSize: 12, color: "var(--light-text)" }}>{attachmentItem.fileType || "Attachment"}</div>
                   </div>
                 </div>
-                <Button type="button" variant="outline" size="sm" disabled={!href} onClick={() => href && window.open(href, "_blank", "noopener,noreferrer")}>
+                <Button type="button" variant="outline" size="sm" disabled={!href} onClick={() => {
+                  if (!href) return;
+                  if (isImage) setAttachmentPreview({ href, fileName });
+                  else window.open(href, "_blank", "noopener,noreferrer");
+                }}>
                   View
                 </Button>
               </div>
             );
           })}
         </div>
+      </Dialog>
+
+      <Dialog
+        open={!!attachmentPreview}
+        onClose={() => setAttachmentPreview(null)}
+        title={attachmentPreview?.fileName || "Attachment preview"}
+        testId="hr-announcement-attachment-preview"
+        contentClassName="max-w-4xl p-0 overflow-hidden"
+      >
+        {attachmentPreview ? (
+          <div className="flex max-h-[78vh] flex-col">
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[rgba(15,23,42,0.04)] p-4">
+              <img src={attachmentPreview.href} alt={attachmentPreview.fileName} className="max-h-[62vh] max-w-full object-contain" />
+            </div>
+            <div className="flex items-center justify-end border-t border-[var(--border-color)] bg-[var(--surface-bg)] p-4">
+              <a href={attachmentPreview.href} download={attachmentPreview.fileName} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--primary-color)] px-4 text-sm font-bold text-white no-underline">
+                <Download size={16} /> Download
+              </a>
+            </div>
+          </div>
+        ) : null}
       </Dialog>
 
 

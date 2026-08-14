@@ -1123,7 +1123,7 @@ export default function EmployeeDetails() {
               onOpenChange={setEmployeeMoreOpen}
               placement="top"
               align="end"
-              contentClassName="!w-48 !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 overflow-hidden !z-[9999]"
+              contentClassName="!w-48 !max-h-[min(60vh,20rem)] !overflow-y-auto !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 !z-[9999]"
               trigger={
                 <button
                   type="button"
@@ -1206,7 +1206,7 @@ export default function EmployeeDetails() {
                   </div>
                 </Panel>
                 <Panel icon={<CreditCard size={20} />} title="Bank & Salary Details" sub="Registered account and salary structure for monthly pay disbursements" full>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 24 }}>
+                  <div className="employee-details-bank-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 24 }}>
                     <Field k="Bank Name" v={employee.bankDetails?.bankName} /><Field k="Account Number" v={employee.bankDetails?.accountNumber} mono />
                     <Field k="IFSC Code" v={employee.bankDetails?.ifscCode} mono />
                     <Field k="Basic Salary" v={legacySalary.basic != null ? formatCurrency(legacySalary.basic) : undefined} />

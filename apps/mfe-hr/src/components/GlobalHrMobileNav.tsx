@@ -33,7 +33,7 @@ const MORE_NAV_ITEMS = [
   { key: "settings", route: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
-const DEDICATED_MOBILE_NAV_PATHS = ["/recruitment", "/org"];
+const DEDICATED_MOBILE_NAV_PATHS = ["/recruitment", "/org", "/settings"];
 
 export function GlobalHrMobileNav() {
   const location = useLocation();

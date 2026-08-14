@@ -39,9 +39,10 @@ type ViewMode = "table" | "cards";
 
 function initialViewMode(): ViewMode {
   if (typeof window === "undefined") return "table";
+  if (window.matchMedia("(max-width: 767px)").matches) return "cards";
   const saved = window.localStorage.getItem("hr-separation-view");
   if (saved === "table" || saved === "cards") return saved;
-  return window.matchMedia("(max-width: 767px)").matches ? "cards" : "table";
+  return "table";
 }
 
 function StatusPill({ s }: { s?: string }) {
@@ -135,16 +136,19 @@ export default function Separation() {
 
   return (
     <section id="hr-separation-page" data-testid="hr-separation-page" className="page-section active hr-page-shell">
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
-        <PageHeader title="Separation" subtitle="Resignations, terminations, notice & clearance" />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginLeft: "auto" }}>
+      <PageHeader
+        title="Separation"
+        subtitle="Resignations, terminations, notice & clearance"
+        actions={
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginLeft: "auto" }}>
           <div data-view-toggle="table-card" data-view-mode={viewMode} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
             <button type="button" id="hr-separation-view-table" data-testid="hr-separation-view-table" aria-label="Table view" title="Table view" onClick={() => setViewMode("table")} style={{ display: "inline-flex", flex: "0 0 32px", width: 32, height: 32, padding: 0, alignItems: "center", justifyContent: "center", borderRadius: 6, border: "none", cursor: "pointer", background: viewMode === "table" ? TEAL : "transparent", color: viewMode === "table" ? "white" : "var(--light-text)", transition: "background-color 0.15s, color 0.15s" }}><Rows3 size={16} strokeWidth={2} /></button>
             <button type="button" id="hr-separation-view-cards" data-testid="hr-separation-view-cards" aria-label="Card view" title="Card view" onClick={() => setViewMode("cards")} style={{ display: "inline-flex", flex: "0 0 32px", width: 32, height: 32, padding: 0, alignItems: "center", justifyContent: "center", borderRadius: 6, border: "none", cursor: "pointer", background: viewMode === "cards" ? TEAL : "transparent", color: viewMode === "cards" ? "white" : "var(--light-text)", transition: "background-color 0.15s, color 0.15s" }}><LayoutGrid size={16} strokeWidth={2} /></button>
           </div>
           <Button id="hr-separation-raise-open" data-testid="hr-separation-raise-open" className="!h-10" onClick={() => { setMsg(null); setRaiseOpen(true); }} icon={<Plus size={16} />}>Raise Exit Request</Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {exits.error && (
         <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 14, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
@@ -152,7 +156,7 @@ export default function Separation() {
         </div>
       )}
 
-      <div style={card}>
+      <div style={viewMode === "cards" ? { background: "transparent" } : card}>
         {exits.loading ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--light-text)" }}><Loader2 size={20} className="animate-spin" style={{ display: "inline" }} /></div>
         ) : exits.data.length === 0 ? (
@@ -203,7 +207,7 @@ export default function Separation() {
           </table>}
           </>
         ) : (
-          <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {exits.data.map((e) => (
               <article key={e.id} data-testid={`hr-separation-card-${e.id}`} className="rounded-2xl border border-[var(--border-color)] bg-[var(--surface-bg)] p-4">
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>

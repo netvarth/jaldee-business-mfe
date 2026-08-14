@@ -639,13 +639,12 @@
 
 @media (max-width: 767px) {
     .employee-details-panel {
-        padding: 18px !important;
+        padding: 14px !important;
     }
 
     .employee-details-panel-header {
-        flex-direction: column;
-        align-items: stretch !important;
-        gap: 14px;
+        margin-bottom: 14px !important;
+        gap: 10px;
     }
 
     .employee-details-panel-action {
@@ -825,7 +824,27 @@
     }
 
     .employee-details-two-col {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px 12px !important;
+    }
+
+    .employee-details-bank-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px 12px !important;
+    }
+
+    .employee-details-overview-grid {
+        gap: 12px !important;
+    }
+
+    .employee-details-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px !important;
+    }
+
+    .employee-details-stats > * {
+        padding: 12px !important;
+        border-radius: 12px !important;
     }
 
     .employee-details-desktop-table {
@@ -878,7 +897,7 @@
 
 @media (max-width: 520px) {
     .employee-details-stats {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .employee-details-mobile-list {
@@ -955,7 +974,17 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        background: color-mix(in srgb, currentColor 11%, transparent);
     }
+
+    .employee-details-bottom-nav > :nth-child(1) .employee-details-bottom-nav__icon { color: #0f766e; }
+    .employee-details-bottom-nav > :nth-child(2) .employee-details-bottom-nav__icon { color: #2563eb; }
+    .employee-details-bottom-nav > :nth-child(3) .employee-details-bottom-nav__icon { color: #7c3aed; }
+    .employee-details-bottom-nav > :nth-child(4) .employee-details-bottom-nav__icon { color: #ea580c; }
+    .employee-details-bottom-nav > :nth-child(5) .employee-details-bottom-nav__icon { color: #db2777; }
 
     .employee-details-bottom-nav__label {
         display: block;
