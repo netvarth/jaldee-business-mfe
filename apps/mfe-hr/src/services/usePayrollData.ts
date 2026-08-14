@@ -3,7 +3,7 @@ import { HR_SERVICE_API_ROOT, useHrApi } from "./useHrApi";
 
 const PAYROLL_ROOT = `${HR_SERVICE_API_ROOT}/tenant/payroll`;
 
-export type ComponentType = "EARNING" | "DEDUCTION" | "EMPLOYER_CONTRIBUTION" | "MEMO";
+export type ComponentType = "EARNING" | "DEDUCTION" | "EMPLOYER_CONTRIBUTION";
 export type ComponentCategory =
   | "OVERTIME"
   | "ADVANCE"

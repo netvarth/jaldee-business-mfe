@@ -61,7 +61,7 @@ const PAYROLL_ROUTES: Array<{ key: Tab; route: string; label: string; Icon: Luci
   { key: "payslips", route: "payslips", label: "Payslips", Icon: ReceiptText },
 ];
 
-const COMPONENT_TYPES: ComponentType[] = ["EARNING", "DEDUCTION", "EMPLOYER_CONTRIBUTION", "MEMO"];
+const COMPONENT_TYPES: ComponentType[] = ["EARNING", "DEDUCTION", "EMPLOYER_CONTRIBUTION"];
 const CATEGORIES: ComponentCategory[] = [
   "BASIC",
   "HRA",

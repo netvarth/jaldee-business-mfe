@@ -155,7 +155,7 @@ export default function Announcements() {
             return d;
           })();
 
-      const attachmentUrls = await Promise.all(attachments.map((file) => uploadAttachment(file, "ANNOUNCEMENT")));
+      const uploadedAttachments = await Promise.all(attachments.map((file) => uploadAttachment(file, "ANNOUNCEMENT")));
       await ann.create({
         title: form.title,
         description: form.description,
@@ -165,7 +165,7 @@ export default function Announcements() {
         endDate: toLocalISOString(end),
         isPinned: form.isPinned,
         acknowledgedBy: [],
-        attachments: attachmentUrls,
+        attachments: uploadedAttachments.map((uploaded) => uploaded.url),
       });
       trackEvent("hr.announcement.created", {
         type: form.type,

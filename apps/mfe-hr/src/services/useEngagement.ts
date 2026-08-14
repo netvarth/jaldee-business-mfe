@@ -10,10 +10,15 @@ export interface Announcement {
   status?: string; isAcknowledged?: boolean;
 }
 export interface TicketResponse { message?: string; respondedBy?: string; respondedAt?: string; }
+export interface TicketAttachment {
+  fileUid?: string; fileName?: string; fileType?: string; fileSize?: number;
+  filePath?: string; shortUrl?: string; url?: string; jaldeeDriveId?: string;
+}
 export interface Ticket {
   id: string; uid?: string; employeeUid?: string; title?: string; category?: string;
   description?: string; department?: string; hrDepartmentUid?: string; status?: string; createdAtTs?: string;
   createdBy?: string; createdByName?: string; fileUrl?: string;
+  attachments?: TicketAttachment[];
   responses?: TicketResponse[];
 }
 

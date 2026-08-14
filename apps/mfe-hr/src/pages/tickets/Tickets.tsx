@@ -203,7 +203,7 @@ export default function Tickets() {
     setSaving(true);
     setMsg(null);
     try {
-      const fileUrl = attachment ? await uploadAttachment(attachment, "TICKET") : null;
+      const uploadedFile = attachment ? await uploadAttachment(attachment, "HELPDESK") : null;
       await tickets.create({
         employeeUid,
         title: form.title,
@@ -211,7 +211,8 @@ export default function Tickets() {
         priority: form.priority,
         description: form.description,
         hrDepartmentUid: form.hrDepartmentUid || null,
-        fileUrl,
+        fileUrl: uploadedFile?.url ?? null,
+        attachments: uploadedFile ? [uploadedFile.attachment] : [],
         status: "Open",
         responses: [],
       });
@@ -726,6 +727,44 @@ export default function Tickets() {
                 <span style={{ ...lbl, fontSize: 9 }}>Issue Description</span>
                 <p style={{ fontSize: 14.5, fontWeight: 500, color: "var(--dark-text)", lineHeight: 1.5, margin: "8px 0 0" }}>{liveSelected.description}</p>
               </div>
+              {(liveSelected.attachments?.length || liveSelected.fileUrl) ? (
+                <div>
+                  <span style={{ ...lbl, fontSize: 9, marginBottom: 10, display: "block" }}>
+                    Attachments ({liveSelected.attachments?.length || 1})
+                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {(liveSelected.attachments?.length
+                      ? liveSelected.attachments
+                      : [{ fileName: "Ticket attachment", filePath: liveSelected.fileUrl }]
+                    ).map((ticketAttachment, index) => {
+                      const href = ticketAttachment.filePath || ticketAttachment.shortUrl || ticketAttachment.url;
+                      const fileName = ticketAttachment.fileName || `Attachment ${index + 1}`;
+                      const content = (
+                        <>
+                          <Paperclip size={16} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fileName}</span>
+                        </>
+                      );
+                      return href ? (
+                        <a
+                          key={ticketAttachment.fileUid || `${fileName}-${index}`}
+                          data-testid={`hr-ticket-attachment-${liveSelected.id}-${index}`}
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12, color: TEAL, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                        >
+                          {content}
+                        </a>
+                      ) : (
+                        <div key={ticketAttachment.fileUid || `${fileName}-${index}`} data-testid={`hr-ticket-attachment-${liveSelected.id}-${index}`} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid var(--border-color)", borderRadius: 12, color: "var(--light-text)", fontSize: 13, fontWeight: 700 }}>
+                          {content}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <span style={{ ...lbl, fontSize: 9, marginBottom: 10, display: "block" }}>Conversation ({liveSelected.responses?.length || 0})</span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
