@@ -165,7 +165,7 @@ export default function Announcements() {
         endDate: toLocalISOString(end),
         isPinned: form.isPinned,
         acknowledgedBy: [],
-        attachments: uploadedAttachments.map((uploaded) => uploaded.url),
+        attachments: uploadedAttachments.map((uploaded) => uploaded.attachment),
       });
       trackEvent("hr.announcement.created", {
         type: form.type,
