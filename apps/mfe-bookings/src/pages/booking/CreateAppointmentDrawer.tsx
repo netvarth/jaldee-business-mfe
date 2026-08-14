@@ -464,20 +464,62 @@ export default function CreateAppointmentDrawer({
     }
   }, [clearSlots, providerOptions, doctorUid, isFromCell, initialProviderUid]);
 
+  const initialSelectionDoneForSlots = useRef<Slot[]>([]);
+
   useEffect(() => {
-    if (slots.length > 0) {
+    if (slots.length > 0 && calendarUid && serviceUid && selectedDate) {
+      if (initialSelectionDoneForSlots.current === slots) {
+        return;
+      }
+
+      const validateAndSet = async (targetStartTime: string) => {
+        initialSelectionDoneForSlots.current = slots;
+        try {
+          const params = new URLSearchParams({
+            calendarUid,
+            serviceUid,
+            date: iso(selectedDate),
+            beginningSlot: targetStartTime
+          });
+          if (doctorUid) params.append("tenantUserUid", doctorUid);
+          
+          const url = `/bookings/availability/validate-slot?${params.toString()}`;
+          const res = await api.get(url) as any;
+          
+          if (res.isAvailable !== false && res.slots && res.slots.length > 0) {
+            setSelectedSlots(res.slots);
+          } else {
+            const fallbackSlot = slots.find(s => s.startTime === targetStartTime);
+            if (fallbackSlot) setSelectedSlots([fallbackSlot]);
+          }
+        } catch (e) {
+          const fallbackSlot = slots.find(s => s.startTime === targetStartTime);
+          if (fallbackSlot) setSelectedSlots([fallbackSlot]);
+        }
+      };
+
       if (selectedSlots.length === 0) {
         const firstAvailable = slots.find((s) => s.isAvailable);
-        if (firstAvailable) setSelectedSlots([firstAvailable]);
+        if (firstAvailable) {
+          validateAndSet(firstAvailable.startTime);
+        } else {
+          initialSelectionDoneForSlots.current = slots;
+        }
       } else if (selectedSlots.length === 1 && selectedSlots[0].endTime === "23:59" && initialTime) {
         const realSlot = slots.find(s => s.startTime.startsWith(initialTime.substring(0, 2)) && s.isAvailable);
         const firstAvailable = slots.find(s => s.isAvailable);
-        if (realSlot) setSelectedSlots([realSlot]);
-        else if (firstAvailable) setSelectedSlots([firstAvailable]);
-        else setSelectedSlots([]);
+        const targetSlot = realSlot || firstAvailable;
+        if (targetSlot) {
+          validateAndSet(targetSlot.startTime);
+        } else {
+          initialSelectionDoneForSlots.current = slots;
+          setSelectedSlots([]);
+        }
+      } else {
+        initialSelectionDoneForSlots.current = slots;
       }
     }
-  }, [slots, selectedSlots.length, initialTime]);
+  }, [slots, selectedSlots.length, initialTime, calendarUid, serviceUid, selectedDate, doctorUid, api]);
 
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
   const startOffset = (firstDay.getDay() + 6) % 7; 
@@ -1083,7 +1125,9 @@ export default function CreateAppointmentDrawer({
               </div>
 
               <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto pr-1">
-                {!calendarUid ? (
+                {isFromCell && availableCalendars !== null && (availableCalendars.length === 0 || availableServices.length === 0) ? (
+                  <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available.</div>
+                ) : !calendarUid ? (
                   <div className="text-xs font-medium text-slate-500 col-span-4 p-4 text-center bg-slate-50 rounded-lg border border-slate-100">Please select a calendar in Step 1.</div>
                 ) : (!serviceUid && schedulingMode === "book") || !scheduleUid || !selectedDate ? (
                   <div className="text-xs font-medium text-slate-500 col-span-4 p-4 text-center bg-slate-50 rounded-lg border border-slate-100">Please select a schedule (and service) to view available slots.</div>

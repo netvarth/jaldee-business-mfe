@@ -226,6 +226,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     const invoiceAction = isInvoiceCreated ? "VIEW_INVOICE" : "CREATE_INVOICE";
     return allowed
       .filter(a => a !== "NO_SHOW" && a !== "EDIT")
+      .filter(a => !(status === "COMPLETED" && (a === "CREATE_FOLLOWUP" || a === "VIEW_SUMMARY")))
       .map(a => a === "CREATE_INVOICE" ? invoiceAction : a);
   };
 
@@ -382,11 +383,11 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                 {/* Notes & Attachments Card */}
                 <div className="mx-6 mb-4 rounded-[18px] border border-[#dfe6f4] bg-[#fbfcff] p-4">
                     {/* Notes Section */}
-                    {((details.consumerNotes && details.consumerNotes.length > 0) || (details.userNotes && details.userNotes.length > 0)) && (
+                    {details.consumerNotes && details.consumerNotes.length > 0 && (
                         <div className="mb-6">
                             <h4 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Notes</h4>
                             <div className="space-y-3 text-[13px] leading-7 text-[#42526d]">
-                                {[...(details.consumerNotes ?? []), ...(details.userNotes ?? [])].map((note, idx) => (
+                                {details.consumerNotes.map((note, idx) => (
                                     <p key={idx}>{note}</p>
                                 ))}
                             </div>
@@ -503,9 +504,11 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     let disabled = !!acting;
                     
                     if (action === "COMPLETE" && details.startTime) {
-                        const now = new Date();
-                        const start = new Date(details.startTime);
-                        if (start > now) disabled = true;
+                        if (details.status !== "IN_PROGRESS") {
+                            const now = new Date();
+                            const start = new Date(details.startTime);
+                            if (start > now) disabled = true;
+                        }
                     }
                     
                     return (

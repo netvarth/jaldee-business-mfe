@@ -5,10 +5,12 @@ import {
   FormSection,
   Input,
   Select,
+  PhoneInput,
+  type PhoneInputValue,
 } from "@jaldee/design-system";
 import { useModal } from "../../contexts/ModalContext";
 import { useToast } from "../../contexts/ToastContext";
-import { useCreateCustomer, buildOptimisticCustomer } from "../../services/useCreateCustomer";
+import { useCreateCustomer, useUpdateCustomer, buildOptimisticCustomer } from "../../services/useCreateCustomer";
 import type { Customer } from "../../types";
 
 interface CreatePatientModalProps {
@@ -20,9 +22,14 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
   const { closeModal } = useModal();
   const { showToast } = useToast();
   const { createCustomer } = useCreateCustomer();
+  const { updateCustomer } = useUpdateCustomer();
   const [firstName, setFirstName] = useState(initialCustomer?.firstName ?? "");
   const [lastName, setLastName] = useState(initialCustomer?.lastName ?? "");
-  const [phone, setPhone] = useState(initialCustomer?.phoneNumber ?? "");
+  const [phoneValue, setPhoneValue] = useState<PhoneInputValue>({
+    countryCode: "+91",
+    number: initialCustomer?.phoneNumber ?? "",
+    e164Number: initialCustomer?.phoneNumber ?? "",
+  });
   const [email, setEmail] = useState(initialCustomer?.email ?? "");
   const [gender, setGender] = useState("Male");
   const [dob, setDob] = useState("");
@@ -34,6 +41,8 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
     event.preventDefault();
     if (hasSubmitted) return;
 
+    const phone = phoneValue.e164Number || phoneValue.number;
+
     if (!firstName || !lastName || !phone) {
       showToast("Please fill First Name, Last Name and Phone.", "error");
       return;
@@ -42,16 +51,19 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
     setHasSubmitted(true);
     const input = { firstName, lastName, phoneNumber: phone, email, gender, dob, address };
     
-    if (isEditMode) {
-      onCreated({
-        ...initialCustomer,
-        firstName,
-        lastName,
-        phoneNumber: phone,
-        email,
-      });
-      showToast("Customer record updated", "success");
-      closeModal();
+    if (isEditMode && initialCustomer) {
+      try {
+        const updatedCustomer = await updateCustomer(initialCustomer.id, input);
+        onCreated({
+          ...initialCustomer,
+          ...updatedCustomer,
+        });
+        showToast("Customer record updated", "success");
+        closeModal();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Failed to update customer record", "error");
+        setHasSubmitted(false);
+      }
     } else {
       try {
         const newCustomer = await createCustomer(input);
@@ -76,7 +88,13 @@ export default function CreatePatientModal({ onCreated, initialCustomer }: Creat
       <FormSection title="Customer details">
         <Input id="pat-first-name" data-testid="bookings-create-customer-first-name" label="First name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         <Input id="pat-last-name" data-testid="bookings-create-customer-last-name" label="Last name" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
-        <Input id="pat-phone" data-testid="bookings-create-customer-phone" label="Phone number" required value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <PhoneInput
+          id="pat-phone"
+          testId="bookings-create-customer-phone"
+          label="Phone number"
+          value={phoneValue}
+          onChange={setPhoneValue}
+        />
         <Input id="pat-email" data-testid="bookings-create-customer-email" type="email" label="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Select id="pat-gender" testId="bookings-create-customer-gender" label="Gender" value={gender} onChange={(e) => setGender(e.target.value)} options={["Male", "Female", "Other"].map((value) => ({ value, label: value }))} />
         <Input id="pat-dob" data-testid="bookings-create-customer-dob" type="date" label="Date of birth" value={dob} onChange={(e) => setDob(e.target.value)} />

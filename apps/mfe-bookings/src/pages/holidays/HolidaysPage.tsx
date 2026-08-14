@@ -184,7 +184,7 @@ export default function HolidaysPage() {
   ], [preference?.timezone, providers]);
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-10 w-full px-6 lg:px-10 py-8">
+    <div className="flex h-full flex-col gap-4 bg-white p-4 md:p-6">
       <PageHeader
         title="Holidays & Leave"
         subtitle="Block dates for the whole business or a specific provider so they can't be booked."

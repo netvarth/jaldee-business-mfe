@@ -23,24 +23,16 @@ interface CustomerDtoLike {
   email?: string;
 }
 
-function toPhoneNumber(value: string) {
-  const trimmed = value.trim();
-  const normalized = trimmed.replace(/[^\d+]/g, "");
-  if (!normalized) return undefined;
-
-  if (normalized.startsWith("+")) {
-    const digits = normalized.slice(1);
-    const countryCodeLength = digits.length > 10 ? Math.min(3, digits.length - 10) : 2;
-    return {
-      countryCode: `+${digits.slice(0, countryCodeLength) || "91"}`,
-      number: digits.slice(countryCodeLength) || digits,
-    };
+function buildPhoneE164(phoneNumber?: string): string {
+  const trimmed = phoneNumber?.trim() ?? "";
+  if (!trimmed) {
+    return "";
   }
-
-  return {
-    countryCode: "+91",
-    number: normalized,
-  };
+  if (trimmed.startsWith("+")) {
+    return trimmed;
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
 }
 
 function toCustomer(input: NewCustomerInput, dto?: CustomerDtoLike): Customer {
@@ -70,8 +62,7 @@ export function useCreateCustomer() {
   const createCustomer = async (input: NewCustomerInput): Promise<Customer> => {
     setSubmitting(true);
     
-    const parsedPhone = input.phoneNumber ? toPhoneNumber(input.phoneNumber) : undefined;
-    const phoneE164 = parsedPhone ? `${parsedPhone.countryCode}${parsedPhone.number}` : undefined;
+    const phoneE164 = buildPhoneE164(input.phoneNumber) || undefined;
     const displayName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
     
     const payload = {
@@ -95,4 +86,38 @@ export function useCreateCustomer() {
   };
 
   return { createCustomer, submitting };
+}
+
+export function useUpdateCustomer() {
+  const api = useBookingApi();
+  const [submitting, setSubmitting] = useState(false);
+
+  const updateCustomer = async (id: string, input: NewCustomerInput): Promise<Customer> => {
+    setSubmitting(true);
+    
+    const phoneE164 = buildPhoneE164(input.phoneNumber) || undefined;
+    const displayName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+    
+    const payload = {
+      id,
+      firstName: input.firstName,
+      lastName: input.lastName || undefined,
+      displayName: displayName || input.firstName,
+      phoneE164,
+      email: input.email || undefined,
+      gender: input.gender ? input.gender.toUpperCase() : undefined,
+      dob: input.dob || undefined,
+      address: input.address || undefined,
+      status: "ACTIVE",
+    };
+
+    try {
+      const dto = await api.put<CustomerDtoLike>(`/v1/api/tenant/customers/${id}`, payload);
+      return toCustomer(input, dto);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return { updateCustomer, submitting };
 }
