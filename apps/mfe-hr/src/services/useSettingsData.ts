@@ -19,6 +19,11 @@ export interface CompanyProfile {
   uid?: string; name?: string; legalName?: string; logoUrl?: string; email?: string; phone?: string;
   addressLine?: string; city?: string; state?: string; country?: string; gstin?: string; pan?: string;
   industry?: string; currency?: string; fiscalYearStart?: string; workingDays?: string;
+  attachment?: {
+    fileUid?: string; fileName?: string; fileType?: string; fileSize?: number; filePath?: string;
+    ownerType?: string; sharedType?: string; contextType?: string; jaldeeDriveId?: string;
+    featureServiceName?: string; featureModuleName?: string;
+  };
 }
 export interface AttendanceRule {
   uid?: string; workHoursPerDay?: number; shiftStartTime?: string; graceMinutes?: number; lateThresholdMinutes?: number;

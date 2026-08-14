@@ -9,7 +9,7 @@ const summaryCards = [
 
 export default function OverviewPage() {
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
+    <div className="min-h-screen bg-transparent px-4 py-6 md:px-6">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
         <SectionCard className="border-slate-200 shadow-sm">
           <h1 className="text-2xl font-semibold text-slate-900">Karty Overview</h1>

@@ -113,6 +113,8 @@ export { PageErrorBoundary }              from "./components/PageErrorBoundary/P
 export { ComponentErrorBoundary }         from "./components/ComponentErrorBoundary/ComponentErrorBoundary";
 
 // Layer 4 — Layout & Navigation
+export { Container }                      from "./components/Container/Container";
+export type { ContainerProps }            from "./components/Container/Container";
 export { PageHeader }                     from "./components/PageHeader/PageHeader";
 export type { PageHeaderProps, StepperItem } from "./components/PageHeader/PageHeader";
 

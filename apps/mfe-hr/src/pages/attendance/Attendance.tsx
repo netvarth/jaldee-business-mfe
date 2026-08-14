@@ -332,7 +332,7 @@ export default function Attendance() {
     setBusy(true); setMsg(null);
     try {
       if (clockedIn && open) {
-        await selectedEmployeeAttendance.punchOut(open.id);
+        await selectedEmployeeAttendance.punchOut(open.id, selectedLocationUid || activeLocation?.id);
         await attendance.reload();
         setMsg("Clocked out.");
       } else {

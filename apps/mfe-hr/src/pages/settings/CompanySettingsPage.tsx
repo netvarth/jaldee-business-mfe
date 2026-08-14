@@ -17,7 +17,7 @@ export function CompanySettingsPage() {
         userName: user.name || "Tenant user",
       });
       payload.logoUrl = uploadedLogo.url;
-      payload.attachments = [uploadedLogo.attachment];
+      payload.attachment = uploadedLogo.attachment;
     }
     await company.save(payload);
   }
@@ -45,10 +45,10 @@ async function uploadHrBusinessLogo(file: File, context: {
     action: "ADD",
     caption: "HR business logo",
     contextType: "BUSINESS_LOGO",
-    featureModuleName: "HR_CORE",
+    featureModuleName: "HR_EMPLOYEE",
     featureServiceName: "HR",
     fileName: file.name,
-    fileType: file.type.includes("/") ? file.type.split("/")[1] : "file",
+    fileType: file.type || "application/octet-stream",
     fileSize: file.size,
     owner: context.tenantUid,
     ownerName: context.userName,
@@ -58,7 +58,7 @@ async function uploadHrBusinessLogo(file: File, context: {
     uploadedBy: context.userId,
     uploadedByName: context.userName,
   };
-  const response = await context.api.post<{ fileUid: string; uploadUrl: string; filePath?: string }>(
+  const response = await context.api.post<{ fileUid: string; uploadUrl: string; filePath?: string; jaldeeDriveId?: string }>(
     "/platform-service/v1/api/drive/initiate-upload",
     metadata,
     { _skipLocationParam: true } as never,
@@ -82,6 +82,7 @@ async function uploadHrBusinessLogo(file: File, context: {
       ...metadata,
       fileUid: target.fileUid,
       filePath: target.filePath || resolvedUrl,
+      jaldeeDriveId: target.jaldeeDriveId,
     },
   };
 }

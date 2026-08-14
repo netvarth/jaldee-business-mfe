@@ -44,7 +44,7 @@
 }
 
 .employee-edit-accordion__trigger:hover {
-    background-color: var(--app-bg, #f8fafc);
+    background-color: var(--app-bg, #ffffff);
 }
 
 .employee-edit-accordion__trigger span {

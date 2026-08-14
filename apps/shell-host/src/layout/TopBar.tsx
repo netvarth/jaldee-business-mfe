@@ -27,18 +27,10 @@ export default function TopBar({
   const activeLocation = useShellStore((s) => s.activeLocation);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [resolvedUserName, setResolvedUserName] = useState(user?.name ?? "");
   const [resolvedUserEmail, setResolvedUserEmail] = useState(user?.email?.trim() ?? "");
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const hasFetchedTenantUserDetailRef = useRef(false);
   const tenantUserDetailRequestInFlightRef = useRef(false);
-
-  useEffect(() => {
-    if (isSearchOpen) {
-      searchInputRef.current?.focus();
-    }
-  }, [isSearchOpen]);
 
   useEffect(() => {
     return eventBus.on(
@@ -160,63 +152,6 @@ export default function TopBar({
 
         <button
           type="button"
-          data-testid="topbar-search-toggle"
-          className="topbar-search-toggle"
-          aria-label="Open search"
-          aria-expanded={isSearchOpen}
-          onClick={() => setIsSearchOpen(true)}
-        >
-          {"\u{1F50D}"}
-        </button>
-
-        <div
-          data-testid="topbar-search-wrapper"
-          className="topbar-search-wrapper"
-          data-open={isSearchOpen}
-        >
-          <span className="topbar-search-icon">{"\u{1F50D}"}</span>
-          <input
-            ref={searchInputRef}
-            data-testid="topbar-search"
-            placeholder="Search anything..."
-            className="topbar-search"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setIsSearchOpen(false);
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="topbar-search-close"
-            aria-label="Close search"
-            onClick={() => setIsSearchOpen(false)}
-          >
-            x
-          </button>
-        </div>
-
-        <div className="shell-divider" />
-
-        <TopBarIcon id="topbar-inbox" icon={"\u{1F4AC}"} title="Inbox" onClick={() => {}} />
-        <TopBarIcon id="topbar-ivr" icon={"\u{1F4DE}"} title="IVR" onClick={() => navigate("/ivr")} />
-
-        <div className="topbar-notification">
-          <TopBarIcon
-            id="topbar-notifications"
-            icon={"\u{1F514}"}
-            title="Notifications"
-            onClick={() => {}}
-          />
-          <span className="topbar-notification-dot" />
-        </div>
-
-        <TopBarIcon id="topbar-apps" icon={"\u229E"} title="Apps" onClick={() => {}} />
-
-        <div className="shell-divider" />
-
-        <button
-          type="button"
           data-testid="topbar-user-menu"
           className="topbar-user-menu"
           onClick={() => setIsDrawerOpen(true)}
@@ -302,27 +237,5 @@ export default function TopBar({
         </div>
       </Drawer>
     </>
-  );
-}
-
-interface TopBarIconProps {
-  id: string;
-  icon: string;
-  title: string;
-  onClick: () => void;
-}
-
-function TopBarIcon({ id, icon, title, onClick }: TopBarIconProps) {
-  return (
-    <button
-      type="button"
-      id={id}
-      data-testid={id}
-      title={title}
-      onClick={onClick}
-      className="topbar-icon"
-    >
-      {icon}
-    </button>
   );
 }

@@ -329,7 +329,7 @@ function OverviewPage() {
   const userName = String(userRecord.firstName || userRecord.name || userRecord.userName || "Sachin Sathish").trim();
 
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
+    <div className="bg-transparent px-4 py-6 md:px-6">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
         <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
           <div>

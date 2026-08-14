@@ -209,7 +209,7 @@ export default function AuditLogs() {
 
       <Dialog open={!!selected} onClose={() => setSelected(null)} testId="hr-audit-log-inspector" title="Audit Activity Details" size="lg">
         {selected ? <div className="space-y-5" data-testid="hr-audit-log-inspector-details">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-lg font-bold text-slate-900">{value(selected, ["message"], humanize(value(selected, ["entityName"], "HR activity")))}</div>
             <div className="mt-1 text-sm text-slate-600">{value(selected, ["subject"], "No subject provided")}</div>
           </div>

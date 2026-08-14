@@ -320,7 +320,7 @@ function LogoFileInput({ value, onChange, automationKey, label }: {
   }
 
   return (
-    <div className="grid w-full min-w-0 gap-4 rounded-xl border border-[var(--border-color)] bg-slate-50/50 p-5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start">
+    <div className="grid w-full min-w-0 gap-4 rounded-xl border border-[var(--border-color)] bg-white p-5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start">
       <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-white">
         {previewUrl
           ? <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-contain" />

@@ -44,7 +44,7 @@ const panel: CSSProperties = {
   background: "var(--surface-bg)",
   border: "1px solid rgba(148,163,184,0.16)",
   borderRadius: 8,
-  boxShadow: "0 12px 30px rgba(15, 23, 42, 0.05)",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
 };
 const sectionStack: CSSProperties = {
   display: "flex",
@@ -437,7 +437,7 @@ export default function Tickets() {
                             textTransform: "uppercase",
                             color: "var(--dark-text)",
                             border: "1px solid rgba(148,163,184,0.2)",
-                            background: "rgba(248,250,252,0.9)",
+                            background: "var(--surface-bg)",
                           }}
                         >
                           {t.category}
@@ -465,7 +465,7 @@ export default function Tickets() {
                         display: "flex",
                         alignItems: "center",
                         gap: 14,
-                        background: "rgba(248,250,252,0.92)",
+                        background: "var(--surface-bg)",
                         padding: "10px 12px",
                         borderRadius: 6,
                         border: "1px solid rgba(148,163,184,0.14)",

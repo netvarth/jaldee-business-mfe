@@ -12,6 +12,7 @@
 
 body {
   margin: 0;
+  background: #eef1f6;
 }
 
 * {
@@ -101,4 +102,172 @@ body {
 .consumer-otp-submit:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+/* Consumer account dashboard uses a fixed pixel rhythm so shared rem tokens cannot distort it. */
+.consumer-dashboard {
+  position: relative;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: clip;
+  border-right: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
+  background: #fbfcff;
+  box-shadow: 0 0 40px rgba(30, 27, 75, 0.06);
+  font-size: 16px;
+  line-height: 1.5;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 30px;
+}
+
+.consumer-dashboard .text-xs { font-size: 12px; line-height: 17px; }
+.consumer-dashboard .text-sm { font-size: 14px; line-height: 20px; }
+.consumer-dashboard .text-base { font-size: 16px; line-height: 24px; }
+.consumer-dashboard .text-lg { font-size: 20px; line-height: 28px; }
+.consumer-dashboard .text-xl { font-size: 24px; line-height: 32px; }
+.consumer-dashboard .text-2xl { font-size: 30px; line-height: 36px; }
+.consumer-dashboard .text-3xl { font-size: 36px; line-height: 42px; }
+
+.consumer-dashboard .booking-calendar.gcal-root {
+  min-height: 390px;
+}
+
+.consumer-dashboard .booking-calendar .gcal-month-cell {
+  min-height: 48px;
+  padding: 2px 4px;
+}
+
+.consumer-dashboard .booking-calendar .gcal-day-num {
+  width: 22px;
+  height: 22px;
+}
+
+.consumer-dashboard .booking-calendar .gcal-toolbar {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.dashboard-sidebar {
+  position: absolute !important;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 250px;
+  padding: 24px 20px;
+}
+
+.dashboard-shell {
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  height: 72px;
+  padding-right: 32px;
+  padding-left: 32px;
+}
+
+.dashboard-main {
+  width: 100%;
+  padding-top: 28px;
+  padding-bottom: 40px;
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 1fr);
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (min-width: 900px) {
+  .dashboard-sidebar {
+    display: flex !important;
+  }
+
+  .dashboard-shell {
+    padding-left: 250px !important;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 900px) {
+  .dashboard-sidebar {
+    width: 220px;
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .dashboard-shell {
+    padding-left: 220px !important;
+  }
+
+  .dashboard-main {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .dashboard-metrics {
+    gap: 10px;
+  }
+
+  .dashboard-metrics article {
+    padding: 14px;
+  }
+
+  .dashboard-content {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 899px) {
+  .dashboard-sidebar {
+    display: none !important;
+  }
+
+  .dashboard-shell {
+    padding-left: 0 !important;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-header,
+  .dashboard-main {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1599px) {
+  .consumer-dashboard {
+    border-right: 0;
+    border-left: 0;
+    box-shadow: none;
+  }
 }

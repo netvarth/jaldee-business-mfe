@@ -39,7 +39,7 @@ const DANGER = "var(--danger-color)";
 const CATEGORIES = ["Travel", "Food", "Lodging", "Other"];
 
 const card: CSSProperties = { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" };
-const panel: CSSProperties = { background: SURFACE, border: `1px solid ${BORDER_SUBTLE}`, borderRadius: 8, boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)" };
+const panel: CSSProperties = { background: SURFACE, border: `1px solid ${BORDER_SUBTLE}`, borderRadius: 8, boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)" };
 const lbl: CSSProperties = { fontSize: "var(--text-xs)", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: TEXT_SECONDARY };
 const th: CSSProperties = { textAlign: "left", padding: "14px 16px", fontSize: "var(--text-xs)", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: TEXT_SECONDARY, background: "rgba(100,116,139,0.04)" };
 const tdc: CSSProperties = { padding: "16px", fontSize: "var(--text-sm)", color: TEXT_PRIMARY, borderTop: `1px solid ${BORDER}` };

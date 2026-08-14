@@ -182,7 +182,7 @@ export function PageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen min-w-0 bg-slate-50/60 px-4 py-6 md:px-6">
+    <div className="min-w-0 bg-transparent px-4 py-6 md:px-6">
       <div className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-5">
         <FinancePageHeader title={title} subtitle={subtitle} actions={actions} back={back} onNavigate={onNavigate} />
         {children}

@@ -9,8 +9,10 @@ import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import DashboardPage from "./pages/DashboardPage";
 import BookingsPage from "./pages/BookingsPage";
+import BookAppointmentPage from "./pages/BookAppointmentPage";
 import ProfilePage from "./pages/ProfilePage";
 import PolicyPage from "./pages/PolicyPage";
+import ConsumerSectionPage, { type ConsumerSection } from "./pages/ConsumerSectionPage";
 import { telemetryService } from "./services/telemetry";
 import { accountPath, isDomainScopedConsumerSite, isReservedRoute } from "./utils/accountRoutes";
 import { resolvePublicTenant } from "./services/authService";
@@ -38,6 +40,7 @@ function AppRoutes() {
       <Route path="/" element={isDomainScopedConsumerSite() ? <HomePage /> : <ConsumerSiteMissingPage />} />
       <Route path="/login" element={isDomainScopedConsumerSite() ? (isAuthenticated ? <Navigate to="/account" replace /> : <LoginPage />) : <ConsumerSiteMissingPage />} />
       <Route path="/bookings" element={isDomainScopedConsumerSite() ? <BookingsPage /> : <ConsumerSiteMissingPage />} />
+      <Route path="/book-appointment" element={isDomainScopedConsumerSite() ? <ProtectedRoute><BookAppointmentPage /></ProtectedRoute> : <ConsumerSiteMissingPage />} />
       <Route path="/terms" element={isDomainScopedConsumerSite() ? <PolicyPage /> : <ConsumerSiteMissingPage />} />
       <Route path="/privacy" element={isDomainScopedConsumerSite() ? <PolicyPage /> : <ConsumerSiteMissingPage />} />
       <Route path="/refund" element={isDomainScopedConsumerSite() ? <PolicyPage /> : <ConsumerSiteMissingPage />} />
@@ -58,9 +61,13 @@ function AppRoutes() {
           </ProtectedRoute>
         ) : <ConsumerSiteMissingPage />}
       />
+      {(["orders", "payments", "wallet", "addresses", "saved", "notifications", "support", "settings"] as ConsumerSection[]).map((section) => (
+        <Route key={section} path={`/${section}`} element={isDomainScopedConsumerSite() ? <ProtectedRoute><ConsumerSectionPage section={section} /></ProtectedRoute> : <ConsumerSiteMissingPage />} />
+      ))}
       <Route path="/:accountSlug" element={<AccountRouteBoundary><HomePage /></AccountRouteBoundary>} />
       <Route path="/:accountSlug/login" element={isAuthenticated ? <AccountRedirect to="/account" /> : <LoginPage />} />
       <Route path="/:accountSlug/bookings" element={<BookingsPage />} />
+      <Route path="/:accountSlug/book-appointment" element={<ProtectedRoute><BookAppointmentPage /></ProtectedRoute>} />
       <Route path="/:accountSlug/terms" element={<PolicyPage />} />
       <Route path="/:accountSlug/privacy" element={<PolicyPage />} />
       <Route path="/:accountSlug/refund" element={<PolicyPage />} />
@@ -81,6 +88,9 @@ function AppRoutes() {
           </ProtectedRoute>
         )}
       />
+      {(["orders", "payments", "wallet", "addresses", "saved", "notifications", "support", "settings"] as ConsumerSection[]).map((section) => (
+        <Route key={`account-${section}`} path={`/:accountSlug/${section}`} element={<ProtectedRoute><ConsumerSectionPage section={section} /></ProtectedRoute>} />
+      ))}
       <Route path="*" element={<ConsumerSiteMissingPage />} />
     </Routes>
   );

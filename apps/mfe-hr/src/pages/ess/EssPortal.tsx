@@ -543,7 +543,7 @@ export default function EssPortal() {
       )}
       <div style={pageStack}>
         <div style={contentPanel} className="ess-mobile-unified-card">
-          <div className="ess-mobile-hero overflow-hidden rounded-t-2xl rounded-b-none border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+          <div className="ess-mobile-hero overflow-hidden rounded-t-2xl rounded-b-none border border-slate-200 bg-white shadow-sm">
             <div className="bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.18),_transparent_22%),radial-gradient(circle_at_75%_20%,_rgba(59,130,246,0.14),_transparent_24%),linear-gradient(135deg,#fff8ef_0%,#f4fbff_48%,#eefbf6_100%)] px-6 py-8">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-3xl">
@@ -575,7 +575,7 @@ export default function EssPortal() {
             </div>
           </div>
 
-          <nav className="hidden flex-wrap gap-2 rounded-b-xl rounded-t-none border border-slate-200 bg-white/95 p-2 shadow-[0_12px_32px_rgba(15,23,42,0.05)] backdrop-blur md:flex">
+          <nav className="hidden flex-wrap gap-2 rounded-b-xl rounded-t-none border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur md:flex">
             {navItems.map((item) => (
               <NavLink
                 data-testid={`hr-ess-nav-${item.key}`}
@@ -601,7 +601,7 @@ export default function EssPortal() {
               {section === "overview" && (
                 <div className="ess-overview-content mt-6 flex flex-col gap-6">
                   <div>
-                    <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+                    <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-sm">
                       <div>
                         <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">Popular services</h2>
                         <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Quick access to the employee self-service areas you use most.</p>
@@ -611,7 +611,7 @@ export default function EssPortal() {
                           <NavLink
                             key={item.key}
                             to={item.to}
-                            className="group rounded-xl border border-slate-200 bg-white p-3 sm:p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] hover:shadow-[0_16px_32px_rgba(15,118,110,0.10)]"
+                            className="group rounded-xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)]"
                           >
                             <div className="space-y-3 text-center sm:space-y-4 md:text-left">
                               <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700 sm:h-12 sm:w-12 md:mx-0">
@@ -632,7 +632,7 @@ export default function EssPortal() {
                     </SectionCard>
                   </div>
 
-                  <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+                  <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-sm">
                     <div>
                       <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">Featured journeys</h2>
                       <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Everything beyond core HR, grouped into the next actions employees usually need.</p>
@@ -642,7 +642,7 @@ export default function EssPortal() {
                         <NavLink
                           key={item.key}
                           to={item.to}
-                          className="group rounded-xl border border-slate-200 bg-white p-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] hover:shadow-[0_16px_32px_rgba(15,118,110,0.10)] sm:p-5 md:text-left"
+                          className="group rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] sm:p-5 md:text-left"
                         >
                           <div className="space-y-3 sm:space-y-4">
                             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700 sm:h-12 sm:w-12 md:mx-0">
@@ -746,7 +746,7 @@ export default function EssPortal() {
                     </div>
 
                     <div className={`${todayAttendance?.clockIn ? "order-2" : "order-1"} grid gap-5 sm:order-2 xl:grid-cols-[1.15fr_0.85fr]`}>
-                      <SectionCard className="border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7fbfb_52%,#eef6ff_100%)] shadow-[0_12px_28px_rgba(15,23,42,0.04)] max-sm:!border-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!shadow-none">
+                      <SectionCard className="border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f7fbfb_52%,#eef6ff_100%)] shadow-sm max-sm:!border-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!shadow-none">
                         <div className="flex flex-col gap-6">
                           <div className="flex items-start justify-between gap-2 sm:gap-3">
                             <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -838,7 +838,7 @@ export default function EssPortal() {
                         </div>
                       </SectionCard>
 
-                      <SectionCard className="border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
+                      <SectionCard className="border-slate-200 shadow-sm">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Today&apos;s Timeline</div>
                           <h3 className="mt-1.5 text-[22px] font-black tracking-tight text-slate-950 md:text-[24px] lg:text-[24px]">{formatDate(today)}</h3>
@@ -851,14 +851,14 @@ export default function EssPortal() {
                             <AttendanceTimelineRow label="Break Time" value={formatMinutes(todayAttendance.totalBreakMinutes)} detail={todayAttendance.breaks?.length ? `${todayAttendance.breaks.length} break(s)` : "No breaks"} />
                           </div>
                         ) : (
-                          <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-7 text-center text-sm text-slate-500">
+                          <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-5 py-7 text-center text-sm text-slate-500">
                             No attendance activity recorded for today.
                           </div>
                         )}
                       </SectionCard>
                     </div>
 
-                    <SectionCard className="order-3 border-slate-200 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
+                    <SectionCard className="order-3 border-slate-200 shadow-sm">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
@@ -888,7 +888,7 @@ export default function EssPortal() {
                             ])}
                           />
                         ) : attendance.data.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
                             No attendance records found.
                           </div>
                         ) : (
@@ -919,19 +919,6 @@ export default function EssPortal() {
                       <SectionCard key={item.id} className="border-slate-200 shadow-sm">
                         <div className="text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{item.leaveTypeName ?? "Leave"}</div>
                         <div className="mt-1 text-[19px] font-bold md:text-[21px] lg:text-2xl">{item.available ?? 0}</div>
-                        <div className="text-xs text-slate-500">available of {item.total ?? 0}</div>
-                      </SectionCard>
-                    ))}
-                  </div>
-                  {pastBalances.length > 0 && (
-                    <details className="mb-5 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm">
-                      <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-slate-700">Past/Expired Balances</summary>
-                      <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-3">
-                        {pastBalances.map((item) => (
-                          <SectionCard key={item.id} className="border-slate-200 bg-white opacity-70 shadow-sm">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{item.leaveTypeName ?? "Leave"}</div>
-                              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
                                 {item.status ?? "Inactive"}
                               </span>
                             </div>
@@ -972,7 +959,7 @@ export default function EssPortal() {
                         data-testid="ess-leave-table"
                       />
                     ) : leaves.data.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
                         No leave records found.
                       </div>
                     ) : (
@@ -1008,7 +995,7 @@ export default function EssPortal() {
                   </div>
                   <div className="mt-5">
                     {documentRows.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
                         No document requests found.
                       </div>
                     ) : documentViewMode === "table" ? (
@@ -1470,7 +1457,7 @@ function ProfileField({
   className?: string;
 }) {
   return (
-    <div className={`min-w-0 rounded-lg bg-slate-50/80 px-4 py-3 ${className}`}>
+    <div className={`min-w-0 rounded-lg bg-white border border-slate-100 px-4 py-3 ${className}`}>
       <dt className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</dt>
       <dd className="mt-2 truncate text-[14px] font-semibold text-slate-950 md:text-[15px] lg:text-base" title={humanizeProfileValue(value)}>
         {humanizeProfileValue(value)}
@@ -1518,7 +1505,7 @@ function AttendanceMetricCard({
   }[tone];
 
   return (
-    <SectionCard className="border-slate-200 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+    <SectionCard className="border-slate-200 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
@@ -1535,7 +1522,7 @@ function AttendanceMetricCard({
 
 function AttendanceTimelineRow({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-2.5">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
       <div className="min-w-0">
         <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
         <div className="mt-0.5 truncate text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
@@ -1596,7 +1583,7 @@ function AttendanceHistoryCard({
   status: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Day</div>
@@ -1618,7 +1605,7 @@ function AttendanceHistoryCard({
 
 function AttendanceHistoryField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-slate-50 px-3 py-2 md:px-3.5 md:py-2.5">
+    <div className="rounded-md bg-white border border-slate-100 px-3 py-2 md:px-3.5 md:py-2.5">
       <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</div>
       <div className="mt-1.5 text-[13px] font-semibold text-slate-950 md:text-[14px] lg:text-[15px]">{value}</div>
     </div>
@@ -1639,7 +1626,7 @@ function LeaveHistoryCard({
   status: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Leave Type</div>
@@ -1675,7 +1662,7 @@ function PayslipCard({
   testId: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Payslip Month</div>

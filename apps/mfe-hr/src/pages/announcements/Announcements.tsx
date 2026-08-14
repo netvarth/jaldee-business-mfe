@@ -21,7 +21,7 @@ import { useHrAttachmentUpload } from "../../services/useHrAttachmentUpload";
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
-const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 16, boxShadow: "0 12px 30px rgba(15, 23, 42, 0.05)" };
+const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 16, boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)" };
 const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 20, width: "100%" };
 
 function typeColor(t?: string): string {

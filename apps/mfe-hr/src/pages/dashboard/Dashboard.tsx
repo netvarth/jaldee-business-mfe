@@ -181,7 +181,7 @@ export default function Dashboard() {
   }, [attendanceTrend, leaveTrend, period]);
 
   return (
-    <section id="page-hr-home" data-testid="hr-dashboard-page" className="page-section active" style={{ background: "#f8fafc", flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <section id="page-hr-home" data-testid="hr-dashboard-page" className="page-section active" style={{ background: "transparent", flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
       <div style={{ minWidth: 0, boxSizing: "border-box" }}>
         {/* HEADER */}
         <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
@@ -200,7 +200,7 @@ export default function Dashboard() {
             {error && <p role="alert" style={{ fontSize: 12, color: "#dc2626", margin: "6px 0 0" }}>{error}</p>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", background: "#f8fafc", border: "1px solid rgba(226,232,240,0.5)", borderRadius: 12, padding: 4 }}>
+            <div style={{ display: "flex", background: "#ffffff", border: "1px solid rgba(226,232,240,0.5)", borderRadius: 12, padding: 4 }}>
               <button id="hr-dashboard-period-today" data-testid="hr-dashboard-period-today" data-active={period === "today" ? "true" : "false"} style={periodBtn("today", "Today")} onClick={() => setPeriod("today")}>Today</button>
               <button id="hr-dashboard-period-week" data-testid="hr-dashboard-period-week" data-active={period === "week" ? "true" : "false"} style={periodBtn("week", "This Week")} onClick={() => setPeriod("week")}>This Week</button>
               <button id="hr-dashboard-period-month" data-testid="hr-dashboard-period-month" data-active={period === "month" ? "true" : "false"} style={periodBtn("month", "This Month")} onClick={() => setPeriod("month")}>This Month</button>
@@ -260,7 +260,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>No announcements yet.</div>
               ) : (
                 pinned.map((a) => (
-                  <div key={a.id} id={`hr-dashboard-broadcast-${a.id}`} data-testid={`hr-dashboard-broadcast-${a.id}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f8fafc", borderRadius: 12 }}>
+                  <div key={a.id} id={`hr-dashboard-broadcast-${a.id}`} data-testid={`hr-dashboard-broadcast-${a.id}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#ffffff", borderRadius: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ padding: 8, background: "white", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                         <Megaphone size={16} stroke="#115E59" />

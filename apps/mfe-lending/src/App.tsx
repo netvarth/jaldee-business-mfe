@@ -27,7 +27,7 @@ function PageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-6 md:px-6">
+    <div className="min-h-screen bg-transparent px-4 py-6 md:px-6">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <PageHeader title={title} subtitle={subtitle} actions={actions} />
         {children}
