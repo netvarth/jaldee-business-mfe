@@ -67,7 +67,7 @@ function normalizeServiceSources(values: unknown[] | undefined): ServiceCustomiz
                 [userRecord.userName, userRecord.displayName, userRecord.name]
                   .find((item): item is string => typeof item === "string" && item.trim().length > 0)
                   ?.trim(),
-              price: typeof userRecord.price === "number" ? userRecord.price : undefined,
+              price: userRecord.effectivePrice != null ? Number(userRecord.effectivePrice) : userRecord.price != null ? Number(userRecord.price) : undefined,
               capacity:
                 typeof userRecord.capacity === "number"
                   ? userRecord.capacity
@@ -334,7 +334,7 @@ export default function CustomizeTimeWindow() {
           calendarUsers,
           userMap,
           matchedTimeWindow,
-          matchedSchedule?.services,
+          normalizeServiceSources(matchedSchedule?.services as unknown[]),
         );
 
         setCalendar(calendarData);
@@ -346,7 +346,7 @@ export default function CustomizeTimeWindow() {
           (services.length ? services.map((item) => item.serviceUid) : inheritedServiceIds),
         );
         const nextAssignments = services.length
-          ? buildAssignmentsFromSources(nextServiceIds, calendarUsers, userMap, matchedTimeWindow, services)
+          ? buildAssignmentsFromSources(nextServiceIds, calendarUsers, userMap, matchedTimeWindow, normalizeServiceSources(services as unknown[]))
           : inheritedAssignments;
         const bookingChannels = unique(
           normalizeList(
@@ -855,13 +855,16 @@ export default function CustomizeTimeWindow() {
       <Dialog
         open={editingUser !== null}
         onClose={() => setEditingUser(null)}
-        title="Customize Price"
-        description="Customize the price for this provider within the selected time window."
+        title="Customize Price and Slot Capacity"
+        description="You can customize the price and Slot capacity for each time slot."
       >
         <div className="space-y-6 p-6 pt-0">
           {editingUser ? (
             <>
-              <div className="rounded-xl border border-[#E3E5EE] p-3 text-sm font-medium text-slate-900">
+              <div className="rounded-xl border border-[#E3E5EE] p-3 text-sm font-medium text-slate-900 flex items-center">
+                <div className="bg-[#a7f3d0] text-[#065f46] rounded-full w-8 h-8 flex items-center justify-center mr-3 font-semibold text-xs">
+                    {editingUser.userName.substring(0, 2).toUpperCase()}
+                </div>
                 {editingUser.userName}
               </div>
 
@@ -888,7 +891,28 @@ export default function CustomizeTimeWindow() {
                 />
               </div>
 
-
+              <div>
+                <label className="mb-2 block text-xs font-bold text-slate-600">Slot Capacity</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editingUser.capacity}
+                  onKeyDown={(e) => {
+                    if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault();
+                  }}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (val < 1) {
+                      setEditingUser(current => current ? { ...current, capacity: "1" } : null);
+                    }
+                  }}
+                  onChange={(event) =>
+                    setEditingUser((current) =>
+                      current ? { ...current, capacity: event.target.value } : null,
+                    )
+                  }
+                />
+              </div>
             </>
           ) : null}
         </div>

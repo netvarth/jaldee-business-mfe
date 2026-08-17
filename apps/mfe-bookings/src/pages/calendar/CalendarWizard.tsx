@@ -174,6 +174,15 @@ export default function CalendarWizard() {
     // Step 2 State
     const [selectedServices, setSelectedServices] = useState<Service[]>(ws?.selectedServices ?? []);
     const [defaultServiceId, setDefaultServiceId] = useState<string>(ws?.defaultServiceId ?? '');
+    const initializedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!initializedRef.current && availableServices.length > 0) {
+            initializedRef.current = true;
+            if (!ws?.selectedServices && selectedServices.length === 0 && !initialCalendar) {
+                setSelectedServices([availableServices[0]]);
+            }
+        }
+    }, [availableServices, ws, selectedServices.length, initialCalendar]);
     const [serviceUsers, setServiceUsers] = useState<Record<string, User[]>>(ws?.serviceUsers ?? {});
     
     // Modals State
@@ -846,32 +855,7 @@ export default function CalendarWizard() {
                                                                         }}
                                                                     />
                                                                 </div>
-                                                                <div className="flex-1">
-                                                                    <Input
-                                                                        type="number" 
-                                                                        label="Capacity"
-                                                                        value={tw.capacity} 
-                                                                        min="1"
-                                                                        onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
-                                                                        onBlur={(e) => {
-                                                                            const val = Number(e.target.value);
-                                                                            if (val < 1 || isNaN(val)) {
-                                                                                const newSch = [...schedules];
-                                                                                newSch[sIdx].timeWindows[twIdx].capacity = 1;
-                                                                                setSchedules(newSch);
-                                                                            }
-                                                                        }}
-                                                                        onChange={(e) => {
-                                                                            const newSch = [...schedules];
-                                                                            newSch[sIdx].timeWindows[twIdx].capacity = parseInt(e.target.value);
-                                                                            setSchedules(newSch);
-                                                                        }}
-                                                                    />
-                                                                </div>
                                                             </div>
-                                                            <p className="mt-4 text-[10px] leading-snug text-slate-400">
-                                                                Capacity is automatically set based on the users added to the calendar. You can edit it per user later
-                                                            </p>
                                                         </div>
                                                     </div>
                                                 ))}

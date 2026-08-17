@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { Clock, Bell, CreditCard, ShieldCheck, Info } from "lucide-react";
 import {
   Alert,
   Button,
-  FormSection,
   Input,
   PageHeader,
   SkeletonCard,
   Switch,
   Textarea,
+  cn,
 } from "@jaldee/design-system";
 import {
   useBookingPreferences,
@@ -18,11 +19,31 @@ import {
 const toNumber = (value: string): number | null =>
   value.trim() === "" ? null : Number(value);
 
+const SECTIONS = [
+  { key: "timing", label: "Timing & Windows", icon: <Clock size={18} /> },
+  { key: "notifications", label: "Notifications", icon: <Bell size={18} /> },
+  { key: "payments", label: "Payments", icon: <CreditCard size={18} /> },
+  { key: "policies", label: "Policies", icon: <ShieldCheck size={18} /> },
+] as const;
+
+type SectionKey = (typeof SECTIONS)[number]["key"];
+
+const card = {
+  background: "#fff",
+  borderRadius: "16px",
+  border: "1px solid var(--border-color, #e2e8f0)",
+};
+
 export default function SettingsPage() {
   const { preference, loading, saving, error, savePreference } =
     useBookingPreferences();
   const navigate = useNavigate();
+  const { section: routeSection } = useParams<{ section?: string }>();
   const [form, setForm] = useState<BookingPreference>({});
+
+  const section = SECTIONS.some(({ key }) => key === routeSection)
+    ? (routeSection as SectionKey)
+    : "timing";
 
   useEffect(() => {
     if (preference) setForm(preference);
@@ -41,6 +62,25 @@ export default function SettingsPage() {
     }
   };
 
+  const navigateToSection = (nextSection: SectionKey) => {
+    navigate(`/settings/${nextSection}`);
+  };
+
+  const ActiveSection = () => {
+    switch (section) {
+      case "timing":
+        return <TimingWindows form={form} setValue={setValue} />;
+      case "notifications":
+        return <Notifications form={form} setValue={setValue} />;
+      case "payments":
+        return <Payments form={form} setValue={setValue} />;
+      case "policies":
+        return <Policies form={form} setValue={setValue} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <main
       id="bookings-settings-page"
@@ -50,105 +90,245 @@ export default function SettingsPage() {
       <div className="w-full p-4 md:p-6">
         <PageHeader
           title="Booking Settings"
-          subtitle="Tenant-wide preferences applied across booking calendars."
-          actions={
-            <Button variant="outline" onClick={() => navigate("/holidays")} data-testid="bookings-settings-holidays-link">
-              Holidays &amp; Leave
-            </Button>
-          }
+          subtitle="Tenant-wide preferences applied across booking calendars"
         />
 
         {loading ? (
           <SkeletonCard />
         ) : error ? (
-          <Alert variant="danger" title="Unable to load booking settings">{error}</Alert>
+          <Alert variant="danger" title="Unable to load booking settings">
+            {error}
+          </Alert>
         ) : (
           <form
             id="bookings-settings-form"
             data-testid="bookings-settings-form"
-            className="grid items-start gap-6 lg:grid-cols-2"
+            className="mt-6 grid items-start gap-6 md:grid-cols-[240px_1fr]"
             onSubmit={(event) => {
               event.preventDefault();
               void submit();
             }}
           >
-            <FormSection
-              title="Slots and windows"
-              description="Configure default timing, buffers, and how far ahead customers can book."
-              className="h-full min-w-0 w-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6 [&>div:first-child]:min-h-[58px] [&>div:last-child]:items-start [&>div:last-child]:auto-rows-min"
+            <nav
+              id="bookings-settings-sections"
+              data-testid="bookings-settings-sections"
+              style={{ ...card, padding: 8, position: "sticky", top: 24 }}
+              className="hidden md:flex flex-col gap-1"
             >
-                <NumberField id="default-slot-duration" label="Default slot duration (min)" value={form.defaultSlotDuration} onChange={(value) => setValue("defaultSlotDuration", value)} />
-                <NumberField id="buffer-time" label="Buffer between slots (min)" value={form.bufferTimeMinutes} onChange={(value) => setValue("bufferTimeMinutes", value)} />
-                <NumberField id="lead-time" label="Lead time (min)" value={form.leadTimeMinutes} onChange={(value) => setValue("leadTimeMinutes", value)} />
-                <NumberField id="booking-window" label="Booking window (days)" value={form.bookingWindowDays} onChange={(value) => setValue("bookingWindowDays", value)} />
-                <NumberField id="minimum-advance" label="Minimum advance (min)" value={form.minAdvanceMinutes} onChange={(value) => setValue("minAdvanceMinutes", value)} />
-                <NumberField id="maximum-advance" label="Maximum advance (days)" value={form.maxAdvanceDays} onChange={(value) => setValue("maxAdvanceDays", value)} />
-            </FormSection>
+              {SECTIONS.map((item) => {
+                const isActive = section === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    id={`bookings-settings-section-${item.key}`}
+                    data-testid={`bookings-settings-section-${item.key}`}
+                    onClick={() => navigateToSection(item.key)}
+                    className={cn(
+                      "flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium transition-colors text-left",
+                      isActive
+                        ? "bg-purple-50 text-purple-700"
+                        : "text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        isActive ? "text-purple-600" : "text-slate-400"
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
 
-            <FormSection
-              title="Policy and branding"
-              description="Set tenant presentation, cancellation guidance, and deposit requirements."
-              className="h-full min-w-0 w-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6 [&>div:first-child]:min-h-[58px] [&>div:last-child]:items-start [&>div:last-child]:auto-rows-min"
-            >
-                  <Input
-                    id="bookings-settings-timezone"
-                    data-testid="bookings-settings-timezone"
-                    label="Timezone"
-                    value={form.timezone ?? ""}
-                    onChange={(event) => setValue("timezone", event.target.value || null)}
-                    placeholder="Asia/Kolkata"
-                  />
-                <div className="flex flex-col">
-                  <label className="ds-form-label" htmlFor="bookings-settings-brand-color">Brand color</label>
-                  <div className="mt-1.5 flex gap-2">
-                    <input
-                      id="bookings-settings-brand-color-picker"
-                      data-testid="bookings-settings-brand-color-picker"
-                      type="color"
-                      className="h-10 w-12 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
-                      value={form.brandColor ?? "#0f172a"}
-                      onChange={(event) => setValue("brandColor", event.target.value)}
-                    />
-                    <Input
-                      id="bookings-settings-brand-color"
-                      data-testid="bookings-settings-brand-color"
-                      containerClassName="min-w-0 flex-1"
-                      value={form.brandColor ?? ""}
-                      onChange={(event) => setValue("brandColor", event.target.value || null)}
-                      placeholder="#0f172a"
-                    />
-                  </div>
-                </div>
-                <div className="md:col-span-2">
-                    <Textarea
-                      id="bookings-settings-cancellation-policy"
-                      data-testid="bookings-settings-cancellation-policy"
-                      label="Cancellation policy"
-                      rows={4}
-                      value={form.cancellationPolicy ?? ""}
-                      onChange={(event) => setValue("cancellationPolicy", event.target.value || null)}
-                    />
-                </div>
-                <div className="flex min-h-[74px] items-center rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2">
-                  <Switch label="Require a deposit at booking" checked={Boolean(form.depositRequired)} onChange={(checked) => setValue("depositRequired", checked)} />
-                </div>
-            </FormSection>
-
-            <div className="flex justify-end border-t border-slate-200 pt-4 pb-8 lg:col-span-2">
-              <Button
-                id="bookings-settings-submit"
-                data-testid="bookings-settings-submit"
-                data-state={saving ? "saving" : "idle"}
-                type="submit"
-                loading={saving}
-              >
-                Save Settings
-              </Button>
+            <div className="min-w-0 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
+              <ActiveSection />
+              <div className="mt-8 flex justify-end">
+                <Button
+                  id="bookings-settings-submit"
+                  data-testid="bookings-settings-submit"
+                  data-state={saving ? "saving" : "idle"}
+                  type="submit"
+                  loading={saving}
+                >
+                  Save
+                </Button>
+              </div>
             </div>
           </form>
         )}
       </div>
     </main>
+  );
+}
+
+function TimingWindows({ form, setValue }: any) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+          <Clock size={24} />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Timing & Windows</h2>
+          <p className="text-sm text-slate-500">
+            How far ahead and how soon customers can book. Drives all slot math.
+          </p>
+        </div>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 mt-4">
+        <Input
+          id="bookings-settings-timezone"
+          data-testid="bookings-settings-timezone"
+          label="Timezone"
+          value={form.timezone ?? ""}
+          onChange={(event) => setValue("timezone", event.target.value || null)}
+          placeholder="Asia/Kolkata"
+        />
+        <NumberField id="booking-window" label="Booking window (days)" value={form.bookingWindowDays} onChange={(value) => setValue("bookingWindowDays", value)} />
+        <NumberField id="lead-time" label="Lead time (min)" value={form.leadTimeMinutes} onChange={(value) => setValue("leadTimeMinutes", value)} />
+        <NumberField id="default-slot-duration" label="Default slot duration (min)" value={form.defaultSlotDuration} onChange={(value) => setValue("defaultSlotDuration", value)} />
+        <NumberField id="buffer-time" label="Buffer between slots (min)" value={form.bufferTimeMinutes} onChange={(value) => setValue("bufferTimeMinutes", value)} />
+        <NumberField id="minimum-advance" label="Minimum advance (min)" value={form.minAdvanceMinutes} onChange={(value) => setValue("minAdvanceMinutes", value)} />
+        <NumberField id="maximum-advance" label="Maximum advance (days)" value={form.maxAdvanceDays} onChange={(value) => setValue("maxAdvanceDays", value)} />
+      </div>
+    </div>
+  );
+}
+
+function Policies({ form, setValue }: any) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+          <ShieldCheck size={24} />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Policies</h2>
+          <p className="text-sm text-slate-500">
+            Set cancellation guidance and deposit requirements.
+          </p>
+        </div>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 mt-4">
+        <div className="md:col-span-2">
+          <Textarea
+            id="bookings-settings-cancellation-policy"
+            data-testid="bookings-settings-cancellation-policy"
+            label="Cancellation policy"
+            rows={4}
+            value={form.cancellationPolicy ?? ""}
+            onChange={(event) => setValue("cancellationPolicy", event.target.value || null)}
+          />
+        </div>
+        <div className="flex min-h-[74px] items-center rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+          <Switch label="Require a deposit at booking" checked={Boolean(form.depositRequired)} onChange={(checked) => setValue("depositRequired", checked)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Notifications({ form, setValue }: any) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+          <Bell size={24} />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Notifications</h2>
+          <p className="text-sm text-slate-500">
+            Communication policy for bookings — who gets notified, and when.
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex flex-col mt-4">
+        <div className="flex items-center justify-between border-b border-slate-100 py-4">
+          <div>
+            <div className="font-semibold text-slate-900 text-sm">Booking confirmation</div>
+            <div className="text-slate-500 text-sm">Send a confirmation when a booking is made.</div>
+          </div>
+          <Switch checked={Boolean(form.confirmationEnabled)} onChange={(checked) => setValue("confirmationEnabled", checked)} />
+        </div>
+        <div className="flex items-center justify-between border-b border-slate-100 py-4">
+          <div>
+            <div className="font-semibold text-slate-900 text-sm">Reminders</div>
+            <div className="text-slate-500 text-sm">Send reminder(s) before the appointment.</div>
+          </div>
+          <Switch checked={Boolean(form.reminderEnabled)} onChange={(checked) => setValue("reminderEnabled", checked)} />
+        </div>
+        <div className="flex items-center justify-between border-b border-slate-100 py-4">
+          <div>
+            <div className="font-semibold text-slate-900 text-sm">Cancellation notice</div>
+            <div className="text-slate-500 text-sm">Notify when a booking is cancelled.</div>
+          </div>
+          <Switch checked={Boolean(form.cancellationEnabled)} onChange={(checked) => setValue("cancellationEnabled", checked)} />
+        </div>
+        <div className="flex items-center justify-between border-b border-slate-100 py-4">
+          <div>
+            <div className="font-semibold text-slate-900 text-sm">Notify customer</div>
+            <div className="text-slate-500 text-sm">Master switch for customer-facing notifications.</div>
+          </div>
+          <Switch checked={Boolean(form.notifyCustomer)} onChange={(checked) => setValue("notifyCustomer", checked)} />
+        </div>
+        <div className="flex items-center justify-between py-4">
+          <div>
+            <div className="font-semibold text-slate-900 text-sm">Notify provider / staff</div>
+            <div className="text-slate-500 text-sm">Master switch for provider/staff notifications.</div>
+          </div>
+          <Switch checked={Boolean(form.notifyProvider)} onChange={(checked) => setValue("notifyProvider", checked)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Payments({ form, setValue }: any) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+          <CreditCard size={24} />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Payments</h2>
+          <p className="text-sm text-slate-500">
+            Tenant-wide payment framework and refund policy.
+          </p>
+        </div>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 mt-4">
+        <div>
+          <Input
+            id="bookings-settings-currency"
+            data-testid="bookings-settings-currency"
+            label="Currency"
+            value={form.currency ?? ""}
+            onChange={(event) => setValue("currency", event.target.value || null)}
+            placeholder="INR — Indian Rupee"
+          />
+        </div>
+        <div className="flex min-h-[74px] items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <div className="font-semibold text-slate-900 text-sm">Refund on cancel</div>
+            <div className="text-slate-500 text-xs mt-0.5">Auto-refund a paid deposit when a booking is cancelled.</div>
+          </div>
+          <Switch checked={Boolean(form.refundOnCancel)} onChange={(checked) => setValue("refundOnCancel", checked)} />
+        </div>
+        <div className="md:col-span-2 flex items-center gap-3 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 border border-slate-100">
+          <Info size={18} className="text-slate-400" />
+          <span>Deposit amount and type are set per service, not here.</span>
+        </div>
+      </div>
+    </div>
   );
 }
 

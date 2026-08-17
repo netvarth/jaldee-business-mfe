@@ -15,6 +15,14 @@ export interface BookingPreference {
   brandColor?: string | null;
   depositRequired?: boolean | null;
   intakeFields?: Record<string, unknown> | null;
+  confirmationEnabled?: boolean | null;
+  reminderEnabled?: boolean | null;
+  reminderOffsets?: string[] | null;
+  cancellationEnabled?: boolean | null;
+  notifyCustomer?: boolean | null;
+  notifyProvider?: boolean | null;
+  currency?: string | null;
+  refundOnCancel?: boolean | null;
 }
 
 export function useBookingPreferences() {
@@ -29,7 +37,11 @@ export function useBookingPreferences() {
     setLoading(true);
     setError(null);
     try {
-      setPreference((await api.get<BookingPreference>("/booking-preferences")) ?? {});
+      const [pref, notif] = await Promise.all([
+        api.get<BookingPreference>("/booking-preferences").catch(() => ({})),
+        api.get<BookingPreference>("/booking-preferences/notifications").catch(() => ({})),
+      ]);
+      setPreference({ ...pref, ...notif });
     } catch (cause) {
       const message =
         cause instanceof Error ? cause.message : "Failed to load booking preferences.";
@@ -44,10 +56,19 @@ export function useBookingPreferences() {
   const savePreference = async (value: BookingPreference) => {
     setSaving(true);
     try {
-      const saved = await api.put<BookingPreference>("/booking-preferences", value);
-      setPreference(saved ?? value);
+      const [savedPref, savedNotif] = await Promise.all([
+        api.put<BookingPreference>("/booking-preferences", value),
+        api.put<BookingPreference>("/booking-preferences/notifications", {
+          confirmationEnabled: value.confirmationEnabled ?? false,
+          reminderEnabled: value.reminderEnabled ?? false,
+          reminderOffsets: value.reminderOffsets ?? [],
+          cancellationEnabled: value.cancellationEnabled ?? false,
+        }),
+      ]);
+      const merged = { ...savedPref, ...savedNotif };
+      setPreference(merged);
       showToast("Booking preferences saved", "success");
-      return saved;
+      return merged;
     } catch (cause) {
       const message =
         cause instanceof Error ? cause.message : "Failed to save booking preferences.";

@@ -246,7 +246,7 @@ export default function ServiceDetailsPage() {
                     <span className="flex items-center gap-1.5"><ClockIcon className="w-4 h-4 text-slate-400" /> {raw.duration} mins</span>
                   ) : null} 
                 />
-                <CompactRow label="Max Bookings" value={raw.maxBookingsPerConsumer != null ? String(raw.maxBookingsPerConsumer) : null} />
+                <CompactRow label="Slot Capacity" value={raw.slotCapacity != null ? String(raw.slotCapacity) : raw.maxBookingsPerConsumer != null ? String(raw.maxBookingsPerConsumer) : null} />
                 <CompactRow label="Number of Resources" value={raw.resourcesRequired != null ? String(raw.resourcesRequired) : null} />
                 <CompactRow label="Lead Time" value={raw.leadTime != null ? `${raw.leadTime} mins` : null} />
                 <CompactRow 

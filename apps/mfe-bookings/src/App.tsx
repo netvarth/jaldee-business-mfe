@@ -166,12 +166,16 @@ export default function App() {
             <Route path="/holidays" element={<HolidaysPage />} />
             <Route path="/qr-links" element={<QrLinksPage />} />
             <Route path="/qrlinks" element={<QrLinksPage />} />
+            <Route path="/qr-links/create" element={<CreateQrLinkPage />} />
             <Route path="/qrlinks/create" element={<CreateQrLinkPage />} />
+            <Route path="/qr-links/:uid/edit" element={<CreateQrLinkPage />} />
             <Route path="/qrlinks/:uid/edit" element={<CreateQrLinkPage />} />
+            <Route path="/qr-links/:uid" element={<QrLinkDetailsPage />} />
             <Route path="/qrlinks/:uid" element={<QrLinkDetailsPage />} />
             <Route path="/customer-labels" element={<CustomerLabelsPage />} />
             <Route path="/audit-log" element={<AuditLogsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/:section" element={<SettingsPage />} />
             <Route path="*" element={<PlaceholderPage title="Not Found" note="No booking screen for this route." />} />
           </Routes>
         </Suspense>

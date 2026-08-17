@@ -21,7 +21,7 @@ export interface ServiceFormPrefill {
   durHrs: number;
   durMins: number;
   numResources: number;
-  maxBookings: number;
+  slotCapacity: number;
   showDuration: boolean;
   leadDays: number;
   leadHrs: number;
@@ -58,7 +58,7 @@ export interface ServiceDetailsRecord {
   onlineBooking?: boolean;
   leadTime?: string;
   slotDuration?: number;
-  maxBookings?: number;
+  slotCapacity?: number;
   visibilityRules?: string[];
   price?: number;
   taxApplicable?: boolean;
@@ -260,7 +260,7 @@ export function normalizeServiceDetails(payload: unknown): ServiceDetailsRecord 
       ? `${toNumber(raw.leadDays)}d ${toNumber(raw.leadHrs)}h ${toNumber(raw.leadMins)}m`
       : undefined,
     slotDuration: toNumber(raw.slotDuration ?? raw.duration),
-    maxBookings: toNumber(raw.maxBookings),
+    slotCapacity: toNumber(raw.slotCapacity ?? raw.maxBookings ?? raw.maxBookingsPerConsumer),
     visibilityRules: asStringArray(raw.visibilityRules),
     price: toNumber(raw.price ?? raw.serviceCharge ?? raw.amount),
     taxApplicable: toBoolean(raw.taxApplicable),
@@ -319,8 +319,8 @@ export function toServiceFormPrefill(payload: unknown): ServiceFormPrefill {
     phoneValue: isPhoneBased ? toPhoneValue(platformCountry ? `${platformCountry}${platformVal}` : platformVal) : toPhoneValue(""),
     durHrs,
     durMins,
-    numResources: toNumber(raw.numResources) || 1,
-    maxBookings: toNumber(raw.maxBookings) || 1,
+    numResources: toNumber(raw.slotCapacity ?? raw.numResources) || 1,
+    slotCapacity: toNumber(raw.maxBookingsPerConsumer ?? raw.maxBookings) || 1,
     showDuration: toBoolean(raw.showDuration, true),
     leadDays: toNumber(raw.leadDays),
     leadHrs: toNumber(raw.leadHrs),

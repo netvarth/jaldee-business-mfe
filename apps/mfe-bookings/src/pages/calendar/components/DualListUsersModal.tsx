@@ -35,8 +35,7 @@ export default function DualListUsersModal({
   // Desktop specific state
   const [leftChecked, setLeftChecked] = useState<Set<string>>(new Set());
   const [rightChecked, setRightChecked] = useState<Set<string>>(new Set());
-  const [searchLeft, setSearchLeft] = useState('');
-  const [searchRight, setSearchRight] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Mobile specific state
   const [searchMobile, setSearchMobile] = useState('');
@@ -47,8 +46,7 @@ export default function DualListUsersModal({
       setSelectedIds(new Set(initialSelectedUsers.map(u => u.id)));
       setLeftChecked(new Set());
       setRightChecked(new Set());
-      setSearchLeft('');
-      setSearchRight('');
+      setSearchQuery('');
       setSearchMobile('');
       setIsMobileSelectedExpanded(true);
     }
@@ -77,27 +75,26 @@ export default function DualListUsersModal({
   // Derived lists for Desktop
   const availableUsers = allUsers.filter(u => !selectedIds.has(u.id));
   const addedUsers = allUsers.filter(u => selectedIds.has(u.id));
-  const desktopFilteredAvailable = availableUsers.filter(u => u.name.toLowerCase().includes(searchLeft.toLowerCase()));
-  const desktopFilteredAdded = addedUsers.filter(u => u.name.toLowerCase().includes(searchRight.toLowerCase()));
+  const desktopFilteredAvailable = availableUsers.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const desktopFilteredAdded = addedUsers.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   // Derived lists for Mobile
-  const mobileFilteredAvailable = allUsers.filter(u => u.name.toLowerCase().includes(searchMobile.toLowerCase()));
+  const mobileFilteredAvailable = availableUsers.filter(u => u.name.toLowerCase().includes(searchMobile.toLowerCase()));
   const mobileSelectedUsers = addedUsers;
 
   const renderDesktopUserLabel = (user: User, checked: boolean, onChange: (checked: boolean) => void) => (
-    <div key={user.id} className="panel-checkbox-item">
-          <Checkbox
-            checked={checked} 
-            onChange={(e) => onChange(e.target.checked)}
-            label={<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} alt={user.name} className="user-avatar" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
-            <div>
-              <span className="chk-label" style={{ display: 'block', lineHeight: 1.2 }}>{user.name}</span>
-              <span className="chk-subtext" style={{ fontSize: '10px' }}>{user.role}</span>
-            </div>
-          </div>}
-          />
-    </div>
+    <Checkbox
+      key={user.id}
+      containerClassName={`border rounded-md p-3 transition-colors ${checked ? 'border-[#e8dcf7] bg-[#f8f5ff]' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
+      checked={checked} 
+      onChange={(e) => onChange(e.target.checked)}
+      label={<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} alt={user.name} className="user-avatar" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+      <div>
+        <span className="chk-label" style={{ display: 'block', lineHeight: 1.2, color: '#334155', fontWeight: 500 }}>{user.name}</span>
+      </div>
+    </div>}
+    />
   );
 
   return (
@@ -106,7 +103,7 @@ export default function DualListUsersModal({
       onClose={onClose}
       testId="bookings-select-users-dialog"
       title={`Select Users from ${serviceName}`}
-      description={<span className="hidden md:block">Move users to the right to configure them on the calendar.</span>}
+      description={<><span className="hidden md:block">Move users to the right to configure them on calendar</span><span className="block md:hidden">Select users from available to configure them on calendar</span></>}
       size="lg"
       contentClassName="modal-dual-list md:max-w-4xl max-w-2xl md:!p-6 !p-0"
       headerClassName="p-4 pb-0 md:p-0"
@@ -114,15 +111,22 @@ export default function DualListUsersModal({
     >
       {/* --- DESKTOP VIEW --- */}
       <div className="hidden md:block">
+        <div className="mb-4 px-1 md:w-1/2">
+            <Input type="search" placeholder="Search Users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
         <div className="dual-list-container">
             {/* Left Panel: Available */}
             <div className="dual-list-panel">
                 <div className="panel-header">
-                    <span>Available (<span id="avail-users-count">{availableUsers.length}</span>)</span>
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set())}>Clear</Button>
-                </div>
-                <div className="panel-search">
-                    <Input type="search" placeholder="Search Users..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} />
+                    <span>Available ({availableUsers.length})</span>
+                    <div className="flex items-center gap-3">
+                        {leftChecked.size > 0 && (
+                            <>
+                                <span className="text-[10px] text-slate-400 font-medium">{leftChecked.size} selected</span>
+                                <button type="button" className="panel-link-btn !text-red-500" onClick={() => setLeftChecked(new Set())}>Clear</button>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div className="panel-list user-panel-list">
                     {loading ? (
@@ -143,24 +147,32 @@ export default function DualListUsersModal({
                     )}
                 </div>
                 <div className="panel-footer">
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set(desktopFilteredAvailable.map(u => u.id)))}>Select All</Button>
+                    <button type="button" className={`panel-link-btn ${desktopFilteredAvailable.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={desktopFilteredAvailable.length === 0} onClick={() => setLeftChecked(new Set(desktopFilteredAvailable.map(u => u.id)))}>Select All</button>
                 </div>
             </div>
 
             {/* Transfer Buttons */}
             <div className="dual-list-actions">
-                <Button variant="outline" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>} className="btn-transfer-arrow" onClick={handleTransferRight} title="Add Selected" aria-label="Add selected users" disabled={leftChecked.size === 0} />
-                <Button variant="outline" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"/></svg>} className="btn-transfer-arrow" onClick={handleTransferLeft} title="Remove Selected" aria-label="Remove selected users" disabled={rightChecked.size === 0} />
+                <button type="button" className="btn-transfer-arrow" onClick={handleTransferRight} title="Add Selected" aria-label="Add selected users" disabled={leftChecked.size === 0}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button type="button" className="btn-transfer-arrow" onClick={handleTransferLeft} title="Remove Selected" aria-label="Remove selected users" disabled={rightChecked.size === 0}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
             </div>
 
             {/* Right Panel: Added */}
             <div className="dual-list-panel">
                 <div className="panel-header">
-                    <span>Added (<span id="added-users-count">{addedUsers.length}</span>)</span>
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setRightChecked(new Set())}>Clear</Button>
-                </div>
-                <div className="panel-search">
-                    <Input type="search" placeholder="Search Added..." value={searchRight} onChange={(e) => setSearchRight(e.target.value)} />
+                    <span>Added ({addedUsers.length})</span>
+                    <div className="flex items-center gap-3">
+                        {rightChecked.size > 0 && (
+                            <>
+                                <span className="text-[10px] text-slate-400 font-medium">{rightChecked.size} selected</span>
+                                <button type="button" className="panel-link-btn !text-red-500" onClick={() => setRightChecked(new Set())}>Clear</button>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div className="panel-list user-panel-list">
                     {desktopFilteredAdded.map(user => renderDesktopUserLabel(user, rightChecked.has(user.id), (c) => {
@@ -170,13 +182,13 @@ export default function DualListUsersModal({
                     }))}
                 </div>
                 <div className="panel-footer">
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setRightChecked(new Set(desktopFilteredAdded.map(u => u.id)))}>Select All</Button>
+                    <button type="button" className={`panel-link-btn ${desktopFilteredAdded.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={desktopFilteredAdded.length === 0} onClick={() => setRightChecked(new Set(desktopFilteredAdded.map(u => u.id)))}>Select All</button>
                 </div>
             </div>
         </div>
         <DialogFooter className="!pt-4 !border-t-0 !px-0 !pb-0">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleDone}>Done</Button>
+            <Button variant="secondary" onClick={onClose} className="!border-slate-300 !text-slate-700">Cancel</Button>
+            <Button onClick={handleDone} className="!bg-[#3b0764] !text-white hover:!bg-[#28044a]">Done</Button>
         </DialogFooter>
       </div>
 
@@ -260,7 +272,6 @@ export default function DualListUsersModal({
                               <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} alt={user.name} className="w-8 h-8 rounded-full" />
                               <div className="flex flex-col">
                                 <span className={`text-sm font-medium leading-tight ${checked ? 'text-slate-900' : 'text-slate-700'}`}>{user.name}</span>
-                                <span className="text-xs text-slate-500 mt-1 leading-none">{user.role}</span>
                               </div>
                           </div>
                         </label>

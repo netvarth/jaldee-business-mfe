@@ -53,7 +53,7 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
 
   const [name, setName] = useState("");
-  const [displayOrder, setDisplayOrder] = useState(0);
+  const [displayOrder, setDisplayOrder] = useState<number | "">(0);
   const [description, setDescription] = useState("");
   const [serviceContext, setServiceContext] = useState<ServiceFormInput["serviceContext"]>("General Service");
   const [serviceType, setServiceType] = useState<ServiceFormInput["serviceType"]>("Onsite Service");
@@ -64,18 +64,18 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
   const [teleServicePlatform, setTeleServicePlatform] = useState<ServiceFormInput["teleServicePlatform"]>();
   const [meetingLink, setMeetingLink] = useState("");
   const [phoneValue, setPhoneValue] = useState<PhoneInputValue>(EMPTY_PHONE);
-  const [durHrs, setDurHrs] = useState(0);
-  const [durMins, setDurMins] = useState(30);
-  const [numResources, setNumResources] = useState(1);
-  const [maxBookings, setMaxBookings] = useState(1);
+  const [durHrs, setDurHrs] = useState<number | "">(0);
+  const [durMins, setDurMins] = useState<number | "">(30);
+  const [numResources, setNumResources] = useState<number | "">(1);
+  const [slotCapacity, setSlotCapacity] = useState<number | "">(1);
   const [showDuration, setShowDuration] = useState(true);
-  const [leadDays, setLeadDays] = useState(0);
-  const [leadHrs, setLeadHrs] = useState(0);
-  const [leadMins, setLeadMins] = useState(0);
+  const [leadDays, setLeadDays] = useState<number | "">(0);
+  const [leadHrs, setLeadHrs] = useState<number | "">(0);
+  const [leadMins, setLeadMins] = useState<number | "">(0);
   const [safeSlots, setSafeSlots] = useState(true);
   const [assignUsers, setAssignUsers] = useState(false);
   const [hasPricing, setHasPricing] = useState(false);
-  const [price, setPrice] = useState(500);
+  const [price, setPrice] = useState<number | "">(500);
   const [autoGenerateInvoice, setAutoGenerateInvoice] = useState(false);
   const [taxApplicable, setTaxApplicable] = useState(false);
   const [hsnCode, setHsnCode] = useState("None");
@@ -164,7 +164,7 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
         setDurHrs(initial.durHrs);
         setDurMins(initial.durMins);
         setNumResources(initial.numResources);
-        setMaxBookings(initial.maxBookings);
+        setSlotCapacity(initial.slotCapacity);
         setShowDuration(initial.showDuration);
         setLeadDays(initial.leadDays);
         setLeadHrs(initial.leadHrs);
@@ -256,7 +256,7 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
         meetingLink: needsMeetingLink ? meetingLink.trim() : undefined,
         phoneNumber: needsPhoneNumber ? phoneValue.number : undefined,
         phoneCountryCode: needsPhoneNumber ? phoneValue.countryCode : undefined,
-        durHrs, durMins, numResources, maxBookings, showDuration, leadDays, leadHrs, leadMins,
+        durHrs, durMins, numResources, slotCapacity: Number(slotCapacity) || 1, showDuration, leadDays, leadHrs, leadMins,
         safeSlots, hasPricing, price, taxApplicable, hsnCode,
         autoGenerateInvoice,
         prepaymentRequired, prepaymentAmount, prePaymentType,
@@ -309,14 +309,8 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
           
           {/* SECTION 1: Service Details */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
-            <div className="flex justify-between items-center pb-4 mb-6 border-b border-slate-100 flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">1. Service Details</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-2">Service Context</span>
-                <Button type="button" size="sm" variant={serviceContext === "General Service" ? "primary" : "secondary"} onClick={() => setServiceContext("General Service")} id="bookings-create-service-context-general" data-testid="bookings-create-service-context-general">General Service</Button>
-              </div>
+            <div className="pb-4 mb-6 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">1. Service Details</h2>
             </div>
 
             <div className="space-y-6">
@@ -352,7 +346,8 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
                     label={<span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Display Order</span>}
                     type="number"
                     value={displayOrder}
-                    onChange={(e) => setDisplayOrder(Number(e.target.value))}
+                    onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                    onChange={(e) => setDisplayOrder(e.target.value === "" ? "" : Number(e.target.value))}
                   />
                 </div>
               </div>
@@ -551,49 +546,57 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
             
             <FormSection title="Schedules & Limits">
               <div>
-                <label className="ds-form-label mb-1.5 block">Estimated Duration *</label>
+                <label className="ds-form-label block">Service Duration *</label>
+                <p className="text-[11px] text-slate-500 font-medium mb-1.5 mt-0.5">Estimated duration for this service</p>
                 <div className="flex gap-2 items-center">
-                  <Input id="bookings-create-service-duration-hours" data-testid="bookings-create-service-duration-hours" type="number" min={0} value={durHrs} onChange={(e) => setDurHrs(Number(e.target.value))} />
+                  <Input id="bookings-create-service-duration-hours" data-testid="bookings-create-service-duration-hours" type="number" min={0} value={durHrs} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setDurHrs(e.target.value === "" ? "" : Number(e.target.value))} />
                   <span className="text-xs text-slate-400 font-medium whitespace-nowrap">hr(s)</span>
-                  <Input id="bookings-create-service-duration-minutes" data-testid="bookings-create-service-duration-minutes" type="number" min={0} value={durMins} onChange={(e) => setDurMins(Number(e.target.value))} />
+                  <Input id="bookings-create-service-duration-minutes" data-testid="bookings-create-service-duration-minutes" type="number" min={0} value={durMins} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setDurMins(e.target.value === "" ? "" : Number(e.target.value))} />
                   <span className="text-xs text-slate-400 font-medium whitespace-nowrap">mins</span>
                 </div>
               </div>
-              <Input 
-                id="bookings-create-service-resources" 
-                data-testid="bookings-create-service-resources" 
-                type="number" 
-                min={1} 
-                label="Number of Resources" 
-                value={numResources} 
-                onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
-                onBlur={(e) => {
-                  const val = Number(e.target.value);
-                  if (val < 1 || isNaN(val)) setNumResources(1);
-                }}
-                onChange={(e) => setNumResources(Number(e.target.value))} 
-              />
-              <Input 
-                id="bookings-create-service-max-bookings" 
-                data-testid="bookings-create-service-max-bookings" 
-                type="number" 
-                min={1} 
-                label="Max Aligned Daily Bookings" 
-                value={maxBookings} 
-                onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
-                onBlur={(e) => {
-                  const val = Number(e.target.value);
-                  if (val < 1 || isNaN(val)) setMaxBookings(1);
-                }}
-                onChange={(e) => setMaxBookings(Number(e.target.value))} 
-              />
+              <div>
+                <label className="ds-form-label block">Slot capacity</label>
+                <p className="text-[11px] text-slate-500 font-medium mb-1.5 mt-0.5">Number of bookings allowed for each slot</p>
+                <Input 
+                  id="bookings-create-service-resources" 
+                  data-testid="bookings-create-service-resources" 
+                  type="number" 
+                  min={1} 
+                  value={numResources} 
+                  onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (val < 1 || isNaN(val)) setNumResources(1);
+                  }}
+                  onChange={(e) => setNumResources(e.target.value === "" ? "" : Number(e.target.value))} 
+                />
+              </div>
+              <div>
+                <label className="ds-form-label block">Maximum Bookings Allowed</label>
+                <p className="text-[11px] text-slate-500 font-medium mb-1.5 mt-0.5">Maximum bookings allowed for a customer on the same day.</p>
+                <Input 
+                  id="bookings-create-service-slot-capacity" 
+                  data-testid="bookings-create-service-slot-capacity" 
+                  type="number" 
+                  min={1} 
+                  value={slotCapacity} 
+                  onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (val < 1 || isNaN(val)) setSlotCapacity(1);
+                  }}
+                  onChange={(e) => setSlotCapacity(e.target.value === "" ? "" : Number(e.target.value))} 
+                />
+              </div>
               
               <div>
-                <label className="ds-form-label mb-1.5 block">Minimum Booking Lead Notice</label>
+                <label className="ds-form-label block">Lead Time</label>
+                <p className="text-[11px] text-slate-500 font-medium mb-1.5 mt-0.5">Lead time needed for this service.</p>
                 <div className="flex gap-2">
-                  <Input id="bookings-create-service-lead-days" data-testid="bookings-create-service-lead-days" type="number" min={0} placeholder="Days" value={leadDays} onChange={(e) => setLeadDays(Number(e.target.value))} />
-                  <Input id="bookings-create-service-lead-hours" data-testid="bookings-create-service-lead-hours" type="number" min={0} placeholder="Hours" value={leadHrs} onChange={(e) => setLeadHrs(Number(e.target.value))} />
-                  <Input id="bookings-create-service-lead-minutes" data-testid="bookings-create-service-lead-minutes" type="number" min={0} placeholder="Mins" value={leadMins} onChange={(e) => setLeadMins(Number(e.target.value))} />
+                  <Input id="bookings-create-service-lead-days" data-testid="bookings-create-service-lead-days" type="number" min={0} placeholder="Days" value={leadDays} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadDays(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input id="bookings-create-service-lead-hours" data-testid="bookings-create-service-lead-hours" type="number" min={0} placeholder="Hours" value={leadHrs} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadHrs(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input id="bookings-create-service-lead-minutes" data-testid="bookings-create-service-lead-minutes" type="number" min={0} placeholder="Mins" value={leadMins} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadMins(e.target.value === "" ? "" : Number(e.target.value))} />
                 </div>
               </div>
             </FormSection>
@@ -615,13 +618,15 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
               </div>
             </div>
 
-            <div className="mt-6 flex justify-between items-center p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-              <div>
-                <div className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Global Service Status</div>
-                <div className="text-xs text-emerald-600 mt-1">No practitioners limited. This is configured as a Global Service.</div>
+            {!assignUsers && (
+              <div className="mt-6 flex justify-between items-center p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                <div>
+                  <div className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Global Service Status</div>
+                  <div className="text-xs text-emerald-600 mt-1">No staff limited. This is configured as a Global Service.</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
               </div>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
-            </div>
+            )}
           </div>
 
           {/* SECTION 3: Pricing & Payment */}
@@ -652,7 +657,7 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
                       if (val < 0 || isNaN(val)) setPrice(0);
                     }}
                     onChange={(e) => {
-                      setPrice(Number(e.target.value));
+                      setPrice(e.target.value === "" ? "" : Number(e.target.value));
                       if (errors.price) setErrors(curr => ({ ...curr, price: undefined }));
                     }}
                     error={errors.price}

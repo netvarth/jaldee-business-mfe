@@ -433,18 +433,6 @@ export default function CreateSchedule() {
                             options={DURATION_OPTIONS}
                           />
                         </div>
-                        <div className="form-group">
-                          <Input
-                            id={`create-schedule-capacity-${timeWindow.tempId}`}
-                            type="number"
-                            min="1"
-                            label="Slot Capacity"
-                            className="wiz-tw-input"
-                            required
-                            value={String(timeWindow.slotCapacity)}
-                            onChange={(event) => updateTimeWindowField(timeWindow.tempId, { slotCapacity: Number(event.target.value) })}
-                          />
-                        </div>
                       </div>
                     </div>
                   ))

@@ -378,7 +378,16 @@
   height: 100px;
 }
 
-.calendar-cell.on-leave,
+.calendar-cell.on-leave {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.03),
+    rgba(0, 0, 0, 0.03) 10px,
+    rgba(0, 0, 0, 0.0) 10px,
+    rgba(0, 0, 0, 0.0) 20px
+  ), #fef2f2;
+}
+
 .calendar-cell.inactive {
   background: repeating-linear-gradient(
     -45deg,
@@ -386,7 +395,7 @@
     rgba(0, 0, 0, 0.04) 10px,
     rgba(0, 0, 0, 0.01) 10px,
     rgba(0, 0, 0, 0.01) 20px
-  );
+  ), #f1f5f9;
 }
 
 .chip-stack {

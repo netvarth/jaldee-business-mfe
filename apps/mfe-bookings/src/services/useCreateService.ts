@@ -30,7 +30,7 @@ export interface ServiceFormInput {
   durHrs: number;
   durMins: number;
   numResources: number;
-  maxBookings: number;
+  slotCapacity: number;
   showDuration: boolean;
   leadDays: number;
   leadHrs: number;
@@ -182,7 +182,7 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     } : {}),
     users: userEntries,
     displayOrder: input.displayOrder,
-    maxBookingsPerConsumer: input.maxBookings,
+    maxBookingsPerConsumer: input.slotCapacity,
     prepaymentRequired: false,
     internationalPriceRequired: false,
     hsnCode: input.hsnCode === "None" ? "" : input.hsnCode,
@@ -207,7 +207,7 @@ function toApiPayload(input: ServiceFormInput, locationId?: string | number) {
     channelRestricted: false,
     supportInternationalConsumer: false,
     enableMultiCurrency: false,
-    resourcesRequired: input.numResources,
+    slotCapacity: input.numResources,
     leadTime: toLeadTimeMinutes(input),
     serviceBookingType: "APPOINTMENT",
     prePaymentType: "NONE",

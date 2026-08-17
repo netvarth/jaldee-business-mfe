@@ -270,7 +270,7 @@ export default function CreateQrLinkPage() {
         await create(payload);
         showToast("QR link created", "success");
       }
-      navigate("/qrlinks");
+      navigate("/qr-links");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed to save QR link", "error");
     } finally {
@@ -300,8 +300,8 @@ export default function CreateQrLinkPage() {
               )}
             </div>
           }
-          back={{ label: "Back to QR Links", href: "/qrlinks" }}
-          onNavigate={() => navigate("/qrlinks")}
+          back={{ label: "Back to QR Links", href: "/qr-links" }}
+          onNavigate={() => navigate("/qr-links")}
           variant="navigation"
           className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
         />
@@ -417,7 +417,7 @@ export default function CreateQrLinkPage() {
           )}
 
           <div className="flex gap-4 pt-4 mt-2">
-            <Button variant="secondary" onClick={() => navigate("/qrlinks")} className="rounded-full px-8">Discard</Button>
+            <Button variant="secondary" onClick={() => navigate("/qr-links")} className="rounded-full px-8">Discard</Button>
             <Button variant="primary" onClick={save} disabled={saving} className="rounded-full bg-indigo-800 hover:bg-indigo-900 px-8">
               {saving ? "Generating..." : (isEditing ? "Update Link" : "Generate Link")}
             </Button>

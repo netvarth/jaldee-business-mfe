@@ -98,8 +98,8 @@ export default function QrLinkDetailsPage() {
       <div className="p-6 flex flex-col gap-4">
         <PageHeader
           title="QR Link Not Found"
-          back={{ label: "Back to QR Links", href: "/qrlinks" }}
-          onNavigate={() => navigate("/qrlinks")}
+          back={{ label: "Back to QR Links", href: "/qr-links" }}
+          onNavigate={() => navigate("/qr-links")}
         />
         <p className="text-slate-500">
           {error ?? "The requested QR link could not be found or you do not have permission to view it."}
@@ -118,8 +118,8 @@ export default function QrLinkDetailsPage() {
         <PageHeader
           title={qrLink.name || "QR Link Details"}
           subtitle={qrLink.description || "View and share your QR code"}
-          back={{ label: "Back to QR Links", href: "/qrlinks" }}
-          onNavigate={() => navigate("/qrlinks")}
+          back={{ label: "Back to QR Links", href: "/qr-links" }}
+          onNavigate={() => navigate("/qr-links")}
           variant="navigation"
           className="mb-0 !mx-0 !shadow-none !bg-transparent !p-0"
           actions={
@@ -127,7 +127,7 @@ export default function QrLinkDetailsPage() {
               <Button variant="secondary" onClick={() => window.open(qrLink.qrLink, "_blank")} disabled={!qrLink.qrLink}>
                 Preview QR Link
               </Button>
-              <Button variant="primary" onClick={() => navigate(`/qrlinks`)}>
+              <Button variant="primary" onClick={() => navigate(`/qr-links/${qrLink.uid}/edit`)}>
                 Edit QR Link
               </Button>
             </>
@@ -173,7 +173,7 @@ export default function QrLinkDetailsPage() {
                 disabled={!qrLink.qrLink}
                 onClick={() => openModal(<ShareQrModal qrLinkName={qrLink.name} />)}
               >
-                <Share2 size={16} /> Share QR
+                <Share2 size={16} /> Share
               </Button>
               <Button className="flex-1 min-w-[80px] flex items-center gap-2 justify-center" variant="secondary" onClick={handleDownloadQr} disabled={!qrLink.qrLink}>
                 <Download size={16} /> Download
@@ -216,16 +216,36 @@ export default function QrLinkDetailsPage() {
               <div>
                 <p className="text-sm font-semibold text-indigo-900 mb-1">Schedule</p>
                 <div className="inline-flex items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
-                  {qrLink.schedule?.[0] || "—"}
+                  {qrLink.rawSchedules?.map(s => s.scheduleName).filter(Boolean).join(", ") || "—"}
                 </div>
               </div>
 
               <div>
                 <p className="text-sm font-semibold text-indigo-900 mb-1">Time Window</p>
                 <div className="inline-flex items-center px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-600 bg-white">
-                  {qrLink.timeWindow?.[0] || "—"}
+                  {qrLink.rawTimeWindows?.map(t => t.timeWindowName).filter(Boolean).join(", ") || "—"}
                 </div>
               </div>
+              
+              {(qrLink.service && qrLink.service.length > 0) && (
+                <div>
+                  <p className="text-sm font-semibold text-indigo-900 mb-2">Services & Staff</p>
+                  <div className="flex flex-col gap-2">
+                    {qrLink.service.map((svc, idx) => (
+                      <div key={idx} className="px-3 py-2 rounded-md border border-slate-200 bg-white">
+                        <div className="text-sm font-medium text-slate-800">
+                          {svc.serviceName || svc.serviceUid}
+                        </div>
+                        {svc.users && svc.users.length > 0 && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            Assigned to: {svc.users.map(u => u.userName || u.userUid).filter(Boolean).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

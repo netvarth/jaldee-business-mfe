@@ -31,6 +31,8 @@ export default function QrLinksPage() {
   const [searchVal, setSearchVal] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
+  const getQrLinkId = (q: QrLink) => q.uid ?? q.id;
+
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, schema).length,
     [advancedFilters, schema]
@@ -39,7 +41,11 @@ export default function QrLinksPage() {
   const toggle = async (q: QrLink) => {
     try {
       const newStatus = (q.status ?? "").toLowerCase() === "enabled" ? "Disabled" : "Enabled";
-      await update(q.uid!, { ...q, status: newStatus });
+      const id = getQrLinkId(q);
+      if (!id) {
+        throw new Error("QR link id is missing.");
+      }
+      await update(id, { ...q, status: newStatus });
       showToast("QR link status updated", "success");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed to update QR link", "error");
@@ -48,11 +54,33 @@ export default function QrLinksPage() {
 
   const del = async (q: QrLink) => {
     try { 
-      await remove(q.uid!); 
+      const id = getQrLinkId(q);
+      if (!id) {
+        throw new Error("QR link id is missing.");
+      }
+      await remove(id); 
       showToast("QR link deleted", "success"); 
     } catch (e) { 
       showToast(e instanceof Error ? e.message : "Failed to delete QR link", "error"); 
     }
+  };
+
+  const openDetails = (q: QrLink) => {
+    const id = getQrLinkId(q);
+    if (!id) {
+      showToast("QR link id is missing for this row.", "error");
+      return;
+    }
+    navigate(`/qr-links/${id}`);
+  };
+
+  const openEdit = (q: QrLink) => {
+    const id = getQrLinkId(q);
+    if (!id) {
+      showToast("QR link id is missing for this row.", "error");
+      return;
+    }
+    navigate(`/qr-links/${id}/edit`);
   };
 
   const filtered = qrLinks.filter((q) =>
@@ -114,13 +142,13 @@ export default function QrLinksPage() {
               <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
                 <button
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => navigate(`/qrlinks/${q.uid}`)}
+                  onClick={() => openDetails(q)}
                 >
                   View Details
                 </button>
                 <button
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  onClick={() => navigate(`/qrlinks/${q.uid}/edit`)}
+                  onClick={() => openEdit(q)}
                 >
                   Edit
                 </button>
@@ -149,7 +177,7 @@ export default function QrLinksPage() {
       <PageHeader
         title="QR Links"
         subtitle="Shareable QR codes for calendars, schedules and time windows."
-        actions={<Button onClick={() => navigate("/qrlinks/create")}>New QR Link</Button>}
+        actions={<Button onClick={() => navigate("/qr-links/create")}>New QR Link</Button>}
         stackOnMobile={false}
       />
 
@@ -201,7 +229,7 @@ export default function QrLinksPage() {
         <DataTable
           data={filtered}
           columns={columns}
-          getRowId={(q) => String(q.uid ?? q.name)}
+          getRowId={(q) => String(getQrLinkId(q) ?? q.name)}
           loading={loading || schemaLoading}
           emptyState={<EmptyState title="No QR links" description="Create a QR link to share booking access." />}
           tableClassName="min-w-[700px]"
@@ -223,7 +251,7 @@ export default function QrLinksPage() {
               if (q.type === "TIMEWINDOW") typeLabel = "Time Window";
 
               return (
-                <div key={String(q.uid ?? q.name)} className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+                <div key={String(getQrLinkId(q) ?? q.name)} className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
                   <div className="flex items-start justify-between mb-4 gap-4">
                     <div className="font-semibold text-slate-800 break-all">{q.name ?? "—"}</div>
                     {columns.find(c => c.key === "actions")?.render?.(q, 0)}

@@ -10,6 +10,7 @@ import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useCalendars } from "../../services/useCalendars";
 import { useBookings } from "../../services/useBookings";
 import { useProviders } from "../../services/useProviders";
+import { useHolidaysByDate } from "../../services/useHolidays";
 import { useServices } from "../../services/useServices";
 import { useBookingSearchSchema } from "../../services/useBookingSearchSchema";
 import { formatAppliedFilterSummary } from "../../services/bookingSearch";
@@ -139,6 +140,19 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
     []
   );
 
+  const { holidays: dateHolidays } = useHolidaysByDate(format(date, "yyyy-MM-dd"));
+
+  const providersWithHolidays = React.useMemo(() => {
+    return liveProviders.map((provider) => {
+      const isGlobalHoliday = dateHolidays.some((h) => !h.userUid);
+      const isUserHoliday = dateHolidays.some((h) => h.userUid === provider.uid || h.userUid === provider.id);
+      if (isGlobalHoliday || isUserHoliday) {
+        return { ...provider, status: "leave" };
+      }
+      return provider;
+    });
+  }, [liveProviders, dateHolidays]);
+
   React.useEffect(() => {
     if (calendars.length > 0 && selectedCalendarIds.size === 0) {
       setSelectedCalendarIds(new Set(calendars.map(getCalendarKey).filter(Boolean)));
@@ -146,10 +160,10 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
   }, [calendars, getCalendarKey, selectedCalendarIds.size]);
 
   React.useEffect(() => {
-    if (liveProviders.length > 0 && selectedUserIds.size === 0) {
-      setSelectedUserIds(new Set(liveProviders.map((provider) => provider.uid || provider.id || "")));
+    if (providersWithHolidays.length > 0 && selectedUserIds.size === 0) {
+      setSelectedUserIds(new Set(providersWithHolidays.map((provider) => provider.uid || provider.id || "")));
     }
-  }, [liveProviders, selectedUserIds.size]);
+  }, [providersWithHolidays, selectedUserIds.size]);
 
   React.useEffect(() => {
     if (services.length > 0 && selectedServiceIds.size === 0) {
@@ -173,8 +187,8 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
 
   const filteredProviders =
     selectedUserIds.size === 0
-      ? liveProviders
-      : liveProviders.filter((provider) => selectedUserIds.has(provider.uid || provider.id || ""));
+      ? providersWithHolidays
+      : providersWithHolidays.filter((provider) => selectedUserIds.has(provider.uid || provider.id || ""));
 
   const getProviderKey = React.useCallback(
     (provider: { uid?: string; id?: string }) => provider.uid ?? provider.id ?? "",
@@ -743,7 +757,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
               data-state={providersOpen ? "open" : "collapsed"}
             >
               <div className="sidebar-group-header" onClick={() => setProvidersOpen(!providersOpen)}>
-                <span className="group-title">Users ({selectedUserIds.size === 0 ? liveProviders.length : selectedUserIds.size}/{liveProviders.length})</span>
+                <span className="group-title">Users ({selectedUserIds.size === 0 ? providersWithHolidays.length : selectedUserIds.size}/{providersWithHolidays.length})</span>
                 <div className="group-actions">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`group-chevron ${providersOpen ? "open" : ""}`}>
                     <polyline points="6 9 12 15 18 9" />
@@ -759,7 +773,7 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                   <input type="text" placeholder="Search User" className="sidebar-search-input" />
                 </div>
                 <div className="sidebar-option-list sidebar-user-list">
-                  {liveProviders.map((user) => {
+                  {providersWithHolidays.map((user) => {
                     const id = getProviderKey(user);
                     const avatarColors = resolveSidebarAvatarColors(user.color);
 
@@ -773,11 +787,11 @@ export default function CalendarDashboard({ onBookingSelect }: CalendarDashboard
                           onChange={(event) => {
                             let nextSet = new Set(selectedUserIds);
                             if (selectedUserIds.size === 0) {
-                              nextSet = new Set(liveProviders.map(getProviderKey).filter(Boolean));
+                              nextSet = new Set(providersWithHolidays.map(getProviderKey).filter(Boolean));
                             }
                             if (event.target.checked) nextSet.add(id);
                             else nextSet.delete(id);
-                            if (nextSet.size === liveProviders.length) nextSet.clear();
+                            if (nextSet.size === providersWithHolidays.length) nextSet.clear();
                             setSelectedUserIds(nextSet);
                           }}
                         />

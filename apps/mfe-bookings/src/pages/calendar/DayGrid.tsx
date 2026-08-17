@@ -155,16 +155,22 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                 <div 
                                                     key={`${id}-${hour}`} 
                                                     className={`calendar-cell ${status === 'leave' ? 'on-leave' : status === 'inactive' ? 'inactive' : ''}`}
-                                                    onClick={() => openDrawer(
-                                                        <CreateAppointmentDrawer 
-                                                          initialDate={date} 
-                                                          initialTime={`${hour.toString().padStart(2, '0')}:00`} 
-                                                          initialProviderUid={viewBy === 'doctors' ? id : undefined}
-                                                          initialCalendarUid={viewBy === 'calendars' ? id : undefined}
-                                                          isFromCell={true}
-                                                        />
-                                                    )}
-                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={(e) => {
+                                                        if (status === 'leave' || status === 'inactive') {
+                                                            e.preventDefault();
+                                                            return;
+                                                        }
+                                                        openDrawer(
+                                                            <CreateAppointmentDrawer 
+                                                              initialDate={date} 
+                                                              initialTime={`${hour.toString().padStart(2, '0')}:00`} 
+                                                              initialProviderUid={viewBy === 'doctors' ? id : undefined}
+                                                              initialCalendarUid={viewBy === 'calendars' ? id : undefined}
+                                                              isFromCell={true}
+                                                            />
+                                                        );
+                                                    }}
+                                                    style={{ cursor: status === 'leave' || status === 'inactive' ? 'not-allowed' : 'pointer' }}
                                                 >
                                                     {slotBookings.length > 0 && (
                                                         <div className="detail-stack w-full pointer-events-none flex flex-col gap-1">
@@ -190,12 +196,15 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                     const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
                                                                                     const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
                                                                                     const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
+                                                                                    const isCancelled = bk.status === 'Cancelled' || bk.status === 'CANCELLED';
                                                                                     return (
                                                                                         <div
                                                                                             key={bk.id || bk.uid}
                                                                                             className="pointer-events-auto flex flex-col items-start w-[100px] px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm shrink-0"
                                                                                             style={isBlocked 
                                                                                                 ? { backgroundColor: '#ffffff', border: `1px dashed #cbd5e1` }
+                                                                                                : isCancelled
+                                                                                                ? { backgroundColor: '#f8fafc', border: `1px solid #cbd5e1`, opacity: 0.6 }
                                                                                                 : { backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.4)}` }
                                                                                             }
                                                                                             onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
@@ -210,8 +219,8 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                                 </div>
                                                                                             ) : (
                                                                                                 <div className="flex flex-col min-w-0 flex-1 pr-1 w-full">
-                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700, textDecoration: isCancelled ? 'line-through' : 'none' }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500, textDecoration: isCancelled ? 'line-through' : 'none' }}>{timeLabel}</span>
                                                                                                 </div>
                                                                                             )}
                                                                                         </div>
@@ -328,12 +337,15 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                         const customerName = bk.customer?.name || bk.patientName || bk.customer?.firstName || 'Customer';
                                                                                         const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
                                                                                         const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
+                                                                                        const isCancelled = bk.status === 'Cancelled' || bk.status === 'CANCELLED';
                                                                                         return (
                                                                                             <div
                                                                                                 key={bk.id || bk.uid}
                                                                                                 className="pointer-events-auto flex flex-col items-start px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm flex-1 min-w-[85px]"
                                                                                                 style={isBlocked 
                                                                                                     ? { backgroundColor: '#ffffff', border: `1px dashed #cbd5e1` }
+                                                                                                    : isCancelled
+                                                                                                    ? { backgroundColor: '#f8fafc', border: `1px solid #cbd5e1`, opacity: 0.6 }
                                                                                                     : { backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }
                                                                                                 }
                                                                                                 onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
@@ -348,8 +360,8 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                                     </div>
                                                                                                 ) : (
                                                                                                     <div className="flex flex-col min-w-0 flex-1 w-full">
-                                                                                                        <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                        <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700, textDecoration: isCancelled ? 'line-through' : 'none' }}>{customerName}</span>
+                                                                                                        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500, textDecoration: isCancelled ? 'line-through' : 'none' }}>{timeLabel}</span>
                                                                                                     </div>
                                                                                                 )}
                                                                                             </div>
@@ -395,12 +407,15 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                 const customerName = bk.customer?.name || bk.patientName || 'Customer';
                                                                                 const timeLabel = bk.time || bk.startTime || `${hour.toString().padStart(2, '0')}:00`;
                                                                                 const isBlocked = bk.status === 'Blocked' || bk.status === 'BLOCKED' || bk.bookingType === 'BLOCK';
+                                                                                const isCancelled = bk.status === 'Cancelled' || bk.status === 'CANCELLED';
                                                                                 return (
                                                                                     <div
                                                                                         key={bk.id || bk.uid}
                                                                                         className="pointer-events-auto flex flex-col items-start w-[100px] px-1 py-0.5 rounded-md transition-all hover:opacity-90 cursor-pointer relative shadow-sm"
                                                                                         style={isBlocked 
                                                                                             ? { backgroundColor: '#ffffff', border: `1px dashed #cbd5e1` }
+                                                                                            : isCancelled
+                                                                                            ? { backgroundColor: '#f8fafc', border: `1px solid #cbd5e1`, opacity: 0.6 }
                                                                                             : { backgroundColor: toRgba(calColor, 0.1), border: `1px solid ${toRgba(calColor, 0.3)}` }
                                                                                         }
                                                                                         onClick={(e) => { e.stopPropagation(); onBookingSelect(bk.id || bk.uid); }}
@@ -416,8 +431,8 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                                         ) : (
                                                                                             <div className="flex items-start justify-between w-full">
                                                                                                 <div className="flex flex-col min-w-0 flex-1 pr-1">
-                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700 }}>{customerName}</span>
-                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{timeLabel}</span>
+                                                                                                    <span className="truncate w-full text-left" style={{ fontSize: '10px', color: '#1e293b', fontWeight: 700, textDecoration: isCancelled ? 'line-through' : 'none' }}>{customerName}</span>
+                                                                                                    <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 500, textDecoration: isCancelled ? 'line-through' : 'none' }}>{timeLabel}</span>
                                                                                                 </div>
                                                                                                 <div className="absolute top-1.5 right-1 flex flex-col gap-[1.5px] items-center justify-center w-3 h-3 text-slate-400">
                                                                                                     <div className="w-[2px] h-[2px] rounded-full bg-slate-400"></div>

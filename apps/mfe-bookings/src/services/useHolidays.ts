@@ -82,3 +82,31 @@ export function useHolidays() {
 
   return { holidays, loading, error, search, create, update, remove };
 }
+
+export function useHolidaysByDate(date: string) {
+  const api = useBookingApi();
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHolidays = useCallback(async () => {
+    if (!date) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get<unknown>("/holidays/by-date", { params: { date } });
+      setHolidays(unwrapList<Holiday>(data));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load holidays.");
+      setHolidays([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [api, date]);
+
+  useEffect(() => {
+    void fetchHolidays();
+  }, [fetchHolidays]);
+
+  return { holidays, loading, error, refresh: fetchHolidays };
+}

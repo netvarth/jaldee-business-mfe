@@ -32,8 +32,7 @@ export default function DualListServicesModal({
   // Desktop specific state
   const [leftChecked, setLeftChecked] = useState<Set<string>>(new Set());
   const [rightChecked, setRightChecked] = useState<Set<string>>(new Set());
-  const [searchLeft, setSearchLeft] = useState('');
-  const [searchRight, setSearchRight] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Mobile specific state
   const [searchMobile, setSearchMobile] = useState('');
@@ -44,8 +43,7 @@ export default function DualListServicesModal({
       setSelectedIds(new Set(initialSelectedServices.map(s => s.id)));
       setLeftChecked(new Set());
       setRightChecked(new Set());
-      setSearchLeft('');
-      setSearchRight('');
+      setSearchQuery('');
       setSearchMobile('');
       setIsMobileSelectedExpanded(true);
     }
@@ -74,11 +72,11 @@ export default function DualListServicesModal({
   // Derived lists for Desktop
   const availableServices = allServices.filter(s => !selectedIds.has(s.id));
   const addedServices = allServices.filter(s => selectedIds.has(s.id));
-  const desktopFilteredAvailable = availableServices.filter(s => s.name.toLowerCase().includes(searchLeft.toLowerCase()));
-  const desktopFilteredAdded = addedServices.filter(s => s.name.toLowerCase().includes(searchRight.toLowerCase()));
+  const desktopFilteredAvailable = availableServices.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const desktopFilteredAdded = addedServices.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   // Derived lists for Mobile
-  const mobileFilteredAvailable = allServices.filter(s => s.name.toLowerCase().includes(searchMobile.toLowerCase()));
+  const mobileFilteredAvailable = availableServices.filter(s => s.name.toLowerCase().includes(searchMobile.toLowerCase()));
   const mobileSelectedServices = addedServices;
 
   return (
@@ -87,7 +85,7 @@ export default function DualListServicesModal({
       onClose={onClose}
       testId="bookings-select-services-dialog"
       title="Select Services"
-      description="Choose the services to configure them on calendar"
+      description={<><span className="hidden md:block">Move services to the right to configure them on calendar</span><span className="block md:hidden">Select services from available to configure them on calendar</span></>}
       size="lg"
       contentClassName="modal-dual-list md:max-w-4xl max-w-2xl md:!p-6 !p-0"
       headerClassName="p-4 pb-0 md:p-0"
@@ -95,21 +93,28 @@ export default function DualListServicesModal({
     >
       {/* --- DESKTOP VIEW --- */}
       <div className="hidden md:block">
+        <div className="mb-4 px-1 md:w-1/2">
+            <Input type="search" placeholder="Search Services..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
         <div className="dual-list-container">
             {/* Left Panel: Available */}
             <div className="dual-list-panel">
                 <div className="panel-header">
-                    <span>Available (<span id="avail-services-count">{availableServices.length}</span>)</span>
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set())}>Clear</Button>
-                </div>
-                <div className="panel-search">
-                    <Input type="search" placeholder="Search Services..." value={searchLeft} onChange={(e) => setSearchLeft(e.target.value)} />
+                    <span>Available ({availableServices.length})</span>
+                    <div className="flex items-center gap-3">
+                        {leftChecked.size > 0 && (
+                            <>
+                                <span className="text-[10px] text-slate-400 font-medium">{leftChecked.size} selected</span>
+                                <button type="button" className="panel-link-btn !text-red-500" onClick={() => setLeftChecked(new Set())}>Clear</button>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div className="panel-list">
                     {desktopFilteredAvailable.map(service => (
                       <Checkbox
                           key={service.id}
-                          containerClassName="border-b border-[var(--color-border)] p-2"
+                          containerClassName={`border rounded-md p-3 transition-colors ${leftChecked.has(service.id) ? 'border-[#e8dcf7] bg-[#f8f5ff]' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
                           checked={leftChecked.has(service.id)} 
                           onChange={(e) => {
                             const next = new Set(leftChecked);
@@ -119,7 +124,7 @@ export default function DualListServicesModal({
                           }}
                           label={
                             <div className="flex flex-col">
-                              <span className="block text-sm">{service.name}</span>
+                              <span className="block text-sm text-slate-700 font-medium">{service.name}</span>
                               {service.assignedUserNames && <span className="block text-xs text-slate-500 mt-0.5">Assigned to: {service.assignedUserNames}</span>}
                             </div>
                           }
@@ -127,30 +132,38 @@ export default function DualListServicesModal({
                     ))}
                 </div>
                 <div className="panel-footer">
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setLeftChecked(new Set(desktopFilteredAvailable.map(s => s.id)))}>Select All</Button>
+                    <button type="button" className={`panel-link-btn ${desktopFilteredAvailable.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={desktopFilteredAvailable.length === 0} onClick={() => setLeftChecked(new Set(desktopFilteredAvailable.map(s => s.id)))}>Select All</button>
                 </div>
             </div>
 
             {/* Transfer Buttons */}
             <div className="dual-list-actions">
-                <Button variant="outline" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>} className="btn-transfer-arrow" onClick={handleTransferRight} title="Add Selected" aria-label="Add selected services" disabled={leftChecked.size === 0} />
-                <Button variant="outline" size="sm" iconOnly icon={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"/></svg>} className="btn-transfer-arrow" onClick={handleTransferLeft} title="Remove Selected" aria-label="Remove selected services" disabled={rightChecked.size === 0} />
+                <button type="button" className="btn-transfer-arrow" onClick={handleTransferRight} title="Add Selected" aria-label="Add selected services" disabled={leftChecked.size === 0}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button type="button" className="btn-transfer-arrow" onClick={handleTransferLeft} title="Remove Selected" aria-label="Remove selected services" disabled={rightChecked.size === 0}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
             </div>
 
             {/* Right Panel: Added */}
             <div className="dual-list-panel">
                 <div className="panel-header">
-                    <span>Added (<span id="added-services-count">{addedServices.length}</span>)</span>
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setRightChecked(new Set())}>Clear</Button>
-                </div>
-                <div className="panel-search">
-                    <Input type="search" placeholder="Search Added..." value={searchRight} onChange={(e) => setSearchRight(e.target.value)} />
+                    <span>Added ({addedServices.length})</span>
+                    <div className="flex items-center gap-3">
+                        {rightChecked.size > 0 && (
+                            <>
+                                <span className="text-[10px] text-slate-400 font-medium">{rightChecked.size} selected</span>
+                                <button type="button" className="panel-link-btn !text-red-500" onClick={() => setRightChecked(new Set())}>Clear</button>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div className="panel-list">
                     {desktopFilteredAdded.map(service => (
                       <Checkbox
                           key={service.id}
-                          containerClassName="border-b border-[var(--color-border)] p-2"
+                          containerClassName={`border rounded-md p-3 transition-colors ${rightChecked.has(service.id) ? 'border-[#5B2D8E] bg-[#F3E8FF]' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
                           checked={rightChecked.has(service.id)} 
                           onChange={(e) => {
                             const next = new Set(rightChecked);
@@ -160,7 +173,7 @@ export default function DualListServicesModal({
                           }}
                           label={
                             <div className="flex flex-col">
-                              <span className="block text-sm">{service.name}</span>
+                              <span className="block text-sm text-slate-700 font-medium">{service.name}</span>
                               {service.assignedUserNames && <span className="block text-xs text-slate-500 mt-0.5">Assigned to: {service.assignedUserNames}</span>}
                             </div>
                           }
@@ -168,13 +181,13 @@ export default function DualListServicesModal({
                     ))}
                 </div>
                 <div className="panel-footer">
-                    <Button variant="link" size="inline" className="panel-link-btn" onClick={() => setRightChecked(new Set(desktopFilteredAdded.map(s => s.id)))}>Select All</Button>
+                    <button type="button" className={`panel-link-btn ${desktopFilteredAdded.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={desktopFilteredAdded.length === 0} onClick={() => setRightChecked(new Set(desktopFilteredAdded.map(s => s.id)))}>Select All</button>
                 </div>
             </div>
         </div>
         <DialogFooter className="!pt-4 !border-t-0 !px-0 !pb-0">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleDone}>Done</Button>
+            <Button variant="secondary" onClick={onClose} className="!border-slate-300 !text-slate-700">Cancel</Button>
+            <Button onClick={handleDone} className="!bg-[#3b0764] !text-white hover:!bg-[#28044a]">Done</Button>
         </DialogFooter>
       </div>
 
